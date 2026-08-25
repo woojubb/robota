@@ -8,7 +8,9 @@
  *      convergence signal the orchestrator routes on), or
  *  (2) the orchestrator stops expressing the merge gate mechanically — the MUST/SHOULD Pre-Merge
  *      gate (no silent deferral, per git-branch.md), the never-merge-`main` rule, and the
- *      `merge-verifier` post-check on develop.
+ *      `merge-verifier` post-check on develop, or
+ *  (3) the merge verifier stops judging the current required-check projection fail-closed and starts
+ *      treating raw history or acknowledgement metadata as a second merge policy.
  *
  * It checks CONTRACT PRESENCE (that the pieces still say what the design requires) — not the
  * truthfulness of any runtime count (severity classification is model judgment). Scoped honestly.
@@ -25,8 +27,11 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * How many review artifacts the last walk actually READ.
  *
  * A module-level holder rather than a widened return: the finder's shape is asserted by its own
- * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
- * previous run's number.
+ * cases (HARNESS-057).
+ *
+ * Contained — HARNESS-087. This scan currently increments per assertion rather than per unique
+ * artifact and does not reset between collection calls. Issue #2325 owns the exact-count and
+ * second-run migration; callers must not treat this number as an exact artifact population yet.
  */
 let examinedCount = 0;
 
@@ -37,6 +42,7 @@ export function readExamined() {
 export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
   const orch = path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
+  const verifier = path.join(root, '.claude/agents/merge-verifier.md');
 
   const findings = [];
 
@@ -83,6 +89,44 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
     'pr-finding-resolution-loop',
     /git-branch\.md/i,
     'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
+  );
+
+  // (3) Post-merge verifier uses the same effective decision as the merge gate.
+  must(
+    verifier,
+    'merge-verifier',
+    /gh pr view\s+<n>\s+--json\s+headRefOid/i,
+    'no longer reads the exact merged PR head before judging checks.',
+  );
+  must(
+    verifier,
+    'merge-verifier',
+    /gh pr checks\s+<n>\s+--required/i,
+    'no longer uses the current required-check projection for the CI verdict.',
+  );
+  must(
+    verifier,
+    'merge-verifier',
+    /current required[\s\S]{0,120}fail[\s\S]{0,80}cancel[\s\S]{0,80}pending[\s\S]{0,120}(?:block|prevent)/i,
+    'no longer blocks every current required fail, cancel, or pending result.',
+  );
+  must(
+    verifier,
+    'merge-verifier',
+    /query failure[\s\S]{0,80}indeterminate required-check set[\s\S]{0,40}fails?[\s\S]{0,20}closed/i,
+    'no longer fails closed on query failure or an indeterminate required-check set.',
+  );
+  must(
+    verifier,
+    'merge-verifier',
+    /unfiltered[^.\n]{0,120}historical[^.\n]{0,160}diagnostic only[^.\n]{0,120}(?:must not|cannot|not affect)/i,
+    'no longer limits unfiltered and historical checks to non-verdict diagnostics.',
+  );
+  must(
+    verifier,
+    'merge-verifier',
+    /acknowledgement[\s\S]{0,160}only through[\s\S]{0,80}required[\s\S]{0,40}review-gate[\s\S]{0,120}never[\s\S]{0,40}blanket bypass/i,
+    'no longer delegates acknowledgement to required review-gate without a blanket bypass.',
   );
 
   return findings;

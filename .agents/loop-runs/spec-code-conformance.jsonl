@@ -5,3 +5,5 @@
 {"runId":"r20260822154229","opened":"2026-08-22T15:42:29.325Z","closed":"2026-08-22T15:50:00.006Z","roundFindings":[0],"terminal":"converged","ref":null}
 {"runId":"r20260822160727","opened":"2026-08-22T16:07:27.778Z","closed":"2026-08-22T16:12:51.073Z","roundFindings":[0],"terminal":"converged","ref":null}
 {"runId":"r20260822173249","opened":"2026-08-22T17:32:49.685Z","closed":"2026-08-22T17:33:43.416Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260825000159","opened":"2026-08-25T00:01:59.390Z","closed":"2026-08-25T00:05:08.308Z","roundFindings":[1],"extensions":{},"terminal":"abandoned","ref":"Stopped to correct missing mandatory User Execution Test Scenarios section before restarting conformance"}
+{"runId":"r20260825000554","opened":"2026-08-25T00:05:54.741Z","closed":"2026-08-25T00:09:14.380Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"HARNESS-119 code-to-spec 4 assertions; spec-to-code 4 assertions; 3802 contract tests and 143 scans passed"}
