@@ -231,6 +231,10 @@ function maskCodeSpans(lines) {
     const closer = runs[closeIndex];
     const closerLine = lineAt(closer.start);
     if (openerLine < closerLine) {
+      const crossesBlockBoundary = lines
+        .slice(openerLine + 1, closerLine)
+        .some(interruptsInlineParagraph);
+      if (crossesBlockBoundary) continue;
       for (let line = openerLine + 1; line < closerLine; line += 1) {
         if (!interruptsInlineParagraph(lines[line])) masked[line] = '';
       }
@@ -481,7 +485,7 @@ export function recommendationCheckpointEvidence(markdown) {
     frontmatter.end + 1,
     projectionLines,
   );
-  return optionalStructuralSections.get('Evidence Log') ?? '';
+  return (optionalStructuralSections.get('Evidence Log') ?? '').replace(/\s+/g, ' ').trim();
 }
 
 export function normalizeRecommendationReviewMetadata(entry) {

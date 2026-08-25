@@ -460,3 +460,12 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Focused verification: the exact seven affected harness test files passed 210 tests; the direct projection/endorsement pair passed 55 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
 - Complete verification: `pnpm harness:test:contracts` passed 3,949 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
 - Review status: the three findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.
+
+### [LOCAL REVIEW ROUND 6] — 🔁 RESOLVED | 2026-08-26
+
+- Exact review range: independent local re-review compared base `675cd814edb4121fd92023fe7721c905a1acf321` with fix head `f168764ba814514681f9d5cdfd0c4d220309ea6c` and returned `ACTIONABLE FINDINGS: 2`.
+- Resolved findings: persisted ghost detection now recognizes a current spec in every lifecycle state while keeping endorsement obligation limited to governed states, so review-ready draft/backlog and preapproval-rejected observations remain valid; canonical Evidence Log comparison collapses structural whitespace so blank lines or raw HTML comments inserted between existing visible lines cannot forge a substantive checkpoint change.
+- Additional structural edge: a multiline code-span delimiter pair crossing any paragraph-interrupting owner/list/blockquote/setext/thematic boundary is discarded as an inline pair, preventing masking from resuming over a later block's Test Plan or TC structure.
+- Focused verification: the exact seven affected harness test files passed 214 tests; the direct projection/endorsement pair passed 59 tests and retained projection digest `ed7c2fd3e1ce850de8608dfdabee80c0c0bec31ea2ac4b33fa89f590331cd257`.
+- Complete verification: `pnpm harness:test:contracts` passed 3,953 tests in 180 files and `pnpm harness:scan` passed 145 scans with 2 declared skips; both commands exited 0.
+- Review status: the two findings are fixed locally but the loop remains open until an independent review of the new exact head reports `ACTIONABLE FINDINGS: 0`.

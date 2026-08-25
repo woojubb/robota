@@ -405,6 +405,14 @@ describe('canonical recommendation decision projection', () => {
     ).toThrow(/duplicate TC id/i);
   });
 
+  it('does not resume a multiline code span across owner block boundaries', () => {
+    const markdown = spec()
+      .replace('## Test Plan\n', 'A paragraph opens ``\n## Test Plan\n')
+      .replace('## Tasks\n', '## Tasks\n`` closes in a different block.\n');
+    expect(() => decisionProjection(markdown)).not.toThrow();
+    expect(decisionProjection(markdown).testPlan).toContain('| TC-02 |');
+  });
+
   it('masks processing instructions, declarations, and CDATA only for structural headings', () => {
     const hiddenStructures = [
       '<?review',
@@ -600,6 +608,53 @@ describe('persisted endorsement and immutable adoption', () => {
         .map((item) => item.detail)
         .join('\n'),
     ).toMatch(/ghost|no governed recommendation spec history/i);
+  });
+
+  it.each(['draft', 'backlog'])(
+    'accepts a persisted observation for a current review-ready %s spec',
+    (state) => {
+      const { root } = repository();
+      const relative = `.agents/spec-docs/${state}/${GHOST_SUBJECT}`;
+      const markdown = spec({ status: state }).replaceAll('INFRA-999', 'INFRA-998');
+      write(root, relative, markdown);
+      write(root, `.agents/tasks/${GHOST_SUBJECT}`, task(state));
+      const revision = commit(root, `review-ready ${state} recommendation`);
+      write(
+        root,
+        LEDGER,
+        `${JSON.stringify(
+          attestation({
+            digest: decisionProjectionDigest(markdown),
+            revision,
+            subject: GHOST_SUBJECT,
+          }),
+        )}\n`,
+      );
+
+      expect(findRecommendationEndorsementFindings(root)).toEqual([]);
+    },
+  );
+
+  it('accepts a persisted observation for a current preapproval-rejected spec', () => {
+    const { root } = repository();
+    const relative = `.agents/spec-docs/rejected/${GHOST_SUBJECT}`;
+    const markdown = spec({ status: 'rejected' }).replaceAll('INFRA-999', 'INFRA-998');
+    write(root, relative, markdown);
+    write(root, `.agents/tasks/${GHOST_SUBJECT}`, task('rejected'));
+    const revision = commit(root, 'reject recommendation before approval');
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(
+        attestation({
+          digest: decisionProjectionDigest(markdown),
+          revision,
+          subject: GHOST_SUBJECT,
+        }),
+      )}\n`,
+    );
+
+    expect(findRecommendationEndorsementFindings(root)).toEqual([]);
   });
 
   it.each([
@@ -1198,6 +1253,29 @@ describe('staged ordering', () => {
     expect(
       findRecommendationStagedFindings(commentOnly.root, commentOnly.base).length,
     ).toBeGreaterThan(0);
+
+    for (const evidence of [
+      'Existing first line.\n\nExisting second line.',
+      'Existing first line.\n<!-- inserted comment only -->\nExisting second line.',
+    ]) {
+      const { root } = repository();
+      const base = git(root, ['rev-parse', 'HEAD']);
+      const reviewed = spec({ evidence: 'Existing first line.\nExisting second line.' });
+      write(root, ACTIVE_SPEC, reviewed);
+      write(root, TASK, task());
+      const revision = commit(root, 'reviewed plan with existing evidence');
+      write(
+        root,
+        LEDGER,
+        `${JSON.stringify(
+          attestation({ digest: decisionProjectionDigest(reviewed), revision }),
+        )}\n`,
+      );
+      write(root, TASK, `${task()}\nRecommendation review recorded.\n`);
+      write(root, ACTIVE_SPEC, spec({ evidence }));
+      git(root, ['add', '-A']);
+      expect(findRecommendationStagedFindings(root, base).length).toBeGreaterThan(0);
+    }
   });
 
   it('rejects a staged ledger observation for a ghost subject', () => {

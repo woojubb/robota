@@ -938,7 +938,7 @@ export function findRecommendationEndorsementFindings(root = WORKSPACE_ROOT) {
   const ledgerEntries = readLedger(root);
   const { index, errors } = attestationIndex(ledgerEntries);
   const ghostSubjects = [...observationSubjects(ledgerEntries)].filter(
-    (subject) => !currentSubjects.has(subject) && !historicalSubjects.has(subject),
+    (subject) => specAt(root, 'HEAD', subject) === null,
   );
   const findings = [
     ...errors,
@@ -946,7 +946,7 @@ export function findRecommendationEndorsementFindings(root = WORKSPACE_ROOT) {
     ...ghostSubjects.map((subject) =>
       finding(
         LEDGER,
-        `recommendation observation subject ${subject} is a ghost with no governed recommendation spec history`,
+        `recommendation observation subject ${subject} is a ghost with no current recommendation spec in any lifecycle state`,
       ),
     ),
   ];
