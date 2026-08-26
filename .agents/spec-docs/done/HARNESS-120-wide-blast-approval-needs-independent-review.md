@@ -549,3 +549,11 @@ Update the orchestration map from PENDING only after the scan is registered and 
 - Complete verification: `pnpm harness:test:contracts` exited 0, `pnpm harness:scan` passed 145 scans with 2 declared skips, and `git diff --check` exited 0.
 - Pre-push documentation correction: the first push attempt reran 3,970 contract tests successfully, then `reference-kind-qualified` rejected the new hash-prefixed alert wording in this Evidence Log because that syntax is reserved for issues and pull requests. The CodeQL alert is now written without a hash prefix; generated lesson-file churn from the verification run was restored.
 - Review status: the published red check is fixed locally; the remote review loops remain open until automation reviews the pushed remediation and reports zero actionable findings on the new exact head.
+
+### [REMOTE REVIEW ROUND 2] — ✅ CONVERGED | 2026-08-26
+
+- Exact reviewed range: PR 2374 automation reviewed base `8139f845838495a4c191ed3a3af68de342b470d0` and remediation head `30ec0d4d84e55d4ece7c25602b79b867cf698388`; Claude returned `ACTIONABLE FINDINGS: 0` for that exact range after inspecting the synthetic-merge replay fix and regression fixture.
+- CodeQL terminal disposition: CodeQL alert 484 was dismissed as `false positive` with the published fail-closed/no-sink rationale. The CodeQL check changed to passing, the review gate passed, and the only review thread remains replied to and resolved.
+- Remote verification: the remediation head passed build, scans, regression red-proof, Windows shell, examples typecheck, patch coverage, TUI E2E, dependency review, secret scan, actionlint, commitlint, format, and workflow provenance; the long-running quality job remained in progress when the review loops were closed and is not claimed here as terminal evidence.
+- Loop terminal: `automated-review-convergence` and `pr-finding-resolution-loop` run `r20260826000606` both record findings `[1,0]` and are closed `converged` on the exact zero-finding review above.
+- Review status: no actionable review finding remains at the implementation head; the following change is append-only convergence bookkeeping and must receive a fresh exact-head remote review before merge.
