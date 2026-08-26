@@ -37,7 +37,14 @@ import cannot take them down.
 - [x] Wire it into the scan's failure classes and declare the edge count in `::examined::`.
 - [x] Reproduce the historical defect and confirm the oracle catches it where acyclicity did not.
 - [x] Red-proof the new cases.
-- [ ] Land and close issue #2215.
+- [x] Verify: `pnpm harness:scan`, the scan's own suite, and the plan-order scan all run green
+      locally on the branch tip.
+
+The merge of PR #2372 and the close of issue #2215 are deliberately NOT Plan items. A Plan item is a
+unit of the work; GATE-VERIFY requires every Plan item complete, and the merge cannot precede the gate
+that authorises it. The original wording ("Land and close issue #2215") put the disposition inside the
+Plan and made the gate unsatisfiable by construction. Corrected here rather than checked off while
+false. The general defect is filed separately.
 
 ## User execution
 

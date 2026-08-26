@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: RULE
 tags: [harness, scan, graph, oracle]
 ---
@@ -247,3 +247,58 @@ resolved by adding the missing fact instead of by re-running gates against a tre
 — a standing instruction IS to be recognised as GATE-APPROVAL for a delegated class, by rule
 amendment. That decision does not apply retroactively here and this entry does not rely on it. This
 approval is the direct kind.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** in-progress → verifying
+
+**Judged by:** self-assessment against `.agents/specs/gate-catalogue.md` § GATE-VERIFY. **Not a
+`backlog-gate-guard` verdict — no guardian agent was dispatched**, because agent dispatch is not
+available in the session that ran this. Disclosed rather than left implicit; issue #2266 records that
+a self-issued gate entry is exactly what nothing in this repository currently reads.
+
+Criteria, one at a time:
+
+- **All tasks in the Task record are `[x]`.** Yes — `grep -cE '^- \[ \]'` over
+  `.agents/tasks/HARNESS-900-…md` returns 0. One item was corrected rather than checked: the Plan
+  ended with "Land and close issue #2215", which puts the work unit's _disposition_ inside the Plan
+  and makes this gate unsatisfiable by construction — the merge cannot precede the gate that
+  authorises it. It was replaced with the verification step it should have been, and the substitution
+  is recorded in the Task itself, not silently. The general defect is filed separately.
+- **No task blocked or pending.** Yes — no item carries a blocked or pending marker.
+- **Build passes for affected packages.** N/A, stated rather than skipped: the change is confined to
+  `scripts/harness/scan-interface-family-owner.mjs` and its test. No workspace package is affected —
+  `plan-change.mjs` reports `Scope coverage: 0 of 92 workspace scopes` for this diff, so there is no
+  package build for this change to pass or fail.
+- **Tests pass for affected packages.** Yes:
+
+```
+vitest run scripts/harness/__tests__/scan-interface-family-owner.test.mjs
+  ✓ 42 tests passed
+
+node scripts/harness/scan-interface-family-owner.mjs
+  ::examined:: 22 contract modules, 6 declared owners, 6 declared layers, 22 modules placement-checked,
+               0 awaiting an owner package that does not exist yet,
+               4 manifest edge(s) cross-checked against the projection
+  interface-family-owner scan passed
+
+node scripts/harness/scan-user-execution-plan-order.mjs
+  ::examined:: 7 topic commit(s)   exit=0
+```
+
+**One red check is disclosed here rather than left for the merge to surface.** The `scans` job on
+PR #2372 fails on `scan-user-execution-plan-order.test.mjs`:
+
+```
+"problem": "multiple planning checkpoint candidates exist (cc5f40213, 9d4ebd582)."
+```
+
+`cc5f40213` is this branch's real checkpoint. `9d4ebd582` is **GitHub's synthetic merge ref** for the
+pull request — `parents: 8139f8458 268ae39d3`, first parent the base — so its first-parent diff is the
+whole branch and it is counted as a second checkpoint. That is issue #2373, reproduced with SHAs, and
+it is **not caused by this change**: the same test passes locally on the same commits, because locally
+HEAD is the branch tip rather than a merge ref.
+
+Recording it here because a gate that reports PASS while a required check is red should say which
+check and why, or the next reader has to rediscover it. This entry does not clear that check; it
+states what it is.
