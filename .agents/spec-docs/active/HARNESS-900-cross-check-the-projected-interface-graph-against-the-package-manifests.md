@@ -207,3 +207,43 @@ authorised to merge. Pull request #2372 was converted to draft when this was fou
 the same open question as issue #2371, which asks whether a standing instruction can stand in for a
 per-item approval; until that is decided, this document takes the strict reading and treats itself as
 not approved. Nothing here may be resolved by re-running the gate.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-26
+
+**Status remains:** in-progress
+
+**Approval basis — the owner's explicit answer, in this conversation, directed at this spec document.**
+
+Asked directly whether to merge or abandon this work unit, with the gate's own criterion quoted in the
+question, the owner chose the option labelled:
+
+> **승인하고 머지**
+
+The precise form matters and is recorded rather than smoothed over: the owner answered by selecting
+one of three options, so the words above are the label they chose — the surrounding option text was
+written by me, not by them. What the label attaches to is fixed by the question, which named this
+spec document by ID, named PR #2372, and quoted `gate-catalogue.md` criterion 1 as the thing being
+decided. Under that question, "승인하고 머지" is a direct, unambiguous approval of this document and
+not approval of a different item in the same conversation.
+
+Criteria, checked one at a time:
+
+1. **Explicit approval in the current conversation.** Yes — quoted above, 2026-08-26.
+2. **Direct and unambiguous, directed at this spec document.** Yes — the question named HARNESS-900
+   and PR #2372; the selected option states the approval and the merge as one action.
+
+**Effect on the entries above.** This supplies exactly what the `🔴 NON-COMPLIANCE | 2026-08-26`
+entry recorded as missing. The withdrawn `✅ PASS` above stays withdrawn — it was wrong on its own
+reasoning and is not rehabilitated by a later approval arriving; this entry is a separate verdict
+resting on a different basis. `[GATE-IMPLEMENT] — ✅ PASS` above, which the withdrawal marked as not
+standing, stands again: its own criteria were met at the time and the approval it depended on now
+exists.
+
+The document's status does not move, because it never moved down — the withdrawal recorded
+`Status remains: in-progress` rather than reverting the chain, precisely so that this could be
+resolved by adding the missing fact instead of by re-running gates against a tree that had moved on.
+
+**Separately, and not part of this verdict:** the owner also decided issue #2371 in the same exchange
+— a standing instruction IS to be recognised as GATE-APPROVAL for a delegated class, by rule
+amendment. That decision does not apply retroactively here and this entry does not rely on it. This
+approval is the direct kind.
