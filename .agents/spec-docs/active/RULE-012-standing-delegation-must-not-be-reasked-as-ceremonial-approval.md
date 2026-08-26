@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, governance]
 ---
@@ -304,6 +304,8 @@ it inside this item.**
 
 ## Tasks
 
+Bound task record: `.agents/tasks/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`
+
 1. Phase 1 — gate-catalogue split
 2. Phase 2 — class + registry in backlog-execution
 3. Phase 3 — evidence form
@@ -384,3 +386,41 @@ that report and independently of it.
 **4 — Independent architecture validation: N/A.** This introduces no package, app, presentation or
 interface surface and reclassifies no layer or product-family boundary. It adds harness rule text and
 one repository verification scan — the same shape as `HARNESS-117`, which passed on that basis.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-26
+
+**Status upgrade:** approved → in-progress
+
+**Tasks file path.** `.agents/tasks/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`,
+bound from this document's `## Tasks` section. Paired spec:
+`.agents/spec-docs/active/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`
+
+**Tasks created**, one per Completion Criterion:
+
+1. Phase 1 — gate-catalogue route split (CC-01)
+2. Phase 2 — delegated class + registry, stated once (CC-02)
+3. Phase 3 — one machine-parseable evidence form (CC-03)
+4. Phase 4 — the guard, registered and failing closed (CC-04), with every RULE-012 fixture direction
+   covered and each FAIL branch proven by applied-check mutation (CC-05)
+5. Phase 5 — corpus report, disposition filed rather than decided (CC-06)
+
+**Test Plan.** Present in the bound task record, and extended in this document's `## Test Plan` with
+the applied-check mutation requirement, a positive control (`HARNESS-900`, a direct-route approval
+that must not be counted as class-based) and a negative control (`ARCH-100`, whose relayed provenance
+must be classified by the guard rather than by its own prose).
+
+**Exact PLAN outcome.** `SCENARIO DRAFTED: not-applicable | 0` — recorded in the bound task's
+`## User Execution Test Scenarios`, with its reason: the item delivers no user-facing product
+behaviour, so the verification surface is the harness gate.
+
+**Whole-worktree path inventory.** The whole-worktree contains exactly the paired planning artifacts
+and nothing else:
+
+```
+M  .agents/tasks/RULE-012-…-ceremonial-approval.md          (todo → in-progress, PLAN added)
+A  .agents/spec-docs/active/RULE-012-…-ceremonial-approval.md
+D  .agents/spec-docs/todo/RULE-012-…-ceremonial-approval.md
+```
+
+No implementation path is staged, unstaged, untracked, renamed or deleted. Implementation begins in
+the commit after this checkpoint.
