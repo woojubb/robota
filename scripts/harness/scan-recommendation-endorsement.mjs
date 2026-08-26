@@ -411,7 +411,17 @@ function changedPaths(root, parent, commit) {
 }
 
 function topicCommits(root, base) {
-  const output = git(root, ['rev-list', '--reverse', `${base}..HEAD`]);
+  const baseCommit = git(root, ['rev-list', '-1', base]).trim();
+  const headParents = git(root, ['show', '--no-patch', '--format=%P', 'HEAD'])
+    .split(/\s+/)
+    .filter(Boolean);
+  // GitHub required checks run on a synthetic merge commit whose first parent is the exact PR base
+  // and whose second parent is the reviewed topic head. Replaying that wrapper after its topic
+  // ancestors makes every branch ledger observation appear newly added relative to the first parent.
+  // Bound history replay to the topic parent; persisted validation still reads the merged HEAD tree.
+  const replayHead =
+    headParents.length === 2 && headParents[0] === baseCommit ? headParents[1] : 'HEAD';
+  const output = git(root, ['rev-list', '--reverse', `${base}..${replayHead}`]);
   return output.split('\n').filter(Boolean);
 }
 

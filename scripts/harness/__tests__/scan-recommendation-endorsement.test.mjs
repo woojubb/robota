@@ -937,6 +937,33 @@ describe('topic ordering', () => {
     expect(findRecommendationTopicFindings(root, base)).toEqual([]);
   });
 
+  it('does not replay a synthetic PR merge wrapper as a second endorsement checkpoint', () => {
+    const { root } = repository();
+    const topicBase = git(root, ['rev-parse', 'HEAD']);
+    git(root, ['switch', '-c', 'topic']);
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const revision = commit(root, 'reviewed plan');
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(attestation({ digest: decisionProjectionDigest(spec()), revision }))}\n`,
+    );
+    write(root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(root, ACTIVE_SPEC, spec({ evidence: 'Recommendation endorsement checkpoint recorded.' }));
+    commit(root, 'endorsement checkpoint');
+    write(root, 'scripts/harness/example.mjs', 'export const afterEndorsement = true;\n');
+    commit(root, 'implementation after endorsement');
+
+    git(root, ['switch', 'develop']);
+    write(root, '.agents/rules/unrelated.md', '# Unrelated base change\n');
+    const mergeBase = commit(root, 'advance integration base');
+    git(root, ['merge', '--no-ff', 'topic', '-m', 'synthetic pull request merge']);
+
+    expect(mergeBase).not.toBe(topicBase);
+    expect(findRecommendationTopicFindings(root, mergeBase)).toEqual([]);
+  });
+
   it('seeds replay from a persisted ENDORSE checkpoint already present at the requested base', () => {
     const { root } = repository();
     write(root, ACTIVE_SPEC, spec());
