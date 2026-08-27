@@ -12,6 +12,7 @@ State machine orchestrator for spec documents. This skill manages ONLY the pipel
 
 - `AGENTS.md` > Mandatory Rules > Process
 - `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation
+- `.agents/rules/spec-workflow.md` > Lanes — which gates a document runs, by its `lane:`
 
 ## When to Use
 
@@ -52,16 +53,22 @@ Spec-Document Status and Lifecycle Folders), and every move below is derived fro
 document goes to the folder the rule maps the **next** status to. When both statuses map to the same
 folder, there is no move.
 
-| Current `status`  | Next Action                                          | Next `status` on PASS |
-| ----------------- | ---------------------------------------------------- | --------------------- |
-| (not yet created) | Invoke `backlog-writer` skill                        | `draft`               |
-| `draft`           | Invoke `backlog-gate-guard` subagent: GATE-WRITE     | `review-ready`        |
-| `review-ready`    | Invoke `backlog-gate-guard` subagent: GATE-APPROVAL  | `approved`            |
-| `approved`        | Invoke `backlog-gate-guard` subagent: GATE-IMPLEMENT | `in-progress`         |
-| `in-progress`     | Invoke `backlog-gate-guard` subagent: GATE-VERIFY    | `verifying`           |
-| `verifying`       | Invoke `backlog-gate-guard` subagent: GATE-COMPLETE  | `done`                |
-| `done`            | No action. Pipeline is complete.                     | —                     |
-| `rejected`        | No action. Item is closed.                           | —                     |
+The lane column is the document's `lane:` frontmatter field, as `spec-workflow.md` > Lanes defines it.
+An L0 change has no spec document and never enters this skill.
+
+| Current `status`  | Lane | Next Action                                                                               | Next `status` on PASS |
+| ----------------- | ---- | ----------------------------------------------------------------------------------------- | --------------------- |
+| (not yet created) | L1   | `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`                 | `draft`               |
+| (not yet created) | L2   | Invoke `backlog-writer` skill                                                             | `draft`               |
+| `draft`           | L1   | `gate.mjs judge --gate PLAN` (GATE-WRITE mechanical criteria + GATE-APPROVAL)             | `approved`            |
+| `draft`           | L2   | `gate.mjs judge --gate GATE-WRITE`, then guard on the semantic set                        | `review-ready`        |
+| `review-ready`    | L2   | `gate.mjs approve`, then `gate.mjs judge --gate GATE-APPROVAL`, guard on the semantic set | `approved`            |
+| `approved`        | L1   | `gate.mjs judge --gate DONE` (GATE-VERIFY + GATE-COMPLETE criteria)                       | `done`                |
+| `approved`        | L2   | `gate.mjs judge --gate GATE-IMPLEMENT`, then guard on the semantic set                    | `in-progress`         |
+| `in-progress`     | L2   | `gate.mjs judge --gate GATE-VERIFY`, then guard on the semantic set                       | `verifying`           |
+| `verifying`       | L2   | `gate.mjs judge --gate GATE-COMPLETE`, then guard on the semantic set                     | `done`                |
+| `done`            | any  | No action. Pipeline is complete.                                                          | —                     |
+| `rejected`        | any  | No action. Item is closed.                                                                | —                     |
 
 **Out-of-band gate:** `GATE-CONFORMANCE` (architecture conformance) is NOT a status transition and does
 not appear in this table. It is run separately via `backlog-gate-guard` — on demand, after cross-package
@@ -89,8 +96,17 @@ work, and before a `develop → main` release. See
 
 **When status is `draft` through `verifying`:**
 
-Dispatch the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md) (Agent tool),
-one gate per invocation. The agent owns how to judge; give it only the two inputs it needs:
+1. Run `node scripts/harness/gate.mjs judge --gate <GATE> --doc <PATH>`; on exit 0 with no semantic
+   criteria pending, the gate is passed and the entry is written; dispatch `backlog-gate-guard` only when
+   it exits non-zero or reports semantic criteria (L2). The script judges the criteria the catalogue tags
+   mechanical and writes the Evidence Log entry itself.
+2. For GATE-APPROVAL (and the L1 PLAN gate, which contains it), the approval is recorded by
+   `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`
+   — the instruction is quoted verbatim, and Route CLASS names a class from the registry in
+   `backlog-execution.md` > Delegated Approval Classes.
+
+When the guard is dispatched — the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md)
+(Agent tool), one gate per invocation — it owns how to judge; give it only the two inputs it needs:
 
 ```
 Gate: <GATE>            (e.g. GATE-WRITE)
@@ -107,17 +123,13 @@ Wait for its terminal line: `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE`
 
 Look up the folder the rule maps the **next** status to.
 
-**PASS (the next status maps to a different folder):**
+**PASS:**
 
-1. Run `git mv <current-path> <that-folder>/<filename>`
-2. Immediately update the frontmatter `status:` field in the moved file to the next status value
-3. Both steps must complete before reporting success — the rule's folder ↔ status agreement is what makes a half-done move a NON-COMPLIANCE on the next run.
-4. Confirm to user: "Gate X passed. Status: `<next-status>`. File moved to `<that-folder>`."
-
-**PASS (the next status maps to the same folder — no move):**
-
-1. Update the frontmatter `status:` field in place
-2. Confirm to user: "Gate X passed. Status: `<next-status>`. File stays in `<that-folder>`."
+1. Run `node scripts/harness/gate.mjs advance --doc <PATH>`. It moves the file to the folder the rule
+   maps the next status to (no move when both statuses map to the same folder) and rewrites the
+   frontmatter `status:` in the same step — the rule's folder ↔ status agreement is what makes a
+   half-done move a NON-COMPLIANCE on the next run, which is why the two are never done by hand.
+2. Confirm to user: "Gate X passed. Status: `<next-status>`. File now in `<that-folder>`."
 
 **FAIL:**
 
@@ -151,19 +163,23 @@ Note: GATE FAIL is NOT a rejection. FAIL means the item can be fixed and re-run.
 ## What This Skill Does NOT Do
 
 - Write or edit spec document section content → that is `backlog-writer`
-- Judge whether content meets quality criteria → that is `backlog-gate-guard`
+- Judge whether content meets quality criteria → `gate.mjs judge` for the mechanical criteria,
+  `backlog-gate-guard` for the semantic ones
 - Implement the spec document → that is the agent's separate implementation work
-- Modify Evidence Log entries → that is `backlog-gate-guard`
-- Skip gates for any reason, including "obvious" items or small changes
+- Modify Evidence Log entries → `gate.mjs` and `backlog-gate-guard` write them
+- Choose or argue a lane → the lane is the document's `lane:` field, declared by the change and refused
+  by `scan-lane-declaration` when under-declared; this skill reads it and runs that lane's gates
+- Skip a lane's gates for any reason, including "obvious" items or small changes
 
 ## Anti-Patterns
 
-| Anti-pattern                                          | Correct behavior                                                            |
-| ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| Moving to next gate without Evidence Log entry        | STOP. Write NON-COMPLIANCE.                                                 |
-| Skipping GATE-APPROVAL because "it's implied"         | STOP. User must explicitly approve. Quote required.                         |
-| Running gate guard inline instead of as subagent      | Always spawn as Agent subagent for isolation.                               |
-| Fixing FAIL items and immediately re-running the gate | Surface the failure to the user first. Re-run only after user confirms fix. |
-| Setting status to `done` before GATE-COMPLETE         | Status changes only follow gate PASS results.                               |
-| Forgetting to update frontmatter after `git mv`       | Both `git mv` and frontmatter update are atomic. Do both immediately.       |
-| Assuming every PASS moves the file                    | Derive it: no move when both statuses map to the same folder in the rule.   |
+| Anti-pattern                                            | Correct behavior                                                              |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Moving to next gate without Evidence Log entry          | STOP. Write NON-COMPLIANCE.                                                   |
+| Skipping GATE-APPROVAL because "it's implied"           | STOP. User must explicitly approve. Quote required.                           |
+| Running gate guard inline instead of as subagent        | Always spawn as Agent subagent for isolation.                                 |
+| Fixing FAIL items and immediately re-running the gate   | Surface the failure to the user first. Re-run only after user confirms fix.   |
+| Setting status to `done` before GATE-COMPLETE           | Status changes only follow gate PASS results.                                 |
+| Moving the file or editing `status:` by hand            | `gate.mjs advance` does both in one step; a half-done move is NON-COMPLIANCE. |
+| Dispatching the guard before `gate.mjs judge` has run   | The script judges the mechanical set first; the guard sees only the residue.  |
+| Running an L2 gate set on an L1 document, or vice versa | Read `lane:`; the state-machine table is keyed on it.                         |

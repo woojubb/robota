@@ -209,11 +209,17 @@ half neither permits to stand alone.
 **Registry.** Each entry is a row. An entry authorises approval only for items that match its Scope
 **and** satisfy its Evidence condition.
 
-| Class ID            | Scope — what falls inside | Evidence condition | Authorising instruction (verbatim) | Registered |
-| ------------------- | ------------------------- | ------------------ | ---------------------------------- | ---------- |
-| _(none registered)_ | —                         | —                  | —                                  | —          |
+| Class ID     | Scope — what falls inside                                                                                                                                                                                                                  | Evidence condition                                                              | Authorising instruction (verbatim)                                                                                                                                                                      | Registered |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `LANE-L0-L1` | L0 and L1 items as `spec-workflow.md` § Lanes defines them, judged by `scan-lane-declaration` <!-- allow-citation: the Registered column is the boundary a citing approval may not predate; the date is the criterion, not a narrative --> | `scan-lane-declaration` exits 0 on the branch and the declared lane is L0 or L1 | "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘" — given in reply to the proposed row text "L0·L1 레인 항목은 `spec-workflow.md`의 레인 정의대로 사전 승인한다" | 2026-08-28 |
 
-**The registry ships empty, and that is the design, not an omission.** Registering a class grants
+The row above was registered by the item that introduced the lanes (PROC-016). <!-- allow-citation: the registering item is the audit trail for the row -->
+Its scope is the two lanes as the lane rule defines them, and an agent may not widen it — not by editing
+the row, and not by reading "L0 and L1" as anything other than what `scan-lane-declaration` accepts.
+
+**The registry shipped empty, and that was the design, not an omission.** It holds one row since
+2026-08-28. <!-- allow-citation: the date is the registration boundary the scan reads -->
+Registering a class grants
 standing approval authority over every future item inside it, so a registry entry is itself a user
 decision under the ask-gates above — "the change introduces a practice this repository has not used
 before". **An agent may never add its own registry row.** A row is added only by a user instruction

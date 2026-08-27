@@ -131,12 +131,14 @@ or modifications, the agent MUST follow this sequence regardless of how the requ
 - Running code generation commands
 
 **Sequence.** No implementation may begin before GATE-APPROVAL passes, and the draft must exist
-before the gate can run. The ordering itself — explore, draft, gate, implement — is owned by
+before the gate can run. An L0 change (§ Lanes) has no spec document: its declared lane and its ground
+on the pull request are the record that stands in for the draft, and the lane scan is its gate. The ordering itself — explore, draft, gate, implement — is owned by
 [`user-request-gate`](../skills/user-request-gate/SKILL.md); this rule states only that it is
 mandatory and that the gate is the boundary.
 
-**Waiver**: If the user explicitly says "skip the spec" or "just fix it now", the agent must
-acknowledge the waiver in its response before proceeding, and note it as a process exception.
+**No waiver.** "Skip the spec" or "just fix it now" is not a process exception to acknowledge in a
+reply; it is a lane question, and the only instruction-driven shortening is the fast track in § Lanes
+below — declared on the pull request, refused on an L2 path, never a default.
 
 **Automated enforcement**: `.claude/hooks/spec-first-gate.sh` (UserPromptSubmit hook) injects
 this reminder when implementation-intent keywords are detected in the user's prompt.
@@ -154,8 +156,93 @@ Any gap, improvement, or fix discovered during development MUST follow this sequ
    [gate catalogue](../specs/gate-catalogue.md); which one runs when is
    [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
-No exceptions. One-line fixes, evaluation findings, and "obvious" improvements all require this gate.
+Which of these steps a change takes is not argued case by case: it is the change's **lane**, derived
+from the diff and refused by machine when under-declared — § Lanes below. Every lane keeps the record:
+an issue, a declared lane, and a ground on the artifact.
 A spec update is also required for any change touching a contract boundary (see Spec-First Development).
+
+### Lanes
+
+A change's lane is the ceremony its risk buys, and it is a **lower bound derived from the diff**, not a
+judgement made at a gate. Three lanes:
+
+- **L0** — a diff with no non-comment change under any `src/` and nothing on an L2 path: comments,
+  documentation, tests, and tooling configuration outside the L2 rows below.
+- **L1** — a non-comment change under `src/` that touches no L2 path.
+- **L2** — any change on an L2 path: the triggers of the SPEC-update table in § Live Spec Policy, the
+  classes [backlog-execution.md](backlog-execution.md) § Standing authorization keeps outside every
+  delegation, and the documents that define the gates themselves. The rows below point at those owners
+  and copy none of them.
+
+**The lane is declared, and refused — never argued.** A change declares `Lane: L0|L1|L2` in three
+places: as `lane:` in the spec document's frontmatter when one exists, as a `Lane:` git trailer on
+the branch's commits, and as a `Lane:` line in the pull-request body. The declaration is compared with
+the floor the diff's paths derive from the table below: a declaration **below** the floor is refused,
+one at or above it is accepted, and a missing one is refused. No gate, guardian, or reviewer accepts an
+argument that a change "is really L0" — the diff decides, and a change that wants a lower lane changes
+its paths, not its story. The first excluded class, product direction, is not path-shaped and is judged
+at the gate as before; the floor is a bound beneath that judgement, not a replacement for it.
+
+Enforced by: `scan-lane-declaration` (`scripts/harness/scan-lane-declaration.mjs`) in
+`pnpm harness:scan` and in `pnpm harness:pre-push` — it derives the floor from the table below and
+refuses a declaration under it, or none.
+
+#### Lane floors
+
+The floor a path implies; a diff's floor is the highest floor any of its paths reaches. Patterns are
+repository-relative globs, and a bare filename is anchored at the repository root.
+
+| Floor | Path pattern                               | Why                                                                                                                                                                              |
+| ----- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L2    | `.github/workflows/**`                     | CI workflows — a repository-wide policy file, outside every delegation                                                                                                           |
+| L2    | `.claude/hooks/**`                         | Git hooks — a repository-wide policy file                                                                                                                                        |
+| L2    | `.husky/**`                                | Git hooks — a repository-wide policy file                                                                                                                                        |
+| L2    | `.eslintrc*`                               | Lint configuration — a repository-wide policy file                                                                                                                               |
+| L2    | `pnpm-workspace.yaml`                      | Workspace topology                                                                                                                                                               |
+| L2    | `package.json`                             | The root manifest — workspace topology and toolchain versions; a package's own manifest under `packages/*/` is not this row                                                      |
+| L2    | `.agents/rules/spec-workflow.md`           | Defines the gates and the lanes — a delegated class may not approve a change to what delegation means                                                                            |
+| L2    | `.agents/rules/backlog-execution.md`       | Defines the done gate and the delegated-class registry                                                                                                                           |
+| L2    | `.agents/specs/gate-catalogue.md`          | Defines every gate's criteria                                                                                                                                                    |
+| L2    | `.design/**`                               | User-authored documents                                                                                                                                                          |
+| L2    | `packages/*/docs/SPEC.md#trigger-sections` | The sections named in the second column of the SPEC-update table in § Live Spec Policy — a published contract. That table is the owner; this row points at it and copies nothing |
+| L1    | `**/src/**`                                | A non-comment change under `src` that touches no L2 pattern                                                                                                                      |
+| L0    | everything else                            | Comments, documentation, tests, and tooling configuration outside the L2 rows                                                                                                    |
+
+Enforced by: `scan-lane-declaration` — it reads this table as its criteria rather than carrying a copy.
+
+#### Fast track
+
+A fast track shortens a lane's ceremony on the user's instruction, and only there. It is a
+`Fast-track: <reason>` line in the pull-request body whose reason is the user's instruction **quoted
+verbatim** — a ground is recorded on the artifact it justifies
+([grounds are recorded where the work is](../spec-docs/backlog/RULE-015-grounds-are-recorded-where-the-work-is.md)),
+so the pull request is its record, not a chat transcript or a session summary. It is never accepted on a
+path whose floor is L2, and it is never a default: a change with no such instruction takes its lane's
+full path. A fast track does not lower the declared lane — the lane is still the diff's — it records why
+the lane's record is shorter than usual.
+
+Enforced by: `scan-lane-declaration` — a `Fast-track:` line on a diff whose floor is L2 is refused.
+
+#### Gates per lane
+
+The lane decides which of the steps above run and who judges them. A **mechanical** criterion is one a
+script decides from the document, the tree, and git alone; a **semantic** one needs judgement. The
+[gate catalogue](../specs/gate-catalogue.md) tags each criterion; this table says who runs which set.
+
+| Lane | Spec document                                                                                                                              | Gates                                                                                                                                                                                                            | Judged by                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| L0   | none — the pull-request body carries the `Lane:` line, the ground (the issue, or the fast track), and the issue reference                  | CI, the reviewer verdict, and the merge gate                                                                                                                                                                     | CI and the merge gate; no guardian agent                                   |
+| L1   | one, on the same schema as every spec document, scaffolded by `node scripts/harness/new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1` | two — **PLAN** (`draft → approved`: GATE-WRITE's mechanical criteria plus GATE-APPROVAL) and **DONE** (`approved → done`: GATE-VERIFY plus GATE-COMPLETE criteria) — each run by `node scripts/harness/gate.mjs` | `gate.mjs`; the guardian agent only on a non-PASS                          |
+| L2   | full schema, unchanged                                                                                                                     | the five gates and the two done-gate stages, unchanged                                                                                                                                                           | mechanical criteria by `gate.mjs`, semantic criteria by the guardian agent |
+
+An L1 document moves `draft/ → todo/ → done/` and never enters `active/`; the status vocabulary and its
+folders are the table in § Spec-Document Status and Lifecycle Folders, unchanged. GATE-APPROVAL for an
+L1 document may take Route CLASS through the class registered for L0 and L1 in
+[backlog-execution.md](backlog-execution.md) § Delegated Approval Classes; an L2 document takes Route
+DIRECT as before.
+
+Enforced by: `gate.mjs` (`scripts/harness/gate.mjs`) — it reads `lane:` from the frontmatter and runs
+that row's gate set; which lane a document may declare is `scan-lane-declaration`'s.
 
 ### Spec-Document Status and Lifecycle Folders
 

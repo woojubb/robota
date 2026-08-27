@@ -75,9 +75,19 @@ implementation, not after: the rule requires the scenario to exist first.
 
 ### Phase 2.5 — Planning checkpoint
 
-Dispatch `backlog-pipeline` for GATE-IMPLEMENT. On PASS, immediately commit the guardian's PASS, the
-`approved → in-progress` transition, the exact Task/spec pair, and any subject-bound PLAN ledger record
-as one planning-only checkpoint. Verify that HEAD contains that checkpoint before entering Phase 3.
+The lane ([spec-workflow.md](../../rules/spec-workflow.md) > Lanes) decides whether this phase exists:
+
+- **L2** — dispatch `backlog-pipeline` for GATE-IMPLEMENT. It runs
+  `node scripts/harness/gate.mjs judge --gate GATE-IMPLEMENT --doc <PATH>`; on exit 0 with no semantic
+  criteria pending, the gate is passed and the entry is written; `backlog-gate-guard` is dispatched
+  only when it exits non-zero or reports semantic criteria (L2). On PASS, immediately commit the PASS
+  entry, the `approved → in-progress` transition (`node scripts/harness/gate.mjs advance --doc <PATH>`),
+  the exact Task/spec pair, and any subject-bound PLAN ledger record as one planning-only checkpoint.
+  Verify that HEAD contains that checkpoint before entering Phase 3.
+- **L1** — there is no GATE-IMPLEMENT; the PLAN gate's PASS entry is the checkpoint. Verify that HEAD
+  contains the commit carrying it, then advance to Phase 3.
+- **L0** — no spec document exists, so nothing is gated here; advance to Phase 3 once the `Lane:` line
+  and its ground are on the branch.
 
 | Outcome                              | Route                                                                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -114,7 +124,9 @@ single edge the rule marks absolute.
 ### Phase 5 — Completion
 
 The status change and the file move are **one commit**, in the order the rule states. They are one atomic
-act, not two steps that usually happen together.
+act, not two steps that usually happen together. For the spec document, the closing gate (L2: GATE-COMPLETE;
+L1: DONE) is `node scripts/harness/gate.mjs judge --gate <GATE> --doc <PATH>` — guard only on a non-zero exit
+or a reported semantic set — and the move plus status rewrite is `node scripts/harness/gate.mjs advance --doc <PATH>`.
 
 | Outcome                                           | Route                                                                                                                                                                                                     |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -183,13 +195,15 @@ Load only what the item needs.
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                             | Owner                                                                        |
-| ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Judge whether the recommendation is right        | `proposal-reviewer` (agent)                                                  |
-| Author or judge a verification scenario          | [user-execution-scenario](../user-execution-scenario/SKILL.md) and its roles |
-| Define gates, PR contracts, or status invariants | [backlog-execution.md](../../rules/backlog-execution.md)                     |
-| Sequence several items under one initiative      | [multi-backlog-initiative](../multi-backlog-initiative/SKILL.md)             |
-| Merge a protected branch                         | the user                                                                     |
+| Not this skill's job                             | Owner                                                                                        |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Judge whether the recommendation is right        | `proposal-reviewer` (agent)                                                                  |
+| Author or judge a verification scenario          | [user-execution-scenario](../user-execution-scenario/SKILL.md) and its roles                 |
+| Define gates, PR contracts, or status invariants | [backlog-execution.md](../../rules/backlog-execution.md)                                     |
+| Decide or argue an item's lane                   | [spec-workflow.md](../../rules/spec-workflow.md) > Lanes, refused by `scan-lane-declaration` |
+| Judge a gate's mechanical criteria               | `scripts/harness/gate.mjs`; the semantic residue is `backlog-gate-guard`'s                   |
+| Sequence several items under one initiative      | [multi-backlog-initiative](../multi-backlog-initiative/SKILL.md)                             |
+| Merge a protected branch                         | the user                                                                                     |
 
 If you find yourself forming a verdict, defining a gate, or doing an owner skill's work here, stop — route
 to the owner instead.

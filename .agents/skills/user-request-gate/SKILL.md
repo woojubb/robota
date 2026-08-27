@@ -9,6 +9,7 @@ invocable: true
 
 - "User Request Implementation Gate" in `.agents/rules/spec-workflow.md`
 - "HARD GATE: No Immediate Implementation" in `.agents/rules/spec-workflow.md`
+- "Lanes" in `.agents/rules/spec-workflow.md` — the lane decides whether a draft exists at all
 
 ## When to Use
 
@@ -31,9 +32,17 @@ Before any code writing, explore freely:
 - Run read-only Bash commands (`git log`, `git diff`, `cat`, `ls`)
 - Ask clarifying questions
 
-**Hard stop**: Do not call `Write` or `Edit` on `.ts`/`.tsx`/`.js`/`.mjs` files until Phase 3.
+**Hard stop**: Do not call `Write` or `Edit` on `.ts`/`.tsx`/`.js`/`.mjs` files until Phase 3 — or,
+for an L0 change (Phase 2 step 0), until the lane is declared and its ground named.
 
 ## Phase 2: Create Backlog Draft (mandatory before any code change)
+
+0. **Decide the lane first.** Read `.agents/rules/spec-workflow.md` > Lanes and derive the floor from the
+   paths the change will touch. **L0** needs no draft: declare `Lane: L0` and the ground (the issue, or a
+   `Fast-track:` line quoting the user's instruction verbatim) on the branch and the pull request, and
+   go to Phase 4 — `scan-lane-declaration` refuses the declaration if the diff's floor is higher.
+   **L1** uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the
+   draft, then continues from step 4. **L2** takes steps 1–4 as written.
 
 1. Choose the spec-doc type from the prefix taxonomy:
    - `BEHAVIOR` — system-internal logic, state transitions
@@ -78,10 +87,16 @@ Before any code writing, explore freely:
 
 After the draft is written:
 
-1. Run `backlog-pipeline` skill to advance through gates:
-   - GATE-WRITE: validates spec document completeness
-   - GATE-APPROVAL: requires explicit user sign-off
-2. Only after GATE-APPROVAL passes, proceed to implementation.
+1. Run `backlog-pipeline` skill to advance through gates. For each gate it runs
+   `node scripts/harness/gate.mjs judge --gate <GATE> --doc <PATH>`; on exit 0 with no semantic
+   criteria pending, the gate is passed and the entry is written; `backlog-gate-guard` is dispatched
+   only when it exits non-zero or reports semantic criteria (L2).
+   - L1: one PLAN gate (`draft → approved` — GATE-WRITE's mechanical criteria plus GATE-APPROVAL)
+   - L2: GATE-WRITE (document completeness), then GATE-APPROVAL (explicit user sign-off)
+2. Approval is recorded with
+   `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`;
+   status moves are `node scripts/harness/gate.mjs advance --doc <PATH>`.
+3. Only after GATE-APPROVAL (or the L1 PLAN gate) passes, proceed to implementation.
 
 ## Phase 4: Implement
 
@@ -92,14 +107,16 @@ After GATE-APPROVAL:
 3. Follow [`tdd-red-green-refactor`](../tdd-red-green-refactor/SKILL.md)
 4. Follow [`repo-change-loop`](../repo-change-loop/SKILL.md)
 
-## Waiver Protocol
+## Fast Track (there is no waiver)
 
-If the user explicitly says "skip spec", "just fix it", "no spec needed", or similar:
+If the user explicitly says "skip spec", "just fix it", "no spec needed", or similar, that is not a
+process exception to acknowledge — it is the fast track in `.agents/rules/spec-workflow.md` > Lanes:
 
-1. Acknowledge the waiver in your response:
-   > "Proceeding without spec gate per user waiver."
-2. Still update the governing `packages/<name>/docs/SPEC.md` if behavior changes.
-3. Note the waiver in the PR description.
+1. The lane is still the diff's. Declare it as Phase 2 step 0 requires; the instruction does not lower it.
+2. Add `Fast-track: <the user's instruction, quoted verbatim>` to the PR body. The PR is the record;
+   a chat transcript or a reply is not.
+3. Never on a path whose floor is L2 — `scan-lane-declaration` refuses it, and the full lane runs.
+4. Still update the governing `packages/<name>/docs/SPEC.md` if behavior changes.
 
 ## Automated Enforcement
 
@@ -109,14 +126,15 @@ This skill is the procedural companion to that reminder.
 
 ## Orchestrated Skills
 
-| Skill                      | Role                                                                        |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `backlog-writer`           | Author the spec draft document                                              |
-| `backlog-pipeline`         | Gate pipeline orchestrator                                                  |
-| `backlog-gate-guard` agent | Validate individual gates ([gate catalogue](../../specs/gate-catalogue.md)) |
-| `spec-first-development`   | Update package SPEC.md before implementation                                |
-| `tdd-red-green-refactor`   | Implementation cycle                                                        |
-| `repo-change-loop`         | Build and verify after implementation                                       |
+| Skill                      | Role                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `backlog-writer`           | Author the spec draft document                                                                    |
+| `backlog-pipeline`         | Gate pipeline orchestrator                                                                        |
+| `scripts/harness/gate.mjs` | Judge the mechanical criteria, record approval, move status                                       |
+| `backlog-gate-guard` agent | Validate the semantic criteria ([gate catalogue](../../specs/gate-catalogue.md)), or any non-PASS |
+| `spec-first-development`   | Update package SPEC.md before implementation                                                      |
+| `tdd-red-green-refactor`   | Implementation cycle                                                                              |
+| `repo-change-loop`         | Build and verify after implementation                                                             |
 
 ## Record the run
 
