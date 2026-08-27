@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -162,7 +162,7 @@ own suites, recorded in the Test Plan above.
   dependency set is an assertion rather than an omission.
 - `## User Execution Test Scenarios` present with an explicit not-applicable and its reason.
 
-### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
+### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -223,7 +223,7 @@ Architecture Review Checklist, Alternatives Considered, Decision, Completion Cri
 User Execution Test Scenarios, Evidence Log), so no active task path is named.
 
 **Working-tree note:** the paired task record
-`.agents/tasks/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md` reads `status:
+`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md` read `status:
 in-progress` with 0 of 5 completion criteria checked, and `git status --porcelain` reports it clean.
 An uncommitted change in another clone is not evidence available to this gate.
 
@@ -233,3 +233,11 @@ of its GATE-IMPLEMENT verdict is reconciled — the choice is between a recorded
 out-of-order-execution finding that the later gates then judge against the shipped state, and
 rejection of the spec document — per `spec-workflow.md` HARD GATE and
 `backlog-execution-orchestrator` Phase 5.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2214
+(`c621e4d49`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md`; rejection
+closes the bypassed plan without manufacturing historical gate verdicts.

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -164,7 +164,7 @@ gate, and the 15 consumer packages' own suites.
 - Test Plan: 6 rows for 6 TCs; TC-02 and TC-04 are rule-conformance rather than gates, and say so.
 - `## User Execution Test Scenarios` present with an explicit not-applicable and its reason.
 
-### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
+### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -213,7 +213,7 @@ Nothing here decides which family belongs to which owner — that is ARCH-100's,
   after the merge would be backdating, not judging. It is outside GATE-COMPLETE's remit either way —
   a guardian applies one gate per run and cannot supply a predecessor's verdict.
 - **Corroborating tree state (not the deciding finding).** The paired task
-  `.agents/tasks/ARCH-106-move-session-contracts-to-the-runtime-owner.md` is `status: in-progress`
+  `.agents/tasks/completed/ARCH-106-move-session-contracts-to-the-runtime-owner.md` was `status: in-progress`
   with 0 of 5 checklist items `[x]`; the spec has no `## Tasks` section at all, so no task path is
   recorded where GATE-IMPLEMENT requires it; all six TC-N boxes are `[ ]` and the log holds zero
   `[GATE-COMPLETE: TC-N]` entries. Judged against this working tree only; an uncommitted change in
@@ -224,3 +224,11 @@ merged reality — decide whether ARCH-106 is closed out by a retrospective corr
 as one (never a PASS-shaped GATE-IMPLEMENT entry dated after `22152ef9d`), or rejected and re-filed.
 Only once the document legitimately reads `verifying` with a GATE-VERIFY PASS may GATE-COMPLETE be
 invoked. No status change, no folder move and no content fix was made by this run.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2217
+(`22152ef9d`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-106-move-session-contracts-to-the-runtime-owner.md`; rejection closes
+the bypassed plan without manufacturing historical gate verdicts.

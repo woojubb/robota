@@ -215,11 +215,11 @@
     "done/WORKFLOW-001-absorb-dag-engine.md",
     "done/WORKFLOW-003-workflows-command.md",
     "rejected/RESUME-001-session-resume-context-verification.md",
-    "todo/ARCH-103-move-execution-contracts-to-their-domain-owner.md",
-    "todo/ARCH-104-move-command-contracts-to-their-domain-owner.md",
-    "todo/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md",
-    "todo/ARCH-106-move-session-contracts-to-the-runtime-owner.md",
-    "todo/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md",
-    "todo/ARCH-108-narrow-transport-and-prove-the-omnibus-is-gone.md"
+    "rejected/ARCH-103-move-execution-contracts-to-their-domain-owner.md",
+    "rejected/ARCH-104-move-command-contracts-to-their-domain-owner.md",
+    "rejected/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md",
+    "rejected/ARCH-106-move-session-contracts-to-the-runtime-owner.md",
+    "rejected/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md",
+    "rejected/ARCH-108-narrow-transport-and-prove-the-omnibus-is-gone.md"
   ]
 }

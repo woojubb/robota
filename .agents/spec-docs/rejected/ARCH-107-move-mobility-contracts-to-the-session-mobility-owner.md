@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -161,7 +161,7 @@ verification surface is the workspace typecheck, the harness gate, and the 4 con
 - Test Plan: 5 rows for 5 TCs, each with Test Type and Tool/Approach.
 - `## User Execution Test Scenarios` present with an explicit not-applicable and its reason.
 
-### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
+### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -220,7 +220,7 @@ those two gates, it would be a **backdating** of them — writing `verifying →
 never entered `in-progress`. That is the one thing a gate must never do, so this halts here.
 
 **Paired task record contradicts completion** (judged as this working tree holds it, unmodified —
-`git status` reports it clean): `.agents/tasks/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`
+`git status` reports it clean): `.agents/tasks/completed/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`
 is `status: in-progress` with **0 of 4 tasks checked**. An uncommitted change in a different clone is
 not evidence in this one.
 
@@ -234,3 +234,11 @@ gap between the recorded pipeline state and the merged tree is a process breach 
 decision — reconstruct the skipped GATE-IMPLEMENT/GATE-VERIFY record against the merged commit, or
 close this item out under the Rejection Action. Routing that decision belongs to the orchestrator,
 not to this guardian.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2220
+(`4ed80522b`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`; rejection
+closes the bypassed plan without manufacturing historical gate verdicts.
