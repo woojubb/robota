@@ -71,7 +71,7 @@ the catalogue's wording acceptable, no new abstraction, and `Contained — HARNE
 regex line's comment and named in the commit body.
 
 Filed separately, not folded in: the refusal message names a missing PASS rather than the failed
-structural test — issue #2395 (a different cause with its own tests). Issue #2376 — the same criterion
+structural test — issue #2395 (a different cause with its own tests). Issue issue #2376 — the same criterion
 against `AUTO_GENERATED_CHURN` — is a different cause and stays its own item.
 
 ## Recommendation gate

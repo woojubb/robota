@@ -71,8 +71,8 @@ registered as issue #2394). This document lands as a **labelled containment** un
 wording acceptable to the scan; it introduces no new abstraction; and the regex line carries
 `// Contained — HARNESS-128. …` — the opening the rule fixes and `resolveRootItems` reads — with the
 same ID in the commit body. Re-plan was the alternative; it is a rule-side design change to the two
-gate-defining documents (`gate-catalogue.md`, `backlog-execution.md`) that #2375, #2376 and #2392
-also want to edit, and #2378 is `blocks-landing` today.
+gate-defining documents (`gate-catalogue.md`, `backlog-execution.md`) that issue #2375, issue #2376 and issue #2392
+also want to edit, and issue #2378 is `blocks-landing` today.
 
 **Sequencing the root record.** The HARNESS-128 Task file cannot be in the worktree — tracked or
 untracked — from the first planning prelude commit on this branch through the GATE-IMPLEMENT
@@ -86,7 +86,7 @@ carries `// Contained — HARNESS-128.` — because the code-label floor
 committed `.agents/tasks/` tree, so the root record must be tracked in the same commit that introduces
 the label.
 
-A4 below is filed as issue **#2395** rather than deferred.
+A4 below is filed as issue **issue #2395** rather than deferred.
 
 ## Architecture Review
 
@@ -120,7 +120,7 @@ token-less entry refused.
 
 - Pro: the passing form becomes obtainable from the document it enforces; the next catalogue/scan
   drift is a red test instead of a three-round diagnosis.
-- Con: the scan still matches a token rather than a declared form — which is exactly #2394, and why
+- Con: the scan still matches a token rather than a declared form — which is exactly issue #2394, and why
   this is a containment rather than the fix.
 
 **A3 — Derive the token from the catalogue at scan time.** The scan reads `gate-catalogue.md` at the
@@ -131,7 +131,7 @@ and matches on whatever the criterion says.
 - Con: the criterion is prose with no structural anchor — unlike the status/folder table that
   `scan-doc-folder-status-agreement.mjs` parses — so a scan-time extraction is a second regex over the
   catalogue that can drift exactly as the first one did, now inside a fail-closed guard. The right
-  version of this idea is a declared form read from the owning rule, which is #2394, not this item.
+  version of this idea is a declared form read from the owning rule, which is issue #2394, not this item.
 
 **A4 — Also name the failed structural test in the refusal message.** The message that cost three
 rounds (`scan-user-execution-plan-order.mjs:860`) says "does not add the first GATE-IMPLEMENT PASS"
@@ -145,7 +145,7 @@ when the entry does add one and a conjunct failed.
 
 ### Decision
 
-**A2, as a labelled containment under #2394.** The trade-off that decides it is A1's: the only way
+**A2, as a labelled containment under issue #2394.** The trade-off that decides it is A1's: the only way
 to keep the hyphen as the sole form is to edit the gate-defining documents, and that installs the
 scan artefact into the source of truth while leaving the next drift undetected. A3 fails for a
 narrower reason than first written — not "the scan must not read the present" (it reads at
@@ -162,7 +162,7 @@ instruction, are the input to the scan.
       is, since after this change both forms are accepted.
 - [x] At least 2 alternatives reviewed — A1–A4
 - [x] Decision rationale documented — A1 installs the artefact into the source of truth; A3 has no
-      anchor to derive from; A4 is a different cause, filed as #2395
+      anchor to derive from; A4 is a different cause, filed as issue #2395
 
 ## Fallback & Degradation Declaration
 
@@ -208,36 +208,36 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 
 ## Completion Criteria
 
-- [ ] **TC-01** A checkpoint whose GATE-IMPLEMENT worktree line is the catalogue criterion verbatim
+- [x] **TC-01** A checkpoint whose GATE-IMPLEMENT worktree line is the catalogue criterion verbatim
       (`The whole worktree contains no …`) plus the path inventory, replacing the fixture's hyphenated
       line, runs through `findHistoryFindings` with no finding. Red before the fix
       (`check-regression-red-proof`), and red for the token — both path tokens are present.
-- [ ] **TC-02** A checkpoint whose worktree line carries neither `whole worktree` nor
+- [x] **TC-02** A checkpoint whose worktree line carries neither `whole worktree` nor
       `whole-worktree`, with both path tokens present, still produces the checkpoint finding — the
       widened test is not unconditional.
-- [ ] **TC-03** Two cases locate the GATE-IMPLEMENT worktree criterion item and the
+- [x] **TC-03** Two cases locate the GATE-IMPLEMENT worktree criterion item and the
       Evidence-to-record instruction paragraph in `.agents/specs/gate-catalogue.md` structurally,
       assert exactly one of each was found, feed each phrase **alone** (the instruction with its
       soft-wrap newline intact) as the worktree line's opening plus the path inventory, and produce
       no finding.
-- [ ] **TC-04** Applied-check mutation, three directions, each recorded with the count of cases it
+- [x] **TC-04** Applied-check mutation, three directions, each recorded with the count of cases it
       kills: (a) restoring `/whole-worktree/i` fails TC-01 and both TC-03 cases; (b) replacing the
       structural test with `true` fails TC-02; (c) narrowing to `/whole[- ]worktree/i` fails the
       TC-03 instruction case and no other — the soft-wrap branch is load-bearing. `git diff --stat`
       empty after restore.
-- [ ] **TC-05** `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- [x] **TC-05** `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       passes with every pre-existing case (79) plus the four added (83), the count stated by describe
       block in the GATE-VERIFY entry; `pnpm harness:scan` exits 0 on the branch.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                              | Notes                                       |
-| ----- | ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| TC-01 | Integration | vitest, `findHistoryFindings` over a temp repository whose worktree line is the catalogue criterion          | red-proof recorded before the regex changes |
-| TC-02 | Integration | vitest, same harness, worktree line without either spelling, path tokens kept — control                      |                                             |
-| TC-03 | Integration | vitest `it.each`, structural read of `gate-catalogue.md` (heading → item / instruction), one phrase per case | the binding that prevents recurrence        |
-| TC-04 | Mutation    | edit the regex three ways, run the file, restore, record counts in the GATE-VERIFY entry                     | `git diff --stat` empty after restore       |
-| TC-05 | Integration | `pnpm vitest run <file>` and `pnpm harness:scan`, exit codes and per-describe counts recorded                |                                             |
+| TC-ID | Test Type   | Tool / Approach                                                                                              | Notes                                       | Reference                                                                                                                                                                                                                             |
+| ----- | ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | vitest, `findHistoryFindings` over a temp repository whose worktree line is the catalogue criterion          | red-proof recorded before the regex changes | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `HARNESS-127 — the catalogue's spelling of the worktree criterion` > `accepts a checkpoint whose worktree line quotes the catalogue criterion verbatim (TC-01)` |
+| TC-02 | Integration | vitest, same harness, worktree line without either spelling, path tokens kept — control                      |                                             | same file > `still refuses a checkpoint whose worktree line carries neither spelling (TC-02)`                                                                                                                                         |
+| TC-03 | Integration | vitest `it.each`, structural read of `gate-catalogue.md` (heading → item / instruction), one phrase per case | the binding that prevents recurrence        | same file > `accepts the catalogue's own words as the worktree line — the criterion item (TC-03)` and `… — the Evidence-to-record instruction, soft-wrap intact (TC-03)`                                                              |
+| TC-04 | Mutation    | edit the regex three ways, run the file, restore, record counts in the GATE-VERIFY entry                     | `git diff --stat` empty after restore       | Test skipped as a committed case — the mutation is run by hand and recorded in the GATE-VERIFY entry; committing a mutant is not possible                                                                                             |
+| TC-05 | Integration | `pnpm vitest run <file>` and `pnpm harness:scan`, exit codes and per-describe counts recorded                |                                             | same file (83 cases) plus `pnpm harness:scan`; counts and exit codes in the GATE-VERIFY entry                                                                                                                                         |
 
 ## Tasks
 
@@ -281,13 +281,13 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 - Architecture Review Checklist: all 4 items `[x]`.
 - Sibling scan: `[x]` with `N/A for new-surface placement` plus completed token check; verified — `scan-user-execution-plan-order.mjs` is the sole non-test reader of `whole-worktree` under `scripts/harness/`.
 - Alternatives Considered: A1, A2, A3, A4 — each with a Pro and a Con.
-- Decision: names A1's trade-off (editing the gate-defining documents installs the scan artefact into the source of truth, next drift undetected) as deciding; rejects A3 on "prose has no anchor to derive from"; A4 filed as #2395 (OPEN, verified).
+- Decision: names A1's trade-off (editing the gate-defining documents installs the scan artefact into the source of truth, next drift undetected) as deciding; rejects A3 on "prose has no anchor to derive from"; A4 filed as issue #2395 (OPEN, verified).
 - New-surface placement: N/A — one regex in an existing harness scan plus its test file; no package, app, surface or layer boundary.
 - Completion Criteria: TC-01…TC-05, every item prefixed; TC-01 fix, TC-02 control, TC-03 catalogue binding (structural extraction, soft-wrap intact — `gate-catalogue.md:226–227` verified as `whole\nworktree path inventory`), TC-04 three-direction mutation with kill counts, TC-05 suite + `harness:scan`; each is a command or an observable; no "works correctly / no errors / implemented / displays correctly" in the section.
 - Test Plan: section present; rows TC-01…TC-05 = 5, matching 5 Completion Criteria; every row has non-empty Test Type and Tool/Approach, no "TBD"; no row uses Tool "manual" — manual-Notes requirement N/A.
 - TC-05 baseline re-verified: `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → 79 passed (79).
 - Structure — Tasks: section present with placeholder. Evidence Log: present; not empty because this is not the first run — the catalogue's "(first GATE-WRITE run)" qualifier applies; the prior entry is retained. No `## Status` / `## Classification` body sections.
-- Cited repository facts in the revised text re-verified: `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` used for Task/spec at `scan:1139–1148`; issues #2375, #2376, #2392, #2394, #2395 all OPEN.
+- Cited repository facts in the revised text re-verified: `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` used for Task/spec at `scan:1139–1148`; issues issue #2375, issue #2376, issue #2392, issue #2394, issue #2395 all OPEN.
 - Worktree observation (not a GATE-WRITE criterion): `scripts/harness/` unmodified; only this spec, the paired task file and the PLAN ledger line differ from `develop` — no implementation has begun.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-27
@@ -306,9 +306,9 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 - Architecture Review Checklist: all 4 items `[x]`.
 - Sibling scan: `[x]` with `N/A for new-surface placement` plus completed token check; verified — `scan-user-execution-plan-order.mjs` is the sole non-test reader of `whole-worktree` under `scripts/harness/`.
 - Alternatives Considered: A1, A2, A3, A4 — each with a Pro and a Con.
-- Decision: names A1's trade-off (editing the gate-defining documents installs the scan artefact into the source of truth, next drift undetected) as deciding; A3 rejected on the anchor argument; A4 filed as #2395 (OPEN, verified, title matches).
+- Decision: names A1's trade-off (editing the gate-defining documents installs the scan artefact into the source of truth, next drift undetected) as deciding; A3 rejected on the anchor argument; A4 filed as issue #2395 (OPEN, verified, title matches).
 - New-surface placement: N/A — one regex in an existing harness scan plus its test file; no package, app, surface or layer boundary introduced.
-- Depth verdict and containment (revised section, facts checked): HARNESS-128 Task file exists untracked at `.agents/tasks/HARNESS-128-checkpoint-evidence-forms-are-declared-only-in-the-scan.md` (`status: todo`, `issue: …/2394`); #2394 OPEN, title matches. The three containment conditions stated match `finding-depth.md:37-39` verbatim in substance (smallest change / no new abstraction / ID in code comment and commit body); `Contained — <ID>.` opening per `finding-depth.md:41`; `resolveRootItems` at `record-local-review.mjs:325`, `--foundational` at `:357`, and `.agents/tasks/` as the resolving location per `finding-depth.md:69`. `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` at `scan:1139–1148`. #2375, #2376, #2392 all OPEN.
+- Depth verdict and containment (revised section, facts checked): HARNESS-128 Task file exists untracked at `.agents/tasks/HARNESS-128-checkpoint-evidence-forms-are-declared-only-in-the-scan.md` (`status: todo`, `issue: …/2394`); issue #2394 OPEN, title matches. The three containment conditions stated match `finding-depth.md:37-39` verbatim in substance (smallest change / no new abstraction / ID in code comment and commit body); `Contained — <ID>.` opening per `finding-depth.md:41`; `resolveRootItems` at `record-local-review.mjs:325`, `--foundational` at `:357`, and `.agents/tasks/` as the resolving location per `finding-depth.md:69`. `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` at `scan:1139–1148`. issue #2375, issue #2376, issue #2392 all OPEN.
 - Completion Criteria: TC-01…TC-05 = 5 items, every one prefixed; TC-01 fix (red-proof), TC-02 control, TC-03 two structural-extraction cases (criterion item + soft-wrapped instruction, `gate-catalogue.md:226–227` re-verified as `whole\nworktree path inventory`), TC-04 three-direction mutation with kill counts and `git diff --stat` empty, TC-05 suite (79 + 4 = 83, arithmetic consistent with Solution's four cases: TC-01, TC-02, TC-03 ×2) and `harness:scan` exit 0; each is a command or an observable; grep of the section for "works correctly / no errors / implemented / displays correctly" returns nothing.
 - Test Plan: section present; rows TC-01…TC-05 = 5, matching 5 Completion Criteria; every row has non-empty Test Type and Tool/Approach, no "TBD"; no row uses Tool "manual" — manual-Notes requirement N/A.
 - TC-05 baseline re-verified: `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → 79 passed (79).
@@ -325,9 +325,9 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 - Ordering — prior gate: three `[GATE-WRITE] — ✅ PASS | 2026-08-27` entries above, each with per-criterion evidence lines (not bare PASSes); the third post-dates the `proposal-reviewer` round-2 REVISE.
 - Ordering — input state: frontmatter `status: review-ready`; file under `.agents/spec-docs/backlog/`, which `spec-workflow.md:168` maps to `review-ready`; `node scripts/harness/scan-doc-folder-status-agreement.mjs` → violations=0.
 - Route: `backlog-execution.md` § Delegated Approval Classes registry holds one row, `_(none registered)_` — zero classes, so Route CLASS is unavailable and this is Route DIRECT.
-- DIRECT — explicit approval in the current conversation: on 2026-08-27 the owner answered a structured question naming "HARNESS-127 (#2378, blocks-landing)" — stating the FOUNDATIONAL depth verdict with root item #2394 = HARNESS-128 — with options "봉쇄로 승인 — 지금 고치기 (권장)", "재계획 — 근본 원인부터", "보류 — 진단만 보고"; the owner selected "봉쇄로 승인 — 지금 고치기 (권장)". The selected text carries "승인", a listed explicit form; it chooses the design over re-plan and hold, and is not an answer to a clarifying question.
-- DIRECT — directed at this document: the question named HARNESS-127 and no other spec document was under discussion; the option's description named the exact change this document decides (§ Decision, A2: `/whole[-\s]+worktree/i`, `// Contained — HARNESS-128.`, four test cases; root cause as HARNESS-128 / #2394). #2378 OPEN, labels `blocks-landing, machinery`, title matches; #2394 OPEN, title matches.
-- No Architecture Review / type / tags modified after approval: frontmatter `type: RULE`, `tags: [harness, testing]` — identical to all three GATE-WRITE records; § Architecture Review (Affected Scope: scan + test file, no rule/catalogue text; A1–A4 each with Pro/Con; Decision A2 on A1's trade-off, A3 rejected on the anchor argument, A4 → #2395; 4/4 checklist `[x]`) matches the third GATE-WRITE entry's verification in substance, and the ENDORSE round's only addition (Task § Recommendation gate: "one procedural sentence added to the spec's sequencing note") sits in § Depth verdict and containment, outside Architecture Review. The file is untracked, so no diff history exists; both HARNESS-127 files carry the same mtime 2026-08-27 23:16:34 KST (a tree restore, not an edit — the HARNESS-128 Task file present at the third GATE-WRITE run has since been held outside the tree per the sequencing note).
+- DIRECT — explicit approval in the current conversation: on 2026-08-27 the owner answered a structured question naming "HARNESS-127 (issue #2378, blocks-landing)" — stating the FOUNDATIONAL depth verdict with root item issue #2394 = HARNESS-128 — with options "봉쇄로 승인 — 지금 고치기 (권장)", "재계획 — 근본 원인부터", "보류 — 진단만 보고"; the owner selected "봉쇄로 승인 — 지금 고치기 (권장)". The selected text carries "승인", a listed explicit form; it chooses the design over re-plan and hold, and is not an answer to a clarifying question.
+- DIRECT — directed at this document: the question named HARNESS-127 and no other spec document was under discussion; the option's description named the exact change this document decides (§ Decision, A2: `/whole[-\s]+worktree/i`, `// Contained — HARNESS-128.`, four test cases; root cause as HARNESS-128 / issue #2394). issue #2378 OPEN, labels `blocks-landing, machinery`, title matches; issue #2394 OPEN, title matches.
+- No Architecture Review / type / tags modified after approval: frontmatter `type: RULE`, `tags: [harness, testing]` — identical to all three GATE-WRITE records; § Architecture Review (Affected Scope: scan + test file, no rule/catalogue text; A1–A4 each with Pro/Con; Decision A2 on A1's trade-off, A3 rejected on the anchor argument, A4 → issue #2395; 4/4 checklist `[x]`) matches the third GATE-WRITE entry's verification in substance, and the ENDORSE round's only addition (Task § Recommendation gate: "one procedural sentence added to the spec's sequencing note") sits in § Depth verdict and containment, outside Architecture Review. The file is untracked, so no diff history exists; both HARNESS-127 files carry the same mtime 2026-08-27 23:16:34 KST (a tree restore, not an edit — the HARNESS-128 Task file present at the third GATE-WRITE run has since been held outside the tree per the sequencing note).
 - Independent architecture validation (conditional): N/A — the condition is not met. The change is one regex in an existing harness scan plus its test file; no new package, app, surface, or layer/product-family reclassification (Affected Scope: "No rule text, no catalogue text, no production package"; checklist: `N/A for new-surface placement`). Recorded as context, not as a criterion here: the recommendation gate's `proposal-reviewer` rounds (REVISE, REVISE, ENDORSE, 2026-08-27) are in the paired Task § Recommendation gate; the Evidence Log carries no `proposal-reviewer` entry and this criterion requires none.
 - NON-COMPLIANCE trigger (implementation before this gate): not triggered — `git diff --stat -- scripts/harness/` empty; `scan-user-execution-plan-order.mjs:435` still reads `/whole-worktree/i`; `git log develop..HEAD` empty (HEAD = develop = origin/develop = `6802df180`); the worktree carries only the two untracked HARNESS-127 documents.
 - Parse check: `standingVerdict` + `classifyApproval` from `scan-standing-delegation-evidence.mjs`, with the form and registry read from `backlog-execution.md`, over this document → `{ route: 'DIRECT' }`.
@@ -338,7 +338,7 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 
 - Ordering — prior gate: `[GATE-APPROVAL] — ✅ PASS | 2026-08-27` above, route `DIRECT`, with per-criterion evidence lines and a `standingVerdict`/`classifyApproval` parse result (not a bare PASS).
 - Ordering — input state: frontmatter `status: approved`; file under `.agents/spec-docs/todo/`, which `spec-workflow.md:169` maps to `approved`. Branch `fix/2378-plan-order-accepts-the-catalogue-spelling`, HEAD `42c7f1108` (prelude commit; parent = `origin/develop` `6802df180`).
-- Task file created: `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` exists, tracked in `42c7f1108` (111 lines), `status: todo`, `issue: …/2378` (#2378 OPEN, title matches), `## Bound spec document` names this file.
+- Task file created: `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` exists, tracked in `42c7f1108` (111 lines), `status: todo`, `issue: …/2378` (issue #2378 OPEN, title matches), `## Bound spec document` names this file.
 - Tasks file path recorded in `## Tasks`: yes — the single row names the exact path above.
 - Tasks correspond to Completion Criteria: the Task carries no checkbox plan (per `.agents/tasks/README.md` a Task is the problem record, not a breakdown); its `## Test Plan` holds 5 bullets mapping one-to-one — bullet 1 (verbatim-catalogue case, red before fix) → TC-01; bullet 2 (neither-spelling control) → TC-02; bullet 3 (structural read of `gate-catalogue.md` at test time) → TC-03; bullet 4 (three-way regex mutation) → TC-04; bullet 5 (`pnpm harness:scan` exit 0, pre-existing cases pass) → TC-05. Observed drift, not a gap: bullet 3 says one binding case where TC-03 specifies two `it.each` cases, and bullet 5 names 79 existing where TC-05 states 79 + 4 = 83.
 - Task `## Test Plan` ≥ 50 chars: section body is 923 chars; `node scripts/harness/scan-test-plan.mjs` exit 0 [AF-24].
