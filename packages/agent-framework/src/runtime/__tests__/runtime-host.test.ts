@@ -66,6 +66,14 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   let home: string;
   let savedHome: string | undefined;
   let savedProfile: string | undefined;
+  let homeRoot: string;
+  // `process.env.X = undefined` stores the string "undefined", so restoring means delete-or-assign.
+  function restoreHome(): void {
+    if (savedHome === undefined) delete process.env.HOME;
+    else process.env.HOME = savedHome;
+    if (savedProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = savedProfile;
+  }
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'runtime-host-'));
     // Contained — TEST-012. The session's default initialisation reads the real user home
@@ -75,7 +83,8 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // measures (issue #2383). Pointing HOME at an empty directory per test makes the assertion
     // below mean "the host leaked a timer" on any machine; the class remedy (a global isolation or
     // a userHome seam) is TEST-012's. `USERPROFILE` is the Windows spelling of the same default.
-    home = join(mkdtempSync(join(tmpdir(), 'runtime-host-home-')), 'home');
+    homeRoot = mkdtempSync(join(tmpdir(), 'runtime-host-home-'));
+    home = join(homeRoot, 'home');
     mkdirSync(home);
     savedHome = process.env.HOME;
     savedProfile = process.env.USERPROFILE;
@@ -83,11 +92,8 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     process.env.USERPROFILE = home;
   });
   afterEach(() => {
-    if (savedHome === undefined) delete process.env.HOME;
-    else process.env.HOME = savedHome;
-    if (savedProfile === undefined) delete process.env.USERPROFILE;
-    else process.env.USERPROFILE = savedProfile;
-    rmSync(join(home, '..'), { recursive: true, force: true });
+    restoreHome();
+    rmSync(homeRoot, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
   });
 
@@ -127,18 +133,20 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // `destroy` reports. `clearTimeout` leaves `hasRef()` true and `destroy` fires on the NEXT
     // check-phase turn (measured on Node 22.14), so one `setImmediate` is awaited before reading:
     // read synchronously, the correctly cancelled bound reports as leaked.
-    const seen = new Map<number, { resource: { hasRef(): boolean }; stack: string }>();
+    const seen = new Map<number, { resource: NodeJS.Timeout; stack: string }>();
     const destroyed = new Set<number>();
     const hook = createHook({
       init(asyncId, type, _triggerAsyncId, resource) {
         if (type !== 'Timeout') return;
+        // Frame 0 is the Error line and frame 1 is this init hook; the arming site comes first.
         const stack = (new Error().stack ?? '')
           .split('\n')
           .filter((line) => !/node:(internal|timers|async_hooks)/.test(line))
-          .slice(1, 6)
+          .slice(2, 7)
           .map((line) => line.trim())
           .join(' | ');
-        seen.set(asyncId, { resource: resource as { hasRef(): boolean }, stack });
+        // The 'Timeout' discriminant is what guarantees the resource is the Timeout itself.
+        seen.set(asyncId, { resource: resource as NodeJS.Timeout, stack });
       },
       destroy(asyncId) {
         if (seen.has(asyncId)) destroyed.add(asyncId);
@@ -178,11 +186,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     }
     expect(homedir()).toBe(home);
 
-    // `process.env.X = undefined` stores the string "undefined"; restore by the same rule afterEach uses.
-    if (savedHome === undefined) delete process.env.HOME;
-    else process.env.HOME = savedHome;
-    if (savedProfile === undefined) delete process.env.USERPROFILE;
-    else process.env.USERPROFILE = savedProfile;
+    restoreHome();
     expect(homedir()).not.toBe(home);
     for (const source of createDefaultUserSettingsSources()) {
       expect(source.path.startsWith(home), source.path).toBe(false);

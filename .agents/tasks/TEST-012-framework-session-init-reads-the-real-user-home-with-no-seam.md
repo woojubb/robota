@@ -68,7 +68,8 @@ red-local/green-CI (host state broke one).
 
 The remedy is a design decision issue #2300 lists and nobody has chosen: (1) make the default unavailable in
 tests — a vitest setup file pointing `HOME` at a per-suite empty directory, so host-like state must be
-constructed explicitly; (3) a scan for test files calling a factory whose parameter defaults to
+constructed explicitly; (2) a second CI job under an empty `HOME` (a backstop for the positive half
+only); (3) a scan for test files calling a factory whose parameter defaults to
 `homedir()`/`process.env.HOME` without passing one; and a `userHome`/settings-source seam on the
 session's option surface, which belongs with the SessionRecipe kernel (issue #2063 → issue #2084/#2115) rather
 than as a fourth ad-hoc parameter. Fixing the instance in one test leaves the other ≈14 files and the

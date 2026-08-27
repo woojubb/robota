@@ -14,7 +14,7 @@ depends_on: []
 ## Problem
 
 `packages/agent-framework/src/runtime/__tests__/runtime-host.test.ts:102-106`
-(`shutdown() leaves no timer holding the event loop open (issue #1852)`) is red on `develop` itself for
+(`shutdown() leaves no timer holding the event loop open (#1852)`, quoting the test title) is red on `develop` itself for
 any developer whose `~/.claude/settings.json` defines a SessionStart command hook, and its assertion
 cannot tell a timer the host leaked from a timer anything else in the process armed.
 
