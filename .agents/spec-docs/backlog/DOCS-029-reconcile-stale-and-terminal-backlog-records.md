@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: RULE
 tags: [harness, backlog]
 ---
@@ -157,3 +157,40 @@ verification in the Test Plan, not an invented product scenario.
 against the narrowed six-record scope.
 
 **Independent guardian verdict:** `GATE VERDICT: FAIL`
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** draft → review-ready
+
+- Frontmatter and input-state pass: the document was coherently `status: draft` in
+  `.agents/spec-docs/draft/`, begins with valid YAML frontmatter, uses allowed type `RULE`, and has
+  tags.
+- Problem pass: the document names the six-record `ARCH-103` through `ARCH-108` lifecycle mismatch,
+  the failing `user-execution-plan-order` condition, and the exact evidence channels used to reproduce
+  it; no TBD, TODO, or vague single-sentence description remains.
+- Prior Art Research pass: the explicit repository-local waiver is concrete, and its distinction
+  between Task delivery truth and spec gate truth feeds the alternatives and Decision.
+- Architecture review pass: all four checklist items are checked; the sibling scan names its evidence
+  channels; three alternatives contain pro/con trade-offs; and the Decision chooses independent
+  Task/spec dispositions to avoid fabricated gate history. New-surface placement is N/A because no
+  package, app, interface/presentation surface, or layer/product-family boundary is introduced.
+- Scope pass: the work is fixed to `ARCH-103` through `ARCH-108`; affected files include both reference
+  and standing-delegation baselines, with existing exemption keys rekeyed rather than expanded.
+- Completion/Test Plan pass: TC-01 through TC-05 are observable or command-verifiable, contain no
+  forbidden vague phrases, cover all five distinct sub-items, and match exactly five substantive,
+  non-manual Test Plan rows.
+- Structure pass: the concrete user-execution N/A is recorded, the exact uncreated-Task placeholder is
+  present, prior GATE-WRITE history is retained for this rerun, and no body Status or Classification
+  section exists.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [RECOMMENDATION REVIEW] — ✅ ENDORSE | 2026-08-28
+
+- The recommendation to archive the delivered Tasks while rejecting their invalid historical specs
+  preserves delivery truth and gate truth independently.
+- The standing-delegation baseline is rekeyed without expansion, and governance-only user execution is
+  correctly declared not applicable.
+- `ACTIONABLE FINDINGS: 0`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
