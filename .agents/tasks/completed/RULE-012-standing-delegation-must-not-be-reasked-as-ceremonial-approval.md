@@ -1,6 +1,7 @@
 ---
 title: 'RULE-012: standing delegated decision authority must not be re-asked as ceremonial approval'
-status: todo
+status: done
+completed: 2026-08-27
 created: 2026-08-15
 priority: high
 urgency: soon
@@ -70,3 +71,18 @@ does not opportunistically edit policy files.
   complete harness test tier.
 - Verify existing explicit one-item approval fixtures remain unchanged and INFRA-100's recorded
   approval remains valid under the clarified rule.
+
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+A user-execution scenario is **not applicable** to this item. It delivers no user-facing product
+behaviour: it amends two harness governance documents and adds one repository verification scan. No
+package, app, CLI command, TUI surface, or published API changes, so there is no command a user of
+the product could run to observe a difference. The verification surface is the harness gate itself —
+the fixture set and the mutation proof recorded in the Test Plan above, plus `pnpm harness:scan`.
+This matches the surface HARNESS-117 recorded for the same shape of change.
+
+## Bound spec document
+
+`.agents/spec-docs/done/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`

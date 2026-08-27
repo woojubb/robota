@@ -150,8 +150,30 @@ Check every item. A single unmet item = FAIL.
 
 ### GATE-APPROVAL `review-ready → approved`
 
+Approval reaches this gate by exactly one of two routes. **Name the route in the Evidence Log entry**;
+an entry that does not name one is FAIL, not a DIRECT entry by default.
+
+**Route DIRECT — the user approved this document.**
+
 - [ ] User has provided explicit approval in the current conversation
 - [ ] Approval is a direct, unambiguous statement directed at this spec document
+
+**Route CLASS — the user pre-authorised a registered class this document falls in.**
+
+- [ ] The named class exists in the delegated-class registry, and its registry entry predates this
+      approval. `backlog-execution.md` § Delegated Approval Classes is the SSOT for the registry; this
+      catalogue points at it and does not restate it
+- [ ] The authorising instruction is recorded verbatim, with its date and the session it was given in
+- [ ] The class's stated evidence condition is shown to be met by measurement, not by assertion
+- [ ] The item is inside the class as the registry defines it — a boundary the guard evaluates, not one
+      the entry argues for
+
+A relay is not a route. An instruction reported by another session, agent, or document, rather than
+given in this document's own conversation, satisfies neither route on its own; it is recorded as
+context and the approval still needs DIRECT or CLASS in its own right.
+
+**Both routes:**
+
 - [ ] No Architecture Review or frontmatter type/tags modified after approval
 - [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
       surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
@@ -160,18 +182,29 @@ Check every item. A single unmet item = FAIL.
       additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent
       placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").
 
-**What counts as explicit approval:**
+**What counts as explicit approval — Route DIRECT:**
 
-- "승인", "진행해", "맞아 진행해", "ok 시작해", "끝까지 책임지고 작업해"
+- "승인", "진행해", "맞아 진행해", "ok 시작해"
 - Any statement that clearly confirms the design and authorizes implementation
 
-**What does NOT count:**
+**What counts — Route CLASS:**
+
+- "끝까지 책임지고 작업해", "모든 FLOW-\* 전부 순차 진행해줘", or any instruction authorizing a
+  _category_ of items rather than this one. These are standing by construction and cannot be "in the
+  current conversation" for the second item they authorize, which is why they take the CLASS route and
+  need a registered class to point at
+
+**What does NOT count on either route:**
 
 - Answering a clarifying question ("C", "ㅇㅇ", "응") without confirming the design
 - Silence or lack of objection
 - Approval of a different item in the same conversation
+- A standing instruction with no registered class, or one registered after the fact. Authority attaches
+  to a class declared before the item, never to a resemblance argued after it
 
-**Evidence to record on PASS:** Quote the exact user statement verbatim and the date.
+**Evidence to record on PASS:** the fixed form in `backlog-execution.md` § Delegated Approval Classes —
+route, class (CLASS only), the instruction verbatim, and the date. `standing-delegation-evidence`
+parses it; an entry it cannot parse is a FAIL, never a pass.
 
 **NON-COMPLIANCE trigger:** Implementation work (file edits, code commits) was started before this gate ran.
 

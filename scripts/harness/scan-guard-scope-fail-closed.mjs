@@ -87,6 +87,16 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // RULE-012. Measured as `findEvidenceFindings(bare)` over a root carrying the rule but no
+    // spec-doc tree: throws `.agents/spec-docs/done missing from <root>` before a single approval is
+    // read. Without that, "no findings" would claim every approval names a valid route when none was
+    // opened — and the population is exactly what the three-way 27/43/52 disagreement was about.
+    file: 'scan-standing-delegation-evidence.mjs',
+    finder: 'findEvidenceFindings',
+    tree: '.agents/spec-docs/done',
+    why: 'the spec-document corpus IS the population this guard governs — over a root without it there is no GATE-APPROVAL entry to judge, and a silent empty pass would restate the defect the guard exists to end: a count nobody can check',
+  },
+  {
     // DOCS-028 (issue #2194). Measured as `collectSpecs(bare)`: throws `packages missing from
     // <root>` before a single SPEC is opened.
     file: 'check-spec-manifest-restatement.mjs',

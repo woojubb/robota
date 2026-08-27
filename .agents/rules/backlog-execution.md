@@ -185,6 +185,99 @@ not, or that forms part of the work unit's recommendation, goes through the Reco
 and is never self-approved. If genuinely uncertain, the agent presents two to three options with
 trade-offs and asks the user to choose.
 
+### Delegated Approval Classes
+
+**SSOT for the delegated-class registry and the GATE-APPROVAL evidence form.**
+`gate-catalogue.md` § GATE-APPROVAL points here and does not restate any of it.
+
+Distinct from **Standing authorization** above, and the distinction is the whole point. That section
+governs _decisions taken during work that already sit inside agent authority_, and it correctly records
+**"Enforced by: nothing"** — whether an utterance is a standing authorization is a judgement about
+intent. This section governs something narrower and mechanically checkable: whether a **spec document**
+may pass GATE-APPROVAL on an instruction that was not given for that document. A standing
+authorization to keep working is not, on its own, approval of any particular spec.
+
+**Why a registry rather than an argument.** Both mature prior arts for standing authorization put the
+class in a register written before the instance. ITIL 4's _standard change_ is pre-authorised because a
+documented **change model was registered in advance**; an unregistered change takes the full
+authorization path however low-risk it looks. An AWS IAM **permissions boundary** _"defines the maximum
+permissions … but does not grant permissions"_ and is evaluated by the system, so a delegate cannot
+widen it by reasoning. Neither lets the party exercising the authority also decide the instance is
+inside it. An agent arguing at approval time that its item resembles a delegated class is precisely the
+half neither permits to stand alone.
+
+**Registry.** Each entry is a row. An entry authorises approval only for items that match its Scope
+**and** satisfy its Evidence condition.
+
+| Class ID            | Scope — what falls inside | Evidence condition | Authorising instruction (verbatim) | Registered |
+| ------------------- | ------------------------- | ------------------ | ---------------------------------- | ---------- |
+| _(none registered)_ | —                         | —                  | —                                  | —          |
+
+**The registry ships empty, and that is the design, not an omission.** Registering a class grants
+standing approval authority over every future item inside it, so a registry entry is itself a user
+decision under the ask-gates above — "the change introduces a practice this repository has not used
+before". **An agent may never add its own registry row.** A row is added only by a user instruction
+that names the class and its boundary, recorded verbatim in the row. Until a row exists, every spec
+document takes Route DIRECT, which is the behaviour before this rule and therefore fails closed.
+
+**A class may not be registered retroactively.** The `Registered` date is the date the user authorised
+the row. A spec document may cite a class only if its own approval date is on or after that date. This
+is what makes the rule unable to bless records written before it existed.
+
+**Never inside any class**, however the row is worded — these are the four exclusions from Standing
+authorization above, unchanged and not restated in any row:
+
+1. Product direction and user-facing scope.
+2. A published or externally visible contract.
+3. Repository-wide policy files — lint configuration, CI workflows, git hooks, workspace topology.
+4. A user-authored document.
+
+Plus one the approval gate adds: **a change to the rule documents that define the gates themselves**,
+including this section and `gate-catalogue.md`. A delegated class may not be used to approve a change
+to what delegation means.
+
+**A relay is not an instruction.** An instruction reported by another session, subagent, or document —
+rather than given in the conversation where the approval is being recorded — is recorded as context and
+authorises nothing on its own. This is not a slight on the reporting session; it is that a paraphrase
+cannot be checked against what the user actually said, which the Standing authorization section already
+states for the same reason.
+
+**Evidence form.** A GATE-APPROVAL entry MUST carry these fields, in this shape, so that DIRECT and
+CLASS passes are distinguishable at a glance and countable by machine. `standing-delegation-evidence`
+parses them; an entry it cannot parse is a FAIL, never a pass.
+
+The fields go under the Evidence Log's existing GATE-APPROVAL heading, whose shape
+`gate-catalogue.md` already owns. Only the fields are specified here.
+
+Route DIRECT:
+
+```markdown
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "<exactly what the user typed or selected>"
+**Given:** YYYY-MM-DD, this conversation
+```
+
+Route CLASS:
+
+```markdown
+**Approval route:** `CLASS`
+**Class:** `<Class ID from the registry>`
+**Instruction (verbatim):** "<exactly what the user typed or selected>"
+**Given:** YYYY-MM-DD, <the conversation it was given in>
+**Evidence condition met:** <the measurement, with its command and output — not an assertion>
+```
+
+<!-- The heading line is deliberately NOT reproduced inside these fences. A fenced `### …` is still a
+     line beginning with `###`, and `new-rule-declares-enforcement` reads it as a rule section — an
+     example that documents a form should not create a phantom rule by being written down. -->
+
+Enforced by: `standing-delegation-evidence` in `pnpm harness:scan`. It reads the route, the class, and
+the registry, and fails closed on a missing route, an unparseable entry, a class absent from the
+registry, a class registered after the approval date, and a CLASS entry with no verbatim instruction.
+What it deliberately does NOT decide is whether an item's _substance_ falls inside a registered
+class — that judgement stays with the scope wording in the row, which is why the scope column is
+required to be specific enough to be read against a diff.
+
 ---
 
 ## Recommendation Gate
