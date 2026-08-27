@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: RULE
 tags: [harness, enforcement]
 ---
@@ -146,3 +146,34 @@ Recorded as the rule's required choice rather than skipped.
 - [ ] `.agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** draft → review-ready
+
+**Judged by:** self-assessment against `.agents/specs/gate-catalogue.md` § GATE-WRITE. **Not a
+`backlog-gate-guard` verdict — no guardian agent was dispatched**, because agent dispatch is not
+available in the session that wrote this. Disclosed rather than left implicit; issue #2266 records
+that a self-issued gate entry is what nothing in this repository currently reads.
+
+Criteria, measured:
+
+```
+status: draft in frontmatter             1
+type: RULE (one of the 11)               yes
+tags: present                             1
+Prior Art — explicit `Waived:` line       1
+Architecture Review Checklist [x]         5   (incl. the conditional new-surface item, N/A)
+Alternatives Considered entries           3   (minimum 2)
+Completion Criteria with TC-N             6
+TBD / TODO occurrences                    0
+```
+
+- **Problem** carries a concrete symptom (the PR #2374 timeline with SHAs and verdict times) and the
+  reproduction condition for the rule's absence: both principles were transmitted as messages.
+- **Decision** names the trade-off and rejects alternative 2 on the ground that it reproduces the
+  defect it documents, citing issue #2188's measurement rather than asserting it.
+- **New-surface placement** is N/A and says so.
+
+**What this gate does not establish:** that the enforcement design is correct — that is GATE-VERIFY's
+— or that the owner wants it, which is GATE-APPROVAL's and is a fact about the user.
