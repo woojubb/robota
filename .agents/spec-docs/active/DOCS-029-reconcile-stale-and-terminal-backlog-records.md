@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, backlog]
 ---
@@ -122,7 +122,8 @@ verification in the Test Plan, not an invented product scenario.
 
 ## Tasks
 
-- [ ] `.agents/tasks/<ID>.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- `.agents/tasks/DOCS-029-reconcile-stale-and-terminal-backlog-records.md` — active paired work-unit
+  record.
 
 ## Evidence Log
 
@@ -209,3 +210,18 @@ against the narrowed six-record scope.
   package, app, public surface, or layer/product-family boundary.
 - The separately authorized `BACKLOG-ZERO-MIGRATION` class will be registered in its owning policy
   work unit after this batch; this DIRECT pass does not depend on that future registry entry.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/DOCS-029-reconcile-stale-and-terminal-backlog-records.md` exists and is
+  bound in the `## Tasks` section.
+- Spec record: `.agents/spec-docs/active/DOCS-029-reconcile-stale-and-terminal-backlog-records.md`.
+- The Task Plan contains one item for each TC-01 through TC-05, and its Test Plan names the focused,
+  lifecycle, harness, typecheck, and CI-equivalent verification.
+- Subject-bound user-execution PLAN: `SCENARIO DRAFTED: not-applicable | 0`, with the concrete reason
+  recorded in the Task: lifecycle records and baseline keys change, while every product surface and
+  runtime output remains identical.
+- **whole-worktree** check: only the exact Task/spec pair is present; no implementation, baseline,
+  source, unrelated staged, unstaged, untracked, renamed, or deleted path exists.
