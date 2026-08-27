@@ -1,7 +1,7 @@
 ---
 title: "RULE-016: PR bodies open with gate vocabulary and carry the agent's session link; the PR-description contract states fields but no order and no prohibition"
 issue: https://github.com/woojubb/robota/issues/2403
-status: todo
+status: in-progress
 created: 2026-08-28
 priority: high
 urgency: now
@@ -90,4 +90,4 @@ surface changes. The verification surface is the three fixture tests and the mut
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md`
+`.agents/spec-docs/active/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md`
