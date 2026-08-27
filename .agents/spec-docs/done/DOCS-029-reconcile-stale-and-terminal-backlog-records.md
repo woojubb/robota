@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: RULE
 tags: [harness, backlog]
 ---
@@ -122,8 +122,8 @@ verification in the Test Plan, not an invented product scenario.
 
 ## Tasks
 
-- `.agents/tasks/DOCS-029-reconcile-stale-and-terminal-backlog-records.md` — active paired work-unit
-  record.
+- `.agents/tasks/completed/DOCS-029-reconcile-stale-and-terminal-backlog-records.md` — completed
+  paired work-unit record.
 
 ## Evidence Log
 
@@ -140,6 +140,25 @@ verification in the Test Plan, not an invented product scenario.
 - Scope pass at the time of the first verdict: the audited snapshot was fixed to named IDs, so the
   completion criteria did not depend on an implementation-time inventory. The scope was subsequently
   narrowed before approval and requires a fresh GATE-WRITE revalidation below.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- TC-01 PASS: all six Tasks are archived as `done`; placement and archival scans exited 0.
+- TC-02 PASS: all six specs are rejected with historical verdicts preserved and explicit rejection
+  dispositions; folder/status exited 0.
+- TC-03 PASS: conformance, owner projection, typecheck, and six-package focused tests passed (15
+  files, 58 tests).
+- TC-04 PASS: citation, reference-kind, and standing-delegation scans passed; six keys were rekeyed
+  without baseline growth.
+- TC-05 PASS: 145 scans passed with two declared skips, and all 13 CI-equivalent stages passed,
+  including 3,928 contract tests, 1,149 hermetic tests, full build, typecheck, lint, and affected
+  verification.
+- Every Test Plan row records its executable verification or a concrete reason no new test was
+  authored. The exact Task is completion-ready with no pending or blocked item.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
 
@@ -273,9 +292,9 @@ against the narrowed six-record scope.
 - Verification: `pnpm harness:scan` and `pnpm harness:verify-like-ci` on the assembled committed
   implementation.
 - Result: the direct scan passed 145 scans with two declared skips. The CI mirror passed all 13
-  stages, including 3,928 contract tests, 1,149 hermetic tests, both scan suites, full typecheck, and
-  lint ceiling; build and affected-package verification were correctly skipped by the CI plan because
-  no package/app source was changed. Both commands exited 0.
+  stages on the final clean HEAD, including 3,928 contract tests, 1,149 hermetic tests, both scan
+  suites, a 1m46.2s full build, full typecheck, and lint ceiling. Affected verification reported no
+  package/app scope, as expected for this document-only diff. Both commands exited 0.
 - Test disposition: new test skipped because the existing repository and CI-equivalent gates are the
   direct acceptance tests for this document-only batch.
 

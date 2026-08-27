@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-029: reconcile delivered architecture migration records'
-status: in-progress
+status: done
 created: 2026-08-28
+completed: 2026-08-28
 priority: high
 urgency: now
 area: Task/spec lifecycle records and harness baselines
