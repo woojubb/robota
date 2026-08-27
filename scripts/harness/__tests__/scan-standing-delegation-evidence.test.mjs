@@ -260,6 +260,37 @@ describe('the declared size is a counter a test reads, not self-reported prose',
   });
 });
 
+describe('the scan REPORTS what it classifies', () => {
+  /**
+   * Everything above tests `classifyApproval`, and `classifyApproval` is not the guard. One line
+   * joins a classification to a reported refusal, and until this case existed nothing called the
+   * entry point in a state where a finding was REQUIRED — so disabling that line left the suite at
+   * 21 passing and the scan at `exit 0` with byte-identical output (issue #2388).
+   *
+   * That is this repository's recurring failure, and this one was inside the guard written to end
+   * it: a check whose absence and whose success are indistinguishable at the output. It is the same
+   * shape as `M7` killing zero cases, and as SEC-015 vanishing from the population unjudged.
+   *
+   * Both directions are required. The refused half alone would be satisfied by a scan that refuses
+   * everything; the compliant half is what makes the refusal discriminating rather than constant.
+   */
+  const FIXTURE = path.join(import.meta.dirname, '__fixtures__/standing-delegation');
+
+  it('reports a finding for the document that must be refused', () => {
+    const { findings } = findEvidenceFindings(FIXTURE);
+    const refused = findings.filter((f) => f.spec.includes('FIX-003-unrouted'));
+    expect(refused).toHaveLength(1);
+    expect(refused[0].problem).toMatch(/names no approval route/);
+  });
+
+  it('reports nothing for the documents that comply — the refusal is not constant', () => {
+    const { findings } = findEvidenceFindings(FIXTURE);
+    const specs = findings.map((f) => f.spec);
+    expect(specs.some((s) => s.includes('FIX-001-direct'))).toBe(false);
+    expect(specs.some((s) => s.includes('FIX-002-withdrawn-then-direct'))).toBe(false);
+  });
+});
+
 describe('the guard on the live tree', () => {
   it('passes, and reports the population it examined', () => {
     const result = scanStandingDelegationEvidence();
