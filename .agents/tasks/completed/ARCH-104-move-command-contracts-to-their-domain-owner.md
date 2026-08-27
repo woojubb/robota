@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-104: move command and capability contracts to their domain owner'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: packages/agent-command, packages/agent-command-workflows, packages/agent-framework,
@@ -47,12 +48,12 @@ Measured on `origin/develop` @ `bd50f8b28`.
 
 ## Completion Criteria
 
-- [ ] `agent-interface-command` exists at layer 0 with both modules and manifest deps `{agent-core}`.
-- [ ] `capability-contracts` moves and keeps its barrel export, per the issue #2177 ruling.
-- [ ] No command symbol is exported from `agent-interface-transport`'s barrel.
-- [ ] Every consumer imports command contracts from the new package.
-- [ ] `agent-interface-transport` stays declared at layer 1 — it still holds the session family.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `agent-interface-command` exists at layer 0 with both modules and manifest deps `{agent-core}`.
+- [x] `capability-contracts` moves and keeps its barrel export, per the issue #2177 ruling.
+- [x] No command symbol is exported from `agent-interface-transport`'s barrel.
+- [x] Every consumer imports command contracts from the new package.
+- [ ] `agent-interface-transport` stays declared at layer 1 — it still holds the session family. — allow-unmet-criterion: this current-state condition was true at the delivery commit, then ARCH-106 and ARCH-108 intentionally superseded it; the independent `backlog-gate-guard` verdict recorded below requires it to remain unticked.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -117,6 +118,20 @@ A `backlog-gate-guard` verdict reversed the conclusion while keeping the distinc
 > layer 1 at the time. But the gate asks whether the document satisfies its criterion **now**, and
 > what the criterion points at no longer exists.
 
-So it stays unticked. The distinction between _expired_ and _failed_ is worth keeping in the record;
-it just does not license a tick. That is the difference between describing a criterion's history and
-claiming it is satisfied.
+It remained unticked while the invalid planning lifecycle was unresolved and remains unticked in the
+completed archive. This reconciliation records that the Task's implementation was delivered while
+preserving the guardian's current-state verdict: transport was at layer 1 in `0c9c9fd59`, then ARCH-106
+and ARCH-108 intentionally superseded that temporary fact. Archival does not convert the expired
+criterion into a current-state pass.
+
+## Result
+
+Delivered by PR #2209 (`0c9c9fd59`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`; both exited 0 with the command family
+owned at layer 0 and no command-family transport export. The temporary transport-layer criterion
+remains unticked because ARCH-106 and ARCH-108 intentionally superseded it after the delivery commit.
+The batch also
+passed `pnpm harness:scan` (145 scans), workspace `pnpm typecheck` (109 projects), focused Vitest
+(15 files, 58 tests), and `pnpm harness:verify-like-ci` (all 13 stages). This Task is
+complete; the paired planning document is rejected separately because implementation preceded its
+GATE-IMPLEMENT checkpoint.

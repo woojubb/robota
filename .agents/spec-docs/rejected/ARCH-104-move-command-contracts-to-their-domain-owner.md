@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -215,8 +215,9 @@ all six TC-N checkboxes in `## Completion Criteria` are `[ ]`.
    one recorded PASS that precedes GATE-APPROVAL is not independent evidence. Its GATE-WRITE
    "Structure" criterion (Tasks section present) is also contradicted by the file: no `## Tasks`
    section exists, and the entry does not mention the item.
-2. The paired task record `.agents/tasks/ARCH-104-move-command-contracts-to-their-domain-owner.md` is
-   `status: in-progress` in `.agents/tasks/`, with all six of its completion criteria unchecked. The
+2. The paired task record, now archived at
+   `.agents/tasks/completed/ARCH-104-move-command-contracts-to-their-domain-owner.md`, was
+   `status: in-progress` in `.agents/tasks/` at the time, with all six completion criteria unchecked. The
    reported uncommitted move to `completed/` with `status: done` is **not present in this clone** —
    `git status --porcelain` on `develop` shows only `.agents/evals/lessons/auto-lessons.md` and
    `.agents/evals/lessons/weekly-digest.md` modified.
@@ -237,3 +238,13 @@ owns the criteria — not a guardian ticking a box against a fact that has moved
 gate. Resolution requires the orchestrator to rule on a pipeline whose GATE-IMPLEMENT and GATE-VERIFY
 cannot be honestly recorded after the fact, and the layer-1 criterion to be re-stated or marked
 superseded before any completion verdict is attempted.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2209
+(`0c9c9fd59`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-104-move-command-contracts-to-their-domain-owner.md`; rejection closes
+the bypassed plan without manufacturing historical gate verdicts.

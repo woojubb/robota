@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-108: narrow the transport owner and prove the omnibus surface is gone'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-24
 priority: high
 urgency: now
 area: apps/remote-signaling, packages/agent-cli, packages/agent-interface-session,
@@ -67,11 +68,11 @@ owner's 2026-08-23 ruling that in-repo consumer count is not evidence about a `p
 
 ## Completion Criteria
 
-- [ ] `createTestInteractiveSession` lives in `agent-interface-session/testing`; consumers updated.
-- [ ] `agent-interface-transport` declares **layer 0**, and both guards agree.
-- [ ] Resolution-level absence proof passes over source, consumers and the **freshly built** types.
-- [ ] The omnibus finding is recorded as satisfied-by-predecessors with its measurement.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `createTestInteractiveSession` lives in `agent-interface-session/testing`; consumers updated.
+- [x] `agent-interface-transport` declares **layer 0**, and both guards agree.
+- [x] Resolution-level absence proof passes over source, consumers and the **freshly built** types.
+- [x] The omnibus finding is recorded as satisfied-by-predecessors with its measurement.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -177,3 +178,14 @@ missed the `/testing` subpath once — the same surface that had refuted ARCH-10
 a second time by a check written after that lesson.
 
 Filed from this leaf: issue #2228, issue #2233, issue #2236, issue #2248, issue #2249.
+
+## Result
+
+Delivered by PR #2244 (`c1dd93768`) on 2026-08-24. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`; both exited 0 after checking 22
+contract modules and four manifest edges. Transport currently depends only on `agent-core`, both
+published entries remain covered, and the projected graph is legal and acyclic. The batch also
+passed `pnpm harness:scan` (145 scans), workspace `pnpm typecheck` (109 projects), focused Vitest
+(15 files, 58 tests), and `pnpm harness:verify-like-ci` (all 13 stages). This Task is
+complete; the paired planning document is rejected separately because its gate evidence and the
+implementation landed together instead of through a pre-implementation planning checkpoint.

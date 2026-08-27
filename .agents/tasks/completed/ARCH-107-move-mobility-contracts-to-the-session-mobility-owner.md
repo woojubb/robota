@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-107: move peer and handoff contracts to the session-mobility owner'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: packages/agent-cli, packages/agent-framework, packages/agent-interface-session-mobility,
@@ -80,10 +81,10 @@ its import is therefore outside the projection. The manifest-level guard has the
 
 ## Completion Criteria
 
-- [ ] `agent-interface-session-mobility` exists at layer 2 with the three modules.
-- [ ] `agent-interface-transport` is declared at layer 0 — its name finally describes its contents.
-- [ ] No mobility symbol is exported from `agent-interface-transport`'s barrel.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `agent-interface-session-mobility` exists at layer 2 with the three modules.
+- [x] `agent-interface-transport` is declared at layer 0 — its name finally describes its contents.
+- [x] No mobility symbol is exported from `agent-interface-transport`'s barrel.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -141,3 +142,13 @@ contract modules and forgot the published `/testing` subpath.
 **The rule states an AGGREGATION — take the maximum — and does not state the DOMAIN it aggregates
 over.** Two failures with the same cause indict the wording rather than the author, which is what a
 pre-registered prediction is for. Issue #2218 is the amendment.
+
+## Result
+
+Delivered by PR #2220 (`4ed80522b`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The mobility owner
+remains at layer 2 with its declared downward session edge, transport is layer 0, and no mobility
+symbol is reachable through transport. The batch also passed `pnpm harness:scan` (145 scans),
+workspace `pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is
+rejected separately because implementation preceded its GATE-IMPLEMENT checkpoint.

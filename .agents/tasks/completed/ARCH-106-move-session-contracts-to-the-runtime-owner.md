@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-106: move session, interaction, event and persistence contracts to the runtime owner'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: apps/agent-server, apps/remote-signaling, packages/agent-cli, packages/agent-command,
@@ -53,12 +54,12 @@ stale and understated the module count by seven.
 
 ## Completion Criteria
 
-- [ ] `agent-interface-session` exists at layer 1 with the eight modules.
-- [ ] Each of the 38 mixed statements is split by the recorded rule, and the result is checked
+- [x] `agent-interface-session` exists at layer 1 with the eight modules.
+- [x] Each of the 38 mixed statements is split by the recorded rule, and the result is checked
       against that rule rather than against the build.
-- [ ] `agent-interface-transport` is declared at layer 0, in its own commit with its own reasoning.
-- [ ] No session symbol is exported from `agent-interface-transport`'s barrel.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `agent-interface-transport` is declared at layer 0, in its own commit with its own reasoning.
+- [x] No session symbol is exported from `agent-interface-transport`'s barrel.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -122,3 +123,14 @@ barrel re-exports"), which is the only reason it was caught at all — the build
 because a wrong split still compiles whenever both packages export the name.
 
 Those four readers are the symbols that make issue #2260 a live release problem.
+
+## Result
+
+Delivered by PR #2217 (`22152ef9d`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The session owner
+remains a legal layer-1 composition, transport is layer 0, and no session-family symbol is reachable
+through transport. The ninth current module was added later by TRANS-007 and does not invalidate the
+eight-module delivery claim. The batch also passed `pnpm harness:scan` (145 scans), workspace
+`pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is rejected
+separately because implementation preceded its GATE-IMPLEMENT checkpoint.

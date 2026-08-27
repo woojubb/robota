@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-103: move background, subagent and workspace contracts to the execution owner'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: high
 urgency: now
 area: apps/agent-server, packages/agent-command, packages/agent-executor,
@@ -50,13 +51,13 @@ Measured on `origin/develop` @ `917f849de`.
 
 ## Completion Criteria
 
-- [ ] `agent-interface-execution` exists at layer 0 with the four modules and manifest deps
+- [x] `agent-interface-execution` exists at layer 0 with the four modules and manifest deps
       `{agent-core}` only.
-- [ ] `workspace-contracts` imports `IBackgroundJobGroupState` from its declaring module.
-- [ ] No execution symbol is exported from `agent-interface-transport`'s barrel.
-- [ ] Every consumer imports execution contracts from the new package.
-- [ ] `interface-family-owner` reports the new placement and a legal layer graph.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `workspace-contracts` imports `IBackgroundJobGroupState` from its declaring module.
+- [x] No execution symbol is exported from `agent-interface-transport`'s barrel.
+- [x] Every consumer imports execution contracts from the new package.
+- [x] `interface-family-owner` reports the new placement and a legal layer graph.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -114,3 +115,14 @@ the omnibus carried.
 build failed with 24 `MISSING_EXPORT` errors. That reproduced the exact blind spot HARNESS-116 had
 fixed in the accompanying scan the same morning — **a codemod inherits the parser blind spots of the
 scan it accompanies, and nothing links them.** Filed as issue #2206.
+
+## Result
+
+Delivered by PR #2203 (`bd50f8b28`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`: 22 contract modules were
+placement-checked, all four manifest edges matched the projection, and both commands exited 0.
+The execution owner remains at layer 0, consumers resolve through it, and no execution-family symbol
+is reachable through the transport owner. The batch also passed `pnpm harness:scan` (145 scans),
+workspace `pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is
+rejected separately because implementation preceded its GATE-IMPLEMENT checkpoint.

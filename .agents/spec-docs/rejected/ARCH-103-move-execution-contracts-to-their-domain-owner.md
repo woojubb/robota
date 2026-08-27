@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -236,8 +236,9 @@ was supposed to authorize has already shipped.
   verdict — no guardian agent was dispatched." The only prior evidence for the upstream gate is
   author-recorded, not an independent guardian verdict.
 - All six TC-01…TC-06 checkboxes in `## Completion Criteria` are `[ ]` unchecked, and the paired task
-  record `.agents/tasks/ARCH-103-move-execution-contracts-to-their-domain-owner.md` carries
-  `status: in-progress` with all six of its task items `[ ]` unchecked — while the implementation is
+  record, now archived at
+  `.agents/tasks/completed/ARCH-103-move-execution-contracts-to-their-domain-owner.md`, carried
+  `status: in-progress` with all six of its task items `[ ]` unchecked at the time — while the implementation is
   merged. (The claim that an uncommitted change moves that task to `completed/` with `status: done`
   does not hold in this clone: `git status --porcelain` shows only
   `.agents/evals/lessons/auto-lessons.md` and `.agents/evals/lessons/weekly-digest.md` modified.)
@@ -254,3 +255,13 @@ each gate dated when it is actually run and labelled as retrospective, or reject
 the merged-without-gates state as the process finding it is. Whichever is chosen, the missing
 `## Tasks` section must be authored and the TC checkboxes and task record brought into agreement with
 the shipped code before GATE-COMPLETE can be run at all.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2203
+(`bd50f8b28`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-103-move-execution-contracts-to-their-domain-owner.md`; rejection closes
+the bypassed plan without manufacturing historical gate verdicts.

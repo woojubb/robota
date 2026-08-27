@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -222,9 +222,10 @@ entries, and the spec has no `## Tasks` section at all (section list: Problem, P
 Architecture Review Checklist, Alternatives Considered, Decision, Completion Criteria, Test Plan,
 User Execution Test Scenarios, Evidence Log), so no active task path is named.
 
-**Working-tree note:** the paired task record
-`.agents/tasks/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md` reads `status:
-in-progress` with 0 of 5 completion criteria checked, and `git status --porcelain` reports it clean.
+**Working-tree note:** the paired task record, now archived at
+`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md`, read
+`status: in-progress` with 0 of 5 completion criteria checked at the time, and
+`git status --porcelain` reported it clean.
 An uncommitted change in another clone is not evidence available to this gate.
 
 **Required action:** Not this guardian's call to sequence, but the record cannot be repaired by
@@ -233,3 +234,13 @@ of its GATE-IMPLEMENT verdict is reconciled — the choice is between a recorded
 out-of-order-execution finding that the later gates then judge against the shipped state, and
 rejection of the spec document — per `spec-workflow.md` HARD GATE and
 `backlog-execution-orchestrator` Phase 5.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2214
+(`c621e4d49`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md`; rejection
+closes the bypassed plan without manufacturing historical gate verdicts.

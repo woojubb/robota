@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -219,9 +219,10 @@ GATE-VERIFY, and it cannot authorize retroactively: a PASS recorded here would n
 those two gates, it would be a **backdating** of them — writing `verifying → done` over a document that
 never entered `in-progress`. That is the one thing a gate must never do, so this halts here.
 
-**Paired task record contradicts completion** (judged as this working tree holds it, unmodified —
-`git status` reports it clean): `.agents/tasks/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`
-is `status: in-progress` with **0 of 4 tasks checked**. An uncommitted change in a different clone is
+**Paired task record contradicts completion** (judged as this working tree held it, unmodified —
+`git status` reported it clean): the Task now archived at
+`.agents/tasks/completed/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md` was
+`status: in-progress` with **0 of 4 tasks checked** at the time. An uncommitted change in a different clone is
 not evidence in this one.
 
 **Incidental, not the deciding basis** (recorded so a later run does not read this entry as clearing
@@ -234,3 +235,13 @@ gap between the recorded pipeline state and the merged tree is a process breach 
 decision — reconstruct the skipped GATE-IMPLEMENT/GATE-VERIFY record against the merged commit, or
 close this item out under the Rejection Action. Routing that decision belongs to the orchestrator,
 not to this guardian.
+
+### [REJECTION] — 2026-08-28
+
+This planning document is deliberately rejected rather than retroactively promoted: PR #2220
+(`4ed80522b`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-107-move-mobility-contracts-to-the-session-mobility-owner.md`; rejection
+closes the bypassed plan without manufacturing historical gate verdicts.

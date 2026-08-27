@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-105: extract analytics and usage contracts to their reporting owner'
-status: in-progress
+status: done
 created: 2026-08-23
+completed: 2026-08-23
 priority: medium
 urgency: now
 area: packages/agent-framework, packages/agent-interface-analytics,
@@ -49,11 +50,11 @@ Measured on `origin/develop` @ `0c9c9fd59`.
 
 ## Completion Criteria
 
-- [ ] `agent-interface-analytics` exists at layer 0 with the seven declarations.
-- [ ] `session-contracts.ts` no longer declares them and imports what it still needs.
-- [ ] No analytics symbol is exported from `agent-interface-transport`'s barrel.
-- [ ] Every consumer imports them from the new package.
-- [ ] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
+- [x] `agent-interface-analytics` exists at layer 0 with the seven declarations.
+- [x] `session-contracts.ts` no longer declares them and imports what it still needs.
+- [x] No analytics symbol is exported from `agent-interface-transport`'s barrel.
+- [x] Every consumer imports them from the new package.
+- [x] `pnpm harness:scan` exit 0 and `pnpm harness:verify-like-ci` green.
 
 ## Test Plan
 
@@ -108,3 +109,13 @@ source-level check cannot see what a re-export chain publishes.
 This was the leaf that had to extract a family **by symbol rather than by file**, because the seven
 declarations shared a module with contracts belonging to another owner. The owner map records that as
 a note precisely so a later reader does not assume file-granularity was always available.
+
+## Result
+
+Delivered by PR #2214 (`c621e4d49`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+`scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The seven analytics
+declarations remain owned by the dependency-free analytics package, and none is reachable through
+the transport owner. The batch also passed `pnpm harness:scan` (145 scans), workspace
+`pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is rejected separately
+because implementation preceded its GATE-IMPLEMENT checkpoint.

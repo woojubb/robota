@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: DATA
 tags: [typescript]
 ---
@@ -292,3 +292,12 @@ earlier leaf to record a measured fact; this leaf changed the fact. Both updated
 that produced the new number, and `interface-layers` now asserts the two edges layer 0 makes ILLEGAL
 (`upward` to session, `same-layer` to execution) rather than the bare integer — a layer is what
 forbids an edge, not a label.
+
+### [REJECTION] — 2026-08-28
+
+The GATE-APPROVAL, GATE-IMPLEMENT, and GATE-VERIFY entries above are preserved verbatim as historical
+evidence. They do not form a valid gate chain: approval was recorded after implementation was already
+present, while implementation and verification evidence were recorded at the same already-completed
+checkpoint in PR #2244 (`c1dd93768`). This document is deliberately rejected rather than
+retroactively promoted. The delivered work remains recorded by the completed Task at
+`.agents/tasks/completed/ARCH-108-narrow-transport-and-prove-the-omnibus-is-gone.md`.
