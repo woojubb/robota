@@ -324,29 +324,35 @@ suite and says so, which is the fail-closed direction, not a fallback.
       `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every new scan
       and for `gate.mjs`.
 
+- [ ] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
+      first L1 item after it — measures, from the session log, prompt → PR opened ≤ 20 min excluding CI
+      wait, ≤ 2 subagent dispatches, ≤ 3 commits on the PR; the three numbers and the session id are
+      recorded in the Evidence Log. A miss is a GATE-COMPLETE FAIL, not a note.
+
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                             | Notes                                                                  |
-| ----- | --------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
-| TC-01 | Unit      | `rg` assertions on `spec-workflow.md`                       | Pins the presence of the lane table and the absence of "no exceptions" |
-| TC-02 | Unit      | fixtures for `scan-lane-declaration.mjs`                    | Six refusals and two acceptances; the acceptances are the control      |
-| TC-03 | Unit      | `rg -c` on `gate-catalogue.md`                              | Count equality, not presence                                           |
-| TC-04 | Unit      | fixtures for `gate.mjs judge / advance / approve`           | The FAIL entry must name the criterion                                 |
-| TC-05 | Unit      | `rg` on the three skill files                               |                                                                        |
-| TC-06 | Unit      | `new-spec.mjs --dry-run` piped into `gate.mjs judge`        | The scaffold passes its own gate                                       |
-| TC-07 | Unit      | fixtures for `run-all-scans.mjs --affected`; `rg` on ci.yml | Includes the unclassifiable-path full-suite case                       |
-| TC-08 | Measured  | `time pnpm harness:pre-push` on a one-file change           | Wall time recorded; the bound is a measurement, not a claim            |
-| TC-09 | Unit      | `run-all-scans.mjs` fixture with an advisory scan failing   | Exit differs by context (PR vs develop)                                |
-| TC-10 | Unit      | `scan-standing-delegation-evidence.mjs` on a CLASS fixture  | Row text is the owner's; the test checks the parser accepts it         |
-| TC-11 | Unit      | `merge-gate.sh` fixtures (RULE-015 B and C replayed)        | Overlap 0 passes; overlap 1 refuses naming the file                    |
-| TC-12 | Suite     | `pnpm harness:scan`, `pnpm harness:test`, red-proof         | Regression                                                             |
+| TC-ID | Test Type | Tool / Approach                                             | Notes                                                                   |
+| ----- | --------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| TC-01 | Unit      | `rg` assertions on `spec-workflow.md`                       | Pins the presence of the lane table and the absence of "no exceptions"  |
+| TC-02 | Unit      | fixtures for `scan-lane-declaration.mjs`                    | Six refusals and two acceptances; the acceptances are the control       |
+| TC-03 | Unit      | `rg -c` on `gate-catalogue.md`                              | Count equality, not presence                                            |
+| TC-04 | Unit      | fixtures for `gate.mjs judge / advance / approve`           | The FAIL entry must name the criterion                                  |
+| TC-05 | Unit      | `rg` on the three skill files                               |                                                                         |
+| TC-06 | Unit      | `new-spec.mjs --dry-run` piped into `gate.mjs judge`        | The scaffold passes its own gate                                        |
+| TC-07 | Unit      | fixtures for `run-all-scans.mjs --affected`; `rg` on ci.yml | Includes the unclassifiable-path full-suite case                        |
+| TC-08 | Measured  | `time pnpm harness:pre-push` on a one-file change           | Wall time recorded; the bound is a measurement, not a claim             |
+| TC-09 | Unit      | `run-all-scans.mjs` fixture with an advisory scan failing   | Exit differs by context (PR vs develop)                                 |
+| TC-10 | Unit      | `scan-standing-delegation-evidence.mjs` on a CLASS fixture  | Row text is the owner's; the test checks the parser accepts it          |
+| TC-11 | Unit      | `merge-gate.sh` fixtures (RULE-015 B and C replayed)        | Overlap 0 passes; overlap 1 refuses naming the file                     |
+| TC-12 | Suite     | `pnpm harness:scan`, `pnpm harness:test`, red-proof         | Regression                                                              |
+| TC-13 | Measured  | session log of one L1 item through the new lane             | The claim this item makes, judged by measurement; a miss fails the gate |
 
 ## User Execution Test Scenarios
 
 Not applicable — this changes rules, gate scripts, one git hook and CI selection. No command, flag,
 output, config key or exported symbol observable by an end user of the product changes. The nearest
 executable surfaces are harness scripts and a hook, both developer gates, covered by TC-02 through
-TC-11.
+TC-11; TC-13 measures the lane on a real item.
 
 Recorded as the rule's required choice rather than skipped.
 
