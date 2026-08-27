@@ -4,8 +4,9 @@
  * Claude review coverage guard (INFRA-098).
  *
  * Scope: workflow files under `.github/workflows` that invoke
- * `anthropics/claude-code-action`. This guard owns only PR event coverage and the exact verdict
- * identity markers. Token supply and permission breadth remain owned by their existing scans.
+ * `anthropics/claude-code-action`. This guard owns PR event coverage, the exact verdict identity
+ * markers, and the prompt output-language contract. Token supply and permission breadth remain
+ * owned by their existing scans.
  *
  * Exit 0 = at least one governed workflow was examined and all pass; 1 = finding or unreadable tree.
  */
@@ -21,6 +22,8 @@ const REQUIRED_EVENTS = ['opened', 'synchronize', 'reopened', 'edited'];
 const FORBIDDEN_FILTER = /^\s*(branches|branches-ignore|paths|paths-ignore):/;
 const REQUIRED_JOB_IF =
   "${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}";
+const REQUIRED_ENGLISH_OUTPUT = 'Write the PR summary and every inline review comment in English.';
+const HANGUL_PATTERN = /\p{Script=Hangul}/u;
 let examinedCount = 0;
 
 export function readExamined() {
@@ -175,6 +178,16 @@ export function findWorkflowCoverageFindings(source) {
   ];
   for (const actionIndex of actions) {
     const prompt = promptBlock(lines, actionIndex);
+    if (!prompt.some((line) => line.trim() === REQUIRED_ENGLISH_OUTPUT)) {
+      findings.push({
+        detail: `review prompt is missing the explicit English-output contract: ${REQUIRED_ENGLISH_OUTPUT}`,
+      });
+    }
+    if (prompt.some((line) => HANGUL_PATTERN.test(line))) {
+      findings.push({
+        detail: 'review prompt contains Hangul; its instructions must be English-only',
+      });
+    }
     for (const [label, value] of markers) {
       const exactMarker = `${label}: ${value}`;
       if (!prompt.some((line) => line.trim().replaceAll('`', '') === exactMarker)) {

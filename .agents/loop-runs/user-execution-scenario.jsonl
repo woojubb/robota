@@ -4,3 +4,4 @@
 {"runId":"r20260824172131","opened":"2026-08-24T17:21:31.574Z","closed":"2026-08-24T17:22:33.594Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":null}
 {"runId":"r20260825000513","opened":"2026-08-25T00:05:13.819Z","closed":"2026-08-25T00:05:47.669Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"HARNESS-119 SCENARIO DRAFTED: not-applicable | 0"}
 {"runId":"r20260827135729","opened":"2026-08-27T13:57:29.913Z","closed":"2026-08-27T13:57:41.052Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md"}
+{"runId":"r20260827142345","opened":"2026-08-27T14:23:45.792Z","closed":"2026-08-27T14:23:50.117Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/tasks/INFRA-134-claude-pr-review-output-is-english.md"}
