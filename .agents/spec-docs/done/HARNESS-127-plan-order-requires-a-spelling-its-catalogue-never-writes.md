@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: RULE
 tags: [harness, testing]
 ---
@@ -241,7 +241,7 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` — 생성됨 (GATE-IMPLEMENT에서 바인딩)
+- [x] `.agents/tasks/completed/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` — done 2026-08-27
 
 ## Evidence Log
 

@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-127: plan-order requires a spelling its catalogue never writes'
 issue: https://github.com/woojubb/robota/issues/2378
-status: in-progress
+status: done
+completed: 2026-08-27
 created: 2026-08-27
 priority: high
 urgency: now
@@ -110,4 +111,4 @@ verification surface is the harness gate — the binding test and the mutation a
 
 ## Bound spec document
 
-`.agents/spec-docs/active/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md`
+`.agents/spec-docs/done/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md`
