@@ -77,6 +77,18 @@ paired spec.
 
 ## User Execution Test Scenarios
 
-Not applicable — rules, gate scripts, hooks, and CI selection; no runnable user-facing product
-behaviour changes. Document and script checks belong to the Test Plan above, per
-`.agents/tasks/README.md`.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Not applicable. The independent scenario author's verdict, with the reason recorded rather than
+asserted: every affected path is a rule (`spec-workflow.md`, `backlog-execution.md`), a spec
+(`gate-catalogue.md`), a skill, a template, a harness script under `scripts/harness/`, the git hook
+`.claude/hooks/merge-gate.sh`, or the CI workflow `.github/workflows/ci.yml`. Nothing under
+`packages/` or `apps/` changes, so no `robota` CLI command, TUI action, browser flow, or public SDK
+export behaves differently before and after. The nearest executable surfaces — `pnpm harness:scan`,
+`node scripts/harness/gate.mjs`, `new-spec.mjs`, `pre-push.mjs`, and the merge-gate hook — are
+developer gates; `.agents/tasks/README.md` and the User Execution Test Scenario Rule place harness
+commands and hooks in `## Test Plan`, and a scenario written against them would be an engineering
+check wearing a user-execution label. This is not a capability behind an internal seam: its entire
+effect is on the project's own pipeline machinery, and there is no user-facing behaviour left
+unreachable. Verification evidence is the engineering Test Plan above (TC-01..TC-13 in the paired
+spec).

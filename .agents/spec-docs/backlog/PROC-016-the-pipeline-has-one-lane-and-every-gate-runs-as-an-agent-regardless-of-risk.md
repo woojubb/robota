@@ -323,7 +323,6 @@ suite and says so, which is the fail-closed direction, not a fallback.
 - [ ] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
       `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every new scan
       and for `gate.mjs`.
-
 - [ ] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
       first L1 item after it — measures, from the session log, prompt → PR opened ≤ 20 min excluding CI
       wait, ≤ 2 subagent dispatches, ≤ 3 commits on the PR; the three numbers and the session id are
@@ -394,3 +393,37 @@ Recorded as the rule's required choice rather than skipped.
 - Structure — Tasks section with placeholder: PASS (line 353–355, points at the paired Task, which exists at `.agents/tasks/PROC-016-…md` with `status: todo`).
 - Structure — Evidence Log present and empty on first run: PASS (line 357, empty before this entry).
 - Structure — no `## Status` / `## Classification` body sections: PASS (grep returns none).
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** review-ready → review-ready (re-run on a revised document; no transition)
+
+- Run context: second GATE-WRITE run. Revision commit `6afa4f962` adds TC-13, its Test Plan row (rows TC-01…TC-12 differ by column padding only), and one clause in User Execution Test Scenarios; no Architecture Review, Decision, or frontmatter change. Evidence Log held exactly one entry (GATE-WRITE PASS 2026-08-28) — no later gate has run, so no post-approval modification occurred.
+- Ordering: entry gate, no prior gate required. Document is `status: review-ready` in `.agents/spec-docs/backlog/`, the state the prior PASS produced and the input state set for this re-run; frontmatter and folder agree with `spec-workflow.md` § Status and Lifecycle Folders (`review-ready` ↔ `backlog/`).
+- Frontmatter — file begins with `---` block: PASS (lines 1–5).
+- Frontmatter — `status: draft`: N/A on re-run — the `draft` input state belongs to the first run (the catalogue scopes the sibling Evidence-Log criterion the same way); current `status: review-ready` is the recorded, folder-consistent output of the earlier PASS. `check-spec-doc-frontmatter.mjs` exits 0 over 320 documents.
+- Frontmatter — `type:` one of the 11 prefixes: PASS (`type: RULE`).
+- Frontmatter — `tags:` present: PASS (`tags: [harness, enforcement]`).
+- Problem — concrete symptom: PASS (unchanged since the prior run, re-read: measured session `92807a20` table — 72 min wall clock, 4 min implementation, 15 dispatches, 7 guard runs 7/7 PASS; 19/21 rebases with zero file overlap; 147-scan full runs not consulting `classify-changed-paths.mjs`).
+- Problem — reproduction condition: PASS (**Reproduction condition** paragraph, line 57: any item touching no contract boundary entering via `user-request-gate` / `issue-to-backlog`).
+- Problem — no TBD/TODO/vague one-liners: PASS (grep `TBD|TODO` over the Problem section: none).
+- Prior Art — section present: PASS (`## Prior Art Research`, line 61).
+- Prior Art — substantiated by documentation sources: PASS (six documentation URLs — Atlassian ITSM change types, DORA streamlining-change-approval, GitHub protected branches + merge queue, Google eng-practices small CLs, Nx `affected`, git `gitattributes` merge drivers; no third-party source code). `scan-spec-research.mjs` exits 0.
+- Prior Art — `Waived:` line: N/A — section is substantiated; no waiver needed.
+- Prior Art — findings feed Alternatives/Decision: PASS ("Observed common behaviour" — risk class recorded on the change, re-validate once at landing — is the basis of Alternative 1's lanes, `--affected` selection and the interaction-based merge gate; ITIL standard change is tied to the existing delegated-approval registry; GitHub non-strict policy is cited for the merge-gate semantics).
+- Checklist — all 4 items `[x]`: PASS (lines 228–236).
+- Checklist — Sibling scan `[x]` with evidence: PASS (names `backlog-execution.md` § Delegated Approval Classes, `scan-doc-folder-status-agreement`, `scan-user-execution-plan-order`, `classify-changed-paths.mjs`, issue #2386 as existing owners extended, not duplicated).
+- Alternatives ≥2 with pro/con: PASS (4 alternatives, each with Pro and Con).
+- Decision references the driving trade-off: PASS ("alternatives 2 and 4 each recover one slice and leave the structure that produces the cost; alternative 3 recovers the time by removing the record"; width of change accepted as the con).
+- New-surface placement: N/A — explicit `N/A` with reason on the checklist (line 237); harness scripts, a template, rule/catalogue/skill text, one hook, one workflow — no new package/app/presentation/interface surface, no layer or product-family reclassification.
+- Completion Criteria — every item `TC-N` prefixed: PASS (13 items TC-01…TC-13; 0 without prefix). Note: a blank line separates TC-13 from TC-12, splitting the markdown list — cosmetic, counted correctly by the section greps and `scan-test-plan.mjs`.
+- Completion Criteria — ≥1 criterion per feature/sub-item: PASS (TC-01…TC-12 cover Solution steps 1–8 and regression; TC-13 covers step 9 "re-measure one L1 item", which the prior run had no criterion for).
+- Completion Criteria — Command or Observable form: PASS. TC-13 is Observable form with numeric bounds (prompt → PR opened ≤ 20 min excluding CI wait, ≤ 2 subagent dispatches, ≤ 3 commits) and a named record location (Evidence Log, with session id). Observation for the approver, not a form defect: its second arm ("the first L1 item after it") can only be checked after this item's own GATE-COMPLETE, so satisfying TC-13 at COMPLETE requires the first arm.
+- Completion Criteria — no banned phrases: PASS (grep `works correctly|no errors|implemented|displays correctly` over the section: none).
+- Test Plan — section present: PASS (line 332).
+- Test Plan — one row per TC-N: PASS (13 Completion Criteria TC-N = 13 Test Plan rows, TC-01…TC-13, ids match one-to-one).
+- Test Plan — non-empty Test Type and Tool, no TBD: PASS (TC-13: `Measured` / `session log of one L1 item through the new lane`; all 13 rows populated; no `TBD` in the section). `scan-test-plan.mjs` exits 0 over 42 documents.
+- Test Plan — manual rows have Notes: N/A — no row has Tool "manual".
+- Structure — Tasks section with placeholder: PASS (line 361, points at the paired Task, which exists with `status: todo`).
+- Structure — Evidence Log present and empty (first run): N/A — not the first run; the log holds only the prior GATE-WRITE PASS, which this entry follows rather than replaces.
+- Structure — no `## Status` / `## Classification` body sections: PASS (grep: none).
