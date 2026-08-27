@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, backlog]
 ---
@@ -194,3 +194,18 @@ against the narrowed six-record scope.
 - `ACTIONABLE FINDINGS: 0`
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** review-ready → approved
+
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+
+- The approval names `DOCS-029` directly and authorizes this document before implementation.
+- No Architecture Review content, type, or tags changed after approval.
+- Independent new-surface placement validation is not applicable because this batch introduces no
+  package, app, public surface, or layer/product-family boundary.
+- The separately authorized `BACKLOG-ZERO-MIGRATION` class will be registered in its owning policy
+  work unit after this batch; this DIRECT pass does not depend on that future registry entry.
