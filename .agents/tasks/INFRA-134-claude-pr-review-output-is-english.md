@@ -16,6 +16,8 @@ Ensure the pull-request-only Claude Code Review workflow writes its PR summary a
 review comment in English, and mechanically reject future prompt edits that remove or mix the
 language contract.
 
+no-issue: captured directly from the owner request in this conversation.
+
 ## Plan
 
 - [ ] Translate the action-owned `prompt: |` block into English while preserving the exact review

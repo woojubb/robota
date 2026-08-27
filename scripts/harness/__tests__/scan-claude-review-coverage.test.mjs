@@ -43,6 +43,7 @@ jobs:
         with:
           github_token: \${{ secrets.GITHUB_TOKEN }}
           prompt: |
+            Write the PR summary and every inline review comment in English.
             REVIEWED BASE: \${{ github.event.pull_request.base.sha }}
             REVIEWED HEAD: \${{ github.event.pull_request.head.sha }}
             ACTIONABLE FINDINGS: <n>
@@ -81,6 +82,27 @@ describe('scan-claude-review-coverage (INFRA-098)', () => {
       );
     },
   );
+
+  it('rejects a reviewer prompt without the explicit English-output contract', () => {
+    const source = workflow().replace(
+      'Write the PR summary and every inline review comment in English.',
+      'Review the pull request.',
+    );
+    expect(findWorkflowCoverageFindings(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringMatching(/English-output contract/i) }),
+      ]),
+    );
+  });
+
+  it('rejects Hangul even when the explicit English-output contract remains', () => {
+    const source = workflow().replace('REVIEWED BASE:', '리뷰 기준\n            REVIEWED BASE:');
+    expect(findWorkflowCoverageFindings(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringMatching(/Hangul/) }),
+      ]),
+    );
+  });
 
   it('accepts the all-base lifecycle and exact event SHA markers', () => {
     expect(findWorkflowCoverageFindings(workflow())).toEqual([]);

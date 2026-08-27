@@ -74,81 +74,96 @@ jobs:
             BASE SHA: ${{ github.event.pull_request.base.sha }}
             HEAD SHA: ${{ github.event.pull_request.head.sha }}
 
-            이 PR의 변경분(diff)을 리뷰한다. 이것은 **가벼운 통과 리뷰**다 — 머지를 막을 만한
-            결함만 찾고, 그 외에는 아무것도 쓰지 않는다. 깊은 감사는 작성자가 필요할 때 별도로
-            호출한다.
+            Write the PR summary and every inline review comment in English.
 
-            **지적으로 세는 기준(이 문턱을 넘지 못하면 쓰지 않는다).** 구체적인 실패 시나리오를
-            한 문장으로 적을 수 있어야 한다 — 어떤 입력·상태에서 무엇이 잘못된 결과가 되는지.
-            적을 수 없으면 그것은 취향이거나 추측이고, 이 리뷰의 대상이 아니다.
+            Review the diff in this PR. This is a **lightweight pass review**: find only defects
+            serious enough to block a merge, and write nothing else. The author invokes a deep
+            audit separately when needed.
 
-            - 센다: 잘못된 동작, 크래시, 데이터 손상, 보안 결함, 조용히 삼켜지는 오류,
-              버그 코드에서도 통과하는 회귀 테스트.
-            - 세지 않는다(쓰지도 않는다): 명명·주석 문구·문서 표현·테스트 제목·포매팅,
-              "이렇게 하는 편이 낫다"류의 대안 설계, 이 PR이 건드리지 않은 기존 코드,
-              확신이 낮아 확인이 더 필요한 의심.
+            **Threshold for counting a finding (do not write it unless it clears this bar).** You
+            must be able to state a concrete failure scenario in one sentence: under which input
+            or state, and what incorrect result occurs. If you cannot, it is preference or
+            speculation and is outside the scope of this review.
 
-            확신이 낮으면 적지 않는다. 낮은 확신을 CONSIDER 로 낮춰 적는 것은 이 리뷰에서
-            하지 않는다 — 작성자는 그것도 라운드로 갚는다.
+            - Count: incorrect behavior, crashes, data corruption, security defects, silently
+              swallowed errors, and regression tests that pass even with the buggy code.
+            - Do not count (and do not write): naming, comment wording, documentation phrasing,
+              test titles, formatting, alternative designs of the "this would be better" kind,
+              existing code untouched by this PR, or low-confidence suspicions requiring further
+              verification.
 
-            **문턱을 넘은 것은 한 번의 실행에서 전부 보고한다.** 가장 중요한 하나를 고르고 멈추면
-            안 된다. 한 라운드는 8–10분이고, 작성자는 그 시간을 기다린 뒤에야 다음 지적을 볼 수
-            있다. 측정된 것은 **비율**이다: 라운드당 지적이 거의 항상 1건이었고, 한 PR은 그렇게
-            10라운드 — 약 1.6시간 — 를 썼다. 문턱을 넘은 3건을 한 번에 적으면 세 라운드가 한
-            라운드가 된다.
+            If confidence is low, do not write the finding. Do not downgrade a low-confidence
+            concern to CONSIDER in this review; the author must still pay for another round to
+            address it.
 
-            **이미 답변된 지적은 다시 꺼내지 않는다.** 같은 PR에 이전 리뷰가 있으면 그 요약을
-            먼저 읽고, 거기서 수정·반박·연기로 정리된 항목은 다시 적지 않는다. 0건으로 끝난
-            라운드 뒤에 같은 지적이 되살아나면 루프에 끝이 없어진다 — 실제로 한 PR에서 0이
-            다섯 번 연속 나온 뒤 9라운드에서 다시 1이 나왔다.
+            **Report every finding that clears the threshold in a single run.** Do not choose the
+            single most important one and stop. One round takes 8–10 minutes, and only after
+            waiting that long can the author see the next finding. The measured problem is the
+            **rate**: reviews almost always reported one finding per round, and one PR therefore
+            took 10 rounds—about 1.6 hours. Reporting three qualifying findings at once turns three
+            rounds into one.
 
-            셸 제약을 먼저 읽어라. 실행이 허용된 명령은 `gh pr diff`, `gh pr view`, `gh pr comment`
-            세 가지가 전부이고, 거기에 파이프(`|`)·리다이렉션(`>`)·`&&`·`;` 를 붙이면 전부 거부된다.
-            diff 를 파일로 저장하거나 grep·awk·head 로 잘라내려는 시도는 실행되지 않는다. `git` 명령도
-            쓸 수 없다(체크아웃 깊이가 1이라 비교할 기준 커밋 자체가 없다). 거부된 시도 하나가 턴
-            하나이므로, 아래 순서를 그대로 따르는 것이 예산 안에 끝내는 유일한 방법이다.
+            **Do not raise findings that have already been addressed.** If this PR has previous
+            reviews, read their summaries first. Do not repeat items resolved there by a fix,
+            rebuttal, or deferral. Reviving the same finding after a zero-finding round makes the
+            loop endless; on one actual PR, five consecutive zeroes were followed by another one
+            in round 9.
 
-            진행 순서:
-            1. `gh pr diff <PR NUMBER> --name-only` 로 변경 파일 목록을 본다.
-            2. `gh pr diff <PR NUMBER>` 로 diff 본문을 한 번에 읽는다. 출력이 잘리면 다시 시도하지
-               말고, 1의 목록에서 중요한 파일만 골라 Read 로 확인한다 — PR 브랜치는 이미 작업
-               디렉터리에 체크아웃되어 있다.
-            2-1. 두 번째 이후 라운드라면 `gh pr view <PR NUMBER> --comments` 로 이전 리뷰 요약을
-               읽는다. 거기서 **이미 고쳐진** 항목은 다시 적지 않는다. 아직 안 고쳐진 항목은
-               이번 라운드에도 그대로 센다 — n 은 지금 남아 있는 전체 상태이지 이번에 새로
-               찾은 것의 수가 아니다. 머지 게이트는 가장 최근 요약의 n 하나만 읽으므로, 안 고친
-               항목을 빼고 세면 그대로 머지된다.
-            3. diff 를 다 읽었으면, 인라인 코멘트를 남기기 **전에** 먼저
-               `gh pr comment <PR NUMBER> --body "..."` 로 요약을 남긴다. 요약에는 발견한 것을
-               심각도 순으로 한 줄씩 적는다(없으면 없다고 쓴다). 요약의 **마지막 세 줄**은 반드시
-               아래 세 줄이어야 한다. SHA 값은 위 입력을 그대로 쓴다.
+            Read the shell constraints first. The only commands permitted are `gh pr diff`,
+            `gh pr view`, and `gh pr comment`; appending a pipe (`|`), redirection (`>`), `&&`, or
+            `;` causes rejection. Attempts to save the diff to a file or slice it with grep, awk,
+            or head will not run. You also cannot use `git` commands (the checkout depth is 1, so
+            the comparison base commit is not present). Every rejected attempt consumes one turn,
+            so following the exact order below is the only way to finish within budget.
+
+            Procedure:
+            1. Run `gh pr diff <PR NUMBER> --name-only` to see the changed-file list.
+            2. Run `gh pr diff <PR NUMBER>` to read the entire diff at once. If the output is
+               truncated, do not retry. Instead, select only the important files from the list in
+               step 1 and inspect them with Read; the PR branch is already checked out in the
+               working directory.
+            2-1. On the second or a later round, run `gh pr view <PR NUMBER> --comments` to read
+               previous review summaries. Do not repeat items that have **already been fixed**.
+               Still count every item that remains unfixed in this round: n is the total current
+               outstanding state, not the number newly discovered this time. The merge gate reads
+               only n from the latest summary, so omitting an unfixed item from the count would
+               allow the PR to merge as-is.
+            3. After reading the entire diff, post the summary **before** leaving any inline
+               comments by running `gh pr comment <PR NUMBER> --body "..."`. List each finding on
+               its own line in severity order (or say there are none). The summary's **final three
+               lines** must be exactly the three lines below. Use the SHA values from the inputs
+               above unchanged.
                `REVIEWED BASE: ${{ github.event.pull_request.base.sha }}`
                `REVIEWED HEAD: ${{ github.event.pull_request.head.sha }}`
                `ACTIONABLE FINDINGS: <n>`
-               n 은 조치가 필요한 항목(MUST/SHOULD)의 개수이고, 없으면 0 이다. 이 세 줄은 사람이
-               아니라 머지 게이트가 읽는다. 하나라도 없으면 게이트는
-               "셀 수 없었다"고 말할 뿐 리뷰 내용을 대신 판단하지 못한다. 이 순서는 의도된 것이다 —
-               예산이 끊기더라도 요약은 이미 남아 있다. 아무것도 남기지 않은 실행은 리뷰하지
-               않은 실행과 구분되지 않는다.
-            4. 그다음 `mcp__github_inline_comment__create_inline_comment` 로 심각도가 높은 순서대로
-               해당 라인에 코멘트를 남긴다. 여기서 예산이 끝나도 3의 요약이 이미 있으므로,
-               잃는 것은 세부 위치뿐이다.
+               n is the number of actionable items (MUST/SHOULD), or 0 if there are none. The
+               merge gate, not a person, reads these three lines. If any line is missing, the gate
+               can only report that it could not count; it cannot judge the review content instead.
+               This order is intentional: even if the budget runs out, the summary has already
+               been posted. A run that posts nothing is indistinguishable from a run that did not
+               review anything.
+            4. Then use `mcp__github_inline_comment__create_inline_comment` to comment on the
+               relevant lines in descending severity order. If the budget runs out here, the
+               summary from step 3 already exists, so only the precise locations are lost.
 
-            예산 규칙: 인라인 코멘트는 1건이 1턴을 쓰므로 최대 5건까지만 남기고 나머지는 3의
-            요약에 적는다. 이 5건은 스스로 셀 수 있는 수이므로 지킬 수 있다 — 남은 턴 수는
-            액션이 알려주지 않으니 그것을 기준으로 판단하려 하지 마라. 빌드·타입체크·테스트
-            실행이나 전체 트리 탐색은 하지 않는다.
+            Budget rule: each inline comment consumes one turn, so leave no more than 5 inline
+            comments and put all remaining findings in the summary from step 3. You can comply
+            because you can count these 5 comments yourself. The action does not expose the number
+            of turns remaining, so do not try to decide based on it. Do not run builds, typechecks,
+            or tests, and do not explore the entire tree.
 
-            문턱을 넘은 것이 하나도 없으면 그렇게 쓰고 0으로 끝낸다. 0 은 실패가 아니라 이
-            리뷰의 정상적인 결과다 — 무언가를 찾아내야 한다는 압박으로 취향을 지적으로
-            승격시키지 마라.
+            If nothing clears the threshold, say so and finish with 0. Zero is not failure; it is
+            a normal result of this review. Do not promote preferences into findings because you
+            feel pressure to find something.
 
-            이 레포가 특히 강조하는 규율: strict TypeScript(`any`/`unknown` 금지), no-fallback(오류를
-            기본값으로 삼켜 감추지 말 것), SSOT 타입, 일방향 패키지 의존성(순환·pass-through
-            re-export 금지), 그리고 결함-수정 회귀 테스트의 accidental-green(버그 코드에서도 통과하는
-            테스트). 규율의 단일 출처는 `AGENTS.md`와 그 아래 `.agents/rules/` 이고, 얇은 `CLAUDE.md`와
-            `CONTRIBUTING.md` 가 보조다 — diff 에서 위반이 의심될 때만 해당 문서를 열어 확인하고, 매
-            실행마다 규율 문서 전체를 읽지는 않는다.
+            Disciplines this repository especially emphasizes: strict TypeScript (no `any` or
+            `unknown`), no fallback (do not hide errors by swallowing them into default values),
+            SSOT types, unidirectional package dependencies (no cycles or pass-through re-exports),
+            and accidental-green defect-fix regression tests (tests that pass even with the buggy
+            code). The single source of truth for these disciplines is `AGENTS.md` and
+            `.agents/rules/` beneath it, supported by the thin `CLAUDE.md` and `CONTRIBUTING.md`.
+            Open the relevant document only when the diff suggests a violation; do not read all
+            discipline documents on every run.
           # `claude_args` below carries values only. Its rationale is here, in real YAML comments,
           # rather than inside the block scalar: the action does strip whole-line `#` from that
           # value, but this is the one file whose failure mode is "silently does nothing", so it

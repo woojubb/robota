@@ -164,7 +164,7 @@ body are unchanged. This is a scope check, not a substitute for TC-01 through TC
 - Test Plan/count: PASS — four Test Plan rows match the four Completion Criteria (`TC-01`–`TC-04`).
 - Test Plan/fields: PASS — every row has a non-empty Test Type and Tool / Approach, with no `TBD`.
 - Test Plan/manual: PASS (N/A) — no row uses a manual tool, so no manual-test justification is required.
-- Structure/tasks: PASS — `## Tasks` contains the required not-yet-created `.agents/tasks/INFRA-134.md` placeholder.
+- Structure/tasks: PASS — `## Tasks` contains the paired `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md` path.
 - Structure/evidence: PASS — `## Evidence Log` was present and empty before this first GATE-WRITE entry.
 - Structure/body fields: PASS — no `## Status` or `## Classification` section appears in the body.
 - Count reconciliation: PASS — Completion Criteria 4/4 and Test Plan rows 4/4 match exactly.
