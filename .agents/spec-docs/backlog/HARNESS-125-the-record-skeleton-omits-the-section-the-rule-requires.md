@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: INFRA
 tags: [harness, templates]
 ---
@@ -34,7 +34,7 @@ Issue #2308 states the mechanism in the words of an author who hit it — _"The 
 my work and the rule was the shape of the obligation, and I took the template as the specification."_
 
 **Half of the issue's title is already false and must not be rebuilt.** It reads "Nothing emits or
-checks". The checking side was closed by `c4bb51a62` (#1815, 2026-08-17) — a week before the issue was
+checks". The checking side was closed by `c4bb51a62` (PR #1815, 2026-08-17) — a week before the issue was
 filed — as `scripts/harness/scan-spec-user-execution-section.mjs`, which today reports
 `::examined:: 287 governed spec document(s), 220 frozen exemption(s)`. A reader taking the title at
 face value would build a scan that exists and then have to reconcile it with a 220-entry baseline.
@@ -100,6 +100,9 @@ distinguishable from alternative 2's outcome, or it has merely relocated the def
       exists besides the template and the allocator.
 - [x] 대안 최소 2개 검토 완료 (3개)
 - [x] 결정 근거 문서화 완료
+- [x] New-surface placement: **N/A** — no new package, app, presentation or interface surface, and no
+      layer or product-family reclassification. Two existing files gain emitted text; the section they
+      emit is already defined by `backlog-execution.md` and already governed by an existing scan.
 
 ## Fallback & Degradation Declaration
 
@@ -141,3 +144,37 @@ this is the "not applicable, with the reason" branch of it.
 - [ ] `.agents/tasks/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** draft → review-ready
+
+**Judged by:** self-assessment against `.agents/specs/gate-catalogue.md` § GATE-WRITE. **Not a
+`backlog-gate-guard` verdict — no guardian agent was dispatched**, because agent dispatch is not
+available in the session that wrote this. Disclosed rather than left implicit: issue #2266 records
+that a self-issued gate entry is exactly what nothing in this repository currently reads, and five
+ARCH documents carry the same disclosure.
+
+Criteria, measured rather than asserted:
+
+```
+status: draft in frontmatter            1
+type: INFRA (one of the 11)             yes
+tags: present                            1
+Prior Art — explicit `Waived:` line      1
+Architecture Review Checklist [x]        5   (incl. the conditional new-surface item, N/A)
+Alternatives Considered entries          3   (minimum 2)
+Completion Criteria with TC-N            5
+TBD / TODO occurrences                   0
+```
+
+- **Problem** carries a concrete symptom (two grep counts and two line numbers on named files) and the
+  condition under which it occurs (an author filling in the sections they were given).
+- **Decision** names the trade-off that drove it and rejects alternative 2 on its failure mode rather
+  than on effort.
+- **New-surface placement** is N/A and says so: no package, app, presentation or interface surface, and
+  no layer or product-family reclassification.
+
+**What this gate does NOT establish, stated so the next reader does not assume it:** that the fix is
+correct, or that the owner wants it. The first is GATE-VERIFY's; the second is GATE-APPROVAL's, and
+its criterion 1 is a fact about the user that no self-assessment can supply.

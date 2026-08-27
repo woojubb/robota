@@ -52,7 +52,7 @@ Source: https://github.com/woojubb/robota/issues/2308
 ## Notes
 
 **The issue's title says "Nothing emits or checks". The CHECKS half is stale and must not be rebuilt.**
-`scripts/harness/scan-spec-user-execution-section.mjs` landed in `c4bb51a62` (#1815) on 2026-08-17,
+`scripts/harness/scan-spec-user-execution-section.mjs` landed in `c4bb51a62` (PR #1815) on 2026-08-17,
 a week before issue #2308 was filed, and reports `::examined:: 287 governed spec document(s), 220
 frozen exemption(s)`. Only the EMITS half is open.
 
