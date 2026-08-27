@@ -42,7 +42,9 @@ for an L0 change (Phase 2 step 0), until the lane is declared and its ground nam
    `Fast-track:` line quoting the user's instruction verbatim) on the branch and the pull request, and
    go to Phase 4 — `scan-lane-declaration` refuses the declaration if the diff's floor is higher.
    **L1** uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the
-   draft, then continues from step 4. **L2** takes steps 1–4 as written.
+   draft — the scaffold writes the `Waived:` line research.md accepts, so step 4's research dispatch is
+   not required for L1 (the author may still research) — fills Problem, Decision and the TC-N criteria,
+   and goes to Phase 3 where `gate.mjs judge --gate PLAN` runs. **L2** takes steps 1–4 as written.
 
 1. Choose the spec-doc type from the prefix taxonomy:
    - `BEHAVIOR` — system-internal logic, state transitions

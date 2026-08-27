@@ -205,6 +205,7 @@ repository-relative globs, and a bare filename is anchored at the repository roo
 | L2    | `.agents/specs/gate-catalogue.md`          | Defines every gate's criteria                                                                                                                                                    |
 | L2    | `.design/**`                               | User-authored documents                                                                                                                                                          |
 | L2    | `packages/*/docs/SPEC.md#trigger-sections` | The sections named in the second column of the SPEC-update table in § Live Spec Policy — a published contract. That table is the owner; this row points at it and copies nothing |
+| L1    | `scripts/**`                               | Harness and tooling scripts — behaviour without a package contract; a non-comment change is L1, a comment-only change is L0                                                      |
 | L1    | `**/src/**`                                | A non-comment change under `src` that touches no L2 pattern                                                                                                                      |
 | L0    | everything else                            | Comments, documentation, tests, and tooling configuration outside the L2 rows                                                                                                    |
 
@@ -225,24 +226,17 @@ Enforced by: `scan-lane-declaration` — a `Fast-track:` line on a diff whose fl
 
 #### Gates per lane
 
-The lane decides which of the steps above run and who judges them. A **mechanical** criterion is one a
-script decides from the document, the tree, and git alone; a **semantic** one needs judgement. The
-[gate catalogue](../specs/gate-catalogue.md) tags each criterion; this table says who runs which set.
+The lane decides which gates run and who judges them. **Which gates compose each lane, and which
+criterion is `mechanical` (a script decides it from the document, the tree and git alone) or
+`semantic` (needs judgement), are the [gate catalogue](../specs/gate-catalogue.md)'s facts** — see its
+"Gates per lane" section; this rule does not restate that table. In one line each: L0 has no spec
+document and is judged by CI, the reviewer verdict and the merge gate; L1 has one spec document on the
+standard schema and two gates, PLAN and DONE, run by `node scripts/harness/gate.mjs`, with
+`backlog-gate-guard` dispatched only on a non-PASS; L2 runs the five spec-document gates and the two
+done-gate stages unchanged, `gate.mjs` judging the mechanical set and the guardian the semantic set.
 
-| Lane | Spec document                                                                                                                              | Gates                                                                                                                                                                                                            | Judged by                                                                  |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| L0   | none — the pull-request body carries the `Lane:` line, the ground (the issue, or the fast track), and the issue reference                  | CI, the reviewer verdict, and the merge gate                                                                                                                                                                     | CI and the merge gate; no guardian agent                                   |
-| L1   | one, on the same schema as every spec document, scaffolded by `node scripts/harness/new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1` | two — **PLAN** (`draft → approved`: GATE-WRITE's mechanical criteria plus GATE-APPROVAL) and **DONE** (`approved → done`: GATE-VERIFY plus GATE-COMPLETE criteria) — each run by `node scripts/harness/gate.mjs` | `gate.mjs`; the guardian agent only on a non-PASS                          |
-| L2   | full schema, unchanged                                                                                                                     | the five gates and the two done-gate stages, unchanged                                                                                                                                                           | mechanical criteria by `gate.mjs`, semantic criteria by the guardian agent |
-
-An L1 document moves `draft/ → todo/ → done/` and never enters `active/`; the status vocabulary and its
-folders are the table in § Spec-Document Status and Lifecycle Folders, unchanged. GATE-APPROVAL for an
-L1 document may take Route CLASS through the class registered for L0 and L1 in
-[backlog-execution.md](backlog-execution.md) § Delegated Approval Classes; an L2 document takes Route
-DIRECT as before.
-
-Enforced by: `gate.mjs` (`scripts/harness/gate.mjs`) — it reads `lane:` from the frontmatter and runs
-that row's gate set; which lane a document may declare is `scan-lane-declaration`'s.
+Enforced by: `scan-lane-declaration` for the lane itself; the gate composition is enforced where the
+catalogue's criteria are — `gate.mjs` and `backlog-gate-guard`.
 
 ### Spec-Document Status and Lifecycle Folders
 
