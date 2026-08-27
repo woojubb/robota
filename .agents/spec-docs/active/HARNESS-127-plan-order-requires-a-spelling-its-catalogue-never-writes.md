@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: RULE
 tags: [harness, testing]
 ---
@@ -86,7 +86,7 @@ carries `// Contained — HARNESS-128.` — because the code-label floor
 committed `.agents/tasks/` tree, so the root record must be tracked in the same commit that introduces
 the label.
 
-A4 below is filed as issue **issue #2395** rather than deferred.
+A4 below is filed as **issue #2395** rather than deferred.
 
 ## Architecture Review
 
@@ -287,7 +287,7 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 - Test Plan: section present; rows TC-01…TC-05 = 5, matching 5 Completion Criteria; every row has non-empty Test Type and Tool/Approach, no "TBD"; no row uses Tool "manual" — manual-Notes requirement N/A.
 - TC-05 baseline re-verified: `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → 79 passed (79).
 - Structure — Tasks: section present with placeholder. Evidence Log: present; not empty because this is not the first run — the catalogue's "(first GATE-WRITE run)" qualifier applies; the prior entry is retained. No `## Status` / `## Classification` body sections.
-- Cited repository facts in the revised text re-verified: `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` used for Task/spec at `scan:1139–1148`; issues issue #2375, issue #2376, issue #2392, issue #2394, issue #2395 all OPEN.
+- Cited repository facts in the revised text re-verified: `completeStageOneEntry` at `scan:759` with `surface-rationale=` at `scan:778`; `git grep 'surface-rationale=' -- .agents/` empty; `gitText` used for Task/spec at `scan:1139–1148`; issues #2375, #2376, issue #2392, issue #2394, issue #2395 all OPEN.
 - Worktree observation (not a GATE-WRITE criterion): `scripts/harness/` unmodified; only this spec, the paired task file and the PLAN ledger line differ from `develop` — no implementation has begun.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-27
@@ -346,3 +346,59 @@ expected. Red on the unfixed scan **for the token**: measured before this plan o
 - Whole-worktree path inventory (`git status --short --untracked-files=all`, all paths): ` M .agents/loop-runs/user-execution-scenario.jsonl` — one appended line (`git diff --numstat` = `1 0`), nothing else staged, unstaged, untracked, renamed or deleted. Committed beyond the base (`git diff origin/develop --numstat`): `.agents/loop-runs/user-execution-scenario.jsonl` 1/0, `.agents/spec-docs/todo/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` 333/0, `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` 111/0 — exactly the paired Task/spec planning artifacts and the subject-bound PLAN ledger record.
 - NON-COMPLIANCE trigger (implementation before this gate): not fired — `git diff origin/develop --name-only -- scripts/` is empty; `scan-user-execution-plan-order.mjs:435` still reads `/whole-worktree/i`; `node scripts/harness/scan-user-execution-plan-order.mjs` → `::examined:: 1 topic commit(s)`, exit 0.
 - Recorded plainly: this entry writes the hyphenated `Whole-worktree` token because the unfixed scan at line 435 refuses the catalogue's own spelling — the defect this document fixes; the fix is not yet applied.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering — prior gate: `[GATE-IMPLEMENT] — ✅ PASS | 2026-08-27` above, with per-criterion evidence lines, the exact PLAN outcome (`not-applicable | 0`, ledger `r20260827135729`) and a whole-worktree path inventory (not a bare PASS); committed as the planning checkpoint `365b56754`.
+- Ordering — input state: frontmatter `status: in-progress`; file under `.agents/spec-docs/active/`, which `spec-workflow.md:170` maps to `in-progress`. Branch `fix/2378-plan-order-accepts-the-catalogue-spelling`, HEAD `14c97a135`; `git log --oneline origin/develop..HEAD` = `42c7f1108` prelude, `365b56754` planning checkpoint, `7b4892c5f` fix, `14c97a135` verification evidence; `git status --short --untracked-files=all` empty before this entry.
+- All tasks in `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` complete: the Task carries no checkbox plan — `.agents/tasks/README.md:3` defines a Task as "the record of one unit of work: the problem …" and `:22-26` names checkbox breakdowns as a retired artefact kind — so, as the GATE-IMPLEMENT entry recorded, its five `## Test Plan` bullets are the tasks. Each is demonstrably done in `7b4892c5f`: bullet 1 → `it('accepts a checkpoint whose worktree line quotes the catalogue criterion verbatim (TC-01)')` at `test.mjs:1975`; bullet 2 → `still refuses … neither spelling (TC-02)` at `:1990`; bullet 3 → the `it.each` pair `accepts the catalogue's own words … (TC-03)` at `:2002`; bullet 4 → mutation re-run by this gate (below); bullet 5 → `pnpm harness:scan` exit 0 and 83 cases green (below). Spec `## Completion Criteria` TC-01…TC-05 all `[x]`.
+- No tasks blocked or pending: no `blocked`/`pending`/`TODO` marker in the Task; frontmatter `depends_on: []`; the two items deliberately excluded (issue #2395 refusal message, HARNESS-128 root form) are filed as their own items, not left pending here.
+- Build passes for all affected packages: N/A by measurement — `git diff --name-only origin/develop...HEAD` = 7 paths (`.agents/loop-runs/user-execution-scenario.jsonl`, this spec, the HARNESS-127 and HARNESS-128 Task files, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, `scripts/harness/progress-report-acknowledgments.json`, `scripts/harness/scan-user-execution-plan-order.mjs`); `| grep -E '^(packages|apps)/'` matches nothing (exit 1). No workspace package is affected and the changed `.mjs` files run under node with no build step, so `pnpm build` was not run.
+- Tests pass for all affected packages: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → `Tests 83 passed (83)`, exit 0; the four HARNESS-127 cases sit in `describe("HARNESS-127 — the catalogue's spelling of the worktree criterion")` (TC-01, TC-02, TC-03 ×2), the pre-existing 79 unchanged. `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` is the only test file that reads the modified scan (`grep -l`). The containment label `Contained — HARNESS-128.` introduced in `7b4892c5f` resolves: `pnpm exec vitest run scripts/harness/__tests__/depth-verdict-reachable.test.mjs` → 24 passed, exit 0.
+- TC-05 harness scan: `pnpm harness:scan` on `14c97a135` → `146 scans passed, 1 skipped (97 declared what they examined)`, exit 0. The skip is `new-rule-declares-enforcement`; run directly it prints `::examined:: 0 new rule sections ::expected-empty:: this change adds no rule SECTION of the form this floor reads …` and exits 0 — a declared expected-empty consistent with the diff set (no `.agents/rules/` path changed), not a silent pass.
+- TC-04 mutation, re-run by this gate rather than taken from the commit body (`git show 7b4892c5f --no-patch` records A → 3, B → 1, C → 1): file backed up, `scan-user-execution-plan-order.mjs` mutated by exact-substring replacement, suite run, file restored by copy. Mutant A `/whole-worktree/i` → `3 failed | 80 passed (83)`: TC-01, TC-03 criterion item, TC-03 instruction. Mutant B `true` → `1 failed | 82 passed (83)`: TC-02. Mutant C `/whole[- ]worktree/i` → `1 failed | 82 passed (83)`: TC-03 instruction (soft-wrap) only. All three match the recorded counts and names. After restore: SHA-256 `7b5f3eae…84aa6` identical to the pre-mutation hash, `git diff --stat` empty, `git status --short --untracked-files=all` empty.
+- Fix verified as described: `git show 7b4892c5f -- scripts/harness/scan-user-execution-plan-order.mjs` replaces `/whole-worktree/i.test(body);` with `/whole[-\s]+worktree/i.test(body);` under a comment opening `// Contained — HARNESS-128.` — the only change to the scan (6 lines).
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-27
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=verbose`
+**Output:** `Tests  83 passed (83)` — exit 0.
+
+Checkbox `[x]`. `HARNESS-127 — the catalogue's spelling of the worktree criterion > accepts a checkpoint whose worktree line quotes the catalogue criterion verbatim (TC-01)` (`test.mjs:1975`) passes in this run. Red-for-the-token confirmed by this gate's own mutation below: restoring `/whole-worktree/i` fails exactly this case among the non-`it.each` cases. **Test reference:** TC-01 row names this file, describe and case title.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-27
+
+Checkbox `[x]`. Same command, same run: `… > still refuses a checkpoint whose worktree line carries neither spelling (TC-02)` (`test.mjs:1990`) passes. That it is a live control, not a tautology, is shown by mutant B below (`true;` fails this case and only this case). **Test reference:** TC-02 row (`same file > still refuses … (TC-02)`).
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-27
+
+Checkbox `[x]`. Same command, same run: both `it.each` cases `… > accepts the catalogue's own words as the worktree line — the criterion item (TC-03)` and `… — the Evidence-to-record instruction, soft-wrap intact (TC-03)` (`test.mjs:2002`) pass. Structural read verified in the source: `test.mjs:1923` reads `.agents/specs/gate-catalogue.md` at test time, `:1926` asserts the `### GATE-IMPLEMENT` heading, `:1950` asserts exactly one `- [ ]` item mentioning the worktree, `:1962` asserts exactly one `**Evidence to record on PASS:**` paragraph — each failing with a message naming the catalogue. **Test reference:** TC-03 row names both `it.each` titles.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-27
+
+**Action:** mutation re-run by this gate, not cited from GATE-VERIFY. `scripts/harness/scan-user-execution-plan-order.mjs` backed up by copy; pre-mutation SHA-256 `7b5f3eae6ea8db6ebda60a9bd9cf71fea27ff21a69a33859b9c2e4e5e8a84aa6`; each mutant applied by exact single-substring replacement of `/whole[-\s]+worktree/i.test(body);` (line 439, count asserted `== 1`), suite run, file restored by copy.
+**Output:** mutant A `/whole-worktree/i.test(body);` → `Tests 3 failed | 80 passed (83)`, exit 1 — TC-01, TC-03 criterion item, TC-03 instruction. Mutant B `true;` → `Tests 1 failed | 82 passed (83)`, exit 1 — TC-02 only. Mutant C `/whole[- ]worktree/i.test(body);` → `Tests 1 failed | 82 passed (83)`, exit 1 — TC-03 instruction (soft-wrap) only, no other. All three match the counts and victims the criterion states and the GATE-VERIFY entry recorded. After restore: SHA-256 identical to pre-mutation, `git diff --stat` shows only this spec document (the GATE-VERIFY/status change already in the tree), `git status --short --untracked-files=all` = ` M <this spec>` only.
+
+Checkbox `[x]`. **Test skipped (recorded):** TC-04 row states `Test skipped as a committed case — the mutation is run by hand and recorded in the GATE-VERIFY entry; committing a mutant is not possible` — an explicit reason, not a silent gap.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-27
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=verbose` → `Test Files 1 passed (1)`, `Tests 83 passed (83)`, exit 0; the HARNESS-127 describe contributes 4 of the 83 (TC-01, TC-02, TC-03 ×2), so the pre-existing count is 79 as stated.
+**Command:** `pnpm harness:scan` on HEAD `14c97a135` with the uncommitted spec change in the tree → `146 scans passed, 1 skipped (97 declared what they examined)`, exit 0 (the one skip is the declared expected-empty `new-rule-declares-enforcement` recorded by GATE-VERIFY; no `.agents/rules/` path is in the diff set).
+
+Checkbox `[x]`. **Test reference:** TC-05 row (`same file (83 cases) plus pnpm harness:scan`).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** verifying → done
+
+- Ordering — prior gate: `[GATE-VERIFY] — ✅ PASS | 2026-08-27` immediately above, carrying per-criterion evidence lines (83-case run, harness:scan summary, the three-way mutation with the restore hash) — not a bare PASS. It is uncommitted in the worktree together with the status change, as the caller declared; both will land in the archival commit.
+- Ordering — input state: frontmatter `status: verifying`; file under `.agents/spec-docs/active/`, which `spec-workflow.md:171` maps to `verifying` — **no folder change**. Branch `fix/2378-plan-order-accepts-the-catalogue-spelling`, HEAD `14c97a135`, base `origin/develop` `6802df180`; `git log origin/develop..HEAD` = `42c7f1108`, `365b56754`, `7b4892c5f`, `14c97a135`.
+- Completion Criteria: TC-01…TC-05 all `[x]`; each has its own `[GATE-COMPLETE: TC-N]` entry above with the exact command or action, the observed output and the exit code.
+- Test Plan: five rows, none silently unaddressed — TC-01, TC-02, TC-03, TC-05 carry a test reference (file > describe > case title, each title confirmed present in the verbose run); TC-04 carries an explicit skip reason (hand-run mutation; a mutant cannot be committed).
+- `## Tasks` names the exact active task path: `.agents/tasks/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md` — the single row. Observed: the row's marker is `[ ]` with the note "생성됨 (GATE-IMPLEMENT에서 바인딩)"; the criterion is that the section names the exact path, and no scan reads that marker (`check-task-archival.mjs` projects `## Tasks` only for `type: AGREEMENT` pairs). The HARNESS-126 precedent (`8678dbdfe`) wrote a bare `Bound task record:` line here.
+- Active task exists and is completion-ready: the file exists (`status: in-progress`, `issue: …/2378`, issue #2378 OPEN with a matching title, `depends_on: []`). Per `.agents/tasks/README.md:3` and `:22-26` a Task carries no checkbox plan (checkbox breakdowns are a retired artefact kind), so "all tasks `[x]`" is judged on its five `## Test Plan` bullets, each demonstrably done: bullets 1–3 → the four passing HARNESS-127 cases at `test.mjs:1975/1990/2002`; bullet 4 → the mutation re-run in the TC-04 entry; bullet 5 → `pnpm harness:scan` exit 0 and 83 green. `grep -n -i 'blocked\|pending\|TODO\|\[ \]\|\[x\]'` on the Task matches only line 38, a quoted catalogue line inside the evidence block — no pending or blocked item.
+- Build: N/A by measurement — the diff set against `origin/develop` touches no `packages/` or `apps/` path; the changed `.mjs` files run under node without a build step.
+- Not done by this gate (post-PASS handoff, orchestrator's closing commit): task terminal status/date, task archival, the spec's archived task pointer, `verifying/active → done/done`.

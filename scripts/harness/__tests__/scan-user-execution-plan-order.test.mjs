@@ -1969,6 +1969,13 @@ describe("HARNESS-127 — the catalogue's spelling of the worktree criterion", (
     ) {
       paragraph.push(section[index]);
     }
+    // The case below is named for the soft-wrap. If the catalogue is ever reflowed onto one line this
+    // case silently becomes TC-03a again and mutant C (`[- ]`) survives — so the wrap is asserted,
+    // making a reflow a visible red rather than a quiet loss of distinguishing power.
+    expect(
+      paragraph.join('\n'),
+      'the Evidence-to-record paragraph soft-wraps between `whole` and `worktree`',
+    ).toMatch(/whole\s*\n\s*worktree/);
     return paragraph.join('\n');
   }
 

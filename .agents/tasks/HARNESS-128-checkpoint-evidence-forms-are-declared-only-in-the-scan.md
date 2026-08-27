@@ -28,7 +28,7 @@ cause behind HARNESS-127 (issue #2378):
 | GATE-IMPLEMENT    | `gate-catalogue.md:226-227`, prose: "Tasks file path + list of tasks created + exact PLAN outcome + whole worktree path inventory"            | `**Status upgrade:** approved → in-progress`, a task path, `SCENARIO DRAFTED: … \| N`, `/whole-worktree/i` (`completeGateImplementEntry`, lines 432-435)                                             | the scan; fixture at `__tests__/scan-user-execution-plan-order.test.mjs:177`                |
 | DONE-GATE-STAGE-1 | `gate-catalogue.md:329-331`, prose: "each scenario named, with `guardian-observable-verdict=product-behavior`, its exact canonical surface …" | `<name> — surface=…; surface-rationale=…; invocation=…; observable-type=…; observable=…; observable-rationale=…; guardian-observable-verdict=product-behavior; ` (`completeStageOneEntry`, line 778) | the scan and its test only — `git grep 'surface-rationale='` finds nothing under `.agents/` |
 
-Both forms were born in one commit (`675cd814e`, issue #2365), which also added the test at line 1940
+Both forms were born in one commit (`675cd814e`, PR #2365), which also added the test at line 1940
 asserting the RULE contains `whole worktree` — three lines from a scan that refused that spelling.
 Cost so far: four spec documents carrying `whole-worktree`, a token the catalogue never wrote, and
 three diagnostic rounds on ARCH-112.
