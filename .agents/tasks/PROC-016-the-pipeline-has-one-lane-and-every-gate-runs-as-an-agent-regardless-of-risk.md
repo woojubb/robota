@@ -1,7 +1,7 @@
 ---
 title: 'PROC-016: the pipeline has one lane, and every gate runs as an agent regardless of risk'
 issue: https://github.com/woojubb/robota/issues/2398
-status: todo
+status: in-progress
 created: 2026-08-27
 priority: high
 urgency: now

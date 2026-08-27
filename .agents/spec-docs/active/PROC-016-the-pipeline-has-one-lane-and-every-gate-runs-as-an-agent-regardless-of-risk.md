@@ -1,7 +1,8 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, enforcement]
+lane: L2
 ---
 
 # PROC-016: the pipeline has one lane, and every gate runs as an agent regardless of risk
@@ -304,8 +305,10 @@ suite and says so, which is the fail-closed direction, not a fallback.
 - [ ] TC-07: `node scripts/harness/run-all-scans.mjs --affected --changed scripts/harness/x.mjs`
       selects fewer than 40 of the registered scans and prints the excluded count; a scan declaring
       `always` is selected for any change; an unclassifiable path selects the full suite and prints
-      why; `.github/workflows/ci.yml` runs `--affected` on `pull_request` and the full suite on
-      `push` to `develop` and on `schedule`.
+      why; `.github/workflows/ci.yml` runs `--affected` on `pull_request`, and the full suite runs on
+      `push` to `develop` (plus `workflow_dispatch`); a `schedule` trigger is not added because the
+      2026-08-04 owner directive recorded in `security-scheduled.yml` removed every clock-driven
+      trigger from the repository, and a rule binds until amended.
 - [ ] TC-08: `pre-push.mjs` runs the affected set: a one-file change under `scripts/harness/`
       finishes the scan stage in under 30 s on the reference machine (measured, recorded in the
       Evidence Log with the command and the wall time).
@@ -357,7 +360,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` — todo
+- [ ] `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` — in-progress
 
 ## Evidence Log
 
@@ -460,3 +463,19 @@ Other criteria, checked in this run:
 - `## Test Plan` ≥50 chars: PASS — the Task's `## Test Plan` section is 412 characters (fixture tests for `scan-lane-declaration`, `gate`, `new-spec`, `run-all-scans --affected`, `merge-gate`; `rg` assertions; `pnpm harness:scan` exit 0). `node scripts/harness/scan-test-plan.mjs` passes (42 documents).
 - Subject-bound user-execution PLAN terminal outcome: PASS — the Task's `## User Execution Test Scenarios` carries the author verdict `SCENARIO DRAFTED: not-applicable | 0` with the concrete reason (every affected path is a rule, spec, skill, template, harness script, git hook or CI workflow; nothing under `packages/` or `apps/`; harness commands and hooks belong in `## Test Plan`). Added in `5419bb946`, before GATE-APPROVAL (`79f9e6e21`) — not retrospective. Ledger run `r20260827154733` in `.agents/loop-runs/user-execution-scenario.jsonl`: absent from the working tree by design — `scan-user-execution-plan-order.mjs` refuses a ledger line until the checkpoint is an ancestor — and held by the orchestrator as `scratchpad/held/ledger.patch`, whose line 9 reads `runId r20260827154733, opened 2026-08-27T15:47:33Z, closed same second, roundFindings [0], terminal converged, ref .agents/tasks/PROC-016-…md`. Recorded outcome: `not-applicable`, converged, bound to the exact Task.
 - Whole-worktree inventory: PASS — branch `feat/proc-016-pipeline-lanes` at `79f9e6e21`; `git status --porcelain` empty (no staged, unstaged, untracked, renamed or deleted path); `git diff --name-only $(git merge-base origin/develop HEAD) HEAD` lists exactly `.agents/spec-docs/todo/PROC-016-…md` and `.agents/tasks/PROC-016-…md`. No implementation path modified: `scripts/harness/gate.mjs`, `scan-lane-declaration.mjs`, `new-spec.mjs`, `.agents/templates/mini-spec-template.md` do not exist; `spec-workflow.md`, `merge-gate.sh`, `ci.yml` unchanged from `origin/develop`. NON-COMPLIANCE trigger not met.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** approved → in-progress
+
+- Subject: spec `.agents/spec-docs/todo/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` (moves to `.agents/spec-docs/active/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` on this PASS); Task `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md`; PLAN outcome `SCENARIO DRAFTED: not-applicable | 0`.
+
+- Run context: second GATE-IMPLEMENT run, at `2d974780a` on `feat/proc-016-pipeline-lanes`. The prior run (❌ FAIL 2026-08-28, recorded in `2d974780a`) failed only the task↔TC-N correspondence criterion; the same commit rewrites the Task's `## Plan` (10 → 12 items) and its `## Test Plan` range — `git show 2d974780a` touches the Task at lines 51–72 and 79–85 and the spec only at the Evidence Log (`@@ -443,3 +443,20 @@`). Every criterion re-evaluated below, not only the failed one.
+- Ordering: prior gate GATE-APPROVAL shows ✅ PASS (2026-08-28, route DIRECT, per-criterion evidence, introduced in `79f9e6e21`). Document is `status: approved` in `.agents/spec-docs/todo/`, the input state this gate expects; `scan-doc-folder-status-agreement.mjs` exits 0 (violations=0, 7 statuses).
+- `.agents/tasks/<ID>.md` created: PASS — `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` exists, 101 lines, `status: todo`, created in `bf987d6da`.
+- Tasks file path recorded in `## Tasks`: PASS — spec line 360 lists the exact Task path with `— todo`.
+- Tasks correspond to Completion Criteria (≥1 task per TC-N): PASS — 13 TC-N in the spec, 12 Plan items in the Task, 13/13 traceable: TC-01→item 1 (amend `spec-workflow.md` § HARD GATE: three lanes, fast track); TC-02→item 2 (`scan-lane-declaration.mjs` lower-bound refusal, upward accepted, fast track refused on excluded classes); TC-03→item 3 (per-lane gate table **and** `mechanical`/`semantic` tag on every criterion under the five gates, named `(TC-03)`); TC-04→item 4 (`gate.mjs judge/advance/approve`, Evidence Log in catalogue form, folder/frontmatter/Task transition); TC-05→item 5 (route `backlog-pipeline`, `user-request-gate`, `backlog-execution-orchestrator` through `gate.mjs`, guard only on non-PASS or L2 semantic set, named `(TC-05)`); TC-06→item 6 (`new-spec.mjs` + `mini-spec-template.md`); TC-07→item 7 (`run-all-scans.mjs --affected` in `gate.mjs` and the CI `scans` job on PRs, full suite post-merge on `develop` and nightly); TC-08→item 7 (`pre-push.mjs` wiring); TC-09→item 8 (`scan-progress-report-quantification`, `scan-reference-kind-qualified` advisory on PRs, blocking on the `develop` full run, named `(TC-09)`); TC-10→item 10 (Route CLASS row for L0/L1, owner's text verbatim); TC-11→item 9 (`merge-gate.sh` verdict survives a base move with zero file overlap and a clean merge, issue #2386); TC-12→item 11 (red-proof every refusal path with a control) plus the Task Test Plan's "`pnpm harness:scan` and the harness suites exit 0"; TC-13→item 12 (re-measure one L1 item, record beside the table). The prior run's three gaps (no TC-09 item; TC-03 tagging and TC-05 three-caller routing unnamed) are closed, and the Test Plan now reads `TC-01..TC-13` (line 82), matching the spec and the Task's scenario section (line 100).
+- `## Test Plan` ≥50 chars: PASS — the Task's `## Test Plan` section is 412 characters (fixture tests under `scripts/harness/__tests__/` for `scan-lane-declaration`, `gate`, `new-spec`, `run-all-scans --affected`, `merge-gate` with RULE-015 fixtures B and C; `rg` assertions pin the rule text; `pnpm harness:scan` and the harness suites exit 0). `node scripts/harness/scan-test-plan.mjs` exits 0 (42 documents, 16 live).
+- Subject-bound user-execution PLAN terminal outcome: PASS — the Task's `## User Execution Test Scenarios` carries the author verdict `SCENARIO DRAFTED: not-applicable | 0` (line 87) with the concrete reason (lines 89–101: every affected path is a rule, spec, skill, template, `scripts/harness/` script, `.claude/hooks/merge-gate.sh` or `.github/workflows/ci.yml`; nothing under `packages/` or `apps/`; harness commands and hooks belong in `## Test Plan` per `.agents/tasks/README.md`; no user-facing behaviour left unreachable). Not retrospective: introduced in `5419bb946` (00:48:54 KST), before GATE-APPROVAL `79f9e6e21` (00:53:21 KST) and unchanged by `2d974780a`. Ledger run `r20260827154733` (opened 2026-08-27T15:47:33.554Z, closed 15:47:33.611Z, `roundFindings [0]`, `terminal converged`, `ref` = the exact Task path) is held at `scratchpad/held/ledger.patch` (1189 bytes, one added line after `r20260827135729`) and is absent from the working tree by design — `scan-user-execution-plan-order.mjs` (exits 0 now) refuses a ledger line until the checkpoint commit is an ancestor. Recorded outcome: `not-applicable`, converged, bound to the exact Task.
+- Whole-worktree inventory: PASS — worktree `scratchpad/wt-proc`, branch `feat/proc-016-pipeline-lanes` at `2d974780a`; `git status --porcelain --untracked-files=all` empty (no staged, unstaged, untracked, renamed or deleted path; only gitignored `node_modules/` directories under `--ignored=matching`). `git diff --name-only bb4c3626e HEAD` (merge-base with `origin/develop`) lists exactly two paths: `.agents/spec-docs/todo/PROC-016-…md` (+462) and `.agents/tasks/PROC-016-…md` (+101). No implementation path modified: `scripts/harness/gate.mjs`, `scan-lane-declaration.mjs`, `new-spec.mjs`, `.agents/templates/mini-spec-template.md` do not exist; `git diff --stat bb4c3626e HEAD -- .agents/rules .agents/specs .agents/skills .agents/templates scripts .claude .github` is empty; `spec-workflow.md` has 0 `Lane: L` lines; `backlog-execution.md` line 214 still reads `_(none registered)_`. NON-COMPLIANCE trigger not met.
+- Observation, not a criterion: `origin/develop` has advanced five commits past the merge-base (PR #2397, INFRA-134), touching `.agents/loop-runs/user-execution-scenario.jsonl` among others; the held ledger patch's context lines may need re-anchoring when the checkpoint is committed on a rebased branch. Nothing on this branch differs from `origin/develop` except the two PROC-016 documents.
