@@ -515,6 +515,15 @@ export const SCAN_COMMANDS = [
     name: 'user-execution-plan-order',
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
   },
+  // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
+  // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
+  // 43 and 52 — not a counting bug, but three private definitions of a term the rule never defined.
+  // The guard reads the route, the registered class, and the registration date; the baseline freezes
+  // the approvals that predate the form and reports them on every run rather than absolving them.
+  {
+    name: 'standing-delegation-evidence',
+    command: ['node', 'scripts/harness/scan-standing-delegation-evidence.mjs'],
+  },
   // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
   // itself to packages/apps, so nothing could see them — three of three were in violation. The
   // ratchet enforces the direction; the gap to the 80-line target is reported every run.

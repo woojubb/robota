@@ -302,6 +302,17 @@ it inside this item.**
   guard rather than by reading its prose self-description.
 - `pnpm harness:scan`, `pnpm harness:self-check`, full harness test tier.
 
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+A user-execution scenario is **not applicable** to this item. It delivers no user-facing product
+behaviour: it amends two harness governance documents and adds one repository verification scan. No
+package, app, CLI command, TUI surface or published API changes, so there is no command a user of the
+product could run to observe a difference. The verification surface is the harness gate — the
+both-direction fixture set, the applied-check mutation over every FAIL branch, and `pnpm harness:scan`.
+This matches the surface `HARNESS-117` recorded for the same shape of change.
+
 ## Tasks
 
 Bound task record: `.agents/tasks/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`
@@ -353,7 +364,11 @@ backlog-placement scan passed.      EXIT=0
 
 **Status upgrade:** review-ready → approved
 
-**Route: DIRECT.** Recorded on the direct route deliberately. This document amends the definition of
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인, 가드 포함해서 진행 (권장)"
+**Given:** 2026-08-26, this conversation
+
+Recorded on the direct route deliberately. This document amends the definition of
 the class route; approving it _on_ the class route would be self-justifying, and the registry the
 class route depends on does not exist until this item builds it. **This amendment does not bootstrap
 itself.**

@@ -42,6 +42,7 @@
     "scripts/harness/scan-rule-statement-floor.mjs",
     "scripts/harness/scan-rule-table-shape.mjs",
     "scripts/harness/scan-spec-user-execution-section.mjs",
+    "scripts/harness/scan-standing-delegation-evidence.mjs",
     "scripts/harness/scan-symlink-following-enumeration.mjs",
     "scripts/harness/scan-task-frontmatter-fields.mjs",
     "scripts/harness/scan-task-path-citations.mjs",
