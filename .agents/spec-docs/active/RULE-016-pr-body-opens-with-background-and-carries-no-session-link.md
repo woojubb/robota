@@ -305,10 +305,10 @@ them, and the`Enforced by:` line is contiguous with the bullet.
       § Git Operations states the commit prohibition with `Enforced by: no-session-link`;
       agent-conduct.md no longer lists PR descriptions under prose and its boundary names the owner;
       `new-rule-declares-enforcement` examines ≥ 1 added rule bullet and passes.
-- [ ] **TC-02** `.github/PULL_REQUEST_TEMPLATE.md` opens with `## Background` and carries the seven
+- [x] **TC-02** (PR 1) `.github/PULL_REQUEST_TEMPLATE.md` opens with `## Background` and carries the seven
       sections in the contract's order; `.github/pull_request_template.md` no longer exists; a test
       feeds the template's first heading to `judgePrBody` and it passes.
-- [ ] **TC-03** `printf 'fix(x): probe\n\nClaude-Session: https://claude.ai/code/session_x\n' | npx commitlint`
+- [x] **TC-03** (PR 1) `printf 'fix(x): probe\n\nClaude-Session: https://claude.ai/code/session_x\n' | npx commitlint`
       exits non-zero naming `no-session-link`; a message with the URL in its body exits non-zero; the
       same subject with only `Co-Authored-By: …` exits 0.
 - [ ] **TC-04** `judgePrBody` refuses: a body whose first heading is not `## Background`; a body with
