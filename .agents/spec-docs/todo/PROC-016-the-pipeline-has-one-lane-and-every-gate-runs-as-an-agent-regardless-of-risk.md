@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, enforcement]
 ---
@@ -427,3 +427,19 @@ Recorded as the rule's required choice rather than skipped.
 - Structure — Tasks section with placeholder: PASS (line 361, points at the paired Task, which exists with `status: todo`).
 - Structure — Evidence Log present and empty (first run): N/A — not the first run; the log holds only the prior GATE-WRITE PASS, which this entry follows rather than replaces.
 - Structure — no `## Status` / `## Classification` body sections: PASS (grep: none).
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
+**Given:** 2026-08-28, this conversation
+
+- Ordering: prior gate GATE-WRITE shows ✅ PASS twice (first run on commit `bfbed1def`; re-run on the TC-13 revision, recorded in `5419bb946`), each with per-criterion evidence. Document is `status: review-ready` in `.agents/spec-docs/backlog/` — the input state this gate expects; frontmatter and folder agree.
+- Route named: DIRECT (this line). The instruction was located in this session's transcript (`3e0c1f6e…`), not relayed from another session: user message at 2026-08-27T15:43:59Z (2026-08-28 00:43:59 KST).
+- DIRECT — explicit approval in the current conversation: PASS. The orchestrator asked at 15:34:23Z "**이 스펙(PROC-016) 설계를 승인하시나요?**" (item 1 of three decisions: design; Route CLASS row text for TC-10; three follow-up issues). The owner asked whether the plan would really save time (15:35:52Z); the orchestrator answered with a confidence breakdown and proposed TC-13, asking "추가할까요?" (15:36:50Z); the owner replied with the instruction above. "승인" is on the catalogue's list of explicit approval words; "빠르게 적용해줘" authorises implementation.
+- DIRECT — direct, unambiguous, directed at this spec document: PASS. The question named PROC-016 by ID; "모두 승인한다" answers all four pending decisions about this document (design, class-row text, follow-ups, TC-13). It is not a clarifying-question reply, not silence, and not approval of a different item — no other item was pending in the conversation.
+- No Architecture Review or frontmatter type/tags modified after approval: PASS. Two commits postdate the instruction: `6afa4f962` (15:44:59Z) adds TC-13 exactly as proposed and approved — hunks at document lines 324–355 only (Completion Criteria, Test Plan column padding, one clause in User Execution Test Scenarios); `5419bb946` removes one blank line between TC-12 and TC-13 (line 323) and appends the second GATE-WRITE entry and the Task's PLAN verdict. Neither touches `## Architecture Review` (lines 100–239) or the frontmatter (`type: RULE`, `tags: [harness, enforcement]` unchanged since the draft's creation commit `bf987d6da` — `git log -p` shows only `status: draft → review-ready` in `bfbed1def`; `git show` on both post-approval commits verified).
+- Independent architecture validation (conditional): N/A — the condition is not met. The checklist records New-surface placement N/A (line 237); verified against the Affected Files: the change adds scripts under the existing `scripts/harness/` scan surface, one template under `.agents/templates/`, and edits rules, the catalogue, three skills, one hook and one workflow. No new package or app, no new presentation/interface surface in the sense of `spec-workflow.md` § New-Surface Architecture Placement (no module that could live in more than one place or that consumes/extends a product), and no layer or product-family reclassification — the Affected Scope states "No package, no public API, no dependency direction, no module boundary". A `proposal-reviewer` placement verdict is therefore not required.
+- NON-COMPLIANCE trigger (implementation before this gate): not triggered. `git diff --name-only $(git merge-base HEAD origin/develop) HEAD` lists only this spec document and the paired Task; `scripts/harness/gate.mjs`, `scan-lane-declaration.mjs`, `new-spec.mjs` and `.agents/templates/mini-spec-template.md` do not exist; `spec-workflow.md` carries no `Lane:` text; the delegated-class registry still reads "(none registered)"; working tree clean.
+- Evidence form: fields above follow `backlog-execution.md` § Delegated Approval Classes (Route DIRECT); `node scripts/harness/scan-standing-delegation-evidence.mjs` run after appending — result recorded in the gate report.
