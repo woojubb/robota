@@ -302,6 +302,46 @@ it inside this item.**
   guard rather than by reading its prose self-description.
 - `pnpm harness:scan`, `pnpm harness:self-check`, full harness test tier.
 
+## Corpus Report (Phase 5)
+
+Produced by the guard over the frozen set, so the number is reproducible rather than argued. This is
+the answer to the 27/43/52 disagreement: none of the three, because all three were answering a question
+with no definition.
+
+```
+218 approved spec document(s); 1 DIRECT, 0 CLASS,
+217 frozen (217 of them with no route at all); 0 registered class(es)
+
+FROZEN SET: 217
+  no standing basis (direct-shaped)  : 165
+  standing + a quoted instruction    :  26
+  standing via a relayed delegation  :  15
+  standing asserted, no quote at all :  11
+```
+
+**52 rest on a standing basis** — and they do not sort into one disposition, which is why this item does
+not take one:
+
+- The **165** show no standing basis at all. Adding `**Approval route:** DIRECT` and the instruction
+  they already quote would route most of them; the work is clerical, not a judgement.
+- The **26** quoted their instruction and, in the better cases, measured the evidence condition.
+  `INFRA-100` is the model: it quotes _"내가 승인하는게 아니라 근거가 타당하면 너가 알아서 승인하고
+  넘어가야지"_ verbatim and then reproduces seven specific failures to satisfy the condition. It had
+  everything the CLASS route asks for except a registered class to point at — which did not exist.
+- The **15** chain to `ARCH-100`'s delegation, which reached that session **by relay**. `ARCH-100` says
+  so itself, in a paragraph headed _"Provenance limit, stated because it bounds this entry's strength"_.
+  RULE-012's own FAIL enumeration lists "delegation from unrelated context", so these sit on the
+  fixture rather than beside it. Five of them (`ARCH-104`…`ARCH-108`) additionally corroborate against
+  `.agents/tasks/completed/RULE-012-…md`, a path that has never existed.
+- The **11** assert a standing basis and quote nothing. No form recovers these; only a person can say
+  what the instruction was.
+
+**The disposition is not decided here, and the reason is the rule this item is writing.** Re-approving
+52 documents, or voiding them, is a decision about repository policy with a wide blast radius — it is
+outside every delegated class by the exclusions this amendment itself sets, so an agent taking it
+inside a rule edit would be the exact move the rule forbids. Filed as a separate item with these
+counts attached.
+
 ## User Execution Test Scenarios
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`

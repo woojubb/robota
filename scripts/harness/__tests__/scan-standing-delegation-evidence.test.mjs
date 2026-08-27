@@ -48,6 +48,24 @@ describe('the rule states criteria this guard can read', () => {
     expect(FORM.route).toMatch(/approval route/i);
   });
 
+  /**
+   * Every other case below parses FORM out of the live rule and then judges fixtures with it. That
+   * makes the rule both the criterion and the input — rename a field in the rule and the fixtures
+   * follow it silently, so the suite would confirm whatever the rule happened to say rather than
+   * test the guard against a fixed expectation. A check whose input is the thing under test is not
+   * a check, which is the defect family this whole item is about.
+   *
+   * This case is the anchor that closes it: the labels are pinned literally, so a form change that
+   * nobody re-examined goes red here rather than passing everywhere.
+   */
+  it('pins the exact labels, so a silent form change cannot carry the fixtures with it', () => {
+    expect([FORM.route, FORM.instruction, FORM.classField]).toEqual([
+      'Approval route',
+      'Instruction (verbatim)',
+      'Class',
+    ]);
+  });
+
   it('reads a registry table, and an empty registry is valid rather than a parse failure', () => {
     expect(parseRegistry(SECTION)).toBeInstanceOf(Map);
   });
