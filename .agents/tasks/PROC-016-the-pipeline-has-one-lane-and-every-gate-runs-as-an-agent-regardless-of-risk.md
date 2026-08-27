@@ -51,15 +51,22 @@ no spec document — the "no exceptions" rule is paid by not following it.
       user-declared fast track that replaces the unrecorded "skip the spec" waiver.
 - [ ] `scan-lane-declaration.mjs`: refuse a lane whose lower bound the diff violates; upward is always
       accepted; fast track refused on the excluded classes.
-- [ ] Amend `gate-catalogue.md` and `backlog-pipeline`: per-lane gate table (L0 none, L1 PLAN + DONE,
-      L2 unchanged); status vocabulary untouched.
+- [ ] Amend `gate-catalogue.md`: per-lane gate table (L0 none, L1 PLAN + DONE, L2 unchanged) and
+      tag every criterion under the five spec-document gates `mechanical` or `semantic` (TC-03);
+      status vocabulary untouched.
 - [ ] `gate.mjs` — `judge`, `advance`, `approve`: the mechanical criteria composed from the scans that
       already exist, the Evidence Log entry written in the catalogue's form, the folder/frontmatter/Task
       transition performed; the guardian dispatched only on a non-PASS or an L2 semantic criterion.
+- [ ] Route the three callers — `backlog-pipeline`, `user-request-gate`,
+      `backlog-execution-orchestrator` — through `gate.mjs`, dispatching `backlog-gate-guard` only on a
+      non-PASS or an L2 semantic set (TC-05).
 - [ ] `new-spec.mjs` + `mini-spec-template.md`: an L1 draft that passes GATE-WRITE's form criteria as
       generated.
 - [ ] `run-all-scans.mjs --affected`, wired into `pre-push.mjs`, `gate.mjs`, and the CI `scans` job on
       pull requests; the full suite moves to the post-merge run on `develop` and nightly.
+- [ ] Mark the prose- and transcript-grading scans (`scan-progress-report-quantification`,
+      `scan-reference-kind-qualified`) advisory on pull requests and blocking on the `develop` full run
+      (TC-09).
 - [ ] `merge-gate.sh`: a verdict stays valid across a base move when the moved range and the branch
       touch no common file and the merge is clean (delivers issue #2386).
 - [ ] Register the Route CLASS row for L0/L1 items — the row text is the owner's, recorded verbatim at
@@ -72,7 +79,7 @@ no spec document — the "no exceptions" rule is paid by not following it.
 Fixture tests under `scripts/harness/__tests__/` for `scan-lane-declaration`, `gate`, `new-spec`,
 `run-all-scans --affected`, and `merge-gate` (fixtures B and C from RULE-015: base moved, file overlap
 0, must pass without a rebase; a real overlap must still refuse). `rg` assertions pin the amended rule
-text. `pnpm harness:scan` and the harness suites exit 0. The exact criteria are TC-01..TC-11 in the
+text. `pnpm harness:scan` and the harness suites exit 0. The exact criteria are TC-01..TC-13 in the
 paired spec.
 
 ## User Execution Test Scenarios
