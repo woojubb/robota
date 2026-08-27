@@ -275,3 +275,14 @@ body are unchanged. This is a scope check, not a substitute for TC-01 through TC
 - Task pointer: PASS — `## Tasks` names the exact active path `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md`, and that file exists.
 - Task readiness: PASS — all four Plan items in the active Task are `[x]`; there is no unchecked, pending, or blocked Plan item. The historical scenario-gate failure remains audit history, while the author-owned final scenario outcome is the reasoned `SCENARIO DRAFTED: not-applicable | 0` verdict.
 - Independent verification summary: PASS — targeted Vitest passed 17/17, the live scanner examined one workflow and passed, the repository harness passed 145 scans with two declared skips, and the CI-equivalent pinned actionlint 1.7.7 run passed with its archive checksum and ShellCheck prerequisite verified.
+
+### [LOCAL-REVIEW-RESOLUTION] — ✅ PASS | 2026-08-27
+
+- Independent pre-push review found that the initial explicit Unicode ranges did not cover Hangul
+  Jamo Extended-A (`U+A960`) or Halfwidth Hangul (`U+FFA1`).
+- RED: both new mutation cases passed through the scanner, producing 2 failed / 1 passed focused
+  tests before the correction.
+- GREEN: the detector now uses Unicode `Script=Hangul`; the focused cases pass 3/3 and the complete
+  targeted scanner suite passes 19/19.
+- The completed task remains within its approved scope: mechanically reject any Hangul in the
+  governed reviewer prompt.

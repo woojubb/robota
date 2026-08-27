@@ -95,8 +95,12 @@ describe('scan-claude-review-coverage (INFRA-098)', () => {
     );
   });
 
-  it('rejects Hangul even when the explicit English-output contract remains', () => {
-    const source = workflow().replace('REVIEWED BASE:', '리뷰 기준\n            REVIEWED BASE:');
+  it.each([
+    ['precomposed Hangul', '리뷰 기준'],
+    ['Hangul Jamo Extended-A', '\ua960'],
+    ['halfwidth Hangul', '\uffa1'],
+  ])('rejects %s even when the explicit English-output contract remains', (_label, hangul) => {
+    const source = workflow().replace('REVIEWED BASE:', `${hangul}\n            REVIEWED BASE:`);
     expect(findWorkflowCoverageFindings(source)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ detail: expect.stringMatching(/Hangul/) }),

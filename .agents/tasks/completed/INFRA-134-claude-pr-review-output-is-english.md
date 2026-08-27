@@ -101,3 +101,6 @@ chore/infra-134-review-language-fixture` while HEAD is the implementation branch
   typecheck, 27/27 TUI PTY tests, 3,922/3,922 harness contract tests, and 1,149/1,149 hermetic tests.
   Dependency audit, a real Windows runner, workflow provenance, and PR CodeQL review-gate remain
   remote-only by the mirror's explicit contract.
+- Pre-push local review found that the original explicit ranges missed Hangul Jamo Extended-A and
+  Halfwidth Hangul. Mutation tests for `U+A960` and `U+FFA1` failed before the correction; the guard
+  now uses Unicode `Script=Hangul`, and the complete targeted suite passes 19/19 tests.

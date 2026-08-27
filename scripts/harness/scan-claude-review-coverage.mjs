@@ -23,7 +23,7 @@ const FORBIDDEN_FILTER = /^\s*(branches|branches-ignore|paths|paths-ignore):/;
 const REQUIRED_JOB_IF =
   "${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}";
 const REQUIRED_ENGLISH_OUTPUT = 'Write the PR summary and every inline review comment in English.';
-const HANGUL_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/u;
+const HANGUL_PATTERN = /\p{Script=Hangul}/u;
 let examinedCount = 0;
 
 export function readExamined() {
