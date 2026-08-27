@@ -143,25 +143,6 @@ verification in the Test Plan, not an invented product scenario.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
 
-### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
-
-**Status upgrade:** verifying → done
-
-- TC-01 PASS: all six Tasks are archived as `done`; placement and archival scans exited 0.
-- TC-02 PASS: all six specs are rejected with historical verdicts preserved and explicit rejection
-  dispositions; folder/status exited 0.
-- TC-03 PASS: conformance, owner projection, typecheck, and six-package focused tests passed (15
-  files, 58 tests).
-- TC-04 PASS: citation, reference-kind, and standing-delegation scans passed; six keys were rekeyed
-  without baseline growth.
-- TC-05 PASS: 145 scans passed with two declared skips, and all 13 CI-equivalent stages passed,
-  including 3,928 contract tests, 1,149 hermetic tests, full build, typecheck, lint, and affected
-  verification.
-- Every Test Plan row records its executable verification or a concrete reason no new test was
-  authored. The exact Task is completion-ready with no pending or blocked item.
-
-**Independent guardian verdict:** `GATE VERDICT: PASS`
-
 ### [GATE-WRITE] — ❌ FAIL | 2026-08-28
 
 **Status remains:** review-ready
@@ -308,5 +289,24 @@ against the narrowed six-record scope.
   build target. The six interface-owner package suites nevertheless passed 15 files and 58 tests.
 - `pnpm harness:scan` passed 145 scans, and the clean committed-tree
   `pnpm harness:verify-like-ci` run passed all 13 stages.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- TC-01 PASS: all six Tasks are archived as `done`; placement and archival scans exited 0.
+- TC-02 PASS: all six specs are rejected with historical verdicts preserved and explicit rejection
+  dispositions; folder/status exited 0.
+- TC-03 PASS: conformance, owner projection, typecheck, and six-package focused tests passed (15
+  files, 58 tests).
+- TC-04 PASS: citation, reference-kind, and standing-delegation scans passed; six keys were rekeyed
+  without baseline growth.
+- TC-05 PASS: 145 scans passed with two declared skips, and all 13 CI-equivalent stages passed,
+  including 3,928 contract tests, 1,149 hermetic tests, full build, typecheck, lint, and affected
+  verification.
+- Every Test Plan row records its executable verification or a concrete reason no new test was
+  authored. The exact Task is completion-ready with no pending or blocked item.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
