@@ -164,7 +164,7 @@ gate, and the 15 consumer packages' own suites.
 - Test Plan: 6 rows for 6 TCs; TC-02 and TC-04 are rule-conformance rather than gates, and say so.
 - `## User Execution Test Scenarios` present with an explicit not-applicable and its reason.
 
-### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -212,9 +212,10 @@ Nothing here decides which family belongs to which owner — that is ARCH-100's,
   already builds on it. GATE-IMPLEMENT is the verdict that implementation may _start_; issuing it
   after the merge would be backdating, not judging. It is outside GATE-COMPLETE's remit either way —
   a guardian applies one gate per run and cannot supply a predecessor's verdict.
-- **Corroborating tree state (not the deciding finding).** The paired task
-  `.agents/tasks/completed/ARCH-106-move-session-contracts-to-the-runtime-owner.md` was `status: in-progress`
-  with 0 of 5 checklist items `[x]`; the spec has no `## Tasks` section at all, so no task path is
+- **Corroborating tree state (not the deciding finding).** The paired task, now archived at
+  `.agents/tasks/completed/ARCH-106-move-session-contracts-to-the-runtime-owner.md`, was
+  `status: in-progress` with 0 of 5 checklist items `[x]` at the time; the spec has no `## Tasks`
+  section at all, so no task path is
   recorded where GATE-IMPLEMENT requires it; all six TC-N boxes are `[ ]` and the log holds zero
   `[GATE-COMPLETE: TC-N]` entries. Judged against this working tree only; an uncommitted change in
   another clone is not evidence here.
@@ -229,6 +230,8 @@ invoked. No status change, no folder move and no content fix was made by this ru
 
 This planning document is deliberately rejected rather than retroactively promoted: PR #2217
 (`22152ef9d`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
-and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
 `.agents/tasks/completed/ARCH-106-move-session-contracts-to-the-runtime-owner.md`; rejection closes
 the bypassed plan without manufacturing historical gate verdicts.

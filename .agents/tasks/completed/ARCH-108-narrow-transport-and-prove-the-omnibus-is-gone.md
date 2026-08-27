@@ -2,7 +2,7 @@
 title: 'ARCH-108: narrow the transport owner and prove the omnibus surface is gone'
 status: done
 created: 2026-08-23
-completed: 2026-08-23
+completed: 2026-08-24
 priority: high
 urgency: now
 area: apps/remote-signaling, packages/agent-cli, packages/agent-interface-session,
@@ -181,7 +181,7 @@ Filed from this leaf: issue #2228, issue #2233, issue #2236, issue #2248, issue 
 
 ## Result
 
-Delivered by PR #2244 (`c1dd93768`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
+Delivered by PR #2244 (`c1dd93768`) on 2026-08-24. A 2026-08-28 reconciliation re-ran
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0 after checking 22
 contract modules and four manifest edges. Transport currently depends only on `agent-core`, both
 published entries remain covered, and the projected graph is legal and acyclic. This Task is

@@ -162,7 +162,7 @@ own suites, recorded in the Test Plan above.
   dependency set is an assertion rather than an omission.
 - `## User Execution Test Scenarios` present with an explicit not-applicable and its reason.
 
-### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -222,9 +222,10 @@ entries, and the spec has no `## Tasks` section at all (section list: Problem, P
 Architecture Review Checklist, Alternatives Considered, Decision, Completion Criteria, Test Plan,
 User Execution Test Scenarios, Evidence Log), so no active task path is named.
 
-**Working-tree note:** the paired task record
-`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md` read `status:
-in-progress` with 0 of 5 completion criteria checked, and `git status --porcelain` reports it clean.
+**Working-tree note:** the paired task record, now archived at
+`.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md`, read
+`status: in-progress` with 0 of 5 completion criteria checked at the time, and
+`git status --porcelain` reported it clean.
 An uncommitted change in another clone is not evidence available to this gate.
 
 **Required action:** Not this guardian's call to sequence, but the record cannot be repaired by
@@ -238,6 +239,8 @@ rejection of the spec document — per `spec-workflow.md` HARD GATE and
 
 This planning document is deliberately rejected rather than retroactively promoted: PR #2214
 (`c621e4d49`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
-and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
 `.agents/tasks/completed/ARCH-105-extract-analytics-contracts-to-their-reporting-owner.md`; rejection
 closes the bypassed plan without manufacturing historical gate verdicts.

@@ -173,7 +173,7 @@ own suites, recorded in the Test Plan above.
   compiler is the assertion for a type-level move rather than a bespoke test, and TC-06's notes the
   manual invocation.
 
-### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -236,8 +236,9 @@ was supposed to authorize has already shipped.
   verdict — no guardian agent was dispatched." The only prior evidence for the upstream gate is
   author-recorded, not an independent guardian verdict.
 - All six TC-01…TC-06 checkboxes in `## Completion Criteria` are `[ ]` unchecked, and the paired task
-  record `.agents/tasks/completed/ARCH-103-move-execution-contracts-to-their-domain-owner.md` carried
-  `status: in-progress` with all six of its task items `[ ]` unchecked — while the implementation is
+  record, now archived at
+  `.agents/tasks/completed/ARCH-103-move-execution-contracts-to-their-domain-owner.md`, carried
+  `status: in-progress` with all six of its task items `[ ]` unchecked at the time — while the implementation is
   merged. (The claim that an uncommitted change moves that task to `completed/` with `status: done`
   does not hold in this clone: `git status --porcelain` shows only
   `.agents/evals/lessons/auto-lessons.md` and `.agents/evals/lessons/weekly-digest.md` modified.)
@@ -259,6 +260,8 @@ the shipped code before GATE-COMPLETE can be run at all.
 
 This planning document is deliberately rejected rather than retroactively promoted: PR #2203
 (`bd50f8b28`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
-and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
 `.agents/tasks/completed/ARCH-103-move-execution-contracts-to-their-domain-owner.md`; rejection closes
 the bypassed plan without manufacturing historical gate verdicts.

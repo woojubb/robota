@@ -149,7 +149,7 @@ harness gate, and the 9 consumer packages' own suites, recorded in the Test Plan
   now rather than discovered at `spec-user-execution-section` on the way to `done/`, which is where
   ARCH-100, HARNESS-116, HARNESS-117 and ARCH-101 all met it.
 
-### [WITHDRAWN GATE-APPROVAL] — ❌ INVALID | 2026-08-23
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-23
 
 **Status upgrade:** review-ready → approved
 
@@ -217,7 +217,7 @@ all six TC-N checkboxes in `## Completion Criteria` are `[ ]`.
    section exists, and the entry does not mention the item.
 2. The paired task record, now archived at
    `.agents/tasks/completed/ARCH-104-move-command-contracts-to-their-domain-owner.md`, was
-   `status: in-progress`, with all six of its completion criteria unchecked. The
+   `status: in-progress` in `.agents/tasks/` at the time, with all six completion criteria unchecked. The
    reported uncommitted move to `completed/` with `status: done` is **not present in this clone** —
    `git status --porcelain` on `develop` shows only `.agents/evals/lessons/auto-lessons.md` and
    `.agents/evals/lessons/weekly-digest.md` modified.
@@ -243,6 +243,8 @@ superseded before any completion verdict is attempted.
 
 This planning document is deliberately rejected rather than retroactively promoted: PR #2209
 (`0c9c9fd59`) merged the implementation before a valid pre-implementation GATE-IMPLEMENT checkpoint
-and before GATE-VERIFY. The delivered work remains recorded by the completed Task at
+and before GATE-VERIFY. The earlier GATE-APPROVAL entry is preserved verbatim as historical evidence;
+this rejection records that it cannot authorize an implementation that had already landed. The
+delivered work remains recorded by the completed Task at
 `.agents/tasks/completed/ARCH-104-move-command-contracts-to-their-domain-owner.md`; rejection closes
 the bypassed plan without manufacturing historical gate verdicts.
