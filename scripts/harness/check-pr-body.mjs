@@ -42,12 +42,22 @@ export const SESSION_LINK = /claude\.ai\/code\/session/;
 export const CLAUDE_CODE_FOOTER = /Generated with .*Claude Code|🤖 Generated with/;
 
 /**
- * The first markdown heading line of `body`, ignoring fenced code blocks, or null when there is none.
+ * The first markdown heading line of `body`, ignoring fenced code blocks and HTML comment blocks (a
+ * heading inside `<!-- … -->` is a prompt, not a section), or null when there is none.
  */
 export function firstHeading(body) {
   let inFence = false;
+  let inComment = false;
   for (const raw of body.split(/\r?\n/)) {
     const line = raw.trim();
+    if (inComment) {
+      if (line.includes('-->')) inComment = false;
+      continue;
+    }
+    if (line.startsWith('<!--') && !line.includes('-->')) {
+      inComment = true;
+      continue;
+    }
     if (/^(```|~~~)/.test(line)) {
       inFence = !inFence;
       continue;
@@ -85,7 +95,7 @@ export function judgePrBody(body) {
     problems.push('the PR body carries an agent-session link (claude.ai/code/session…); remove it');
   }
   if (CLAUDE_CODE_FOOTER.test(body)) {
-    problems.push('the PR body carries a "Generated with … Claude Code" footer; remove it');
+    problems.push('the PR body carries a "Generated with … Claude Code" line; remove it');
   }
   return { ok: problems.length === 0, problems };
 }

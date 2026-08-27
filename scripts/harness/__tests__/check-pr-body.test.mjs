@@ -4,7 +4,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -85,9 +85,11 @@ describe('judgePrBody — what the rule asks for', () => {
     expect(judgePrBody(COMPLIANT)).toEqual({ ok: true, problems: [] });
   });
 
-  it('ignores headings inside fenced code and leading HTML comments', () => {
+  it('ignores headings inside fenced code and inside HTML comment blocks', () => {
     const body = [
-      '<!-- fill in -->',
+      '<!--',
+      '## Background',
+      '-->',
       '```',
       '### not a heading',
       '```',
@@ -97,6 +99,10 @@ describe('judgePrBody — what the rule asks for', () => {
     ].join('\n');
     expect(firstHeading(body)).toBe('## Background');
     expect(judgePrBody(body).ok).toBe(true);
+    // The commented-out heading must not satisfy the floor on its own.
+    const commentedOnly = '<!--\n## Background\n-->\n### Accepted recommendation\n\nx\n';
+    expect(firstHeading(commentedOnly)).toBe('### Accepted recommendation');
+    expect(judgePrBody(commentedOnly).ok).toBe(false);
   });
 
   it('does not refuse ordinary prose that says "generated with"', () => {
@@ -114,16 +120,17 @@ describe('the template can never contradict the floor', () => {
       'utf8',
     );
     expect(firstHeading(template)).toBe('## Background');
-    // A template is prompts, not a body: only the positional half is binding here. The link half is
-    // asserted separately so a prompt that spells the forbidden footer is caught too.
-    const verdict = judgePrBody(template);
-    expect(verdict.problems.filter((p) => !/empty/.test(p))).toEqual([]);
+    // Both halves bind: the template's first heading must satisfy the floor, and no prompt in it may
+    // spell the forbidden strings.
+    expect(judgePrBody(template)).toEqual({ ok: true, problems: [] });
   });
 
   it('has no duplicate lowercase template beside it', () => {
-    expect(() =>
-      readFileSync(path.join(WORKSPACE_ROOT, '.github/pull_request_template.md')),
-    ).toThrow();
+    // Listed by exact name: on a case-insensitive filesystem a read of the lowercase path would
+    // succeed against PULL_REQUEST_TEMPLATE.md and this case would go red for the wrong reason.
+    expect(readdirSync(path.join(WORKSPACE_ROOT, '.github'))).not.toContain(
+      'pull_request_template.md',
+    );
   });
 });
 

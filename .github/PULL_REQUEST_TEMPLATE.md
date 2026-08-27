@@ -1,7 +1,7 @@
 <!--
 Keep the title in Conventional Commits form (e.g. `feat: ...`, `fix: ...`) — commitlint checks it.
-The body's shape is owned by .agents/rules/backlog-execution.md § PR Unit Rule: the seven sections
-below, in this order, opening with Background. The review-gate check refuses a body whose first
+The body's shape is owned by .agents/rules/backlog-execution.md § PR Unit Rule: the six sections
+below in this order, opening with Background, then the Closes line. The review-gate check refuses a body whose first
 heading is not `## Background` or that carries an agent-session link. Fill in each section and
 delete these comments.
 -->
@@ -24,12 +24,13 @@ delete these comments.
 
 ## How it was verified
 
-<!-- Commands run and what you observed. For a bug/regression fix, confirm the new test FAILS without the fix (prove it red against the pre-fix state). The user-execution scenario result, or the not-applicable reason.
+<!-- Commands run and what you observed. For a bug/regression fix, confirm the new test FAILS without the fix (prove it red against the pre-fix state). The user-execution scenario result, or the not-applicable reason. -->
+
 - [ ] `pnpm build` / `pnpm typecheck` / `pnpm lint` / `pnpm test` pass for the affected packages
 - [ ] `pnpm harness:scan` passes (repo gates)
 - [ ] Tests added/updated for the change (a bug fix's regression test is proven red-before-green)
 - [ ] Docs updated where relevant (package `docs/SPEC.md`, README, `content/`)
-- [ ] Targets `develop` (feature → develop → main; only `develop`/`release/*`/`hotfix/*` may target `main`) -->
+- [ ] Targets `develop` (feature → develop → main; only `develop`/`release/*`/`hotfix/*` may target `main`)
 
 ## Not in this PR
 
