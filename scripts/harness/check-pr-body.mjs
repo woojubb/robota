@@ -35,7 +35,7 @@
  * Usage (local): `gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs`
  */
 
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 
 export const REQUIRED_FIRST_HEADING = '## Background';

@@ -3,7 +3,7 @@
  * and can never contradict the repository's own template.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -157,19 +157,31 @@ describe('the script exit code is the verdict', () => {
     expect(run('').status).toBe(1);
   });
 
-  it('reads a body piped through stdin — the documented local invocation', () => {
-    // A synchronous fd-0 read fails with EAGAIN on a non-blocking pipe (measured on the PR that
-    // introduced this script); the pipe path is exercised here so that regression is a red case.
+  it('reads a body that arrives on stdin AFTER the script starts — the `gh … |` shape', async () => {
+    // `gh pr view` fetches for hundreds of milliseconds before it writes, so the script reads an
+    // EMPTY non-blocking pipe first. A synchronous fd-0 read failed there with EAGAIN (measured on
+    // the PR that introduced this script). `spawnSync({ input })` cannot reproduce it — the pipe is
+    // full before the child's first read — so the writer is delayed by hand: this case is red on
+    // the synchronous read and green on the asynchronous one.
     const env = { ...process.env };
     delete env.PR_BODY;
     delete env.GITHUB_STEP_SUMMARY;
-    const piped = (input) =>
-      spawnSync(process.execPath, [SCRIPT], { env, input, encoding: 'utf8' });
-    const accepted = piped(COMPLIANT);
+    const pipedLate = (body) =>
+      new Promise((resolve) => {
+        const child = spawn(process.execPath, [SCRIPT], { env });
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (chunk) => (stdout += chunk));
+        child.stderr.on('data', (chunk) => (stderr += chunk));
+        child.on('close', (status) => resolve({ status, stdout, stderr }));
+        setTimeout(() => child.stdin.end(body), 250);
+      });
+    const accepted = await pipedLate(COMPLIANT);
+    expect(accepted.stderr).not.toMatch(/EAGAIN/);
     expect(accepted.status, `${accepted.stdout}${accepted.stderr}`).toBe(0);
-    const refused = piped('### Accepted recommendation\n');
+    const refused = await pipedLate('### Accepted recommendation\n');
+    expect(refused.stderr).not.toMatch(/EAGAIN/);
     expect(refused.status).toBe(1);
     expect(refused.stderr).toMatch(/::error::the PR body's first heading/);
-    expect(refused.stderr).not.toMatch(/EAGAIN/);
   });
 });
