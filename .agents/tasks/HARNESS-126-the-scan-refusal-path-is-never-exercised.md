@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-126: the standing-delegation guard reports its refusal on a path nothing exercises'
 issue: https://github.com/woojubb/robota/issues/2388
-status: todo
+status: in-progress
 created: 2026-08-27
 priority: high
 urgency: now

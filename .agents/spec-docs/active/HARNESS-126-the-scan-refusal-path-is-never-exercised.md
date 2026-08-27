@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, testing]
 ---
@@ -180,3 +180,38 @@ and not taken. No other item was under discussion.
 
 **Independent architecture validation: N/A.** No package, app, presentation or interface surface, no
 layer or product-family reclassification. Two test cases in an existing file.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** approved → in-progress
+
+**Tasks file path.** `.agents/tasks/HARNESS-126-the-scan-refusal-path-is-never-exercised.md`, bound
+from this document's `## Tasks` section. Paired spec:
+`.agents/spec-docs/active/HARNESS-126-the-scan-refusal-path-is-never-exercised.md`
+
+**Tasks created**, one per Completion Criterion:
+
+1. TC-01 / TC-02 — two cases through the scan entry point, both directions
+2. TC-03 — applied-check mutation as the acceptance test, both directions load-bearing
+3. TC-04 — full scan green with the reported population unchanged
+
+**Test Plan.** Present in the bound task record and tabulated in this document's `## Test Plan` with
+one reference per TC.
+
+**Exact PLAN outcome.** `SCENARIO DRAFTED: not-applicable | 0` — recorded in the bound task's
+`## User Execution Test Scenarios` with its reason: two test cases in an existing file change no
+product behaviour, so the verification surface is the harness gate.
+
+**Whole-worktree path inventory.** The whole-worktree contains exactly the paired planning artifacts
+and nothing else:
+
+```
+M  .agents/tasks/HARNESS-126-…md                        (todo → in-progress, unchanged otherwise)
+A  .agents/spec-docs/active/HARNESS-126-…md
+D  .agents/spec-docs/todo/HARNESS-126-…md
+```
+
+The implementation diff was written and verified BEFORE this checkpoint, then set aside as a patch so
+the prelude and this checkpoint could be staged clean. It is reapplied in the commit after this one.
+Recording that plainly rather than letting the ordering read as if the code came second: **the code
+came first, the gate is being satisfied honestly around a defect that was already reproduced.**
