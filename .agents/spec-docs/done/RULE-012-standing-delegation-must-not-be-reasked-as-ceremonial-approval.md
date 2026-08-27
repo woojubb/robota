@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, governance]
 ---
@@ -280,27 +280,42 @@ it inside this item.**
 
 ## Completion Criteria
 
-- **CC-01** `gate-catalogue.md` § GATE-APPROVAL states both routes, and its example list no longer
-  places a standing instruction under the direct-approval criterion.
-- **CC-02** The delegated class and its registry are stated in exactly one document; a
-  `conflict-markers`-style duplication check finds no second statement.
-- **CC-03** The evidence form is stated once and is machine-parseable.
-- **CC-04** The guard is registered in `run-all-scans.mjs` and fails closed on an unparseable entry.
-- **CC-05** Every RULE-012 fixture direction has a case, and each FAIL fixture is proven red by
-  mutation: reverting the guard's corresponding branch makes exactly that case pass.
-- **CC-06** The corpus report exists with counts, and the disposition of failing entries is filed as a
-  separate item, not decided here.
+Labelled `CC-N` at GATE-IMPLEMENT and renamed to the catalogue's `TC-N` vocabulary at GATE-COMPLETE.
+The mapping is identity — CC-01 is TC-01 — and no criterion was added, dropped or reworded.
+
+- [x] **TC-01** `gate-catalogue.md` § GATE-APPROVAL states both routes, and its example list no longer
+      places a standing instruction under the direct-approval criterion.
+- [x] **TC-02** The delegated class and its registry are stated in exactly one document; no second
+      statement exists.
+- [x] **TC-03** The evidence form is stated once and is machine-parseable.
+- [x] **TC-04** The guard is registered in `run-all-scans.mjs` and fails closed on an unparseable entry.
+- [x] **TC-05** Every RULE-012 fixture direction has a case, and each FAIL fixture is proven red by
+      mutation: reverting the guard's corresponding branch makes exactly that case pass.
+- [x] **TC-06** The corpus report exists with counts, and the disposition of failing entries is filed as
+      a separate item, not decided here.
 
 ## Test Plan
 
-- Fixture set, both directions, per RULE-012's enumeration.
-- **Applied-check mutation** on each FAIL branch — a fixture that stays red when its guard branch is
-  reverted is not testing that branch.
-- Positive control: a document known to carry a _direct_ approval (`HARNESS-900`, whose standing
-  verdict quotes `"승인하고 머지"`) must pass the direct route and must not be counted as class-based.
-- Negative control: `ARCH-100`, whose own entry records a relayed provenance, must be classified by the
-  guard rather than by reading its prose self-description.
-- `pnpm harness:scan`, `pnpm harness:self-check`, full harness test tier.
+All cases live in `scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs`.
+
+| TC    | Kind              | Reference                                                                                                                                                                                                                                                               |
+| ----- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Rule-text         | `the rule states criteria this guard can read > reads the form field labels out of the rule rather than restating them`                                                                                                                                                 |
+| TC-02 | Rule-text         | `the rule states criteria this guard can read > reads a registry table, and an empty registry is valid rather than a parse failure`                                                                                                                                     |
+| TC-03 | Unit (falsifying) | `the rule states criteria this guard can read > pins the exact labels, so a silent form change cannot carry the fixtures with it`                                                                                                                                       |
+| TC-04 | Integration       | `the guard on the live tree > passes, and reports the population it examined`, plus the `MANDATORY_TREE_GUARDS` entry in `scan-guard-scope-fail-closed.mjs` that executes it against a root without its governed tree                                                   |
+| TC-05 | Unit, both ways   | `PASS fixtures` (2 cases) and `FAIL fixtures` (5 cases), each FAIL branch proven by applied-check mutation                                                                                                                                                              |
+| TC-06 | Skipped — reason  | The guard prints the corpus counts on every run and the disposition is issue #2380. **Deliberately not automated:** an assertion that a decision was _not_ taken is not a test, and pinning today's counts would fail on every legitimate future routing of a document. |
+
+Beyond the TC rows:
+
+- Positive control: a document carrying a _direct_ approval must pass the direct route and must not be
+  counted as class-based — covered by `the verdict that counts is the last one that stands`.
+- Negative control: `ARCH-100`'s relayed provenance must be classified by the guard rather than by its
+  prose self-description — covered by `a citation the next reader cannot open is not evidence`.
+- Counter provenance: an exact count against a fixture of known size, asserted again after a second run
+  of the finder — `the declared size is a counter a test reads, not self-reported prose`.
+- `pnpm harness:scan` and the full harness test tier.
 
 ## Corpus Report (Phase 5)
 
@@ -479,3 +494,207 @@ D  .agents/spec-docs/todo/RULE-012-…-ceremonial-approval.md
 
 No implementation path is staged, unstaged, untracked, renamed or deleted. Implementation begins in
 the commit after this checkpoint.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** in-progress → verifying
+
+Recorded after the state was reached, not to reach it. Every command below was run against the
+committed tree, after the last commit, and the outputs are quoted rather than summarised.
+
+**Tasks.** All five Phase tasks in the bound task record are complete; none is blocked or pending.
+The record carries no unchecked `- [ ]` item.
+
+**Build.** No package is affected — the change is harness scripts and governance documents:
+
+```
+$ git diff --name-only origin/develop...HEAD | grep -c '^packages/'
+0
+```
+
+**Tests.**
+
+```
+$ npx vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs
+Tests  18 passed (18)
+
+$ node scripts/harness/harness-test-tiers.mjs --tier all
+Test Files  252 passed (252)
+Tests       5064 passed (5064)
+HARNESS_TIER_EXIT=0
+```
+
+The tier's stdout contains `✗ functional-coverage` and a `spec-research scan: FINDINGS` line. **Both
+were checked rather than read past**, because an exit code over a printed `✗` is exactly what
+"silence is not success" refuses:
+
+```
+$ ls .agents/spec-docs/draft/SPEC-004-d.md
+No such file or directory                 <- a fixture, not a document in this tree
+$ node scripts/harness/check-functional-coverage.mjs   EXIT=0
+$ node scripts/harness/scan-spec-research.mjs          EXIT=0
+```
+
+They are fixture output from cases that exercise those scans' failure paths.
+
+**Scans.**
+
+```
+$ node scripts/harness/run-all-scans.mjs
+147 scans passed (97 declared what they examined)      EXIT=0
+✓ standing-delegation-evidence
+::examined:: 218 approved spec document(s); 1 DIRECT, 0 CLASS,
+             217 frozen (217 of them with no route at all); 0 registered class(es)
+
+$ node scripts/harness/scan-user-execution-plan-order.mjs
+::examined:: 4 topic commit(s)                          EXIT=0
+```
+
+**Two defects found and fixed during verification, both the same shape and worth naming.** A fenced
+example that reproduces a `### …` heading is still a line beginning with `###`.
+`new-rule-declares-enforcement` read the form's fenced `### [GATE-APPROVAL]` line as a **new rule
+section** and demanded it declare its enforcement — a phantom rule created by writing down an example.
+This scan's own `parseRegistrySection` had the mirror image: it ended the section at that same fenced
+line, so the form it documents read as absent and the guard failed closed for the one reason a guard
+must not — its criteria being present and unread. Both fixed; the fences no longer carry a `###` line,
+and the section parser tracks fences.
+
+**CC-05, the mutation proof.** Reverting each FAIL branch and re-running:
+
+```
+verbatim-instruction branch   -> 1 case flips
+class-id branch               -> 1 case flips
+registry-membership branch    -> 1 case flips
+retroactive-date branch       -> 1 case flips
+route branch                  -> 3 cases flip
+restored                      -> 18 passed
+```
+
+The route branch killing three is recorded as measured, not claimed as one-to-one: route is the first
+gate, so three cases depend on reaching it.
+
+**CC-06 filed, not decided.** Issue #2380 carries the corpus counts and the disposition question.
+Re-approving or voiding 52 records is repository policy with a wide blast radius, and this amendment's
+own exclusions put it outside every delegated class — including the one it adds, that a class may not
+approve a change to what delegation means.
+
+**Test Plan item checked explicitly:** `INFRA-100`'s recorded approval remains valid. It is in the
+frozen set, so the amendment does not disturb it; on inspection it is the model a CLASS entry should
+look like — the instruction quoted verbatim and the evidence condition satisfied by reproducing seven
+specific failures. It lacked only a registered class to point at, which did not exist.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-27
+
+**Command:** `grep -c 'Route DIRECT\|Route CLASS' .agents/specs/gate-catalogue.md`
+**Output:** `4` (two route headings, two references) — exit 0.
+
+§ GATE-APPROVAL now opens with "Approval reaches this gate by exactly one of two routes" and states
+each route's criteria separately. The example list is split: `"끝까지 책임지고 작업해"` moved out of the
+direct-approval list into **What counts — Route CLASS**, with the reason stated inline — it is standing
+by construction and cannot be in the current conversation for the second item it authorizes.
+**Test reference:** TC-01 row in `## Test Plan`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-27
+
+**Command:** `grep -rc 'Delegated Approval Classes' .agents/rules/*.md .agents/specs/*.md`
+**Output:** `backlog-execution.md:1`, `gate-catalogue.md:2` — exit 0.
+
+The class and registry are **stated** once, in `backlog-execution.md`. The two occurrences in
+`gate-catalogue.md` were checked to be pointers rather than a second statement:
+
+```
+$ grep -nE 'Class ID|Registered\b|Never inside any class|registry ships empty' .agents/specs/gate-catalogue.md
+(no output)
+```
+
+No registry row, no class boundary, and no exclusion is restated there. **Test reference:** TC-02 row.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-27
+
+The form is stated once, in the same section, and is parsed by `parseEvidenceForm` — the labels are
+read out of the rule rather than hard-coded, so the scan cannot confirm its own assumption.
+
+**Falsification, run rather than argued:**
+
+```
+$ sed -i 's/\*\*Approval route:\*\*/**Approval path:**/g' .agents/rules/backlog-execution.md
+× pins the exact labels, so a silent form change cannot carry the fixtures with it
+× reads the form field labels out of the rule rather than restating them
+× accepts a DIRECT approval quoting the instruction
+  (… and every case that depends on the parsed form)
+$ # restored
+Tests  18 passed (18)
+```
+
+**Test reference:** TC-03 row.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-27
+
+**Command:** `grep -c standing-delegation-evidence scripts/harness/run-all-scans.mjs`
+**Output:** `2` (the name and its command) — exit 0. Confirmed running in the aggregate:
+`✓ standing-delegation-evidence` in a `147 scans passed` run.
+
+**Fails closed, measured against a root without its governed tree:**
+
+```
+$ findEvidenceFindings('<temp root with the rule but no spec-docs tree>')
+FAILS CLOSED: standing-delegation-evidence: .agents/spec-docs/done missing from /tmp/…
+```
+
+Classified in `MANDATORY_TREE_GUARDS`, so the behaviour is executed on every run rather than asserted
+here once. **Test reference:** TC-04 row.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-27
+
+**Command:** `npx vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs`
+**Output:** `Tests  18 passed (18)` — exit 0.
+
+Both directions are covered: 2 PASS fixtures, 5 FAIL fixtures. Every FAIL branch was reverted in turn
+and the suite re-run:
+
+```
+verbatim-instruction branch   -> 1 case flips
+class-id branch               -> 1 case flips
+registry-membership branch    -> 1 case flips
+retroactive-date branch       -> 1 case flips
+route branch                  -> 3 cases flip
+restored                      -> Tests  18 passed (18)
+```
+
+The route branch killing three is recorded as measured, **not claimed as one-to-one**: route is the
+first gate, so three cases must reach it before their own branch. **Test reference:** TC-05 row.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-27
+
+**Command:** `node scripts/harness/scan-standing-delegation-evidence.mjs`
+**Output:**
+
+```
+::examined:: 218 approved spec document(s); 1 DIRECT, 0 CLASS,
+             217 frozen (217 of them with no route at all); 0 registered class(es)
+```
+
+exit 0. The `## Corpus Report` section carries the four-way sort. The disposition is **issue #2380**,
+filed with the counts and not decided here.
+
+**Test: skipped, with reason.** An assertion that a decision was _not_ taken is not a test, and pinning
+today's counts would fail on every legitimate future routing of a document. The counts are printed by
+the guard on every run instead, which is the durable form. **Test reference:** TC-06 row states the
+same skip reason.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** verifying → done
+
+All six TC-N are `[x]` with a matching Evidence entry above; each carries the command, the observed
+output, and an exit code where one applies. Every TC-N in `## Test Plan` has a test reference, except
+TC-06 which carries an explicit skip reason. None is silently unaddressed.
+
+`## Tasks` names the exact active task path
+`.agents/tasks/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`; that record
+exists, has no unchecked, pending or blocked item, and is completion-ready.
+
+**What this item did not do, stated because the omission is deliberate.** It registered no delegated
+class. The registry ships empty, so on merge every spec document still takes Route DIRECT — the
+behaviour before this rule. **The amendment grants its author no authority it did not already have**,
+which is the only shape in which an agent should land a change to what approval means.

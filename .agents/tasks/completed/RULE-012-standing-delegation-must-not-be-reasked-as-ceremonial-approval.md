@@ -1,6 +1,7 @@
 ---
 title: 'RULE-012: standing delegated decision authority must not be re-asked as ceremonial approval'
-status: in-progress
+status: done
+completed: 2026-08-27
 created: 2026-08-15
 priority: high
 urgency: soon
@@ -84,4 +85,4 @@ This matches the surface HARNESS-117 recorded for the same shape of change.
 
 ## Bound spec document
 
-`.agents/spec-docs/active/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`
+`.agents/spec-docs/done/RULE-012-standing-delegation-must-not-be-reasked-as-ceremonial-approval.md`
