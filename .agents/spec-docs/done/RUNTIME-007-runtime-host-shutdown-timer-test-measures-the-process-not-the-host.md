@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: BEHAVIOR
 tags: [testing, async]
 ---
@@ -221,7 +221,7 @@ In `runtime-host.test.ts`:
 
 ## Tasks
 
-- [ ] `.agents/tasks/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md` — 생성됨 (GATE-IMPLEMENT에서 바인딩)
+- [x] `.agents/tasks/completed/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md` — done 2026-08-28
 
 ## Evidence Log
 
@@ -397,3 +397,61 @@ Checkbox `[x]` — checked, but the `pnpm harness:scan` exit 0 half of the crite
 
 - TC-05 (`pnpm harness:scan` exits 0 on the branch): found `1 of 147 scans failed`, exit 1 — `reference-kind-qualified` reports one unqualified `#1852` in the prose of this document's GATE-VERIFY entry (line 352, `the issue #1852 regression named by identity`), which is uncommitted and would land in the archival commit; required `pnpm harness:scan` exit 0 on the tree that is committed.
   **Required action:** qualify that one reference in the GATE-VERIFY entry (`the issue #1852 regression`), confirm `node scripts/harness/scan-reference-kind-qualified.mjs` and `pnpm harness:scan` exit 0 on the worktree, then re-run GATE-COMPLETE. No implementation change is involved: TC-01–TC-04 and the package suite are met as recorded above, and this document's checkboxes, `## Test Plan` rows (TC-01/TC-04 test references; TC-02/TC-03 explicit hand-run skip reasons; TC-05 the command pair with its evidence location), `## Tasks` (exact active path `.agents/tasks/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md`, which exists, `status: in-progress`, not blocked, no `[ ]` line — the checkbox-free Task shape GATE-VERIFY and HARNESS-126 accepted) all satisfy their criteria.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-28
+
+Re-run against the committed tree: branch `fix/2383-runtime-host-test-measures-the-host`, HEAD `6e51c2cf1` (the commit that qualified the reference and took the local review's non-blocking findings), `git status --porcelain` empty before and after every run in this gate.
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/runtime/__tests__/runtime-host.test.ts --reporter=verbose` (real home; `~/.claude/settings.json` hooks = `['SessionStart']`, read by `node -e` at run time — the condition that was red on `develop` `bb4c3626e`).
+**Output:** `Test Files 1 passed (1)`, `Tests 6 passed (6)`, all six cases listed `✓` by name including `startRuntimeHost (RUNTIME-001 TC-01) > shutdown() leaves no timer holding the event loop open (#1852) 5ms` — exit 0.
+
+Checkbox `[x]`. The case (`runtime-host.test.ts:114-176` on this HEAD) asserts on identity: the `async_hooks` hook records every `Timeout` `init` into `seen` (`:136`, never shrunk, resource cast to `NodeJS.Timeout` at `:149`) and each `destroy` into `destroyed` (`:151-153`); hook enabled at `:155` before `startRuntimeHost` (`:158`); one `setImmediate` awaited at `:163` after `shutdown()`; `seen.size >= 1` at `:168`; survivors (`!destroyed && hasRef()`) must be `[]` at `:172-175`. `grep -c getActiveResourcesInfo` on the file = 0 (the only hit is the comment at `:125` saying it is not used). **Test reference:** TC-01 row of `## Test Plan` names the file > describe `startRuntimeHost (RUNTIME-001 TC-01)` > the case title exactly as `:114` spells it.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-28
+
+**Action:** the mutant was re-run by this gate on HEAD `6e51c2cf1` (the test file changed in that commit — stack slice `.slice(2, 7)`, `NodeJS.Timeout` cast, `restoreHome()` — so the GATE-VERIFY run on `a98e522a1` was not cited as sufficient).
+**Command:** `packages/agent-framework$ cp src/runtime/runtime-host.ts <scratch>; sed -i '99{/if (bound !== undefined) clearTimeout(bound);/d}' src/runtime/runtime-host.ts` → `git diff --stat` = `1 file changed, 1 deletion(-)`; `pnpm exec vitest run src/runtime/__tests__/runtime-host.test.ts`.
+**Output (mutant):** `× startRuntimeHost (RUNTIME-001 TC-01) > shutdown() leaves no timer holding the event loop open (#1852)` → `1 timer(s) armed during the host's lifetime still hold the event loop after shutdown(): expected [ Array(1) ] to deeply equal []`, survivor stack opening at the arming site `at …/runtime-host.ts:96:19 | at new Promise (<anonymous>) | at Object.shutdown (…/runtime-host.ts:95:9)`; `Tests 1 failed | 5 passed (6)` — exactly one case red, the other five (including the TEST-012 control) green — exit 1.
+**Restore:** original copied back; `sha256sum` of the working file = `sha256sum` of `git show HEAD:…/runtime-host.ts` = `66db4fd74fdacd5e…` (and = `origin/develop`'s copy: `66db4fd74fdacd5ed1a7e32385a8ca4d0206e771d9451bef2184347305643c2c`); `git diff | wc -l` = 0; `git status --porcelain` empty. Re-run restored → `Tests 6 passed (6)`, exit 0.
+
+Checkbox `[x]`. **Test skipped** as a committed case with the reason on the TC-02 row (a mutant cannot be committed; hand-run and recorded here and in the GATE-VERIFY entry) — accepted.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-28
+
+All three arms run direct (`/home/ubunutu/.volta/tools/image/node/22.14.0/bin/node <resolved vitest/vitest.mjs> run …`, cwd `packages/agent-framework`, Node `v22.14.0`), because the `pnpm`/Volta shim provisions its toolchain under `HOME` and cannot start under an empty home (recorded on the first run of this gate); this is the launcher, not the test.
+**Decoy preparation:** `DECOY=$(mktemp -d)/home; mkdir -p $DECOY/.claude; printf '{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"sleep 2","timeout":5}]}]}}' > $DECOY/.claude/settings.json` → `/tmp/tmp.qTtSjPqgJd/home`; file re-read, content is exactly the accepted shape.
+**Decoy run:** `HOME=$DECOY USERPROFILE=$DECOY node vitest.mjs run src/runtime/__tests__/runtime-host.test.ts` → `✓ src/runtime/__tests__/runtime-host.test.ts (6 tests)`, `Tests 6 passed (6)`, exit 0.
+**Empty home:** `EMPTY=$(mktemp -d)/home; mkdir $EMPTY` → `/tmp/tmp.fZu4z1X3Yk/home`, 0 entries; `HOME=$EMPTY USERPROFILE=$EMPTY node vitest.mjs run …` → `Tests 6 passed (6)`, exit 0; 0 entries afterwards.
+**Control arm (the decoy reproduces the unfixed red):** `git show origin/develop:packages/agent-framework/src/runtime/__tests__/runtime-host.test.ts > src/runtime/__tests__/runtime-host.probe-2383.test.ts` (3 `getActiveResourcesInfo` matches), run under the same decoy → `× startRuntimeHost (RUNTIME-001 TC-01) > shutdown() leaves no timer holding the event loop open (#1852)` → `expected 3 to be less than or equal to 2`, `Tests 1 failed | 4 passed (5)`, exit 1. Probe removed; `git status --porcelain` empty.
+
+Checkbox `[x]`. **Test skipped** as a committed case with the reason on the TC-03 row (an environment arm, run by hand and recorded) — accepted.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-28
+
+**Command:** the TC-01 verbose run above (real home), plus the TC-03 decoy and empty-home runs.
+**Output:** `✓ startRuntimeHost (RUNTIME-001 TC-01) > reads settings and plugins from the isolated home, not the developer's (TEST-012 control) 1ms`, exit 0; 6/6 in the decoy and empty-home arms too.
+
+Checkbox `[x]`. The case (`runtime-host.test.ts:178-194`) asserts every `createDefaultUserSettingsSources()` path `startsWith(home)` and `homedir() === home` inside the isolation, then calls `restoreHome()` (`:71-76`, delete-or-assign for both `HOME` and `USERPROFILE`) and asserts `homedir() !== home` and no source path under `home`. **Test reference:** TC-04 row names the file > the case title exactly as `:178` spells it.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-28
+
+**Package suite:** `pnpm --filter @robota-sdk/agent-framework exec vitest run` → `Test Files 195 passed (195)`, `Tests 1562 passed (1562)`, exit 0.
+**Scans:** `pnpm harness:scan` on the committed tree `6e51c2cf1` (`git status --porcelain` empty, so the receipt would have been valid — this run was fresh: `scan receipt written` at the end) → `146 scans passed, 1 skipped (97 declared what they examined)`, exit 0. `✓ reference-kind-qualified` (the scan that failed the first run) is in the passed set. The skip is `↩ new-rule-declares-enforcement`, which declares `::examined:: 0 new rule sections` — this branch's diff against the merge-base (`git diff --stat origin/develop...HEAD`: one test file plus four `.agents/` documents) adds no rule section, so the declared reason holds. The `⚑ dist:` stale-`dist/` advisory is informational and exits 0.
+
+Checkbox `[x]`. Both halves of the criterion met on the tree being handed forward. **Test reference:** TC-05 row names the command pair and points at the GATE-VERIFY entry; the counts and exit codes are also recorded here.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- Ordering — prior gate: `[GATE-VERIFY] — ✅ PASS | 2026-08-28` above (line 339) carries per-criterion evidence lines (build/typecheck, file/decoy/empty/mutant/package runs with counts and exit codes, scan summary with the skip read) — not a bare PASS. The first `[GATE-COMPLETE] — ❌ FAIL | 2026-08-28` entry and its five TC entries remain above as written; this run supersedes them on the committed tree.
+- Ordering — input state: frontmatter `status: verifying`; file under `.agents/spec-docs/active/`; `node scripts/harness/scan-doc-folder-status-agreement.mjs` → `violations=0 result=PASS`, exit 0.
+- TC-01 checkbox `[x]` + `[GATE-COMPLETE: TC-01]` entry above: file run, 6/6, exit 0, identity assertion verified in the source.
+- TC-02 checkbox `[x]` + `[GATE-COMPLETE: TC-02]` entry above: mutant re-run on this HEAD, exactly one case red naming one ref'd timer at `runtime-host.ts:96:19`, exit 1; restored to `66db4fd74fdacd5e…`, diff empty, 6/6.
+- TC-03 checkbox `[x]` + `[GATE-COMPLETE: TC-03]` entry above: decoy arm 6/6 exit 0, empty-home arm 6/6 exit 0, control arm (unfixed test under the decoy) `1 failed | 4 passed` exit 1 — the decoy provably takes effect; preparation command and paths recorded.
+- TC-04 checkbox `[x]` + `[GATE-COMPLETE: TC-04]` entry above: the control case green under the real, decoy and empty homes.
+- TC-05 checkbox `[x]` + `[GATE-COMPLETE: TC-05]` entry above: package suite 195 files / 1562 tests exit 0; `pnpm harness:scan` 146 passed, 1 skipped (reason read), exit 0 — the first run's failing `reference-kind-qualified` now passes.
+- Test Plan rows: TC-01 → test reference (file > describe > case, title matches `runtime-host.test.ts:114` verbatim); TC-02 → explicit skip reason (a mutant cannot be committed; hand-run and recorded); TC-03 → explicit skip reason (environment arm, hand-run and recorded); TC-04 → test reference (file > case, title matches `:178` verbatim); TC-05 → command pair with evidence location. No row is silently unaddressed.
+- `## Completion Criteria`: all five checkboxes `[x]` (`grep -c '^- \[x\] \*\*TC-'` = 5, `'^- \[ \] \*\*TC-'` = 0).
+- `## Tasks` names the exact active path `.agents/tasks/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md`; the file exists (116 lines), frontmatter `status: in-progress` (not `blocked`), `issue: …/2383`, `## Bound spec document` names this file's exact path.
+- Task completion-ready: the Task carries no `[ ]`/`[x]` line (a Task is the problem record per `.agents/tasks/README.md`; the checkbox-free shape GATE-VERIFY and HARNESS-126 accepted); its four `## Test Plan` bullets are each met on the committed tree — bullet 1 (identity tracking, mutant red) by TC-01/TC-02 above, bullet 2 (isolation labelled `Contained — TEST-012.` at `runtime-host.test.ts:79`, decoy + empty home) by TC-03, bullet 3 (control) by TC-04, bullet 4 (file, package, `harness:scan` exit 0) by TC-05. Nothing pending or blocked. The spec's own `## Tasks` row is `[ ]`, which is the correct state until the post-PASS handoff sets the Task's terminal disposition — a PASS output, not a precondition (catalogue § Post-PASS handoff).
+- Post-PASS handoff not performed by this gate: frontmatter unchanged (`status: verifying`), no file moved, Task status untouched.

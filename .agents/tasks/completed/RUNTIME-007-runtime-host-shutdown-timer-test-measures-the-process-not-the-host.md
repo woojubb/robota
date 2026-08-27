@@ -1,7 +1,8 @@
 ---
 title: "RUNTIME-007: runtime-host's shutdown timer test measures the process, not the host, and reads the developer's home"
 issue: https://github.com/woojubb/robota/issues/2383
-status: in-progress
+status: done
+completed: 2026-08-28
 created: 2026-08-28
 priority: high
 urgency: now
@@ -113,4 +114,4 @@ the recorded mutation.
 
 ## Bound spec document
 
-`.agents/spec-docs/active/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md`
+`.agents/spec-docs/done/RUNTIME-007-runtime-host-shutdown-timer-test-measures-the-process-not-the-host.md`
