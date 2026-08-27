@@ -135,12 +135,40 @@ export function approvalEntries(text) {
   return entries;
 }
 
-/** The verdict the document actually rests on: the last `✅ PASS` not marked withdrawn. */
+/**
+ * The verdict the document actually rests on: the last `✅ PASS`, unless a LATER entry withdraws it.
+ *
+ * A withdrawal is not written on the entry it retires. The corpus records it as a separate
+ * `🔴 NON-COMPLIANCE` entry that names the PASS above it, and the author then writes a fresh PASS on a
+ * different basis. Testing the entry's own text for "withdraw" therefore reads the wrong thing twice
+ * over, and both misreads were measured on the live tree before this was rewritten:
+ *
+ *   HARNESS-900 — its standing PASS explains that an earlier one stays withdrawn, so the word appears
+ *                 in the entry that is VALID and an earlier verdict was taken instead;
+ *   SEC-015     — the word appears in prose about the document's own earlier claim, nothing to do with
+ *                 any approval, and EVERY pass was dropped. The document then vanished from the
+ *                 population entirely: not judged, not reported, silently unexamined.
+ *
+ * The second is the worse failure and the reason this is not a filter. A guard that drops a document
+ * it cannot parse has not found nothing; it has stopped looking, and its count says otherwise.
+ */
+/**
+ * A verdict's KIND is stated on its heading line and nowhere else. Testing the whole entry finds the
+ * `✅ PASS` that a NON-COMPLIANCE entry QUOTES while recording which pass it withdraws — so the
+ * withdrawal reads as the pass. Measured: the first implementation here did exactly that.
+ */
+function isPassEntry(entry) {
+  return /✅\s*PASS/.test(entry.split('\n', 1)[0]);
+}
+
 export function standingVerdict(text) {
-  const passes = approvalEntries(text).filter(
-    (entry) => /✅\s*PASS/.test(entry) && !/withdraw/i.test(entry),
-  );
-  return passes.length > 0 ? passes[passes.length - 1] : undefined;
+  const entries = approvalEntries(text);
+  const lastPass = entries.map(isPassEntry).lastIndexOf(true);
+  if (lastPass === -1) return undefined;
+  const retiredAfter = entries
+    .slice(lastPass + 1)
+    .some((entry) => /withdraw/i.test(entry) && !isPassEntry(entry));
+  return retiredAfter ? undefined : entries[lastPass];
 }
 
 function entryDate(entry) {

@@ -698,3 +698,69 @@ exists, has no unchecked, pending or blocked item, and is completion-ready.
 class. The registry ships empty, so on merge every spec document still takes Route DIRECT — the
 behaviour before this rule. **The amendment grants its author no authority it did not already have**,
 which is the only shape in which an agent should land a change to what approval means.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-27 (re-run after the pre-push review)
+
+**Status unchanged:** done. This entry records what the mandatory local review found in this item's
+OWN guard, and what it cost. Recorded because the alternative — a review that finds nothing in 313
+lines it just wrote — is the finding.
+
+**Three defects, all the same shape: a property read off the whole entry instead of the one line that
+states it.**
+
+1. **`/withdraw/i` tested the entry's own text.** A withdrawal is not written on the entry it retires;
+   the corpus records it as a separate `🔴 NON-COMPLIANCE` entry naming the pass above it. Measured on
+   the live tree:
+
+   ```
+   files mentioning withdraw: 11 | misclassified: 2
+   DROPPED ALL PASSES: .agents/spec-docs/done/SEC-015-hook-outcome-contract.md
+   NOT THE LAST PASS:  .agents/spec-docs/active/HARNESS-900-….md
+   ```
+
+   `HARNESS-900`'s standing pass _explains_ that an earlier one stays withdrawn, so the valid verdict
+   carried the word. `SEC-015` used it in prose about the document's own earlier claim, and **every
+   pass was dropped — the document vanished from the population unjudged.** That is the worse of the
+   two and the reason this was rewritten rather than patched: a guard that silently stops reading a
+   document has not found nothing, and its count says otherwise.
+
+2. **The verdict KIND was read off the whole entry.** A NON-COMPLIANCE entry quotes the
+   `✅ PASS` it withdraws, so the withdrawal itself was detected as a pass. Found because the fixture
+   written for defect 1 failed against correct code.
+
+3. **The later-withdrawal branch had no case at all.** `M7 → 0 cases killed`: the code was written and
+   nothing proved it worked. In an item about checks that cannot fail, an unfalsifiable branch of the
+   guard is the defect, not a gap in coverage.
+
+**All three now falsifiable:**
+
+```
+M6  first-instead-of-last pass      -> 2 cases killed
+M7  later-withdrawal check disabled -> 1 case killed
+M8  kind read off the whole entry   -> 1 case killed
+restored                            -> Tests 21 passed (21)
+```
+
+**Corpus delta, checked rather than regenerated blind.** The baseline moved 217 → 218 and the exact
+delta was printed before writing it:
+
+```
+ADDED to baseline  : 1
+   + done/SEC-015-hook-outcome-contract.md
+REMOVED (key moved): 0
+```
+
+One addition — the document that had been invisible. Nothing entered silently.
+
+**Re-verified:**
+
+```
+$ node scripts/harness/run-all-scans.mjs
+147 scans passed (97 declared what they examined)      EXIT=0
+$ node scripts/harness/scan-standing-delegation-evidence.mjs
+::examined:: 219 approved spec document(s); 1 DIRECT, 0 CLASS,
+             218 frozen (218 of them with no route at all); 0 registered class(es)
+```
+
+TC-05's mutation record above is superseded by M6–M8 for the verdict-selection branches; the five
+classification branches it lists are unchanged and were re-run green.

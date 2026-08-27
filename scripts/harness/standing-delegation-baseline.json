@@ -1,5 +1,5 @@
 {
-  "note": "Frozen SET of approvals recorded before RULE-012 installed the route/registry form. Not absolution: these predate the form and predate the registry, and by construction none can cite a class registered before it. The set may only SHRINK - a document that gains a route leaves it, and no document is ever added. What becomes of the entries that cannot be routed is an owner decision, filed separately and deliberately not taken by this scan.",
+  "note": "Frozen SET of approvals recorded before RULE-012 installed the route/registry form. Not absolution: these predate the form and predate the registry, and by construction none can cite a class registered before it. The set may only SHRINK - a document that gains a route leaves it, and no document is ever added. What becomes of the entries that cannot be routed is an owner decision, filed as issue #2380 and deliberately not taken by this scan.",
   "frozenAt": "2026-08-27",
   "standingBasisAtFreeze": 52,
   "exempt": [
@@ -195,6 +195,7 @@
     "done/SCREEN-005-tui-prompt-footers-and-affordance.md",
     "done/SCREEN-010-tui-static-scrollback-chat-layout.md",
     "done/SEC-001-default-loopback-ws-auth.md",
+    "done/SEC-015-hook-outcome-contract.md",
     "done/SELFHOST-008-P1R-memory-port-remediation.md",
     "done/SELFHOST-008-P2-live-auto-capture.md",
     "done/SELFHOST-008-P3-per-turn-recall.md",

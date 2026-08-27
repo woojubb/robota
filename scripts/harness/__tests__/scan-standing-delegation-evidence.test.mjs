@@ -163,6 +163,56 @@ describe('the verdict that counts is the last one that stands', () => {
     expect(classifyApproval(verdict, { form: FORM, registry: REGISTRY }).route).toBe('DIRECT');
   });
 
+  /**
+   * A withdrawal is NOT written on the entry it retires. The corpus records it as a separate
+   * NON-COMPLIANCE entry naming the PASS above it. Testing the entry's own text for "withdraw" was
+   * the first implementation here and it failed both ways on the live tree — these two cases pin
+   * both, so the filter cannot come back.
+   */
+  it('keeps a valid verdict that merely MENTIONS an earlier withdrawal', () => {
+    const mentions = [
+      '### [GATE-APPROVAL] — ✅ PASS | 2026-08-01',
+      '',
+      'Passed on agent authority.',
+      '',
+      '### [GATE-APPROVAL] — ✅ PASS | 2026-08-26',
+      '',
+      'The withdrawn PASS above stays withdrawn; this rests on a different basis.',
+      '',
+      '**Approval route:** `DIRECT`',
+      '**Instruction (verbatim):** "승인하고 머지"',
+    ].join('\n');
+    expect(standingVerdict(mentions)).toMatch(/2026-08-26/);
+  });
+
+  it('never drops a document whose PROSE mentions withdrawing something unrelated', () => {
+    const unrelated = [
+      '### [GATE-APPROVAL] — ✅ PASS | 2026-08-23',
+      '',
+      'Decision (d) withdraws the document\'s earlier "no blocking change" claim.',
+      '',
+      '**Approval route:** `DIRECT`',
+      '**Instruction (verbatim):** "진행해"',
+    ].join('\n');
+    // The failure this pins is not a wrong verdict — it is the document vanishing from the
+    // population unjudged, which a count of "no findings" would have concealed.
+    expect(standingVerdict(unrelated)).toBeDefined();
+  });
+
+  it('has NO standing verdict when a later entry withdraws the last pass', () => {
+    const retired = [
+      '### [GATE-APPROVAL] — ✅ PASS | 2026-08-26',
+      '',
+      '**Approval route:** `DIRECT`',
+      '**Instruction (verbatim):** "승인"',
+      '',
+      '### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-26',
+      '',
+      '**Violation:** the `[GATE-APPROVAL] — ✅ PASS | 2026-08-26` entry above is withdrawn.',
+    ].join('\n');
+    expect(standingVerdict(retired)).toBeUndefined();
+  });
+
   it('reading the FIRST entry instead would classify the withdrawn verdict — the measured defect', () => {
     const first = approvalEntries(doc)[0];
     expect(classifyApproval(first, { form: FORM, registry: REGISTRY }).problem).toMatch(
