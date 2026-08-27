@@ -148,5 +148,7 @@ pre-registered prediction is for. Issue #2218 is the amendment.
 Delivered by PR #2220 (`4ed80522b`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The mobility owner
 remains at layer 2 with its declared downward session edge, transport is layer 0, and no mobility
-symbol is reachable through transport. This Task is complete; the paired planning document is
+symbol is reachable through transport. The batch also passed `pnpm harness:scan` (145 scans),
+workspace `pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is
 rejected separately because implementation preceded its GATE-IMPLEMENT checkpoint.

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: RULE
 tags: [harness, backlog]
 ---
@@ -93,25 +93,25 @@ PR remains within the repository's review-size ceiling.
 
 ## Completion Criteria
 
-- [ ] TC-01: all six delivered Tasks are archived with truthful `done` status and completion dates.
-- [ ] TC-02: all six historically invalid specs are rejected with their original evidence preserved
+- [x] TC-01: all six delivered Tasks are archived with truthful `done` status and completion dates.
+- [x] TC-02: all six historically invalid specs are rejected with their original evidence preserved
       and a concrete disposition recorded.
-- [ ] TC-03: the current interface-family owner graph, package manifests, and migrated imports prove
+- [x] TC-03: the current interface-family owner graph, package manifests, and migrated imports prove
       that each of the six Task outcomes remains delivered.
-- [ ] TC-04: all moved-record citations, reference-kind baselines, and existing standing-delegation
+- [x] TC-04: all moved-record citations, reference-kind baselines, and existing standing-delegation
       exemption keys resolve to canonical paths without adding an exemption.
-- [ ] TC-05: lifecycle scans, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass on the final
+- [x] TC-05: lifecycle scans, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass on the final
       tree.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                   | Notes                                                    |
-| ----- | --------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| TC-01 | RULE      | Task placement, lifecycle, archival scans                         | Cross-check source/merge evidence before terminal state. |
-| TC-02 | RULE      | Spec status/folder and gate-history scans                         | A rejection must not synthesize a PASS.                  |
-| TC-03 | RULE      | Interface-owner scan, manifest comparison, current-tree search    | Revalidate all six delivered migrations.                 |
-| TC-04 | RULE      | Citation, reference-kind, and standing-delegation scans           | Rekey existing exemptions; add none.                     |
-| TC-05 | RULE      | Focused tests, `pnpm harness:scan`, `pnpm harness:verify-like-ci` | Final assembled verification.                            |
+| TC-ID | Test Type | Tool / Approach                                                   | Notes                                                                                                                 |
+| ----- | --------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | RULE      | Task placement, lifecycle, archival scans                         | PASS. New test skipped: record-only move is directly covered by existing lifecycle scans.                             |
+| TC-02 | RULE      | Spec status/folder and gate-history scans                         | PASS. New test skipped: record-only disposition is directly covered by existing spec scans and independent review.    |
+| TC-03 | RULE      | Interface-owner scan, manifest comparison, current-tree search    | PASS: 22 modules, four manifest edges; focused Vitest 15 files/58 tests. No new runtime test for a historical audit.  |
+| TC-04 | RULE      | Citation, reference-kind, and standing-delegation scans           | PASS; six keys rekeyed, zero exemptions added, zero affected reference-kind entries. No new test for baseline data.   |
+| TC-05 | RULE      | Focused tests, `pnpm harness:scan`, `pnpm harness:verify-like-ci` | PASS: 145-scan implementation run and all 13 CI-equivalent stages. No new test because the existing gates are direct. |
 
 ## User Execution Test Scenarios
 
@@ -225,3 +225,69 @@ against the narrowed six-record scope.
   runtime output remains identical.
 - **whole-worktree** check: only the exact Task/spec pair is present; no implementation, baseline,
   source, unrelated staged, unstaged, untracked, renamed, or deleted path exists.
+
+### [GATE-COMPLETE: TC-01] — EVIDENCE | 2026-08-28
+
+- Verification: inspected PR delivery commits `bd50f8b28`, `0c9c9fd59`, `c621e4d49`, `22152ef9d`,
+  `4ed80522b`, and `c1dd93768`; then ran `check-backlog-placement.mjs` and
+  `check-task-archival.mjs`.
+- Result: all six Tasks are `done` under `.agents/tasks/completed/`; ARCH-103 through ARCH-107 use
+  their 2026-08-23 delivery date and ARCH-108 uses its verified 2026-08-24 delivery date. Both scans
+  exited 0.
+- Test disposition: new test skipped because this is a record-only move; the existing lifecycle
+  scans are the direct executable assertions.
+
+### [GATE-COMPLETE: TC-02] — EVIDENCE | 2026-08-28
+
+- Verification: compared every rejected spec against its pre-move blob, ran
+  `scan-doc-folder-status-agreement.mjs`, and obtained an independent evidence-preservation review.
+- Result: the six original gate headings and verdicts remain historical evidence; each spec adds a
+  2026-08-28 rejection explaining why the old chain cannot be promoted. Folder/status exited 0 and
+  the independent rerun reported `ACTIONABLE FINDINGS: 0`.
+- Test disposition: new test skipped because no mechanism changed; existing spec lifecycle scans and
+  an independent content comparison directly cover the disposition.
+
+### [GATE-COMPLETE: TC-03] — EVIDENCE | 2026-08-28
+
+- Verification: `pnpm harness:conformance`,
+  `node scripts/harness/scan-interface-family-owner.mjs`, `pnpm typecheck`, and focused Vitest over
+  the six interface-owner packages.
+- Result: zero dependency violations; 22 contract modules and four manifest edges passed owner
+  projection; 109 workspace projects typechecked; 15 test files and 58 tests passed. Every command
+  exited 0.
+- Test disposition: no new runtime test was authored for this historical audit; the 58 existing
+  focused tests are the regression surface of the delivered owners.
+
+### [GATE-COMPLETE: TC-04] — EVIDENCE | 2026-08-28
+
+- Verification: `scan-task-path-citations.mjs`, `scan-reference-kind-qualified.mjs`, and
+  `scan-standing-delegation-evidence.mjs`.
+- Result: all commands exited 0. Six standing-delegation keys moved from `todo/` to `rejected/`
+  without changing the set size; no ARCH-103 through ARCH-108 entry exists in the reference-kind
+  baseline, so zero reference-kind entries required modification.
+- Test disposition: new test skipped because only frozen data keys and citations changed; their
+  existing scanners directly validate resolution and no-growth behavior.
+
+### [GATE-COMPLETE: TC-05] — EVIDENCE | 2026-08-28
+
+- Verification: `pnpm harness:scan` and `pnpm harness:verify-like-ci` on the assembled committed
+  implementation.
+- Result: the direct scan passed 145 scans with two declared skips. The CI mirror passed all 13
+  stages, including 3,928 contract tests, 1,149 hermetic tests, both scan suites, full typecheck, and
+  lint ceiling; build and affected-package verification were correctly skipped by the CI plan because
+  no package/app source was changed. Both commands exited 0.
+- Test disposition: new test skipped because the existing repository and CI-equivalent gates are the
+  direct acceptance tests for this document-only batch.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** in-progress → verifying
+
+- Exact Task `.agents/tasks/DOCS-029-reconcile-stale-and-terminal-backlog-records.md` has every Plan
+  and Test Plan item checked, with no blocked or pending item.
+- The complete topic diff contains no package or app path, so the CI plan correctly found no affected
+  build target. The six interface-owner package suites nevertheless passed 15 files and 58 tests.
+- `pnpm harness:scan` passed 145 scans, and the clean committed-tree
+  `pnpm harness:verify-like-ci` run passed all 13 stages.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`

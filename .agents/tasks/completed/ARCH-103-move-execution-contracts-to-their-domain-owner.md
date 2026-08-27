@@ -122,5 +122,7 @@ Delivered by PR #2203 (`bd50f8b28`) on 2026-08-23. A 2026-08-28 reconciliation r
 `scan-interface-family-owner` and `check-dependency-direction`: 22 contract modules were
 placement-checked, all four manifest edges matched the projection, and both commands exited 0.
 The execution owner remains at layer 0, consumers resolve through it, and no execution-family symbol
-is reachable through the transport owner. This Task is complete; the paired planning document is
+is reachable through the transport owner. The batch also passed `pnpm harness:scan` (145 scans),
+workspace `pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is
 rejected separately because implementation preceded its GATE-IMPLEMENT checkpoint.

@@ -31,24 +31,27 @@ Independent review: `REVIEW VERDICT: ENDORSE`; `ACTIONABLE FINDINGS: 0` on 2026-
 
 ## Plan
 
-- [ ] TC-01: archive `ARCH-103` through `ARCH-108` with truthful `done` status and delivery dates.
-- [ ] TC-02: reject all six invalid historical specs without synthesizing gate passes.
-- [ ] TC-03: record and re-run the interface-owner, conformance, typecheck, and affected-package test
+- [x] TC-01: archive `ARCH-103` through `ARCH-108` with truthful `done` status and delivery dates.
+- [x] TC-02: reject all six invalid historical specs without synthesizing gate passes.
+- [x] TC-03: record and re-run the interface-owner, conformance, typecheck, and affected-package test
       evidence proving all six outcomes remain delivered.
-- [ ] TC-04: update moved-record citations plus reference-kind and standing-delegation baseline keys
+- [x] TC-04: update moved-record citations plus reference-kind and standing-delegation baseline keys
       without adding exemptions.
-- [ ] TC-05: run lifecycle scans, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` on the final
+- [x] TC-05: run lifecycle scans, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` on the final
       assembled tree.
 
 ## Test Plan
 
-- `pnpm harness:conformance`
-- `node scripts/harness/scan-interface-family-owner.mjs`
-- `pnpm typecheck`
-- Affected interface-package Vitest suites
-- Task placement, archival, spec-folder, citation, reference-kind, and standing-delegation scans
-- `pnpm harness:scan`
-- `pnpm harness:verify-like-ci`
+- [x] `pnpm harness:conformance` — PASS, zero dependency-direction violations.
+- [x] `node scripts/harness/scan-interface-family-owner.mjs` — PASS, 22 modules and four manifest
+      edges checked.
+- [x] `pnpm typecheck` — PASS across 109 workspace projects.
+- [x] Affected interface-package Vitest suites — 15 files and 58 tests passed.
+- [x] Task placement, archival, spec-folder, citation, reference-kind, and standing-delegation scans —
+      all PASS; the standing-delegation set was rekeyed without growth and reference-kind had zero
+      affected baseline entries.
+- [x] `pnpm harness:scan` — PASS, 145 scans with two declared skips in the implementation run.
+- [x] `pnpm harness:verify-like-ci` — PASS, all 13 stages on the clean committed tree.
 
 ## User Execution Test Scenarios
 

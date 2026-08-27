@@ -130,5 +130,7 @@ Delivered by PR #2217 (`22152ef9d`) on 2026-08-23. A 2026-08-28 reconciliation r
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The session owner
 remains a legal layer-1 composition, transport is layer 0, and no session-family symbol is reachable
 through transport. The ninth current module was added later by TRANS-007 and does not invalidate the
-eight-module delivery claim. This Task is complete; the paired planning document is rejected
+eight-module delivery claim. The batch also passed `pnpm harness:scan` (145 scans), workspace
+`pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is rejected
 separately because implementation preceded its GATE-IMPLEMENT checkpoint.

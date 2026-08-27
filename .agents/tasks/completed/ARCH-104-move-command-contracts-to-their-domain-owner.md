@@ -129,6 +129,8 @@ layer is still 1.
 Delivered by PR #2209 (`0c9c9fd59`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0 with the command family
 owned at layer 0 and no command-family transport export. The temporary transport-layer criterion was
-met at the delivery commit and was intentionally superseded by ARCH-106 and ARCH-108. This Task is
+met at the delivery commit and was intentionally superseded by ARCH-106 and ARCH-108. The batch also
+passed `pnpm harness:scan` (145 scans), workspace `pnpm typecheck` (109 projects), focused Vitest
+(15 files, 58 tests), and `pnpm harness:verify-like-ci` (all 13 stages). This Task is
 complete; the paired planning document is rejected separately because implementation preceded its
 GATE-IMPLEMENT checkpoint.

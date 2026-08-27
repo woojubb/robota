@@ -184,6 +184,8 @@ Filed from this leaf: issue #2228, issue #2233, issue #2236, issue #2248, issue 
 Delivered by PR #2244 (`c1dd93768`) on 2026-08-24. A 2026-08-28 reconciliation re-ran
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0 after checking 22
 contract modules and four manifest edges. Transport currently depends only on `agent-core`, both
-published entries remain covered, and the projected graph is legal and acyclic. This Task is
+published entries remain covered, and the projected graph is legal and acyclic. The batch also
+passed `pnpm harness:scan` (145 scans), workspace `pnpm typecheck` (109 projects), focused Vitest
+(15 files, 58 tests), and `pnpm harness:verify-like-ci` (all 13 stages). This Task is
 complete; the paired planning document is rejected separately because its gate evidence and the
 implementation landed together instead of through a pre-implementation planning checkpoint.

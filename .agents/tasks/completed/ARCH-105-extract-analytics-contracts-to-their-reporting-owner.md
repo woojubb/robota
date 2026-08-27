@@ -115,5 +115,7 @@ a note precisely so a later reader does not assume file-granularity was always a
 Delivered by PR #2214 (`c621e4d49`) on 2026-08-23. A 2026-08-28 reconciliation re-ran
 `scan-interface-family-owner` and `check-dependency-direction`; both exited 0. The seven analytics
 declarations remain owned by the dependency-free analytics package, and none is reachable through
-the transport owner. This Task is complete; the paired planning document is rejected separately
+the transport owner. The batch also passed `pnpm harness:scan` (145 scans), workspace
+`pnpm typecheck` (109 projects), focused Vitest (15 files, 58 tests), and
+`pnpm harness:verify-like-ci` (all 13 stages). This Task is complete; the paired planning document is rejected separately
 because implementation preceded its GATE-IMPLEMENT checkpoint.
