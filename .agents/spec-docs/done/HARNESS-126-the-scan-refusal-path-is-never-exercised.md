@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, testing]
 ---
@@ -30,12 +30,22 @@ point, and whose only integration assertion is that the live tree yields no find
 
 ## Prior Art Research
 
-**Waived:** the defect and its remedy are both stated by this repository's own
+Waived: the defect and its remedy are both stated by this repository's own
 `.agents/rules/measurement-provenance.md` and by the applied-check mutation discipline already used
 in `scan-rule-statement-floor` and in this guard's own M1–M8 record. No external documentation source
 would add to a rule the repository already owns; consulting one would be ceremony. The one external
 idea that applies — mutation testing's competent-programmer premise, that a test suite is measured by
 the faults it kills rather than by its own green — is already the acceptance test named below.
+
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+A user-execution scenario is **not applicable**. This adds two test cases to a repository
+verification scan and changes no product behaviour: no package, app, CLI command, TUI surface or
+published API changes, so there is no command a product user could run to observe a difference. The
+verification surface is the harness gate — specifically the mutation acceptance test, since the very
+defect being closed is that the suite's green did not depend on the guard refusing.
 
 ## Architecture Review
 
@@ -215,3 +225,154 @@ The implementation diff was written and verified BEFORE this checkpoint, then se
 the prelude and this checkpoint could be staged clean. It is reapplied in the commit after this one.
 Recording that plainly rather than letting the ordering read as if the code came second: **the code
 came first, the gate is being satisfied honestly around a defect that was already reproduced.**
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** in-progress → verifying
+
+Recorded after the state was reached. Every command below ran against the committed tree.
+
+**Tasks.** All three tasks in the bound record are complete; none blocked or pending.
+
+**Build.** No package affected:
+
+```
+$ git diff --name-only origin/develop...HEAD | grep -c '^packages/'
+0
+```
+
+**Tests.**
+
+```
+$ npx vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs
+Tests  23 passed (23)
+```
+
+**Scans.**
+
+```
+$ node scripts/harness/run-all-scans.mjs
+146 scans passed, 1 skipped (97 declared what they examined)     EXIT=0
+```
+
+**The skip was read, not counted as a pass.** `new-rule-declares-enforcement` reports
+`::examined:: 0 new rule sections ::expected-empty:: this change adds no rule SECTION of the form
+this floor reads`. It declares why it examined nothing instead of exiting quietly — which is the
+distinction this whole item is about, and the reason the skip is acceptable here.
+
+**TC-03, the acceptance test.** The mutation IS the criterion, so it is run rather than described:
+
+```
+CONTROL                      -> 0 cases fail
+MUTANT A  refusal disabled   -> 1 case fails
+MUTANT B  refuses everything -> 2 cases fail
+RESTORED                     -> 0 cases fail, git status on the guard empty
+```
+
+Before this change, MUTANT A killed **zero**. Both directions are load-bearing: without B, a scan
+that refused every document would satisfy A — reporting a finding for the right file for the wrong
+reason.
+
+**Two spec defects found by the scans and fixed, both worth naming.**
+
+1. The `Waived:` line was written as `**Waived:**`. `scan-spec-research` matches
+   `(^|\n)\s*Waived:\s*\S`, and `\s*` does not match `**`, so a bolded waiver reads as no waiver at
+   all. The emphasis that made it legible to a person made it invisible to the check.
+2. The `## User Execution Test Scenarios` section was in the bound task but not in the spec.
+   `scan-spec-user-execution-section` governs the spec, and the two requirements are separate.
+
+Neither was caught by reading; both were caught by running the scans. Recorded because "I checked the
+gate criteria" is exactly the kind of self-report this item exists to distrust.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-27
+
+**Command:** `npx vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs`
+**Output:** `Tests  23 passed (23)` — exit 0.
+
+`the scan REPORTS what it classifies > reports a finding for the document that must be refused` calls
+`findEvidenceFindings(FIXTURE)` and asserts exactly one finding for `FIX-003-unrouted`, matching
+`/names no approval route/`. It is the first case in this suite to require a finding rather than
+tolerate its absence. **Test reference:** TC-01 row.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-27
+
+`… > reports nothing for the documents that comply — the refusal is not constant` asserts
+`FIX-001-direct` and `FIX-002-withdrawn-then-direct` appear in no finding. Same command, same run.
+
+Its purpose is discrimination, not symmetry: TC-01 alone is satisfied by a scan that refuses every
+document. **Test reference:** TC-02 row.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-27
+
+**The mutation is the criterion, so it was run:**
+
+```
+CONTROL                      -> 0 cases fail
+MUTANT A  refusal disabled   -> 1 case fails
+MUTANT B  refuses everything -> 2 cases fail
+RESTORED                     -> 0 cases fail; git status on the guard empty
+```
+
+Exit 0 restored. Before this change MUTANT A killed **zero** — that is the defect, measured. Both
+directions load-bearing. **Test reference:** TC-03 row.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-27
+
+**Command:** `node scripts/harness/run-all-scans.mjs`
+**Output:** `146 scans passed, 1 skipped (97 declared what they examined)` — exit 0. The skip declares
+its own emptiness (`::expected-empty::`) and was read rather than counted.
+
+**Population unchanged:**
+
+```
+::examined:: 219 approved spec document(s); 1 DIRECT, 0 CLASS,
+             218 frozen (218 of them with no route at all); 0 registered class(es)
+```
+
+Identical to the figure RULE-012 merged with, which is the point: this changes what the green MEANS,
+not what the scan reports. **Test reference:** TC-04 row.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** verifying → done
+
+All four TC-N are `[x]` with a matching Evidence entry carrying its command, observed output and exit
+code. Every TC-N in `## Test Plan` has a test reference; none is silently unaddressed.
+
+`## Tasks` names `.agents/tasks/HARNESS-126-the-scan-refusal-path-is-never-exercised.md`; that record
+exists, has no unchecked, pending or blocked item, and is completion-ready.
+
+**What this closes, stated precisely.** Not "the guard is correct" — the guard's classifier was
+already covered by RULE-012's M1–M8, which found three real defects. What was missing was any reason
+to believe a classification reaches the output. **`exit 0` from this scan now establishes what it
+appears to.**
+
+**What it does not close.** Issue #2384 is the same shape in `frozen_diff_refusal`, still open and
+still mine. And the general form — a check whose absence and whose success are indistinguishable at
+the output — has now appeared four times in one day in this repository. Four instances is a pattern
+with no mechanical detector; that is worth an item of its own and is not folded in here.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-27 (re-measured after archival)
+
+The TC-04 figure above (`146 passed, 1 skipped`) was measured before the archival moved the pair into
+`done/` and `completed/`. After it:
+
+```
+$ node scripts/harness/run-all-scans.mjs
+145 scans passed, 2 skipped (97 declared what they examined)     EXIT=0
+```
+
+Both skips were opened rather than counted:
+
+```
+↩ document-authority             EXIT=0  ::examined:: 2 changed documents
+↩ new-rule-declares-enforcement  EXIT=0  ::examined:: 0 new rule sections ::expected-empty::
+```
+
+Neither is silent — each declares what it examined and why. `document-authority` ran over the two
+changed documents; `new-rule-declares-enforcement` states that this change adds no rule section of
+the form it reads.
+
+Recorded as a separate entry rather than by editing the figure above, because the earlier number was
+true when it was taken and the tree has since moved. **A measurement is not corrected by overwriting
+it with a later one taken from a different tree** — that is how a record stops being checkable.

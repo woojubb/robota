@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-126: the standing-delegation guard reports its refusal on a path nothing exercises'
 issue: https://github.com/woojubb/robota/issues/2388
-status: in-progress
+status: done
+completed: 2026-08-27
 created: 2026-08-27
 priority: high
 urgency: now
@@ -75,4 +76,4 @@ surface is the harness gate: the mutation acceptance test recorded above.
 
 ## Bound spec document
 
-`.agents/spec-docs/active/HARNESS-126-the-scan-refusal-path-is-never-exercised.md`
+`.agents/spec-docs/done/HARNESS-126-the-scan-refusal-path-is-never-exercised.md`
