@@ -519,10 +519,17 @@ jobs:
       # is the defect that guard exists to catch. This job had no token, so every one of the 80
       # references was unverifiable and the whole suite went red on arrival. `github.token` is the
       # same credential the promotion check above already uses.
+      # PROC-016: on a pull request this is the AFFECTED set — every scan whose declared globs a
+      # changed path reaches, plus every scan declared `always` — run in the `pr` context, where a
+      # scan that grades the agent's own prose (transcripts, narrative references) reports its
+      # failure as an advisory instead of failing the context. A changed path no scan declares
+      # selects the full suite here, fail closed. The FULL suite in the `integration` context, where
+      # those advisories block, runs on every push to `develop` and on demand (`scans-full.yml`).
+      # `pre-push.mjs` runs this same line locally; `pre-push-mirrors-ci-scans.test.mjs` pins it.
       - name: Harness scan suite (dist-independent)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: pnpm harness:scan -- --skip dist --skip build-contracts
+        run: pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"
 
   dependency-audit:
     name: dependency audit

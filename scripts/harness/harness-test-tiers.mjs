@@ -22,6 +22,11 @@ const TEST_DIR = 'scripts/harness/__tests__';
 /**
  * Explicitly admitted only after execution in a repository stripped of every live-tree owner.
  * Every test not named here is repository-contract by default.
+ *
+ * PROC-016 placed its four tests by that rule and none of them is admitted here: `gate.test.mjs`,
+ * `new-spec.test.mjs` and `scan-lane-declaration.test.mjs` read the live gate catalogue, template
+ * and lane table, and `run-all-scans-affected.test.mjs` asserts the live registry's declared globs
+ * against the tree. They run in the contracts tier, which `pnpm harness:test:contracts` owns.
  */
 export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/api-pagination.test.mjs',

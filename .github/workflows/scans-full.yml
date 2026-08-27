@@ -1,0 +1,71 @@
+name: scans-full
+
+# PROC-016. The `scans` job in ci.yml runs the AFFECTED scan set on a pull request, in the `pr`
+# context where a prose/transcript scan's failure is advisory. This workflow is the other half: the
+# WHOLE registry, in the `integration` context where every failure blocks, on every push to
+# `develop` and on demand. It is what keeps the affected set honest — a scan the selection left out
+# of every pull request still runs here, on the tree those pull requests produced.
+#
+# It lives in its own workflow rather than as a job in ci.yml for two measured reasons:
+#   - ci.yml's every job is gated for a pull request (`github.base_ref`, `needs.changes`); a `push`
+#     trigger there would dispatch all seventeen, or need a guard on each.
+#   - `scan-ci-concurrency-footprint` freezes the job count of every workflow a pull request can
+#     trigger. This workflow has no `pull_request` trigger, so it costs the account's shared slots
+#     only when `develop` moves.
+#
+# NO `schedule:` TRIGGER, by the 2026-08-04 owner directive that removed every one from this
+# repository ("nothing asks on a clock any more" — security-scheduled.yml). PROC-016's plan named a
+# nightly run; a push to `develop` is the event that carries the same content, and a nightly can be
+# added back only by amending that directive, not by this file.
+#
+# On `push` there is no pull-request base, so the diff-reading scans resolve `origin/develop` — which
+# is HEAD here — and judge an empty delta; their pull-request verdicts were rendered on the pull
+# request. What this run adds is every scan the affected set excluded, over the whole tree, blocking.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One in-flight run per ref: a second push to `develop` supersedes the first's answer.
+concurrency:
+  group: scans-full-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scans-full:
+    name: scans-full
+    # Never on a pull request — the affected `scans` context in ci.yml is that lane. The trigger
+    # list above already excludes it; the guard states the invariant where a later edit would meet it.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Full history: the suite contains base-history gates (see ci.yml → scans).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `dist` and `build-contracts` read build output a fresh checkout does not have (ci.yml → scans
+      # says why). `--context integration` is the default, written out because it is the point.
+      - name: Harness scan suite (full, integration context)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm harness:scan -- --context integration --skip dist --skip build-contracts

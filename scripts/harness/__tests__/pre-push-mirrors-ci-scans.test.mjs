@@ -3,7 +3,11 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { CI_SCANS_JOB_MIRROR, createCiScansJobMirror } from '../pre-push.mjs';
+import {
+  CI_BASE_REF_PLACEHOLDER,
+  CI_SCANS_JOB_MIRROR,
+  createCiScansJobMirror,
+} from '../pre-push.mjs';
 
 const CI = readFileSync(
   path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
@@ -27,6 +31,15 @@ const CI = readFileSync(
  */
 const PROVISIONING = [/^pnpm install\b/];
 
+/**
+ * `--base <ref>` is the one token the two sides legitimately spell differently: the workflow writes
+ * `origin/${GITHUB_BASE_REF}` and the local gate writes the base it resolved. Every other flag must
+ * agree verbatim, so only that value is normalised.
+ */
+function normaliseBase(command) {
+  return command.replace(/--base \S+/, '--base <ref>');
+}
+
 function ciScansJobCommands() {
   const start = CI.indexOf('\n  scans:');
   expect(start, 'the `scans` job is gone from ci.yml — this mirror has no subject').toBeGreaterThan(
@@ -37,12 +50,14 @@ function ciScansJobCommands() {
   const next = /\n {2}[a-z][a-z0-9-]*:\n/.exec(rest.slice(1));
   const job = next ? rest.slice(0, next.index + 1) : rest;
   return [...job.matchAll(/^ +run: (.+)$/gm)]
-    .map((m) => m[1].trim())
+    .map((m) => normaliseBase(m[1].trim()))
     .filter((command) => !PROVISIONING.some((pattern) => pattern.test(command)));
 }
 
 describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', () => {
-  const rendered = CI_SCANS_JOB_MIRROR.map(([command, args]) => [command, ...args].join(' '));
+  const rendered = CI_SCANS_JOB_MIRROR.map(([command, args]) =>
+    normaliseBase([command, ...args].join(' ')),
+  );
 
   it('runs every command that job runs, with the same flags', () => {
     // Same flags in BOTH directions. Running less locally is the defect this item filed; running
@@ -84,12 +99,43 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     expect(commands.every((command) => /harness:/.test(command))).toBe(true);
   });
 
-  it('always runs contracts and scans, and skips only hermetic tests for a proven false verdict', () => {
-    expect(createCiScansJobMirror({ harness: false })).toEqual([
-      ['pnpm', ['harness:test:contracts']],
-      ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+  it('always runs the scans, and skips both harness test tiers only for a proven false verdict (PROC-016)', () => {
+    const scanArgs = CI_SCANS_JOB_MIRROR.find(([, args]) => args[0] === 'harness:scan')[1];
+    const withoutBase = scanArgs.filter(
+      (arg) => arg !== '--base' && arg !== CI_BASE_REF_PLACEHOLDER,
+    );
+    expect(createCiScansJobMirror({ harness: false })).toEqual([['pnpm', withoutBase]]);
+    // An absent or unresolved verdict is harness-applicable: both tiers run.
+    const withBase = (base) =>
+      CI_SCANS_JOB_MIRROR.map(([command, args]) => [
+        command,
+        args.map((arg) => (arg === CI_BASE_REF_PLACEHOLDER ? base : arg)),
+      ]);
+    expect(createCiScansJobMirror({ harness: true }, { baseRef: 'origin/develop' })).toEqual(
+      withBase('origin/develop'),
+    );
+    expect(createCiScansJobMirror(undefined, { baseRef: 'abc123' })).toEqual(withBase('abc123'));
+  });
+
+  it('runs the affected set in the pr context, with the base the gate resolved', () => {
+    const [, args] = createCiScansJobMirror({ harness: true }, { baseRef: 'origin/develop' }).find(
+      ([, a]) => a[0] === 'harness:scan',
+    );
+    expect(args).toContain('--affected');
+    expect(args.slice(args.indexOf('--context'), args.indexOf('--context') + 2)).toEqual([
+      '--context',
+      'pr',
     ]);
-    expect(createCiScansJobMirror({ harness: true })).toEqual(CI_SCANS_JOB_MIRROR);
-    expect(createCiScansJobMirror(undefined)).toEqual(CI_SCANS_JOB_MIRROR);
+    expect(args.slice(args.indexOf('--base'), args.indexOf('--base') + 2)).toEqual([
+      '--base',
+      'origin/develop',
+    ]);
+    // No base resolved: the pair is dropped rather than sent as a placeholder the runner cannot
+    // resolve — the runner then falls back to the full suite and says so.
+    const [, bare] = createCiScansJobMirror({ harness: true }).find(
+      ([, a]) => a[0] === 'harness:scan',
+    );
+    expect(bare).not.toContain('--base');
+    expect(bare).not.toContain(CI_BASE_REF_PLACEHOLDER);
   });
 });

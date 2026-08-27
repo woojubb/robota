@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   approvalEntries,
@@ -136,6 +138,67 @@ describe('FAIL fixtures', () => {
       { form: FORM, registry: REGISTRY },
     );
     expect(result.problem).toMatch(/may not be registered retroactively/);
+  });
+});
+
+describe('the live registry carries the L0/L1 class, and the scan reads it (PROC-016 TC-10)', () => {
+  /**
+   * TC-10's second half. The first half is the row itself in `backlog-execution.md` § Delegated
+   * Approval Classes; this block proves the scan ACCEPTS an approval that cites it — through the
+   * LIVE registry, not a fixture Map, because a fixture registry would prove only that the parser
+   * works on rows this file wrote. Both directions: a CLASS entry dated on the registration day is
+   * accepted, and the same entry dated the day before is refused as retroactive.
+   */
+  const LIVE_REGISTRY = parseRegistry(SECTION);
+  const CLASS_ID = 'LANE-L0-L1';
+  const REGISTERED = '2026-08-28';
+
+  const laneEntry = (date) =>
+    `### [GATE-APPROVAL] — ✅ PASS | ${date}\n\n` +
+    '**Status upgrade:** draft → approved\n' +
+    '**Approval route:** `CLASS`\n' +
+    `**Class:** \`${CLASS_ID}\`\n` +
+    '**Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"\n' +
+    `**Given:** ${REGISTERED}, session robota-2\n` +
+    '**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` → exit 0; declared lane L1\n';
+
+  /** A spec tree holding one document whose standing verdict is the entry above. */
+  function treeWith(date) {
+    const root = makeTemp('robota-standing-lane-');
+    const dir = path.join(root, '.agents/spec-docs/done');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, 'FIX-LANE-class-approval.md'),
+      `---\nstatus: done\nlane: L1\n---\n\n# FIX-LANE\n\n## Evidence Log\n\n${laneEntry(date)}`,
+    );
+    return root;
+  }
+
+  it('parses exactly one class out of the live rule: LANE-L0-L1, registered 2026-08-28', () => {
+    expect([...LIVE_REGISTRY.entries()]).toEqual([[CLASS_ID, { registered: REGISTERED }]]);
+  });
+
+  it('accepts a CLASS entry citing LANE-L0-L1 dated on or after the registration', () => {
+    for (const date of [REGISTERED, '2026-09-01']) {
+      const result = classifyApproval(laneEntry(date), { form: FORM, registry: LIVE_REGISTRY });
+      expect(result, date).toEqual({ route: 'CLASS' });
+    }
+    const { findings, counts } = findEvidenceFindings(treeWith(REGISTERED));
+    expect(findings).toEqual([]);
+    expect(counts.class).toBe(1);
+  });
+
+  it('refuses the same entry dated 2026-08-27, the day before the registration', () => {
+    const before = '2026-08-27';
+    const result = classifyApproval(laneEntry(before), { form: FORM, registry: LIVE_REGISTRY });
+    expect(result.problem).toMatch(/may not be registered retroactively/);
+    expect(result.problem).toContain(CLASS_ID);
+    expect(result.problem).toContain(before);
+    const { findings, counts } = findEvidenceFindings(treeWith(before));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].spec).toBe('done/FIX-LANE-class-approval.md');
+    expect(findings[0].problem).toMatch(/may not be registered retroactively/);
+    expect(counts.class).toBe(0);
   });
 });
 

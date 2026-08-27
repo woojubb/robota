@@ -47,6 +47,10 @@ function stubbedPath({
   resolvedWithoutReply = 0,
   totalThreads,
   threadsUnreadable = false,
+  movedFiles,
+  prFiles,
+  mergeable,
+  compareStatus,
 }) {
   const dir = makeTemp('merge-gate-');
   scratch.push(dir);
@@ -66,6 +70,10 @@ function stubbedPath({
       resolvedWithoutReply,
       totalThreads,
       threadsUnreadable,
+      movedFiles,
+      prFiles,
+      mergeable,
+      compareStatus,
     }),
   );
 
@@ -89,6 +97,42 @@ function stubbedPath({
       '  // reporting "no labels" after the hook changed, which reads exactly like "not withdrawn".',
       '  if (jq.includes("__labels__")) console.log(["__labels__", ...names].join("\\n"));',
       '  else console.log(names.join(","));',
+      '  process.exit(0);',
+      '}',
+      '// PROC-016 (#2386): a reviewed base that is not the current base is judged by INTERACTION.',
+      '// The hook asks what the base moved over, what the PR touches, and whether GitHub calls the',
+      '// merge clean NOW. A fixture that states none of it is answered with a FAILED call, never an',
+      '// empty list: "nothing moved" and "could not read what moved" are the two answers this gate',
+      '// must keep apart, and a stub defaulting to the first would let every base-moved case pass',
+      '// for the wrong reason. Each list honours the jq the hook sent — the sentinel line and the',
+      '// rename side are emitted only when asked for, so a hook that stopped asking would be',
+      '// answered accordingly and the case built on them would fail.',
+      'function fileLines(entries, jq, sentinel) {',
+      '  const lines = jq.includes(sentinel) ? [sentinel] : [];',
+      '  for (const entry of entries) {',
+      '    const file = typeof entry === "string" ? { filename: entry } : entry;',
+      '    lines.push(file.filename);',
+      '    if (jq.includes("previous_filename") && file.previous_filename) lines.push(file.previous_filename);',
+      '  }',
+      '  return lines.join("\\n");',
+      '}',
+      'if (args.includes("/compare/")) {',
+      '  if (!f.movedFiles) process.exit(1);',
+      '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
+      '  const sentinel = `__compare__ ${f.compareStatus ?? "ahead"}`;',
+      '  console.log(fileLines(f.movedFiles, jq, "__compare__").replace("__compare__", sentinel));',
+      '  process.exit(0);',
+      '}',
+      'if (/pulls\\/[0-9]+\\/files/.test(args)) {',
+      '  if (!f.prFiles) process.exit(1);',
+      '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
+      '  console.log(fileLines(f.prFiles, jq, "__files__"));',
+      '  process.exit(0);',
+      '}',
+      '// Before the bare mergeStateStatus read below, which this query also contains. An absent',
+      '// fixture answers an empty mergeable, which the hook must refuse as unreadable.',
+      'if (args.includes("mergeable,mergeStateStatus")) {',
+      '  console.log(`${f.mergeable ?? ""} ${f.state ?? ""}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(f.state); process.exit(0); }',
@@ -191,20 +235,8 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/READ IT/);
   });
 
-  it('refuses a zero-finding verdict for a stale base SHA', () => {
-    const verdict = judge({
-      state: 'CLEAN',
-      headAt: '2026-07-28T10:00:00Z',
-      comments: [
-        REVIEW('2026-07-28T10:05:00Z', undefined, {
-          baseOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        }),
-      ],
-    });
-
-    expect(verdict.status, 'a verdict for another base was accepted').toBe(2);
-    expect(verdict.output).toMatch(/base.*does not match/i);
-  });
+  // A verdict naming another BASE is no longer refused on identity alone — PROC-016 judges it by
+  // whether the two changes interact. Those cases live in their own block below.
 
   it('refuses a zero-finding verdict for a stale head SHA', () => {
     const verdict = judge({
@@ -532,6 +564,221 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
+  });
+});
+
+describe('a moved base is judged by interaction, not identity (PROC-016, #2386)', () => {
+  /**
+   * RULE-015 measured what the identity rule cost. Fixture B (#2385): the base moved over 15 files
+   * while the branch touched 2 — overlap 0, rebase conflicts 0, `range-diff` identical — and the
+   * rebase bought a push, a CI cycle and a review that could only repeat the last one. Fixture C
+   * (#2382) was the mirror image: 15 against 2, overlap 0. The verdict is a statement about a
+   * comparison, and a base moving over files the comparison never contained does not change it.
+   *
+   * So the gate now asks three things when the reviewed base is not the current one — what the base
+   * moved over, what the PR touches, whether GitHub calls the merge clean now — and accepts only
+   * "disjoint and MERGEABLE". Every other answer, including no answer, refuses.
+   */
+  const MOVED_BASE = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const BRANCH_FILES = ['packages/agents/src/index.ts', 'packages/agents/docs/SPEC.md'];
+  const MOVED_FILES = Array.from({ length: 15 }, (_, i) => `scripts/harness/scan-${i}.mjs`);
+
+  const world = (extra = {}) => ({
+    state: 'CLEAN',
+    headAt: '2026-07-28T10:00:00Z',
+    comments: [REVIEW('2026-07-28T10:05:00Z', undefined, { baseOid: MOVED_BASE })],
+    prFiles: BRANCH_FILES,
+    movedFiles: MOVED_FILES,
+    mergeable: 'MERGEABLE',
+    ...extra,
+  });
+
+  it('accepts fixture B: 2 branch files, 15 moved, overlap 0, MERGEABLE', () => {
+    const verdict = judge(world());
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(
+      verdict.output,
+      'the acceptance must say the base moved, not pretend it did not',
+    ).toMatch(/base moved disjointly/);
+    expect(verdict.output).toMatch(/READ IT/);
+  });
+
+  it('accepts fixture C: the mirror image, 15 branch files against 2 moved', () => {
+    const verdict = judge(world({ prFiles: MOVED_FILES, movedFiles: BRANCH_FILES }));
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('refuses one overlapping file, and names it', () => {
+    const verdict = judge(world({ movedFiles: [...MOVED_FILES, BRANCH_FILES[0]] }));
+
+    expect(verdict.status, 'an interaction the review never saw was merged past').toBe(2);
+    expect(verdict.output).toMatch(/base.*does not match/i);
+    expect(verdict.output, 'the refusal does not name the file').toMatch(
+      /^\[merge-gate\] {3}packages\/agents\/src\/index\.ts$/m,
+    );
+    expect(verdict.output).toMatch(/1 of the 2 file\(s\) this PR touches/);
+    expect(verdict.output, 'a refusal without its override line').toMatch(/MERGE_GATE_ACK=1/);
+  });
+
+  it('names EVERY overlapping file, not the first', () => {
+    const verdict = judge(world({ movedFiles: [...BRANCH_FILES, ...MOVED_FILES] }));
+
+    expect(verdict.status).toBe(2);
+    for (const file of BRANCH_FILES) expect(verdict.output).toContain(`[merge-gate]   ${file}`);
+    expect(verdict.output).toMatch(/2 of the 2 file\(s\)/);
+  });
+
+  it('reads a rename on the base as touching the OLD name the PR edits', () => {
+    // The base moved `a/old.ts` to `b/new.ts`; the PR edits `a/old.ts`. On the new name alone the (allow-missing-artifact: fixture names inside the stubbed gh world)
+    // sets are disjoint, and that is exactly the interaction a three-way merge has to guess at.
+    const verdict = judge(
+      world({
+        prFiles: ['packages/agents/src/old.ts'],
+        movedFiles: [
+          {
+            filename: 'packages/agents/src/new.ts',
+            previous_filename: 'packages/agents/src/old.ts',
+          },
+        ],
+      }),
+    );
+
+    expect(verdict.status, 'a rename hid the overlap').toBe(2);
+    expect(verdict.output).toContain('[merge-gate]   packages/agents/src/old.ts');
+  });
+
+  it('refuses a disjoint set that GitHub reports CONFLICTING, and says so', () => {
+    const verdict = judge(world({ mergeable: 'CONFLICTING' }));
+
+    expect(verdict.status, 'a conflicting merge was accepted on file lists alone').toBe(2);
+    expect(verdict.output).toMatch(/mergeable: CONFLICTING/);
+    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
+  });
+
+  it('refuses while GitHub still says UNKNOWN — not yet mergeable is not mergeable', () => {
+    const verdict = judge(world({ mergeable: 'UNKNOWN' }));
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/mergeable: UNKNOWN/);
+    expect(verdict.output).toMatch(/still computing/);
+  });
+
+  it('refuses an unreadable mergeability', () => {
+    const verdict = judge(world({ mergeable: undefined }));
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/mergeability could not be read/);
+  });
+
+  it('refuses when the compare cannot be read — unknown is not zero', () => {
+    const verdict = judge(world({ movedFiles: undefined }));
+
+    expect(verdict.status, 'an unreadable compare was read as "nothing moved"').toBe(2);
+    expect(verdict.output).toMatch(/base.*does not match/i);
+    expect(verdict.output).toMatch(/what the base moved over could not be read/);
+  });
+
+  it("refuses when the PR's own file list cannot be read", () => {
+    const verdict = judge(world({ prFiles: undefined }));
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/own file list could not be read/);
+  });
+
+  it('refuses a base the reviewed one is not an ancestor of', () => {
+    // A three-dot compare lists one side only. `diverged` (a force-pushed or retargeted base) is
+    // the state where the other side is invisible to this read, so a disjoint list proves nothing.
+    const verdict = judge(world({ compareStatus: 'diverged' }));
+
+    expect(verdict.status, 'a one-sided compare was trusted').toBe(2);
+    expect(verdict.output).toMatch(/compare status:\s*'diverged'/);
+  });
+
+  it('still refuses a stale HEAD, however cleanly the base moved', () => {
+    const verdict = judge(
+      world({
+        comments: [
+          REVIEW('2026-07-28T10:05:00Z', undefined, {
+            baseOid: MOVED_BASE,
+            headOid: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          }),
+        ],
+      }),
+    );
+
+    expect(verdict.status, 'the interaction rule leaked onto the head').toBe(2);
+    expect(verdict.output).toMatch(/head.*does not match/i);
+  });
+
+  it('does not consult the compare at all when the bases are identical', () => {
+    // The identity case is unchanged: the stub FAILS every compare and file read here, and the
+    // merge is still accepted — so the reads are reached only when there is something to compare.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [REVIEW('2026-07-28T10:05:00Z')],
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/exact base/);
+  });
+});
+
+describe('the compare and file-list jq programs the hook actually sends', () => {
+  /**
+   * Same reasoning as the two blocks below: the stub above honours the SHAPE of each program but
+   * never runs it. These read the programs out of the hook and run them under the real jq over
+   * REST-shaped payloads, so an escaping slip in the hook is caught here and not by the first
+   * moved-base merge that meets it.
+   */
+  const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
+
+  function programFromHook(opener) {
+    const start = HOOK_SOURCE.indexOf(opener);
+    expect(
+      start,
+      `the hook no longer contains ${opener} — this case is reading nothing`,
+    ).toBeGreaterThan(-1);
+    const end = HOOK_SOURCE.indexOf("' || echo", start);
+    return HOOK_SOURCE.slice(start + "--jq '".length, end);
+  }
+
+  function run(program, payload) {
+    const result = spawnSync('jq', ['-r', program], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+    });
+    expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
+    return result.stdout.trim().split('\n');
+  }
+
+  it('lists the compare status, every filename, and every rename source', () => {
+    const lines = run(programFromHook(`--jq '"__compare__`), {
+      status: 'ahead',
+      files: [
+        { filename: 'b/new.ts', previous_filename: 'a/old.ts', status: 'renamed' },
+        { filename: 'c.ts', status: 'modified' },
+      ],
+    });
+
+    expect(lines).toStrictEqual(['__compare__ ahead', 'b/new.ts', 'a/old.ts', 'c.ts']);
+  });
+
+  it('still answers the sentinel for a compare with no files', () => {
+    expect(
+      run(programFromHook(`--jq '"__compare__`), { status: 'ahead', files: [] }),
+    ).toStrictEqual(['__compare__ ahead']);
+  });
+
+  it('lists the PR files with the sentinel and every rename source', () => {
+    const lines = run(programFromHook(`--jq '"__files__"`), [
+      { filename: 'x.ts', previous_filename: 'w.ts' },
+      { filename: 'y.ts' },
+    ]);
+
+    expect(lines).toStrictEqual(['__files__', 'x.ts', 'w.ts', 'y.ts']);
   });
 });
 

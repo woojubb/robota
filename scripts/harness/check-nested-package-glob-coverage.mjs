@@ -41,7 +41,11 @@ async function pathExists(target) {
  */
 async function readNestedGroupDirs(root) {
   const yamlPath = path.join(root, 'pnpm-workspace.yaml');
-  if (!(await pathExists(yamlPath))) return [];
+  // Fail closed (HARNESS-052): the workspace manifest IS the population. Over a root without it
+  // there is no group to check, and `[]` would read as "every nested group is globbed" when nothing
+  // was read. Measured `vacuous` the day `guard-scope-fail-closed`'s stripper first saw this file
+  // (PROC-016 — `'packages/*/dist'` on line 27 had opened a phantom comment that hid the export).
+  if (!(await pathExists(yamlPath))) throw new Error(`pnpm-workspace.yaml missing from ${root}`);
   const yaml = await fs.readFile(yamlPath, 'utf8');
   const groups = [];
   for (const rawLine of yaml.split('\n')) {

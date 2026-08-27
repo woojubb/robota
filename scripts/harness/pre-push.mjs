@@ -43,18 +43,57 @@ import { classifyFiles, classifyRange } from './classify-changed-paths.mjs';
  * running MORE here than CI does would refuse pushes CI would accept, which is property 4 —
  * firing on correct work — and the fastest way to have a gate turned off. `pre-push-mirrors-ci-scans.test.mjs`
  * reads both sides so the two cannot drift silently.
+ *
+ * PROC-016: the scan stage runs the AFFECTED set (`--affected`) in the `pr` context, exactly as the
+ * `scans` job does on a pull request. `--base` carries the base the classification already
+ * resolved — the workflow writes `origin/$GITHUB_BASE_REF` in its place — so the diff the selection
+ * is computed from is the diff the push is about; without a base the runner falls back to the full
+ * suite and says so. The measured wall time of the stage is printed (TC-08).
  */
+export const CI_BASE_REF_PLACEHOLDER = 'origin/$GITHUB_BASE_REF';
+
 export const CI_SCANS_JOB_MIRROR = [
   ['pnpm', ['harness:test:contracts']],
   ['pnpm', ['harness:test:hermetic']],
-  ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+  [
+    'pnpm',
+    [
+      'harness:scan',
+      '--',
+      '--skip',
+      'dist',
+      '--skip',
+      'build-contracts',
+      '--affected',
+      '--context',
+      'pr',
+      '--base',
+      CI_BASE_REF_PLACEHOLDER,
+    ],
+  ],
 ];
 
-/** The local scans plan; an absent/unresolved verdict is deliberately harness-applicable. */
-export function createCiScansJobMirror(classification) {
+/**
+ * The local scans plan; an absent/unresolved verdict is deliberately harness-applicable.
+ *
+ * Both harness self-test tiers are gated on the classification (PROC-016): they read nothing but
+ * `scripts/harness/**` and the files that decide how it runs, and `classifyFiles` names exactly
+ * those as `harness`. A `false` verdict is a proof, not a default; anything else runs both.
+ * `baseRef` replaces the workflow's `origin/$GITHUB_BASE_REF`; with none, the `--base` pair is
+ * dropped and the runner resolves (or fails closed to the full suite) on its own.
+ */
+export function createCiScansJobMirror(classification, { baseRef = null } = {}) {
+  const harnessApplicable = classification?.harness !== false;
   return CI_SCANS_JOB_MIRROR.filter(
-    ([, args]) => args[0] !== 'harness:test:hermetic' || classification?.harness !== false,
-  );
+    ([, args]) => !args[0].startsWith('harness:test:') || harnessApplicable,
+  ).map(([command, args]) => [command, substituteBaseRef(args, baseRef)]);
+}
+
+function substituteBaseRef(args, baseRef) {
+  const at = args.indexOf('--base');
+  if (at === -1) return [...args];
+  if (baseRef) return args.map((arg, i) => (i === at + 1 ? baseRef : arg));
+  return args.filter((_, i) => i !== at && i !== at + 1);
 }
 
 function run(command, args) {
@@ -368,8 +407,17 @@ export function createPrePushSteps() {
       ]);
 
       process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
-      for (const [command, args] of createCiScansJobMirror(changeClassification)) {
+      const mirror = createCiScansJobMirror(changeClassification, {
+        baseRef: basePlan.classificationBaseRef ?? null,
+      });
+      for (const [command, args] of mirror) {
+        const started = Date.now();
         run(command, args);
+        // TC-08 (PROC-016): the stage's cost is a measurement, not a claim. Printed per stage so
+        // the scan stage's number can be read off a real push and recorded.
+        process.stdout.write(
+          `▶ ${args[0]} wall time: ${((Date.now() - started) / 1000).toFixed(1)}s\n`,
+        );
       }
 
       process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
