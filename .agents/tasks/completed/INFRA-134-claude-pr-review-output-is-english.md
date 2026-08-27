@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-134: Claude PR review output is English'
-status: in-progress
+status: done
 created: 2026-08-27
+completed: 2026-08-27
 priority: medium
 urgency: soon
 area: GitHub Actions review automation and harness
@@ -20,13 +21,13 @@ no-issue: captured directly from the owner request in this conversation.
 
 ## Plan
 
-- [ ] Translate the action-owned `prompt: |` block into English while preserving the exact review
+- [x] Translate the action-owned `prompt: |` block into English while preserving the exact review
       identity and actionable-finding markers.
-- [ ] Add an explicit instruction requiring the PR summary and every inline review comment to use
+- [x] Add an explicit instruction requiring the PR summary and every inline review comment to use
       English.
-- [ ] Extend the existing Claude review coverage scanner to reject a missing English instruction or
+- [x] Extend the existing Claude review coverage scanner to reject a missing English instruction or
       any Hangul in the governed prompt, including an updated scanner scope description.
-- [ ] Add Vitest mutation coverage for both failure modes and run the targeted scanner, repository
+- [x] Add Vitest mutation coverage for both failure modes and run the targeted scanner, repository
       harness scan, and CI-owned actionlint command.
 
 ## Test Plan
@@ -81,3 +82,22 @@ chore/infra-134-review-language-fixture` while HEAD is the implementation branch
   inline comment exists; it never verifies the comment path, line, or diff target.
   **Required action:** Make the executable comparison bind the observed inline comment to the exact intended
   path and added line, as well as checking its complete language output.
+
+## Verification Evidence
+
+- TDD RED: the missing-contract mutation failed with 1 failed / 15 passed tests before the scanner
+  enforced the contract; the Hangul mutation then failed with 1 failed / 16 skipped tests before the
+  Hangul detector was added.
+- Targeted GREEN: `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs`
+  passed 17/17 tests.
+- Live guard: `node scripts/harness/scan-claude-review-coverage.mjs` examined one governed workflow and
+  returned `claude-review-coverage: PASS`.
+- Repository contracts: `pnpm harness:scan` passed 145 scans with two declared skips and no failures.
+- Workflow syntax: the CI-pinned actionlint 1.7.7 archive matched SHA-256
+  `023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757`; its repository-wide `-color`
+  invocation exited 0 with no findings.
+- Develop CI mirror: `pnpm harness:verify-like-ci -- --base-ref origin/develop` passed all 13 local
+  stages in 6m 17.8s, including the monorepo build, workspace typecheck, lint ceiling, examples
+  typecheck, 27/27 TUI PTY tests, 3,922/3,922 harness contract tests, and 1,149/1,149 hermetic tests.
+  Dependency audit, a real Windows runner, workflow provenance, and PR CodeQL review-gate remain
+  remote-only by the mirror's explicit contract.

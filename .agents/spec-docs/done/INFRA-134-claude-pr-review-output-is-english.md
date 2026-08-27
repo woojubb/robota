@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [i18n]
 ---
@@ -113,26 +113,26 @@ is `SCENARIO DRAFTED: not-applicable | 0`; no product capability is hidden behin
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` exits 0 and proves the guard rejects both a governed prompt without the explicit English-output contract and a prompt that retains the contract but contains Hangul.
-- [ ] TC-02: `node scripts/harness/scan-claude-review-coverage.mjs` exits 0 with the live PR-review prompt containing the English-output contract and no Hangul.
-- [ ] TC-03: `pnpm harness:scan` exits 0 while preserving the exact `REVIEWED BASE`, `REVIEWED HEAD`, and `ACTIONABLE FINDINGS` protocol markers.
-- [ ] TC-04: the repository's workflow actionlint check exits 0 for `.github/workflows/claude-code-review.yml` after the prompt translation.
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` exits 0 and proves the guard rejects both a governed prompt without the explicit English-output contract and a prompt that retains the contract but contains Hangul.
+- [x] TC-02: `node scripts/harness/scan-claude-review-coverage.mjs` exits 0 with the live PR-review prompt containing the English-output contract and no Hangul.
+- [x] TC-03: `pnpm harness:scan` exits 0 while preserving the exact `REVIEWED BASE`, `REVIEWED HEAD`, and `ACTIONABLE FINDINGS` protocol markers.
+- [x] TC-04: the repository's workflow actionlint check exits 0 for `.github/workflows/claude-code-review.yml` after the prompt translation.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                      | Notes                                                                                                                 |
-| ----- | ------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | CI contract unit test    | Vitest against `findWorkflowCoverageFindings`                        | Demonstrate RED for both missing-contract and mixed-language mutations before the scanner implementation, then GREEN. |
-| TC-02 | CI pipeline smoke test   | `node scripts/harness/scan-claude-review-coverage.mjs`               | Exercises the checked-in workflow through the registered guard.                                                       |
-| TC-03 | Repository contract test | `pnpm harness:scan`                                                  | Confirms existing review identity and finding-count contracts remain intact.                                          |
-| TC-04 | Workflow syntax test     | Existing actionlint workflow command from `.github/workflows/ci.yml` | Reuse the CI-owned command rather than inventing a second invocation.                                                 |
+| TC-ID | Test Type                | Tool / Approach                                                      | Notes                                                                                                                                                                                                                                  |
+| ----- | ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | CI contract unit test    | Vitest against `findWorkflowCoverageFindings`                        | Test written: `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > `rejects a reviewer prompt without the explicit English-output contract` and `rejects Hangul even when the explicit English-output contract remains`. |
+| TC-02 | CI pipeline smoke test   | `node scripts/harness/scan-claude-review-coverage.mjs`               | Test written: `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > `is registered and passes on the live repository`.                                                                                                    |
+| TC-03 | Repository contract test | `pnpm harness:scan`                                                  | Test written: `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > marker mutation cases for `REVIEWED BASE`, `REVIEWED HEAD`, and `ACTIONABLE FINDINGS`; the aggregate scan passed separately.                          |
+| TC-04 | Workflow syntax test     | Existing actionlint workflow command from `.github/workflows/ci.yml` | Test skipped: no duplicate repository actionlint test was added because CI owns the pinned executable; the exact pinned 1.7.7 command was executed directly and passed.                                                                |
 
 The workflow diff is also reviewed to confirm that keys and values outside the action's `prompt: |`
 body are unchanged. This is a scope check, not a substitute for TC-01 through TC-04.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md` — todo
+- [x] `.agents/tasks/completed/INFRA-134-claude-pr-review-output-is-english.md` — done
 
 ## Evidence Log
 
@@ -223,3 +223,55 @@ body are unchanged. This is a scope check, not a substitute for TC-01 through TC
   **Required action:** keep exactly one canonical author verdict and place the concrete not-applicable reason after the `**Author verdict:**` line containing `SCENARIO DRAFTED: not-applicable | 0` in the Task's scenario section, then re-run GATE-IMPLEMENT.
 - Parser-complete PASS cardinality: the existing GATE-IMPLEMENT PASS already contains the exact `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md`, accepted `.agents/spec-docs/todo/INFRA-134-claude-pr-review-output-is-english.md`, exact scenario signal, and whole-worktree evidence, so it is parser-complete after the author signal correction. Appending another parser-complete PASS naming `.agents/spec-docs/active/INFRA-134-claude-pr-review-output-is-english.md` would make the scanner count two complete PASS entries and reject the checkpoint's exactly-one requirement.
   **Required action:** do not append a second complete PASS; preserve one mechanically complete GATE-IMPLEMENT PASS when correcting the Task reason placement.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering/prior gate: PASS — this document contains one mechanically complete `GATE-IMPLEMENT` PASS dated 2026-08-27; the Task now places the concrete not-applicable reason after the canonical `SCENARIO DRAFTED: not-applicable | 0` author verdict, satisfying the correction recorded by the later audit entry without duplicating the required PASS.
+- Ordering/input state: PASS — frontmatter is `status: in-progress` and the document is in `.agents/spec-docs/active/`, the expected GATE-VERIFY input state and folder.
+- Task completion: PASS — all four Plan tasks in `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md` are marked `[x]`; no unchecked task remains.
+- Blocked/pending state: PASS — the Task contains no blocked or pending Plan item; its historical `DONE-GATE-STAGE-1` failure is retained as scenario audit history and the final author-owned PLAN outcome is the reasoned `not-applicable | 0` verdict.
+- Build: PASS — `pnpm build` was independently re-run against the current implementation commit and exited 0 after completing all 11 ordered type-build tiers. The recorded full gate `pnpm harness:verify-like-ci -- --base-ref origin/develop` also passed all 13/13 local CI-mirror stages, including the monorepo build, workspace typecheck, lint, examples typecheck, and TUI tests.
+- Tests: PASS — no package source is affected, so there is no affected-package `pnpm test` scope. The affected harness test was independently re-run with `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` and passed 17/17; the recorded full CI mirror additionally passed 3,922/3,922 harness contract tests and 1,149/1,149 hermetic tests.
+- Live contract verification: PASS — `node scripts/harness/scan-claude-review-coverage.mjs` examined one governed workflow and returned `claude-review-coverage: PASS`; an independent `pnpm harness:scan` re-run passed 145 scans with two declared skips and no failures.
+- Workflow syntax: PASS — the CI-pinned actionlint 1.7.7 archive matched SHA-256 `023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757`, and the repository-wide `actionlint -color` invocation exited 0 with no findings.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-27
+
+- **Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs`.
+- **Observed result:** Vitest reported `Test Files 1 passed (1)` and `Tests 17 passed (17)`; the governed-prompt mutations for a removed English-output instruction and retained instruction plus Hangul both passed as rejection cases.
+- **Exit code:** `0`.
+- **Test written:** `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > `scan-claude-review-coverage (INFRA-098)` > `rejects a reviewer prompt without the explicit English-output contract` and `rejects Hangul even when the explicit English-output contract remains`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-27
+
+- **Command:** `node scripts/harness/scan-claude-review-coverage.mjs`.
+- **Observed result:** `::examined:: 1 governed workflow(s)` followed by `claude-review-coverage: PASS`; the live governed prompt therefore retained the exact English-output contract and produced no Hangul finding.
+- **Exit code:** `0`.
+- **Test written:** `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > `scan-claude-review-coverage (INFRA-098)` > `is registered and passes on the live repository`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-27
+
+- **Command:** `pnpm harness:scan`.
+- **Observed result:** `145 scans passed, 2 skipped (97 declared what they examined)` with no failures; `claude-review-coverage` passed. The focused marker contract is covered by the named parameterized mutation test for `REVIEWED BASE`, `REVIEWED HEAD`, and `ACTIONABLE FINDINGS`.
+- **Exit code:** `0`.
+- **Test written:** `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` > `scan-claude-review-coverage (INFRA-098)` > `it.each(['REVIEWED BASE', 'REVIEWED HEAD', 'ACTIONABLE FINDINGS'])('rejects a missing %s marker')`.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-27
+
+- **Action/command:** reproduced the CI-owned `.github/workflows/ci.yml` actionlint block with `ACTIONLINT_VERSION=1.7.7` and `ACTIONLINT_SHA256=023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757`: downloaded the pinned archive with `curl -fsSL`, verified it with `sha256sum -c -`, extracted it, asserted `command -v shellcheck`, and ran `"$RUNNER_TEMP/actionlint" -color`. Because this host does not preinstall the CI prerequisite, Ubuntu `shellcheck` 0.11.0 and `libnuma1` were first downloaded and extracted into a temporary directory and exposed only through temporary `PATH`/`LD_LIBRARY_PATH` values.
+- **Observed result:** the prerequisite-free first attempt stopped at the repository's fail-closed ShellCheck assertion with exit `1`; the CI-equivalent retry printed `ShellCheck ... version: 0.11.0`, verified `actionlint.tar.gz: OK`, emitted no actionlint finding, and completed successfully.
+- **Exit code:** `0` for the CI-equivalent actionlint run.
+- **Test skipped:** no duplicate repository test was written because `.github/workflows/ci.yml` owns the pinned actionlint executable, checksum, ShellCheck prerequisite, and repository-wide invocation; this exact owned command was executed directly instead.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-27
+
+**Status upgrade:** verifying → done
+
+- Ordering: PASS — the document is `.agents/spec-docs/active/INFRA-134-claude-pr-review-output-is-english.md` with `status: verifying` and contains one recorded `GATE-VERIFY` PASS.
+- Completion Criteria: PASS — TC-01 through TC-04 are all `[x]`, and each has the matching `[GATE-COMPLETE: TC-N]` command/action, observed result, exit code, and test reference or explicit skip reason above.
+- Test Plan: PASS — all four TC rows are present; TC-01 through TC-03 name exact test file and test/describe references, while TC-04 records the explicit CI-owned actionlint skip rationale and direct verification.
+- Task pointer: PASS — `## Tasks` names the exact active path `.agents/tasks/INFRA-134-claude-pr-review-output-is-english.md`, and that file exists.
+- Task readiness: PASS — all four Plan items in the active Task are `[x]`; there is no unchecked, pending, or blocked Plan item. The historical scenario-gate failure remains audit history, while the author-owned final scenario outcome is the reasoned `SCENARIO DRAFTED: not-applicable | 0` verdict.
+- Independent verification summary: PASS — targeted Vitest passed 17/17, the live scanner examined one workflow and passed, the repository harness passed 145 scans with two declared skips, and the CI-equivalent pinned actionlint 1.7.7 run passed with its archive checksum and ShellCheck prerequisite verified.
