@@ -5,11 +5,12 @@
  *
  * ## What this judges, and what it does not
  *
- * `.agents/rules/backlog-execution.md` § PR Unit Rule owns the PR body: seven ordered sections, the
- * first of them `## Background`, and a prohibition on agent-session links and "Generated with …"
+ * `.agents/rules/backlog-execution.md` § PR Unit Rule owns the PR body: six ordered sections then the
+ * `Closes` line, the first of them `## Background`, and a prohibition on agent-session links and "Generated with …"
  * footers. This judge mechanises the two halves a machine can decide without reading prose:
  *
- *   - the FIRST heading line of the body (outside fenced code) is exactly `## Background` — a
+ *   - the FIRST heading line of the body (outside fenced code and HTML comment blocks) is exactly
+ *     `## Background` — a
  *     positional test, because "opens with" is the rule; a `## Background` that appears after
  *     `### Accepted recommendation` is the rejected body with one heading added;
  *   - the body carries no `claude.ai/code/session…` link and no Claude Code footer.
@@ -54,15 +55,15 @@ export function firstHeading(body) {
       if (line.includes('-->')) inComment = false;
       continue;
     }
-    if (line.startsWith('<!--') && !line.includes('-->')) {
-      inComment = true;
-      continue;
-    }
     if (/^(```|~~~)/.test(line)) {
       inFence = !inFence;
       continue;
     }
     if (inFence) continue;
+    if (line.startsWith('<!--') && !line.includes('-->')) {
+      inComment = true;
+      continue;
+    }
     if (/^#{1,6}\s/.test(line)) return line;
   }
   return null;
@@ -100,15 +101,20 @@ export function judgePrBody(body) {
   return { ok: problems.length === 0, problems };
 }
 
-function readBody() {
+async function readBody() {
   if (process.env.PR_BODY !== undefined) return process.env.PR_BODY;
   // The documented local invocation pipes `gh pr view … -q .body` in. A terminal with nothing
-  // piped is an empty body, which the judge refuses — no read path reads as a pass.
-  return process.stdin.isTTY ? '' : readFileSync(0, 'utf8');
+  // piped is an empty body, which the judge refuses — no read path reads as a pass. The read is
+  // asynchronous on purpose: a synchronous fd-0 read fails with EAGAIN on a non-blocking pipe
+  // (measured on PR #2409's own body, Node 22.14), and a crash is not a verdict.
+  if (process.stdin.isTTY) return '';
+  const chunks = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  return Buffer.concat(chunks).toString('utf8');
 }
 
-export function main() {
-  const verdict = judgePrBody(readBody());
+export async function main() {
+  const verdict = judgePrBody(await readBody());
   const summary = verdict.ok
     ? ['## PR body', '', 'PASS — opens with `## Background`, carries no agent-session link.']
     : [
@@ -133,5 +139,5 @@ export function main() {
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
-  process.exitCode = main();
+  process.exitCode = await main();
 }

@@ -156,4 +156,20 @@ describe('the script exit code is the verdict', () => {
   it('exits 1 on an empty body passed through the environment', () => {
     expect(run('').status).toBe(1);
   });
+
+  it('reads a body piped through stdin — the documented local invocation', () => {
+    // A synchronous fd-0 read fails with EAGAIN on a non-blocking pipe (measured on the PR that
+    // introduced this script); the pipe path is exercised here so that regression is a red case.
+    const env = { ...process.env };
+    delete env.PR_BODY;
+    delete env.GITHUB_STEP_SUMMARY;
+    const piped = (input) =>
+      spawnSync(process.execPath, [SCRIPT], { env, input, encoding: 'utf8' });
+    const accepted = piped(COMPLIANT);
+    expect(accepted.status, `${accepted.stdout}${accepted.stderr}`).toBe(0);
+    const refused = piped('### Accepted recommendation\n');
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toMatch(/::error::the PR body's first heading/);
+    expect(refused.stderr).not.toMatch(/EAGAIN/);
+  });
 });
