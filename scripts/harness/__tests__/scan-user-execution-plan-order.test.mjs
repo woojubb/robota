@@ -148,7 +148,11 @@ function taskText({
   ].join('\n');
 }
 
-function specText({ subject = TASK_ID, outcome = 'not-applicable' } = {}) {
+function specText({
+  subject = TASK_ID,
+  outcome = 'not-applicable',
+  worktreeLine = undefined,
+} = {}) {
   const signal =
     outcome === 'not-applicable'
       ? 'SCENARIO DRAFTED: not-applicable | 0'
@@ -174,7 +178,8 @@ function specText({ subject = TASK_ID, outcome = 'not-applicable' } = {}) {
     '',
     `- Task artifact: \`.agents/tasks/${subject}.md\` exists and maps the completion criteria.`,
     `- Subject-bound PLAN terminal result: \`${signal}\` is recorded with its concrete reason.`,
-    `- Whole-worktree precondition: only \`.agents/tasks/${subject}.md\` and \`.agents/spec-docs/todo/${subject}.md\` are present; no implementation path exists.`,
+    worktreeLine ??
+      `- Whole-worktree precondition: only \`.agents/tasks/${subject}.md\` and \`.agents/spec-docs/todo/${subject}.md\` are present; no implementation path exists.`,
     '',
   ].join('\n');
 }
@@ -1902,6 +1907,114 @@ describe('user-execution PLAN order — staged transaction', () => {
     git(residue.root, ['add', TASK_PATH, SPEC_PATH, ledger]);
     write(residue.root, ledger, `${valid}${JSON.stringify(userScenarioRecord('HARNESS-999'))}\n`);
     expect(messages(findStagedFindings(residue.root, residue.base))).toMatch(/worktree|ledger/i);
+  });
+});
+
+describe("HARNESS-127 — the catalogue's spelling of the worktree criterion", () => {
+  // The GATE-IMPLEMENT checkpoint entry must mention the whole worktree. The catalogue that owns the
+  // criterion writes `whole worktree`; the fixture above writes `Whole-worktree`. Both are the same
+  // phrase and both must be accepted, or a guardian that quotes the catalogue verbatim is refused for
+  // a hyphen it had no way to know about (issue #2378). The two TC-03 cases read the catalogue's own
+  // words at test time so the next drift between the document and the scan is a red case here.
+  const inventory = `: only \`${TASK_PATH}\` and \`.agents/spec-docs/todo/${TASK_ID}.md\` are present; no implementation path exists.`;
+
+  function gateImplementSection() {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const catalogue = readFileSync(path.join(root, '.agents/specs/gate-catalogue.md'), 'utf8');
+    const lines = catalogue.split('\n');
+    const start = lines.findIndex((line) => /^### GATE-IMPLEMENT\b/.test(line));
+    expect(start, 'gate-catalogue.md has a `### GATE-IMPLEMENT` heading').toBeGreaterThan(-1);
+    let end = lines.length;
+    for (let index = start + 1; index < lines.length; index += 1) {
+      if (/^#{1,3} /.test(lines[index])) {
+        end = index;
+        break;
+      }
+    }
+    return lines.slice(start + 1, end);
+  }
+
+  function catalogueCriterionItem() {
+    const items = [];
+    for (const line of gateImplementSection()) {
+      if (/^- \[ \] /.test(line)) items.push([line.replace(/^- \[ \] /, '')]);
+      else if (/^\s+\S/.test(line) && items.length > 0 && items.at(-1))
+        items.at(-1).push(line.trim());
+      else items.push(null);
+    }
+    const worktreeItems = items.filter(
+      (item) => item && item.some((line) => /worktree/i.test(line)),
+    );
+    expect(
+      worktreeItems,
+      'gate-catalogue.md § GATE-IMPLEMENT has exactly one `- [ ]` item that mentions the worktree',
+    ).toHaveLength(1);
+    return worktreeItems[0].join(' ');
+  }
+
+  function catalogueInstructionParagraph() {
+    const section = gateImplementSection();
+    const starts = section
+      .map((line, index) => (/^\*\*Evidence to record on PASS:\*\*/.test(line) ? index : -1))
+      .filter((index) => index !== -1);
+    expect(
+      starts,
+      'gate-catalogue.md § GATE-IMPLEMENT has exactly one `**Evidence to record on PASS:**` paragraph',
+    ).toHaveLength(1);
+    const paragraph = [];
+    for (
+      let index = starts[0];
+      index < section.length && section[index].trim() !== '';
+      index += 1
+    ) {
+      paragraph.push(section[index]);
+    }
+    // The case below is named for the soft-wrap. If the catalogue is ever reflowed onto one line this
+    // case silently becomes TC-03a again and mutant C (`[- ]`) survives — so the wrap is asserted,
+    // making a reflow a visible red rather than a quiet loss of distinguishing power.
+    expect(
+      paragraph.join('\n'),
+      'the Evidence-to-record paragraph soft-wraps between `whole` and `worktree`',
+    ).toMatch(/whole\s*\n\s*worktree/);
+    return paragraph.join('\n');
+  }
+
+  it('accepts a checkpoint whose worktree line quotes the catalogue criterion verbatim (TC-01)', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText());
+    write(
+      root,
+      SPEC_PATH,
+      specText({
+        worktreeLine: `- The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record${inventory}`,
+      }),
+    );
+    commit(root, 'planning checkpoint quoting the catalogue');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('still refuses a checkpoint whose worktree line carries neither spelling (TC-02)', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText());
+    write(root, SPEC_PATH, specText({ worktreeLine: `- Path inventory${inventory}` }));
+    commit(root, 'planning checkpoint with no worktree token');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/checkpoint|transition/i);
+  });
+
+  it.each([
+    ['the criterion item', () => catalogueCriterionItem()],
+    ['the Evidence-to-record instruction, soft-wrap intact', () => catalogueInstructionParagraph()],
+  ])("accepts the catalogue's own words as the worktree line — %s (TC-03)", (_name, phrase) => {
+    const text = phrase();
+    expect(text).toMatch(/worktree/i);
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText());
+    write(root, SPEC_PATH, specText({ worktreeLine: `- ${text}${inventory}` }));
+    commit(root, "planning checkpoint in the catalogue's words");
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
   });
 });
 

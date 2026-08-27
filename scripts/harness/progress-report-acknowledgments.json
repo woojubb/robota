@@ -283,6 +283,20 @@
       "ratio": "8/14",
       "kind": "false-positive",
       "reason": "Not a violation: 8/14 is 14 August, ARCH-011's completed: date, in \"ARCH-011은 완료(8/14)입니다.\" There is no countable work set in the sentence. The scan fired by its own stated rule — a partial ratio in a completion context with no percentage — because Korean joins the completion word to the parenthesis with no preposition, where English writes \"completed on 8/14\"; the five suppression classes in the engine were derived from English transcripts. An engine rule was implemented first and withdrawn: 완료(8/14) and 완료(3/20) are the same shape, and the information separating a date from a ratio is the author's intent, not anything in the text, so the guard silently dropped genuine 3-of-20 progress statements (caught in review of PR #2341). HARNESS-122, issue #2339."
+    },
+    {
+      "transcript": "1dab1a14-5866-4ce5-acb6-d843c00d09b7.jsonl",
+      "timestamp": "2026-08-27T12:37:39.996Z",
+      "ratio": "1/29",
+      "kind": "false-positive",
+      "reason": "Not a violation: the sentence retracts a measurement, it does not report progress. \"1/29는 보고할 수 없는 수입니다\" says the ratio CANNOT be reported — the author had just found that the instrument sorted by mtime, not by completion date, and was discarding the figure. There is no countable work set being advanced; the number is named in order to withdraw it. The scan fired by its own stated rule (a partial ratio in a completion context with no percentage) because a retraction and a report share the shape N/M + completion vocabulary, and only the sentence's verb tells them apart. Recorded from another session's transcript while verifying HARNESS-127 (issue #2378)."
+    },
+    {
+      "transcript": "1dab1a14-5866-4ce5-acb6-d843c00d09b7.jsonl",
+      "timestamp": "2026-08-27T12:37:58.149Z",
+      "ratio": "1/29",
+      "kind": "false-positive",
+      "reason": "Not a violation, the same retraction eighteen seconds later: \"제 첫 시도(1/29)는 버렸습니다\" — \"my first attempt (1/29) was discarded\". The ratio is the discarded value, quoted in parentheses as the thing thrown away, not a status over a work set. Same reading error as the entry above; recorded with it so the pair reads as one event."
     }
   ]
 }

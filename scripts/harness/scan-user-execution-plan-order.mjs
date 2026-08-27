@@ -432,7 +432,11 @@ function completeGateImplementEntry(body, binding = null) {
     /^\*\*Status upgrade:\*\* approved → in-progress\s*$/m.test(body) &&
     /\.agents\/tasks\/[A-Z][A-Z0-9]*-\d+[^\s`]*\.md/.test(body) &&
     /SCENARIO DRAFTED:\s*(?:not-applicable|automatable|manual)\s*\|\s*\d+/.test(body) &&
-    /whole-worktree/i.test(body);
+    // Contained — HARNESS-128. The catalogue writes `whole worktree` (soft-wrapped in its
+    // Evidence-to-record line); the fixture and every committed checkpoint wrote `Whole-worktree`.
+    // Both spellings of one phrase are accepted. The token is still the scan's own, not a form the
+    // catalogue declares — that is the root item. (issue #2378)
+    /whole[-\s]+worktree/i.test(body);
   if (!structurallyComplete || binding === null) return structurallyComplete;
   const taskPath = `${TASK_PREFIX}${binding.basename}`;
   const hasSpecPath = ['todo', 'active'].some((state) =>
