@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-127: plan-order requires a spelling its catalogue never writes'
 issue: https://github.com/woojubb/robota/issues/2378
-status: todo
+status: in-progress
 created: 2026-08-27
 priority: high
 urgency: now
@@ -90,12 +90,14 @@ note. Alternative chosen: A2, as a labelled containment under HARNESS-128.
   fix.
 - A control where the worktree line carries neither spelling — must still produce the checkpoint
   finding. Without it, the first case is satisfied by a scan that accepts anything.
-- A binding case that reads the GATE-IMPLEMENT worktree criterion out of
-  `.agents/specs/gate-catalogue.md` at test time and uses that line, verbatim, as the checkpoint's
-  worktree line — so the catalogue and the scan cannot drift apart silently again.
+- Two binding cases (`it.each`) that locate the GATE-IMPLEMENT worktree criterion item and the
+  Evidence-to-record instruction (soft-wrap intact) in `.agents/specs/gate-catalogue.md` at test time
+  and feed each, alone, as the checkpoint's worktree line — so the catalogue and the scan cannot
+  drift apart silently again.
 - Applied-check mutation as the acceptance test: restoring `/whole-worktree/i` must fail the suite,
   and replacing the test with one that accepts any body must also fail the suite.
-- `pnpm harness:scan` exits 0 on the branch; the existing 79 cases in the file still pass.
+- `pnpm harness:scan` exits 0 on the branch; the existing 79 cases in the file still pass, plus the
+  four added (83).
 
 ## User Execution Test Scenarios
 
@@ -108,4 +110,4 @@ verification surface is the harness gate — the binding test and the mutation a
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md`
+`.agents/spec-docs/active/HARNESS-127-plan-order-requires-a-spelling-its-catalogue-never-writes.md`
