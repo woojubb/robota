@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: RULE
 tags: [harness, enforcement]
 ---
@@ -355,3 +355,36 @@ Recorded as the rule's required choice rather than skipped.
 - [ ] `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** draft → review-ready
+
+- Ordering: entry gate, no prior gate required; document is `status: draft` in `.agents/spec-docs/draft/` — matches expected input state.
+- Frontmatter — file begins with `---` block: PASS (lines 1–5).
+- Frontmatter — `status: draft`: PASS (line 2).
+- Frontmatter — `type:` one of the 11 prefixes: PASS (`type: RULE`).
+- Frontmatter — `tags:` present: PASS (`tags: [harness, enforcement]`); `check-spec-doc-frontmatter.mjs` exits 0 over 320 documents.
+- Problem — concrete symptom: PASS (measured session `92807a20` table: 72 min wall clock, 4 min implementation, 15 dispatches, 7 guard runs 7/7 PASS; 19/21 rebases with zero file overlap forced by `merge-gate.sh:352` — verified that line is the `REVIEWED_BASE != CURRENT_BASE_OID` refusal; 147-scan full runs not consulting `classify-changed-paths.mjs`). Issue #2398 verified OPEN via `gh issue view`.
+- Problem — reproduction condition: PASS (explicit **Reproduction condition** paragraph: any item touching no contract boundary entering via `user-request-gate` / `issue-to-backlog`).
+- Problem — no TBD/TODO/vague one-liners: PASS (grep for `TBD|TODO` in the Problem section returns nothing; the only `todo` in the file is the Tasks placeholder status).
+- Prior Art — section present: PASS (`## Prior Art Research`, line 61).
+- Prior Art — substantiated by documentation sources: PASS (six documentation sources: Atlassian ITSM change types, DORA streamlining-change-approval, GitHub protected-branches and merge-queue docs, Google eng-practices small CLs, Nx `affected`, git `gitattributes` built-in merge drivers; no third-party source code cited). `scan-spec-research.mjs` (covers `draft/`) exits 0.
+- Prior Art — `Waived:` line: N/A — section is substantiated, so no waiver is needed.
+- Prior Art — findings feed Alternatives/Decision: PASS ("Observed common behaviour" paragraph — risk class recorded on the change, re-validate once at landing — is the basis of Alternative 1's lanes, `--affected` selection, and the interaction-based merge gate; the ITIL standard-change model is tied to the existing delegated-approval registry).
+- Checklist — all 4 items `[x]`: PASS (lines 228–236).
+- Checklist — Sibling scan `[x]` with evidence: PASS (names `backlog-execution.md` § Delegated Approval Classes, `scan-doc-folder-status-agreement`, `scan-user-execution-plan-order`, `classify-changed-paths.mjs`, and issue #2386 as the existing owners being extended rather than duplicated).
+- Alternatives ≥2 with pro/con: PASS (4 alternatives, each with a Pro and a Con).
+- Decision references the driving trade-off: PASS ("alternatives 2 and 4 each recover one slice and leave the structure that produces the cost; alternative 3 recovers the time by removing the record" — width of change accepted as the con).
+- New-surface placement: N/A — explicit `N/A` with reason on the checklist (line 237); the change adds harness scripts, a template, rule/catalogue/skill text, one hook and one workflow — no new package, app, or presentation/interface surface and no layer/product-family reclassification, so `spec-workflow.md` § New-Surface Architecture Placement does not apply.
+- Completion Criteria — every item `TC-N` prefixed: PASS (12 items, TC-01…TC-12; 0 items without prefix).
+- Completion Criteria — ≥1 criterion per feature/sub-item: PASS (rule amendment TC-01, lane scan TC-02, catalogue tagging TC-03, `gate.mjs` TC-04, caller routing TC-05, `new-spec.mjs` TC-06, `--affected` + CI split TC-07, pre-push TC-08, advisory scans TC-09, registry row TC-10, merge gate TC-11, regression TC-12 — covers all 9 Solution steps).
+- Completion Criteria — Command or Observable form: PASS (each names a command with an exit code or a `rg` count / fixture outcome).
+- Completion Criteria — no banned phrases: PASS (grep for `works correctly|no errors|implemented|displays correctly` returns nothing in the section).
+- Test Plan — section present: PASS (line 327).
+- Test Plan — one row per TC-N: PASS (12 Completion Criteria TC-N = 12 Test Plan rows, TC-01…TC-12).
+- Test Plan — non-empty Test Type and Tool, no TBD: PASS (all 12 rows carry Unit/Measured/Suite and a named tool/fixture; no `TBD`).
+- Test Plan — manual rows have Notes: N/A — no row has Tool "manual".
+- Structure — Tasks section with placeholder: PASS (line 353–355, points at the paired Task, which exists at `.agents/tasks/PROC-016-…md` with `status: todo`).
+- Structure — Evidence Log present and empty on first run: PASS (line 357, empty before this entry).
+- Structure — no `## Status` / `## Classification` body sections: PASS (grep returns none).
