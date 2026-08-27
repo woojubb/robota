@@ -95,7 +95,7 @@ release suite a second time. The root command remains available as an explicit l
   `claude.ai/code/session…` URL. A commit names its work item and issue; the session that wrote it is
   a private link with no place in a shared, permanent record. `Co-Authored-By` is attribution and
   stays. The PR body's contract, including the same prohibition for bodies, is owned by
-  [backlog-execution.md](backlog-execution.md) § PR Unit Rule (RULE-016, issue #2403).
+  [backlog-execution.md](backlog-execution.md) § PR Unit Rule.
   Enforced by: `no-session-link` (commitlint)
 
 ### Commit Cadence

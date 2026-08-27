@@ -35,7 +35,7 @@
  */
 
 import { appendFileSync, readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
 
 export const REQUIRED_FIRST_HEADING = '## Background';
 export const SESSION_LINK = /claude\.ai\/code\/session/;
@@ -122,6 +122,6 @@ export function main() {
   return 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   process.exitCode = main();
 }
