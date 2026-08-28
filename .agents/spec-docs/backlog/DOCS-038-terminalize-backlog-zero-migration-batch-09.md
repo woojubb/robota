@@ -34,11 +34,13 @@ package, API, product, policy, workflow, hook, skill, or topology.
 
 ### Affected Scope
 
-- SEC-016 Task lifecycle move, its stale active plan rejection, and a cardinality-preserving
-  standing-delegation baseline key move from `active/` to `rejected/`.
+- SEC-016 Task lifecycle move, its stale active plan rejection, three exact Task-path citation
+  rekeys inside that plan, and a cardinality-preserving standing-delegation baseline key move from
+  `active/` to `rejected/`.
 - SECURITY-001 Task lifecycle move to the exact open successor created for its still-unfinished
   end-to-end outcome.
-- STRUCT-011 Task lifecycle move and its stale approved plan rejection.
+- STRUCT-011 Task lifecycle move, its stale approved plan rejection, and its one exact Task-path
+  citation rekey.
 - The paired DOCS-038 Task/spec and two required closed loop ledgers.
 - One control issue, one successor issue, three canonical handoff comments, and one append-only note
   linking the closed original SECURITY-001 report to its successor.
@@ -68,8 +70,8 @@ Choose alternative 4.
 - SEC-016 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445. The implementation leaf
   delivered TC-01..10 and TC-12; issue #2225 owns the sole unmet TC-11 product-surface demonstration.
-  Its active plan becomes `rejected`, and the frozen standing-delegation key follows that lifecycle
-  move without changing set cardinality.
+  Its active plan becomes `rejected`; its three live citations follow the Task to `completed/`; and
+  the frozen standing-delegation key follows the plan lifecycle move without changing set cardinality.
 - SECURITY-001 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582. Issue #2465 is the unique
   open successor for all eight unchecked trust-boundary criteria. Closed issue #2018 remains an
@@ -77,7 +79,8 @@ Choose alternative 4.
 - STRUCT-011 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707. Issue #2198 is open/reopened
   and owns the remaining live import at `packages/agent-cli/scripts/record-goal-cassette.mts:15` plus
-  final verification. Its approved plan becomes `rejected` because GitHub is now the sole queue.
+  final verification. Its approved plan becomes `rejected`, and its one Task citation follows the
+  Task to `completed/`, because GitHub is now the sole queue.
 
 ARCH-047, ARCH-048, and ARCH-049 are valid urgent residuals but require excluded package-document
 carrier edits. RULE-015 requires excluded rule/policy carriers. They are not silently included.
@@ -105,14 +108,17 @@ Limits: 3 units; 10 final tracked paths. Each governed Task blob is identical at
 HEAD, and worktree. No package source, API, policy, product documentation, workflow, hook, skill, or
 topology path is permitted.
 
-| Unit         | Governed original path and blob OID                                                                                                            | Exact current owner and evidence                                                                                                                 | Disposition                                                                                                                   |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| SEC-016      | `.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md` @ `57c1a87e77de6a0f58beb23e7f409f3b470f7b25`                                      | OPEN/unassigned issue #2225; exact handoff https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445; TC-11 alone remains unchecked. | Preserve Task/spec bodies; Task skipped, plan rejected, baseline key active→rejected. Issue #2093 remains historical context. |
-| SECURITY-001 | `.agents/tasks/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md` @ `ebd76904511da6d18815d91fa67ab24b5b276017` | OPEN/unassigned successor #2465; exact handoff https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582; all eight criteria open.   | Preserve Task body and archive skipped. Closed #2018 remains historical and carries only an append-only successor link.       |
-| STRUCT-011   | `.agents/tasks/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md` @ `04317a761813dd04a66d5b8bdd9bb1eb127fcbe2`        | OPEN/unassigned issue #2198; exact handoff https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707; stale live import confirmed.   | Preserve Task/spec bodies; Task skipped and approved plan rejected. Product/package repair stays with issue #2198.            |
+| Unit         | Governed original path and blob OID                                                                                                            | Exact current owner and evidence                                                                                                                     | Disposition                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| SEC-016      | `.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md` @ `57c1a87e77de6a0f58beb23e7f409f3b470f7b25`                                      | OPEN/unassigned issue #2225; exact handoff https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445; TC-11 alone remains unchecked.     | Preserve Task body; reject plan with three Task-path rekeys; rekey baseline active→rejected. Issue #2093 is historical.       |
+| SECURITY-001 | `.agents/tasks/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md` @ `ebd76904511da6d18815d91fa67ab24b5b276017` | OPEN/unassigned successor issue #2465; exact handoff https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582; all eight criteria open. | Preserve Task body and archive skipped. Closed issue #2018 remains historical and carries only an append-only successor link. |
+| STRUCT-011   | `.agents/tasks/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md` @ `04317a761813dd04a66d5b8bdd9bb1eb127fcbe2`        | OPEN/unassigned issue #2198; exact handoff https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707; stale live import confirmed.       | Preserve Task body; reject plan with exactly one Task-path rekey. Product/package repair stays with issue #2198.              |
 
-Plan blobs are fixed and current at `034fa55dd793b8b01871cfb45534a0895db8302c` for SEC-016 and
-`ff445f698f9d315fb9d0eb489cb3f53be5f3cc7f` for STRUCT-011. The standing-delegation baseline is
+Plan input blobs are fixed and current at `034fa55dd793b8b01871cfb45534a0895db8302c` for SEC-016 and
+`ff445f698f9d315fb9d0eb489cb3f53be5f3cc7f` for STRUCT-011. Exact citation rekeys produce plan
+postimages `4d09259798e236965b6bacd8d391f66f612c429d` and
+`ca8278c67787f33972b5f1348d0e6bfb79933b1f` respectively: SEC-016 has exactly three replacements
+and STRUCT-011 exactly one, with no other body byte changed. The standing-delegation baseline is
 `bbe76bd5d457ec5c496e4b82aa65373f79dc24d6` at the fixed-population object, but later authorized
 lifecycle rekeys make its base/HEAD/worktree preimage
 `9988892ae31e368fd2ffc43ee937b826e9e1d464`. Replacing only
@@ -139,7 +145,8 @@ and requires a fresh recommendation and class approval.
 2. Obtain independent depth and recommendation review of urgency, ownership, current truth, baseline
    cardinality, and class boundary; record class approval only at zero actionable findings.
 3. Create the paired Task and subject-bound not-applicable scenario checkpoint before implementation.
-4. Apply only the three Task moves, two plan rejections, and one exact baseline rekey.
+4. Apply only the three Task moves, two plan rejections, four exact in-plan Task citation rekeys,
+   and one exact baseline rekey.
 5. Verify normalized body preservation, exact paths/blobs/issues/comments, lifecycle/folder/citation/
    delegation/baseline/loop gates, current premises, full harness scan, and the CI mirror.
 
@@ -163,8 +170,9 @@ and requires a fresh recommendation and class approval.
       rekey, with no excluded path.
 - [ ] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
       unique where marked, and unmodified; each skipped Task cites its exact owner comment.
-- [ ] TC-03: all three Task bodies and both plan bodies remain byte-identical after normalization,
-      with only approved lifecycle frontmatter/path changes.
+- [ ] TC-03: all three Task bodies remain byte-identical after normalization; the SEC-016 and
+      STRUCT-011 plan bodies differ only by exactly three and one approved Task-path citation rekeys,
+      producing frozen postimage blobs `4d092597...` and `ca8278c6...`.
 - [ ] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
       its sorted set and cardinality; no package/app/API/policy/product/workflow/topology path changes.
 - [ ] TC-05: the exact final path set is ten and focused lifecycle/current-premise checks plus
@@ -172,13 +180,13 @@ and requires a fresh recommendation and class approval.
 
 ## Test Plan
 
-| TC-ID | Test Type             | Tool / Approach                                                  | Notes                                                                       |
-| ----- | --------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| TC-01 | Agreement / manifest  | Git blob/path inventory and fixed-population comparison          | Test skipped: evidence audit observes a fixed documentation manifest.       |
-| TC-02 | Agreement / remote    | Exact GitHub issue/comment marker, owner, and timestamp readback | Test skipped: append-only remote state is control-plane evidence.           |
-| TC-03 | Agreement / lifecycle | Normalized Task/spec body comparison plus placement scanners     | Test skipped: Git bytes and lifecycle scanners directly prove preservation. |
-| TC-04 | Agreement / baseline  | JSON set/cardinality comparison and excluded-path classification | Test skipped: exact before/after data and path inventory are the result.    |
-| TC-05 | Agreement / CI        | Focused scanners/tests, full harness scan, and CI mirror         | Test skipped: no new runtime behavior; existing gates verify the result.    |
+| TC-ID | Test Type             | Tool / Approach                                                  | Notes                                                                    |
+| ----- | --------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| TC-01 | Agreement / manifest  | Git blob/path inventory and fixed-population comparison          | Test skipped: evidence audit observes a fixed documentation manifest.    |
+| TC-02 | Agreement / remote    | Exact GitHub issue/comment marker, owner, and timestamp readback | Test skipped: append-only remote state is control-plane evidence.        |
+| TC-03 | Agreement / lifecycle | Normalized body/citation diff plus placement scanners            | Test skipped: Git bytes and exact replacement counts prove preservation. |
+| TC-04 | Agreement / baseline  | JSON set/cardinality comparison and excluded-path classification | Test skipped: exact before/after data and path inventory are the result. |
+| TC-05 | Agreement / CI        | Focused scanners/tests, full harness scan, and CI mirror         | Test skipped: no new runtime behavior; existing gates verify the result. |
 
 ## Tasks
 
@@ -192,7 +200,8 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 
 ## Remote Grounding Evidence
 
-- Base, HEAD, and worktree blobs equal the fixed-population blobs for all three Tasks and both plans.
+- Base, HEAD, and worktree blobs equal the fixed-population input blobs for all three Tasks and both
+  plans. No-write projections produce the two exact plan postimages and replacement counts above.
   The baseline is deliberately distinguished: population blob `bbe76bd5...`, current preimage
   `9988892...`, and exact one-key expected postimage `7704d8bb...`, with cardinality 218 throughout
   the current rekey.
@@ -263,7 +272,10 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - `DEPTH: FOUNDATIONAL` — fixed-population Tasks/specs can survive beside exact GitHub owners because
   no lifetime invariant terminalizes the repository record on durable handoff. Issue #2404 already
   owns that prevention mechanism; this delegated class performs finite containment without hiding it.
-- All three dispositions preserve unfinished product outcomes in #2225, #2465, and #2198.
+- All three dispositions preserve unfinished product outcomes in:
+  - issue #2225;
+  - issue #2465;
+  - issue #2198.
 - `ACTIONABLE FINDINGS: 0`.
 
 ### [RECOMMENDATION REVIEW ROUND 1] — 🔴 REVISE | 2026-08-29
@@ -291,3 +303,17 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [SUPERSEDED APPROVAL / CHECKPOINT] — 🔴 NON-COMPLIANCE | 2026-08-29
+
+- The first implementation attempt on local branch `docs/backlog-zero-batch-09` reached approval
+  fingerprint `6e0de450a706` and checkpoint `070134d57dc3fdf5707c82efe1e96a3e3f535059`.
+- Focused `scan-task-path-citations.mjs` then proved that rejected SEC-016 and STRUCT-011 plans would
+  retain four live citations to Tasks moved under `completed/`. The first manifest promised both plan
+  bodies byte-identical, so the mechanically required rekeys exceed that approval.
+- No implementation commit, push, or PR occurred. The first worktree is sealed in recoverable stash
+  `codex DOCS-038 withdrawn first implementation`; its approval and checkpoint are withdrawn and may
+  not be reused.
+- The corrected manifest remains three units and ten final paths, but freezes three SEC-016 and one
+  STRUCT-011 citation replacements plus exact postimage blobs. This v2 branch returned to
+  `review-ready` for a fresh independent recommendation review and class approval.
