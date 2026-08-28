@@ -173,6 +173,26 @@ function l1SpecCandidates(paths) {
   ].sort();
 }
 
+// A continuation commit (HARNESS-131) touches the active spec only — the Task has nothing to
+// change — so the pair is the active spec path in the change set whose paired Task exists in the
+// resulting tree. `readTask` reads that tree (a commit, or the index on the staged path).
+function continuationPairCandidates(paths, readTask) {
+  const activeSpecs = paths
+    .filter((file) => file.startsWith(`${SPEC_PREFIX}active/`))
+    .map(specBasename)
+    .filter(Boolean);
+  const both = new Set(activePairCandidates(paths));
+  return [...new Set(activeSpecs)]
+    .filter((basename) => !both.has(basename) && readTask(`${TASK_PREFIX}${basename}`) !== null)
+    .sort();
+}
+
+function pairCandidates(paths, readTask) {
+  return [
+    ...new Set([...activePairCandidates(paths), ...continuationPairCandidates(paths, readTask)]),
+  ].sort();
+}
+
 function planningBasenames(paths) {
   return [
     ...new Set(paths.map((file) => taskBasename(file) ?? specBasename(file)).filter(Boolean)),
@@ -472,9 +492,24 @@ function hasExactMarkdownToken(text, token) {
   return new RegExp(`(^|[\\s\`])${escapeRegExp(token)}(?=$|[\\s\`])`, 'm').test(text);
 }
 
+// The two status lines a GATE-IMPLEMENT entry may carry — the first checkpoint of a pair, and a
+// continuation on a pair already in-progress (a spec whose delivery is sequenced across PRs; the
+// catalogue's § GATE-IMPLEMENT "Continuation" paragraph declares it). HARNESS-131.
+export const FIRST_CHECKPOINT_STATUS_LINE = '**Status upgrade:** approved → in-progress';
+export const CONTINUATION_STATUS_LINE =
+  '**Status upgrade:** in-progress → in-progress (continuation)';
+
+function gateImplementEntryForm(body) {
+  if (/^\*\*Status upgrade:\*\* approved → in-progress\s*$/m.test(body)) return 'first';
+  if (/^\*\*Status upgrade:\*\* in-progress → in-progress \(continuation\)\s*$/m.test(body)) {
+    return 'continuation';
+  }
+  return null;
+}
+
 function completeGateImplementEntry(body, binding = null) {
   const structurallyComplete =
-    /^\*\*Status upgrade:\*\* approved → in-progress\s*$/m.test(body) &&
+    gateImplementEntryForm(body) !== null &&
     /\.agents\/tasks\/[A-Z][A-Z0-9]*-\d+[^\s`]*\.md/.test(body) &&
     /SCENARIO DRAFTED:\s*(?:not-applicable|automatable|manual)\s*\|\s*\d+/.test(body) &&
     // Contained — HARNESS-128. The catalogue writes `whole worktree` (soft-wrapped in its
@@ -880,6 +915,14 @@ function gatePlanPassCount(spec, binding = null) {
   ).length;
 }
 
+function gateImplementContinuationCount(spec, binding = null) {
+  const evidence = markdownSection(spec, '## Evidence Log');
+  return canonicalPassEntries(evidence, 'GATE-IMPLEMENT').filter(
+    (body) =>
+      gateImplementEntryForm(body) === 'continuation' && completeGateImplementEntry(body, binding),
+  ).length;
+}
+
 function exactPlanSignal(task) {
   const section = markdownSection(task, '## User Execution Test Scenarios');
   const matches = [
@@ -892,14 +935,38 @@ function exactPlanSignal(task) {
 
 function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }) {
   const signal = exactPlanSignal(task);
+  if (signal === null) return false;
+  if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
+    return false;
+  }
+  const binding = { basename, signal };
+  const parentInProgress =
+    frontmatterStatus(parentTask) === 'in-progress' &&
+    frontmatterStatus(parentSpec) === 'in-progress';
+  if (!parentInProgress) {
+    // The first checkpoint of a pair: neither side was in-progress, and the spec gains its first
+    // complete GATE-IMPLEMENT PASS, bound to the Task's exact PLAN signal…
+    return (
+      frontmatterStatus(parentTask) !== 'in-progress' &&
+      frontmatterStatus(parentSpec) !== 'in-progress' &&
+      gateImplementPassCount(parentSpec) === 0 &&
+      gateImplementPassCount(spec, binding) === 1 &&
+      // …and that one entry is in FIRST form: a continuation line on a pair that was never
+      // in-progress (copied from a sequenced spec) is not a first checkpoint.
+      gateImplementContinuationCount(spec, binding) === 0
+    );
+  }
+  // A continuation checkpoint (HARNESS-131): the pair is already in-progress with a checkpoint on
+  // the base — a spec whose delivery is sequenced across PRs — and this commit re-records the gate
+  // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
+  // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
   return (
-    signal !== null &&
-    frontmatterStatus(task) === 'in-progress' &&
-    frontmatterStatus(spec) === 'in-progress' &&
-    frontmatterStatus(parentTask) !== 'in-progress' &&
-    frontmatterStatus(parentSpec) !== 'in-progress' &&
-    gateImplementPassCount(parentSpec) === 0 &&
-    gateImplementPassCount(spec, { basename, signal }) === 1
+    // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
+    // outcome is scope growth, not a continuation.
+    gateImplementPassCount(parentSpec, binding) >= 1 &&
+    gateImplementPassCount(spec, binding) === gateImplementPassCount(parentSpec, binding) + 1 &&
+    gateImplementContinuationCount(spec, binding) ===
+      gateImplementContinuationCount(parentSpec, binding) + 1
   );
 }
 
@@ -935,7 +1002,7 @@ function l1SpecPaths(basename) {
  */
 function checkpointTransitions(paths, textAt, parentTextAt) {
   const found = [];
-  for (const basename of activePairCandidates(paths)) {
+  for (const basename of pairCandidates(paths, textAt)) {
     const taskPath = `${TASK_PREFIX}${basename}`;
     const specPath = `${SPEC_PREFIX}active/${basename}`;
     const task = textAt(taskPath);
@@ -1033,7 +1100,7 @@ function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, tas
   }
   if (!isCheckpointTransition({ basename, parentTask, parentSpec, task, spec })) {
     problems.push(
-      'checkpoint does not add the first GATE-IMPLEMENT PASS while transitioning the exact Task/spec pair into in-progress.',
+      'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
     );
   }
 
@@ -1698,7 +1765,7 @@ function stagedLedgerProblems(root, paths, basename) {
 }
 
 function stagedCheckpoint(root, paths) {
-  const activePairs = activePairCandidates(paths);
+  const activePairs = pairCandidates(paths, (file) => indexText(root, file));
   const l1Pairs = l1StagedPairs(root, paths).filter((basename) => !activePairs.includes(basename));
   const pairs = [...activePairs, ...l1Pairs];
   if (pairs.length !== 1) return { pairs, problems: [] };

@@ -9,6 +9,7 @@ import {
   findHistoryFindings,
   findStagedFindings,
   readExaminedPlanOrderCount,
+  CONTINUATION_STATUS_LINE,
   resolveTopicMergeBase,
 } from '../scan-user-execution-plan-order.mjs';
 
@@ -194,6 +195,49 @@ function checkpoint(root, options = {}) {
   return commit(root, 'planning checkpoint');
 }
 
+function continuationSpecText(options = {}) {
+  // The spec after a GATE-IMPLEMENT re-run on the in-progress document (HARNESS-131): one more
+  // complete entry, in continuation form, bound to the same PLAN signal and Task path.
+  const subject = options.subject ?? TASK_ID;
+  const signal =
+    (options.outcome ?? 'not-applicable') === 'not-applicable'
+      ? 'SCENARIO DRAFTED: not-applicable | 0'
+      : `SCENARIO DRAFTED: ${options.outcome} | 1`;
+  // `firstOutcome` keeps the FIRST entry's signal while the continuation entry names `outcome` —
+  // the shape of a continuation that re-plans the PLAN outcome.
+  const { firstOutcome, ...rest } = options;
+  return (
+    specText({ ...rest, outcome: firstOutcome ?? rest.outcome }) +
+    [
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28',
+      '',
+      options.statusLine ?? CONTINUATION_STATUS_LINE,
+      '',
+      `- Task artifact: \`.agents/tasks/${subject}.md\` is unchanged and still maps the completion criteria.`,
+      `- Subject-bound PLAN terminal result: \`${signal}\` stands.`,
+      `- Whole-worktree precondition: only \`.agents/tasks/${subject}.md\` and \`.agents/spec-docs/active/${subject}.md\` are present; no implementation path.`,
+      '',
+    ].join('\n')
+  );
+}
+
+function sequencedRepository() {
+  // develop already carries the pair in-progress with its first checkpoint — PR 1 of a sequenced
+  // delivery has landed — and the branch for PR 2 is cut from that tip.
+  const { root } = repository();
+  git(root, ['switch', '-q', 'develop']);
+  writeCheckpoint(root);
+  const base = commit(root, 'PR 1 landed: planning checkpoint on develop');
+  git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+  git(root, ['switch', '-q', '-c', 'feature-2']);
+  return { root, base };
+}
+
+function continuation(root, options = {}) {
+  write(root, SPEC_PATH, continuationSpecText(options));
+  return commit(root, 'continuation checkpoint');
+}
+
 function postMergeRecord(base, runId = 'r20260825000000') {
   return {
     runId,
@@ -363,6 +407,112 @@ describe('user-execution PLAN order — branch history', () => {
 
     // The base is what CI resolves for a branch that merged develop in: develop's tip.
     expect(findHistoryFindings(root, advanced)).toEqual([]);
+  });
+
+  it('accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)', () => {
+    const { root, base } = sequencedRepository();
+    continuation(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation (PR 2)');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+    expect(readExaminedPlanOrderCount(root, base)).toBe(2);
+  });
+
+  it('keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)', () => {
+    const early = sequencedRepository();
+    write(early.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(early.root, 'implementation before the continuation');
+    continuation(early.root);
+    // The continuation IS the checkpoint; what precedes it is refused as such.
+    expect(messages(findHistoryFindings(early.root, early.base))).toMatch(
+      /implementation or invalid-lifecycle path\(s\) changed before the planning checkpoint/,
+    );
+
+    const twice = sequencedRepository();
+    continuation(twice.root);
+    write(
+      twice.root,
+      SPEC_PATH,
+      continuationSpecText() +
+        continuationSpecText().slice(
+          continuationSpecText().indexOf('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28'),
+        ),
+    );
+    commit(twice.root, 'a second continuation');
+    expect(messages(findHistoryFindings(twice.root, twice.base))).toMatch(
+      /multiple planning checkpoint candidates/,
+    );
+
+    // A second entry in the FIRST form on an in-progress pair is not a continuation.
+    const firstForm = sequencedRepository();
+    continuation(firstForm.root, { statusLine: '**Status upgrade:** approved → in-progress' });
+    write(firstForm.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(firstForm.root, 'implementation');
+    expect(messages(findHistoryFindings(firstForm.root, firstForm.base))).toMatch(
+      /implementation exists with no planning checkpoint/,
+    );
+
+    // A continuation whose Task changes the PLAN signal re-plans the outcome; the prior PASS is
+    // bound to another signal, so it is not a continuation.
+    const replanned = sequencedRepository();
+    write(replanned.root, TASK_PATH, taskText({ outcome: 'automatable', stage1: true }));
+    write(
+      replanned.root,
+      SPEC_PATH,
+      continuationSpecText({ outcome: 'automatable', firstOutcome: 'not-applicable' }),
+    );
+    commit(replanned.root, 'continuation with a re-planned outcome');
+    write(replanned.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(replanned.root, 'implementation');
+    expect(messages(findHistoryFindings(replanned.root, replanned.base))).toMatch(
+      /no planning checkpoint/,
+    );
+  });
+
+  it('mirrors the continuation on the staged path (HARNESS-131)', () => {
+    const without = sequencedRepository();
+    write(without.root, 'scripts/harness/change.mjs', 'implementation\n');
+    git(without.root, ['add', '-A']);
+    expect(messages(findStagedFindings(without.root, without.base))).toMatch(
+      /staged implementation has no planning checkpoint ancestor/,
+    );
+
+    // The continuation itself staged — the shape the pre-commit hook judges.
+    const proposal = sequencedRepository();
+    write(proposal.root, SPEC_PATH, continuationSpecText());
+    git(proposal.root, ['add', '-A']);
+    expect(findStagedFindings(proposal.root, proposal.base)).toEqual([]);
+
+    const withIt = sequencedRepository();
+    continuation(withIt.root);
+    write(withIt.root, 'scripts/harness/change.mjs', 'implementation\n');
+    git(withIt.root, ['add', '-A']);
+    expect(findStagedFindings(withIt.root, withIt.base)).toEqual([]);
+
+    // A staged first-form entry on an in-progress pair is discovered as a candidate and fails the
+    // form; the refusal names both forms it judged.
+    const firstForm = sequencedRepository();
+    write(
+      firstForm.root,
+      SPEC_PATH,
+      continuationSpecText({ statusLine: '**Status upgrade:** approved → in-progress' }),
+    );
+    git(firstForm.root, ['add', '-A']);
+    expect(messages(findStagedFindings(firstForm.root, firstForm.base))).toMatch(
+      /checkpoint is neither the first GATE-IMPLEMENT PASS .* nor one continuation PASS/,
+    );
+  });
+
+  it('accepts the continuation status line the catalogue declares (HARNESS-131)', () => {
+    const catalogue = readFileSync(
+      path.resolve(import.meta.dirname, '../../..', '.agents/specs/gate-catalogue.md'),
+      'utf8',
+    );
+    const section = catalogue.slice(
+      catalogue.indexOf('### GATE-IMPLEMENT'),
+      catalogue.indexOf('### GATE-VERIFY'),
+    );
+    expect(section).toContain(CONTINUATION_STATUS_LINE);
   });
 
   it('accepts applicable PLAN only with DONE-GATE-STAGE-1 PASS', () => {

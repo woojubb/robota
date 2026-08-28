@@ -83,6 +83,10 @@ Every entry MUST use this format. No exceptions.
 **Required action:** <what must be done to resolve — may include rejecting the item>
 ```
 
+`<current> → <next>` may carry one parenthetical annotation naming a re-judgement that is not a
+transition — today only `in-progress → in-progress (continuation)` (§ GATE-IMPLEMENT). A parser accepts
+exactly the annotated lines this document declares.
+
 Partial entries (e.g., PASS without specific evidence lines) are treated as NON-COMPLIANCE on the next gate run.
 
 ---
@@ -92,13 +96,14 @@ Partial entries (e.g., PASS without specific evidence lines) are treated as NON-
 The agent runs its ordering check before any gate's own criteria. This table is the repository's
 answer to "what precedes this gate, and what state must the document already be in":
 
-| This gate         | Prior gate that must show PASS | Expected input status / folder             |
-| ----------------- | ------------------------------ | ------------------------------------------ |
-| GATE-APPROVAL     | GATE-WRITE                     | `review-ready`                             |
-| GATE-IMPLEMENT    | GATE-APPROVAL                  | `approved`                                 |
-| GATE-VERIFY       | GATE-IMPLEMENT                 | `in-progress`                              |
-| GATE-COMPLETE     | GATE-VERIFY                    | `verifying`                                |
-| DONE-GATE-STAGE-2 | DONE-GATE-STAGE-1              | scenarios written, implementation complete |
+| This gate                     | Prior gate that must show PASS | Expected input status / folder                |
+| ----------------------------- | ------------------------------ | --------------------------------------------- |
+| GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                |
+| GATE-IMPLEMENT                | GATE-APPROVAL                  | `approved`                                    |
+| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | `in-progress` (delivery sequenced across PRs) |
+| GATE-VERIFY                   | GATE-IMPLEMENT                 | `in-progress`                                 |
+| GATE-COMPLETE                 | GATE-VERIFY                    | `verifying`                                   |
+| DONE-GATE-STAGE-2             | DONE-GATE-STAGE-1              | scenarios written, implementation complete    |
 
 GATE-WRITE has no prior status gate (it is the entry gate); GATE-CONFORMANCE is standalone (no transition)
 and is exempt; DONE-GATE-STAGE-1 has no prior gate. Authoritative spec-document gate order:
@@ -263,6 +268,25 @@ worktree path inventory.
 the PLAN evidence was added retrospectively. After PASS, the orchestrator—not this guardian—commits the
 PASS, status transition, exact Task/spec pair, and subject-bound PLAN ledger evidence as the dedicated
 planning checkpoint before Phase 3 begins.
+
+**Continuation (a later PR of a sequenced spec).** This gate also takes an `in-progress` document as
+input when the spec's § Decision sequences its delivery across more than one PR and the current branch
+carries no checkpoint of its own (backlog-execution.md § Pre-implementation planning checkpoint states
+the mandate). The run is a re-judgement, not a transition; its entry's status line is exactly
+`**Status upgrade:** in-progress → in-progress (continuation)`, and it records, one line each:
+
+1. Ordering — a prior `[GATE-IMPLEMENT] — ✅ PASS` entry exists on this document.
+2. § Decision sequences the delivery and names the artifacts this PR lands.
+3. The preceding PR's merge commit is an ancestor of the branch base (SHA recorded).
+4. The exact Task and its PLAN terminal outcome are unchanged from the prior entry — the scan's
+   exact-signal binding depends on it.
+5. The same path inventory as the item above that names it: nothing outside the paired planning
+   artifacts.
+
+The orchestrator commits that entry alone, with the pair, as the branch's planning checkpoint. The
+plan-order scan accepts it as the checkpoint only when the pair was already `in-progress` at the
+parent and the entry is the one bound entry the commit adds; a second entry in the first form on an
+`in-progress` document is not a continuation and binds nothing.
 
 ---
 
