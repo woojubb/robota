@@ -1,6 +1,8 @@
 ---
 title: 'PLG-020: four of the eight official plugins are registered against lifecycle hooks the core host never dispatches — LimitsPlugin, WebhookPlugin, ConversationHistoryPlugin, ErrorHandlingPlugin are silent no-ops on a real agent'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2460#issuecomment-5457939546
 created: 2026-08-13
 priority: high
 urgency: now
