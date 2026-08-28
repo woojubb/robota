@@ -134,6 +134,36 @@ describe('the template can never contradict the floor', () => {
   });
 });
 
+describe('the required check reaches the judge', () => {
+  // The step must load the judge from the BASE revision (never PR-controlled code), must run on
+  // every PR (a docs-only PR has a body too), and must sit where nothing PR-related has been resolved
+  // yet. Sliced from the base-sha checkout the workflow-order test already pins.
+  const WORKFLOW = readFileSync(
+    path.join(WORKSPACE_ROOT, '.github/workflows/review-gate.yml'),
+    'utf8',
+  );
+
+  it('sits directly after the base-sha checkout, before the first classifier-gated step, with no if:', () => {
+    const job = WORKFLOW.slice(
+      WORKFLOW.indexOf('\n  review-gate:'),
+      WORKFLOW.indexOf('\n  disarm-auto-merge:'),
+    );
+    const checkoutAt = job.indexOf('ref: ${{ github.event.pull_request.base.sha }}');
+    // The `run:` line, not the comment above the step that quotes the local command.
+    const stepAt = job.indexOf('run: node scripts/harness/check-pr-body.mjs');
+    const firstGateAt = job.indexOf("if: needs.classify.outputs.code == 'true'");
+    expect(checkoutAt, 'base-sha checkout').toBeGreaterThan(-1);
+    expect(stepAt, 'the pr-body step invokes the judge').toBeGreaterThan(checkoutAt);
+    expect(firstGateAt, 'a classifier-gated step exists').toBeGreaterThan(stepAt);
+
+    const stepBlock = job.slice(job.lastIndexOf('- name:', stepAt), stepAt);
+    expect(stepBlock, 'the pr-body step must not carry an if:').not.toMatch(/^\s+if:/m);
+    expect(stepBlock, 'the body must reach the script through env:').toMatch(
+      /env:\s*\n\s+PR_BODY: \$\{\{ github\.event\.pull_request\.body \}\}/,
+    );
+  });
+});
+
 describe('the script exit code is the verdict', () => {
   function run(body) {
     const env = { ...process.env, PR_BODY: body };

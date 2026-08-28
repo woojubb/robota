@@ -239,11 +239,11 @@ const NOT_MIRRORED_ENTRIES = [
     context: 'review-gate',
     reason:
       "reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.",
-    relevance: 'code',
+    relevance: 'every-pull-request',
     relevantWhen:
-      'the diff changes code at all — on a docs-only PR the gate itself resolves to `PASS (not-applicable)` via the same classifier ci.yml gates its build matrix on',
+      'every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant',
     manualCommand:
-      'no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)',
+      'the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)',
   },
 ];
 
@@ -292,7 +292,12 @@ export const NOT_MIRRORED_BY_CONTEXT = keyByContext(NOT_MIRRORED_ENTRIES);
 export const NOT_MIRRORED = [...NOT_MIRRORED_BY_CONTEXT.values()];
 
 /** The relevance keys the runner knows how to evaluate. */
-export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code', 'guarded-workflow'];
+export const RELEVANCE_KEYS = [
+  'manifest-or-lockfile',
+  'code',
+  'guarded-workflow',
+  'every-pull-request',
+];
 
 /**
  * `run:` steps of a mirrored job that are CI infrastructure rather than a check: provisioning the

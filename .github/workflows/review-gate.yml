@@ -171,6 +171,30 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
 
+      # RULE-016. The PR body is judged here, by the judge at the BASE revision, on every PR — no
+      # `if:`, because a docs-only PR has a body too, and this step is what makes the body contract
+      # (`.agents/rules/backlog-execution.md` § PR Unit Rule) a floor rather than a preference: the
+      # first heading is `## Background`, and no agent-session link or Claude Code footer. The body
+      # reaches the script through `env:` — it is attacker-controlled on a fork PR and must never be
+      # interpolated into `run:`. The refusal goes to the step summary and `::error::` lines; it posts
+      # no comment, because the supersession logic below keys on the `Review gate: BLOCKED` header and
+      # only supersedes it when code changed, so a docs-only PR fixed by `gh pr edit` would keep a
+      # stale BLOCKED comment forever. Local equivalent:
+      #   gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs
+      # The judge is loaded from the BASE revision. A base that predates PR #2409 (RULE-016 PR 1) —
+      # `main` until develop is promoted — has no judge, and a missing module would read as a
+      # body verdict. Fail closed with the true reason instead.
+      - name: Is the PR-body judge present at the base revision? (RULE-016)
+        run: |
+          [ -f scripts/harness/check-pr-body.mjs ] || {
+            echo "::error::review-gate: scripts/harness/check-pr-body.mjs is absent at the base revision — the base branch must carry PR #2409 (RULE-016 PR 1) before its pull requests can be judged; this is the fail-closed reason, not a body verdict"
+            exit 1
+          }
+      - name: Does the PR body open with Background, and carry no session link? (RULE-016)
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/harness/check-pr-body.mjs
+
       - name: Resolve the current PR merge commit
         if: needs.classify.outputs.code == 'true'
         env:
