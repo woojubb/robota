@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -304,3 +304,16 @@ runnable user-facing behavior and deliberately leaves CONFIG-002 package/API wor
   `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-035-terminalize-backlog-zero-migration-batch-06.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-035-terminalize-backlog-zero-migration-batch-06.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 332 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-035-terminalize-backlog-zero-migration-batch-06.md`; `.agents/spec-docs/active/DOCS-035-terminalize-backlog-zero-migration-batch-06.md`; `SCENARIO DRAFTED: not-applicable | 0`; subject-bound scenario run `r20260828200720`; orchestrator run `r20260828200716`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
