@@ -868,7 +868,7 @@ each was re-checked against the file rather than taken from the invocation messa
   `packages/agent-cli/src/product/` holds only `robota-plumbing.ts` and `robota-profile.ts`.
   `git status` shows no modified file under `packages/` or `apps/` and the branch carries no commit.
 - **Residue re-checked (context, not a criterion):** the prior run's open note is closed —
-  `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md` now exists with
+  `.agents/tasks/completed/SEC-009-subagent-ipc-start-payload-carries-apikey.md` now exists with
   `issue: https://github.com/woojubb/robota/issues/1786` (`gh issue view 1786` → OPEN, "SEC-009: the
   subagent IPC start payload carries apiKey") and records the SEC-008 renumbering and why the
   collision mattered. All five deferral IDs (ARCH-033/034/035/036, SEC-009) now have task files under

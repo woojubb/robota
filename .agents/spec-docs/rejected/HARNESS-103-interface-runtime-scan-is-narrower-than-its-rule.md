@@ -176,7 +176,7 @@ Under option A (the recommendation; re-scope if the owner chooses otherwise):
 - `packages/agent-interface-transport/docs/SPEC.md`
 - `.agents/project-structure.md`
 - `.changeset/harness-103-interface-runtime.md`
-- `.agents/tasks/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md`
+- `.agents/tasks/completed/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md`
 
 ## Completion Criteria
 
@@ -224,7 +224,7 @@ re-pointed `packages/agent-interface-transport/src/testing/__tests__/` suite.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` — problem record
+- [ ] `.agents/tasks/completed/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` — problem record
       created; implementation begins after GATE-APPROVAL resolves the owner-reserved question
 
 ## Evidence Log

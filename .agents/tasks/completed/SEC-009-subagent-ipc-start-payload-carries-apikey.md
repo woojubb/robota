@@ -1,6 +1,8 @@
 ---
 title: 'SEC-009: the subagent IPC start payload carries apiKey'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2047#issuecomment-5457499005
 created: 2026-08-16
 priority: high
 urgency: soon

@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-103: scan-interface-runtime checks a narrower thing than the rule it enforces'
-status: todo
+status: done
+completed: 2026-08-17
 created: 2026-08-17
 priority: medium
 urgency: soon
@@ -26,7 +27,7 @@ import that introduces a **value** binding, and a `class`/`abstract class`/`enum
 
 ## Evidence
 
-`packages/agent-interface-transport/src/session-capability-host.ts` — 120 lines of prototype-walking
+`packages/agent-interface-transport/src/session-capability-host.ts` <!-- evidence-superseded: PR #1804 moved this zero-production-consumer host to the sanctioned testing subpath; ARCH-106 later moved the same test double to the session-interface owner, where current tests cover it --> — 120 lines of prototype-walking
 descriptor forwarding, accessor caching, reserved/duplicate-member rejection, and freezing. No class,
 no enum, no external value import, so the scan is silent. Its runtime values
 `createSessionCapabilityHost` and `readSessionCapability` are published from the package barrel
