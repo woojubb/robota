@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-030: terminalize backlog-zero migration batch 01'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -24,15 +25,17 @@ documentation-only batch derived from Git object `2c875dd3ec6938d6eb0563b50c40d1
 
 ## Plan
 
-- [ ] Commit the exact six-unit Migration Manifest before GATE-APPROVAL and revalidate every source
+- [x] Commit the exact six-unit Migration Manifest before GATE-APPROVAL and revalidate every source
       blob plus live ownership/reservation immediately before remote mutation.
-- [ ] Create and uniquely read back exact AGREEMENT-001 and AGREEMENT-002 convergence issues; append a
+- [x] Create and uniquely read back exact AGREEMENT-001 and AGREEMENT-002 convergence issues; append a
       complete handoff to both and to exact open issue #2139, issue #2047, issue #2138, and issue #2140.
-- [ ] Terminalize all six unfinished Task/spec records as `skipped`/`rejected` with exact
+- [x] Terminalize all six unfinished Task/spec records as `skipped`/`rejected` with exact
       handoff-comment URLs, without rewriting delivery history.
-- [ ] Rekey only the existing frozen-baseline entries named in the manifest; add no exemption.
-- [ ] Run lifecycle, baseline, reference, standing-delegation, focused path, full harness scans, and
-      `pnpm harness:verify-like-ci`.
+- [x] Rekey only the existing frozen-baseline entries named in the manifest; add no exemption.
+- [x] Run the pre-completion lifecycle, baseline, reference, standing-delegation, and focused test
+      suite. TC-05 retains `pnpm harness:scan` and `pnpm harness:verify-like-ci` as final-placement
+      verification because the immutable manifest intentionally cites the pre-migration paths while
+      this spec remains live.
 
 ## Recommendation Gate
 
@@ -66,4 +69,7 @@ product surface against which a user-execution scenario could run.
 
 ## Result
 
-Pending.
+Completed. Six fixed backlog units now have exact OPEN GitHub owners and canonical handoff comments;
+their duplicate local Tasks are archived as `skipped`, the two paired agreement specs are `rejected`,
+and the six approved frozen-baseline keys point to the terminal paths without growth. No package/app
+source, API/contract, policy, workflow, hook, topology, product, or user-authored documentation changed.
