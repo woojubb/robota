@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -333,3 +333,23 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
   remain valid. `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent round-3 recommendation review ENDORSE with ACTIONABLE FINDINGS: 0 on corrected v2; exact 3+1 citation rekeys and plan postimages, baseline pre/postimage, three units/ten paths, OPEN/unassigned owners, unmodified handoffs, no excluded or competing scope; withdrawn v1 approval is not reused.
+**Review fingerprint:** 9c1b2c7289ce (review 47084277, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — ordering: prior gate GATE-WRITE PASS and status `review-ready`: the last GATE-WRITE verdict is PASS with `draft → review-ready`, the v1 approval/checkpoint is explicitly withdrawn by the later NON-COMPLIANCE entry, and frontmatter is `status: review-ready`.
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: N/A for Route CLASS; the registered-class instruction is the applicable approval route.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A for Route CLASS; the verbatim instruction unambiguously pre-authorises the named `BACKLOG-ZERO-MIGRATION` category.
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlog-execution.md` § Delegated Approval Classes is the SSOT for the registry; this catalogue points at it and does not restate it: `BACKLOG-ZERO-MIGRATION` was registered on 2026-08-28, before this GATE-APPROVAL entry dated 2026-08-29.
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: the entry exactly matches the registry's Unicode payload and records `2026-08-28, this conversation`.
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: round-3 independently ENDORSED with `ACTIONABLE FINDINGS: 0`; no-write projections reproduce SEC-016's three citation replacements and postimage `4d092597…`, STRUCT-011's one replacement and postimage `ca8278c6…`, reversibility to both input blobs, and baseline `9988892… → 7704d8b…` at cardinality 218; GitHub readback keeps all four owners OPEN and unassigned with no open PR.
+- GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry argues for: the corrected immutable manifest still contains three fixed-population units and ten paths; its only effects are Task/spec lifecycle terminalization, four mechanically required in-plan Task citation rekeys, append-only GitHub handoff evidence, paired loop/Task/spec records, and the exact no-growth baseline rekey. SEC-016's SECURITY plan is preserved apart from its three lifecycle citations and rejected rather than edited as governing policy; no excluded package/app source, API/contract, policy/gate document, skill/workflow/hook/topology, or product/user document changes.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the superseded fingerprint is explicitly withdrawn by the NON-COMPLIANCE record; the fresh recorded fingerprint `9c1b2c7289ce` equals the current corrected review fingerprint.
+- GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement — not a bare "reviewed" claim. Retain an `architecture-audit-fanout` structure-channel result as additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").: N/A because the corrected v2 spec introduces no package, app, surface, layer, or product-family reclassification; round-3 nevertheless ENDORSED the corrected ten-path placement with `ACTIONABLE FINDINGS: 0`.
