@@ -10,3 +10,4 @@
 {"runId":"r20260827165311","opened":"2026-08-27T16:53:11.612Z","closed":"2026-08-27T17:07:03.257Z","roundFindings":[5,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260828120633","opened":"2026-08-28T12:06:33.358Z","closed":"2026-08-28T12:06:33.468Z","roundFindings":[5,3,0],"extensions":{},"terminal":"converged","ref":"HARNESS-129 (issue #2373)"}
 {"runId":"r20260828123701","opened":"2026-08-28T12:37:01.744Z","closed":"2026-08-28T12:37:01.845Z","roundFindings":[9,2,0],"extensions":{},"terminal":"converged","ref":".agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md"}
+{"runId":"r20260828133854","opened":"2026-08-28T13:38:54.707Z","closed":"2026-08-28T13:38:54.813Z","roundFindings":[7,6,1],"extensions":{},"terminal":"halted-for-user","ref":"HARNESS-131 (issue #2418) — revision bound reached, escalated to the owner, approved"}
