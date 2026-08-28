@@ -89,6 +89,11 @@ The lane ([spec-workflow.md](../../rules/spec-workflow.md) > Lanes) decides whet
 - **L0** — no spec document exists, so nothing is gated here; advance to Phase 3 once the `Lane:` line
   and its ground are on the branch.
 
+**Continuation.** For a later PR of a spec whose § Decision sequences delivery, Phases 1–2 already
+ran; enter here. Cut the branch from a base that contains the preceding PR's merge, dispatch
+`backlog-pipeline` for GATE-IMPLEMENT (continuation), and commit the guardian's entry alone with the
+pair as the branch's first commit — the continuation checkpoint. Then Phase 3.
+
 | Outcome                              | Route                                                                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | PASS committed as exact checkpoint   | Advance to Phase 3.                                                                                                       |

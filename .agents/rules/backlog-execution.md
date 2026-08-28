@@ -388,6 +388,12 @@ record are then committed as one dedicated **planning checkpoint**. No other pat
 skill, or documentation Markdown file—is planning merely because it is text. Implementation may begin
 only when that checkpoint is an ancestor of HEAD.
 
+A work unit whose spec's § Decision sequences delivery across more than one PR MUST open each later
+PR's branch with a **continuation checkpoint**: a GATE-IMPLEMENT re-run on the `in-progress` document,
+recorded in the continuation form the gate catalogue enumerates and committed alone with the pair
+before any implementation path. The first checkpoint, already on the base, does not bind a later
+branch — the scan requires a checkpoint inside the branch's own range.
+
 Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
 commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
 missing, mixed, ambiguous, retrospective, or unreadable checkpoint. The only pre-checkpoint non-pair
