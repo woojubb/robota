@@ -35,8 +35,19 @@ const BACKLOG_RULE = path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.
 
 const SECTION = parseRegistrySection(readFileSync(BACKLOG_RULE, 'utf8'));
 const FORM = parseEvidenceForm(SECTION ?? '');
-/** A registry with one row, so the class route has something real to be judged against. */
-const REGISTRY = new Map([['DOC-TYPO', { registered: '2026-08-20' }]]);
+const DOC_TYPO_INSTRUCTION = '오타는 물어보지 말고 고쳐';
+/** A complete registry row, so every CLASS field can be judged without proxy fixtures. */
+const REGISTRY = new Map([
+  [
+    'DOC-TYPO',
+    {
+      scope: 'One-word documentation typo fixes',
+      evidence: 'The diff changes one word in one Markdown file',
+      instruction: DOC_TYPO_INSTRUCTION,
+      registered: '2026-08-20',
+    },
+  ],
+]);
 
 const entry = (body) => `### [GATE-APPROVAL] — ✅ PASS | 2026-08-25\n\n${body}\n`;
 
@@ -61,10 +72,12 @@ describe('the rule states criteria this guard can read', () => {
    * nobody re-examined goes red here rather than passing everywhere.
    */
   it('pins the exact labels, so a silent form change cannot carry the fixtures with it', () => {
-    expect([FORM.route, FORM.instruction, FORM.classField]).toEqual([
+    expect([FORM.route, FORM.instruction, FORM.classField, FORM.given, FORM.evidence]).toEqual([
       'Approval route',
       'Instruction (verbatim)',
       'Class',
+      'Given',
+      'Evidence condition met',
     ]);
   });
 
@@ -97,6 +110,106 @@ describe('PASS fixtures', () => {
   });
 });
 
+describe('registry rows are complete, unique, and carry a canonical instruction', () => {
+  const registrySection = (rows) => `
+| Class ID | Scope | Evidence condition | Authorising instruction (verbatim) | Registered |
+| --- | --- | --- | --- | --- |
+${rows.join('\n')}
+`;
+
+  const complete =
+    '| `DOC-TYPO` | One-word documentation typo fixes | The diff changes one word | "오타는 물어보지 말고 고쳐" — owner provenance | 2026-08-20 |';
+
+  it('retains all five fields and excludes provenance after the leading quoted payload', () => {
+    expect([...parseRegistry(registrySection([complete])).entries()]).toEqual([
+      [
+        'DOC-TYPO',
+        {
+          scope: 'One-word documentation typo fixes',
+          evidence: 'The diff changes one word',
+          instruction: DOC_TYPO_INSTRUCTION,
+          registered: '2026-08-20',
+        },
+      ],
+    ]);
+  });
+
+  it('parses a valid Markdown data row without a trailing pipe', () => {
+    const withoutTrailingPipe = complete.slice(0, -1).trimEnd();
+    expect(parseRegistry(registrySection([withoutTrailingPipe])).get('DOC-TYPO')).toMatchObject({
+      instruction: DOC_TYPO_INSTRUCTION,
+      registered: '2026-08-20',
+    });
+  });
+
+  it('rejects a registry table with a missing header or separator', () => {
+    expect(() =>
+      parseRegistry(
+        '| Wrong | Scope | Evidence condition | Authorising instruction (verbatim) | Registered |\n' +
+          '| --- | --- | --- | --- | --- |',
+      ),
+    ).toThrow(/header/);
+    expect(() =>
+      parseRegistry(
+        '| Class ID | Scope | Evidence condition | Authorising instruction (verbatim) | Registered |\n' +
+          complete,
+      ),
+    ).toThrow(/separator/);
+  });
+
+  it.each([
+    ['missing scope', '| `DOC-TYPO` | | measured | "instruction" | 2026-08-20 |', /incomplete/],
+    ['missing evidence', '| `DOC-TYPO` | scope | | "instruction" | 2026-08-20 |', /incomplete/],
+    ['missing instruction', '| `DOC-TYPO` | scope | measured | | 2026-08-20 |', /incomplete/],
+    [
+      'empty quoted instruction',
+      '| `DOC-TYPO` | scope | measured | "" | 2026-08-20 |',
+      /payload is blank/,
+    ],
+    ['missing date', '| `DOC-TYPO` | scope | measured | "instruction" | |', /incomplete/],
+    [
+      'missing leading quote',
+      '| `DOC-TYPO` | scope | measured | instruction | 2026-08-20 |',
+      /must start/,
+    ],
+    [
+      'unterminated leading quote',
+      '| `DOC-TYPO` | scope | measured | "instruction | 2026-08-20 |',
+      /no closing/,
+    ],
+  ])('rejects an incomplete registry row: %s', (_case, row, problem) => {
+    expect(() => parseRegistry(registrySection([row]))).toThrow(problem);
+  });
+
+  it.each([
+    ['blank class ID', '| | scope | measured | "instruction" | 2026-08-20 |'],
+    ['malformed class ID', '| `NOT VALID` | scope | measured | "instruction" | 2026-08-20 |'],
+    ['four cells', '| `DOC-TYPO` | scope | "instruction" | 2026-08-20 |'],
+    ['six cells', '| `DOC-TYPO` | scope | measured | "instruction" | extra | 2026-08-20 |'],
+  ])('rejects a malformed registry row: %s', (_case, row) => {
+    expect(() => parseRegistry(registrySection([row]))).toThrow(/registry row/i);
+  });
+
+  it('rejects duplicate class IDs instead of silently overwriting one row', () => {
+    expect(() => parseRegistry(registrySection([complete, complete]))).toThrow(/duplicate/i);
+  });
+
+  it('accepts the empty sentinel only by itself and rejects it beside a real row', () => {
+    const sentinel = '| _(none registered)_ | — | — | — | — |';
+    expect(parseRegistry(registrySection([sentinel]))).toEqual(new Map());
+    expect(() => parseRegistry(registrySection([sentinel, complete]))).toThrow(/sentinel|empty/i);
+  });
+
+  it('rejects a malformed empty sentinel instead of treating it as an empty registry', () => {
+    const malformed = '| _(none registered)_ | | — | — | — |';
+    expect(() => parseRegistry(registrySection([malformed]))).toThrow(/sentinel is malformed/);
+  });
+
+  it('treats a header-only registry as the valid empty state', () => {
+    expect(parseRegistry(registrySection([]))).toEqual(new Map());
+  });
+});
+
 describe('FAIL fixtures', () => {
   it('rejects an entry that names no route — it is not DIRECT by default', () => {
     const result = classifyApproval(
@@ -114,9 +227,69 @@ describe('FAIL fixtures', () => {
     expect(result.problem).toMatch(/no verbatim instruction/);
   });
 
+  it.each(['DIRECT', 'CLASS'])('rejects route %s with a missing or blank Given field', (route) => {
+    const classFields =
+      route === 'CLASS' ? '\n**Class:** `DOC-TYPO`\n**Evidence condition met:** measured' : '';
+    for (const given of ['', '\n**Given:**   ']) {
+      const result = classifyApproval(
+        entry(
+          `**Approval route:** \`${route}\`\n**Instruction (verbatim):** "${DOC_TYPO_INSTRUCTION}"${classFields}${given}`,
+        ),
+        { form: FORM, registry: REGISTRY },
+      );
+      expect(result.problem).toMatch(/Given/);
+    }
+  });
+
+  it('rejects a CLASS route with missing or blank Evidence condition met', () => {
+    for (const evidence of ['', '\n**Evidence condition met:**   ']) {
+      const result = classifyApproval(
+        entry(
+          `**Approval route:** \`CLASS\`\n**Class:** \`DOC-TYPO\`\n**Instruction (verbatim):** "${DOC_TYPO_INSTRUCTION}"\n**Given:** 2026-08-20, session fixture${evidence}`,
+        ),
+        { form: FORM, registry: REGISTRY },
+      );
+      expect(result.problem).toMatch(/Evidence condition met/);
+    }
+  });
+
+  it('rejects a CLASS instruction whose Unicode code points differ from the registry', () => {
+    const decomposed = 'e\u0301';
+    const exactRegistry = new Map([
+      [
+        'UNICODE',
+        {
+          scope: 'fixture',
+          evidence: 'fixture',
+          instruction: 'é',
+          registered: '2026-08-20',
+        },
+      ],
+    ]);
+    const result = classifyApproval(
+      entry(
+        `**Approval route:** \`CLASS\`\n**Class:** \`UNICODE\`\n**Instruction (verbatim):** "${decomposed}"\n**Given:** 2026-08-20, session fixture\n**Evidence condition met:** measured`,
+      ),
+      { form: FORM, registry: exactRegistry },
+    );
+    expect(result.problem).toMatch(/exactly match|instruction/i);
+  });
+
+  it('does not trim whitespace inside the quoted CLASS instruction', () => {
+    const result = classifyApproval(
+      entry(
+        `**Approval route:** \`CLASS\`\n**Class:** \`DOC-TYPO\`\n**Instruction (verbatim):** " ${DOC_TYPO_INSTRUCTION}"\n**Given:** 2026-08-20, session fixture\n**Evidence condition met:** measured`,
+      ),
+      { form: FORM, registry: REGISTRY },
+    );
+    expect(result.problem).toMatch(/exactly match/);
+  });
+
   it('rejects a CLASS route naming no class', () => {
     const result = classifyApproval(
-      entry('**Approval route:** `CLASS`\n**Instruction (verbatim):** "계속 진행해"'),
+      entry(
+        '**Approval route:** `CLASS`\n**Instruction (verbatim):** "계속 진행해"\n**Given:** 2026-08-25, fixture\n**Evidence condition met:** measured',
+      ),
       { form: FORM, registry: REGISTRY },
     );
     expect(result.problem).toMatch(/names no class/);
@@ -125,7 +298,7 @@ describe('FAIL fixtures', () => {
   it('rejects a class that is not in the registry — the unregistered-class direction', () => {
     const result = classifyApproval(
       entry(
-        '**Approval route:** `CLASS`\n**Class:** `ARCHITECTURE-REWRITE`\n**Instruction (verbatim):** "끝까지 책임지고 작업해"',
+        '**Approval route:** `CLASS`\n**Class:** `ARCHITECTURE-REWRITE`\n**Instruction (verbatim):** "끝까지 책임지고 작업해"\n**Given:** 2026-08-25, fixture\n**Evidence condition met:** measured',
       ),
       { form: FORM, registry: REGISTRY },
     );
@@ -134,14 +307,14 @@ describe('FAIL fixtures', () => {
 
   it('rejects a class registered AFTER the approval — no retroactive registration', () => {
     const result = classifyApproval(
-      `### [GATE-APPROVAL] — ✅ PASS | 2026-08-19\n\n**Approval route:** \`CLASS\`\n**Class:** \`DOC-TYPO\`\n**Instruction (verbatim):** "오타는 물어보지 말고 고쳐"\n`,
+      `### [GATE-APPROVAL] — ✅ PASS | 2026-08-19\n\n**Approval route:** \`CLASS\`\n**Class:** \`DOC-TYPO\`\n**Instruction (verbatim):** "오타는 물어보지 말고 고쳐"\n**Given:** 2026-08-19, fixture\n**Evidence condition met:** measured\n`,
       { form: FORM, registry: REGISTRY },
     );
     expect(result.problem).toMatch(/may not be registered retroactively/);
   });
 });
 
-describe('the live registry carries the L0/L1 class, and the scan reads it (PROC-016 TC-10)', () => {
+describe('the live registry carries both independently authorized classes', () => {
   /**
    * TC-10's second half. The first half is the row itself in `backlog-execution.md` § Delegated
    * Approval Classes; this block proves the scan ACCEPTS an approval that cites it — through the
@@ -162,6 +335,18 @@ describe('the live registry carries the L0/L1 class, and the scan reads it (PROC
     `**Given:** ${REGISTERED}, session robota-2\n` +
     '**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` → exit 0; declared lane L1\n';
 
+  const migrationEntry = (date) => {
+    const instruction = LIVE_REGISTRY.get('BACKLOG-ZERO-MIGRATION')?.instruction;
+    return (
+      `### [GATE-APPROVAL] — ✅ PASS | ${date}\n\n` +
+      '**Approval route:** `CLASS`\n' +
+      '**Class:** `BACKLOG-ZERO-MIGRATION`\n' +
+      `**Instruction (verbatim):** "${instruction}"\n` +
+      '**Given:** 2026-08-28, this conversation\n' +
+      '**Evidence condition met:** committed manifest contains six fixed-population units and current ownership readback\n'
+    );
+  };
+
   /** A spec tree holding one document whose standing verdict is the entry above. */
   function treeWith(date) {
     const root = makeTemp('robota-standing-lane-');
@@ -174,8 +359,22 @@ describe('the live registry carries the L0/L1 class, and the scan reads it (PROC
     return root;
   }
 
-  it('parses exactly one class out of the live rule: LANE-L0-L1, registered 2026-08-28', () => {
-    expect([...LIVE_REGISTRY.entries()]).toEqual([[CLASS_ID, { registered: REGISTERED }]]);
+  it('parses exactly two complete rows and preserves both exact owner instructions', () => {
+    expect([...LIVE_REGISTRY.keys()]).toEqual(['LANE-L0-L1', 'BACKLOG-ZERO-MIGRATION']);
+    expect(LIVE_REGISTRY.get(CLASS_ID)).toMatchObject({
+      instruction:
+        '좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘',
+      registered: REGISTERED,
+    });
+    expect(LIVE_REGISTRY.get('BACKLOG-ZERO-MIGRATION')).toMatchObject({
+      instruction:
+        'DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외.',
+      registered: REGISTERED,
+    });
+    for (const row of LIVE_REGISTRY.values()) {
+      expect(row.scope).not.toBe('');
+      expect(row.evidence).not.toBe('');
+    }
   });
 
   it('accepts a CLASS entry citing LANE-L0-L1 dated on or after the registration', () => {
@@ -186,6 +385,19 @@ describe('the live registry carries the L0/L1 class, and the scan reads it (PROC
     const { findings, counts } = findEvidenceFindings(treeWith(REGISTERED));
     expect(findings).toEqual([]);
     expect(counts.class).toBe(1);
+  });
+
+  it('accepts BACKLOG-ZERO-MIGRATION on/after registration and refuses the day before', () => {
+    for (const date of [REGISTERED, '2026-09-01']) {
+      expect(
+        classifyApproval(migrationEntry(date), { form: FORM, registry: LIVE_REGISTRY }),
+        date,
+      ).toEqual({ route: 'CLASS' });
+    }
+    expect(
+      classifyApproval(migrationEntry('2026-08-27'), { form: FORM, registry: LIVE_REGISTRY })
+        .problem,
+    ).toMatch(/may not be registered retroactively/);
   });
 
   it('refuses the same entry dated 2026-08-27, the day before the registration', () => {
@@ -212,6 +424,7 @@ describe('the verdict that counts is the last one that stands', () => {
     '',
     '**Approval route:** `DIRECT`',
     '**Instruction (verbatim):** "승인"',
+    '**Given:** 2026-08-25, this conversation',
     '',
     '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25',
   ].join('\n');
@@ -355,6 +568,21 @@ describe('the scan REPORTS what it classifies', () => {
 });
 
 describe('the guard on the live tree', () => {
+  it('keeps the rule owner prose synchronized with every structural refusal', () => {
+    const rule = readFileSync(BACKLOG_RULE, 'utf8');
+    for (const phrase of [
+      'incomplete',
+      'duplicate',
+      'mixed-sentinel',
+      'missing DIRECT `Given`',
+      'missing CLASS `Given`',
+      '`Evidence condition met`',
+      'exact Unicode code points',
+    ]) {
+      expect(rule).toContain(phrase);
+    }
+  });
+
   it('passes, and reports the population it examined', () => {
     const result = scanStandingDelegationEvidence();
     expect(result.findings).toEqual([]);

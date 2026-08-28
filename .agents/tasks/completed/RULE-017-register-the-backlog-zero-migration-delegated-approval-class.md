@@ -1,8 +1,9 @@
 ---
 title: 'RULE-017: register the BACKLOG-ZERO-MIGRATION delegated approval class'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
 created: 2026-08-28
+completed: 2026-08-29
 priority: high
 urgency: now
 area: delegated approval registry and standing-delegation evidence guard
@@ -34,35 +35,35 @@ batches remain separate work units under the same open issue.
 
 ## Plan
 
-- [ ] Add one `BACKLOG-ZERO-MIGRATION` row to the delegated-class registry with the exact owner
+- [x] Add one `BACKLOG-ZERO-MIGRATION` row to the delegated-class registry with the exact owner
       instruction and registration date `2026-08-28`, preserving the independently registered
       `LANE-L0-L1` row that landed first through PROC-016.
-- [ ] Derive the eligible population directly from the exact Task/spec paths and blob OIDs at
+- [x] Derive the eligible population directly from the exact Task/spec paths and blob OIDs at
       `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`; do not depend on an ephemeral `/tmp` snapshot as
       authorization evidence.
-- [ ] Require each batch spec to commit a `## Migration Manifest` section before approval, with at most
+- [x] Require each batch spec to commit a `## Migration Manifest` section before approval, with at most
       six units and 15 tracked paths. A unit may contain a Task, a spec, or both; each row records its
       unit ID, original paths/blob OIDs, exact issue/comment or delivery evidence, criterion-level
       disposition, live ownership/reservation checks, and every frozen-baseline old-to-new key mapping.
       Any post-approval manifest change needs a new approval.
-- [ ] Exclude only records with current branch/worktree/PR/session ownership or reservation, or whose
-      source blob drifted from the manifest; status labels such as active or blocked do not by
-      themselves exclude a stale legacy record. Reject related-only/umbrella issue matches, wildcard
+- [x] Exclude only records with current branch/worktree/PR/session ownership or reservation, or whose
+      source blob drifted from the manifest; lifecycle status labels do not by themselves exclude a
+      stale legacy record. Reject related-only/umbrella issue matches, wildcard
       populations, deletion-only dispositions, and local terminalization before remote handoff
       read-back succeeds.
-- [ ] Permit only Task/spec lifecycle documents, the batch's loop-run records, and no-growth rekeys of
+- [x] Permit only Task/spec lifecycle documents, the batch's loop-run records, and no-growth rekeys of
       existing frozen-baseline paths; explicitly exclude package/app source, APIs/contracts, policy and
       gate documents, skills, workflows, hooks, workspace topology, product scope, and user-authored
       documents.
-- [ ] Limit GitHub mutation to idempotent issue creation with read-back uniqueness and append-only
+- [x] Limit GitHub mutation to idempotent issue creation with read-back uniqueness and append-only
       evidence comments; exclude issue edit/delete/reopen/transfer/metadata changes and issue closure.
-- [ ] Make the standing-delegation guard reject incomplete or duplicate registry rows, missing/blank
+- [x] Make the standing-delegation guard reject incomplete or duplicate registry rows, missing/blank
       DIRECT `Given`, missing/blank CLASS `Given` or `Evidence condition met`, and a CLASS instruction
       that does not exactly match its registry row, without attempting to infer semantic scope.
-- [ ] Add red/green fixtures for live registration, registration-date ordering, incomplete/duplicate
+- [x] Add red/green fixtures for live registration, registration-date ordering, incomplete/duplicate
       registry rows, DIRECT/CLASS provenance, CLASS instruction matching, and a complete
       post-registration CLASS approval; exercise every new refusal with applied-check mutation evidence.
-- [ ] Run the focused guard suite, live standing-delegation scan, `pnpm harness:scan`, and
+- [x] Run the focused guard suite, live standing-delegation scan, `pnpm harness:scan`, and
       `pnpm harness:verify-like-ci`.
 
 ## Recommendation Gate
@@ -115,3 +116,12 @@ internal delegated-approval registry, structural guard/parser, and harness tests
 command, UI flow, public SDK behavior, configuration contract, runtime output, or user-facing
 capability. Engineering verification belongs in the Test Plan; capability reachability is not
 implicated because the work claims no user-facing capability or enabling seam.
+
+## Result
+
+Implemented the second delegated class without changing the frozen approval baseline. The registry
+now retains complete rows and the guard fails closed on malformed/duplicate rows, missing provenance,
+missing CLASS evidence, instruction mismatches, and retroactive registration. Focused Vitest passes
+51/51, the live scan reports two registered classes, `pnpm harness:verify-like-ci` passed all 13
+applicable stages before archival, and the terminal lifecycle tree passes 145 harness scans with three
+scope-defined skips.
