@@ -112,6 +112,40 @@ const referenceKind = {
   ],
 };
 
+/**
+ * A commit message names its work item and issue, not the agent session that wrote it (RULE-016,
+ * issue #2403; `git-branch.md` § Git Operations).
+ *
+ * The `Claude-Session: https://claude.ai/code/session_…` trailer and the matching footer on PR bodies
+ * came from the agent harness's default instructions, not from anyone here: measured on 63ee7f22d,
+ * 1105 of 4813 commits carried it and 91 of the last 200 merged PRs carried the footer, for two
+ * months before the owner rejected both. A private link in a shared, permanent record — and a
+ * default that reasserts itself every session, which is why this is a rule and not a reminder.
+ * `Co-Authored-By` is attribution and stays.
+ */
+const noSessionLink = {
+  rules: { 'no-session-link': [2, 'always', undefined] },
+  plugins: [
+    {
+      rules: {
+        'no-session-link': ({ raw }) => {
+          const text = raw ?? '';
+          const carried = [];
+          if (/^Claude-Session:/m.test(text)) carried.push('a `Claude-Session:` trailer');
+          if (/claude\.ai\/code\/session/.test(text))
+            carried.push('an agent-session URL (claude.ai/code/session…)');
+          if (carried.length === 0) return [true];
+          return [
+            false,
+            `the message carries ${carried.join(' and ')}. A commit names its work item and issue, ` +
+              'not the agent session that wrote it (git-branch.md § Git Operations). `Co-Authored-By` is fine.',
+          ];
+        },
+      },
+    },
+  ],
+};
+
 export default {
   extends: ['@commitlint/config-conventional'],
   // ONE plugin object carrying both rule implementations, not two plugin entries. Measured: with
@@ -123,12 +157,14 @@ export default {
       rules: {
         ...claimsResolve.plugins[0].rules,
         ...referenceKind.plugins[0].rules,
+        ...noSessionLink.plugins[0].rules,
       },
     },
   ],
   rules: {
     ...claimsResolve.rules,
     ...referenceKind.rules,
+    ...noSessionLink.rules,
     'body-max-line-length': [0],
     'footer-max-line-length': [0],
     // This repo prefixes subjects with uppercase backlog IDs (e.g. "HARNESS-017 — …"),

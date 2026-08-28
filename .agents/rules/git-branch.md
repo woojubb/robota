@@ -91,6 +91,13 @@ release suite a second time. The root command remains available as an explicit l
 
 - Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
+- A commit message MUST NOT carry an agent-session link — a `Claude-Session:` trailer or a
+  `claude.ai/code/session…` URL. A commit names its work item and issue; the session that wrote it is
+  a private link with no place in a shared, permanent record. `Co-Authored-By` is attribution and
+  stays. The PR body's contract, including the same prohibition for bodies, is owned by
+  [backlog-execution.md](backlog-execution.md) § PR Unit Rule.
+  Enforced by: `no-session-link` (commitlint)
+
 ### Commit Cadence
 
 Commit at appropriate logical boundaries **as work progresses** — one commit per logical step (e.g.
