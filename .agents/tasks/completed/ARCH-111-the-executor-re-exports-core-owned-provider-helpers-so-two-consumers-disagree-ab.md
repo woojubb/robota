@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-111: the executor re-exports core-owned provider helpers so two consumers disagree about the owner'
 issue: https://github.com/woojubb/robota/issues/2051
-status: todo
+status: done
+completed: 2026-08-26
 created: 2026-08-25
 priority: medium
 urgency: soon
@@ -92,3 +93,11 @@ rather than a gap in it.
 **This reason does not expire.** It is a property of what the item delivers, not of an undecided
 disposition. If a later revision changes user-visible behaviour, that revision needs scenarios and this
 paragraph does not cover it.
+
+## Completion record
+
+Delivered by PR #2357 at merge commit `69496794df7324d1110de89dcb5a39074a0026be` on 2026-08-26.
+The executor no longer exports the two core-owned helpers, framework imports resolve from the core
+owner, the positive and negative type controls agree with the package SPEC, and the recorded package
+tests, workspace typecheck, and harness scan passed. Issues #2051 and #2347 retain the separate
+ambient-resolver work and are not closed by this completion.

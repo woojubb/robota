@@ -1,7 +1,9 @@
 ---
 title: 'ARCH-110: session capability projections can silently drop optional fields'
 issue: https://github.com/woojubb/robota/issues/2295
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2295#issuecomment-5455186636
 created: 2026-08-24
 priority: medium
 urgency: soon
@@ -81,3 +83,11 @@ executing the blocked command.
 Cleanup: remove the temporary home.
 
 Evidence: pending implementation.
+
+## Backlog-zero disposition
+
+Returned to the exact open GitHub owner at
+https://github.com/woojubb/robota/issues/2295#issuecomment-5455186636 on 2026-08-29. PR #2293 delivered
+partial containment, but the relation guard, remaining TUI/headless projections, mutation proof, and
+real disk-loaded policy scenarios remain open. This archived Task is historical evidence, not a
+claim that the implementation is complete.
