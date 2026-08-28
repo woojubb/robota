@@ -55,8 +55,8 @@ skill/workflow/hook/topology, baseline, carrier, or product-direction change is 
 
 Choose alternative 3. Preserve every Task body, add only terminal migration frontmatter, and return
 unfinished work to its exact issue. HARNESS-120's handoff records that the original wide-blast
-classifier is stale: the remaining gap is universal Recommendation Gate endorsement enforcement, PR
-#2374 did not merge, and #2377/#2266 constraints remain relevant. HARNESS-128's handoff records the
+classifier is stale: the remaining gap is universal Recommendation Gate endorsement enforcement,
+pull request #2374 did not merge, and issues #2377/#2266 constraints remain relevant. HARNESS-128's handoff records the
 new continuation checkpoint variant and updated evidence counts without treating historical line
 coordinates as current truth. INFRA-133's handoff preserves the existing downstream identity model
 while locating the remaining loss before draft synthesis.
@@ -95,11 +95,11 @@ Pre-approval base: `origin/develop` at `cafe017de0941a50d7e96a512fe8b28e233de159
 Limits: 3 units; 7 final tracked paths. Every governed Task blob is identical at the population
 object, base, and this branch. There are zero baseline rekeys and zero baseline additions.
 
-| Unit        | Original path and blob OID                                                                                                                              | Current ownership and evidence                                                                                                                                                                                                                                                                                                                      | Criterion-level disposition                                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| HARNESS-120 | `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` @ `5fc7ccc9f0a5dc0c73b5d18d451898eb0aa38edd`                                | Exact OPEN/unassigned issue #2326. The universal rule-vs-GATE enforcement gap remains; the original wide-blast classifier plan and unmerged PR #2374 are stale, while constraints carried from #2377 and the open #2266/HARNESS-900 case remain relevant. Canonical handoff: https://github.com/woojubb/robota/issues/2326#issuecomment-5456692501. | Preserve all four original criteria as historical context, explicitly replace the stale classifier direction with universal endorsement enforcement, and return every unfinished criterion to #2326.   |
-| HARNESS-128 | `.agents/tasks/HARNESS-128-checkpoint-evidence-forms-are-declared-only-in-the-scan.md` @ `4a3d6fba1243f279873e8ee09aad0d24a952b417`                     | Exact OPEN/unassigned issue #2394. Parsed forms remain scan-private; current code adds a continuation checkpoint variant, line coordinates and occurrence counts moved, and no owner-form or fail-closed field diagnostic landed. Canonical handoff: https://github.com/woojubb/robota/issues/2394#issuecomment-5456692845.                         | Preserve the declared-form, revision-bound parser, fail-closed, compatibility, and mutation-test criteria; add the continuation variant and corrected current coordinates/counts to the issue handoff. |
-| INFRA-133   | `.agents/tasks/INFRA-133-architecture-audit-input-identities-are-not-traceable-through-draft-synthesis.md` @ `7e386a9310360d5a19ef23e15f24ca875dad4088` | Exact OPEN/unassigned issue #2149. Raw dimensional/conformance inputs remain aggregate-only; identity and severity reconciliation starts after synthesis, so source loss, merge, rejection, normalization, and promotion remain unprovable. Canonical handoff: https://github.com/woojubb/robota/issues/2149#issuecomment-5456693151.               | Preserve the downstream identity model and return the source-to-draft identity, provenance, disposition, and fixture matrix to #2149 without expanding it into adjacent PR-loop work.                  |
+| Unit        | Original path and blob OID                                                                                                                              | Current ownership and evidence                                                                                                                                                                                                                                                                                                                                         | Criterion-level disposition                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HARNESS-120 | `.agents/tasks/HARNESS-120-wide-blast-approval-needs-independent-review.md` @ `5fc7ccc9f0a5dc0c73b5d18d451898eb0aa38edd`                                | Exact OPEN/unassigned issue #2326. The universal rule-vs-GATE enforcement gap remains; the original wide-blast classifier plan and unmerged pull request #2374 are stale, while constraints carried from issues #2377/#2266 and the active HARNESS-900 case remain relevant. Canonical handoff: https://github.com/woojubb/robota/issues/2326#issuecomment-5456692501. | Preserve all four original criteria as historical context, explicitly replace the stale classifier direction with universal endorsement enforcement, and return every unfinished criterion to issue #2326. |
+| HARNESS-128 | `.agents/tasks/HARNESS-128-checkpoint-evidence-forms-are-declared-only-in-the-scan.md` @ `4a3d6fba1243f279873e8ee09aad0d24a952b417`                     | Exact OPEN/unassigned issue #2394. Parsed forms remain scan-private; current code adds a continuation checkpoint variant, line coordinates and occurrence counts moved, and no owner-form or fail-closed field diagnostic landed. Canonical handoff: https://github.com/woojubb/robota/issues/2394#issuecomment-5456692845.                                            | Preserve the declared-form, revision-bound parser, fail-closed, compatibility, and mutation-test criteria; add the continuation variant and corrected current coordinates/counts to the issue handoff.     |
+| INFRA-133   | `.agents/tasks/INFRA-133-architecture-audit-input-identities-are-not-traceable-through-draft-synthesis.md` @ `7e386a9310360d5a19ef23e15f24ca875dad4088` | Exact OPEN/unassigned issue #2149. Raw dimensional/conformance inputs remain aggregate-only; identity and severity reconciliation starts after synthesis, so source loss, merge, rejection, normalization, and promotion remain unprovable. Canonical handoff: https://github.com/woojubb/robota/issues/2149#issuecomment-5456693151.                                  | Preserve the downstream identity model and return the source-to-draft identity, provenance, disposition, and fixture matrix to issue #2149 without expanding it into adjacent PR-loop work.                |
 
 Live ownership check: no open PR, matching implementation branch, extra worktree, assignee, open
 loop run, session, or reservation owns any unit. Current branch
@@ -159,7 +159,7 @@ carrier file changes.
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-034-terminalize-backlog-zero-migration-batch-05.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/DOCS-034-terminalize-backlog-zero-migration-batch-05.md`
 
 ## User Execution Test Scenarios
 
@@ -207,7 +207,7 @@ runnable user-facing behavior.
   `origin/develop` base `cafe017de0941a50d7e96a512fe8b28e233de159`; frozen manifest commit
   `5efedff39a945d18836519c463bc969207151a75` is an ancestor of HEAD.
 - Marker and owner readback is unique, OPEN, and unassigned: control issue #2451 carries
-  `backlog-zero:DOCS-034:2c875dd3`; exact owners #2326, #2394, and #2149 respectively carry
+  `backlog-zero:DOCS-034:2c875dd3`; exact owner issues #2326/#2394/#2149 respectively carry
   `backlog-zero:HARNESS-120:2c875dd3`, `backlog-zero:HARNESS-128:2c875dd3`, and
   `backlog-zero:INFRA-133:2c875dd3`.
 - The three canonical append-only handoffs were read back exactly and remain unedited:
@@ -223,7 +223,7 @@ runnable user-facing behavior.
   seven final logical paths, with zero baseline rekeys/additions, carrier changes, or package/app,
   API/contract, policy/gate, skill/workflow/hook/topology, or product/user-document paths.
 - Diff from the frozen manifest changes only the three canonical handoff URLs and the planned control
-  marker statement to the grounded #2451 fact; the recommendation, Decision, dispositions, scope, and
+  marker statement to the grounded issue #2451 fact; the recommendation, Decision, dispositions, scope, and
   Completion Criteria are unchanged.
 - `ACTIONABLE FINDINGS: 0`
 
@@ -234,7 +234,7 @@ runnable user-facing behavior.
 **Class:** `BACKLOG-ZERO-MIGRATION`
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 **Given:** 2026-08-28, this conversation
-**Evidence condition met:** Independent remote-grounding audit at HEAD d8d88f2df: control issue #2451 and exact owners #2326/#2394/#2149 are unique OPEN and unassigned; gh issue/API readback returned all three canonical comments exact and unedited; git object comparison matched all three blobs at fixed population, base, HEAD, and worktree; ownership scans found no competing PR, branch, worktree, assignee, loop, or process; manifest/diff audit measured exactly 3 units/7 paths and zero baseline/carrier/package/app/API/contract/policy/gate/workflow/hook/topology scope; ACTIONABLE FINDINGS: 0.
+**Evidence condition met:** Independent remote-grounding audit at HEAD d8d88f2df: control issue #2451 and exact owner issues #2326/#2394/#2149 are unique OPEN and unassigned; gh issue/API readback returned all three canonical comments exact and unedited; git object comparison matched all three blobs at fixed population, base, HEAD, and worktree; ownership scans found no competing PR, branch, worktree, assignee, loop, or process; manifest/diff audit measured exactly 3 units/7 paths and zero baseline/carrier/package/app/API/contract/policy/gate/workflow/hook/topology scope; ACTIONABLE FINDINGS: 0.
 **Review fingerprint:** e782e6162f80 (review 6f3466b5, type/tags a0d6c0d0)
 
 - GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
@@ -245,3 +245,41 @@ runnable user-facing behavior.
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A for route CLASS; the recorded standing instruction unambiguously pre-authorizes documentation-only fixed-population backlog migration batches, and instance applicability is judged separately below.
 - GATE-APPROVAL — The item is inside the class as the registry defines it: PASS; DOCS-034 has a committed three-unit/seven-path manifest from the fixed population, exact unchanged blobs and OPEN issue handoffs with readback, zero baseline/carrier or excluded source/policy/product paths, and the current diff adds only this approval evidence, so the approved manifest boundary is immutable and unchanged.
 - GATE-APPROVAL — Independent architecture validation (conditional): N/A because DOCS-034 introduces or reclassifies no package, app, presentation/interface, API/contract, policy, workflow, topology, or product surface; the recorded independent proposal review additionally ENDORSED the bounded recommendation with `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-29
+
+**Status remains:** approved
+**Violation:** The previous GATE-APPROVAL PASS is withdrawn solely because its approved Migration Manifest and Architecture Review changed after approval to qualify 11 GitHub references. No implementation began before this correction.
+**Required action:** Independently re-review the corrected recommendation, record a fresh approval against its exact fingerprint, and keep implementation prohibited until that fresh approval stands.
+
+### [RECOMMENDATION RE-REVIEW ROUND 1] — ✅ ENDORSE | 2026-08-29
+
+- The corrected revision is a qualifier-only 10-addition/10-deletion diff over the approved manifest; every changed line makes a GitHub reference kind explicit.
+- The three manifest units, Task paths and blob OIDs, seven final paths, OPEN issue owners, criterion-level dispositions, zero-baseline result, and `BACKLOG-ZERO-MIGRATION` class boundaries are unchanged.
+- Fresh readback confirms control issue #2451 and exact owner issues #2326/#2394/#2149 remain OPEN and unassigned; canonical comments `5456692501`, `5456692845`, and `5456693151` retain their original URLs and update timestamps.
+- `node scripts/harness/scan-reference-kind-qualified.mjs` passes, examining 3,132 tracked documents against the unchanged 1,465-reference baseline.
+- `ACTIONABLE FINDINGS: 0`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status remains:** approved; this fresh verdict replaces the withdrawn approval above.
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** The corrected revision changes only 10 qualifier lines for 11 GitHub references; the three fixed-population blobs, three-unit/seven-path manifest, exact OPEN/unassigned issue handoffs and unedited canonical comments, ownership/reservation absence, zero baseline/carrier changes, and excluded-path boundary remain unchanged. The independent re-review above reports `ACTIONABLE FINDINGS: 0` and `REVIEW VERDICT: ENDORSE`.
+**Review fingerprint:** 06a0ac062a4f (review d1ea669f, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — ordering and fresh-approval recovery: the prior PASS is explicitly withdrawn above; no implementation began, and this fresh verdict follows independent ENDORSE on the corrected approved document.
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A for route CLASS; the recorded standing instruction unambiguously pre-authorizes documentation-only fixed-population backlog migration batches.
+- GATE-APPROVAL — The named class exists in the delegated-class registry and predates this approval: `BACKLOG-ZERO-MIGRATION` was registered on 2026-08-28 before this fresh verdict.
+- GATE-APPROVAL — The authorising instruction is recorded verbatim with date and session: the exact Korean instruction and `2026-08-28, this conversation` are recorded above.
+- GATE-APPROVAL — The class evidence condition is measured: exact issue/comment readback, fixed-population blob equality, three-unit/seven-path scope, absence of competing ownership, and zero baseline/carrier or excluded-path changes are recorded above and remain unchanged after the qualifier-only correction.
+- GATE-APPROVAL — The item remains inside the registered class: it is a documentation-only terminalization/handoff of three fixed-population Tasks, within the six-unit/fifteen-path ceilings, with exact OPEN issue owners and no package/app source, API/contract, policy/gate, skill/workflow/hook/topology, or product/user-document change.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags changed after this fresh approval: current fingerprint `06a0ac062a4f` equals review `d1ea669f` plus type/tags `a0d6c0d0`; this Evidence Log append does not affect that fingerprint.
+- GATE-APPROVAL — Independent architecture validation (conditional): N/A because the corrected document introduces or reclassifies no package, app, presentation/interface, API/contract, policy, workflow, topology, or product surface; recommendation re-review round 1 independently records `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
