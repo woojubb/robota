@@ -1,6 +1,8 @@
 ---
 title: 'CONFIG-002: the 6-layer config loader silently treats a corrupt settings file as missing (reverting permissions to empty defaults) against its own CLI-069 fail-fast rule, and updateModelInSettings writes exactly the legacy shape the loader constitutionally rejects — bricking every subsequent session'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2453#issuecomment-5457119808
 created: 2026-08-13
 priority: high
 urgency: soon

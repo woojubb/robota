@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-028: a package SPEC restates a fact its manifest owns'
 issue: https://github.com/woojubb/robota/issues/2194
-status: in-progress
+status: done
+completed: 2026-08-23
 created: 2026-08-23
 priority: high
 urgency: now

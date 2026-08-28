@@ -1,12 +1,12 @@
 ---
-status: approved
+status: rejected
 type: RULE
 tags: [architecture]
 ---
 
 # DOCS-028: a package SPEC restates a fact its manifest owns
 
-Paired with `.agents/tasks/DOCS-028-a-spec-restates-a-fact-its-manifest-owns.md`.
+Paired with `.agents/tasks/completed/DOCS-028-a-spec-restates-a-fact-its-manifest-owns.md`.
 Arising from [issue #2194](https://github.com/woojubb/robota/issues/2194).
 
 ## Problem
@@ -75,3 +75,12 @@ is the accidental-green shape issue #2181 catalogues.
 Not applicable — documentation fields, an authoring standard, a template comment and one harness scan;
 no runnable user-facing product behaviour changes. The reason is recorded per
 `.agents/tasks/README.md`, and the applicable checks including the mutation proof are in the Test Plan.
+
+### [REJECTION] — 2026-08-29
+
+The documented implementation was already delivered by PR #2204 at merge commit
+`918ba647036b700e249d9b301287e5431c00931b`, and PR #2257 subsequently carried the record into its
+current lifecycle at merge commit `12a4ecd1b741199c989ded9f956bfaa0e212b9f8`. Current focused tests
+and scans pass, so no implementation remains. This approved plan did not record a valid
+GATE-IMPLEMENT through GATE-COMPLETE history before that delivery; it is therefore rejected rather
+than promoted to done, without manufacturing retrospective gate verdicts.
