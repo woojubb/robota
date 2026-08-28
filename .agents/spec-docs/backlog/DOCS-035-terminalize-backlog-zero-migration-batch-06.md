@@ -13,8 +13,9 @@ At fixed population object `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`, three val
 backlog records remain nonterminal after their current truth has diverged. DOCS-028 and HARNESS-122
 were delivered on `develop`, but their local Tasks remain active and their bypassed planning
 documents cannot truthfully be promoted to `done`. CONFIG-002 delivered its fail-closed loader axis,
-while its exported writer still emits a legacy shape that the loader rejects and no open GitHub issue
-owns that residual contract decision.
+while its exported writer still emits a legacy shape that the loader rejects. No open GitHub issue
+owned that residual contract at manifest freeze; remote grounding has now established issue #2453 as
+its exact owner.
 
 The current `origin/develop` base is `50ae76f48da52afa37b2d717c42cf74cb9ef8823`. All five governed
 Task/spec blobs are unchanged from the fixed population or the base, and no competing PR, branch,
@@ -77,8 +78,9 @@ Choose alternative 3.
 Independent candidate audits mapped every criterion to current code, tests, issue records, delivery
 commits, and current ownership. DOCS-028 and HARNESS-122 reported `ACTIONABLE FINDINGS: 0`.
 CONFIG-002 reported one required precondition: create and read back the exact residual issue and
-handoff before terminalization. The manifest makes that precondition explicit rather than treating a
-closed partial-delivery issue as an owner.
+handoff before terminalization. Remote grounding has satisfied that precondition with issue #2453 and
+its canonical unmodified comment. The manifest records that evidence rather than treating a closed
+partial-delivery issue as an owner.
 
 The duplicate durable-queue cause is foundational: these lifecycle moves cannot prevent a new record
 from surviving beside an issue. Issue #2404 owns that prevention invariant, so this batch remains
@@ -232,8 +234,9 @@ runnable user-facing behavior and deliberately leaves CONFIG-002 package/API wor
   Canonical comment https://github.com/woojubb/robota/issues/2453#issuecomment-5457119808 belongs
   to issue #2453, carries the exact residual marker and handoff, and is unmodified
   (`created_at == updated_at == 2026-08-28T19:55:02Z`).
-- Delivery provenance: issues #2194, #2339, and #2023 are CLOSED/COMPLETED and unassigned; PRs
-  #2204, #2257, #2341, and #2285 are MERGED with the manifest's exact merge commits. Delivery
+- Delivery provenance: issues #2194, #2339, and #2023 are CLOSED/COMPLETED and unassigned; pull
+  request #2204, pull request #2257, pull request #2341, and pull request #2285 are MERGED with the
+  manifest's exact merge commits. Delivery
   commits `918ba647036b700e249d9b301287e5431c00931b`,
   `8c8cde208c9510805a82b9e9d7ecec22fb6c07cd`, and
   `91f11f7c093f7a8f66077fa0927fc68f872c145a` are ancestors of `HEAD` and `origin/develop`;
