@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -353,3 +353,19 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry argues for: the corrected immutable manifest still contains three fixed-population units and ten paths; its only effects are Task/spec lifecycle terminalization, four mechanically required in-plan Task citation rekeys, append-only GitHub handoff evidence, paired loop/Task/spec records, and the exact no-growth baseline rekey. SEC-016's SECURITY plan is preserved apart from its three lifecycle citations and rejected rather than edited as governing policy; no excluded package/app source, API/contract, policy/gate document, skill/workflow/hook/topology, or product/user document changes.
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the superseded fingerprint is explicitly withdrawn by the NON-COMPLIANCE record; the fresh recorded fingerprint `9c1b2c7289ce` equals the current corrected review fingerprint.
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement — not a bare "reviewed" claim. Retain an `architecture-audit-fanout` structure-channel result as additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").: N/A because the corrected v2 spec introduces no package, app, surface, layer, or product-family reclassification; round-3 nevertheless ENDORSED the corrected ten-path placement with `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 449 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
+  `.agents/spec-docs/active/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
+  `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828223510`; orchestrator run
+  `r20260828223510`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
