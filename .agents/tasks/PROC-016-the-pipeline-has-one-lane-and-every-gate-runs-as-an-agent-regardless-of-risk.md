@@ -47,31 +47,31 @@ no spec document — the "no exceptions" rule is paid by not following it.
 
 ## Plan
 
-- [ ] Amend `spec-workflow.md` § HARD GATE: three lanes with mechanically derived lower bounds, and a
+- [x] Amend `spec-workflow.md` § HARD GATE: three lanes with mechanically derived lower bounds, and a
       user-declared fast track that replaces the unrecorded "skip the spec" waiver.
-- [ ] `scan-lane-declaration.mjs`: refuse a lane whose lower bound the diff violates; upward is always
+- [x] `scan-lane-declaration.mjs`: refuse a lane whose lower bound the diff violates; upward is always
       accepted; fast track refused on the excluded classes.
-- [ ] Amend `gate-catalogue.md`: per-lane gate table (L0 none, L1 PLAN + DONE, L2 unchanged) and
+- [x] Amend `gate-catalogue.md`: per-lane gate table (L0 none, L1 PLAN + DONE, L2 unchanged) and
       tag every criterion under the five spec-document gates `mechanical` or `semantic` (TC-03);
       status vocabulary untouched.
-- [ ] `gate.mjs` — `judge`, `advance`, `approve`: the mechanical criteria composed from the scans that
+- [x] `gate.mjs` — `judge`, `advance`, `approve`: the mechanical criteria composed from the scans that
       already exist, the Evidence Log entry written in the catalogue's form, the folder/frontmatter/Task
       transition performed; the guardian dispatched only on a non-PASS or an L2 semantic criterion.
-- [ ] Route the three callers — `backlog-pipeline`, `user-request-gate`,
+- [x] Route the three callers — `backlog-pipeline`, `user-request-gate`,
       `backlog-execution-orchestrator` — through `gate.mjs`, dispatching `backlog-gate-guard` only on a
       non-PASS or an L2 semantic set (TC-05).
-- [ ] `new-spec.mjs` + `mini-spec-template.md`: an L1 draft that passes GATE-WRITE's form criteria as
+- [x] `new-spec.mjs` + `mini-spec-template.md`: an L1 draft that passes GATE-WRITE's form criteria as
       generated.
-- [ ] `run-all-scans.mjs --affected`, wired into `pre-push.mjs`, `gate.mjs`, and the CI `scans` job on
+- [x] `run-all-scans.mjs --affected`, wired into `pre-push.mjs`, `gate.mjs`, and the CI `scans` job on
       pull requests; the full suite moves to the post-merge run on `develop` and nightly.
-- [ ] Mark the prose- and transcript-grading scans (`scan-progress-report-quantification`,
+- [x] Mark the prose- and transcript-grading scans (`scan-progress-report-quantification`,
       `scan-reference-kind-qualified`) advisory on pull requests and blocking on the `develop` full run
       (TC-09).
-- [ ] `merge-gate.sh`: a verdict stays valid across a base move when the moved range and the branch
+- [x] `merge-gate.sh`: a verdict stays valid across a base move when the moved range and the branch
       touch no common file and the merge is clean (delivers issue #2386).
-- [ ] Register the Route CLASS row for L0/L1 items — the row text is the owner's, recorded verbatim at
+- [x] Register the Route CLASS row for L0/L1 items — the row text is the owner's, recorded verbatim at
       GATE-APPROVAL; never authored by the agent.
-- [ ] Red-proof every refusal path; the control (an accepted case) beside each.
+- [x] Red-proof every refusal path; the control (an accepted case) beside each.
 - [ ] Re-measure one L1 item end to end after landing and record the numbers next to the table above.
 
 ## Test Plan

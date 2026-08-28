@@ -42,6 +42,13 @@ jobs:
     # list above already excludes it; the guard states the invariant where a later edit would meet it.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # `issues: write` is for the final step only — a red full suite files (or updates) the issue
+    # PROC-016's Decision names as the promotion blocker. Nothing broader: `contents: read` is the
+    # checkout, restated because a job-level block replaces the workflow-level one. Justified in
+    # `scan-workflow-permissions.mjs` → JUSTIFIED_JOB_WRITE_SCOPES.
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       # Full history: the suite contains base-history gates (see ci.yml → scans).
@@ -69,3 +76,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness:scan -- --context integration --skip dist --skip build-contracts
+
+      # PROC-016 Decision: a full-suite failure files an issue and blocks promotion. One issue per
+      # red streak, not one per push: a run that finds an open issue with the title prefix comments
+      # the run URL on it; the first red run opens it, naming the tree it went red on. The prefix is
+      # the search key, so the title is a contract — a rename here must rename the search too.
+      # `gh` reads the token from the environment; nothing here interpolates untrusted text.
+      - name: File or update the red-suite issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          prefix='scans-full is red on develop'
+          short_sha="${GITHUB_SHA:0:7}"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
+            --search "\"$prefix\" in:title" --json number,title \
+            --jq "map(select(.title | startswith(\"$prefix\"))) | .[0].number // empty")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
+              --body "Still red at \`$short_sha\`: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$prefix at $short_sha" \
+              --body "$(printf '%s\n\n%s\n\n%s' \
+                "The full scan suite (\`pnpm harness:scan -- --context integration\`) is red on \`develop\` at \`$short_sha\`." \
+                "Run: $RUN_URL" \
+                "PROC-016: a red full suite blocks promotion until this issue is closed. Later red runs comment here instead of opening a new issue.")"
+          fi

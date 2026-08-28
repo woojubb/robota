@@ -22,14 +22,17 @@
  *     "which SPEC sections are contract".
  *   - a pattern with a `src/` segment (or an explicit `#non-comment` qualifier) counts only a
  *     NON-COMMENT change: a hunk whose added and removed lines are all blank, `//` lines, or
- *     block-comment lines (opener, closer, or a leading ` * `) is not a code change. Decided over
- *     the unified diff.
+ *     block-comment lines (opener, closer, or a leading ` * ` INSIDE an open `/* … *​/` block) is
+ *     not a code change. Decided over the unified diff, with the post-image consulted for where a
+ *     hunk starts; a ` * ` line no open block can be shown for is code — a markdown bullet in a
+ *     template literal looks exactly like a doc line, and upward is the safe direction.
  *
  * WHERE THE DECLARATION COMES FROM, in priority order: (1) `lane:` frontmatter of any
- * `.agents/spec-docs/**​/*.md` in the changed set; (2) a `Lane: Lx` trailer in the commit messages
- * `base..HEAD`; (3) a `Lane: Lx` line in the PR body. `Fast-track: <reason>` is read from the same
- * three sources. A lower-priority source that disagrees with a higher one is a CONFLICT and is
- * refused — a lane that two records state differently is not a declaration.
+ * `.agents/spec-docs/**​/*.md` in the changed set; (2) every `Lane: Lx` trailer in the commit
+ * messages `base..HEAD`; (3) every `Lane: Lx` line in the PR body. `Fast-track: <reason>` is read
+ * from the same three sources. A lower-priority source that disagrees with a higher one, or two
+ * lines of ONE source that disagree (two commits, two trailers), is a CONFLICT and is refused — a
+ * lane that two records state differently is not a declaration.
  *
  * FAIL-CLOSED, in every direction: an absent rule file throws via `requireGovernedTree`; an absent
  * floors table exits 1 naming the section; a `#trigger-sections` row with no SPEC-update table to
@@ -74,7 +77,7 @@ const LANE_RANK = new Map(LANES.map((lane, index) => [lane, index]));
 const KNOWN_QUALIFIERS = new Set(['trigger-sections', 'non-comment']);
 
 const SPEC_DOC_PATTERN = /^\.agents\/spec-docs\/.+\.md$/;
-const LANE_LINE = /^\s*Lane:\s*(L[0-2])\s*$/im;
+const LANE_LINES = /^\s*Lane:\s*(L[0-2])\s*$/gim;
 const FAST_TRACK_LINE = /^\s*Fast-track:\s*(.+?)\s*$/im;
 
 function rank(lane) {
@@ -286,23 +289,72 @@ export function parseUnifiedDiff(diffText) {
   return files;
 }
 
-/** Whether one added/removed line is blank or a JS-style comment line. */
-export function isCommentOrBlankLine(text) {
+/**
+ * Whether one added/removed line is blank or a JS-style comment line.
+ *
+ * A `* `-prefixed (or bare `*`) line is a comment ONLY inside a `/* … *​/` block. Out of context it
+ * is just as likely a markdown bullet inside a template literal — a string the program ships —
+ * and the first version, which read every such line as a comment, let one under `src/` pass as L0.
+ * The caller says whether a block is open at this line; with no caller evidence the line is CODE,
+ * because upward is the direction that cannot hide a change.
+ */
+export function isCommentOrBlankLine(text, inBlock = false) {
   const t = text.trim();
   return (
     t === '' ||
     t.startsWith('//') ||
     t.startsWith('/*') ||
     t.startsWith('*/') ||
-    t.startsWith('* ') ||
-    t === '*' ||
+    (inBlock && (t.startsWith('* ') || t === '*')) ||
     /^\/\*.*\*\/$/.test(t)
   );
 }
 
-/** Whether a hunk changes anything beyond blank and comment lines. */
-export function hunkHasCodeChange(hunk) {
-  return hunk.lines.some((l) => l.kind !== ' ' && !isCommentOrBlankLine(l.text));
+/**
+ * The block-comment state after this line, given the state before it: every `/*` opens, every
+ * `*​/` closes, scanned left to right. A `/*` inside a string literal is read as an opener — a
+ * stated limit, and the same one the `//` prefix test already lives with.
+ */
+export function blockCommentStateAfter(text, inBlock) {
+  let state = inBlock;
+  let i = 0;
+  for (;;) {
+    const next = text.indexOf(state ? '*/' : '/*', i);
+    if (next === -1) return state;
+    state = !state;
+    i = next + 2;
+  }
+}
+
+/** Whether a block comment is open just BEFORE line `lineNumber` (1-based) of `fileText`. */
+export function blockCommentStateAt(fileText, lineNumber) {
+  const lines = String(fileText ?? '').split('\n');
+  let state = false;
+  for (let i = 0; i < Math.min(lineNumber - 1, lines.length); i++) {
+    state = blockCommentStateAfter(lines[i], state);
+  }
+  return state;
+}
+
+/**
+ * Whether a hunk changes anything beyond blank and comment lines.
+ *
+ * Block state is tracked through the hunk in both images — the pre-image over context and removed
+ * lines, the post-image over context and added lines — so a `* ` line is judged by the block it
+ * actually sits in. `inBlockAtStart` is the state at the hunk's first line, which the hunk itself
+ * cannot know when the opener lies above it; a caller holding the post-image supplies it from
+ * `blockCommentStateAt`, and without it the hunk starts outside any block (upward, never hidden).
+ */
+export function hunkHasCodeChange(hunk, { inBlockAtStart = false } = {}) {
+  let inOld = inBlockAtStart;
+  let inNew = inBlockAtStart;
+  for (const line of hunk.lines) {
+    const inBlock = line.kind === '-' ? inOld : inNew;
+    if (line.kind !== ' ' && !isCommentOrBlankLine(line.text, inBlock)) return true;
+    if (line.kind !== '+') inOld = blockCommentStateAfter(line.text, inOld);
+    if (line.kind !== '-') inNew = blockCommentStateAfter(line.text, inNew);
+  }
+  return false;
 }
 
 /** `## Heading` → its comparable name: numbering, trailing punctuation and case removed. */
@@ -392,14 +444,26 @@ export function collectDeclaration({ specDocs = [], trailersText = '', prBodyTex
     const fast = typeof fm['fast-track'] === 'string' ? fm['fast-track'].trim() : '';
     if (fast) fastTracks.push({ source: `spec-doc frontmatter ${docPath}`, reason: fast });
   }
-  const trailerLane = LANE_LINE.exec(trailersText ?? '');
-  if (trailerLane) {
-    found.push({ source: 'commit trailer', lane: trailerLane[1].toUpperCase(), priority: 2 });
+  // EVERY `Lane:` line of a text source, not the first. The trailers text is `git log` over
+  // `base..HEAD`, so two commits can each carry their own; reading the first alone left the second
+  // free to disagree unreported. Distinct lanes from one source are entered as separate
+  // declarations, numbered by occurrence, so the conflict check below names both.
+  for (const [source, text, priority] of [
+    ['commit trailer', trailersText, 2],
+    ['PR body', prBodyText, 3],
+  ]) {
+    const lanes = [...String(text ?? '').matchAll(LANE_LINES)].map((m) => m[1].toUpperCase());
+    const distinct = [...new Set(lanes)];
+    for (const [index, lane] of distinct.entries()) {
+      found.push({
+        source: distinct.length > 1 ? `${source} #${index + 1}` : source,
+        lane,
+        priority,
+      });
+    }
   }
   const trailerFast = FAST_TRACK_LINE.exec(trailersText ?? '');
   if (trailerFast) fastTracks.push({ source: 'commit trailer', reason: trailerFast[1] });
-  const bodyLane = LANE_LINE.exec(prBodyText ?? '');
-  if (bodyLane) found.push({ source: 'PR body', lane: bodyLane[1].toUpperCase(), priority: 3 });
   const bodyFast = FAST_TRACK_LINE.exec(prBodyText ?? '');
   if (bodyFast) fastTracks.push({ source: 'PR body', reason: bodyFast[1] });
 
@@ -449,8 +513,19 @@ export function floorForPath(filePath, { diffFiles, floors, specTriggerSections,
     let detail = '';
     if (row.qualifier === 'non-comment') {
       // No hunk for a path the diff should carry → cannot prove comment-only → counts as code.
+      // The post-image, where the caller can supply it, says whether a hunk starts inside a block
+      // comment; without it a hunk starting on a ` * ` line is code (upward, never hidden).
+      const text = typeof readFile === 'function' ? readFile(filePath) : null;
       applies =
-        !file || file.binary || file.hunks.length === 0 || file.hunks.some(hunkHasCodeChange);
+        !file ||
+        file.binary ||
+        file.hunks.length === 0 ||
+        file.hunks.some((hunk) =>
+          hunkHasCodeChange(hunk, {
+            inBlockAtStart:
+              typeof text === 'string' ? blockCommentStateAt(text, hunk.newStart) : false,
+          }),
+        );
       if (!applies) continue;
       detail = file ? ' (non-comment change)' : ' (no hunk in the diff — counted as code)';
     } else if (row.qualifier === 'trigger-sections') {

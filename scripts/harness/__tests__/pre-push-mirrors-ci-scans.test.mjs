@@ -32,6 +32,19 @@ const CI = readFileSync(
 const PROVISIONING = [/^pnpm install\b/];
 
 /**
+ * Steps that TRANSPORT a CI-only input rather than check anything.
+ *
+ * The pull-request body is written to `HARNESS_PR_BODY_FILE` for `scan-lane-declaration`
+ * (PROC-016). Before the push there is no pull request and so no body: the local gate reads the
+ * lane from the spec-document frontmatter and the commit trailers, the scan's two other sources.
+ * Pinned to the exact `printf '%s' "$PR_BODY"` shape so a real check written as a `printf` would
+ * still count as a command the local gate owes.
+ */
+const CI_TRANSPORT = [/^printf '%s' "\$PR_BODY" > "\$HARNESS_PR_BODY_FILE"$/];
+
+const CI_ONLY = [...PROVISIONING, ...CI_TRANSPORT];
+
+/**
  * `--base <ref>` is the one token the two sides legitimately spell differently: the workflow writes
  * `origin/${GITHUB_BASE_REF}` and the local gate writes the base it resolved. Every other flag must
  * agree verbatim, so only that value is normalised.
@@ -51,7 +64,7 @@ function ciScansJobCommands() {
   const job = next ? rest.slice(0, next.index + 1) : rest;
   return [...job.matchAll(/^ +run: (.+)$/gm)]
     .map((m) => normaliseBase(m[1].trim()))
-    .filter((command) => !PROVISIONING.some((pattern) => pattern.test(command)));
+    .filter((command) => !CI_ONLY.some((pattern) => pattern.test(command)));
 }
 
 describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', () => {
@@ -94,17 +107,27 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     console.log(`::examined:: ${commands.length} required-job commands`);
     expect(commands.length).toBeGreaterThan(0);
 
-    // And the exclusion must not have eaten the subject: a PROVISIONING pattern loose enough to
+    // And the exclusion must not have eaten the subject: a CI_ONLY pattern loose enough to
     // match a real check would empty the list above and pass everything.
     expect(commands.every((command) => /harness:/.test(command))).toBe(true);
   });
 
-  it('always runs the scans, and skips both harness test tiers only for a proven false verdict (PROC-016)', () => {
+  it('always runs the contract tests and the scans, and skips only the hermetic tier, only for a proven false verdict (PROC-016)', () => {
+    // INFRA-093: ci.yml runs `harness:test:contracts` unconditionally — the contract tests inspect
+    // product, docs and policy content, so a diff that touches no harness file can still break
+    // them. Only the hermetic tier is path-gated there, so only the hermetic tier may be dropped
+    // here; a mirror that dropped both would pass locally on a change CI refuses.
     const scanArgs = CI_SCANS_JOB_MIRROR.find(([, args]) => args[0] === 'harness:scan')[1];
     const withoutBase = scanArgs.filter(
       (arg) => arg !== '--base' && arg !== CI_BASE_REF_PLACEHOLDER,
     );
-    expect(createCiScansJobMirror({ harness: false })).toEqual([['pnpm', withoutBase]]);
+    expect(createCiScansJobMirror({ harness: false })).toEqual([
+      ['pnpm', ['harness:test:contracts']],
+      ['pnpm', withoutBase],
+    ]);
+    expect(createCiScansJobMirror({ harness: false }).flatMap(([, args]) => args)).not.toContain(
+      'harness:test:hermetic',
+    );
     // An absent or unresolved verdict is harness-applicable: both tiers run.
     const withBase = (base) =>
       CI_SCANS_JOB_MIRROR.map(([command, args]) => [

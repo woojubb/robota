@@ -50,7 +50,10 @@ function stubbedPath({
   movedFiles,
   prFiles,
   mergeable,
-  compareStatus,
+  reviewedBase,
+  ancestor = true,
+  absentLocally = [],
+  fetchFails = false,
 }) {
   const dir = makeTemp('merge-gate-');
   scratch.push(dir);
@@ -73,9 +76,71 @@ function stubbedPath({
       movedFiles,
       prFiles,
       mergeable,
-      compareStatus,
+      reviewedBase,
+      ancestor,
+      absentLocally,
+      fetchFails,
     }),
   );
+
+  // The moved-base check reads what the base moved over from GIT, not from the compare API (see
+  // the `/compare/` branch of the gh stub below for why). This stub is the checkout: `cat-file -e`
+  // says whether a commit is present, `fetch` makes an absent one present (or fails, on the fixture
+  // flag), `merge-base --is-ancestor` answers the ancestry question, and `diff --name-status -M`
+  // lists the moved files in git's own format — one status column, then one path column, or TWO
+  // for a rename — so the hook's parsing of that format is what these cases exercise.
+  const git = path.join(dir, 'git');
+  writeFileSync(
+    git,
+    [
+      '#!/usr/bin/env node',
+      "const fs = require('node:fs');",
+      `const FIXTURE = ${JSON.stringify(fixture)};`,
+      "const f = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));",
+      'const argv = process.argv.slice(2);',
+      '// The global flags the hook passes in front of the subcommand: `-C <dir>`, `-c <key=value>`.',
+      'while (argv.length > 0 && (argv[0] === "-C" || argv[0] === "-c")) argv.splice(0, 2);',
+      'const [sub, ...rest] = argv;',
+      'const isOid = (s) => /^[0-9a-f]{40}$/.test(s ?? "");',
+      'if (sub === "cat-file" && rest[0] === "-e") {',
+      '  const oid = String(rest[1] ?? "").replace(/\\^\\{commit\\}$/, "");',
+      '  process.exit((f.absentLocally ?? []).includes(oid) ? 1 : 0);',
+      '}',
+      'if (sub === "fetch") {',
+      '  if (f.fetchFails) { console.error("fatal: stub refused the fetch"); process.exit(128); }',
+      '  // A fetch makes the commit present: the next `cat-file -e` for it answers yes.',
+      '  const oid = rest[rest.length - 1];',
+      '  f.absentLocally = (f.absentLocally ?? []).filter((x) => x !== oid);',
+      '  fs.writeFileSync(FIXTURE, JSON.stringify(f));',
+      '  process.exit(0);',
+      '}',
+      'if (sub === "merge-base" && rest[0] === "--is-ancestor") {',
+      '  process.exit(f.ancestor === false ? 1 : 0);',
+      '}',
+      'if (sub === "diff" && rest.includes("--name-status")) {',
+      '  // A fixture that states no moved set is answered with a FAILED diff, never an empty one —',
+      '  // "nothing moved" and "could not read what moved" are the two answers the gate must keep',
+      '  // apart. The pair diffed must be <reviewed base> <current base>, in that order: a stub',
+      '  // answering the same list for any pair would let a hook diffing the wrong commits pass.',
+      '  if (!f.movedFiles) { console.error("fatal: bad object"); process.exit(128); }',
+      '  const oids = rest.filter(isOid);',
+      '  if (oids.length !== 2 || oids[1] !== f.baseOid) process.exit(1);',
+      '  if (f.reviewedBase && oids[0] !== f.reviewedBase) process.exit(1);',
+      '  const renames = rest.includes("-M");',
+      '  const lines = [];',
+      '  for (const entry of f.movedFiles) {',
+      '    const file = typeof entry === "string" ? { filename: entry } : entry;',
+      '    if (!file.previous_filename) lines.push(`M\\t${file.filename}`);',
+      '    else if (renames) lines.push(`R100\\t${file.previous_filename}\\t${file.filename}`);',
+      '    else lines.push(`D\\t${file.previous_filename}`, `A\\t${file.filename}`);',
+      '  }',
+      '  console.log(lines.join("\\n"));',
+      '  process.exit(0);',
+      '}',
+      'process.exit(1);',
+    ].join('\n'),
+  );
+  chmodSync(git, 0o755);
 
   const gh = path.join(dir, 'gh');
   writeFileSync(
@@ -116,13 +181,13 @@ function stubbedPath({
       '  }',
       '  return lines.join("\\n");',
       '}',
-      'if (args.includes("/compare/")) {',
-      '  if (!f.movedFiles) process.exit(1);',
-      '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
-      '  const sentinel = `__compare__ ${f.compareStatus ?? "ahead"}`;',
-      '  console.log(fileLines(f.movedFiles, jq, "__compare__").replace("__compare__", sentinel));',
-      '  process.exit(0);',
-      '}',
+      '// The compare API is NOT a source for the moved set any more, and this stub refuses to be',
+      "// one: GitHub caps that endpoint's `files` at 300 with no truncation signal, whatever",
+      '// `--paginate` does (measured on a 1597-file range: 301 unique files came back), which hid',
+      '// every overlap past the cap. The hook reads the moved set from git — the stub above — and',
+      '// a hook that went back to asking here would be answered with a failed call, so every',
+      '// moved-base case below would refuse on "could not be read" and the regression would show.',
+      'if (args.includes("/compare/")) process.exit(1);',
       'if (/pulls\\/[0-9]+\\/files/.test(args)) {',
       '  if (!f.prFiles) process.exit(1);',
       '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
@@ -587,6 +652,7 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
     state: 'CLEAN',
     headAt: '2026-07-28T10:00:00Z',
     comments: [REVIEW('2026-07-28T10:05:00Z', undefined, { baseOid: MOVED_BASE })],
+    reviewedBase: MOVED_BASE,
     prFiles: BRANCH_FILES,
     movedFiles: MOVED_FILES,
     mergeable: 'MERGEABLE',
@@ -649,6 +715,45 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
     expect(verdict.output).toContain('[merge-gate]   packages/agents/src/old.ts');
   });
 
+  it("names an overlap past the compare API's 300-file cap: 351 moved, the overlap at 350", () => {
+    // GitHub caps the compare endpoint's `files` at 300 and says nothing about it, so a base that
+    // moved over more than 300 files hid every overlap past the cap and the merge was ACCEPTED.
+    // The moved set has to come from git, where a diff is the whole diff.
+    const wide = Array.from({ length: 350 }, (_, i) => `scripts/harness/wide-${i}.mjs`);
+    const verdict = judge(world({ movedFiles: [...wide, BRANCH_FILES[0]] }));
+
+    expect(verdict.status, 'an overlap past the 300th moved file was merged past').toBe(2);
+    expect(verdict.output, 'the refusal does not name the file').toMatch(
+      /^\[merge-gate\] {3}packages\/agents\/src\/index\.ts$/m,
+    );
+    expect(verdict.output).toMatch(/1 of the 2 file\(s\) this PR touches/);
+  });
+
+  it('fetches a current base the checkout does not have, then judges the diff', () => {
+    const verdict = judge(world({ absentLocally: [BASE_OID] }));
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/base moved disjointly/);
+  });
+
+  it('refuses when the current base cannot be fetched, naming the commit', () => {
+    const verdict = judge(world({ absentLocally: [BASE_OID], fetchFails: true }));
+
+    expect(verdict.status, 'an unfetchable base was read as "nothing moved"').toBe(2);
+    expect(verdict.output).toMatch(/base.*does not match/i);
+    expect(verdict.output, 'the refusal does not name the commit').toMatch(
+      new RegExp(`${BASE_OID}.*could not be fetched`),
+    );
+    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
+  });
+
+  it('refuses when the REVIEWED base is gone from the checkout and cannot be fetched', () => {
+    const verdict = judge(world({ absentLocally: [MOVED_BASE], fetchFails: true }));
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(new RegExp(`${MOVED_BASE}.*could not be fetched`));
+  });
+
   it('refuses a disjoint set that GitHub reports CONFLICTING, and says so', () => {
     const verdict = judge(world({ mergeable: 'CONFLICTING' }));
 
@@ -672,10 +777,10 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
     expect(verdict.output).toMatch(/mergeability could not be read/);
   });
 
-  it('refuses when the compare cannot be read — unknown is not zero', () => {
+  it('refuses when the diff cannot be read — unknown is not zero', () => {
     const verdict = judge(world({ movedFiles: undefined }));
 
-    expect(verdict.status, 'an unreadable compare was read as "nothing moved"').toBe(2);
+    expect(verdict.status, 'an unreadable diff was read as "nothing moved"').toBe(2);
     expect(verdict.output).toMatch(/base.*does not match/i);
     expect(verdict.output).toMatch(/what the base moved over could not be read/);
   });
@@ -688,12 +793,13 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
   });
 
   it('refuses a base the reviewed one is not an ancestor of', () => {
-    // A three-dot compare lists one side only. `diverged` (a force-pushed or retargeted base) is
-    // the state where the other side is invisible to this read, so a disjoint list proves nothing.
-    const verdict = judge(world({ compareStatus: 'diverged' }));
+    // A two-commit diff lists what differs between them, not what the base MOVED over; the two are
+    // the same thing only when the reviewed base is an ancestor of the current one. A force-pushed
+    // or retargeted base is the state where they part, so a disjoint list there proves nothing.
+    const verdict = judge(world({ ancestor: false }));
 
-    expect(verdict.status, 'a one-sided compare was trusted').toBe(2);
-    expect(verdict.output).toMatch(/compare status:\s*'diverged'/);
+    expect(verdict.status, 'a diff between unrelated bases was trusted').toBe(2);
+    expect(verdict.output).toMatch(/not a descendant of the reviewed one/);
   });
 
   it('still refuses a stale HEAD, however cleanly the base moved', () => {
@@ -712,8 +818,8 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
     expect(verdict.output).toMatch(/head.*does not match/i);
   });
 
-  it('does not consult the compare at all when the bases are identical', () => {
-    // The identity case is unchanged: the stub FAILS every compare and file read here, and the
+  it('does not consult git or the file list at all when the bases are identical', () => {
+    // The identity case is unchanged: the stub FAILS every diff and file read here, and the
     // merge is still accepted — so the reads are reached only when there is something to compare.
     const verdict = judge({
       state: 'CLEAN',
@@ -726,12 +832,13 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
   });
 });
 
-describe('the compare and file-list jq programs the hook actually sends', () => {
+describe('the file-list jq program the hook actually sends', () => {
   /**
-   * Same reasoning as the two blocks below: the stub above honours the SHAPE of each program but
-   * never runs it. These read the programs out of the hook and run them under the real jq over
-   * REST-shaped payloads, so an escaping slip in the hook is caught here and not by the first
-   * moved-base merge that meets it.
+   * Same reasoning as the two blocks below: the stub above honours the SHAPE of the program but
+   * never runs it. This reads the program out of the hook and runs it under the real jq over a
+   * REST-shaped payload, so an escaping slip in the hook is caught here and not by the first
+   * moved-base merge that meets it. (The moved set itself no longer comes through jq: it is read
+   * from `git diff --name-status`, and the stub above answers that in git's own format.)
    */
   const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
 
@@ -753,24 +860,6 @@ describe('the compare and file-list jq programs the hook actually sends', () => 
     expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
     return result.stdout.trim().split('\n');
   }
-
-  it('lists the compare status, every filename, and every rename source', () => {
-    const lines = run(programFromHook(`--jq '"__compare__`), {
-      status: 'ahead',
-      files: [
-        { filename: 'b/new.ts', previous_filename: 'a/old.ts', status: 'renamed' },
-        { filename: 'c.ts', status: 'modified' },
-      ],
-    });
-
-    expect(lines).toStrictEqual(['__compare__ ahead', 'b/new.ts', 'a/old.ts', 'c.ts']);
-  });
-
-  it('still answers the sentinel for a compare with no files', () => {
-    expect(
-      run(programFromHook(`--jq '"__compare__`), { status: 'ahead', files: [] }),
-    ).toStrictEqual(['__compare__ ahead']);
-  });
 
   it('lists the PR files with the sentinel and every rename source', () => {
     const lines = run(programFromHook(`--jq '"__files__"`), [

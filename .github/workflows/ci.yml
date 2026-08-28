@@ -526,9 +526,26 @@ jobs:
       # selects the full suite here, fail closed. The FULL suite in the `integration` context, where
       # those advisories block, runs on every push to `develop` and on demand (`scans-full.yml`).
       # `pre-push.mjs` runs this same line locally; `pre-push-mirrors-ci-scans.test.mjs` pins it.
+      #
+      # PROC-016: `scan-lane-declaration` reads the pull request body's `Lane:` line through
+      # `HARNESS_PR_BODY_FILE` — the scan runner passes it no arguments, so a file is the only way in,
+      # and without one a pull request that declares its lane only in the body was refused here as
+      # "no lane declared". The body is untrusted text: it is handed over as an environment variable
+      # and written with `printf '%s'`, never interpolated into a script (the same shape as the
+      # regression-red-proof step below). An absent body writes an empty file, and the declaration
+      # then comes from the spec-document frontmatter or the commit trailers, as the scan's priority
+      # order says. This step is CI plumbing, not a check: locally the body does not exist yet, so
+      # `pre-push-mirrors-ci-scans.test.mjs` and `ci-mirror-map.mjs` declare it as such by name.
+      - name: Write pull request body for the lane declaration
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
+        run: printf '%s' "$PR_BODY" > "$HARNESS_PR_BODY_FILE"
+
       - name: Harness scan suite (dist-independent)
         env:
           GH_TOKEN: ${{ github.token }}
+          HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
         run: pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"
 
   dependency-audit:

@@ -35,6 +35,62 @@
  * an UNTAGGED criterion, and a `mechanical` one this script has no judgement for, are pending in
  * every lane, because neither has been shown to be dispensable.
  *
+ * THE DOCUMENT'S `lane:` IS AUTHORITATIVE. `--lane` may equal the frontmatter lane, or set the lane
+ * when the frontmatter declares none; a `--lane` that differs from a declared lane is refused (exit 1)
+ * before anything is judged — a flag that could lower an L2 document to L1 would excuse its semantic
+ * set with seven N/A lines. A document with no `lane:` and no `--lane` is L2.
+ *
+ * PLAN's THIRD SET. Beside GATE-WRITE's mechanical criteria and GATE-APPROVAL, `[GATE-PLAN]` composes
+ * the three GATE-IMPLEMENT criteria that are mechanical and Task-shaped — "`.agents/tasks/<ID>.md`
+ * has been created", "Tasks file path is recorded in the `## Tasks` section", and "The exact Task
+ * records a subject-bound user-execution PLAN terminal outcome" — never the worktree inventory, which
+ * PLAN does not produce. Their evidence lines carry the paired Task path as an exact bounded token and
+ * the Task's own `SCENARIO DRAFTED: <outcome> | <n>` verbatim, which is what
+ * `scan-user-execution-plan-order` reads an L1 checkpoint by. The Task path criterion also requires
+ * the Task's basename to equal the spec's, and the PLAN-outcome criterion requires exactly one
+ * `**Author verdict:** \`SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>\`` line under the
+ * Task's `## User Execution Test Scenarios` — the form that scan binds the checkpoint to. The three
+ * are selected by the judgement their wording binds; a catalogue that no longer binds one of them is
+ * a refusal, not a PLAN with two.
+ *
+ * PROBLEM PROSE FLOOR. HTML comments (`<!-- … -->`, multi-line) are stripped before `## Problem` is
+ * measured, so the scaffold's guidance comment is not prose. The floor is ≥ 2 sentences OR ≥ 200
+ * characters of what remains. Measured on 2026-08-28 over the 280 `done/` specs: the shortest genuine
+ * Problem is 83 chars / 2 sentences (DOCAUDIT-004), the next 85 / 2 and 146 / 2 — every one passes on
+ * sentences; the unedited scaffold seed ("<title>." + the comment) is 1 sentence and fails.
+ *
+ * STATUS ON A RE-RUN. GATE-WRITE's "`status: draft` present" also accepts the status a prior
+ * `[GATE-WRITE] — ✅ PASS` upgraded the document to (`review-ready`), so a second GATE-WRITE on a
+ * document that already passed once — this branch's own case — is not failed for having advanced.
+ * Without that prior PASS the criterion fails as written.
+ *
+ * REVIEW UNCHANGED SINCE APPROVAL, by fingerprint. `approve` records what it approved: the field line
+ * `**Review fingerprint:** <12 hex> (review <8 hex>, type/tags <8 hex>)` — sha256 over the
+ * `## Architecture Review` body and over the top-level `type:`/`tags:` frontmatter lines, each
+ * whitespace-normalised, the combined hash first. "No Architecture Review or frontmatter type/tags
+ * modified after approval" PASSes when the document's current fingerprint equals the recorded one,
+ * FAILs naming the part that differs (the review section, the type/tags lines, or both), and is
+ * `PENDING-GUARDIAN` only when the standing entry carries no fingerprint line — an entry the guardian
+ * agent wrote by hand rather than `approve`. No git is read, so an untracked draft is judged the same
+ * as a committed one, and no calendar date is compared (a same-day edit still differs). The field
+ * name `Review fingerprint` is stable: the criterion reads it back by that name.
+ *
+ * APPROVE EARNS ITS VERDICT. `approve` writes the route/instruction fields and, in the same write,
+ * judges the GATE-APPROVAL mechanical set against the entry: the heading is `✅ PASS` only when every
+ * mechanical criterion passes, with their result lines in the entry; otherwise the entry is `❌ FAIL`
+ * with the failed (or undecidable) criteria and the exit is 1. `advance` refuses the last PASS entry
+ * unless it carries at least one per-criterion result line (`- <GATE> — <criterion>: <observed>`) —
+ * a bare heading and a Status-upgrade line is not a judged gate.
+ *
+ * VERIFY COMMAND SHAPE. GATE-VERIFY's "Build passes" needs at least one `--verify-cmd` containing
+ * `build`, `harness:scan` or `run-all-scans` (the last two are the build-equivalent for a scope with
+ * no package build — `scripts/**`-only changes); "Tests pass" needs one containing `test` or
+ * `vitest`. Every supplied command is recorded verbatim with its exit; all must exit 0. `true` exits
+ * 0 and satisfies neither.
+ *
+ * A catalogue with no `## Prior-gate map` is a refusal, not an empty map: the ordering checks are
+ * part of every gate, and a table that cannot be read judges nothing.
+ *
  * Subcommands (every path option accepts a workspace-relative or absolute path):
  *
  *   judge   --gate GATE-WRITE|GATE-APPROVAL|GATE-IMPLEMENT|GATE-VERIFY|GATE-COMPLETE --doc <spec>
@@ -45,26 +101,57 @@
  *           accepted: PLAN judges the GATE-WRITE + GATE-APPROVAL mechanical sets and writes a
  *           `[GATE-PLAN]` entry (`draft → approved`); DONE judges GATE-VERIFY + GATE-COMPLETE and
  *           writes `[GATE-DONE]` (`approved → done`). A plain gate name under `--lane L1` judges that
- *           gate's mechanical set the same way, semantic criteria recorded N/A. The lane defaults to
- *           the document's `lane:` frontmatter, then to L2.
+ *           gate's mechanical set the same way, semantic criteria recorded N/A. The lane is the
+ *           document's `lane:` frontmatter; `--lane` may only equal it, or set it when there is none
+ *           (see THE DOCUMENT'S `lane:` IS AUTHORITATIVE above); absent both, L2.
+ *           ORDER: `approve` runs BEFORE any gate that composes GATE-APPROVAL (PLAN under L1,
+ *           GATE-APPROVAL under L2). Those criteria read the standing `[GATE-APPROVAL]` entry
+ *           `approve` writes; while none exists they are reported `PENDING — run approve first`, no
+ *           entry is written, and the exit is 2 — a step not yet run is not a defect in the document.
  *   record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <path> | --skip "<reason>")
+ *           [--date YYYY-MM-DD]
  *           Appends the per-criterion `### [GATE-COMPLETE: TC-NN]` entry GATE-COMPLETE requires.
  *   advance --doc <spec> [--rule <spec-workflow.md>] [--root <workspace>]
  *           Reads the last Evidence Log entry; refuses unless it is a PASS with a `**Status upgrade:**`
  *           line; moves the file to the folder the rule maps the next status to; rewrites `status:`
- *           and the paired Task's citation of the old path.
+ *           and the paired Task's citation of the old path. The move is `git mv` for a tracked file
+ *           and a plain rename, said so in the output, for a draft git does not track yet.
  *   approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]
- *           [--given YYYY-MM-DD] [--evidence "<measurement>"] [--backlog-rule <path>]
+ *           [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <path>]
+ *           [--catalogue <path>] [--root <workspace>]
  *           Appends the GATE-APPROVAL entry in the form `backlog-execution.md` § Delegated Approval
- *           Classes specifies, then judges it with the standing-delegation parsers and exits with
- *           their verdict.
+ *           Classes specifies, judged at once against the catalogue's GATE-APPROVAL mechanical set
+ *           (APPROVE EARNS ITS VERDICT above): ✅ with the result lines, or ❌ and exit 1. Route
+ *           CLASS reads the class's Evidence condition from its registry row;
+ *           where this script binds a measurement to that wording the evidence is MEASURED, never
+ *           typed. Bound today: "`scan-lane-declaration` exits 0 …" runs that scan over the branch's
+ *           changed set — committed AND working-tree changes against the base — with the spec's
+ *           `lane:`, and records its summary line. A changed set of ZERO paths is refused: a pass over
+ *           nothing is not evidence that the condition is met. `--evidence "<text>"` appends a note to a
+ *           measured condition; it is the whole evidence only for a class this script cannot measure.
  *
- * Exit codes: judge 0 PASS / 1 FAIL / 2 PENDING-GUARDIAN; every other subcommand 0 done / 1 refused.
+ * L1 ORDER, end to end: `new-spec.mjs` → write → `approve --route CLASS --class LANE-L0-L1` → `judge
+ * --gate PLAN --lane L1` → `advance` → ONE planning commit → implement → `record` per TC → `judge
+ * --gate DONE` → `advance`.
+ *
+ * DATES. Every date this script stamps — `judge`, `record`, `approve` — is the LOCAL calendar date,
+ * the one the registry rows and the guardian agents write; `--date YYYY-MM-DD` overrides it on each.
+ * An approval at 01:50 KST on the 28th is dated the 28th, not UTC's 27th, and so is not refused
+ * against a row registered on the 28th.
+ *
+ * BASE REF. The changed set `approve --route CLASS` measures is diffed against the merge base with
+ * `HARNESS_BASE_REF` when set, else with `origin/develop` — the variable `run-all-scans --affected`
+ * and `scan-lane-declaration` honour. On a branch stacked on another feature branch set
+ * `HARNESS_BASE_REF=<that branch>`, or the measured diff carries the parent branch's changes too.
+ *
+ * Exit codes: judge 0 PASS / 1 FAIL / 2 PENDING (guardian, or approve not yet run); every other
+ * subcommand 0 done / 1 refused.
  * A missing catalogue, rule, document or section is a refusal (exit 1) with the reason printed — a
  * gate that cannot read its own criteria has judged nothing ("Silence is not success").
  */
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -87,6 +174,7 @@ import {
   parseRegistrySection,
   standingVerdict,
 } from './scan-standing-delegation-evidence.mjs';
+import { extractExamined } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const DEFAULT_CATALOGUE = '.agents/specs/gate-catalogue.md';
@@ -101,6 +189,28 @@ export const EXIT_PENDING = 2;
 
 /** What the entry records for a semantic criterion under lane L1 — a PASS-class line, not pending. */
 export const L1_NOT_REQUIRED = 'N/A — not required for lane L1 (spec-workflow.md § Lanes)';
+
+/** What a GATE-APPROVAL criterion reports while no standing approval entry exists yet. */
+export const APPROVE_FIRST =
+  'PENDING — run `gate.mjs approve` first (no standing [GATE-APPROVAL] entry)';
+
+/** The `## Problem` floor after HTML comments are stripped — see PROBLEM PROSE FLOOR in the header. */
+export const PROBLEM_MIN_SENTENCES = 2;
+export const PROBLEM_MIN_CHARS = 200;
+
+/** The `--verify-cmd` shapes GATE-VERIFY's two command criteria each need at least one of. */
+export const BUILD_COMMAND_SHAPE = /build|harness:scan|run-all-scans/i;
+export const TEST_COMMAND_SHAPE = /\btest|vitest/i;
+
+/** The GATE-IMPLEMENT judgements PLAN composes — Task-shaped and mechanical, never the inventory. */
+export const PLAN_IMPLEMENT_JUDGEMENTS = ['task-created', 'task-path-recorded', 'plan-outcome'];
+
+/** The GATE-APPROVAL field `approve` records the approved review under — stable, read back by name. */
+export const REVIEW_FINGERPRINT_LABEL = 'Review fingerprint';
+
+/** The Task line the PLAN-outcome criterion (and `scan-user-execution-plan-order`) binds to. */
+const AUTHOR_VERDICT_LINE =
+  /^\*\*Author verdict:\*\*\s+`SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(0|[1-9]\d*)`\s*$/gm;
 
 const SPEC_GATES = [
   'GATE-WRITE',
@@ -118,13 +228,16 @@ const SPEC_GATES = [
 const LANE_L1 = {
   'GATE-PLAN': {
     aliases: ['PLAN', 'GATE-PLAN'],
-    composes: ['GATE-WRITE', 'GATE-APPROVAL'],
+    composes: ['GATE-WRITE', 'GATE-APPROVAL', 'GATE-IMPLEMENT'],
+    // Of GATE-IMPLEMENT only the three Task-shaped judgements (PLAN's THIRD SET in the header).
+    select: { 'GATE-IMPLEMENT': PLAN_IMPLEMENT_JUDGEMENTS },
     upgrade: ['draft', 'approved'],
     prior: null,
   },
   'GATE-DONE': {
     aliases: ['DONE', 'GATE-DONE'],
     composes: ['GATE-VERIFY', 'GATE-COMPLETE'],
+    select: {},
     upgrade: ['approved', 'done'],
     prior: { gate: 'GATE-PLAN', status: 'approved' },
   },
@@ -164,12 +277,25 @@ function resolveFrom(root, given, fallback) {
   return path.isAbsolute(candidate) ? candidate : path.resolve(root, candidate);
 }
 
+/**
+ * The LOCAL calendar date as `YYYY-MM-DD` — never `toISOString()`, which is UTC. The registry rows
+ * and the guardian agents date in local time, so a UTC stamp near midnight is a day behind them.
+ */
+export function localDate(date = new Date(), timeZone = undefined) {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 function today(options) {
   if (options.date) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(options.date)) throw new Error('--date must be YYYY-MM-DD');
     return options.date;
   }
-  return new Date().toISOString().slice(0, 10);
+  return localDate();
 }
 
 function requireFile(file, what) {
@@ -354,11 +480,17 @@ export function parseCatalogue(text) {
   return { gates, priorGates: parsePriorGateMap(text) };
 }
 
-/** The catalogue's prior-gate map: `| GATE-X | GATE-Y | \`status\` |` rows under "Prior-gate map". */
+/**
+ * The catalogue's prior-gate map: `| GATE-X | GATE-Y | \`status\` |` rows under "Prior-gate map". A
+ * catalogue without the section is a refusal — an empty map would silently drop every ordering check.
+ */
 export function parsePriorGateMap(text) {
   const section = sectionBody(text, /^Prior-gate map$/i);
   const map = new Map();
-  if (!section) return map;
+  if (!section)
+    throw new Error(
+      'the catalogue states no `## Prior-gate map` section — the ordering checks cannot run without it',
+    );
   for (const cells of tableRows(section.body)) {
     const [gate, prior, status] = cells;
     const statusToken = /`([a-z-]+)`/.exec(status ?? '');
@@ -371,8 +503,7 @@ export function parsePriorGateMap(text) {
 
 // ── Document reading ─────────────────────────────────────────────────────────────────────────────
 
-function loadDocument(docPath) {
-  const text = requireFile(docPath, 'spec document');
+function loadDocument(docPath, text = requireFile(docPath, 'spec document')) {
   const { entries, body } = splitFrontmatter(text);
   const fm = entries ? Object.fromEntries(entries) : {};
   return { path: docPath, text, fm, body, hasFrontmatter: entries !== null };
@@ -423,6 +554,8 @@ function git(root, args) {
  */
 const pass = (observed) => ({ ok: true, observed });
 const fail = (observed, action) => ({ ok: false, observed, action });
+/** A mechanical criterion this script cannot decide on this document — the guardian's, never a pass. */
+const pending = (observed) => ({ ok: false, pending: true, observed });
 
 function frontmatterChecks() {
   return [
@@ -437,15 +570,24 @@ function frontmatterChecks() {
     {
       id: 'frontmatter-status',
       pattern: /`status:\s*([a-z-]+)`\s+present/i,
-      run: ({ doc, criterion }) => {
+      run: ({ doc, criterion, criterionGate }) => {
         const expected = /`status:\s*([a-z-]+)`/.exec(criterion.text)[1];
         const actual = doc.fm.status;
-        return actual === expected
-          ? pass(`\`status: ${actual}\``)
-          : fail(
-              `\`status: ${actual ?? '(absent)'}\`, required \`status: ${expected}\``,
-              `set \`status: ${expected}\``,
-            );
+        if (actual === expected) return pass(`\`status: ${actual}\``);
+        // A re-run (STATUS ON A RE-RUN in the header): the prior PASS of this same gate upgraded the
+        // document to the status it now carries.
+        const prior = (evidenceEntries(doc.text) ?? [])
+          .filter((entry) => entry.gate === criterionGate && entry.verdict === '✅ PASS')
+          .pop();
+        const upgrade = prior ? statusUpgradeOf(prior) : null;
+        if (upgrade && upgrade.to === actual)
+          return pass(
+            `re-run: \`status: ${actual}\` is the upgrade target of the prior [${criterionGate}] PASS (${prior.date})`,
+          );
+        return fail(
+          `\`status: ${actual ?? '(absent)'}\`, required \`status: ${expected}\``,
+          `set \`status: ${expected}\``,
+        );
       },
     },
     {
@@ -496,19 +638,22 @@ function problemChecks() {
       run: ({ doc }) => {
         const section = sectionBody(doc.text, /^Problem$/i);
         if (!section) return fail('no `## Problem` section', 'add the Problem section');
-        const body = section.body.join('\n');
-        const placeholder = /\b(TBD|TODO)\b/.exec(body);
+        // PROBLEM PROSE FLOOR (header): comments are guidance, not prose.
+        const prose = section.body
+          .join('\n')
+          .replace(/<!--[\s\S]*?-->/g, '')
+          .trim();
+        const placeholder = /\b(TBD|TODO)\b/.exec(prose);
         if (placeholder)
           return fail(
             `\`## Problem\` contains "${placeholder[1]}"`,
             'replace the placeholder with the concrete problem',
           );
-        const prose = body.trim();
         const sentences = prose.split(/(?<=[.!?])\s+/).filter((part) => part.trim().length > 0);
-        if (prose.length < 80 || sentences.length < 2) {
+        if (prose.length < PROBLEM_MIN_CHARS && sentences.length < PROBLEM_MIN_SENTENCES) {
           return fail(
-            `\`## Problem\` is ${prose.length} chars / ${sentences.length} sentence(s) — a vague single-sentence description`,
-            'describe the symptom and its reproduction condition',
+            `\`## Problem\` is ${prose.length} chars / ${sentences.length} sentence(s) after stripping HTML comments — below the floor of ≥ ${PROBLEM_MIN_SENTENCES} sentences or ≥ ${PROBLEM_MIN_CHARS} chars of real text`,
+            'describe the symptom and its reproduction condition in the prose itself',
           );
         }
         return pass(
@@ -888,69 +1033,91 @@ function approvalParses(ctx) {
   );
 }
 
+const shortSha = (text, length) =>
+  createHash('sha256').update(text, 'utf8').digest('hex').slice(0, length);
+
 /**
- * "No Architecture Review or frontmatter type/tags modified after approval" — judged from `git
- * blame` author dates over those lines when the file is tracked and the lines are committed; skipped
- * with the reason printed when git cannot say (an untracked file, a working-tree edit not yet
- * committed), because a date that does not exist cannot be compared.
+ * The fingerprint of what GATE-APPROVAL protects (REVIEW UNCHANGED SINCE APPROVAL in the header):
+ * the `## Architecture Review` body and the top-level `type:` / `tags:` frontmatter lines, each
+ * whitespace-normalised and hashed apart so a difference can be named, plus the combined hash the
+ * field leads with. The rendered form is the exact value `approve` writes and the criterion reads.
+ */
+export function reviewFingerprint(text) {
+  const lines = String(text).split('\n');
+  const close = lines.findIndex((line, index) => index > 0 && /^---\s*$/.test(line));
+  const typeTags = [];
+  if (/^---\s*$/.test(lines[0] ?? '') && close > 0)
+    for (let i = 1; i < close; i += 1) {
+      const key = lines[i].startsWith(' ') ? '' : lines[i].split(':')[0].trim();
+      if (key === 'type' || key === 'tags') typeTags.push(lines[i]);
+    }
+  const section = sectionBody(text, /^Architecture Review$/i);
+  const normalise = (value) => value.replace(/\s+/g, ' ').trim();
+  const review = shortSha(normalise(section ? section.body.join('\n') : ''), 8);
+  const frontmatter = shortSha(normalise(typeTags.join('\n')), 8);
+  const combined = shortSha(`${review}\n${frontmatter}`, 12);
+  return {
+    review,
+    typeTags: frontmatter,
+    combined,
+    rendered: `${combined} (review ${review}, type/tags ${frontmatter})`,
+  };
+}
+
+/** The fingerprint a GATE-APPROVAL entry records, or null when it carries no such field line. */
+export function recordedReviewFingerprint(entryText) {
+  const line = new RegExp(`^\\*\\*${REVIEW_FINGERPRINT_LABEL}:\\*\\*\\s*(.+)$`, 'm').exec(
+    entryText,
+  );
+  if (!line) return null;
+  const value = line[1].trim();
+  const parts = /^([0-9a-f]{12})(?:\s*\(review ([0-9a-f]{8}), type\/tags ([0-9a-f]{8})\))?/.exec(
+    value,
+  );
+  return {
+    raw: value,
+    combined: parts?.[1] ?? null,
+    review: parts?.[2] ?? null,
+    typeTags: parts?.[3] ?? null,
+  };
+}
+
+/**
+ * "No Architecture Review or frontmatter type/tags modified after approval" — the document's current
+ * fingerprint against the one the standing entry recorded. No git, no dates: an untracked draft and
+ * a same-day edit are judged the same way. An entry without the field is the guardian's to judge.
  */
 function architectureUnchangedSinceApproval(ctx) {
   const { verdict } = approvalContext(ctx);
   if (!verdict)
     return fail(
-      'no standing GATE-APPROVAL entry to date the check from',
+      'no standing GATE-APPROVAL entry to compare the review against',
       'run `gate.mjs approve` first',
     );
-  const approvedOn = /\|\s*(\d{4}-\d{2}-\d{2})/.exec(verdict)?.[1];
-  const rel = path.relative(ctx.root, ctx.doc.path);
-  const tracked = git(ctx.root, ['ls-files', '--error-unmatch', '--', rel]);
-  if (!tracked.ok)
+  const recorded = recordedReviewFingerprint(verdict);
+  if (!recorded)
+    return pending(
+      `the standing GATE-APPROVAL entry carries no \`**${REVIEW_FINGERPRINT_LABEL}:**\` line — written by hand rather than by \`gate.mjs approve\`, so nothing records the review that was approved`,
+    );
+  const current = reviewFingerprint(ctx.doc.text);
+  if (recorded.combined === current.combined)
     return pass(
-      `skipped — ${rel} is not tracked by git, so no line history exists to compare against ${approvedOn}`,
+      `the \`**${REVIEW_FINGERPRINT_LABEL}:**\` recorded at approval (${recorded.combined}) equals the document's current fingerprint`,
     );
-  const lines = ctx.doc.text.split('\n');
-  const ranges = [];
-  const ar = lines.findIndex((line) => /^##\s+Architecture Review\s*$/i.test(line));
-  if (ar !== -1) ranges.push([ar + 1, sectionEnd(lines, ar)]);
-  lines.forEach((line, index) => {
-    const key = line.startsWith(' ') ? '' : line.split(':')[0].trim();
-    if (index < 40 && (key === 'type' || key === 'tags')) ranges.push([index + 1, index + 1]);
-  });
-  if (ranges.length === 0)
-    return pass('skipped — no Architecture Review section or type/tags lines to blame');
-  const blame = git(ctx.root, [
-    'blame',
-    '--line-porcelain',
-    ...ranges.flatMap(([a, b]) => ['-L', `${a},${b}`]),
-    '--',
-    rel,
-  ]);
-  if (!blame.ok) return pass(`skipped — git blame failed: ${blame.stderr.trim().split('\n')[0]}`);
-  const later = [];
-  let uncommitted = 0;
-  for (const block of blame.stdout.split(/\n(?=[0-9a-f]{40} )/)) {
-    const hash = block.slice(0, 40);
-    if (/^0{40}$/.test(hash)) {
-      uncommitted += 1;
-      continue;
-    }
-    const time = /^author-time (\d+)$/m.exec(block);
-    if (!time) continue;
-    const date = new Date(Number(time[1]) * 1000).toISOString().slice(0, 10);
-    if (date > approvedOn) later.push(date);
-  }
-  if (later.length > 0)
-    return fail(
-      `${later.length} Architecture Review / type / tags line(s) last changed on ${[...new Set(later)].join(', ')}, after the ${approvedOn} approval`,
-      're-run GATE-APPROVAL on the revised review',
+  const changed = [];
+  if (recorded.review !== null && recorded.review !== current.review)
+    changed.push(
+      `the Architecture Review section changed since the approval (${recorded.review} → ${current.review})`,
     );
-  if (uncommitted > 0)
-    return pass(
-      `skipped — ${uncommitted} line(s) in the checked ranges are uncommitted, so their date cannot be ordered against ${approvedOn}`,
+  if (recorded.typeTags !== null && recorded.typeTags !== current.typeTags)
+    changed.push(
+      `the frontmatter type/tags lines changed since the approval (${recorded.typeTags} → ${current.typeTags})`,
     );
-  return pass(
-    `every Architecture Review / type / tags line dates on or before the ${approvedOn} approval (git blame)`,
-  );
+  if (changed.length === 0)
+    changed.push(
+      `the review fingerprint changed since the approval (${recorded.combined} → ${current.combined}; the entry records no per-part hashes to name which)`,
+    );
+  return fail(changed.join('; '), 're-run approve on the revised review');
 }
 
 /** Route DIRECT's "explicit approval in the current conversation", as the standing entry records it. */
@@ -1043,8 +1210,25 @@ function taskExists(ctx) {
       'record the Task path in `## Tasks`',
     );
   if (task.text === null)
-    return fail(`\`## Tasks\` names ${task.rel}, which does not exist`, 'create the Task file');
-  return pass(`\`## Tasks\` names ${task.rel}, which exists`);
+    return fail(`\`## Tasks\` names \`${task.rel}\`, which does not exist`, 'create the Task file');
+  return pass(`\`## Tasks\` names \`${task.rel}\`, which exists`);
+}
+
+/** The recorded Task path pairs with the spec by basename — the binding the plan-order scan reads. */
+function taskPathRecorded(ctx) {
+  const task = taskContext(ctx);
+  if (!task.rel)
+    return fail(
+      '`## Tasks` names no `.agents/tasks/<ID>.md` path',
+      'record the Task path in `## Tasks`',
+    );
+  const specBase = path.basename(ctx.doc.path);
+  if (path.basename(task.rel) !== specBase)
+    return fail(
+      `\`## Tasks\` names \`${task.rel}\`, whose basename is not the spec's (${specBase})`,
+      'pair the Task and the spec by basename',
+    );
+  return pass(`\`## Tasks\` names \`${task.rel}\`, whose basename is the spec's`);
 }
 
 function taskCheckboxes(text) {
@@ -1061,7 +1245,7 @@ function implementChecks() {
     {
       id: 'task-path-recorded',
       pattern: /Tasks file path is recorded in the `## Tasks` section/i,
-      run: taskExists,
+      run: taskPathRecorded,
     },
     {
       id: 'tasks-cover-tc',
@@ -1106,15 +1290,25 @@ function implementChecks() {
       run: (ctx) => {
         const task = taskContext(ctx);
         if (task.text === null) return fail('no Task file to read', 'create the Task file');
-        const signal = /SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(\d+)/.exec(
-          task.text,
+        // Exactly one author-verdict line under the scenarios section: the form the plan-order scan
+        // binds the checkpoint to, so a Task that would fail that scan fails here first.
+        const section = sectionBody(task.text, /^User Execution Test Scenarios$/i);
+        const signals = [...(section?.body.join('\n') ?? '').matchAll(AUTHOR_VERDICT_LINE)];
+        const form =
+          '`**Author verdict:** `SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>`` line';
+        if (signals.length === 0)
+          return fail(
+            `Task \`## User Execution Test Scenarios\` carries no ${form} (0 found, exactly 1 required${section ? '' : '; the section is absent'})`,
+            'record the author verdict in the Task',
+          );
+        if (signals.length > 1)
+          return fail(
+            `Task \`## User Execution Test Scenarios\` carries ${signals.length} ${form}s (exactly 1 required)`,
+            'keep one author verdict',
+          );
+        return pass(
+          `Task \`## User Execution Test Scenarios\` records \`SCENARIO DRAFTED: ${signals[0][1]} | ${signals[0][2]}\``,
         );
-        return signal
-          ? pass(`Task records \`SCENARIO DRAFTED: ${signal[1]} | ${signal[2]}\``)
-          : fail(
-              'Task carries no `SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>` line',
-              'record the PLAN outcome in the Task',
-            );
       },
     },
     {
@@ -1178,21 +1372,39 @@ function verifyCommands(ctx) {
   return results;
 }
 
-function verifyCommandsPass(ctx) {
-  const results = verifyCommands(ctx);
-  if (results.length === 0)
-    return fail(
-      'no `--verify-cmd` supplied, so nothing was run',
-      'pass the build/test command(s) via --verify-cmd',
-    );
-  const failed = results.filter((result) => result.exit !== 0);
-  const summary = results
+function commandSummary(results) {
+  return results
     .map(
       (result) =>
         `\`${result.command}\` → exit ${result.exit}${result.tail ? ` (${result.tail})` : ''}`,
     )
     .join('; ');
-  return failed.length === 0 ? pass(summary) : fail(summary, 'make every verify command exit 0');
+}
+
+/**
+ * A GATE-VERIFY command criterion: at least one supplied command has the criterion's shape (VERIFY
+ * COMMAND SHAPE in the header), every supplied command is recorded verbatim, and all exit 0.
+ */
+function verifyCommandsShaped(kind, shape, label) {
+  return (ctx) => {
+    const results = verifyCommands(ctx);
+    if (results.length === 0)
+      return fail(
+        'no `--verify-cmd` supplied, so nothing was run',
+        'pass the build/test command(s) via --verify-cmd',
+      );
+    const shaped = results.filter((result) => shape.test(result.command));
+    if (shaped.length === 0)
+      return fail(
+        `no supplied --verify-cmd contains ${label} (supplied: ${commandSummary(results)})`,
+        `pass a ${kind} command via --verify-cmd`,
+      );
+    const failed = results.filter((result) => result.exit !== 0);
+    if (failed.length > 0) return fail(commandSummary(results), 'make every verify command exit 0');
+    return pass(
+      `${kind}-shaped ${commandSummary(shaped)}${results.length > shaped.length ? `; all ${results.length} supplied commands exit 0` : ''}`,
+    );
+  };
 }
 
 function verifyChecks() {
@@ -1219,8 +1431,20 @@ function verifyChecks() {
             );
       },
     },
-    { id: 'build-passes', pattern: /Build passes/i, run: verifyCommandsPass },
-    { id: 'tests-pass', pattern: /Tests pass/i, run: verifyCommandsPass },
+    {
+      id: 'build-passes',
+      pattern: /Build passes/i,
+      run: verifyCommandsShaped(
+        'build',
+        BUILD_COMMAND_SHAPE,
+        '`build`, `harness:scan` or `run-all-scans`',
+      ),
+    },
+    {
+      id: 'tests-pass',
+      pattern: /Tests pass/i,
+      run: verifyCommandsShaped('test', TEST_COMMAND_SHAPE, '`test` or `vitest`'),
+    },
   ];
 }
 
@@ -1348,16 +1572,38 @@ export const JUDGEMENTS = Object.freeze({
 
 // ── judge ────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The lane the judgement runs under (THE DOCUMENT'S `lane:` IS AUTHORITATIVE in the header): the
+ * frontmatter's, which `--lane` may only equal — or set, when the frontmatter declares none.
+ */
+export function resolveLane(options, doc) {
+  const normalise = (value) => (value == null ? null : String(value).trim().toUpperCase());
+  const declared = normalise(doc.fm.lane);
+  const requested = normalise(options.lane);
+  for (const [label, value] of [
+    ["the document's `lane:`", declared],
+    ['--lane', requested],
+  ])
+    if (value !== null && !/^L[12]$/.test(value))
+      throw new Error(`refused: ${label} is \`${value}\`, not L1 or L2`);
+  if (declared !== null && requested !== null && requested !== declared)
+    throw new Error(
+      `refused: --lane ${requested} ${requested < declared ? 'is below' : 'does not equal'} the document's \`lane: ${declared}\` — the frontmatter lane is authoritative; pass --lane ${declared} or omit it`,
+    );
+  return declared ?? requested ?? 'L2';
+}
+
 function resolveGate(options, doc) {
   const requested = options.gate;
   if (!requested) throw new Error('judge needs --gate');
-  const lane = (options.lane ?? doc.fm.lane ?? 'L2').toUpperCase();
+  const lane = resolveLane(options, doc);
   if (lane === 'L1') {
     const composite = Object.entries(LANE_L1).find(([, spec]) => spec.aliases.includes(requested));
     if (composite)
       return {
         name: composite[0],
         composes: composite[1].composes,
+        select: composite[1].select,
         upgrade: composite[1].upgrade,
         prior: composite[1].prior,
         lane,
@@ -1368,7 +1614,14 @@ function resolveGate(options, doc) {
       `unknown gate ${requested}; expected one of ${SPEC_GATES.join(', ')}${lane === 'L1' ? ', PLAN, DONE' : ''}`,
     );
   }
-  return { name: requested, composes: [requested], upgrade: null, prior: undefined, lane };
+  return {
+    name: requested,
+    composes: [requested],
+    select: {},
+    upgrade: null,
+    prior: undefined,
+    lane,
+  };
 }
 
 /**
@@ -1385,8 +1638,34 @@ export function judgeCriteria(catalogue, gate, ctx) {
     if (!section) throw new Error(`the catalogue states no \`### ${gateName}\` section`);
     if (section.criteria.length === 0)
       throw new Error(`the catalogue's \`### ${gateName}\` section carries no checkbox criteria`);
+    // GATE-APPROVAL's criteria read the entry `approve` writes. While none exists they are not a
+    // defect in the document but a step not yet run, so they are pending, never FAIL — a ❌ entry
+    // for "approve has not run" would only be retried by running approve.
+    const approvePending = gateName === 'GATE-APPROVAL' && !standingVerdict(ctx.doc.text);
+    // A composite gate may take only SOME of a section's judgements (PLAN's THIRD SET), selected by
+    // the id their wording binds; every selected id must be found or the composition is refused.
+    const selected = gate.select?.[gateName] ?? null;
+    const found = new Set();
     for (const criterion of section.criteria) {
       const label = `${gateName} — ${criterion.text.replace(/\s+/g, ' ').slice(0, 110)}`;
+      if (selected) {
+        const bound =
+          criterion.tag === 'mechanical'
+            ? JUDGEMENTS[gateName].find((candidate) => candidate.pattern.test(criterion.text))
+            : null;
+        if (!bound || !selected.includes(bound.id)) continue;
+        found.add(bound.id);
+      }
+      if (approvePending) {
+        results.push({
+          gate: gateName,
+          criterion,
+          label,
+          verdict: 'PENDING-APPROVE',
+          observed: APPROVE_FIRST,
+        });
+        continue;
+      }
       if (criterion.tag !== 'mechanical') {
         const notRequired = gate.lane === 'L1' && criterion.tag === 'semantic';
         results.push({
@@ -1418,7 +1697,7 @@ export function judgeCriteria(catalogue, gate, ctx) {
       }
       let outcome;
       try {
-        outcome = judgement.run({ ...ctx, criterion });
+        outcome = judgement.run({ ...ctx, criterion, criterionGate: gateName });
       } catch (error) {
         outcome = fail(
           `judgement ${judgement.id} threw: ${error.message}`,
@@ -1429,11 +1708,18 @@ export function judgeCriteria(catalogue, gate, ctx) {
         gate: gateName,
         criterion,
         label,
-        verdict: outcome.ok ? 'PASS' : 'FAIL',
+        verdict: outcome.pending ? 'PENDING-GUARDIAN' : outcome.ok ? 'PASS' : 'FAIL',
         observed: outcome.observed,
         action: outcome.action,
         id: judgement.id,
       });
+    }
+    if (selected) {
+      const missing = selected.filter((id) => !found.has(id));
+      if (missing.length > 0)
+        throw new Error(
+          `the catalogue's \`### ${gateName}\` section carries no mechanical criterion bound to ${missing.join(', ')} — ${gate.name} composes those judgements by wording and cannot run with fewer`,
+        );
     }
   }
   return results;
@@ -1489,7 +1775,8 @@ function failEntry(gateName, date, current, failed) {
 /**
  * GATE-APPROVAL's PASS is written INTO the entry `approve` created rather than after it: the
  * standing-delegation scan reads the LAST `[GATE-APPROVAL] — ✅ PASS`, so a second PASS heading
- * without the route fields would retire the one that carries them.
+ * without the route fields would retire the one that carries them. The result lines `approve` already
+ * judged into the entry are replaced, not duplicated.
  */
 function mergeIntoLastApprovalEntry(text, lines) {
   const entries = evidenceEntries(text);
@@ -1498,9 +1785,10 @@ function mergeIntoLastApprovalEntry(text, lines) {
   const docLines = text.split('\n');
   const start = docLines.findIndex((line) => /^##\s+Evidence Log\s*$/i.test(line));
   const end = sectionEnd(docLines, start);
-  let cut = end;
-  while (cut > start && docLines[cut - 1].trim() === '') cut -= 1;
-  return [...docLines.slice(0, cut), ...lines, '', ...docLines.slice(end)]
+  const headingAt = docLines.lastIndexOf(last.heading, end);
+  const kept = docLines.slice(headingAt, end).filter((line) => !/^- GATE-APPROVAL — /.test(line));
+  while (kept.length > 0 && kept[kept.length - 1].trim() === '') kept.pop();
+  return [...docLines.slice(0, headingAt), ...kept, '', ...lines, '', ...docLines.slice(end)]
     .join('\n')
     .replace(/\n+$/, '\n');
 }
@@ -1530,14 +1818,16 @@ export function runJudge(options) {
     (result) => `${result.verdict.padEnd(16)} ${result.label} — ${result.observed}`,
   );
   const failed = results.filter((result) => result.verdict === 'FAIL');
-  const pending = results.filter((result) => result.verdict === 'PENDING-GUARDIAN');
+  const pendingGuardian = results.filter((result) => result.verdict === 'PENDING-GUARDIAN');
+  const pendingApprove = results.filter((result) => result.verdict === 'PENDING-APPROVE');
+  const pending = [...pendingGuardian, ...pendingApprove];
   const notRequired = results.filter((result) => result.verdict === 'N/A');
   // No examined-size declaration line: this is a command, not a registered scan, and a
   // self-reported size nothing reads is what `measurement-provenance` refuses. The count is part
   // of the summary instead. N/A is PASS-class for the verdict but counted apart, so the summary
   // says how many criteria the lane excused rather than folding them into what was judged.
   const passed = results.length - failed.length - pending.length - notRequired.length;
-  const summary = `gate ${gate.name} (lane ${gate.lane}): ${results.length} criteria judged — ${passed} PASS, ${notRequired.length > 0 ? `${notRequired.length} N/A (lane ${gate.lane}), ` : ''}${failed.length} FAIL, ${pending.length} PENDING-GUARDIAN`;
+  const summary = `gate ${gate.name} (lane ${gate.lane}): ${results.length} criteria judged — ${passed} PASS, ${notRequired.length > 0 ? `${notRequired.length} N/A (lane ${gate.lane}), ` : ''}${failed.length} FAIL, ${pendingGuardian.length} PENDING-GUARDIAN${pendingApprove.length > 0 ? `, ${pendingApprove.length} PENDING-APPROVE` : ''}`;
 
   let verdict;
   let entry = null;
@@ -1567,7 +1857,16 @@ export function runJudge(options) {
     writeFileSync(docPath, merged ?? appendToEvidenceLog(doc.text, entry));
     written = true;
   }
-  return { exit: verdict, lines, summary, entry, written, results, examined: results.length };
+  return {
+    exit: verdict,
+    lines,
+    summary,
+    entry,
+    written,
+    results,
+    examined: results.length,
+    approvePending: pendingApprove.length,
+  };
 }
 
 // ── record ───────────────────────────────────────────────────────────────────────────────────────
@@ -1646,6 +1945,12 @@ export function runAdvance(options) {
     throw new Error(
       `refused: the last entry [${last.gate}] carries no \`**Status upgrade:** <current> → <next>\` line`,
     );
+  // APPROVE EARNS ITS VERDICT (header): a heading and an upgrade line with nothing judged under them
+  // is the shape approve → advance used to reach `approved` by.
+  if (!last.lines.some((line) => /^- [A-Z][A-Z-]* — .+: .+/.test(line)))
+    throw new Error(
+      `refused: the last entry [${last.gate}] carries no per-criterion result line (\`- <GATE> — <criterion>: <observed>\`) — a heading and a Status upgrade alone is not a judged gate`,
+    );
   if (doc.fm.status !== upgrade.from)
     throw new Error(
       `refused: frontmatter is \`status: ${doc.fm.status ?? '(absent)'}\` but the entry upgrades from \`${upgrade.from}\``,
@@ -1667,13 +1972,22 @@ export function runAdvance(options) {
   writeFileSync(docPath, rewriteFrontmatterStatus(doc.text, upgrade.to));
   if (moved) {
     mkdirSync(path.dirname(target), { recursive: true });
-    const mv = git(root, ['mv', path.relative(root, docPath), path.relative(root, target)]);
-    if (mv.ok) notes.push('moved with git mv');
-    else {
+    const rel = path.relative(root, docPath);
+    // A draft git does not track yet (or a root that is no repository) has nothing for `git mv` to
+    // move; a plain rename is the right tool there, said once, not reported as a refusal.
+    const tracked = git(root, ['ls-files', '--error-unmatch', '--', rel]);
+    if (!tracked.ok) {
       renameSync(docPath, target);
-      notes.push(
-        `moved with rename (git mv refused: ${mv.stderr.trim().split('\n')[0] || 'not a git path'})`,
-      );
+      notes.push(`moved with rename (${rel} is not tracked by git)`);
+    } else {
+      const mv = git(root, ['mv', rel, path.relative(root, target)]);
+      if (mv.ok) notes.push('moved with git mv');
+      else {
+        renameSync(docPath, target);
+        notes.push(
+          `moved with rename (git mv refused: ${mv.stderr.trim().split('\n')[0] || 'not a git path'})`,
+        );
+      }
     }
   }
   const taskRel = taskPathFromSpec(doc.text);
@@ -1691,6 +2005,161 @@ export function runAdvance(options) {
 }
 
 // ── approve ──────────────────────────────────────────────────────────────────────────────────────
+
+const LANE_SCAN = path.join(import.meta.dirname, 'scan-lane-declaration.mjs');
+
+/** The registry rows' Evidence condition cells by class ID — the third column of the same table. */
+export function registryConditions(section) {
+  const conditions = new Map();
+  for (const cells of tableRows(String(section).split('\n'))) {
+    const id = (cells[0] ?? '').replace(/^`|`$/g, '').trim();
+    if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(id)) conditions.set(id, (cells[2] ?? '').trim());
+  }
+  return conditions;
+}
+
+/**
+ * The base the changed set is measured against: the merge base with `HARNESS_BASE_REF` when set,
+ * else with `origin/develop` — the resolution `run-all-scans` and `scan-lane-declaration` share.
+ */
+export function resolveBaseRef(root, env = process.env) {
+  const candidates = [env.HARNESS_BASE_REF?.trim(), 'origin/develop'].filter(Boolean);
+  for (const ref of candidates) {
+    if (!git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) continue;
+    const mergeBase = git(root, ['merge-base', 'HEAD', ref]);
+    if (mergeBase.ok && mergeBase.stdout.trim()) return { ref, base: mergeBase.stdout.trim() };
+  }
+  throw new Error(
+    `refused: no base ref resolves (tried ${candidates.join(', ')}) — set HARNESS_BASE_REF=<ref> (the parent branch, on a stacked branch) or fetch origin/develop`,
+  );
+}
+
+/**
+ * The branch's changed set against `base`: committed and working-tree changes to tracked paths
+ * (`git diff <base>`), plus every untracked path with its whole content as an addition — the draft
+ * spec and the new test are usually untracked when approval is sought, and a floor that cannot see
+ * them is a floor the change can walk under.
+ */
+export function changedSetSince(root, base) {
+  const names = git(root, ['diff', '--name-only', '--diff-filter=ACMRD', base, '--']);
+  if (!names.ok) throw new Error(`refused: git diff --name-only failed: ${names.stderr.trim()}`);
+  const diff = git(root, ['diff', '--no-color', '--no-ext-diff', base, '--']);
+  if (!diff.ok) throw new Error(`refused: git diff failed: ${diff.stderr.trim()}`);
+  const untracked = git(root, ['ls-files', '--others', '--exclude-standard']);
+  if (!untracked.ok) throw new Error(`refused: git ls-files failed: ${untracked.stderr.trim()}`);
+  const split = (text) =>
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  const paths = [...new Set([...split(names.stdout), ...split(untracked.stdout)])].sort();
+  let diffText = diff.stdout;
+  for (const file of split(untracked.stdout)) {
+    // `--no-index` exits 1 when the files differ, which for /dev/null vs a file is always.
+    const added = git(root, [
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      '--no-index',
+      '--',
+      '/dev/null',
+      file,
+    ]);
+    diffText += added.stdout;
+  }
+  return { paths, diffText };
+}
+
+/**
+ * `LANE-L0-L1`'s condition, measured: `scan-lane-declaration` over the changed set with the spec's
+ * `lane:` as the declaration, in the scan's offline form (`--changed` / `--diff-file` /
+ * `--trailers-file`) so the working tree counts and no second git read happens inside the scan.
+ * Returns the evidence line; throws the refusal when the condition is not met — including a changed
+ * set of zero paths, where the scan's `::expected-empty::` pass is earned by nothing.
+ */
+export function measureLaneDeclaration({ root, doc, env = process.env }) {
+  const lane = String(doc.fm.lane ?? '')
+    .trim()
+    .toUpperCase();
+  if (!/^L[0-2]$/.test(lane))
+    throw new Error(
+      `refused: the spec declares no \`lane: L0|L1|L2\` in its frontmatter, so there is no lane to measure`,
+    );
+  if (lane === 'L2')
+    throw new Error(
+      'refused: the spec declares `lane: L2`; the class condition requires the declared lane to be L0 or L1',
+    );
+  const { ref, base } = resolveBaseRef(root, env);
+  const { paths, diffText } = changedSetSince(root, base);
+  if (paths.length === 0)
+    throw new Error(
+      `refused: the diff against ${ref} (merge base ${base.slice(0, 12)}) is empty — no committed or working-tree change, so \`scan-lane-declaration\` would examine zero paths, and a pass over nothing is not evidence that the condition is met. Make the change first; on a branch stacked on another feature branch set HARNESS_BASE_REF=<that branch>.`,
+    );
+  const scratch = mkdtempSync(path.join(tmpdir(), 'robota-gate-lane-'));
+  let run;
+  try {
+    const diffFile = path.join(scratch, 'changes.diff');
+    const trailersFile = path.join(scratch, 'trailers.txt');
+    writeFileSync(diffFile, diffText);
+    writeFileSync(trailersFile, `Lane: ${lane}\n`);
+    run = spawnSync(
+      process.execPath,
+      [
+        LANE_SCAN,
+        '--root',
+        root,
+        '--changed',
+        paths.join(','),
+        '--diff-file',
+        diffFile,
+        '--trailers-file',
+        trailersFile,
+      ],
+      { cwd: root, encoding: 'utf8', env: { ...env, HARNESS_PR_BODY_FILE: '' } },
+    );
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+  const output = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+  const lines = output.split('\n').map((line) => line.trim());
+  const summary = lines.find((line) => /^lane-declaration summary:/.test(line)) ?? null;
+  // The scan's own size declaration, read through the registry's extractor rather than by a local
+  // copy of its marker — the marker belongs to run-all-scans.mjs, and a module that spells it out is
+  // itself read as declaring a size (scan-measurement-provenance).
+  const declared = extractExamined(output).find((entry) => Number.isFinite(entry.size));
+  const examined = declared ? Number(declared.size) : -1;
+  const command = `node scripts/harness/scan-lane-declaration.mjs --changed <${paths.length} path(s)> --diff-file <diff vs ${ref}> --trailers-file <Lane: ${lane}>`;
+  if (run.status !== 0 || !summary || !/result=PASS/.test(summary)) {
+    const refusals = lines.filter((line) => /^- /.test(line) || /^❌/.test(line));
+    throw new Error(
+      `refused: the class condition is not met — \`${command}\` → exit ${run.status ?? 'null'}${summary ? `, \`${summary}\`` : ''}${refusals.length ? `\n  ${refusals.join('\n  ')}` : ''}`,
+    );
+  }
+  if (examined <= 0)
+    throw new Error(
+      `refused: \`scan-lane-declaration\` examined ${examined < 0 ? 'no countable' : '0'} path(s) — a pass over nothing is not evidence`,
+    );
+  const floor = lines.find((line) => /^✅ Lane /.test(line)) ?? '';
+  return `\`${command}\` over ${examined} changed path(s) — committed and working-tree changes vs ${ref} (merge base ${base.slice(0, 12)}) → exit 0, \`${summary}\`${floor ? ` (${floor.replace(/^✅\s*/, '').replace(/\.$/, '')})` : ''}`;
+}
+
+/**
+ * Measurements bound to a class's Evidence condition BY ITS WORDING, the way the criteria are bound:
+ * the registry row owns the condition, this table owns how to measure it. A class whose wording binds
+ * no measurement still needs `--evidence`, typed — the fail-closed side.
+ */
+const CLASS_MEASUREMENTS = [
+  {
+    id: 'lane-declaration',
+    pattern: /`scan-lane-declaration`\s+exits\s+0/i,
+    run: measureLaneDeclaration,
+  },
+];
+
+/** The measurement a class's Evidence condition wording binds, or null — exported so a test can pin the live row. */
+export function boundClassMeasurement(condition) {
+  return CLASS_MEASUREMENTS.find((candidate) => candidate.pattern.test(condition ?? '')) ?? null;
+}
 
 function formLabels(section, form) {
   const labels = [...section.matchAll(/^\*\*([^*:]+):\*\*/gm)].map((match) => match[1].trim());
@@ -1731,6 +2200,7 @@ export function runApprove(options) {
   const labels = formLabels(section, form);
 
   const fields = [`**${labels.route}:** \`${route}\``];
+  let evidence = null;
   if (route === 'CLASS') {
     const classId = options.class;
     if (!classId) throw new Error('approve --route CLASS needs --class <ID>');
@@ -1743,10 +2213,18 @@ export function runApprove(options) {
       throw new Error(
         `refused: class \`${classId}\` was registered ${row.registered}, after the ${given} instruction`,
       );
-    if (!options.evidence)
+    const condition = registryConditions(section).get(classId) ?? '';
+    const measurement = boundClassMeasurement(condition);
+    if (measurement) {
+      evidence = measurement.run({ root, doc, env: options.env ?? process.env });
+      if (options.evidence) evidence += ` — note: ${options.evidence}`;
+    } else if (!options.evidence) {
       throw new Error(
-        'approve --route CLASS needs --evidence "<the measurement that meets the class condition>"',
+        `approve --route CLASS: class \`${classId}\`'s evidence condition ("${condition.slice(0, 80)}") is not one gate.mjs measures — pass --evidence "<the measurement, with its command and output>"`,
       );
+    } else {
+      evidence = options.evidence;
+    }
     fields.push(`**${labels.classField}:** \`${classId}\``);
   }
   const quoted = `"${options.instruction.replace(/^"|"$/g, '')}"`;
@@ -1754,24 +2232,81 @@ export function runApprove(options) {
   fields.push(
     `**${labels.given}:** ${given}, ${route === 'DIRECT' ? 'this conversation' : (options.conversation ?? 'this conversation')}`,
   );
-  if (route === 'CLASS') fields.push(`**${labels.condition}:** ${options.evidence}`);
+  if (route === 'CLASS') fields.push(`**${labels.condition}:** ${evidence}`);
+  // What is being approved, recorded so the criterion can read it back (REVIEW UNCHANGED SINCE
+  // APPROVAL in the header). The entry itself lives in the Evidence Log, outside the fingerprint.
+  fields.push(`**${REVIEW_FINGERPRINT_LABEL}:** ${reviewFingerprint(doc.text).rendered}`);
 
   const current = doc.fm.status ?? '(absent)';
-  const lines = [
+  const candidateLines = [
     `### [GATE-APPROVAL] — ✅ PASS | ${date}`,
     '',
     `**Status upgrade:** ${current} → approved`,
     ...fields,
   ];
-  const text = appendToEvidenceLog(doc.text, lines);
-  writeFileSync(docPath, text);
-
-  // The scan's own parsers, on this document: the entry just written is the standing verdict.
-  const verdict = standingVerdict(text);
+  // APPROVE EARNS ITS VERDICT (header): the entry is judged, in memory, against the catalogue's
+  // GATE-APPROVAL mechanical set before anything is written, and the heading written is the one
+  // that set earned. The scan's own parsers read the candidate first: the entry must parse.
+  const candidate = appendToEvidenceLog(doc.text, candidateLines);
+  const verdict = standingVerdict(candidate);
   const parsed = verdict
     ? classifyApproval(verdict, { form, registry })
     : { problem: 'no standing GATE-APPROVAL entry found after writing one' };
-  return { exit: parsed.problem ? 1 : 0, lines, problem: parsed.problem, route: parsed.route };
+  const judgedDoc = loadDocument(docPath, candidate);
+  const catalogue = parseCatalogue(
+    requireFile(resolveFrom(root, options.catalogue, DEFAULT_CATALOGUE), 'gate catalogue'),
+  );
+  const gate = resolveGate({ gate: 'GATE-APPROVAL' }, judgedDoc);
+  const results = judgeCriteria(catalogue, gate, {
+    doc: judgedDoc,
+    gate,
+    root,
+    cache: {},
+    backlogRule: resolveFrom(root, options['backlog-rule'], DEFAULT_BACKLOG_RULE),
+    verifyCmds: [],
+  });
+  const mechanical = results.filter((result) => result.criterion.tag === 'mechanical');
+  const notPassing = mechanical.filter((result) => result.verdict !== 'PASS');
+  const failing = notPassing.filter((result) => result.verdict === 'FAIL').length;
+  const undecidable = notPassing.length - failing;
+  const parts = [`${mechanical.length - notPassing.length} PASS`];
+  if (failing > 0 || undecidable === 0) parts.push(`${failing} FAIL`);
+  if (undecidable > 0) parts.push(`${undecidable} PENDING-GUARDIAN`);
+  const summary = `GATE-APPROVAL mechanical set: ${parts.join(', ')}`;
+
+  let lines;
+  let problem = parsed.problem ?? null;
+  if (notPassing.length === 0 && !problem) {
+    lines = [
+      ...candidateLines,
+      '',
+      ...results
+        .filter((result) => result.verdict === 'PASS' || result.verdict === 'N/A')
+        .map((result) => `- ${result.label}: ${result.observed}`),
+    ];
+  } else {
+    lines = [
+      `### [GATE-APPROVAL] — ❌ FAIL | ${date}`,
+      '',
+      `**Status remains:** ${current}`,
+      ...fields,
+      '**Failed criteria:**',
+      '',
+      ...notPassing.flatMap((result) => [
+        `- ${result.verdict === 'PENDING-GUARDIAN' ? 'PENDING-GUARDIAN — ' : ''}${result.label}: ${result.observed}`,
+        `  **Required action:** ${result.action ?? 'make the criterion decidable, then re-run approve'}`,
+      ]),
+    ];
+    problem = [
+      problem,
+      summary,
+      ...notPassing.map((result) => `${result.label}: ${result.observed}`),
+    ]
+      .filter(Boolean)
+      .join('\n  ');
+  }
+  writeFileSync(docPath, appendToEvidenceLog(doc.text, lines));
+  return { exit: problem ? 1 : 0, lines, problem, route: parsed.route, summary };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────────
@@ -1779,9 +2314,10 @@ export function runApprove(options) {
 const USAGE = [
   'usage:',
   '  gate.mjs judge   --gate <GATE> --doc <spec> [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
-  '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>")',
+  '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]',
   '  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]',
-  '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--evidence "<measurement>"] [--backlog-rule <p>]',
+  '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',
+  "dates default to the LOCAL calendar date; the document's `lane:` is authoritative (--lane may only equal it); L1 order: approve → judge --gate PLAN → advance → one planning commit; a stacked branch sets HARNESS_BASE_REF=<parent branch> for the measured diff",
 ].join('\n');
 
 export function main(argv = process.argv.slice(2)) {
@@ -1805,6 +2341,10 @@ export function main(argv = process.argv.slice(2)) {
               ? `Evidence Log entry appended (${result.entry[0]})`
               : `dry run — entry not written:\n${result.entry.join('\n')}`,
           );
+        else if (result.exit === EXIT_PENDING && result.approvePending > 0)
+          console.log(
+            `no entry written: ${result.approvePending} GATE-APPROVAL criteria are PENDING — run \`gate.mjs approve\` first, then judge again`,
+          );
         else if (result.exit === EXIT_PENDING)
           console.log("no entry written: pending criteria are the guardian's to judge and record");
         return result.exit;
@@ -1824,8 +2364,11 @@ export function main(argv = process.argv.slice(2)) {
       case 'approve': {
         const result = runApprove(options);
         console.log(`wrote ${result.lines[0]}`);
-        if (result.problem) console.error(`❌ standing-delegation-evidence: ${result.problem}`);
-        else console.log(`standing-delegation-evidence: route ${result.route} accepted`);
+        if (result.problem) console.error(`❌ ${result.problem}`);
+        else
+          console.log(
+            `standing-delegation-evidence: route ${result.route} accepted; ${result.summary}`,
+          );
         return result.exit;
       }
       default:

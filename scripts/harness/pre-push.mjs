@@ -73,19 +73,26 @@ export const CI_SCANS_JOB_MIRROR = [
   ],
 ];
 
+/** The one `scans` step ci.yml gates on the `harness` classification (`needs.changes.outputs.harness`). */
+const PATH_GATED_HARNESS_TEST = 'harness:test:hermetic';
+
 /**
  * The local scans plan; an absent/unresolved verdict is deliberately harness-applicable.
  *
- * Both harness self-test tiers are gated on the classification (PROC-016): they read nothing but
- * `scripts/harness/**` and the files that decide how it runs, and `classifyFiles` names exactly
- * those as `harness`. A `false` verdict is a proof, not a default; anything else runs both.
+ * Exactly what the workflow gates, and no more. `harness:test:contracts` runs UNCONDITIONALLY in
+ * ci.yml (INFRA-093): the repository-contract tests inspect product, docs and policy content, so a
+ * diff that touches no harness file can still turn them red, and a mirror that skipped them on a
+ * `harness: false` verdict would pass locally on a push CI refuses. Only the hermetic tier is
+ * path-gated there — it reads nothing but `scripts/harness/**` and the files that decide how it
+ * runs, which is what `classifyFiles` names `harness` — so only the hermetic tier is gated here
+ * (PROC-016). A `false` verdict is a proof, not a default; anything else runs both tiers.
  * `baseRef` replaces the workflow's `origin/$GITHUB_BASE_REF`; with none, the `--base` pair is
  * dropped and the runner resolves (or fails closed to the full suite) on its own.
  */
 export function createCiScansJobMirror(classification, { baseRef = null } = {}) {
   const harnessApplicable = classification?.harness !== false;
   return CI_SCANS_JOB_MIRROR.filter(
-    ([, args]) => !args[0].startsWith('harness:test:') || harnessApplicable,
+    ([, args]) => args[0] !== PATH_GATED_HARNESS_TEST || harnessApplicable,
   ).map(([command, args]) => [command, substituteBaseRef(args, baseRef)]);
 }
 

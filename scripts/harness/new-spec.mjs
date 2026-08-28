@@ -29,6 +29,13 @@
  * It exits 2 on a usage error, including an argument it does not know (HARNESS-095: an ignored
  * argument is a silent pass over the thing the caller asked for).
  *
+ * ## The file is named after the Task, always
+ *
+ * The draft's basename IS the paired Task's basename: `scan-user-execution-plan-order` pairs a spec
+ * with its Task by basename, so a spec named after a different slug is an unpaired spec. `--title`
+ * therefore sets only the H1 text; it never changes the filename. `--dry-run` prints the document to
+ * stdout and names the target path on stderr, so the pairing can be checked before anything is written.
+ *
  * ## The lane decides the pre-fill
  *
  * L1 is "internal fix, no contract change" by construction, so its Prior Art is a `Waived:` line and
@@ -154,7 +161,11 @@ export function parseArgs(argv) {
   return { ok: true, options };
 }
 
-/** The same slug `allocate-work-item-id.mjs` gives a Task record, so the pair shares a name. */
+/**
+ * The same slug `allocate-work-item-id.mjs` gives a Task record. The draft's name is not derived from
+ * it — the Task's own basename is reused verbatim (see the header) — but the tests build Task records
+ * with it, and it stays the one owner of the slug shape on this side.
+ */
 export function slugify(title) {
   return String(title)
     .toLowerCase()
@@ -372,7 +383,9 @@ export function renderSpec(options) {
   const fields = buildFields(options, task);
   const template = readFileSync(path.join(root, TEMPLATE_PATH), 'utf8');
   const document = renderTemplate(template, fields);
-  const file = `${DRAFT_DIR}/${id}-${slugify(fields.TITLE)}.md`;
+  // The Task's basename, verbatim: the pairing scan matches the two by basename, and `--title`
+  // changes the H1 only.
+  const file = `${DRAFT_DIR}/${path.basename(task.file)}`;
   return { ok: true, document, file };
 }
 
@@ -397,6 +410,7 @@ export function main(argv, io = { stdout: process.stdout, stderr: process.stderr
   }
   if (options.dryRun) {
     io.stdout.write(result.document);
+    io.stderr.write(`new-spec: dry run — target ${result.file} (not written)\n`);
     return 0;
   }
   try {

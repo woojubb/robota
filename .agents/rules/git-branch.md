@@ -747,7 +747,7 @@ blocks correct work on no evidence. Deliberate exception: `PRE_PUSH_ALLOW_UNREVI
 
 **Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
 and carries a review naming the exact current `headRefOid` and a `baseRefOid` that is either current or
-moved over no file the PR touches (a clean merge is required either way — PROC-016 <!-- allow-citation: the item that changed the gate --> ), and refuses outright
+moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
 when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not
 review identity: a base can change while the child head does not. The hook fails closed on missing,
 malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE_GATE_ACK=1` **inline

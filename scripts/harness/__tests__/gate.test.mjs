@@ -8,7 +8,16 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { recordStub } from '../allocate-work-item-id.mjs';
-import { L1_NOT_REQUIRED, evidenceEntries, parseCatalogue, parsePriorGateMap } from '../gate.mjs';
+import {
+  APPROVE_FIRST,
+  L1_NOT_REQUIRED,
+  boundClassMeasurement,
+  evidenceEntries,
+  localDate,
+  parseCatalogue,
+  parsePriorGateMap,
+  registryConditions,
+} from '../gate.mjs';
 import { TEMPLATE_PATH } from '../new-spec.mjs';
 import { parseStatusFolderMapping } from '../scan-doc-folder-status-agreement.mjs';
 import {
@@ -192,6 +201,15 @@ const RULE = `# Spec workflow
 ### Something else
 
 | \`bogus\` | \`.agents/spec-docs/nowhere/\` | not in scope |
+
+#### Lane floors
+
+| Floor | Path pattern                       | Why                          |
+| ----- | ---------------------------------- | ---------------------------- |
+| L2    | \`.agents/rules/spec-workflow.md\` | defines the lanes            |
+| L2    | \`packages/*/src/**\`              | a package contract (fixture) |
+| L1    | \`scripts/**\`                     | harness scripts              |
+| L0    | everything else                    | the default                  |
 `;
 
 /** `backlog-execution.md` § Delegated Approval Classes, with one registered class. */
@@ -204,6 +222,7 @@ const BACKLOG_RULE = `# Backlog execution
 | Class ID     | Scope — what falls inside | Evidence condition | Authorising instruction (verbatim) | Registered |
 | ------------ | ------------------------- | ------------------ | ---------------------------------- | ---------- |
 | \`DOC-TYPO\` | one-line wording fixes    | diff ≤ 3 lines     | "typo fixes go straight through"   | 2026-08-20 |
+| \`LANE-L0-L1\` | L0 and L1 items | \`scan-lane-declaration\` exits 0 on the branch and the declared lane is L0 or L1 | "approve every lane item" | 2026-08-20 |
 
 **Evidence form.**
 
@@ -231,14 +250,19 @@ Route CLASS:
 const SPEC_ID = 'PROC-999-fixture';
 const TASK_REL = `.agents/tasks/${SPEC_ID}.md`;
 
-function conformingSpec({ status = 'draft', folder = 'draft', ticked = false } = {}) {
+function conformingSpec({
+  status = 'draft',
+  folder = 'draft',
+  ticked = false,
+  lane = 'L1',
+  taskRel = TASK_REL,
+} = {}) {
   const box = ticked ? '[x]' : '[ ]';
   return `---
 status: ${status}
 type: RULE
 tags: [harness]
-lane: L1
----
+${lane === null ? '' : `lane: ${lane}\n`}---
 
 # ${SPEC_ID}: a conforming fixture
 
@@ -287,10 +311,23 @@ Alternative 1. The trade-off that drove it: a blocked run is visible, a silent p
 
 ## Tasks
 
-- [ ] \`${TASK_REL}\` — bound at .agents/spec-docs/${folder}/${SPEC_ID}.md
+- [ ] \`${taskRel}\` — bound at .agents/spec-docs/${folder}/${SPEC_ID}.md
 
 ## Evidence Log
 `;
+}
+
+/** The unedited `new-spec.mjs` Problem: a one-line seed plus the template's HTML comment. */
+const SCAFFOLD_PROBLEM = `Fix the thing.
+
+<!-- Symptom + reproduction condition: the command, the output that is wrong, and when it occurs.
+     Replace the seed above if it does not name both. -->`;
+
+function withProblem(spec, problem) {
+  return spec.replace(
+    /## Problem\n\n[\s\S]*?(?=\n## Prior Art Research)/,
+    `## Problem\n\n${problem}\n`,
+  );
 }
 
 const TASK = `---
@@ -315,7 +352,9 @@ Two vitest cases: one root without the governed tree (red), one with it (green).
 
 ## User Execution Test Scenarios
 
-**Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\` — harness-only change.
+**Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\`
+
+Harness-only change.
 `;
 
 /**
@@ -343,10 +382,11 @@ function makeWorkspace({
   return { root, doc };
 }
 
-function run(root, args) {
+function run(root, args, env = {}) {
   const result = spawnSync(process.execPath, [GATE_SCRIPT, ...args, '--root', root], {
     encoding: 'utf8',
     cwd: root,
+    env: { ...process.env, ...env },
   });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
@@ -355,9 +395,20 @@ function judge(root, doc, gate, extra = []) {
   return run(root, ['judge', '--gate', gate, '--doc', doc, '--date', DATE, ...extra]);
 }
 
-function approve(root, doc, extra = []) {
-  return run(root, ['approve', '--doc', doc, '--date', DATE, '--given', DATE, ...extra]);
+function approve(root, doc, extra = [], env = {}) {
+  return run(root, ['approve', '--doc', doc, '--date', DATE, '--given', DATE, ...extra], env);
 }
+
+const CLASS_LANE = [
+  '--route',
+  'CLASS',
+  '--class',
+  'LANE-L0-L1',
+  '--instruction',
+  'approve every lane item',
+];
+/** The stacked-branch form: the base is named, not guessed — the fixture repo has no origin/develop. */
+const BASE_HEAD = { HARNESS_BASE_REF: 'HEAD' };
 
 function gitInit(root) {
   const identity = {
@@ -412,6 +463,18 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
     expect(parseEvidenceForm(section)).toEqual(
       parseEvidenceForm(parseRegistrySection(BACKLOG_RULE)),
     );
+  });
+
+  it("the live LANE-L0-L1 row's Evidence condition binds the scan-lane-declaration measurement", () => {
+    const section = parseRegistrySection(
+      readFileSync(path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'), 'utf8'),
+    );
+    const condition = registryConditions(section).get('LANE-L0-L1');
+    expect(condition).toContain('`scan-lane-declaration` exits 0');
+    expect(boundClassMeasurement(condition)?.id).toBe('lane-declaration');
+    expect(
+      boundClassMeasurement(registryConditions(parseRegistrySection(BACKLOG_RULE)).get('DOC-TYPO')),
+    ).toBeNull();
   });
 });
 
@@ -489,8 +552,11 @@ describe('judge — GATE-WRITE', () => {
     expect(L1_NOT_REQUIRED).toBe('N/A — not required for lane L1 (spec-workflow.md § Lanes)');
   });
 
-  it('the same draft under --lane L2 leaves the semantic set PENDING-GUARDIAN, writes nothing, exits 2', () => {
-    const { root, doc } = makeWorkspace({ catalogue: CATALOGUE_SEMANTIC });
+  it('the same draft declared lane L2 leaves the semantic set PENDING-GUARDIAN, writes nothing, exits 2', () => {
+    const { root, doc } = makeWorkspace({
+      catalogue: CATALOGUE_SEMANTIC,
+      spec: conformingSpec({ lane: 'L2' }),
+    });
     const before = readFileSync(doc, 'utf8');
     const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L2']);
     expect(result.status, result.stdout + result.stderr).toBe(2);
@@ -538,6 +604,139 @@ describe('judge — GATE-WRITE', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('gate catalogue not found');
   });
+
+  /**
+   * Round-A finding 6: a catalogue with no `## Prior-gate map` silently dropped every ordering
+   * check (an empty map). The header promises refusal; now it refuses.
+   */
+  it('refuses a catalogue with no `## Prior-gate map` rather than judging with no ordering', () => {
+    const catalogue = CATALOGUE.replace('## Prior-gate map', '## Some other table');
+    const { root, doc } = makeWorkspace({ catalogue });
+    const before = readFileSync(doc, 'utf8');
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('the catalogue states no `## Prior-gate map` section');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+    expect(() => parsePriorGateMap(catalogue)).toThrow(/no `## Prior-gate map` section/);
+  });
+
+  /**
+   * Round-A finding 2: HTML-comment text counted as Problem prose, so the unedited scaffold ("Fix the
+   * thing." + the template's `<!-- … -->`) measured 171 chars / 4 sentences and passed. Comments are
+   * stripped before measuring; the floor is ≥ 2 sentences OR ≥ 200 chars of real text — the shortest
+   * genuine `done/` Problem (83 chars, 2 sentences) still passes it, a one-line seed does not.
+   */
+  it('an unedited scaffold Problem (one-line seed + HTML comment) is a FAIL naming the measurement', () => {
+    const { root, doc } = makeWorkspace({ spec: withProblem(conformingSpec(), SCAFFOLD_PROBLEM) });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /- GATE-WRITE — Does not contain "TBD"[^\n]*: `## Problem` is 14 chars \/ 1 sentence\(s\) after stripping HTML comments/,
+    );
+  });
+
+  it('a Problem the size of the shortest genuine done/ spec (two short sentences) passes; one long sentence passes on length', () => {
+    const shortest =
+      'The spec cosmetic cleanup left three files with stray headings. They read as broken.';
+    expect(shortest.length).toBeLessThan(100);
+    const two = makeWorkspace({ spec: withProblem(conformingSpec(), shortest) });
+    const twoResult = judge(two.root, two.doc, 'GATE-WRITE');
+    expect(twoResult.status, twoResult.stdout + twoResult.stderr).toBe(0);
+    expect(twoResult.stdout).toMatch(/`## Problem` has no TBD\/TODO; 8\d chars, 2 sentences/);
+    const long = `Running the scan on a fresh worktree prints a pass over nothing because the governed directory is absent, ${'and the absence is the shape of every fresh clone, '.repeat(3)}which nobody notices`;
+    expect(long.length).toBeGreaterThanOrEqual(200);
+    const one = makeWorkspace({ spec: withProblem(conformingSpec(), long) });
+    expect(judge(one.root, one.doc, 'GATE-WRITE').status).toBe(0);
+  });
+
+  /**
+   * Round-A finding 5: `status: draft` was required on every GATE-WRITE run, so this branch's own
+   * second GATE-WRITE on a `review-ready` document failed. A re-run accepts the prior GATE-WRITE
+   * PASS's upgrade target as the status; without that prior PASS the criterion still fails.
+   */
+  it('a GATE-WRITE re-run on a review-ready document with a prior GATE-WRITE PASS accepts that status', () => {
+    const spec =
+      conformingSpec({ status: 'review-ready', folder: 'backlog' }) +
+      `\n### [GATE-WRITE] — ✅ PASS | 2026-08-20\n\n**Status upgrade:** draft → review-ready\n\n- GATE-WRITE — File begins with \`---\` YAML frontmatter block: file begins with a \`---\` frontmatter block\n`;
+    const { root, doc } = makeWorkspace({ spec, folder: 'backlog' });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toMatch(
+      /PASS\s+GATE-WRITE — `status: draft` present[^\n]*re-run: `status: review-ready` is the upgrade target of the prior \[GATE-WRITE\] PASS \(2026-08-20\)/,
+    );
+  });
+
+  it('a review-ready document with NO prior GATE-WRITE PASS still fails the status criterion', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /`status: draft` present[^\n]*: `status: review-ready`, required `status: draft`/,
+    );
+  });
+});
+
+/**
+ * Round-A finding 1: `--lane` overrode the document's `lane:` DOWNWARD — an L2 document judged with
+ * `--lane L1` passed with its semantic criteria N/A. The frontmatter is authoritative: `--lane` may
+ * equal it, or set it when the document declares none; anything else is refused before judging.
+ */
+describe("the document's `lane:` is authoritative over --lane", () => {
+  it('frontmatter L2 + --lane L1 is refused (exit 1), nothing judged, nothing written', () => {
+    const { root, doc } = makeWorkspace({
+      catalogue: CATALOGUE_SEMANTIC,
+      spec: conformingSpec({ lane: 'L2' }),
+    });
+    const before = readFileSync(doc, 'utf8');
+    const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(result.stderr).toContain(
+      "refused: --lane L1 is below the document's `lane: L2` — the frontmatter lane is authoritative",
+    );
+    expect(result.stdout).not.toContain('criteria judged');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  it('frontmatter L1 + --lane L2 is refused too: --lane may only equal the declared lane', () => {
+    const { root, doc } = makeWorkspace({ catalogue: CATALOGUE_SEMANTIC });
+    const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L2']);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "refused: --lane L2 does not equal the document's `lane: L1` — the frontmatter lane is authoritative",
+    );
+  });
+
+  it('frontmatter L1 + --lane L1 is accepted (control)', () => {
+    const { root, doc } = makeWorkspace({ catalogue: CATALOGUE_SEMANTIC });
+    const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('(lane L1)');
+  });
+
+  it('no `lane:` and no --lane is L2 behaviour: the semantic set is PENDING-GUARDIAN, exit 2', () => {
+    const { root, doc } = makeWorkspace({
+      catalogue: CATALOGUE_SEMANTIC,
+      spec: conformingSpec({ lane: null }),
+    });
+    expect(readFileSync(doc, 'utf8')).not.toContain('lane:');
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(2);
+    expect(result.stdout).toContain('gate GATE-WRITE (lane L2)');
+    expect(result.stdout).toContain('2 PENDING-GUARDIAN');
+  });
+
+  it('no `lane:` + --lane L1 sets the lane (nothing to contradict)', () => {
+    const { root, doc } = makeWorkspace({
+      catalogue: CATALOGUE_SEMANTIC,
+      spec: conformingSpec({ lane: null }),
+    });
+    const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('2 N/A (lane L1)');
+  });
 });
 
 describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 TC-06)', () => {
@@ -550,7 +749,16 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
    * control: the semantic set is the guardian's there, so exit 2 is the correct answer and the exit 0
    * above is the lane rule, not a catalogue with nothing semantic in it.
    */
-  function scaffoldRoot() {
+  /**
+   * The Task's `## Objective` seeds the scaffold's `## Problem`. The record stub says `TODO` there,
+   * which `new-spec` replaces with the one-line title — and a one-line Problem is what Round-A
+   * finding 2 made a FAIL. So the objective is filled the way an author fills it before scaffolding;
+   * the unedited stub is the RED case below.
+   */
+  const OBJECTIVE =
+    'Running `node scripts/harness/new-spec.mjs` prints a scaffold whose Problem is one line. It happens on every fresh record, because the stub objective is a placeholder.';
+
+  function scaffoldRoot({ objective = OBJECTIVE } = {}) {
     const root = makeTemp('robota-tc06-');
     const write = (relative, text) => {
       const full = path.join(root, relative);
@@ -561,24 +769,17 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
     write(TEMPLATE_PATH, readFileSync(path.join(WORKSPACE_ROOT, TEMPLATE_PATH), 'utf8'));
     write(
       path.join('.agents/tasks', 'PROC-999-a-scaffold-example.md'),
-      recordStub({ id: 'PROC-999', title: 'a scaffold example', today: DATE, issue: 1 }),
+      recordStub({ id: 'PROC-999', title: 'a scaffold example', today: DATE, issue: 1 }).replace(
+        '## Objective\n\nTODO',
+        `## Objective\n\n${objective}`,
+      ),
     );
     mkdirSync(path.join(root, '.agents/spec-docs/draft'), { recursive: true });
     return root;
   }
 
-  function judgeLive(file, extra) {
+  function scaffold(root) {
     const result = spawnSync(
-      process.execPath,
-      [GATE_SCRIPT, 'judge', '--gate', 'GATE-WRITE', '--doc', file, ...extra, '--dry-run'],
-      { encoding: 'utf8', cwd: WORKSPACE_ROOT },
-    );
-    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
-  }
-
-  it('new-spec --lane L1 --dry-run → gate.mjs judge --gate GATE-WRITE --lane L1 → exit 0', () => {
-    const root = scaffoldRoot();
-    const scaffold = spawnSync(
       process.execPath,
       [
         NEW_SPEC_SCRIPT,
@@ -595,9 +796,25 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
       ],
       { encoding: 'utf8' },
     );
-    expect(scaffold.status, scaffold.stderr).toBe(0);
+    expect(result.status, result.stderr).toBe(0);
     const file = path.join(root, 'PROC-999-dry-run.md');
-    writeFileSync(file, scaffold.stdout);
+    writeFileSync(file, result.stdout);
+    return { file, text: result.stdout };
+  }
+
+  function judgeLive(file, extra) {
+    const result = spawnSync(
+      process.execPath,
+      [GATE_SCRIPT, 'judge', '--gate', 'GATE-WRITE', '--doc', file, ...extra, '--dry-run'],
+      { encoding: 'utf8', cwd: WORKSPACE_ROOT },
+    );
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  }
+
+  it('new-spec --lane L1 --dry-run → gate.mjs judge --gate GATE-WRITE --lane L1 → exit 0', () => {
+    const root = scaffoldRoot();
+    const { file, text } = scaffold(root);
+    expect(text).toContain(OBJECTIVE);
 
     const l1 = judgeLive(file, ['--lane', 'L1']);
     expect(l1.status, l1.stdout + l1.stderr).toBe(0);
@@ -608,11 +825,25 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
     expect(l1.stdout).toContain(L1_NOT_REQUIRED);
     // The scaffold declares `lane: L1` itself, so the flag is not what made it pass.
     expect(judgeLive(file, []).status).toBe(0);
-    expect(readFileSync(file, 'utf8')).toBe(scaffold.stdout);
+    expect(readFileSync(file, 'utf8')).toBe(text);
 
-    const l2 = judgeLive(file, ['--lane', 'L2']);
+    // The frontmatter lane is authoritative, so the L2 control is the same file declaring L2.
+    const l2File = path.join(root, 'PROC-999-dry-run-l2.md');
+    writeFileSync(l2File, text.replace('lane: L1', 'lane: L2'));
+    const l2 = judgeLive(l2File, ['--lane', 'L2']);
     expect(l2.status, l2.stdout + l2.stderr).toBe(2);
     expect(l2.stdout).toMatch(/0 FAIL, [1-9]\d* PENDING-GUARDIAN/);
+  });
+
+  it('the UNEDITED scaffold — stub objective `TODO`, so a one-line Problem — fails GATE-WRITE on the Problem measurement', () => {
+    const root = scaffoldRoot({ objective: 'TODO' });
+    const { file, text } = scaffold(root);
+    expect(text).toContain('## Problem\n\na scaffold example.\n\n<!--');
+    const result = judgeLive(file, ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(result.stdout).toMatch(
+      /FAIL\s+GATE-WRITE — Does not contain "TBD"[^\n]*`## Problem` is 19 chars \/ 1 sentence\(s\) after stripping HTML comments/,
+    );
   });
 });
 
@@ -633,6 +864,32 @@ describe('advance', () => {
     expect(result.stdout).toContain('advanced draft → review-ready');
   });
 
+  it('moves an untracked draft with a plain rename and says so in one line, never "git mv refused"', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    const draft = path.join(root, '.agents/spec-docs/draft/PROC-998-untracked.md');
+    writeFileSync(draft, conformingSpec());
+    expect(judge(root, draft, 'GATE-WRITE').status).toBe(0);
+    const result = run(root, ['advance', '--doc', draft]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      'moved with rename (.agents/spec-docs/draft/PROC-998-untracked.md is not tracked by git)',
+    );
+    expect(result.stdout).not.toContain('git mv refused');
+    expect(existsSync(path.join(root, '.agents/spec-docs/backlog/PROC-998-untracked.md'))).toBe(
+      true,
+    );
+  });
+
+  it('moves a tracked draft with git mv (control)', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    expect(judge(root, doc, 'GATE-WRITE').status).toBe(0);
+    const result = run(root, ['advance', '--doc', doc]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('moved with git mv');
+  });
+
   it('refuses when the last entry is a FAIL and leaves the file where it is', () => {
     const spec = conformingSpec().replace('- [ ] TC-02: `node', '- [ ] `node');
     const { root, doc } = makeWorkspace({ spec });
@@ -647,29 +904,68 @@ describe('advance', () => {
   it('refuses a status the rule maps to no folder rather than inventing one', () => {
     const spec =
       conformingSpec() +
-      `\n### [GATE-X] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → limbo\n`;
+      `\n### [GATE-X] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → limbo\n\n- GATE-X — a criterion: judged\n`;
     const { root, doc } = makeWorkspace({ spec });
     const result = run(root, ['advance', '--doc', doc]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('maps no folder for status `limbo`');
   });
+
+  /**
+   * Round-A finding 4 (advance half): a bare `✅ PASS` heading plus a Status-upgrade line was enough
+   * to advance, so approve → advance reached `approved` with no criterion ever judged. The last PASS
+   * entry must carry at least one per-criterion result line that judge/approve produced.
+   */
+  it('refuses a PASS entry with a Status-upgrade line but no per-criterion result line', () => {
+    const spec =
+      conformingSpec() +
+      `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n`;
+    const { root, doc } = makeWorkspace({ spec });
+    const before = readFileSync(doc, 'utf8');
+    const result = run(root, ['advance', '--doc', doc]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'refused: the last entry [GATE-WRITE] carries no per-criterion result line (`- <GATE> — <criterion>: <observed>`) — a heading and a Status upgrade alone is not a judged gate',
+    );
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+    expect(existsSync(doc)).toBe(true);
+  });
 });
 
 describe('approve', () => {
-  it('DIRECT writes the entry the standing-delegation parsers accept and exits 0 (TC-04)', () => {
+  it('DIRECT writes the entry the standing-delegation parsers accept, judges the mechanical set into it, and exits 0 (TC-04)', () => {
     const { root, doc } = makeWorkspace({
       spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
       folder: 'backlog',
     });
+    gitInit(root);
     const result = approve(root, doc, ['--route', 'DIRECT', '--instruction', '승인, 진행해']);
-    expect(result.status, result.stderr).toBe(0);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
     expect(result.stdout).toContain('route DIRECT accepted');
+    expect(result.stdout).toMatch(/GATE-APPROVAL mechanical set: 5 PASS, 0 FAIL/);
     const text = readFileSync(doc, 'utf8');
     expect(text).toContain(`### [GATE-APPROVAL] — ✅ PASS | ${DATE}`);
     expect(text).toContain('**Status upgrade:** review-ready → approved');
     expect(text).toContain('**Approval route:** `DIRECT`');
     expect(text).toContain('**Instruction (verbatim):** "승인, 진행해"');
     expect(text).toContain(`**Given:** ${DATE}, this conversation`);
+    // Round-A finding 4: the verdict is EARNED — the per-criterion lines are in the entry.
+    const [entry] = evidenceEntries(text);
+    const judged = entry.lines.filter((line) => /^- GATE-APPROVAL — .+: .+/.test(line));
+    expect(judged).toHaveLength(5);
+    expect(judged.find((line) => line.includes('explicit approval'))).toContain(
+      'route DIRECT; `**Instruction (verbatim):**` recorded',
+    );
+    expect(judged.find((line) => line.includes('No Architecture Review'))).toContain(
+      "equals the document's current fingerprint",
+    );
+    expect(text).toMatch(
+      /\*\*Review fingerprint:\*\* [0-9a-f]{12} \(review [0-9a-f]{8}, type\/tags [0-9a-f]{8}\)/,
+    );
+    // And advance accepts it, because the lines are there.
+    const advanced = run(root, ['advance', '--doc', doc]);
+    expect(advanced.status, advanced.stderr).toBe(0);
+    expect(existsSync(path.join(root, `.agents/spec-docs/todo/${SPEC_ID}.md`))).toBe(true);
     // The scan's own parsers, with the form read from the REAL rule, accept what was written.
     const section = parseRegistrySection(
       readFileSync(path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'), 'utf8'),
@@ -702,11 +998,34 @@ describe('approve', () => {
     expect(readFileSync(doc, 'utf8')).toBe(before);
   });
 
+  /**
+   * Round-A finding 3, by fingerprint: `approve` records what it approved. An entry written by hand
+   * (the guardian's, or a migrated one) carries no `**Review fingerprint:**` line, so the "not
+   * modified after approval" criterion has nothing to compare against and is the guardian's to judge.
+   */
+  it('a GATE-APPROVAL entry without a Review fingerprint line leaves the review-unchanged criterion PENDING-GUARDIAN — exit 2, nothing written', () => {
+    const { root, doc } = makeWorkspace({
+      spec:
+        conformingSpec({ status: 'review-ready', folder: 'backlog' }) +
+        `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n\n- GATE-WRITE — a criterion: judged\n` +
+        `\n### [GATE-APPROVAL] — ✅ PASS | ${DATE}\n\n**Status upgrade:** review-ready → approved\n**Approval route:** \`DIRECT\`\n**Instruction (verbatim):** "go"\n**Given:** ${DATE}, this conversation\n\n- GATE-APPROVAL — a criterion: judged by hand\n`,
+      folder: 'backlog',
+    });
+    const before = readFileSync(doc, 'utf8');
+    const result = judge(root, doc, 'GATE-APPROVAL', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(2);
+    expect(result.stdout).toMatch(
+      /PENDING-GUARDIAN GATE-APPROVAL — No Architecture Review[^\n]*carries no `\*\*Review fingerprint:\*\*` line/,
+    );
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
   it('CLASS with a registered class dated before the instruction is accepted (control)', () => {
     const { root, doc } = makeWorkspace({
       spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
       folder: 'backlog',
     });
+    gitInit(root);
     const result = approve(root, doc, [
       '--route',
       'CLASS',
@@ -721,6 +1040,27 @@ describe('approve', () => {
     const text = readFileSync(doc, 'utf8');
     expect(text).toContain('**Class:** `DOC-TYPO`');
     expect(text).toContain('**Evidence condition met:** `git diff --numstat` → 1 line');
+  });
+
+  it('CLASS on a class whose condition gate.mjs cannot measure still needs --evidence, and says why', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    const before = readFileSync(doc, 'utf8');
+    const result = approve(root, doc, [
+      '--route',
+      'CLASS',
+      '--class',
+      'DOC-TYPO',
+      '--instruction',
+      'x',
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'class `DOC-TYPO`\'s evidence condition ("diff ≤ 3 lines") is not one gate.mjs measures',
+    );
+    expect(readFileSync(doc, 'utf8')).toBe(before);
   });
 
   it('CLASS with an instruction dated before the registration refuses', () => {
@@ -750,58 +1090,309 @@ describe('approve', () => {
   });
 });
 
+/**
+ * `LANE-L0-L1`'s condition is MEASURED by running `scan-lane-declaration` over the branch's changed
+ * set — committed and working-tree changes against the base — with the spec's `lane:`. The base is
+ * `HARNESS_BASE_REF` (the fixture repo has no origin/develop, exactly like a stacked branch), and a
+ * diff of zero paths is a refusal: the scan's `::expected-empty::` pass is earned by nothing.
+ */
+describe('approve --route CLASS --class LANE-L0-L1 measures the evidence', () => {
+  it('runs scan-lane-declaration over the working-tree changed set and records its summary line as the evidence', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    // Untracked, uncommitted: the change is in the working tree only, and the floor still sees it.
+    mkdirSync(path.join(root, 'scripts/harness'), { recursive: true });
+    writeFileSync(path.join(root, 'scripts/harness/x.mjs'), 'export const y = 1;\n');
+    const result = approve(
+      root,
+      doc,
+      [...CLASS_LANE, '--evidence', 'a note, not the evidence'],
+      BASE_HEAD,
+    );
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('route CLASS accepted');
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain('**Class:** `LANE-L0-L1`');
+    const condition = /^\*\*Evidence condition met:\*\*\s*(.+)$/m.exec(text)[1];
+    expect(condition).toContain(
+      '`node scripts/harness/scan-lane-declaration.mjs --changed <1 path(s)>',
+    );
+    expect(condition).toContain(
+      'over 1 changed path(s) — committed and working-tree changes vs HEAD',
+    );
+    expect(condition).toContain('→ exit 0, `lane-declaration summary: violations=0 result=PASS`');
+    expect(condition).toContain('Lane L1 (commit trailer) is at or above the floor L1');
+    expect(condition).toMatch(/ — note: a note, not the evidence$/);
+  });
+
+  it('refuses an EMPTY changed set — a vacuous pass is not evidence — and writes nothing', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    const before = readFileSync(doc, 'utf8');
+    const result = approve(root, doc, CLASS_LANE, BASE_HEAD);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(
+      /refused: the diff against HEAD \(merge base [0-9a-f]{12}\) is empty/,
+    );
+    expect(result.stderr).toContain('a pass over nothing is not evidence');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  it("refuses when the diff's floor is above the declared lane, quoting the scan, and writes nothing", () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    mkdirSync(path.join(root, 'packages/core/src'), { recursive: true });
+    writeFileSync(path.join(root, 'packages/core/src/index.ts'), 'export const contract = 1;\n');
+    const before = readFileSync(doc, 'utf8');
+    const result = approve(
+      root,
+      doc,
+      [...CLASS_LANE, '--evidence', 'typed evidence cannot replace the measurement'],
+      BASE_HEAD,
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('refused: the class condition is not met');
+    expect(result.stderr).toContain('`lane-declaration summary: violations=1 result=FAIL`');
+    expect(result.stderr).toContain(
+      'declared L1 is below the floor L2 set by: packages/core/src/index.ts',
+    );
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  it('refuses with the HARNESS_BASE_REF hint when no base ref resolves (a stacked branch with no origin/develop)', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    writeFileSync(path.join(root, 'scripts.txt'), 'x\n');
+    const result = approve(root, doc, CLASS_LANE, { HARNESS_BASE_REF: '' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'refused: no base ref resolves (tried origin/develop) — set HARNESS_BASE_REF=<ref>',
+    );
+  });
+
+  it('the measured evidence satisfies the GATE-APPROVAL "by measurement" criterion under PLAN', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    mkdirSync(path.join(root, 'scripts/harness'), { recursive: true });
+    writeFileSync(path.join(root, 'scripts/harness/x.mjs'), 'export const y = 1;\n');
+    expect(approve(root, doc, CLASS_LANE, BASE_HEAD).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toMatch(
+      /PASS\s+GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement[^\n]*route CLASS; evidence condition recorded as a measurement/,
+    );
+  });
+});
+
+/**
+ * `today()` used `toISOString()`, which is UTC: an approval at 01:5x KST on the 28th was stamped the
+ * 27th and refused against a row registered on the 28th. Every stamp is now the LOCAL calendar date.
+ * Two zones 26 hours apart never share a calendar date, so the two runs below must differ whatever
+ * the clock says — they could not under a UTC stamp.
+ */
+describe('dates are the local calendar date, overridable with --date on every stamping subcommand', () => {
+  it('localDate formats the calendar date of the zone, not UTC', () => {
+    const late = new Date('2026-08-27T16:55:00Z'); // 01:55 KST on the 28th
+    expect(localDate(late, 'Asia/Seoul')).toBe('2026-08-28');
+    expect(localDate(late, 'UTC')).toBe('2026-08-27');
+    expect(localDate(late, 'Etc/GMT+12')).toBe('2026-08-27');
+    expect(localDate(late, 'Etc/GMT-14')).toBe('2026-08-28');
+  });
+
+  function stampedApprovalDate(zone) {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    gitInit(root);
+    const before = localDate(new Date(), zone);
+    const result = run(
+      root,
+      ['approve', '--doc', doc, '--route', 'DIRECT', '--instruction', 'go'],
+      { TZ: zone },
+    );
+    const after = localDate(new Date(), zone);
+    expect(result.status, result.stderr).toBe(0);
+    const stamped = /### \[GATE-APPROVAL\] — ✅ PASS \| (\d{4}-\d{2}-\d{2})/.exec(
+      readFileSync(doc, 'utf8'),
+    )[1];
+    expect([before, after]).toContain(stamped);
+    expect(readFileSync(doc, 'utf8')).toContain(`**Given:** ${stamped}, this conversation`);
+    return stamped;
+  }
+
+  it('approve without --date stamps the LOCAL date: UTC+14 and UTC-12 never agree', () => {
+    const east = stampedApprovalDate('Etc/GMT-14');
+    const west = stampedApprovalDate('Etc/GMT+12');
+    expect(east).not.toBe(west);
+  });
+
+  it('--date overrides the stamp on approve, record and judge', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog', lane: 'L2' }),
+      folder: 'backlog',
+    });
+    gitInit(root);
+    const approved = run(
+      root,
+      ['approve', '--doc', doc, '--route', 'DIRECT', '--instruction', 'go', '--date', '2026-01-02'],
+      { TZ: 'Etc/GMT-14' },
+    );
+    expect(approved.status, approved.stderr).toBe(0);
+    expect(readFileSync(doc, 'utf8')).toContain('### [GATE-APPROVAL] — ✅ PASS | 2026-01-02');
+    const recorded = run(
+      root,
+      ['record', '--doc', doc, '--tc', 'TC-01', '--skip', 'by hand', '--date', '2026-01-03'],
+      { TZ: 'Etc/GMT-14' },
+    );
+    expect(recorded.status, recorded.stderr).toBe(0);
+    expect(readFileSync(doc, 'utf8')).toContain(
+      '### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-01-03',
+    );
+    const judged = run(
+      root,
+      [
+        'judge',
+        '--gate',
+        'GATE-APPROVAL',
+        '--doc',
+        doc,
+        '--lane',
+        'L2',
+        '--date',
+        '2026-01-04',
+        '--dry-run',
+      ],
+      { TZ: 'Etc/GMT-14' },
+    );
+    expect(judged.stdout + judged.stderr).toContain('| 2026-01-04');
+  });
+});
+
 describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
-  it('PLAN judges the WRITE + APPROVAL mechanical sets and writes [GATE-PLAN] draft → approved', () => {
+  /**
+   * PLAN = GATE-WRITE's mechanical set + GATE-APPROVAL + the three Task-shaped GATE-IMPLEMENT
+   * criteria (Task created, Task path recorded, PLAN outcome recorded) — never the worktree
+   * inventory. The entry it writes carries the exact paired Task path token and the Task's own
+   * `SCENARIO DRAFTED` line, which is what `scan-user-execution-plan-order` reads an L1 checkpoint
+   * by (Round-A finding 8).
+   */
+  it('PLAN judges WRITE + APPROVAL + three IMPLEMENT criteria and writes [GATE-PLAN] draft → approved naming the Task path and its SCENARIO DRAFTED line', () => {
     const { root, doc } = makeWorkspace();
     gitInit(root);
     expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
     const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
     expect(result.status, result.stdout + result.stderr).toBe(0);
-    expect(result.stdout).toContain('25 criteria judged — 25 PASS, 0 FAIL, 0 PENDING-GUARDIAN');
+    expect(result.stdout).toContain('28 criteria judged — 28 PASS, 0 FAIL, 0 PENDING-GUARDIAN');
     const text = readFileSync(doc, 'utf8');
     expect(text).toContain(`### [GATE-PLAN] — ✅ PASS | ${DATE}`);
     expect(text).toContain('**Status upgrade:** draft → approved');
     expect(text).toMatch(
-      /GATE-APPROVAL — No Architecture Review[^\n]*: every Architecture Review[^\n]*on or before the 2026-08-28 approval \(git blame\)/,
+      /GATE-APPROVAL — No Architecture Review[^\n]*: the `\*\*Review fingerprint:\*\*` recorded at approval \([0-9a-f]{12}\) equals the document's current fingerprint/,
     );
+    const entry = evidenceEntries(text).find((candidate) => candidate.gate === 'GATE-PLAN');
+    const body = entry.lines.join('\n');
+    expect(body).toMatch(
+      /^- GATE-IMPLEMENT — `\.agents\/tasks\/<ID>\.md` has been created: `## Tasks` names `\.agents\/tasks\/PROC-999-fixture\.md`, which exists$/m,
+    );
+    expect(body).toMatch(
+      /^- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section[^\n]*: `## Tasks` names `\.agents\/tasks\/PROC-999-fixture\.md`, whose basename is the spec's$/m,
+    );
+    expect(body).toMatch(
+      /^- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable \| 0`$/m,
+    );
+    expect(body).not.toMatch(/whole worktree/i);
+    expect(body).not.toContain('Tasks in the file correspond');
+    // The tokens in the exact bounded form the plan-order scan reads.
+    expect(body).toMatch(/(^|[\s`])\.agents\/tasks\/PROC-999-fixture\.md(?=$|[\s`])/m);
+    expect(body).toMatch(/SCENARIO DRAFTED:\s*not-applicable\s*\|\s*0(?!\d)/);
     const advanced = run(root, ['advance', '--doc', doc]);
     expect(advanced.status, advanced.stderr).toBe(0);
     expect(existsSync(path.join(root, `.agents/spec-docs/todo/${SPEC_ID}.md`))).toBe(true);
   });
 
-  it('PLAN without an approve entry fails on the approval criteria, not silently', () => {
-    const { root, doc } = makeWorkspace();
-    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
-    expect(result.status).toBe(1);
-    expect(readFileSync(doc, 'utf8')).toContain('no standing `[GATE-APPROVAL] — ✅ PASS` entry');
-  });
-
-  it('an Architecture Review line committed AFTER the approval date is a FAIL (git blame)', () => {
-    const { root, doc } = makeWorkspace();
-    const git = gitInit(root);
-    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
-    writeFileSync(
-      doc,
-      readFileSync(doc, 'utf8').replace(
-        'Alternative 1. The trade-off',
-        'Alternative 2. The trade-off',
-      ),
-    );
-    git(['commit', '-q', '-am', 'revise the decision'], {
-      GIT_AUTHOR_DATE: '2026-09-15T12:00:00Z',
-      GIT_COMMITTER_DATE: '2026-09-15T12:00:00Z',
-    });
-    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
-    expect(result.status).toBe(1);
-    expect(readFileSync(doc, 'utf8')).toMatch(
-      /last changed on 2026-09-15, after the 2026-08-28 approval/,
-    );
-  });
-
-  it('an uncommitted Architecture Review edit has no date to order, so the check is skipped with the reason printed', () => {
-    const { root, doc } = makeWorkspace();
+  it('PLAN fails naming "`.agents/tasks/<ID>.md` has been created" when the Task file is missing', () => {
+    const { root, doc } = makeWorkspace({ task: null });
     gitInit(root);
     expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain(`### [GATE-PLAN] — ❌ FAIL | ${DATE}`);
+    expect(text).toMatch(
+      /- GATE-IMPLEMENT — `\.agents\/tasks\/<ID>\.md` has been created: `## Tasks` names `\.agents\/tasks\/PROC-999-fixture\.md`, which does not exist/,
+    );
+  });
+
+  it("PLAN fails naming the Task-path criterion when the Task's basename differs from the spec's", () => {
+    const other = '.agents/tasks/PROC-998-other.md';
+    const { root, doc } = makeWorkspace({ spec: conformingSpec({ taskRel: other }) });
+    writeFileSync(path.join(root, other), TASK);
+    gitInit(root);
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section[^\n]*: `## Tasks` names `\.agents\/tasks\/PROC-998-other\.md`, whose basename is not the spec's \(PROC-999-fixture\.md\)/,
+    );
+  });
+
+  it('PLAN fails naming the PLAN-outcome criterion when the Task lacks the `**Author verdict:**` SCENARIO DRAFTED line', () => {
+    const task = TASK.replace(
+      '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+      'Scenarios: SCENARIO DRAFTED: not-applicable | 0 (asserted in prose, no author verdict line).',
+    );
+    expect(task).not.toContain('**Author verdict:**');
+    const { root, doc } = makeWorkspace({ task });
+    gitInit(root);
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: Task `## User Execution Test Scenarios` carries no `\*\*Author verdict:\*\* `SCENARIO DRAFTED: \(not-applicable\|automatable\|manual\) \| <n>`` line \(0 found, exactly 1 required\)/,
+    );
+  });
+
+  /**
+   * PLAN composes GATE-APPROVAL, whose criteria read the entry `approve` writes. Before this case
+   * existed, `judge --gate PLAN` before `approve` wrote a ❌ entry with 5 APPROVAL fails for a step
+   * that had simply not run yet. The order is approve → judge; out of order is PENDING, not FAIL.
+   */
+  it('PLAN before approve reports the 5 GATE-APPROVAL criteria PENDING — run approve first — writes nothing, exits 2', () => {
+    const { root, doc } = makeWorkspace();
+    const before = readFileSync(doc, 'utf8');
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(2);
+    expect(result.stdout).toContain(
+      '28 criteria judged — 23 PASS, 0 FAIL, 0 PENDING-GUARDIAN, 5 PENDING-APPROVE',
+    );
+    expect(result.stdout.match(/^PENDING-APPROVE\s+GATE-APPROVAL — /gm)).toHaveLength(5);
+    expect(result.stdout).toContain(APPROVE_FIRST);
+    expect(result.stdout).toContain(
+      'no entry written: 5 GATE-APPROVAL criteria are PENDING — run `gate.mjs approve` first, then judge again',
+    );
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  it('PLAN before approve still writes a ❌ entry for a mechanical GATE-WRITE FAIL — without approval lines in it', () => {
+    const spec = conformingSpec().replace('- [ ] TC-02: `node', '- [ ] `node');
+    const { root, doc } = makeWorkspace({ spec });
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status).toBe(1);
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain(`### [GATE-PLAN] — ❌ FAIL | ${DATE}`);
+    expect(text).not.toContain('GATE-APPROVAL —');
+  });
+
+  /**
+   * Round-A finding 3: "No Architecture Review or frontmatter type/tags modified after approval" was
+   * decided by comparing CALENDAR DATES from git blame, so a same-day edit passed, and an uncommitted
+   * edit was "skipped" as PASS. It is now decided by ANCESTRY: the commit that introduced the
+   * GATE-APPROVAL PASS heading is found (`git log -S`, first-parent), and the review section and the
+   * type/tags lines are compared between that commit and HEAD; any difference is a FAIL naming the
+   * commits. An uncommitted change to those ranges is PENDING-GUARDIAN, never a pass.
+   */
+  function reviseDecision(doc) {
     writeFileSync(
       doc,
       readFileSync(doc, 'utf8').replace(
@@ -809,11 +1400,47 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
         'Alternative 2. The trade-off',
       ),
     );
+  }
+
+  it('an Architecture Review edit AFTER approval is a FAIL naming the section — no git, no dates', () => {
+    const { root, doc } = makeWorkspace();
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    reviseDecision(doc);
     const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
-    expect(result.status, result.stdout).toBe(0);
-    expect(result.stdout).toMatch(
-      /No Architecture Review[^\n]*skipped — 1 line\(s\) in the checked ranges are uncommitted/,
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /No Architecture Review[^\n]*: the Architecture Review section changed since the approval \([0-9a-f]{8} → [0-9a-f]{8}\)/,
     );
+  });
+
+  it('a type: change after approval is a FAIL naming the frontmatter half', () => {
+    const { root, doc } = makeWorkspace();
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    writeFileSync(doc, readFileSync(doc, 'utf8').replace('type: RULE', 'type: INFRA'));
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /No Architecture Review[^\n]*: the frontmatter type\/tags lines changed since the approval \([0-9a-f]{8} → [0-9a-f]{8}\)/,
+    );
+  });
+
+  it('an Architecture Review edit BEFORE approval is a PASS — the fingerprint records the revised review', () => {
+    const { root, doc } = makeWorkspace();
+    reviseDecision(doc);
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /No Architecture Review[^\n]*: the `\*\*Review fingerprint:\*\*` recorded at approval \([0-9a-f]{12}\) equals the document's current fingerprint/,
+    );
+  });
+
+  it('an untracked draft is approved and judged the same way — the fingerprint needs no history', () => {
+    const { root, doc } = makeWorkspace();
+    expect(existsSync(path.join(root, '.git'))).toBe(false);
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const result = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
   });
 
   it('DONE judges VERIFY + COMPLETE after record entries and writes [GATE-DONE] approved → done', () => {
@@ -859,9 +1486,9 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
       '--lane',
       'L1',
       '--verify-cmd',
-      'echo build ok',
+      'echo node scripts/harness/run-all-scans.mjs --affected',
       '--verify-cmd',
-      'echo tests ok',
+      'echo pnpm exec vitest run scripts/harness/__tests__/example.test.mjs',
     ]);
     expect(result.status, result.stdout + result.stderr).toBe(0);
     const text = readFileSync(doc, 'utf8');
@@ -872,10 +1499,46 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
     expect(text).toContain('**Test skipped:** needs a live tree — verified by hand');
     expect(text).toContain(`### [GATE-DONE] — ✅ PASS | ${DATE}`);
     expect(text).toContain('**Status upgrade:** approved → done');
-    expect(text).toContain('`echo build ok` → exit 0 (build ok)');
+    // Every verify command is recorded verbatim with its exit, on both criteria.
+    expect(text).toMatch(
+      /GATE-VERIFY — Build passes[^\n]*: build-shaped `echo node scripts\/harness\/run-all-scans\.mjs --affected` → exit 0/,
+    );
+    expect(text).toMatch(
+      /GATE-VERIFY — Tests pass[^\n]*: test-shaped `echo pnpm exec vitest run scripts\/harness\/__tests__\/example\.test\.mjs` → exit 0/,
+    );
     const advanced = run(root, ['advance', '--doc', doc]);
     expect(advanced.status, advanced.stderr).toBe(0);
     expect(existsSync(path.join(root, `.agents/spec-docs/done/${SPEC_ID}.md`))).toBe(true);
+  });
+
+  /**
+   * Round-A finding 7: "Build passes" / "Tests pass" accepted ANY exit-0 `--verify-cmd` — `true`
+   * satisfied both. The tests criterion needs at least one supplied command containing `test` or
+   * `vitest`; the build criterion needs one containing `build`, `harness:scan` or `run-all-scans`
+   * (the build-equivalent for a scope with no package build, such as `scripts/**`-only changes).
+   */
+  it('DONE with `--verify-cmd true` fails BOTH verify criteria naming the shape rule, though the command exits 0', () => {
+    const spec =
+      conformingSpec({ status: 'approved', folder: 'todo', ticked: true }).replace(
+        '| fixture with the tree                 |       |',
+        '| fixture with the tree                 | skipped: needs a live tree |',
+      ) +
+      `\n### [GATE-PLAN] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → approved\n\n- GATE-WRITE — a criterion: judged\n`;
+    const { root, doc } = makeWorkspace({ spec, folder: 'todo' });
+    for (const tc of ['TC-01', 'TC-02'])
+      expect(
+        run(root, ['record', '--doc', doc, '--tc', tc, '--skip', 'by hand', '--date', DATE]).status,
+      ).toBe(0);
+    const result = judge(root, doc, 'DONE', ['--lane', 'L1', '--verify-cmd', 'true']);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain(`### [GATE-DONE] — ❌ FAIL | ${DATE}`);
+    expect(text).toMatch(
+      /GATE-VERIFY — Build passes[^\n]*: no supplied --verify-cmd contains `build`, `harness:scan` or `run-all-scans` \(supplied: `true` → exit 0\)/,
+    );
+    expect(text).toMatch(
+      /GATE-VERIFY — Tests pass[^\n]*: no supplied --verify-cmd contains `test` or `vitest` \(supplied: `true` → exit 0\)/,
+    );
   });
 
   it('DONE fails when a TC is unticked, a record is missing, or a verify command exits non-zero', () => {
@@ -898,7 +1561,7 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
 describe('judge — GATE-IMPLEMENT reads the worktree', () => {
   function approvedWorkspace() {
     const spec =
-      conformingSpec({ status: 'approved', folder: 'todo' }) +
+      conformingSpec({ status: 'approved', folder: 'todo', lane: 'L2' }) +
       `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n\n### [GATE-APPROVAL] — ✅ PASS | ${DATE}\n\n**Status upgrade:** review-ready → approved\n**Approval route:** \`DIRECT\`\n**Instruction (verbatim):** "go"\n**Given:** ${DATE}, this conversation\n`;
     return makeWorkspace({ spec, folder: 'todo' });
   }
@@ -934,6 +1597,6 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     spawnSync('git', ['rm', '-q', TASK_REL], { cwd: root });
     const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
     expect(result.status).toBe(1);
-    expect(readFileSync(doc, 'utf8')).toContain(`names ${TASK_REL}, which does not exist`);
+    expect(readFileSync(doc, 'utf8')).toContain(`names \`${TASK_REL}\`, which does not exist`);
   });
 });

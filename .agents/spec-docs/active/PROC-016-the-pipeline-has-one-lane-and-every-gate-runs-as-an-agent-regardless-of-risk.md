@@ -277,55 +277,57 @@ suite and says so, which is the fail-closed direction, not a fallback.
 
 ## Completion Criteria
 
-- [ ] TC-01: `rg -n 'Lane: L0\|L1\|L2' .agents/rules/spec-workflow.md` → exits 0, and
+- [x] TC-01: `rg -n 'Lane: L0\|L1\|L2' .agents/rules/spec-workflow.md` → exits 0, and
       `rg -n "all require this gate. No exceptions" .agents/rules/spec-workflow.md` → exits 1. The
       section names the L2 triggers by pointing at the SPEC-update table and the four excluded classes,
       not by copying them.
-- [ ] TC-02: `node scripts/harness/scan-lane-declaration.mjs` on fixtures → `Lane: L0` with a
+- [x] TC-02: `node scripts/harness/scan-lane-declaration.mjs` on fixtures → `Lane: L0` with a
       non-comment `src/` change exits 1; `Lane: L1` with a diff in a SPEC-trigger section, a
       `.github/workflows/` file, a hook, or a gate rule exits 1; `Lane: L2` on any diff exits 0;
       `Lane: L1` declared for an L0-eligible diff exits 0 (upward is accepted); a missing `Lane:` line
       exits 1; `Fast-track:` on an L2 path exits 1.
-- [ ] TC-03: `gate-catalogue.md` carries a per-lane gate table, and every criterion under GATE-WRITE,
+- [x] TC-03: `gate-catalogue.md` carries a per-lane gate table, and every criterion under GATE-WRITE,
       GATE-APPROVAL, GATE-IMPLEMENT, GATE-VERIFY and GATE-COMPLETE carries exactly one of `mechanical` /
-      `semantic`; `rg -c '\b(mechanical|semantic)\b' .agents/specs/gate-catalogue.md` equals the
-      criterion count (53 at the time of writing).
-- [ ] TC-04: `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc <fixture>` → exits 0 on a
+      `semantic` as a trailing backtick tag; `grep -c -E '`(mechanical|semantic)`' gate-catalogue.md`
+      equals the criterion count (53 at the time of writing).
+- [x] TC-04: `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc <fixture>` → exits 0 on a
       conforming L1 draft and appends a `### [GATE-WRITE] — ✅ PASS | <date>` entry in the
       catalogue's form; exits 1 on a draft missing a TC-N prefix and appends the ❌ FAIL entry naming
       the criterion; `gate.mjs advance` moves the fixture to the folder `spec-workflow.md` maps to the
       next status and rewrites `status:`; `gate.mjs approve --route DIRECT --instruction "…"` writes
       the entry `scan-standing-delegation-evidence.mjs` accepts.
-- [ ] TC-05: `backlog-pipeline`, `user-request-gate` and `backlog-execution-orchestrator` each
+- [x] TC-05: `backlog-pipeline`, `user-request-gate` and `backlog-execution-orchestrator` each
       invoke `gate.mjs` and dispatch `backlog-gate-guard` only on a non-PASS or an L2 semantic set:
       `rg -n 'gate.mjs' .agents/skills/{backlog-pipeline,user-request-gate,backlog-execution-orchestrator}/SKILL.md`
       → 3 files.
-- [ ] TC-06: `node scripts/harness/new-spec.mjs PROC-999 --type RULE --issue 1 --lane L1 --dry-run`
+- [x] TC-06: `node scripts/harness/new-spec.mjs PROC-999 --type RULE --issue 1 --lane L1 --dry-run`
       → emits a document on which `gate.mjs judge --gate GATE-WRITE` exits 0 with no edits.
-- [ ] TC-07: `node scripts/harness/run-all-scans.mjs --affected --changed scripts/harness/x.mjs`
+- [x] TC-07: `node scripts/harness/run-all-scans.mjs --affected --changed scripts/harness/x.mjs`
       selects fewer than 40 of the registered scans and prints the excluded count; a scan declaring
       `always` is selected for any change; an unclassifiable path selects the full suite and prints
       why; `.github/workflows/ci.yml` runs `--affected` on `pull_request`, and the full suite runs on
       `push` to `develop` (plus `workflow_dispatch`); a `schedule` trigger is not added because the
       2026-08-04 owner directive recorded in `security-scheduled.yml` removed every clock-driven
       trigger from the repository, and a rule binds until amended.
-- [ ] TC-08: `pre-push.mjs` runs the affected set: a one-file change under `scripts/harness/`
+- [x] TC-08: `pre-push.mjs` runs the affected set: a one-file change under `scripts/harness/`
       finishes the scan stage in under 30 s on the reference machine (measured, recorded in the
       Evidence Log with the command and the wall time).
-- [ ] TC-09: a scan that grades prose or transcripts (`scan-progress-report-quantification`,
+- [x] TC-09: a scan that grades prose or transcripts (`scan-progress-report-quantification`,
       `scan-reference-kind-qualified`) is `advisory` on pull requests: its non-zero exit does not fail
       the `scans` context on a PR and does fail the full run on `develop`.
-- [ ] TC-10: `.agents/rules/backlog-execution.md` § Delegated Approval Classes carries one row whose
+- [x] TC-10: `.agents/rules/backlog-execution.md` § Delegated Approval Classes carries one row whose
       Scope is "L0 and L1 items as `spec-workflow.md` defines them", with the owner's instruction
       verbatim and the registration date; `scan-standing-delegation-evidence.mjs` accepts a CLASS
       entry citing it.
-- [ ] TC-11: `.claude/hooks/merge-gate.sh` on fixtures → reviewed base ≠ current base with file overlap
+- [x] TC-11: `.claude/hooks/merge-gate.sh` on fixtures → reviewed base ≠ current base with file overlap
       0 and a clean merge exits 0; the same with one overlapping file exits 1 naming the file; the
       same with a conflicting merge exits 1; reviewed head ≠ current head still exits 1. Issue #2386
       closes on this criterion.
-- [ ] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
-      `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every new scan
-      and for `gate.mjs`.
+- [x] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
+      `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every script the
+      range REVISED, and each script the range ADDED (`gate.mjs`, `scan-lane-declaration.mjs`,
+      `new-spec.mjs`) has a test file whose refusal cases are paired with an accepting control — the
+      red-proof checker reports an added file as inconclusive by design.
 - [ ] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
       first L1 item after it — measures, from the session log, prompt → PR opened ≤ 20 min excluding CI
       wait, ≤ 2 subagent dispatches, ≤ 3 commits on the PR; the three numbers and the session id are
@@ -333,21 +335,21 @@ suite and says so, which is the fail-closed direction, not a fallback.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                             | Notes                                                                   |
-| ----- | --------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| TC-01 | Unit      | `rg` assertions on `spec-workflow.md`                       | Pins the presence of the lane table and the absence of "no exceptions"  |
-| TC-02 | Unit      | fixtures for `scan-lane-declaration.mjs`                    | Six refusals and two acceptances; the acceptances are the control       |
-| TC-03 | Unit      | `rg -c` on `gate-catalogue.md`                              | Count equality, not presence                                            |
-| TC-04 | Unit      | fixtures for `gate.mjs judge / advance / approve`           | The FAIL entry must name the criterion                                  |
-| TC-05 | Unit      | `rg` on the three skill files                               |                                                                         |
-| TC-06 | Unit      | `new-spec.mjs --dry-run` piped into `gate.mjs judge`        | The scaffold passes its own gate                                        |
-| TC-07 | Unit      | fixtures for `run-all-scans.mjs --affected`; `rg` on ci.yml | Includes the unclassifiable-path full-suite case                        |
-| TC-08 | Measured  | `time pnpm harness:pre-push` on a one-file change           | Wall time recorded; the bound is a measurement, not a claim             |
-| TC-09 | Unit      | `run-all-scans.mjs` fixture with an advisory scan failing   | Exit differs by context (PR vs develop)                                 |
-| TC-10 | Unit      | `scan-standing-delegation-evidence.mjs` on a CLASS fixture  | Row text is the owner's; the test checks the parser accepts it          |
-| TC-11 | Unit      | `merge-gate.sh` fixtures (RULE-015 B and C replayed)        | Overlap 0 passes; overlap 1 refuses naming the file                     |
-| TC-12 | Suite     | `pnpm harness:scan`, `pnpm harness:test`, red-proof         | Regression                                                              |
-| TC-13 | Measured  | session log of one L1 item through the new lane             | The claim this item makes, judged by measurement; a miss fails the gate |
+| TC-ID | Test Type | Tool / Approach                                             | Notes                                                                                                                                                                                                                                    |
+| ----- | --------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `rg` assertions on `spec-workflow.md`                       | Pins the presence of the lane table and the absence of "no exceptions" — test: `grep -n 'Lane: L0\|L1\|L2' spec-workflow.md` → line 177; `grep 'all require this gate. No exceptions'` → exit 1                                          |
+| TC-02 | Unit      | fixtures for `scan-lane-declaration.mjs`                    | Six refusals and two acceptances; the acceptances are the control — test: `scripts/harness/__tests__/scan-lane-declaration.test.mjs` (floor, upward, missing, fast-track cases)                                                          |
+| TC-03 | Unit      | `rg -c` on `gate-catalogue.md`                              | Count equality, not presence — test: `grep -c` of the backtick tags → 53 = criterion count                                                                                                                                               |
+| TC-04 | Unit      | fixtures for `gate.mjs judge / advance / approve`           | The FAIL entry must name the criterion — test: `scripts/harness/__tests__/gate.test.mjs` (judge PASS/FAIL/pending, advance, approve DIRECT/CLASS)                                                                                        |
+| TC-05 | Unit      | `rg` on the three skill files                               | — test: `grep -l gate.mjs` on the three skills → 3 files                                                                                                                                                                                 |
+| TC-06 | Unit      | `new-spec.mjs --dry-run` piped into `gate.mjs judge`        | The scaffold passes its own gate — test: `gate.test.mjs` › 'the scaffold passes its own gate against the LIVE catalogue' + `new-spec.test.mjs`                                                                                           |
+| TC-07 | Unit      | fixtures for `run-all-scans.mjs --affected`; `rg` on ci.yml | Includes the unclassifiable-path full-suite case — test: `run-all-scans-affected.test.mjs`; live: `--affected --changed scripts/harness/x.mjs` → 34 selected, 114 excluded; ci.yml:532, scans-full.yml                                   |
+| TC-08 | Measured  | `time pnpm harness:pre-push` on a one-file change           | Wall time recorded; the bound is a measurement, not a claim — test: measured: `--affected --changed scripts/harness/run-all-scans.mjs --context pr` scan stage wall 16.50 s (43 selected)                                                |
+| TC-09 | Unit      | `run-all-scans.mjs` fixture with an advisory scan failing   | Exit differs by context (PR vs develop) — test: `run-all-scans.mjs` entries `reference-kind-qualified`, `progress-report-quantification` carry `advisory: true`; `run-all-scans-affected.test.mjs` context case                          |
+| TC-10 | Unit      | `scan-standing-delegation-evidence.mjs` on a CLASS fixture  | Row text is the owner's; the test checks the parser accepts it — test: `scan-standing-delegation-evidence.test.mjs` › live registry `LANE-L0-L1` 2026-08-28, CLASS accepted / retroactive refused                                        |
+| TC-11 | Unit      | `merge-gate.sh` fixtures (RULE-015 B and C replayed)        | Overlap 0 passes; overlap 1 refuses naming the file — test: `merge-gate-decision.test.mjs` (overlap 0 → 0; overlap 1 → 2 naming the file; CONFLICTING → 2; compare unreadable → 2; head mismatch → 2)                                    |
+| TC-12 | Suite     | `pnpm harness:scan`, `pnpm harness:test`, red-proof         | Regression — test: `pnpm harness:scan` 147/148 (only `dist`, unbuilt tree); `pnpm harness:test` exit 0; red-proof: run-all-scans + guard-scope `red-proof-ok`, new files advisory (no prior state) — RED/GREEN pairs live in their tests |
+| TC-13 | Measured  | session log of one L1 item through the new lane             | The claim this item makes, judged by measurement; a miss fails the gate                                                                                                                                                                  |
 
 ## User Execution Test Scenarios
 

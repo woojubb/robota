@@ -56,19 +56,19 @@ folder, there is no move.
 The lane column is the document's `lane:` frontmatter field, as `spec-workflow.md` > Lanes defines it.
 An L0 change has no spec document and never enters this skill.
 
-| Current `status`  | Lane | Next Action                                                                               | Next `status` on PASS |
-| ----------------- | ---- | ----------------------------------------------------------------------------------------- | --------------------- |
-| (not yet created) | L1   | `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`                 | `draft`               |
-| (not yet created) | L2   | Invoke `backlog-writer` skill                                                             | `draft`               |
-| `draft`           | L1   | `gate.mjs judge --gate PLAN` (GATE-WRITE mechanical criteria + GATE-APPROVAL)             | `approved`            |
-| `draft`           | L2   | `gate.mjs judge --gate GATE-WRITE`, then guard on the semantic set                        | `review-ready`        |
-| `review-ready`    | L2   | `gate.mjs approve`, then `gate.mjs judge --gate GATE-APPROVAL`, guard on the semantic set | `approved`            |
-| `approved`        | L1   | `gate.mjs judge --gate DONE` (GATE-VERIFY + GATE-COMPLETE criteria)                       | `done`                |
-| `approved`        | L2   | `gate.mjs judge --gate GATE-IMPLEMENT`, then guard on the semantic set                    | `in-progress`         |
-| `in-progress`     | L2   | `gate.mjs judge --gate GATE-VERIFY`, then guard on the semantic set                       | `verifying`           |
-| `verifying`       | L2   | `gate.mjs judge --gate GATE-COMPLETE`, then guard on the semantic set                     | `done`                |
-| `done`            | any  | No action. Pipeline is complete.                                                          | —                     |
-| `rejected`        | any  | No action. Item is closed.                                                                | —                     |
+| Current `status`  | Lane | Next Action                                                                                      | Next `status` on PASS |
+| ----------------- | ---- | ------------------------------------------------------------------------------------------------ | --------------------- |
+| (not yet created) | L1   | `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`                        | `draft`               |
+| (not yet created) | L2   | Invoke `backlog-writer` skill                                                                    | `draft`               |
+| `draft`           | L1   | `gate.mjs approve --route CLASS --class LANE-L0-L1`, then `gate.mjs judge --gate PLAN --lane L1` | `approved`            |
+| `draft`           | L2   | `gate.mjs judge --gate GATE-WRITE`, then guard on the semantic set                               | `review-ready`        |
+| `review-ready`    | L2   | `gate.mjs approve`, then `gate.mjs judge --gate GATE-APPROVAL`, guard on the semantic set        | `approved`            |
+| `approved`        | L1   | `gate.mjs judge --gate DONE` (GATE-VERIFY + GATE-COMPLETE criteria)                              | `done`                |
+| `approved`        | L2   | `gate.mjs judge --gate GATE-IMPLEMENT`, then guard on the semantic set                           | `in-progress`         |
+| `in-progress`     | L2   | `gate.mjs judge --gate GATE-VERIFY`, then guard on the semantic set                              | `verifying`           |
+| `verifying`       | L2   | `gate.mjs judge --gate GATE-COMPLETE`, then guard on the semantic set                            | `done`                |
+| `done`            | any  | No action. Pipeline is complete.                                                                 | —                     |
+| `rejected`        | any  | No action. Item is closed.                                                                       | —                     |
 
 **Out-of-band gate:** `GATE-CONFORMANCE` (architecture conformance) is NOT a status transition and does
 not appear in this table. It is run separately via `backlog-gate-guard` — on demand, after cross-package
@@ -103,7 +103,24 @@ work, and before a `develop → main` release. See
 2. For GATE-APPROVAL (and the L1 PLAN gate, which contains it), the approval is recorded by
    `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`
    — the instruction is quoted verbatim, and Route CLASS names a class from the registry in
-   `backlog-execution.md` > Delegated Approval Classes.
+   `backlog-execution.md` > Delegated Approval Classes. `approve` runs BEFORE the gate that contains
+   GATE-APPROVAL: until it has, `judge` reports those criteria `PENDING — run approve first` (exit 2)
+   and writes no entry. For `LANE-L0-L1` the evidence is measured by the script (it runs
+   `scan-lane-declaration` over the branch's changed set), not typed.
+
+**The L1 lane, in order** — each step is one of the commands above; none is skipped or reordered:
+
+1. `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` — scaffold
+2. Write Problem, Decision and the TC-N criteria
+3. `gate.mjs approve --doc <PATH> --route CLASS --class LANE-L0-L1 --instruction "<verbatim>"` —
+   evidence measured by the script
+4. `gate.mjs judge --gate PLAN --doc <PATH> --lane L1`
+5. `gate.mjs advance --doc <PATH>` (`draft → approved`, `todo/`)
+6. ONE planning commit — the spec and its Task, trailer `Lane: L1`
+7. Implement
+8. `gate.mjs record --doc <PATH> --tc TC-NN …` per TC
+9. `gate.mjs judge --gate DONE --doc <PATH> --lane L1 --verify-cmd "<build>" --verify-cmd "<test>"`
+10. `gate.mjs advance --doc <PATH>` (`approved → done`, `done/`), the Task to `completed/`, commit
 
 When the guard is dispatched — the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md)
 (Agent tool), one gate per invocation — it owns how to judge; give it only the two inputs it needs:
@@ -173,13 +190,14 @@ Note: GATE FAIL is NOT a rejection. FAIL means the item can be fixed and re-run.
 
 ## Anti-Patterns
 
-| Anti-pattern                                            | Correct behavior                                                              |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Moving to next gate without Evidence Log entry          | STOP. Write NON-COMPLIANCE.                                                   |
-| Skipping GATE-APPROVAL because "it's implied"           | STOP. User must explicitly approve. Quote required.                           |
-| Running gate guard inline instead of as subagent        | Always spawn as Agent subagent for isolation.                                 |
-| Fixing FAIL items and immediately re-running the gate   | Surface the failure to the user first. Re-run only after user confirms fix.   |
-| Setting status to `done` before GATE-COMPLETE           | Status changes only follow gate PASS results.                                 |
-| Moving the file or editing `status:` by hand            | `gate.mjs advance` does both in one step; a half-done move is NON-COMPLIANCE. |
-| Dispatching the guard before `gate.mjs judge` has run   | The script judges the mechanical set first; the guard sees only the residue.  |
-| Running an L2 gate set on an L1 document, or vice versa | Read `lane:`; the state-machine table is keyed on it.                         |
+| Anti-pattern                                            | Correct behavior                                                                 |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Moving to next gate without Evidence Log entry          | STOP. Write NON-COMPLIANCE.                                                      |
+| Skipping GATE-APPROVAL because "it's implied"           | STOP. User must explicitly approve. Quote required.                              |
+| Running gate guard inline instead of as subagent        | Always spawn as Agent subagent for isolation.                                    |
+| Fixing FAIL items and immediately re-running the gate   | Surface the failure to the user first. Re-run only after user confirms fix.      |
+| Setting status to `done` before GATE-COMPLETE           | Status changes only follow gate PASS results.                                    |
+| Moving the file or editing `status:` by hand            | `gate.mjs advance` does both in one step; a half-done move is NON-COMPLIANCE.    |
+| Dispatching the guard before `gate.mjs judge` has run   | The script judges the mechanical set first; the guard sees only the residue.     |
+| Running an L2 gate set on an L1 document, or vice versa | Read `lane:`; the state-machine table is keyed on it.                            |
+| `judge --gate PLAN` before `approve` on an L1 document  | `approve` first; PLAN reports the approval criteria PENDING (exit 2) until then. |

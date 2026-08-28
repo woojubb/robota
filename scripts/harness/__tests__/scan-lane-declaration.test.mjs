@@ -91,6 +91,36 @@ const COMMENT_ONLY_CHANGE = diffFor('packages/agents/src/index.ts', [
   '+',
 ]);
 
+/**
+ * A markdown bullet added INSIDE a template literal. Every line here starts with `* ` the way a
+ * block-comment body line does, and none of it is a comment: it is a string the program ships.
+ */
+const TEMPLATE_BULLET_CHANGE = diffFor('packages/x/src/a.ts', [
+  ' export const help = `',
+  '   Options:',
+  '+  * --verbose  say more',
+  ' `;',
+]);
+
+/** One line added to an existing doc block, where the hunk shows neither the opener nor the code. */
+const MID_BLOCK_DOC_CHANGE = diffFor(
+  'packages/x/src/a.ts',
+  [' * existing line', '+ * added line', ' */', ' export const a = 1;'],
+  { newStart: 4, oldStart: 4 },
+);
+
+/** The post-image of that file: the opener sits three lines above the hunk. */
+const MID_BLOCK_FILE_TEXT = [
+  '/**',
+  ' * doc',
+  ' * more',
+  ' * existing line',
+  ' * added line',
+  ' */',
+  'export const a = 1;',
+  '',
+].join('\n');
+
 const SPEC_TEXT = [
   '# @robota-sdk/agents',
   '',
@@ -235,6 +265,24 @@ describe('scan-lane-declaration — diff reading', () => {
     expect(hunkHasCodeChange(commentHunk)).toBe(false);
   });
 
+  it('counts a `* ` line as CODE when no block comment encloses it (a bullet in a template literal)', () => {
+    const [hunk] = parseUnifiedDiff(TEMPLATE_BULLET_CHANGE).get('packages/x/src/a.ts').hunks;
+    expect(hunkHasCodeChange(hunk), 'a string literal was read as a comment').toBe(true);
+  });
+
+  it('still reads a `/** … * … */` block the hunk itself opens as comment-only (control)', () => {
+    const [hunk] = parseUnifiedDiff(COMMENT_ONLY_CHANGE).get('packages/agents/src/index.ts').hunks;
+    expect(hunkHasCodeChange(hunk)).toBe(false);
+  });
+
+  it('reads a `* ` line the hunk cannot place as code, unless the post-image places it in a block', () => {
+    // Upward is the safe direction: with no opener in sight the line counts as code. The caller
+    // that HAS the post-image can say where the hunk starts, and then the same line is a comment.
+    const [hunk] = parseUnifiedDiff(MID_BLOCK_DOC_CHANGE).get('packages/x/src/a.ts').hunks;
+    expect(hunkHasCodeChange(hunk)).toBe(true);
+    expect(hunkHasCodeChange(hunk, { inBlockAtStart: true })).toBe(false);
+  });
+
   it('places a SPEC hunk under the heading in effect in the post-image', () => {
     const file = parseUnifiedDiff(SPEC_TRIGGER_CHANGE).get('packages/agents/docs/SPEC.md');
     expect(fileTouchesTriggerSection(file, TRIGGERS, SPEC_TEXT)).toEqual({
@@ -282,6 +330,18 @@ describe('scan-lane-declaration — declaration sources', () => {
     );
   });
 
+  it('reports two commit trailers that disagree as a conflict naming both lanes', () => {
+    // Two commits in `base..HEAD`, each carrying its own `Lane:`. Reading the first alone would
+    // let the second be whatever it likes — and the second may be the one the change needs.
+    const result = collectDeclaration({
+      trailersText: 'feat: a\n\nLane: L1\n\nfix: b\n\nLane: L0\n',
+    });
+    expect(result.conflicts).toEqual([
+      'commit trailer #1 declares L1 but commit trailer #2 declares L0',
+    ]);
+    expect(collectDeclaration({ trailersText: 'Lane: L1\n\nLane: L1\n' }).conflicts).toEqual([]);
+  });
+
   it('reads Fast-track from the same sources', () => {
     expect(
       collectDeclaration({ prBodyText: 'Lane: L0\nFast-track: owner said so\n' }),
@@ -309,6 +369,28 @@ describe('scan-lane-declaration — the TC-02 decision table', () => {
       declaration: declared('L0'),
     });
     expect(verdict).toMatchObject({ ok: true, floor: 'L0', refusals: [] });
+  });
+
+  it('L0 with a `* ` bullet added inside a template literal under src → refused', () => {
+    const verdict = decide({
+      changedPaths: ['packages/x/src/a.ts'],
+      diffText: TEMPLATE_BULLET_CHANGE,
+      declaration: declared('L0'),
+    });
+    expect(verdict.ok, 'a shipped string was waved through as a comment').toBe(false);
+    expect(verdict.floor).toBe('L1');
+    expect(verdict.refusals[0]).toContain('packages/x/src/a.ts');
+  });
+
+  it('L0 adding a line to an existing doc block, placed by the post-image → accepted (control)', () => {
+    const verdict = decide({
+      changedPaths: ['packages/x/src/a.ts'],
+      diffText: MID_BLOCK_DOC_CHANGE,
+      declaration: declared('L0'),
+      readFile: (p) => (p === 'packages/x/src/a.ts' ? MID_BLOCK_FILE_TEXT : null),
+    });
+    expect(verdict.ok, verdict.refusals.join('; ')).toBe(true);
+    expect(verdict.floor).toBe('L0');
   });
 
   it('L0 with a src path the diff carries no hunk for → refused (cannot prove comment-only)', () => {
@@ -545,6 +627,32 @@ describe('scan-lane-declaration — exit contract', () => {
     expect(conflict.stderr).toContain('conflicting declarations');
   });
 
+  it('refuses two commit trailers that disagree, naming both lanes; accepts two that agree', () => {
+    const root = makeRoot({
+      files: {
+        'disagree.txt': 'feat: a\n\nLane: L1\n\nfix: b\n\nLane: L0\n',
+        'agree.txt': 'feat: a\n\nLane: L1\n\nfix: b\n\nLane: L1\n',
+      },
+    });
+    const disagree = runScan(root, [
+      '--changed',
+      'README.md',
+      '--trailers-file',
+      path.join(root, 'disagree.txt'),
+    ]);
+    expect(disagree.status, 'the second trailer was never read').toBe(1);
+    expect(disagree.stderr).toContain('conflicting declarations');
+    expect(disagree.stderr).toMatch(/declares L1 .*declares L0/);
+
+    const agree = runScan(root, [
+      '--changed',
+      'README.md',
+      '--trailers-file',
+      path.join(root, 'agree.txt'),
+    ]);
+    expect(agree.status, agree.stderr).toBe(0);
+  });
+
   it('exits 1 on a missing declaration', () => {
     const root = makeRoot();
     const run = runScan(root, ['--changed', 'README.md']);
@@ -605,9 +713,18 @@ describe('scan-lane-declaration — exit contract', () => {
     expect(refused.stdout).toContain('::examined:: 1 changed path(s)');
     expect(refused.stderr).toContain('declared L0 is below the floor L1');
 
-    // A later commit re-declares the lane. `git log` lists newest first and the first trailer wins,
-    // so the newest commit's declaration is the one judged — raising the lane needs no rewrite.
+    // A later commit that re-declares the lane is a CONFLICT, not a re-declaration: every trailer
+    // in `base..HEAD` is read, and two that disagree are refused naming both. The first version
+    // took the first trailer `git log` listed and let the other say anything.
     git('commit', '-q', '--allow-empty', '-m', 'chore: relane\n\nLane: L1');
+    const conflicted = runScan(root, ['--base', 'develop']);
+    expect(conflicted.status, 'the second trailer was never read').toBe(1);
+    expect(conflicted.stderr).toContain('conflicting declarations');
+    expect(conflicted.stderr).toMatch(/declares L1 .*declares L0/);
+
+    // Raising the lane means the record says one thing: reword the commit that declared it.
+    git('reset', '-q', '--hard', 'HEAD~1');
+    git('commit', '-q', '--amend', '-m', 'feat: bump\n\nLane: L1');
     const raised = runScan(root, ['--base', 'develop']);
     expect(raised.status, raised.stderr).toBe(0);
     expect(raised.stdout).toContain('L1 (commit trailer)');

@@ -2127,6 +2127,296 @@ describe("HARNESS-127 — the catalogue's spelling of the worktree criterion", (
   });
 });
 
+describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () => {
+  // An L1 spec (`lane: L1`) has two gates, PLAN (`draft → approved`) and DONE; it never enters
+  // `active/` and never carries `in-progress`, so the L2 checkpoint shape (active/ + GATE-IMPLEMENT)
+  // can never occur for it. Its checkpoint is the commit that first gives the `todo/` spec a complete
+  // GATE-PLAN PASS. Measured on INFRA-135: without this rule every implementation commit after a
+  // correct PLAN PASS was refused as `no planning checkpoint`.
+  const DRAFT_SPEC_PATH = `.agents/spec-docs/draft/${TASK_ID}.md`;
+  const TODO_SPEC_PATH = `.agents/spec-docs/todo/${TASK_ID}.md`;
+  const USER_REQUEST_LEDGER = '.agents/loop-runs/user-request-gate.jsonl';
+  const IMPLEMENTATION_PATH = 'scripts/harness/change.mjs';
+
+  function ledgerRecord(runId = 'r20260827000000') {
+    return `${JSON.stringify({
+      runId,
+      opened: '2026-08-27T00:00:00.000Z',
+      closed: '2026-08-27T00:01:00.000Z',
+      roundFindings: [0],
+      extensions: {},
+      terminal: 'converged',
+      ref: null,
+    })}\n`;
+  }
+
+  function l1SpecText({
+    lane = 'L1',
+    status = 'approved',
+    planEntry = true,
+    taskLine = `- GATE-WRITE — Task record: \`${TASK_PATH}\` exists and maps the completion criteria.`,
+    signalLine = '- GATE-WRITE — user-execution PLAN terminal outcome: Task records `SCENARIO DRAFTED: not-applicable | 0`.',
+  } = {}) {
+    return [
+      '---',
+      `status: ${status}`,
+      ...(lane === null ? [] : [`lane: ${lane}`]),
+      'type: INFRA',
+      '---',
+      '',
+      `# ${TASK_ID}`,
+      '',
+      '## Tasks',
+      '',
+      `- [ ] \`${TASK_PATH}\``,
+      '',
+      '## Evidence Log',
+      '',
+      ...(planEntry
+        ? [
+            '### [GATE-PLAN] — ✅ PASS | 2026-08-27',
+            '',
+            '**Status upgrade:** draft → approved',
+            '',
+            taskLine,
+            signalLine,
+            '',
+          ]
+        : ['Planning pending.', '']),
+    ].join('\n');
+  }
+
+  function l1TaskText() {
+    return taskText().replace('status: in-progress', 'status: todo');
+  }
+
+  function l1Prelude(root, options = {}) {
+    write(root, TASK_PATH, l1TaskText());
+    write(root, DRAFT_SPEC_PATH, l1SpecText({ ...options, status: 'draft', planEntry: false }));
+    return commit(root, 'L1 draft prelude');
+  }
+
+  function writeL1Checkpoint(root, options = {}) {
+    git(root, ['rm', '-q', DRAFT_SPEC_PATH]);
+    write(root, TODO_SPEC_PATH, l1SpecText(options));
+  }
+
+  function l1Checkpoint(root, options = {}) {
+    writeL1Checkpoint(root, options);
+    return commit(root, 'L1 PLAN checkpoint');
+  }
+
+  function implementation(root) {
+    write(root, IMPLEMENTATION_PATH, 'implementation\n');
+    return commit(root, 'implementation');
+  }
+
+  it('accepts implementation after an L1 PLAN PASS checkpoint in todo/ (TC-a)', () => {
+    const { root, base } = repository();
+    l1Prelude(root);
+    l1Checkpoint(root);
+    implementation(root);
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+    expect(readExaminedPlanOrderCount(root, base)).toBe(3);
+
+    write(root, 'packages/example/src.ts', 'more implementation\n');
+    git(root, ['add', 'packages/example/src.ts']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('accepts an L1 checkpoint whose Task is already in-progress, and one with a ledger append', () => {
+    const { root, base } = repository();
+    l1Prelude(root);
+    write(root, TASK_PATH, taskText());
+    writeL1Checkpoint(root);
+    write(root, USER_REQUEST_LEDGER, ledgerRecord());
+    commit(root, 'L1 PLAN checkpoint with an in-progress Task and a ledger record');
+    implementation(root);
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('refuses implementation that precedes the L1 PLAN PASS (TC-b)', () => {
+    const before = repository();
+    l1Prelude(before.root);
+    implementation(before.root);
+    l1Checkpoint(before.root);
+    const findings = findHistoryFindings(before.root, before.base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(/before the planning checkpoint/);
+    expect(findings[0].problem).toContain(IMPLEMENTATION_PATH);
+
+    const never = repository();
+    l1Prelude(never.root);
+    implementation(never.root);
+    const neverFindings = findHistoryFindings(never.root, never.base);
+    expect(neverFindings).toHaveLength(1);
+    expect(neverFindings[0].problem).toMatch(/no planning checkpoint/);
+    expect(neverFindings[0].problem).toContain(IMPLEMENTATION_PATH);
+  });
+
+  it.each([
+    ['the paired Task path', { taskLine: '- GATE-WRITE — Task record: exists.' }],
+    [
+      'the SCENARIO DRAFTED signal',
+      { signalLine: '- GATE-WRITE — user-execution PLAN terminal outcome: recorded.' },
+    ],
+    [
+      "a count that is not the Task's",
+      {
+        signalLine:
+          '- GATE-WRITE — user-execution PLAN terminal outcome: Task records `SCENARIO DRAFTED: not-applicable | 1`.',
+      },
+    ],
+    ['the draft → approved upgrade line', { status: 'approved', planEntry: true, lane: 'L1' }],
+  ])('refuses an L1 PLAN entry missing %s as no checkpoint (TC-c)', (name, options) => {
+    const { root, base } = repository();
+    l1Prelude(root);
+    if (name === 'the draft → approved upgrade line') {
+      git(root, ['rm', '-q', DRAFT_SPEC_PATH]);
+      write(
+        root,
+        TODO_SPEC_PATH,
+        l1SpecText(options).replace(
+          '**Status upgrade:** draft → approved',
+          '**Status upgrade:** approved → in-progress',
+        ),
+      );
+      commit(root, 'L1 PLAN entry with the wrong upgrade');
+    } else {
+      l1Checkpoint(root, options);
+    }
+
+    const findings = findHistoryFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(/GATE-PLAN/);
+
+    implementation(root);
+    expect(messages(findHistoryFindings(root, base))).toMatch(/no planning checkpoint/);
+  });
+
+  it('leaves the L2 rule untouched: a GATE-PLAN entry on an L2 spec is not a checkpoint (TC-d)', () => {
+    for (const lane of [null, 'L2']) {
+      const { root, base } = repository();
+      l1Prelude(root, { lane });
+      l1Checkpoint(root, { lane });
+      implementation(root);
+
+      const findings = findHistoryFindings(root, base);
+      expect(findings.map((item) => item.problem).join('\n')).toMatch(/no planning checkpoint/);
+      expect(findings.some((item) => item.problem.includes(IMPLEMENTATION_PATH))).toBe(true);
+    }
+
+    const l2 = repository();
+    checkpoint(l2.root);
+    implementation(l2.root);
+    expect(findHistoryFindings(l2.root, l2.base)).toEqual([]);
+  });
+
+  it('refuses an L1 checkpoint mixed with implementation, in history and staged', () => {
+    const { root, base } = repository();
+    l1Prelude(root);
+    writeL1Checkpoint(root);
+    write(root, IMPLEMENTATION_PATH, 'implementation\n');
+    git(root, ['add', '-A']);
+    expect(messages(findStagedFindings(root, base))).toContain(IMPLEMENTATION_PATH);
+
+    commit(root, 'squashed L1 planning and implementation');
+    expect(messages(findHistoryFindings(root, base))).toContain(IMPLEMENTATION_PATH);
+  });
+
+  it('judges a staged L1 checkpoint by name and accepts a complete one', () => {
+    const complete = repository();
+    l1Prelude(complete.root);
+    writeL1Checkpoint(complete.root);
+    git(complete.root, ['add', '-A']);
+    expect(findStagedFindings(complete.root, complete.base)).toEqual([]);
+
+    const incomplete = repository();
+    l1Prelude(incomplete.root);
+    writeL1Checkpoint(incomplete.root, { taskLine: '- GATE-WRITE — Task record: exists.' });
+    git(incomplete.root, ['add', '-A']);
+    const findings = findStagedFindings(incomplete.root, incomplete.base);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(messages(findings)).toMatch(/GATE-PLAN/);
+  });
+
+  it('refuses a second L1 checkpoint after the first, like a second L2 one', () => {
+    const { root, base } = repository();
+    l1Prelude(root);
+    l1Checkpoint(root);
+    const other = 'HARNESS-901-second-l1-fixture';
+    write(root, `.agents/tasks/${other}.md`, l1TaskText().replaceAll(TASK_ID, other));
+    write(root, `.agents/spec-docs/todo/${other}.md`, l1SpecText().replaceAll(TASK_ID, other));
+    commit(root, 'second L1 PLAN checkpoint');
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(
+      /second work-unit planning checkpoint/,
+    );
+  });
+
+  it('allows a pure append to the user-request-gate ledger before an L2 checkpoint (TC-e)', () => {
+    const { root, base } = repository();
+    write(root, USER_REQUEST_LEDGER, ledgerRecord());
+    commit(root, 'ledger-only prelude');
+    write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+    write(
+      root,
+      DRAFT_SPEC_PATH,
+      specText()
+        .replace('status: in-progress', 'status: draft')
+        .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning pending.'),
+    );
+    write(root, USER_REQUEST_LEDGER, `${ledgerRecord()}${ledgerRecord('r20260827000001')}`);
+    commit(root, 'draft prelude with a ledger append');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+
+    write(
+      root,
+      USER_REQUEST_LEDGER,
+      `${ledgerRecord()}${ledgerRecord('r20260827000001')}${ledgerRecord('r20260827000002')}`,
+    );
+    git(root, ['add', USER_REQUEST_LEDGER]);
+    expect(findStagedFindings(root, base)).toEqual([]);
+
+    checkpoint(root);
+    write(root, IMPLEMENTATION_PATH, 'implementation\n');
+    commit(root, 'implementation');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('refuses a prelude that rewrites an existing ledger line (TC-e)', () => {
+    const { root, base } = repository();
+    write(root, USER_REQUEST_LEDGER, ledgerRecord());
+    commit(root, 'ledger-only prelude');
+    write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+    write(
+      root,
+      USER_REQUEST_LEDGER,
+      `${ledgerRecord().replace('"converged"', '"abandoned"')}${ledgerRecord('r20260827000001')}`,
+    );
+    git(root, ['add', '-A']);
+    expect(messages(findStagedFindings(root, base))).toMatch(/no planning checkpoint/);
+
+    commit(root, 'rewrite a sealed ledger line');
+    checkpoint(root);
+    const findings = findHistoryFindings(root, base);
+    expect(messages(findings)).toMatch(/pure append/);
+    expect(messages(findings)).toContain(USER_REQUEST_LEDGER);
+  });
+
+  it('keeps the post-merge ledger outside the generic append allowance', () => {
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+    write(root, '.agents/loop-runs/post-merge-cycle.jsonl', ledgerRecord());
+    commit(root, 'prelude with an unbound post-merge record');
+    checkpoint(root);
+
+    expect(messages(findHistoryFindings(root, base))).toMatch(/post-merge ledger/);
+  });
+});
+
 describe('user-execution PLAN order — repository contract', () => {
   it('passes on this branch and includes the real predecessor prelude plus checkpoint', () => {
     expect(findHistoryFindings()).toEqual([]);

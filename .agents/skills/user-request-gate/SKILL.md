@@ -44,7 +44,10 @@ for an L0 change (Phase 2 step 0), until the lane is declared and its ground nam
    **L1** uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the
    draft — the scaffold writes the `Waived:` line research.md accepts, so step 4's research dispatch is
    not required for L1 (the author may still research) — fills Problem, Decision and the TC-N criteria,
-   and goes to Phase 3 where `gate.mjs judge --gate PLAN` runs. **L2** takes steps 1–4 as written.
+   and goes to Phase 3 where `gate.mjs approve` then `gate.mjs judge --gate PLAN` run. **L2** takes
+   steps 1–4 as written. On a branch stacked on another feature branch, set `HARNESS_BASE_REF=<that
+branch>` before any base-reading step (`scan-lane-declaration`, `run-all-scans --affected`,
+   `gate.mjs approve --route CLASS`), or the measured diff is the parent branch's as well.
 
 1. Choose the spec-doc type from the prefix taxonomy:
    - `BEHAVIOR` — system-internal logic, state transitions
@@ -96,9 +99,16 @@ After the draft is written:
    - L1: one PLAN gate (`draft → approved` — GATE-WRITE's mechanical criteria plus GATE-APPROVAL)
    - L2: GATE-WRITE (document completeness), then GATE-APPROVAL (explicit user sign-off)
 2. Approval is recorded with
-   `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`;
-   status moves are `node scripts/harness/gate.mjs advance --doc <PATH>`.
+   `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`
+   — BEFORE the gate that contains GATE-APPROVAL, which reports those criteria PENDING (exit 2) until
+   it has run; status moves are `node scripts/harness/gate.mjs advance --doc <PATH>`.
 3. Only after GATE-APPROVAL (or the L1 PLAN gate) passes, proceed to implementation.
+
+**L1, in order:** scaffold (`new-spec.mjs … --lane L1`) → write → `gate.mjs approve --route CLASS
+--class LANE-L0-L1` (evidence measured by the script) → `gate.mjs judge --gate PLAN --lane L1` →
+`gate.mjs advance` → ONE planning commit (trailer `Lane: L1`) → implement (Phase 4) → `gate.mjs record`
+per TC → `gate.mjs judge --gate DONE --lane L1 --verify-cmd …` → `gate.mjs advance` → Task to
+`completed/` → commit.
 
 ## Phase 4: Implement
 

@@ -288,12 +288,51 @@ describe('the Task record is the source', () => {
     expect(stdout).toMatch(/### Affected Scope\n\n<!-- every package/);
   });
 
-  it('--title overrides the record title and names the file', () => {
+  /**
+   * The filename is the Task's basename, always: `scan-user-execution-plan-order` pairs the two by
+   * basename, so a `--title` that renamed the file (as it once did) produced an unpaired spec.
+   */
+  it("--title sets the H1 only; the file keeps the Task's basename", () => {
     const root = rootWith({ tasks: [STUB_TASK] });
     const { code, stdout } = run(root, [...L1_ARGS, '--title', 'Another Title!']);
     expect(code).toBe(0);
-    expect(stdout.trim()).toBe(`${DRAFT_DIR}/PROC-999-another-title.md`);
-    expect(existsSync(path.join(root, DRAFT_DIR, 'PROC-999-another-title.md'))).toBe(true);
+    expect(stdout.trim()).toBe(`${DRAFT_DIR}/PROC-999-a-scaffold-example.md`);
+    const text = readFileSync(path.join(root, DRAFT_DIR, 'PROC-999-a-scaffold-example.md'), 'utf8');
+    expect(text).toContain('# PROC-999: Another Title!');
+    expect(existsSync(path.join(root, DRAFT_DIR, 'PROC-999-another-title.md'))).toBe(false);
+  });
+
+  it('INFRA-135 --title "…" --dry-run reports the target path with the Task\'s slug', () => {
+    const root = rootWith({
+      tasks: [
+        {
+          id: 'INFRA-135',
+          title: 'loop-run open refuses a second open on the same loop',
+          issue: 2406,
+        },
+      ],
+    });
+    const { code, stdout, stderr } = run(root, [
+      'INFRA-135',
+      '--type',
+      'INFRA',
+      '--issue',
+      '2406',
+      '--lane',
+      'L1',
+      '--title',
+      'loop-run open closes the previous run',
+      '--dry-run',
+    ]);
+    expect(code, stderr).toBe(0);
+    expect(stderr.trim()).toBe(
+      `new-spec: dry run — target ${DRAFT_DIR}/INFRA-135-loop-run-open-refuses-a-second-open-on-the-same-loop.md (not written)`,
+    );
+    expect(stdout).toContain('# INFRA-135: loop-run open closes the previous run');
+    expect(stdout).toContain(
+      'Paired with `.agents/tasks/INFRA-135-loop-run-open-refuses-a-second-open-on-the-same-loop.md`.', // allow-missing-artifact: fixture path inside the test's temporary root
+    );
+    expect(readdirSync(path.join(root, DRAFT_DIR))).toEqual([]);
   });
 
   it('--tags replaces the namespace default', () => {
