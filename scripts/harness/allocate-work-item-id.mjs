@@ -203,6 +203,24 @@ export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR) {
 }
 
 /** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
+/**
+ * The LOCAL calendar date, `YYYY-MM-DD` — the same formula `gate.mjs` exports (issue #2415).
+ *
+ * Every other date the harness writes — gate entries, `completed:`, the delegated-class `Registered`
+ * column — is the local date, so a `created:` sliced from the ISO (UTC) instant is one day behind the
+ * gate entries that follow it whenever the allocation happens after midnight local time. Mirrored
+ * rather than imported: `gate.mjs` pulls `run-all-scans.mjs` and three scan modules, and a script
+ * that writes one file should not load the scan registry to learn the date.
+ */
+export function localDate(date = new Date(), timeZone = undefined) {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 export function recordStub({ id, title, today, issue = null }) {
   return `---
 title: '${id}: ${title}'
@@ -295,7 +313,7 @@ function main(argv) {
     .slice(0, 80);
   const file = path.join(TASKS_DIR, `${id}-${slug}.md`);
   const absolute = path.join(WORKSPACE_ROOT, file);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate();
   try {
     // `wx` — create-or-fail, in ONE syscall. An `existsSync` followed by a write is a check and a
     // claim with a gap between them, which is the exact shape this script exists to remove one
