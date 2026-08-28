@@ -447,8 +447,18 @@ export function createPrePushSteps() {
         );
       }
 
-      process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
-      run('pnpm', ['cli:dev', '--version']);
+      // The smoke check runs the CLI from source, which resolves workspace packages through their
+      // built `dist/` (HARNESS-058). It is owed by the same pushes that owe build output: when no
+      // product code changed, the binary cannot have changed, and the check would only demand the
+      // build the prerequisite step just excused (PROC-016).
+      if (changeClassification?.product === false) {
+        process.stdout.write(
+          '\n▶ CLI smoke check skipped: no product code changed (harness/docs-only push)\n',
+        );
+      } else {
+        process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
+        run('pnpm', ['cli:dev', '--version']);
+      }
 
       process.stdout.write('\nRelease-grade verification remains explicit:\n');
       process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');
