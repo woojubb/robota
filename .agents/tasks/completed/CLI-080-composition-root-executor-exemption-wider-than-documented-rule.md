@@ -1,6 +1,8 @@
 ---
 title: 'CLI-080: the composition-root agent-executor exemption is granted to a concrete git-worktree adapter, wider than the documented "single permitted exception" — align the rule text or relocate the contract'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2445#issuecomment-5455752113
 created: 2026-08-13
 priority: low
 urgency: later

@@ -1,6 +1,8 @@
 ---
 title: 'CLI-081: agent-cli non-interactive flags reach the model by string-appending behavioural instructions to the system prompt, so a product flag semantics lives in a literal no SPEC owns — project-structure.md:113 forbids exactly this, and the scan that enforces it cannot see the site'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2056#issuecomment-5455752323
 created: 2026-08-16
 priority: medium
 urgency: soon

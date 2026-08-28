@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -131,16 +131,16 @@ None of the five governed Tasks has an existing baseline path key. No baseline f
 
 ## Completion Criteria
 
-- [ ] TC-01: the committed manifest contains exactly five units, nine final tracked paths, all five
+- [x] TC-01: the committed manifest contains exactly five units, nine final tracked paths, all five
       governed blobs, current ownership, one disposition per unit, and zero baseline changes.
-- [ ] TC-02: four unique continuation issues, the exact existing issue #2056, five canonical handoff
+- [x] TC-02: four unique continuation issues, the exact existing issue #2056, five canonical handoff
       comments, and the DOCS-032 control issue are read back; every unfinished skipped Task cites its
       exact canonical comment URL.
-- [ ] TC-03: all five Tasks become skipped without deleting or rewriting historical evidence; the
+- [x] TC-03: all five Tasks become skipped without deleting or rewriting historical evidence; the
       excluded CLI-034 Task and both factual carriers remain byte-unchanged.
-- [ ] TC-04: the exact final changed-path set contains only the five Task moves, paired DOCS-032
+- [x] TC-04: the exact final changed-path set contains only the five Task moves, paired DOCS-032
       Task/spec, and two append-only loop ledgers; no baseline, carrier, or package path changes.
-- [ ] TC-05: focused lifecycle/path/reference/delegation checks, `pnpm harness:scan`, and
+- [x] TC-05: focused lifecycle/path/reference/delegation checks, `pnpm harness:scan`, and
       `pnpm harness:verify-like-ci` exit 0 on the final branch.
 
 ## Test Plan
@@ -155,7 +155,7 @@ None of the five governed Tasks has an existing baseline path key. No baseline f
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`
+- [x] `.agents/tasks/completed/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`
 
 ## User Execution Test Scenarios
 
@@ -274,3 +274,63 @@ adds no runnable user-facing behavior.
   `.agents/spec-docs/active/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`;
   `SCENARIO DRAFTED: not-applicable | 0`; whole-worktree inventory limited to the exact Task/spec pair
   and loop ledger.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm --filter @robota-sdk/agent-transport-tui build` → exit 0 (ℹ [ESM] dist/node/index.d.ts 21.91 kB │ gzip: 6.81 kB ⏎ ℹ [ESM] 4 files, total: 508.18 kB ⏎ ✔ Build complete in 945ms); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm --filter @robota-sdk/agent-transport-tui test -- src/__tests__/terminal-capabilities.test.ts src/flows/__tests__/real-cursor-flow.test.ts src/__tests__/cjk-fallback-render.test.tsx src/__tests__/real-cursor-positioning.test.tsx` → exit 0 ( ⏎ 2:50:02 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ [?25h); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Agreement evidence: independent audit observed five units, nine projected final paths, five unchanged source blobs, and zero baseline changes.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Remote control-plane evidence: issues #2441-#2445 and #2056 plus all five canonical comments were read back OPEN, unassigned, unique, and exact.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Lifecycle evidence: all five Tasks differ only in permitted terminal frontmatter; excluded CLI-034 and carriers remain byte-unchanged.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Scope evidence: exact final projection is five Task paths, paired DOCS-032 Task/spec, and two ledgers; no baseline, carrier, or package path.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Test skipped:** No product behavior changed. Focused pre-completion checks passed; pnpm harness:scan and pnpm harness:verify-like-ci are reserved for and must pass against the atomic final Task/spec placement.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md
+
+### [FINAL-PLACEMENT-VERIFY] — ✅ PASS | 2026-08-29
+
+- `pnpm harness:scan` passed the atomic final placement: 145 scans passed and 3 declared scans
+  skipped.
+- `pnpm harness:verify-like-ci` passed all 13 locally reproducible CI stages against the final
+  worktree: 185 contract-test files and 4,220 tests passed; formatting, commit-message checks,
+  dist-free and built-tree scans, affected verification, lint (`0` errors; the existing warning
+  ceiling), and workspace typechecking all passed.
+- The first CI-equivalent attempt reached the workspace typecheck with declarations left stale by
+  the newly merged base change in PR #2439. `pnpm build` regenerated the workspace declarations and
+  passed; `pnpm -w typecheck` then passed, and the clean rerun of `pnpm harness:verify-like-ci`
+  passed all 13 stages in 3m 23.4s. No package or application source was changed to obtain the pass.
+- The affected product-behaviour evidence remains the focused TUI build plus the four named
+  CLI-062 test files (67 tests), all passing. The other four units are exact issue handoffs and do
+  not change runtime behaviour.

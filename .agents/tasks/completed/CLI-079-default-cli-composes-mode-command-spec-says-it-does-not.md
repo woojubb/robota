@@ -1,6 +1,8 @@
 ---
 title: 'CLI-079: the agent-cli SPEC says the default Robota CLI does not compose /mode, but the default product includes it — decide and enforce the composition intent'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2444#issuecomment-5455751920
 created: 2026-08-13
 priority: medium
 urgency: later

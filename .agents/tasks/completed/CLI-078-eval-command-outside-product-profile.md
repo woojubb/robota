@@ -1,6 +1,8 @@
 ---
 title: 'CLI-078: `robota eval` composes its own provider outside the product profile — and so does the subagent runner factory, before the fold'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2443#issuecomment-5455751753
 created: 2026-07-25
 priority: medium
 urgency: soon
