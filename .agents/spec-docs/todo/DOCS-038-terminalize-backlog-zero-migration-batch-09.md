@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -519,3 +519,23 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Round-5 independent recommendation review ENDORSE with ACTIONABLE FINDINGS: 0 on immutable target 58270df7e74bda61809169b7a6a497f10ed4f9d8; fresh guardian independently reproduced SEC e3668da7→e73e2396, six paired-spec contextualizations, exact Task full/body OIDs, baseline time states, three units/eleven paths, OPEN/unassigned owners, unmodified handoffs, excluded-scope boundary, and v2 approval isolation; GATE VERDICT: PASS, ACTIONABLE FINDINGS: 0.
+**Review fingerprint:** a38362cbff72 (review 3b10d0f8, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — ordering: prior gate GATE-WRITE PASS and status `review-ready`: the last GATE-WRITE verdict is `[GATE-WRITE] — ✅ PASS | 2026-08-29`, the document is `status: review-ready`, and the prior v2 approval is explicitly non-authorizing for this correction.
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A for Route CLASS; the verbatim registered instruction unambiguously pre-authorises the named `BACKLOG-ZERO-MIGRATION` category.
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Round-5 independent recommendation review ENDORSE with ACTIO)
+- GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry argues for: the immutable corrected manifest contains exactly three fixed-population units and eleven final paths; exact lifecycle evidence corrections, six paired-spec historical contextualizations, append-only handoffs, the finding-resolution ledger, and the no-growth baseline rekey are documentation lifecycle evidence within the class, while package/app source, API/contract, policy/gate documents, skills/workflows/hooks/topology, and product/user documentation remain excluded and untouched.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (a38362cbff72) equals the document's current fingerprint
+- GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement — not a bare "reviewed" claim. Retain an `architecture-audit-fanout` structure-channel result as additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").: N/A because this correction introduces no package, app, surface, layer, or product-family reclassification; Round 5 independently ENDORSED the exact eleven-path placement and exclusions with `ACTIONABLE FINDINGS: 0`.
