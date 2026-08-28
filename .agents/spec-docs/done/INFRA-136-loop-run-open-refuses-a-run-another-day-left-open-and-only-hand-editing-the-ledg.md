@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [infra]
 lane: L1
@@ -68,9 +68,9 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` → exits 0 (the earlier-day OPEN run is closed `abandoned` with `ref: "superseded by <new run id>"`, the same-day OPEN run still throws `already has run`, and the CLI prints one superseded line), and exits 1 with the fix reverted
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `node scripts/harness/scan-loop-run-records.mjs` → exits 0 (the ledger reader accepts the `abandoned` entries `open` now writes)
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` → exits 0 (the earlier-day OPEN run is closed `abandoned` with `ref: "superseded by <new run id>"`, the same-day OPEN run still throws `already has run`, and the CLI prints one superseded line), and exits 1 with the fix reverted
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `node scripts/harness/scan-loop-run-records.mjs` → exits 0 (the ledger reader accepts the `abandoned` entries `open` now writes)
 
 ## Test Plan
 
@@ -78,7 +78,7 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 | ----- | --------- | ---------------------------------------- | ---------------------------------------- |
 | TC-01 | Unit      | `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` | RED with the fix reverted, GREEN with it |
 | TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Regression |
-| TC-03 | Scan      | `node scripts/harness/scan-loop-run-records.mjs` | Ledger reader accepts the new entries |
+| TC-03 | Scan      | `node scripts/harness/scan-loop-run-records.mjs` | Ledger reader accepts the new entries; reader contract in `scripts/harness/__tests__/scan-loop-run-records.test.mjs` |
 
 ## User Execution Test Scenarios
 
@@ -88,7 +88,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md` — todo
+- [x] `.agents/tasks/completed/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md` — done
 
 ## Evidence Log
 
@@ -153,3 +153,92 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-28
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs (preceded by the same run with the fix reverted: 2 failed | 25 passed)`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+9:16:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /tmp/claude-1000/-home-ubunutu-dev-robota-2/3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c/scratchpad/wt-l1
+
+ ✓ scripts/harness/__tests__/loop-run.test.mjs (27 tests) 21ms
+
+ Test Files  1 passed (1)
+      Tests  27 passed (27)
+   Start at  09:16:01
+   Duration  276ms (transform 56ms, setup 0ms, collect 70ms, tests 21ms, environment 0ms, prepare 43ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-28
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 69 line(s))
+
+```
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /home/ubunutu/.claude/projects/-tmp-claude-1000--home-ubunutu-dev-robota-2-3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c-scratchpad-wt-l1; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+
+53 scans passed, 2 skipped (38 declared what they examined)
+scan receipt written: an unchanged tree will not be re-scanned.
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-28
+
+**Command:** `node scripts/harness/scan-loop-run-records.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 70 loop-run ledger entries
+loop-run-records scan passed (70 entry(ies) examined across 11 ledger(s)). It judges the records that EXIST — a run that was never opened leaves no line, and nothing over the tree can see it.
+```
+
+### [GATE-DONE] — ❌ FAIL | 2026-08-28
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 task(s) unticked in .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md: "Failing test: `openRun` on a ledger whose OPEN run"
+  **Required action:** complete and tick every task
+- GATE-VERIFY — No tasks are blocked or pending: 3 task(s) unticked/blocked/pending: "Failing test: `openRun` on a ledger whose OPEN run"
+  **Required action:** resolve or re-plan them
+- GATE-COMPLETE — The checkbox is checked (`[x]`): TC-01, TC-02, TC-03 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: TC-01, TC-02, TC-03 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 task(s) unticked in .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md: "Failing test: `openRun` on a ledger whose OPEN run"
+  **Required action:** complete and tick every task
+
+### [GATE-DONE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-28; status `approved`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md,  M .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` → exit 0 (   Duration  276ms (transform 55ms, setup 0ms, collect 69ms, tests 21ms, environment 0ms, prepare 44ms) ⏎  ⏎ 9:17:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md

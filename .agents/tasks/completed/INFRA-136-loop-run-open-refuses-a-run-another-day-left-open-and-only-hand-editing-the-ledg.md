@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-136: loop-run open refuses a run another day left open and only hand-editing the ledger gets past it'
 issue: https://github.com/woojubb/robota/issues/2406
-status: todo
+status: done
+completed: 2026-08-28
 created: 2026-08-28
 priority: medium
 urgency: soon
@@ -23,9 +24,9 @@ a run opened the same UTC day is still refused exactly as today.
 
 ## Plan
 
-- [ ] Failing test: `openRun` on a ledger whose OPEN run was opened on an earlier UTC day closes it as `abandoned` and opens the new run; a same-day OPEN run is still refused
-- [ ] Fix in `openRun` (`scripts/harness/loop-run.mjs`) and one printed line from the `open` CLI case
-- [ ] `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` and the affected scans green
+- [x] Failing test: `openRun` on a ledger whose OPEN run was opened on an earlier UTC day closes it as `abandoned` and opens the new run; a same-day OPEN run is still refused
+- [x] Fix in `openRun` (`scripts/harness/loop-run.mjs`) and one printed line from the `open` CLI case
+- [x] `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` and the affected scans green
 
 ## Test Plan
 
