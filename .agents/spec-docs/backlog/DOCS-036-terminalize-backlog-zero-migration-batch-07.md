@@ -232,3 +232,35 @@ to their GitHub owners.
   TC-N/Test Plan count: 5/5; `ACTIONABLE FINDINGS: 0`.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
+
+- Branch and manifest identity: base `66afbe4e710b15a818127205766fb68c269bc4ad` is the direct parent
+  of frozen-manifest commit `8d8fd14ef9d5fb58768e69f168e4584eab891cba`, which is the direct
+  parent of remote-grounding commit `a7f53493152246523f8ed9aff38150c219d229d8`; the freeze added only
+  this DOCS-036 spec and the grounding commit changed only that same file.
+- Remote control plane: issue #2456 uniquely carries
+  `backlog-zero:DOCS-036:2c875dd3`; issue #2457 uniquely carries
+  `backlog-zero:HARNESS-108-RESIDUAL:2c875dd3`; both are OPEN and unassigned. Parent issue #2404 and
+  existing residual owner #2047 are also OPEN and unassigned. Canonical comments
+  https://github.com/woojubb/robota/issues/2047#issuecomment-5457499005 and
+  https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038 belong to their declared
+  issues, carry the exact Task paths, blob OIDs, population object, residual criteria, and handoff
+  markers, and are unmodified (`created_at == updated_at == 2026-08-28T20:36:14Z`).
+- Governed blobs: the six fixed-population Task/spec/carrier blobs match the manifest at population
+  object `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`, base, `HEAD`, and worktree. The current baseline
+  matches `ec67ae89d867028ea2683429f98b89cd4c99dd97` at base, `HEAD`, and worktree, while its population
+  blob is exactly `9ef08cccbdb99f835efd8f5c0b64c2e74f2709f0`.
+- Delivery provenance: issues #1786, #1797, and #1851 are CLOSED/COMPLETED and unassigned; PR #1804
+  merged to `develop` as `7669851c565c958c455a6572c146d91b21007824`, and PR #1867 merged as
+  `8150363b190d5e4d9a2eb9a72c63783c0592256a`. Both merge commits are ancestors of `HEAD`.
+- Scope and baseline: the manifest contains exactly three unique units and eleven unique final
+  tracked paths. The HARNESS-108 root Task key is uniquely present in
+  `reference-kind-baseline.json` with value `2`, the completed-path key is absent, and replacing the
+  former with the latter preserves cardinality `275`; there is zero baseline growth and no other
+  carrier/baseline rekey. No package/app source, API/contract, package/product documentation,
+  policy/gate, skill/workflow/hook/topology, or other excluded path appears in the affected set.
+- Live ownership: no open matching PR, implementation branch, extra worktree, assignee, open loop,
+  long-lived process, or visible competing reservation owns SEC-009, HARNESS-103, or HARNESS-108.
+  `docs/backlog-zero-batch-07` is the sole migration owner and owns no package implementation.
+- `ACTIONABLE FINDINGS: 0`.
