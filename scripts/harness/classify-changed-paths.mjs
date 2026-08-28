@@ -59,7 +59,10 @@ export function isDocsOnlyPath(file) {
   return DOCS_ONLY_PATTERN.test(String(file ?? ''));
 }
 
-const INFRASTRUCTURE_ONLY_PATTERN = /^(scripts\/harness\/|\.github\/|\.husky\/|\.claude\/)/;
+// `.agents/` holds records, ledgers, rules and skills — the harness's own state, never product
+// code; a `.jsonl` ledger append must not make a push owe 81 packages' build output (PROC-016).
+const INFRASTRUCTURE_ONLY_PATTERN =
+  /^(scripts\/harness\/|\.github\/|\.husky\/|\.claude\/|\.agents\/)/;
 
 function failClosedCapabilities(reason) {
   return { code: true, product: true, tui: true, examples: true, harness: true, reason };
