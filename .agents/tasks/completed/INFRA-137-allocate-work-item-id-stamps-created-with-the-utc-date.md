@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-137: allocate-work-item-id stamps created with the UTC date'
 issue: https://github.com/woojubb/robota/issues/2415
-status: todo
+status: done
+completed: 2026-08-28
 created: 2026-08-28
 priority: medium
 urgency: soon
@@ -24,12 +25,12 @@ never disagree again, and a test pins the stamp under two time zones that never 
 
 ## Plan
 
-- [ ] Add a `localDate()` helper to `allocate-work-item-id.mjs` mirroring `gate.mjs`'s formula
+- [x] Add a `localDate()` helper to `allocate-work-item-id.mjs` mirroring `gate.mjs`'s formula
       (importing `gate.mjs` pulls in `run-all-scans.mjs` and three scan modules — heavier than a
       five-line helper) and use it for `created:`
-- [ ] Add a RED-first test: the exported helper gives different dates under `Etc/GMT-14` and
+- [x] Add a RED-first test: the exported helper gives different dates under `Etc/GMT-14` and
       `Etc/GMT+12` at the right instant, and the script's written record carries the local date
-- [ ] Run the test file and the affected scans; commit with the `Lane: L1` trailer
+- [x] Run the test file and the affected scans; commit with the `Lane: L1` trailer
 
 ## Test Plan
 
@@ -50,4 +51,4 @@ in the Test Plan above.
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md`
+`.agents/spec-docs/done/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md`

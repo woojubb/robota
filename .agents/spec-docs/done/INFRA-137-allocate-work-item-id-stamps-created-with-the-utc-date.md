@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [infra]
 lane: L1
@@ -72,9 +72,9 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs -t "local date"` → exits 0, and exits 1 with the fix reverted (the `created:` stamp differs between `TZ=Etc/GMT-14` and `TZ=Etc/GMT+12`)
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exits 0 on the whole file, not only the new case
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs -t "local date"` → exits 0, and exits 1 with the fix reverted (the `created:` stamp differs between `TZ=Etc/GMT-14` and `TZ=Etc/GMT+12`)
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exits 0 on the whole file, not only the new case
 
 ## Test Plan
 
@@ -92,7 +92,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md` — todo
+- [x] `.agents/tasks/completed/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md` — done 2026-08-28
 
 ## Evidence Log
 
@@ -157,3 +157,78 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-28
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs -t "local date" (then again with allocate-work-item-id.mjs from HEAD~1: 1 failed)`
+**Exit:** 0
+**Output:** (last 10 of 20 line(s))
+
+```
+   Duration  291ms (transform 33ms, setup 0ms, collect 36ms, tests 69ms, environment 0ms, prepare 43ms)
+
+exit=0
+## with the fix reverted (allocator from HEAD~1)
+   × the created stamp is the local date (issue #2415) > localDate mirrors gate.mjs: the same instant is two dates in UTC+14 and UTC-12 4ms
+   × the created stamp is the local date (issue #2415) > the process-local stamp differs between TZ=Etc/GMT-14 and TZ=Etc/GMT+12 21ms
+   × the created stamp is the local date (issue #2415) > `created:` is stamped from localDate, and no UTC slice remains in the source 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 21 skipped (24)
+reverted exit=1
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-28
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 69 line(s))
+
+```
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /home/ubunutu/.claude/projects/-tmp-claude-1000--home-ubunutu-dev-robota-2-3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c-scratchpad-wt-l1b; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+
+53 scans passed, 2 skipped (38 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md,  M .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-28
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+9:16:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /tmp/claude-1000/-home-ubunutu-dev-robota-2/3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c/scratchpad/wt-l1b
+
+ ✓ scripts/harness/__tests__/allocate-work-item-id.test.mjs (24 tests) 126ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  21:16:09
+   Duration  347ms (transform 35ms, setup 0ms, collect 37ms, tests 126ms, environment 0ms, prepare 46ms)
+```
+
+### [GATE-DONE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-28; status `approved`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md,  M .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exit 0 (   Duration  348ms (transform 33ms, setup 0ms, collect 38ms, tests 127ms, environment 0ms, prepare 44ms) ⏎  ⏎ 9:16:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md
