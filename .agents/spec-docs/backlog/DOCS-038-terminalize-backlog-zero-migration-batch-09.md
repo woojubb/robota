@@ -622,3 +622,28 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 > **Contained — INFRA-138.** The gate accepted an archived Task as active in the superseded local
 > checkpoint. This batch now executes the root reopen/rearchive sequence honestly; issue #2467 owns
 > the reusable gate-reader correction and regression proof.
+
+### [RECOMMENDATION REVIEW ROUND 6] — ✅ ENDORSE | 2026-08-29
+
+- Exact immutable target: `25dda28dfa319ff5fdd65335f2aee7c0697798b7`.
+- The amended recommendation explicitly compares re-plan with labelled containment and selects
+  containment because DOCS-038's critical/now lifecycle result is independently correct once its root
+  sequence is honest, while the separate high/now gate-reader repair requires excluded source/test/
+  design work.
+- INFRA-138 is specific, registered as OPEN GitHub issue #2467, and not a duplicate of issue #2265:
+  the former governs gate judgement and the latter governs task-archival scan population.
+- The existing `df31bd91c → e777b00ca` checkpoint/implementation order remains valid. SEC-016 and the
+  baseline retain exact postimages `e73e2396...` and `7704d8bb...`.
+- Exact scope is three fixed migration units, eleven batch paths, one containment Task, and twelve
+  paths overall. No package/app source, API/contract, policy/gate, workflow/hook/skill/topology, or
+  product/user documentation path is included.
+- The live citation projection is exact: eight previously completed-path citations rebind to root,
+  two fresh GATE-IMPLEMENT root citations remain truthful historical evidence, and final archival
+  rebinds only the eight lifecycle citations to completed.
+- The previous CLASS approval remains historical authorization of the eleven-path correction only.
+  Because INFRA-138 is outside the fixed population, the amended twelve-path result requires DIRECT
+  approval.
+- Focused affected scans: 53 PASS, 2 conditional skips, 0 failures.
+- `ACTIONABLE FINDINGS: 0`.
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
