@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-034: terminalize backlog-zero migration batch 05'
 issue: https://github.com/woojubb/robota/issues/2451
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -22,19 +23,19 @@ open for later batches and the preventive durable-queue mechanism.
 
 ## Spec
 
-`.agents/spec-docs/active/DOCS-034-terminalize-backlog-zero-migration-batch-05.md`
+`.agents/spec-docs/done/DOCS-034-terminalize-backlog-zero-migration-batch-05.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the committed three-unit/seven-path manifest, three source Task blob OIDs,
+- [x] TC-01 — preserve the committed three-unit/seven-path manifest, three source Task blob OIDs,
       exact ownership/dispositions, and zero-baseline/carrier boundary.
-- [ ] TC-02 — preserve exact readback of issues #2326, #2394, #2149, control issue #2451, and all
+- [x] TC-02 — preserve exact readback of issues #2326, #2394, #2149, control issue #2451, and all
       three canonical handoff URLs; put each URL on its skipped Task.
-- [ ] TC-03 — terminalize all three Tasks as skipped without deleting or rewriting historical
+- [x] TC-03 — terminalize all three Tasks as skipped without deleting or rewriting historical
       evidence and without claiming implementation delivery.
-- [ ] TC-04 — keep the exact final changed-path set to the three Task moves, paired DOCS-034
+- [x] TC-04 — keep the exact final changed-path set to the three Task moves, paired DOCS-034
       Task/spec, and two loop ledgers; change no excluded path.
-- [ ] TC-05 — pass focused lifecycle/folder/delegation/scenario/reference/ledger checks and the full
+- [x] TC-05 — pass focused lifecycle/folder/delegation/scenario/reference/ledger checks and the full
       harness scan/CI mirror on atomic final placement.
 
 ## Test Plan

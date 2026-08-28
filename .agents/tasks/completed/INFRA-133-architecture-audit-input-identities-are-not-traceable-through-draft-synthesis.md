@@ -1,7 +1,9 @@
 ---
 title: 'INFRA-133: architecture audit input identities are not traceable through draft synthesis'
 issue: https://github.com/woojubb/robota/issues/2149
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2149#issuecomment-5456693151
 created: 2026-08-22
 priority: medium
 urgency: now
