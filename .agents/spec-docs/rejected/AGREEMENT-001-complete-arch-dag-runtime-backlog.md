@@ -184,6 +184,9 @@ Execute the twelve existing records without redefining their scope:
 
 ## Tasks
 
+Terminalized initiative Task:
+`.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`.
+
 - [x] ARCH-009 — done — `.agents/tasks/completed/ARCH-009-preset-registry-through-command-host.md`
 - [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
 - [x] ARCH-011 — done — `.agents/tasks/completed/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`

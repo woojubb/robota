@@ -41,7 +41,7 @@ evidence.
 
 ## Spec
 
-`.agents/spec-docs/active/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`
+`.agents/spec-docs/rejected/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`
 
 ## Plan
 

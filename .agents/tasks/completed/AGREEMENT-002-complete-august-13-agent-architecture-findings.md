@@ -40,7 +40,7 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 
 ## Spec
 
-`.agents/spec-docs/active/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
+`.agents/spec-docs/rejected/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
 
 ## Plan
 
