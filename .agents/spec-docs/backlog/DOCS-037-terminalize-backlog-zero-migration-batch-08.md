@@ -244,3 +244,19 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent round-4 recommendation review ENDORSE with ACTIONABLE FINDINGS: 0; live readback confirms three high/now units, seven final paths, exact OPEN/unassigned owners and unmodified handoffs, three unchanged population blobs, zero carriers/baselines, and no excluded or competing scope.
+**Review fingerprint:** f0125c804afa (review 56855639, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-4 recommendation review ENDORSE with ACTIO)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f0125c804afa) equals the document's current fingerprint
