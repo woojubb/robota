@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: review-ready
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -58,7 +58,7 @@ Choose alternative 3.
   https://github.com/woojubb/robota/issues/2462#issuecomment-5457971404. The central runner rejects an
   unearned `::examined:: 0`, supports explicit expected-empty reasons, and freezes adopting scan names.
   Current `SCAN_COMMANDS` contains 148 registered scans while the adoption baseline contains 98,
-  leaving 50. Exact residual issue #2462 owns that adoption work; umbrella tracker #2234 remains
+  leaving 50. Exact residual issue #2462 owns that adoption work; umbrella tracker issue #2234 remains
   related context and is deliberately not treated as the canonical owner.
 - PLG-020 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2460#issuecomment-5457939546. Current code still dispatches
@@ -114,8 +114,9 @@ change excludes that unit and requires fresh manifest approval.
 
 Control issue #2459 uniquely carries `backlog-zero:DOCS-037:2c875dd3` and records the pre-approval
 correction. Issues #2460, #2461, and #2462 uniquely carry their residual markers. All four exact
-owner/control issues (#2459, #2460, #2461, #2462) are OPEN and unassigned; all three handoff comments
-are exact and unmodified. Parent issue #2404 and related umbrella #2234 remain open.
+owner/control issues (issue #2459, issue #2460, issue #2461, and issue #2462) are OPEN and unassigned;
+all three handoff comments are exact and unmodified. Parent issue #2404 and related umbrella issue #2234
+remain open.
 
 ### Baseline and carrier disposition
 
@@ -216,8 +217,8 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 
 - Base is `92658e1781be80bb66ccd25db6bac4810d5b4444`; all three population/current Task
   blobs match the manifest exactly.
-- Issues #2459, #2460, #2461, and #2462 are OPEN and unassigned. Control/residual markers are unique;
-  umbrella #2234 is related context only and is not used as an owner.
+- Issue #2459, issue #2460, issue #2461, and issue #2462 are OPEN and unassigned. Control/residual
+  markers are unique; umbrella issue #2234 is related context only and is not used as an owner.
 - Canonical comments #5457971404, #5457939546, and #5457939714 belong to the exact owner issues,
   carry the exact Task paths/blobs/current residuals, and have `created_at == updated_at`.
 - Current code confirms all three residuals. There is no competing open PR, branch, worktree,
@@ -228,7 +229,7 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 ### [RECOMMENDATION REVIEW ROUND 3] — 🔴 REVISE | 2026-08-29
 
 - Low — remote count: Affected Scope said two new residual issues after the exact HARNESS-057 owner
-  was added. The actual set is three: #2460, #2461, and #2462.
+  was added. The actual set is three: issue #2460, issue #2461, and issue #2462.
 - All ownership, blob, premise, urgency, path, carrier/baseline, and class-boundary checks otherwise
   passed. `ACTIONABLE FINDINGS: 1`.
 
@@ -238,7 +239,7 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 
 - Exact review target: clean commit `75a22a590e149ef304339978e4ffcdfcb3090c03`.
 - The sole round-3 count error is fixed. HARNESS-057, PLG-020, and TOOL-004 remain the exact three
-  `high/now` units; #2462 is the dedicated HARNESS-057 owner and #2234 is related-only.
+  `high/now` units; issue #2462 is the dedicated HARNESS-057 owner and issue #2234 is related-only.
 - The manifest remains seven permitted final paths with three exact skipped dispositions, three
   unchanged Task blobs, zero carrier/baseline or excluded changes, and no competing ownership.
 - `ACTIONABLE FINDINGS: 0`.
@@ -261,18 +262,18 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-4 recommendation review ENDORSE with ACTIO)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f0125c804afa) equals the document's current fingerprint
 
-### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+### [GATE-APPROVAL WITHDRAWN] — 2026-08-29
 
-**Status upgrade:** approved → in-progress
-
-- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, whose basename is the spec's
-- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
-- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 367 chars
-- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
-- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
-- Planning checkpoint binding: `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
-  `.agents/spec-docs/active/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
-  `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828213330`; orchestrator run
-  `r20260828213326`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
+- A focused `reference-kind-qualified` scan after the first planning checkpoint found 12 unqualified
+  issue references in this document, including one sentence in Architecture Review.
+- The prior approval fingerprint `f0125c804afa` is withdrawn. The corrections qualify issue references
+  only; they do not change the three governed units, their blobs, urgency, exact owners, dispositions,
+  seven-path manifest, zero-baseline/carrier boundary, or excluded scope.
+- The first checkpoint and paired control Task are withdrawn. Their sealed loop records remain
+  append-only evidence of the rolled-back attempt. No implementation commit or push occurred under
+  the stale fingerprint, and the three Task moves and completion checkmarks were rolled back.
+- Remote ownership was also clarified without editing history: umbrella issue #2234 now contains
+  supersession comment https://github.com/woojubb/robota/issues/2234#issuecomment-5458041985, which
+  leaves it related-only and identifies OPEN/unassigned issue #2462 as the exact HARNESS-057 owner.
+- The corrected document returns to `review-ready` for a fresh independent recommendation review and
+  class approval.
