@@ -195,7 +195,7 @@ site carries `// allow-fallback: <reason>` per the mechanical floor.
 - `scripts/harness/scan-credential-serialization.mjs`
 - `scripts/harness/run-all-scans.mjs`
 - `scripts/harness/__tests__/scan-credential-serialization.test.mjs`
-- `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md`
+- `.agents/tasks/completed/SEC-009-subagent-ipc-start-payload-carries-apikey.md`
 
 ## Completion Criteria
 
@@ -295,7 +295,7 @@ in `packages/agent-subagent-runner/src/__tests__/fixtures/subagent-worker-fixtur
 
 ## Tasks
 
-- [ ] `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md` — problem record exists;
+- [ ] `.agents/tasks/completed/SEC-009-subagent-ipc-start-payload-carries-apikey.md` — problem record exists;
       implementation begins after GATE-APPROVAL
 
 ## Evidence Log

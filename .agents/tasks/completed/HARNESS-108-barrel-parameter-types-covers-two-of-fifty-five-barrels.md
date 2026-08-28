@@ -1,6 +1,8 @@
 ---
 title: 'HARNESS-108: barrel-parameter-types reads 2 of 55 package barrels, and 16 findings sit outside its scope'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038
 created: 2026-08-18
 priority: medium
 urgency: soon

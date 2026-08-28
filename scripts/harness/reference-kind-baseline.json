@@ -129,7 +129,7 @@
   ".agents/tasks/HARNESS-052-vacuous-green-sweep.md": 1,
   ".agents/tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md": 3,
   ".agents/tasks/HARNESS-078-single-segment-dotfiles-are-outside-both-name-checks.md": 1,
-  ".agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md": 2,
+  ".agents/tasks/completed/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md": 2,
   ".agents/tasks/PEER-003-peer-input-coalescing-loses-conversation-turns.md": 1,
   ".agents/tasks/REL-023-changeset-reconciliation.md": 1,
   ".agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md": 2,

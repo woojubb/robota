@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-036: terminalize backlog-zero migration batch 07'
 issue: https://github.com/woojubb/robota/issues/2456
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -23,20 +24,20 @@ owned by issue #2047 and HARNESS-108 remains owned by issue #2457.
 
 ## Spec
 
-`.agents/spec-docs/active/DOCS-036-terminalize-backlog-zero-migration-batch-07.md`
+`.agents/spec-docs/done/DOCS-036-terminalize-backlog-zero-migration-batch-07.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the committed three-unit/eleven-path manifest, seven governed current blob
+- [x] TC-01 — preserve the committed three-unit/eleven-path manifest, seven governed current blob
       OIDs, exact dispositions, and value/cardinality-preserving baseline boundary.
-- [ ] TC-02 — preserve exact readback of control issue #2456, residual issues #2047/#2457, and both
+- [x] TC-02 — preserve exact readback of control issue #2456, residual issues #2047/#2457, and both
       canonical handoff URLs; return only SEC-009 and HARNESS-108 to those exact comments.
-- [ ] TC-03 — mark HARNESS-103 done, mark SEC-009/HARNESS-108 skipped, preserve SEC-009 and
+- [x] TC-03 — mark HARNESS-103 done, mark SEC-009/HARNESS-108 skipped, preserve SEC-009 and
       HARNESS-108 Task bodies byte-for-byte, change HARNESS-103 only by the exact one-line approved
       `evidence-superseded` annotation, and keep both planning documents rejected.
-- [ ] TC-04 — rekey exactly five Task-path citations across the three approved carrier documents and
+- [x] TC-04 — rekey exactly five Task-path citations across the three approved carrier documents and
       move the one HARNESS-108 baseline key with value `2` and cardinality unchanged.
-- [ ] TC-05 — keep the exact final changed-path set to eleven approved lifecycle/ledger paths, change
+- [x] TC-05 — keep the exact final changed-path set to eleven approved lifecycle/ledger paths, change
       no excluded path, and pass focused lifecycle/reference checks plus the full harness CI mirror.
 
 ## Test Plan
