@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [backlog, governance, harness]
 lane: L2
@@ -312,5 +312,29 @@ re-run GATE-IMPLEMENT. No registry, scanner, or scanner-test implementation has 
   stayed byte-identical; upstream added two valid CLASS records but touched no RULE-017 implementation
   path, and TC-04 already preserves existing DIRECT/CLASS dispositions.
 - Full current-tree `pnpm harness:scan`: 146 passed, 2 skipped.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** approved → in-progress
+
+- Current branch HEAD `a0bfa76f1` is based on current `origin/develop` `0edcbef59`; PR #2421's landed
+  continuation-checkpoint hunk is semantically disjoint from the approved delegated-class design.
+- The latest standing GATE-APPROVAL is DIRECT instruction `"끝까지 작업해줘"`, given
+  2026-08-28 in this conversation after round-2 `ENDORSE` / `ACTIONABLE FINDINGS: 0`.
+- The exact RULE-017 Task exists and its Plan maps TC-01 through TC-05 to registry, date-ordering,
+  structural-refusal/mutation, owner-prose/live-baseline, and full-verification work.
+- Task record:
+  `.agents/tasks/RULE-017-register-the-backlog-zero-migration-delegated-approval-class.md`.
+- Spec record:
+  `.agents/spec-docs/active/RULE-017-register-the-backlog-zero-migration-delegated-approval-class.md`.
+- Subject-bound PLAN evidence is `SCENARIO DRAFTED: not-applicable | 0`; loop
+  `r20260828135157` converged against the exact Task path. The work changes internal rule/harness
+  behavior only and exposes no runnable product surface.
+- Whole-worktree inventory before this transition contained only the staged Task PLAN evidence and its
+  append-only user-execution ledger entry. Registry, scanner, and scanner-test implementation paths
+  had zero branch diff.
+- Fresh pre-transition `pnpm harness:scan`: 146 passed, 2 skipped.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`

@@ -1,7 +1,7 @@
 ---
 title: 'RULE-017: register the BACKLOG-ZERO-MIGRATION delegated approval class'
 issue: https://github.com/woojubb/robota/issues/2404
-status: todo
+status: in-progress
 created: 2026-08-28
 priority: high
 urgency: now
@@ -107,3 +107,11 @@ batches remain separate work units under the same open issue.
 **Not applicable.** This Task changes repository-internal approval policy and its harness validation.
 It changes no runnable product command, UI flow, public SDK behavior, configuration contract, or runtime
 output. Engineering evidence belongs in the Test Plan.
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Author reason:** A user-execution scenario is **not applicable** because RULE-017 changes only the
+internal delegated-approval registry, structural guard/parser, and harness tests. It adds no runnable
+command, UI flow, public SDK behavior, configuration contract, runtime output, or user-facing
+capability. Engineering verification belongs in the Test Plan; capability reachability is not
+implicated because the work claims no user-facing capability or enabling seam.
