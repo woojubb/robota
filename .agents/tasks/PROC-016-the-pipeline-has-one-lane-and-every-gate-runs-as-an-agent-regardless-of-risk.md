@@ -45,6 +45,25 @@ current base OID; the GitHub ruleset itself is non-strict). Files shared by ≥4
 four registry/baseline files. Issue #2348 already records that two-thirds of recent completions carry
 no spec document — the "no exceptions" rule is paid by not following it.
 
+## The measurement after landing the lane (TC-13)
+
+One L1 item — INFRA-136, issue #2406, a one-function fix in `scripts/harness/loop-run.mjs` — run
+end to end through the new lane on this branch by a fresh subagent, three times. Each run stopped
+where the tooling was wrong, the defect was fixed on this branch, and the run restarted from zero:
+
+| Run | Stopped at                                        | Defect found (fixed in this branch)                                                                                                       |
+| --- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ID allocation, 2 min                              | allocator hands out a live ID (issue #2390, not this item's); harness scripts fell to L0; L1 sent to the research step                    |
+| 2   | affected scans after implementation, 6 min 17 s   | plan-order scan knew no L1 checkpoint; `new-spec --title` broke the pair's basename; approve UTC date, `--evidence`, judge-before-approve |
+| 3   | `git push`, 11 min 39 s (lane complete at ~7 min) | pre-push demanded 81 packages' build output and the CLI smoke for a harness-only push; hook `GIT_DIR` made a finder vacuous               |
+
+Run 3, the lane proper (allocate → scaffold → approve → PLAN → implement → record → DONE →
+review recorded): **≈ 7 min wall clock, 1 subagent dispatch (the local reviewer), 3 commits** —
+against the criterion's ≤ 20 min / ≤ 2 / ≤ 3. The push landed after the third fix, at 09:44:52
+KST, from the orchestrator's checkout (same three commits, range-diff identical). The same item
+through the L2 pipeline (HARNESS-127, the comparison this Task opens with) took 72 min, 15
+dispatches and 7 commits.
+
 ## Plan
 
 - [x] Amend `spec-workflow.md` § HARD GATE: three lanes with mechanically derived lower bounds, and a
@@ -72,7 +91,7 @@ no spec document — the "no exceptions" rule is paid by not following it.
 - [x] Register the Route CLASS row for L0/L1 items — the row text is the owner's, recorded verbatim at
       GATE-APPROVAL; never authored by the agent.
 - [x] Red-proof every refusal path; the control (an accepted case) beside each.
-- [ ] Re-measure one L1 item end to end after landing and record the numbers next to the table above.
+- [x] Re-measure one L1 item end to end after landing and record the numbers next to the table above.
 
 ## Test Plan
 
