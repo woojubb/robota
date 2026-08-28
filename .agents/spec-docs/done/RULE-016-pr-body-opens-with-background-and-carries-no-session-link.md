@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 lane: L2
 tags: [harness]
@@ -280,70 +280,76 @@ them, and the`Enforced by:` line is contiguous with the bullet.
 
 ## Affected Files
 
-| File                                                            | Change                                                              |
-| --------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `.agents/rules/backlog-execution.md`                            | § PR Unit Rule: ordered body, prohibition, Enforced by              |
-| `.agents/rules/git-branch.md`                                   | § Git Operations: commit trailer prohibition, Enforced by           |
-| `.agents/rules/agent-conduct.md`                                | formatting clause + structured-artifact boundary                    |
-| `.github/PULL_REQUEST_TEMPLATE.md`                              | rewritten to the contract                                           |
-| `.github/pull_request_template.md`                              | deleted (duplicate)                                                 |
-| `scripts/harness/check-pr-body.mjs`                             | new judge                                                           |
-| `scripts/harness/__tests__/check-pr-body.test.mjs`              | new                                                                 |
-| `.github/workflows/review-gate.yml`                             | pr-body step after the base-sha checkout                            |
-| `commitlint.config.js`                                          | `no-session-link` rule                                              |
-| `scripts/harness/__tests__/no-session-link-commitlint.test.mjs` | new                                                                 |
-| `.agents/memory/pr-body-background-first-no-session-link.md`    | new pointer record                                                  |
-| `.agents/memory/MEMORY.md`                                      | index line                                                          |
-| `.agents/specs/harness-composition-inventory.md`                | BE-13 wording                                                       |
-| `.github/required-status-checks.json`                           | `review-gate` `verifies` wording                                    |
-| `scripts/harness/ci-mirror-map.mjs`                             | `review-gate` relevance key + reason / relevantWhen / manualCommand |
-| `scripts/harness/promote.mjs`                                   | one line in the printed `gh pr create` hint                         |
+| File                                                            | Change                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `.agents/rules/backlog-execution.md`                            | § PR Unit Rule: ordered body, prohibition, Enforced by                    |
+| `.agents/rules/git-branch.md`                                   | § Git Operations: commit trailer prohibition, Enforced by                 |
+| `.agents/rules/agent-conduct.md`                                | formatting clause + structured-artifact boundary                          |
+| `.github/PULL_REQUEST_TEMPLATE.md`                              | rewritten to the contract                                                 |
+| `.github/pull_request_template.md`                              | deleted (duplicate)                                                       |
+| `scripts/harness/check-pr-body.mjs`                             | new judge                                                                 |
+| `scripts/harness/__tests__/check-pr-body.test.mjs`              | new                                                                       |
+| `.github/workflows/review-gate.yml`                             | pr-body step after the base-sha checkout                                  |
+| `commitlint.config.js`                                          | `no-session-link` rule                                                    |
+| `scripts/harness/__tests__/no-session-link-commitlint.test.mjs` | new                                                                       |
+| `.agents/memory/pr-body-background-first-no-session-link.md`    | new pointer record                                                        |
+| `.agents/memory/MEMORY.md`                                      | index line                                                                |
+| `.agents/specs/harness-composition-inventory.md`                | BE-13 wording                                                             |
+| `.github/required-status-checks.json`                           | `review-gate` `verifies` wording                                          |
+| `scripts/harness/ci-mirror-map.mjs`                             | `review-gate` relevance key + reason / relevantWhen / manualCommand       |
+| `scripts/harness/promote.mjs`                                   | one line in the printed `gh pr create` hint                               |
+| `scripts/harness/verify-like-ci.mjs`                            | `every-pull-request` relevance evaluator (§ Solution step 5)              |
+| `scripts/harness/__tests__/verify-like-ci.test.mjs`             | the summary test's quiet arm expects `review-gate` relevant to every diff |
 
 ## Completion Criteria
 
-- [ ] **TC-01** § PR Unit Rule states the seven ordered sections and the no-link prohibition with
+- [x] **TC-01** § PR Unit Rule states the seven ordered sections and the no-link prohibition with
       MUST/MUST NOT phrasing and an `Enforced by:` line naming `review-gate` and its limit; git-branch.md
       § Git Operations states the commit prohibition with `Enforced by: no-session-link`;
       agent-conduct.md no longer lists PR descriptions under prose and its boundary names the owner;
       `new-rule-declares-enforcement` examines ≥ 1 added rule bullet and passes.
+      **Evidence (2026-08-28, PR 2):** at `6a0d16690`: `backlog-execution.md:356` "A PR description MUST open with `## Background` …" and `:361` "A PR description MUST NOT carry an agent-session link …" with `Enforced by: review-gate (…) , no-session-link (…)`; `git-branch.md:94` "A commit message MUST NOT carry an agent-session link … Enforced by: `no-session-link`" (PR 1); `agent-conduct.md:82` names "[backlog-execution.md] § PR Unit Rule" as the owner and its prose list no longer includes PR descriptions; `HARNESS_BASE_REF=origin/develop node scripts/harness/scan-new-rule-declares-enforcement.mjs` → `::examined:: 1 new rule sections`, "passed (1 new rule section(s); each says how it is enforced)", exit 0.
 - [x] **TC-02** (PR 1) `.github/PULL_REQUEST_TEMPLATE.md` opens with `## Background` and carries the seven
       sections in the contract's order; `.github/pull_request_template.md` no longer exists; a test
       feeds the template's first heading to `judgePrBody` and it passes.
 - [x] **TC-03** (PR 1) `printf 'fix(x): probe\n\nClaude-Session: https://claude.ai/code/session_x\n' | npx commitlint`
       exits non-zero naming `no-session-link`; a message with the URL in its body exits non-zero; the
       same subject with only `Co-Authored-By: …` exits 0.
-- [ ] **TC-04** `judgePrBody` refuses: a body whose first heading is not `## Background`; a body with
+- [x] **TC-04** `judgePrBody` refuses: a body whose first heading is not `## Background`; a body with
       `## Background` after another heading; a body containing `claude.ai/code/session…`; a body
       ending in `🤖 Generated with Claude Code`; an empty body — each naming the problem; and accepts a
       compliant body. In `review-gate.yml`'s `review-gate` job the pr-body step follows the
       `ref: ${{ github.event.pull_request.base.sha }}` checkout, precedes the first step gated on
       `needs.classify.outputs.code`, carries no `if:`, passes the body through `env:`, and invokes
       `check-pr-body.mjs` — pinned by test.
-- [ ] **TC-05** Applied-check mutation: disabling the commitlint rule makes TC-03's refusing cases
+      **Evidence (2026-08-28, PR 2):** `pnpm vitest run scripts/harness/__tests__/check-pr-body.test.mjs` at `6a0d16690` → all cases ✓ (part of `8 files, 245 passed`): the six refusals (first heading not `## Background`; `## Background` after another heading; `claude.ai/code/session…`; the `🤖 Generated with Claude Code` footer; empty body) each naming the problem, and the compliant body accepted (PR 1); "the required check reaches the judge > sits directly after the base-sha checkout, before the first classifier-gated step, with no if:" ✓ — the step at `review-gate.yml` after `ref: ${{ github.event.pull_request.base.sha }}`, before the first `needs.classify.outputs.code` gate, no `if:`, `env: PR_BODY: ${{ github.event.pull_request.body }}`, `run: node scripts/harness/check-pr-body.mjs` (the pin anchors on the `run:` line, not the comment quoting the local command).
+- [x] **TC-05** Applied-check mutation: disabling the commitlint rule makes TC-03's refusing cases
       pass (test red); making `judgePrBody` return `ok: true` unconditionally makes TC-04's refusing
       cases pass (test red); adding `if: needs.classify.outputs.code == 'true'` to the pr-body step,
       or moving it above the checkout, makes TC-04's workflow pin red. Restored byte-identical.
-- [ ] **TC-06** `pnpm harness:scan` exits 0 (`workflow-permissions`, `action-references`,
+      **Evidence (2026-08-28, PR 2):** at `6a0d16690`: (a) `commitlint.config.js` `no-session-link` set to level 0 → `no-session-link-commitlint.test.mjs`: `2 failed | 2 passed (4)` — "refuses a `Claude-Session:` trailer", "refuses a session URL anywhere in the body" red; (b) `judgePrBody` made to return `{ ok: true, problems: [] }` unconditionally → `check-pr-body.test.mjs`: `11 failed | 6 passed (17)`, every refusing case red; (c) `if: needs.classify.outputs.code == 'true'` added to the pr-body step → "sits directly after the base-sha checkout, before the first classifier-gated step, with no if:" red (`1 failed`). Each file restored from a copy; `git diff --stat` on the three files empty afterwards.
+- [x] **TC-06** `pnpm harness:scan` exits 0 (`workflow-permissions`, `action-references`,
       `memory-mirror`, `new-rule-declares-enforcement` read); `required-status-checks.json` and
       `ci-mirror-map.mjs` describe the body half of `review-gate` and its local command, and the
       mirror-map entry's relevance is `every-pull-request`; `node scripts/harness/promote.mjs`'s
       printed hint contains `## Background`;
       `.agents/memory/pr-body-background-first-no-session-link.md` exists and points at § PR Unit Rule.
+      **Evidence (2026-08-28, PR 2):** `HARNESS_BASE_REF=origin/develop pnpm harness:scan` at `6a0d16690` → `148 scans passed`, exit 0, with `memory-mirror`, `workflow-permissions`, `action-references`, `new-rule-declares-enforcement` each ✓; `required-status-checks.json` names `check-pr-body.mjs` in `review-gate`'s `verifies`; `ci-mirror-map.mjs:242` `relevance: 'every-pull-request'`, `RELEVANCE_KEYS` carries it (`:299`), `verify-like-ci.mjs:766` evaluates it; `promote.mjs:326` hint contains `## Background`; `.agents/memory/pr-body-background-first-no-session-link.md` exists and `MEMORY.md` carries its line.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                     | Notes                                     |
-| ----- | ----------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| TC-01 | Integration | `rg` on the three rule texts; `node scripts/harness/scan-new-rule-declares-enforcement.mjs`         |                                           |
-| TC-02 | Integration | vitest `check-pr-body.test.mjs` template-binding case; `test ! -e .github/pull_request_template.md` |                                           |
-| TC-03 | Integration | vitest `no-session-link-commitlint.test.mjs` (spawns `npx commitlint`)                              | same shape as `reference-kind-commitlint` |
-| TC-04 | Integration | vitest `check-pr-body.test.mjs` refuse/accept cases + workflow-pinning case                         |                                           |
-| TC-05 | Mutation    | edit each floor, run its test, restore, record counts in the GATE-VERIFY entry                      | `git diff --stat` empty after restore     |
-| TC-06 | Integration | `pnpm harness:scan`, exit code recorded; memory file read                                           |                                           |
+| TC-ID | Test Type   | Tool / Approach                                                                                     | Notes                                                                                                                                                                                                                                  |
+| ----- | ----------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | `rg` on the three rule texts; `node scripts/harness/scan-new-rule-declares-enforcement.mjs`         | **Test skipped:** rule prose is read, not unit-tested — the greps and the `new-rule-declares-enforcement` run are recorded in the TC-01 evidence                                                                                       |
+| TC-02 | Integration | vitest `check-pr-body.test.mjs` template-binding case; `test ! -e .github/pull_request_template.md` | **Test written:** `scripts/harness/__tests__/check-pr-body.test.mjs > the template can never contradict the floor` (its two cases, PR 1)                                                                                               |
+| TC-03 | Integration | vitest `no-session-link-commitlint.test.mjs` (spawns `npx commitlint`)                              | **Test written:** `scripts/harness/__tests__/no-session-link-commitlint.test.mjs` (four cases, PR 1)                                                                                                                                   |
+| TC-04 | Integration | vitest `check-pr-body.test.mjs` refuse/accept cases + workflow-pinning case                         | **Test written:** `scripts/harness/__tests__/check-pr-body.test.mjs` refuse/accept cases and `> the required check reaches the judge > sits directly after the base-sha checkout, before the first classifier-gated step, with no if:` |
+| TC-05 | Mutation    | edit each floor, run its test, restore, record counts in the GATE-VERIFY entry                      | **Test skipped:** a mutation of the shipped floors cannot be a committed test — three mutations recorded in the TC-05 evidence; `git diff --stat` empty after restore                                                                  |
+| TC-06 | Integration | `pnpm harness:scan`, exit code recorded; memory file read                                           | **Test skipped:** the scan and the greps are the commands themselves; recorded in the TC-06 evidence                                                                                                                                   |
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md` — 생성됨 (GATE-IMPLEMENT에서 바인딩)
+- [x] `.agents/tasks/completed/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md` — done 2026-08-28
 
 ## Evidence Log
 
@@ -444,3 +450,33 @@ them, and the`Enforced by:` line is contiguous with the bullet.
   ```
   — one unstaged modification, this spec: `git diff HEAD` on it is the single frontmatter line `+lane: L2` (spec-workflow.md § Lane floors: `.github/workflows/**` is an L2 floor and PR 2 touches `review-gate.yml`; `scan-lane-declaration` refuses a declaration under the floor or none). No staged, untracked, renamed or deleted path; nothing outside the paired planning artifacts.
 - NON-COMPLIANCE trigger (implementation before this gate): none. At HEAD, `grep -c check-pr-body .github/workflows/review-gate.yml` → 0; `.agents/memory/pr-body-background-first-no-session-link.md` absent; `grep -c Background .agents/rules/backlog-execution.md` → 0; `grep -c every-pull-request` in `ci-mirror-map.mjs` and `verify-like-ci.mjs` → 0 each; `promote.mjs`, `required-status-checks.json`, `harness-composition-inventory.md` carry no `check-pr-body`/`Background` → 0. The PR 2 patch is held unapplied outside the repository. `node scripts/harness/scan-user-execution-plan-order.mjs` → "::examined:: 0 topic commit(s)", exit 0; `--staged` → "0 staged path(s)", exit 0.
+
+### [GATE-VERIFY] — 🔴 NON-COMPLIANCE | 2026-08-28
+
+**Status remains:** in-progress
+**Violation:** Ordering check, second half — the document's recorded state is not the state GATE-VERIFY takes as input. The prior-gate map row `GATE-VERIFY | GATE-IMPLEMENT | in-progress` expects `status: in-progress`; at judgement time the working-tree frontmatter reads `status: verifying` (uncommitted, `git diff HEAD` on this file, line 2: `-status: in-progress` / `+status: verifying`), a status spec-workflow.md line 258 defines as "GATE-VERIFY passed" — the transition this gate authorizes was applied before any verdict existed. The committed document (`d59ebbb50`, the continuation checkpoint, and `6a0d16690`, HEAD) reads `status: in-progress`. The first half of the check holds: a prior `[GATE-IMPLEMENT] — ✅ PASS | 2026-08-28` entry exists in both forms (`approved → in-progress`, committed in `4eb87196c`; `in-progress → in-progress (continuation)`, committed in `d59ebbb50`), and the file is under `active/`. The project's own mechanical judge agrees: `node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc <this file> --dry-run` → `FAIL GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status \`in-progress\` — status is \`verifying\`, \`in-progress\` expected`, exit 1. Precedent on this repository records the input state explicitly (SELFHOST-010 GATE-VERIFY entry: "frontmatter `status: in-progress`in`active/`matches the expected GATE-VERIFY input stage"). Per the ordering rule the gate's own four criteria were not evaluated; none of the Completion Criteria`[x]`marks, Evidence lines, or Test Plan annotations is judged by this entry.
+**Required action:** Restore the frontmatter to`status: in-progress`(the only line of the uncommitted edit that is a gate output rather than author evidence; the`[x]`marks, the`**Evidence**`lines, the Test Plan`**Test written:**`/`**Test skipped:**`annotations and the two added § Affected Files rows are author work and may stay), then re-run GATE-VERIFY. The status flip to`verifying` follows a PASS verdict and is the orchestrator's commit, not part of the judgement.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): .agents/tasks/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md carries no checkbox plan (a Task is the problem record, not a breakdown)
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `HARNESS_BASE_REF=origin/develop pnpm harness:scan` → exit 0 ( ⏎ 148 scans passed (98 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm vitest run scripts/harness/__tests__/check-pr-body.test.mjs scripts/harness/__tests__/no-session-link-commitlint.test.mjs scripts/harness/__tests__/verify-like-ci.test.mjs scripts/harness/__tests__/ci-mirror-map.test.mjs` → exit 0 ( Duration 2.36s (transform 184ms, setup 0ms, collect 309ms, tests 2.78s, environment 0ms, prepare 213ms) ⏎ ⏎ 11:53:02 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-28; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: .agents/tasks/RULE-016-pr-body-opens-with-background-and-carries-no-session-link.md carries no checkbox plan (a Task is the problem record, not a breakdown)
