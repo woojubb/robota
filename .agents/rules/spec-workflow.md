@@ -211,7 +211,7 @@ repository-relative globs, and a bare filename is anchored at the repository roo
 | L2    | `.claude/settings.json`                     | Hook registration — a repository-wide policy file                                                                                                                                |
 | L2    | `harness.config.json`                       | Harness configuration — a repository-wide policy file                                                                                                                            |
 | L2    | `packages/*/docs/SPEC.md#trigger-sections`  | The sections named in the second column of the SPEC-update table in § Live Spec Policy — a published contract. That table is the owner; this row points at it and copies nothing |
-| L1    | `scripts/**`                                | Harness and tooling scripts — behaviour without a package contract; a non-comment change is L1, a comment-only change is L0                                                      |
+| L1    | `scripts/**#non-comment`                    | Harness and tooling scripts — behaviour without a package contract; a non-comment change is L1, a comment-only change is L0                                                      |
 | L1    | `**/src/**`                                 | A non-comment change under `src` that touches no L2 pattern                                                                                                                      |
 | L0    | everything else                             | Comments, documentation, tests, and tooling configuration outside the L2 rows                                                                                                    |
 

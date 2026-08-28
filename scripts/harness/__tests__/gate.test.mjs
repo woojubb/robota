@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +17,7 @@ import {
   parseCatalogue,
   parsePriorGateMap,
   registryConditions,
+  stripHtmlComments,
 } from '../gate.mjs';
 import { TEMPLATE_PATH } from '../new-spec.mjs';
 import { parseStatusFolderMapping } from '../scan-doc-folder-status-agreement.mjs';
@@ -635,6 +636,17 @@ describe('judge — GATE-WRITE', () => {
     );
   });
 
+  it('measures a Problem whose comment reassembles under a single strip as 0 chars — nothing survives', () => {
+    // `<!-<!-- x -->->` minus its inner comment is `<!-->`: an opener a one-pass strip leaves behind
+    // and then counts as prose. The floor measures what a renderer would show, which is nothing.
+    const { root, doc } = makeWorkspace({ spec: withProblem(conformingSpec(), '<!-<!-- x -->->') });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toMatch(
+      /`## Problem` is 0 chars \/ 0 sentence\(s\) after stripping HTML comments/,
+    );
+  });
+
   it('a Problem the size of the shortest genuine done/ spec (two short sentences) passes; one long sentence passes on length', () => {
     const shortest =
       'The spec cosmetic cleanup left three files with stray headings. They read as broken.';
@@ -847,7 +859,40 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
   });
 });
 
+describe('stripHtmlComments', () => {
+  it('strips a comment whose removal reassembles another (the single-pass hole CodeQL names)', () => {
+    expect(stripHtmlComments('<!-<!-- a -->- b -->')).toBe('');
+  });
+
+  it('strips `<!-<!-- x -->->` to nothing', () => {
+    expect(stripHtmlComments('<!-<!-- x -->->')).toBe('');
+  });
+
+  it('strips adjacent and ordinary comments and keeps the prose around them', () => {
+    expect(stripHtmlComments('<!-- a --><!-- b -->')).toBe('');
+    expect(stripHtmlComments('before <!-- a --> mid <!-- b --> after')).toBe('before  mid  after');
+  });
+
+  it('treats an opener with no closer as running to the end, the way a renderer does', () => {
+    expect(stripHtmlComments('prose <!-- never closed')).toBe('prose ');
+  });
+
+  it('leaves text with no comment untouched, `-->` included', () => {
+    expect(stripHtmlComments('a --> b')).toBe('a --> b');
+  });
+});
+
 describe('advance', () => {
+  it('still advances when the cited Task is not on disk, and says so instead of re-pointing nothing', () => {
+    const { root, doc } = makeWorkspace();
+    expect(judge(root, doc, 'GATE-WRITE').status).toBe(0);
+    rmSync(path.join(root, TASK_REL));
+    const result = run(root, ['advance', '--doc', doc]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(existsSync(path.join(root, `.agents/spec-docs/backlog/${SPEC_ID}.md`))).toBe(true);
+    expect(result.stdout).toContain(`${TASK_REL} is not on disk — nothing re-pointed`);
+  });
+
   it('moves draft/ → backlog/ per the fixture status table, rewrites status:, and re-points the paired Task', () => {
     const { root, doc } = makeWorkspace();
     expect(judge(root, doc, 'GATE-WRITE').status).toBe(0);
@@ -865,7 +910,7 @@ describe('advance', () => {
   });
 
   it('moves an untracked draft with a plain rename and says so in one line, never "git mv refused"', () => {
-    const { root, doc } = makeWorkspace();
+    const { root } = makeWorkspace();
     gitInit(root);
     const draft = path.join(root, '.agents/spec-docs/draft/PROC-998-untracked.md');
     writeFileSync(draft, conformingSpec());

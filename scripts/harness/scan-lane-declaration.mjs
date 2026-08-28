@@ -14,7 +14,7 @@
  *
  * THE FLOORS ARE NOT COPIED HERE. `spec-workflow.md` § "Lane floors" owns the table (`| Floor |
  * Path pattern | Why |`), and this scan PARSES it the way `scan-doc-folder-status-agreement` parses
- * the status table. Two rows carry a qualifier the parser understands:
+ * the status table. A row may carry a qualifier the parser understands:
  *
  *   - `<pattern>#trigger-sections` — the path counts at that floor only when a changed hunk lies
  *     under a `## ` heading named in the second column of the SPEC-update table in
@@ -509,14 +509,13 @@ export function floorForPath(filePath, { diffFiles, floors, specTriggerSections,
   for (const row of floors) {
     if (rank(row.floor) <= rank(floor)) continue;
     if (!globToRegExp(row.pattern).test(filePath)) continue;
-    let applies = true;
     let detail = '';
     if (row.qualifier === 'non-comment') {
       // No hunk for a path the diff should carry → cannot prove comment-only → counts as code.
       // The post-image, where the caller can supply it, says whether a hunk starts inside a block
       // comment; without it a hunk starting on a ` * ` line is code (upward, never hidden).
       const text = typeof readFile === 'function' ? readFile(filePath) : null;
-      applies =
+      const applies =
         !file ||
         file.binary ||
         file.hunks.length === 0 ||

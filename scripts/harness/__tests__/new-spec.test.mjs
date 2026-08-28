@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import { recordStub } from '../allocate-work-item-id.mjs';
 import { findSpecDocFrontmatterFindings } from '../check-spec-doc-frontmatter.mjs';
 import { parseFrontmatterBlock } from '../frontmatter.mjs';
+import { stripHtmlComments } from '../gate.mjs';
 import {
   DEFAULT_WAIVER,
   DRAFT_DIR,
@@ -24,6 +25,7 @@ import {
   TYPES,
   main,
   parseArgs,
+  readTaskRecord,
   slugify,
 } from '../new-spec.mjs';
 import { collectSpecResearchFindings } from '../scan-spec-research.mjs';
@@ -133,7 +135,7 @@ const L1_ARGS = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L1'];
 
 const headingsOf = (text) =>
   text.split('\n').filter((line) => /^#{2,3}\s/.test(line) && !line.startsWith('### [GATE'));
-const withoutComments = (text) => text.replace(/<!--[\s\S]*?-->/g, '');
+const withoutComments = stripHtmlComments;
 const criteriaCount = (text) => (text.match(/^- \[ \] TC-\d{2}:/gm) ?? []).length;
 const testPlanRows = (text) => (text.match(/^\| TC-\d{2} +\|/gm) ?? []).length;
 
@@ -260,6 +262,15 @@ describe('L2 keeps the obligations no scaffold can discharge', () => {
 });
 
 describe('the Task record is the source', () => {
+  it('strips the id prefix from the title LITERALLY when the id carries regex metacharacters', () => {
+    // `PROC-1.0+` read as a pattern is `PROC-1<any>0+:` — it never matches its own literal prefix,
+    // and an id with `(` or `|` would match the wrong one. The id is data, not a regex.
+    const root = rootWith({ tasks: [{ id: 'PROC-1.0+', title: 'a literal id', issue: 1 }] });
+    const record = readTaskRecord(root, 'PROC-1.0+');
+    expect(record).not.toBeNull();
+    expect(record.title).toBe('a literal id');
+  });
+
   it('lifts the first Objective paragraph into Problem and the area into Affected Scope / Files', () => {
     const root = rootWith({ tasks: [RICH_TASK] });
     const { code, stdout } = run(root, [

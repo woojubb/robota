@@ -630,6 +630,36 @@ function frontmatterChecks() {
   ];
 }
 
+/**
+ * `text` with every HTML comment removed, the way a renderer would show it.
+ *
+ * One `replace(/<!--[\s\S]*?-->/g, '')` is not enough: removing the inner comment of
+ * `<!-<!-- a -->- b -->` leaves `<!-- b -->`, a comment the single pass never saw. The scan is
+ * repeated until the text stops changing, and an opener with no closer runs to the end of the text,
+ * which is what markdown does with it — so what the floor measures is what a reader would see.
+ */
+export function stripHtmlComments(text) {
+  let out = text;
+  for (;;) {
+    const next = stripHtmlCommentsOnce(out);
+    if (next === out) return out;
+    out = next;
+  }
+}
+
+function stripHtmlCommentsOnce(text) {
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const open = text.indexOf('<!--', from);
+    if (open === -1) return out + text.slice(from);
+    out += text.slice(from, open);
+    const close = text.indexOf('-->', open + '<!--'.length);
+    if (close === -1) return out;
+    from = close + '-->'.length;
+  }
+}
+
 function problemChecks() {
   return [
     {
@@ -639,10 +669,7 @@ function problemChecks() {
         const section = sectionBody(doc.text, /^Problem$/i);
         if (!section) return fail('no `## Problem` section', 'add the Problem section');
         // PROBLEM PROSE FLOOR (header): comments are guidance, not prose.
-        const prose = section.body
-          .join('\n')
-          .replace(/<!--[\s\S]*?-->/g, '')
-          .trim();
+        const prose = stripHtmlComments(section.body.join('\n')).trim();
         const placeholder = /\b(TBD|TODO)\b/.exec(prose);
         if (placeholder)
           return fail(
@@ -1991,17 +2018,29 @@ export function runAdvance(options) {
     }
   }
   const taskRel = taskPathFromSpec(doc.text);
-  const taskAbs = taskRel ? path.resolve(root, taskRel) : null;
-  if (moved && taskAbs && existsSync(taskAbs)) {
+  if (moved && taskRel) {
     const oldRel = path.relative(root, docPath).split(path.sep).join('/');
     const newRel = path.relative(root, target).split(path.sep).join('/');
-    const taskText = readFileSync(taskAbs, 'utf8');
-    if (taskText.includes(oldRel)) {
-      writeFileSync(taskAbs, taskText.split(oldRel).join(newRel));
+    // Read first, write only what was read: an existence check before the read is a window in
+    // which the record can vanish, and a missing record is one outcome, named, not a crash.
+    const taskText = readTaskRecordText(path.resolve(root, taskRel));
+    if (taskText === null) notes.push(`${taskRel} is not on disk — nothing re-pointed`);
+    else if (taskText.includes(oldRel)) {
+      writeFileSync(path.resolve(root, taskRel), taskText.split(oldRel).join(newRel));
       notes.push(`rewrote ${oldRel} → ${newRel} in ${taskRel}`);
     }
   }
   return { exit: 0, from: upgrade.from, to: upgrade.to, path: target, moved, notes };
+}
+
+/** The Task record's text, or `null` when there is no such file; any other failure is thrown. */
+function readTaskRecordText(absolutePath) {
+  try {
+    return readFileSync(absolutePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 // ── approve ──────────────────────────────────────────────────────────────────────────────────────

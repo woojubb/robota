@@ -54,6 +54,7 @@ const LANE_FLOORS = `### HARD GATE: No Immediate Implementation
 | L2    | \`packages/*/docs/SPEC.md#trigger-sections\`                | a contract change                          |
 | L2    | \`.github/workflows/**\`, \`.claude/hooks/**\`              | repository-wide policy files               |
 | L2    | \`.agents/rules/**\`, \`.agents/specs/gate-catalogue.md\`   | the gate rules themselves                  |
+| L1    | \`scripts/**#non-comment\`                                  | tooling scripts — a non-comment change     |
 | L1    | \`**/src/**\`                                               | a non-comment code change                  |
 | L0    | everything else                                             | no contract, no code, no policy            |
 `;
@@ -178,6 +179,7 @@ describe('scan-lane-declaration — criteria derivation from the rule', () => {
       ['L2', '.claude/hooks/**', null],
       ['L2', '.agents/rules/**', null],
       ['L2', '.agents/specs/gate-catalogue.md', null],
+      ['L1', 'scripts/**', 'non-comment'],
       ['L1', '**/src/**', 'non-comment'],
       ['L0', '**', null],
     ]);
@@ -237,6 +239,10 @@ describe('scan-lane-declaration — the live rule parses', () => {
     );
     expect(live).toContainEqual(
       expect.objectContaining({ floor: 'L1', pattern: '**/src/**', qualifier: 'non-comment' }),
+    );
+    // The Why cell says "a comment-only change is L0"; only the qualifier makes the scan agree.
+    expect(live).toContainEqual(
+      expect.objectContaining({ floor: 'L1', pattern: 'scripts/**', qualifier: 'non-comment' }),
     );
     expect(live.some((r) => r.floor === 'L2' && r.pattern === '.github/workflows/**')).toBe(true);
   });
@@ -391,6 +397,26 @@ describe('scan-lane-declaration — the TC-02 decision table', () => {
     });
     expect(verdict.ok, verdict.refusals.join('; ')).toBe(true);
     expect(verdict.floor).toBe('L0');
+  });
+
+  it('L0 with a non-comment change under scripts/ → refused at L1 (the `scripts/**` row)', () => {
+    const verdict = decide({
+      changedPaths: ['scripts/harness/x.mjs'],
+      diffText: diffFor('scripts/harness/x.mjs', ['-export const b = 2;', '+export const b = 3;']),
+      declaration: declared('L0'),
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.floor).toBe('L1');
+    expect(verdict.refusals.join('\n')).toContain('scripts/harness/x.mjs');
+  });
+
+  it('L0 with a comment-only change under scripts/ → accepted at L0 (control for the row above)', () => {
+    const verdict = decide({
+      changedPaths: ['scripts/harness/x.mjs'],
+      diffText: diffFor('scripts/harness/x.mjs', ['-// old note', '+// new note']),
+      declaration: declared('L0'),
+    });
+    expect(verdict, verdict.refusals.join('; ')).toMatchObject({ ok: true, floor: 'L0' });
   });
 
   it('L0 with a src path the diff carries no hunk for → refused (cannot prove comment-only)', () => {

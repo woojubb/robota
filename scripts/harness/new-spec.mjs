@@ -194,6 +194,7 @@ function sectionParagraph(body, heading) {
  */
 export function readTaskRecord(root, id) {
   const dir = path.join(root, TASKS_DIR);
+  const idPrefix = new RegExp(`^${escapeRegExp(id)}:\\s*`);
   const matches = readdirSync(dir)
     .filter((name) => name.endsWith('.md') && name.startsWith(`${id}-`))
     .sort();
@@ -203,8 +204,8 @@ export function readTaskRecord(root, id) {
   const file = `${TASKS_DIR}/${matches[0]}`;
   const text = readFileSync(path.join(root, file), 'utf8');
   const fm = frontmatterObject(text);
-  const fmTitle = asScalar(fm.title).replace(new RegExp(`^${id}:\\s*`), '');
-  const h1 = /^#\s+(.+)$/m.exec(text)?.[1]?.replace(new RegExp(`^${id}:\\s*`), '') ?? '';
+  const fmTitle = asScalar(fm.title).replace(idPrefix, '');
+  const h1 = /^#\s+(.+)$/m.exec(text)?.[1]?.replace(idPrefix, '') ?? '';
   const issue = asScalar(fm.issue).match(/(\d+)\s*$/)?.[1];
   const area = asList(fm.area)
     .flatMap((entry) => entry.split(','))
@@ -218,6 +219,11 @@ export function readTaskRecord(root, id) {
     area,
     objective: sectionParagraph(text, 'Objective'),
   };
+}
+
+/** The CLI-supplied id is data: `PROC-1.0+` must match its own spelling, never `PROC-1x0:`. */
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** A markdown table padded the way prettier pads it, so the generated file is already formatted. */
