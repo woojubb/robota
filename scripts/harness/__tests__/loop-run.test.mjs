@@ -79,6 +79,47 @@ describe('openRun', () => {
     openRun({ root, skill: 'looper', now: NOW });
     expect(() => openRun({ root, skill: 'looper', now: NOW })).toThrow(/already has run/);
   });
+
+  // issue #2406 — a run an EARLIER UTC day left OPEN is a dropped session, not a live one; the
+  // only way past the refusal was hand-editing the ledger, the amendment it exists to forbid.
+  it('closes an OPEN run from an earlier UTC day as `abandoned`, superseded by the new run', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const stale = openRun({ root, skill: 'looper', now: NOW });
+    const later = NOW + 24 * 60 * 60 * 1000;
+    const fresh = openRun({ root, skill: 'looper', now: later });
+    const entries = readLedger(root, 'looper');
+    expect(entries.map((e) => e.runId)).toEqual([stale.runId, fresh.runId]);
+    expect(entries[0]).toMatchObject({
+      terminal: 'abandoned',
+      ref: `superseded by ${fresh.runId}`,
+      closed: new Date(later).toISOString(),
+    });
+    expect(entries[1]).toMatchObject({ terminal: null, closed: null });
+    expect(fresh.superseded).toBe(stale.runId);
+  });
+
+  it('still refuses an OPEN run from the SAME UTC day, even one opened 23 hours earlier', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const sameDay = Date.parse('2026-08-19T23:59:00.000Z');
+    openRun({ root, skill: 'looper', now: NOW });
+    expect(() => openRun({ root, skill: 'looper', now: sameDay })).toThrow(/already has run/);
+    expect(readLedger(root, 'looper')).toHaveLength(1);
+  });
+
+  it('CLI `open` prints one line naming the run it closed as superseded, then the OPEN line', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const stale = openRun({ root, skill: 'looper', now: NOW });
+    const lines = [];
+    const exit = main(['open', '--loop', 'looper'], {
+      root,
+      now: NOW + 24 * 60 * 60 * 1000,
+      out: (line) => lines.push(line),
+    });
+    expect(exit).toBe(0);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(new RegExp(`closed run \`${stale.runId}\` .*abandoned.*superseded`));
+    expect(lines[1]).toMatch(/OPEN — record each round/);
+  });
 });
 
 describe('recordRound', () => {
