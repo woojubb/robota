@@ -267,3 +267,25 @@ adds no runnable user-facing behavior.
   N/A.
 - GATE-WRITE — Final guardian re-review totals: mechanical criteria 20/20 PASS; semantic criteria 7/7
   PASS; TC-N/Test Plan count 5/5.
+
+### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
+
+- Remote ownership: marker searches resolve uniquely to OPEN/unassigned control issue #2447,
+  CMD-008 issue #2449, and CMD-009 issue #2448; existing exact owners #1988 for CLI-082 and #2058 for
+  CMD-007 are also OPEN/unassigned.
+- Canonical readback: all five recorded comment URLs resolve to the claimed issue and exact content:
+  [CLI-082](https://github.com/woojubb/robota/issues/1988#issuecomment-5456241480),
+  [CMD-007](https://github.com/woojubb/robota/issues/2058#issuecomment-5456241547),
+  [CMD-008](https://github.com/woojubb/robota/issues/2449#issuecomment-5456241523),
+  [CMD-009](https://github.com/woojubb/robota/issues/2448#issuecomment-5456241485), and the
+  [DOCS-033 fixed-manifest correction](https://github.com/woojubb/robota/issues/2447#issuecomment-5456241557).
+- Blob grounding: population, base, HEAD, and worktree agree for CLI-082
+  (`d178952d3a03a361e2474b817cbda19b86168d98`), CMD-007
+  (`68b69f36f17ad85f1880ea007985772af94e6142`), CMD-008
+  (`67f3d5570e441b71c3013e654ac27c01814a82e5`), and CMD-009
+  (`270db6474f03cc2e0f6d170bad4c73bd88f411d4`).
+- Competition check: the open PR set is empty; no matching remote implementation branch, extra
+  worktree, assignee, open loop-ledger row, session, or reservation competes for any governed unit.
+- Scope check: the manifest contains exactly four unit rows and eight final tracked paths, with zero
+  baseline, carrier, package/app source, API/contract, or policy/gate change.
+- Guardian verdict: `ACTIONABLE FINDINGS: 0`.
