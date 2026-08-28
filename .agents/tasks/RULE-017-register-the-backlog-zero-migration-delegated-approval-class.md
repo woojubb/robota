@@ -73,6 +73,8 @@ batches remain separate work units under the same open issue.
 - Proposal review round 2: `REVIEW VERDICT: ENDORSE`; `ACTIONABLE FINDINGS: 0` on 2026-08-28. The final
   design closes the full evidence form, replaces ephemeral snapshot evidence with a committed manifest
   derived from git, and supports legacy Task-only/spec-only and stale-status records.
+- Approval gate: `GATE VERDICT: PASS` via Route `DIRECT` on 2026-08-28 after the final RULE-017
+  Architecture Review and ID reallocation; implementation had not started.
 
 ## Test Plan
 

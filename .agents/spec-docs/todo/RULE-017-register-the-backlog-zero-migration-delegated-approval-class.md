@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [backlog, governance, harness]
 ---
@@ -201,3 +201,25 @@ output. Engineering evidence is defined in the Test Plan.
 - `ACTIONABLE FINDINGS: 0`
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "계속 이어서 진행해"
+**Given:** 2026-08-28, this conversation
+
+- Direct approval: the instruction was given after RULE-017 ID reallocation and the finalized
+  Architecture Review and authorizes continuation of this exact work unit. Route CLASS is forbidden
+  because this work registers a class and modifies the rule that defines delegated approval.
+- Post-approval integrity: committed HEAD
+  `c029a1f6957c9bc21beebd53f338df74a06df501` remained unchanged and the whole worktree was clean; no
+  Architecture Review, frontmatter `type`, or frontmatter `tags` change followed approval.
+- Independent architecture validation: N/A — the spec introduces no package, app, interface surface,
+  layer reclassification, or product-family boundary. The preceding independent recommendation review
+  nevertheless records `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+- Pre-implementation integrity: the target registry, scanner, and scanner-test implementation paths
+  had no branch diff; only the committed RULE-017 planning pair and an older DOCS-029 post-merge loop
+  record differed from `origin/develop`.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
