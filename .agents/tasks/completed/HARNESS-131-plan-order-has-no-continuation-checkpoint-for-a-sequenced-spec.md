@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-131: plan-order recognises only a first checkpoint, so the second PR of a spec whose delivery is sequenced across PRs cannot pass the scans check'
 issue: https://github.com/woojubb/robota/issues/2418
-status: in-progress
+status: done
+completed: 2026-08-28
 created: 2026-08-28
 priority: high
 urgency: now
@@ -93,4 +94,4 @@ verification surface is the fixture, the live worktree run (TC-04), and the muta
 
 ## Bound spec document
 
-`.agents/spec-docs/active/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`
+`.agents/spec-docs/done/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`

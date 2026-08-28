@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, testing]
 ---
@@ -208,29 +208,33 @@ nothing falls back.
 
 ## Completion Criteria
 
-- [ ] **TC-01** Continuation accepted: a fixture base holding an `in-progress` pair with one bound
+- [x] **TC-01** Continuation accepted: a fixture base holding an `in-progress` pair with one bound
       PASS; a branch whose first commit is pair-only and appends a second bound PASS in continuation
       form, then an implementation commit → `findHistoryFindings` returns `[]`, examined 2. Red
       before the fix (`implementation exists with no planning checkpoint`).
-- [ ] **TC-02** Refusals survive: implementation committed before the continuation → refused as
+      **Evidence (2026-08-28):** `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` at `8f493f1bd` → "accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)" ✓, `Tests 91 passed (91)`; tests-only against the unpatched scan (throwaway worktree at `c59e9d028`): this case red (`expected [ {…}, {…} ] to deeply equal []`) with TC-02, TC-03 and TC-05's cases — 4 red, 87 green; `HARNESS_BASE_REF=origin/develop node scripts/harness/check-regression-red-proof.mjs --base origin/develop` → `red-proof-ok (assertion-fail)`.
+- [x] **TC-02** Refusals survive: implementation committed before the continuation → refused as
       `changed before the planning checkpoint` (the continuation is the checkpoint); two
       continuation commits on one branch → `multiple planning checkpoint candidates`; a second PASS
       in first form (`approved → in-progress`) on an `in-progress` parent → not a checkpoint, the
       implementation refused; a continuation whose Task changes the PLAN signal (the prior PASS is
       bound to another signal) → not a checkpoint, the implementation refused.
-- [ ] **TC-03** Staged mirror: with the continuation committed, `findStagedFindings` on staged
+      **Evidence (2026-08-28):** same run → "keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)" ✓ — four arms: `changed before the planning checkpoint`; `multiple planning checkpoint candidates`; first-form second entry → `implementation exists with no planning checkpoint`; re-planned PLAN signal (`automatable | 1` on a `not-applicable | 0` prior PASS) → `no planning checkpoint`.
+- [x] **TC-03** Staged mirror: with the continuation committed, `findStagedFindings` on staged
       implementation → `[]`; without it → `staged implementation has no planning checkpoint
 ancestor` (unchanged); the continuation itself staged (spec-only, the hook's shape) → `[]`. A
       staged spec-only entry in the FIRST form on an `in-progress` pair is a discovered candidate that fails the form, and its refusal names both forms — it begins
       `checkpoint is neither the first GATE-IMPLEMENT PASS` and contains
       `nor one continuation PASS` (Solution step 6).
-- [ ] **TC-04** Live: in a throwaway worktree at THIS branch's tip after the fix commit (so the
+      **Evidence (2026-08-28):** same run → "mirrors the continuation on the staged path (HARNESS-131)" ✓ — without the continuation `staged implementation has no planning checkpoint ancestor`; the continuation itself staged → `[]`; with it committed and implementation staged → `[]`; a staged first-form entry → message matching `/checkpoint is neither the first GATE-IMPLEMENT PASS .* nor one continuation PASS/`.
+- [x] **TC-04** Live: in a throwaway worktree at THIS branch's tip after the fix commit (so the
       pre-commit hook judges with the fixed scan; the hook is never bypassed), with
       `HARNESS_BASE_REF=<tip>` exported: a continuation entry appended to the real RULE-016 spec is
       committed through the hook (the staged proposal path, live), then PR 2's held patch is staged
       → the scan run FROM the worktree reports no finding, `::examined:: 12 staged path(s)`, exit 0;
       tip SHA and continuation SHA recorded.
-- [ ] **TC-05** Catalogue binding: the test reads `.agents/specs/gate-catalogue.md` § GATE-IMPLEMENT
+      **Evidence (2026-08-28):** throwaway worktree at this branch's fix commit `4e575b73c` (the same tree as `8f493f1bd`, which only re-typed the message `feat` → `fix`), `HARNESS_BASE_REF=4e575b73c`: the continuation entry (`held/rule016-continuation.md`) appended to the real `.agents/spec-docs/active/RULE-016-…md` and committed THROUGH the pre-commit hook → `cda92c928` (parent `4e575b73c`; the hook's own fixed scan accepted the spec-only staged continuation); PR 2's held patch applied and staged → scan run FROM the worktree: no finding, `::examined:: 12 staged path(s)`, exit 0.
+- [x] **TC-05** Catalogue binding: the test reads `.agents/specs/gate-catalogue.md` § GATE-IMPLEMENT
       and asserts the continuation status line the scan accepts appears there verbatim; removing
       the sentence from the catalogue makes the test red. The existing shape assertions (exactly
       one `- [ ]` worktree item, one `**Evidence to record on PASS:**` paragraph) stay green.
@@ -240,27 +244,29 @@ ancestor` (unchanged); the continuation itself staged (spec-only, the hook's sha
       existing § Pre-implementation planning checkpoint, which `new-rule-declares-enforcement`
       does not judge (it judges added sections and bullets — 0 sections judged on this diff);
       its enforcement is that section's existing `Enforced by: user-execution-plan-order` line.
-- [ ] **TC-06** Applied-check mutation: removing the continuation branch from
+      **Evidence (2026-08-28):** same run → "accepts the continuation status line the catalogue declares (HARNESS-131)" ✓ (red in the tests-only run: the catalogue lacked the line); the pre-existing shape assertions (one `- [ ]` worktree item, one `**Evidence to record on PASS:**` paragraph) ✓ in the same run. `grep -c continuation`: `.agents/rules/backlog-execution.md` → 2, `.agents/skills/backlog-pipeline/SKILL.md` → 1, `.agents/skills/backlog-execution-orchestrator/SKILL.md` → 2 (recorded at `8f493f1bd`); `new-rule-declares-enforcement` judges 0 sections on this diff (prose paragraph under the existing section, whose `Enforced by: user-execution-plan-order` line stands).
+- [x] **TC-06** Applied-check mutation: removing the continuation branch from
       `isCheckpointTransition` makes the TC-01 case, the TC-02 refusals case (its
       implementation-before-continuation arm, whose premise is that the continuation is the
       checkpoint) and the TC-03 case red — three cases, all HARNESS-131 cases — and no case outside
       them; `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       passes; `pnpm harness:scan` exit 0.
+      **Evidence (2026-08-28):** continuation branch of `isCheckpointTransition` replaced by `return false` at `8f493f1bd` → `3 failed | 88 passed (91)`: exactly the TC-01, TC-02 and TC-03 cases; unbinding the parent PASS (`gateImplementPassCount(parentSpec) >= 1`) → `1 failed | 90 passed`: the TC-02 case (its re-planned arm); restored → `91 passed (91)`, `git status` clean. `HARNESS_BASE_REF=origin/develop pnpm harness:scan` → see the GATE-VERIFY entry for the count and exit code.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                           | Notes                                         |
-| ----- | ----------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| TC-01 | Integration | vitest, fixture repository with a continuation commit then implementation                                 | red-proof recorded before the branch is added |
-| TC-02 | Integration | vitest, the four refusal fixtures                                                                         |                                               |
-| TC-03 | Integration | vitest, staged path with and without the continuation; a staged first-form entry's refusal text           |                                               |
-| TC-04 | Integration | the fixed scan run inside a worktree on the real RULE-016 pair with PR 2 staged                           | HEAD and continuation SHA recorded            |
-| TC-05 | Unit        | vitest reads the catalogue section and asserts the accepted status line; grep the rule and the two skills | red when the catalogue sentence is removed    |
-| TC-06 | Mutation    | remove the continuation branch, run the file, restore; suite + `harness:scan`                             | `git diff --stat` empty after restore         |
+| TC-ID | Test Type   | Tool / Approach                                                                                           | Notes                                                                                                                                                                                                                                                                         |
+| ----- | ----------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | vitest, fixture repository with a continuation commit then implementation                                 | **Test written:** `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > user-execution PLAN order — branch history > accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)`; red-proof recorded before the branch is added |
+| TC-02 | Integration | vitest, the four refusal fixtures                                                                         | **Test written:** `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > … > keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)` (four arms)                                                     |
+| TC-03 | Integration | vitest, staged path with and without the continuation; a staged first-form entry's refusal text           | **Test written:** `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > … > mirrors the continuation on the staged path (HARNESS-131)`                                                                                                                         |
+| TC-04 | Integration | the fixed scan run inside a worktree on the real RULE-016 pair with PR 2 staged                           | **Test skipped:** a live run on the real RULE-016 pair through the pre-commit hook in a throwaway worktree is not a fixture — recorded once with the tip and continuation SHAs in the TC-04 evidence                                                                          |
+| TC-05 | Unit        | vitest reads the catalogue section and asserts the accepted status line; grep the rule and the two skills | **Test written:** `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > … > accepts the continuation status line the catalogue declares (HARNESS-131)`; the rule/skill greps recorded in the TC-05 evidence                                                    |
+| TC-06 | Mutation    | remove the continuation branch, run the file, restore; suite + `harness:scan`                             | **Test skipped:** a mutation of the shipped source cannot be a committed test — both mutations recorded in the TC-06 evidence; `git diff --stat` empty after restore                                                                                                          |
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`
+- [x] `.agents/tasks/completed/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md` — done 2026-08-28
 
 ## Evidence Log
 
@@ -362,3 +368,61 @@ Criteria met on this run (second GATE-WRITE run; first entry above kept):
 - Exact PLAN outcome: the Task's `## User Execution Test Scenarios` carries exactly one `**Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\`` line (`grep -c`of the exact line → 1; the form`exactPlanSignal`at`:807`parses) followed by the concrete reason (one additional checkpoint form in a repository verification scan, its fixture and the catalogue sentence; no package, app, CLI, TUI or published API change; the capability is reachable only through the scan's own invocation), which matches the Task README's not-applicable rule; a`DONE-GATE-STAGE-1`PASS is not required for`not-applicable`. Subject-bound PLAN ledger record present, uncommitted, in `.agents/loop-runs/user-execution-scenario.jsonl` (`git diff --numstat`→`1 0`; the only HARNESS-131 record in the file): `runId r20260828125845`, `opened 2026-08-28T12:58:45.767Z`, `closed 2026-08-28T12:58:50.261Z`, `terminal converged`, `roundFindings [0]`, `extensions {}`, `ref`=`.agents/tasks/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`(exact Task path; satisfies`validLoopRecord`, `successfulLoopRecord`and`exactSubjectRef`). Not retrospective: the record closed at 12:58Z, before the GATE-APPROVAL run (13:29Z per its entry) and before the pair commit `9fb289eca` (13:31:06Z).
 - Whole worktree path inventory (`git status --porcelain --untracked-files=all`, all paths): ` M .agents/loop-runs/user-execution-scenario.jsonl` — one appended line; nothing else staged, unstaged, untracked, renamed or deleted. Committed beyond the base (`git diff --stat origin/develop...HEAD`): `.agents/spec-docs/todo/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md` 350/0 and `.agents/tasks/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md` 95/0 — exactly the paired Task/spec planning artifacts and the subject-bound PLAN ledger record.
 - NON-COMPLIANCE trigger (implementation before this gate): not fired — `git diff origin/develop --name-only -- scripts/` is empty; `grep -ci continuation` → 0 in `scan-user-execution-plan-order.mjs`, `gate-catalogue.md`, `backlog-execution.md`, `backlog-pipeline/SKILL.md` and `backlog-execution-orchestrator/SKILL.md`; `completeGateImplementEntry` (`:430-439`) still accepts only `approved → in-progress`; `HARNESS_BASE_REF=origin/develop node scripts/harness/scan-user-execution-plan-order.mjs` → `::examined:: 1 topic commit(s)`, exit 0.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** in-progress → verifying
+
+- Ordering — prior gate: `[GATE-IMPLEMENT] — ✅ PASS | 2026-08-28` above (line 358), committed as the planning checkpoint `437293234`, with per-criterion evidence lines (Task path, TC↔Test-Plan mapping, exact PLAN outcome `not-applicable | 0` with ledger record `r20260828125845`, whole-worktree inventory) — not a bare PASS.
+- Ordering — input state: at HEAD `8f493f1bd` the committed frontmatter is `status: in-progress` and the file sits under `.agents/spec-docs/active/` (`spec-workflow.md:170`). The working tree carries an uncommitted edit to `status: verifying` plus the six ticked TC-N lines and the Test Plan references; this anticipates the verdict, is not committed, and matches the HARNESS-126 precedent ("recorded after the state was reached"). Branch `fix/2418-plan-order-continuation-checkpoint`, base `origin/develop` `c59e9d028`, three commits (`9fb289eca`, `437293234`, `8f493f1bd`).
+- All tasks in `.agents/tasks/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md` complete: the Task carries no checkbox list (a Task is the problem record per `.agents/tasks/README.md`; the same reading as the GATE-IMPLEMENT entry and the HARNESS-126 record, which also had 0 checkboxes). Its `## Test Plan` holds six bullets mapping one-to-one to TC-01..TC-06; each is delivered in `8f493f1bd` and re-verified below. Observed, not a criterion of this gate: the spec's `## Tasks` pointer row is `- [ ]` (unticked); the Task's `status: in-progress` is the state this gate expects (terminal status is the GATE-COMPLETE handoff).
+- No tasks blocked or pending: `grep -i -E 'blocked|pending|\[ \]'` on the Task → no match; `depends_on: []`; every Test Plan bullet has a matching Completion Criteria `[x]` with an `**Evidence (2026-08-28):**` line.
+- Build (`pnpm build`): N/A — `git diff --name-only origin/develop...HEAD | grep -c '^packages/'` → `0`; the change set is `scripts/harness/scan-user-execution-plan-order.mjs`, its test file, and five `.agents/` documents (9 paths, none under `packages/` or `apps/`); root `build` targets `./packages/**` only and there is nothing to build for plain `.mjs` scripts.
+- Tests: `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` on the working tree → `Tests 91 passed (91)`, exit 0 (the four HARNESS-131 cases — TC-01 acceptance, TC-02 four-arm refusals, TC-03 staged mirror, TC-05 catalogue binding — among them). `HARNESS_BASE_REF=origin/develop node scripts/harness/check-regression-red-proof.mjs --base origin/develop` (run alone) → `red-proof-ok (assertion-fail)`, exit 0, tree restored (`git status` unchanged). `HARNESS_BASE_REF=origin/develop pnpm harness:scan` → `146 scans passed, 1 skipped (97 declared what they examined)`, exit 0 (receipt not written because this spec is dirty — expected).
+- TC-06 mutations reproduced in a throwaway detached worktree at `8f493f1bd` (removed afterwards): continuation branch of `isCheckpointTransition` replaced by `return false` → `3 failed | 88 passed (91)`, exactly the three HARNESS-131 cases (TC-01 `:417`, TC-02 `:427`, TC-03 `:484`), nothing outside them; `gateImplementPassCount(parentSpec, binding) >= 1` → `gateImplementPassCount(parentSpec) >= 1` → `1 failed | 90 passed (91)`, the TC-02 case only (`:467`, the re-planned-signal arm); restored → `git diff --stat` empty.
+- TC-04 reproduced live in the same worktree (`core.hooksPath` = `.husky/_`, the repo's own; no `--no-verify`): `HARNESS_BASE_REF=8f493f1bd` (tree identical to `4e575b73c`, tree hash `21d9fa56e`), the held continuation entry appended to `.agents/spec-docs/active/RULE-016-…md` and committed through the pre-commit hook → `9ee246555` (exit 0); `git apply --index held/pr2.patch` → 12 staged paths; `node scripts/harness/scan-user-execution-plan-order.mjs --staged` → no finding, `::examined:: 12 staged path(s)`, exit 0. Control: `HARNESS_BASE_REF=9ee246555` (range excludes the continuation) → `staged implementation has no planning checkpoint ancestor`, exit 1 — the acceptance is the continuation's doing.
+- TC-05 greps re-measured: `grep -c continuation` → `.agents/rules/backlog-execution.md` 2, `.agents/skills/backlog-pipeline/SKILL.md` 1, `.agents/skills/backlog-execution-orchestrator/SKILL.md` 2; the catalogue's § GATE-IMPLEMENT continuation paragraph, the format-block annotation and the prior-gate map row `GATE-IMPLEMENT (continuation)` are present at `8f493f1bd`.
+- Worktree inventory at judgement (`git status --short`): ` M .agents/loop-runs/backlog-execution-orchestrator.jsonl` (one appended ledger line, `r20260828133854`) and ` M` this spec; nothing else staged, unstaged or untracked.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-28
+
+**Command:** `pnpm vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` on the working tree at `8f493f1bd`.
+**Output:** `Test Files 1 passed (1)`, `Tests 91 passed (91)`, duration 9.79s — exit 0.
+
+`user-execution PLAN order — branch history > accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)` (test file `:412`, assertion `:417` `expect(findHistoryFindings(root, base)).toEqual([])`) is among the 91. Red-before-fix stands on the GATE-VERIFY guard's own re-run: `HARNESS_BASE_REF=origin/develop node scripts/harness/check-regression-red-proof.mjs --base origin/develop` → `red-proof-ok (assertion-fail)`, exit 0. **Test reference:** the TC-01 row (`**Test written:**`, that describe > it name) — matches.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-28
+
+Same command, same run (91/91, exit 0): `… > keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)` (`:421`; arms asserted at `:427` `changed before the planning checkpoint`, `:467` the re-planned PLAN signal) ✓. The Task-changes-the-signal arm is the one only the binding clause `gateImplementPassCount(parentSpec, binding) >= 1` (`scan-user-execution-plan-order.mjs:883`) protects — shown by the TC-06 mutant 2 below. **Test reference:** the TC-02 row (`**Test written:**`, four arms) — matches.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-28
+
+Same command, same run (91/91, exit 0): `… > mirrors the continuation on the staged path (HARNESS-131)` (`:472`; `:484` `expect(findStagedFindings(proposal.root, proposal.base)).toEqual([])`) ✓. The both-forms refusal text is the literal at `scan-user-execution-plan-order.mjs:928` (`checkpoint is neither the first GATE-IMPLEMENT PASS … nor one continuation PASS`). **Test reference:** the TC-03 row (`**Test written:**`) — matches.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-28
+
+**Skip reason recorded (Test Plan row):** a live run on the real RULE-016 pair through the pre-commit hook is not a fixture — accepted; the run is recorded with SHAs.
+**Verification of the record:** both live continuation commits exist as objects in this repository: `cda92c928` (parent `4e575b73c`, the author's run) and `9ee246555` (parent `8f493f1bd`, the GATE-VERIFY guard's run); `git rev-parse '4e575b73c^{tree}' '8f493f1bd^{tree}'` → both `21d9fa56e…` (identical trees, as the TC-04 evidence line states). Each commit changes exactly `.agents/spec-docs/active/RULE-016-…md` (+10 lines) and their hunks are identical (`diff` of the `+`/`-` lines → no difference): a `### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28` entry with `**Status upgrade:** in-progress → in-progress (continuation)` and the five catalogue-enumerated lines.
+**Re-run by this guard** (throwaway detached worktree at `9ee246555`, `node_modules` linked, removed afterwards; the held `pr2.patch` is not reachable from this session, so a one-file staged implementation `scripts/harness/harness-131-probe.mjs` stands in for it): `HARNESS_BASE_REF=8f493f1bd node scripts/harness/scan-user-execution-plan-order.mjs` → `::examined:: 1 topic commit(s)`, exit 0 (the continuation commit alone is accepted as the checkpoint on the history path); `HARNESS_BASE_REF=8f493f1bd … --staged` → `::examined:: 1 staged path(s)`, exit 0; control `HARNESS_BASE_REF=9ee246555 … --staged` → `✗ user-execution-plan-order: staged implementation has no planning checkpoint ancestor.`, `::examined:: 1 staged path(s)`, exit 1. The 12-path figure (`::examined:: 12 staged path(s)`, exit 0, with the same exit-1 control) is the GATE-VERIFY guard's recorded observation against the held patch; the mechanism it depends on reproduces here.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-28
+
+Same vitest run (91/91, exit 0): `… > accepts the continuation status line the catalogue declares (HARNESS-131)` (`:506`) reads `.agents/specs/gate-catalogue.md` between `### GATE-IMPLEMENT` and `### GATE-VERIFY` and asserts `CONTINUATION_STATUS_LINE`; the catalogue holds `**Status upgrade:** in-progress → in-progress (continuation)` at `:243`, the format-block annotation at `:66`, and the prior-gate map row `GATE-IMPLEMENT (continuation)` at `:82`. `grep -c continuation` re-measured: `.agents/rules/backlog-execution.md` → 2, `.agents/skills/backlog-pipeline/SKILL.md` → 1, `.agents/skills/backlog-execution-orchestrator/SKILL.md` → 2. `HARNESS_BASE_REF=origin/develop node scripts/harness/scan-new-rule-declares-enforcement.mjs` → `::examined:: 0 new rule sections`, `new-rule-declares-enforcement scan passed (0 new rule section(s); …)`, exit 0. **Test reference:** the TC-05 row (`**Test written:**` plus the greps recorded here) — matches.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-28
+
+**Skip reason recorded (Test Plan row):** a mutation of the shipped source cannot be a committed test — accepted; both mutations recorded.
+**Re-run by this guard** in a throwaway detached worktree at `8f493f1bd` (`node_modules` linked; the main tree untouched; worktree removed afterwards). Mutant 1 — `return false;` inserted at `scan-user-execution-plan-order.mjs:880`, ahead of the continuation `return (…)`: `./node_modules/.bin/vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → `Tests 3 failed | 88 passed (91)`, exit 1; the three failures are exactly the TC-01, TC-02 and TC-03 cases named above, none outside HARNESS-131. Restored from `git show 8f493f1bd:<path>` → `git diff --stat` empty. Mutant 2 — `:883` `gateImplementPassCount(parentSpec, binding) >= 1` → `gateImplementPassCount(parentSpec) >= 1`: → `Tests 1 failed | 90 passed (91)`, exit 1; the one failure is the TC-02 case (its re-planned-signal arm). Restored → `git diff --stat` empty. Unmutated, main tree: 91/91, exit 0 (TC-01 entry). `HARNESS_BASE_REF=origin/develop pnpm harness:scan` run alone on the main tree → `146 scans passed, 1 skipped (97 declared what they examined)`, exit 0 (receipt not written: this spec and the orchestrator ledger are dirty — expected). `git status --short` after all runs: only ` M .agents/loop-runs/backlog-execution-orchestrator.jsonl` and ` M` this spec.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- Ordering — prior gate: `[GATE-VERIFY] — ✅ PASS | 2026-08-28` above (line 372) with per-criterion evidence lines (its own vitest 91/91, red-proof, harness:scan 146/0, both TC-06 mutants, TC-04 live with an exit-1 control) — not a bare PASS.
+- Ordering — input state: frontmatter `status: verifying` (uncommitted edit over the committed `in-progress`), file under `.agents/spec-docs/active/`, which `spec-workflow.md:171` maps to `verifying` (no folder change). Branch `fix/2418-plan-order-continuation-checkpoint`, HEAD `8f493f1bd`, three commits over `origin/develop` `c59e9d028` (`9fb289eca`, `437293234`, `8f493f1bd`).
+- Per TC-N checkbox: TC-01…TC-06 are all `[x]` in `## Completion Criteria`, each carrying an `**Evidence (2026-08-28):**` line.
+- Per TC-N `[GATE-COMPLETE: TC-N]` entry with command, observed output and exit code: six entries above (TC-01…TC-06), each re-run by this guard where the command is re-runnable (vitest 91/91 exit 0; both mutants exact; `harness:scan` 146/0 exit 0; `new-rule-declares-enforcement` exit 0; the greps; the live continuation mechanism on `9ee246555` with an exit-1 control).
+- Per Test Plan row — test reference or skip reason: TC-01, TC-02, TC-03, TC-05 `**Test written:**` naming `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > user-execution PLAN order — branch history > <it name> (HARNESS-131)` — all four `it` names exist (`:412`, `:421`, `:472`, `:506`) and pass; TC-04 and TC-06 `**Test skipped:**` with a concrete reason each (live hook run is not a fixture; a source mutation cannot be a committed test). No row is silently unaddressed.
+- `## Completion Criteria` all `[x]`: yes (6/6). `## Test Plan` updated for all rows: yes (6/6).
+- `## Tasks` names the exact active task path: `.agents/tasks/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md` — exists, tracked, its `## Bound spec document` names this file. Observed, not a criterion: the pointer row is `- [ ]`; the archived-task pointer is a post-PASS output.
+- Active task completion-ready: the Task has 0 checkboxes (`grep -c '^\s*- \[ \]'` → 0; a Task is the problem record per `.agents/tasks/README.md`, the reading GATE-IMPLEMENT and GATE-VERIFY applied); its six `## Test Plan` bullets map one-to-one to TC-01…TC-06, each demonstrated above; `grep -i -E 'blocked|pending'` → no match; `depends_on: []`. `status: in-progress` is the expected input; the terminal status/date, archival and the `active → done` move are the orchestrator's Phase 5 handoff.
