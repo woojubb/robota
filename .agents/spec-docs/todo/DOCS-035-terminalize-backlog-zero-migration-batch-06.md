@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -249,3 +249,58 @@ runnable user-facing behavior and deliberately leaves CONFIG-002 package/API wor
   additions and zero package/app, API/contract, product/package-documentation, policy/gate,
   skill/workflow/hook/topology, or other excluded paths.
 - `ACTIONABLE FINDINGS: 0`.
+
+### [RECOMMENDATION REVIEW ROUND 1] — 🔴 REVISE | 2026-08-29
+
+- Medium — current-truth wording: GitHub issue #2453 and its canonical handoff already established
+  unique OPEN residual ownership, but the Problem still said no open GitHub issue owned the CONFIG-002
+  residual and the Decision still described issue creation/readback as an unsatisfied precondition.
+  Distinguish the manifest-freeze premise from the now-grounded owner before approval.
+- `ACTIONABLE FINDINGS: 1`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
+
+### [RECOMMENDATION REVIEW ROUND 2] — ✅ ENDORSE | 2026-08-29
+
+- Commit `c40653389dc0f80d839b4e772051c34f2940b5aa` resolves the sole finding. GitHub issue #2453 did
+  not exist at manifest freeze and now exactly owns the residual after remote grounding.
+- The correction changes current-truth wording only. The three units, five governed blob OIDs, nine
+  final paths, mixed terminal dispositions, remote issue/comment identities, zero baseline/carrier
+  result, and excluded-path boundary are unchanged.
+- The recommendation remains the smallest truthful containment: two delivered Tasks become done,
+  CONFIG-002 returns its residual to issue #2453, and two bypassed/stale plans are rejected without
+  manufacturing historical gate verdicts.
+- `ACTIONABLE FINDINGS: 0`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent remote-grounding measured exact issues/comments/blobs/ownership/scope with ACTIONABLE FINDINGS: 0; independent recommendation round 2 ENDORSE with ACTIONABLE FINDINGS: 0.
+**Review fingerprint:** f5b7e7fc6eb1 (review 5d1ec235, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent remote-grounding measured exact issues/comments/)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f5b7e7fc6eb1) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A
+  for route CLASS; the recorded standing instruction unambiguously pre-authorizes documentation-only
+  fixed-population backlog migration batches that satisfy the registered evidence boundary.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS; DOCS-035 has a
+  committed three-unit/nine-path manifest from the fixed population, exact unchanged Task/spec blobs,
+  exact delivered or OPEN issue ownership, and zero baseline/carrier or excluded source, API,
+  product-documentation, policy, gate, skill, workflow, hook, or topology paths. Its two plan
+  rejections, two delivered Task completions, one residual issue handoff, paired Task/spec, and loop
+  ledgers are precisely the class's allowed documentation-only lifecycle scope.
+- GATE-APPROVAL — Independent architecture validation (conditional): N/A because DOCS-035
+  introduces or reclassifies no package, app, presentation/interface, API/contract, policy,
+  workflow, topology, or product surface; recommendation round 2 independently records
+  `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
