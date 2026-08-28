@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-122: progress-report-quantification reads an M/D date as a partial completion ratio'
 issue: https://github.com/woojubb/robota/issues/2339
-status: todo
+status: done
+completed: 2026-08-25
 created: 2026-08-25
 priority: high
 urgency: now

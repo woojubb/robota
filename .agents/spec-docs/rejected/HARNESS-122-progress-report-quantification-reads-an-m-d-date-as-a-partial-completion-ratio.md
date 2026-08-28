@@ -1,5 +1,5 @@
 ---
-status: draft
+status: rejected
 type: INFRA
 tags: [infra, harness, scan]
 ---
@@ -112,3 +112,12 @@ reason, and it is anti-rotted — an entry whose finding stops appearing fails t
   kind validation kills one — the typo case (`false-postive`), which would otherwise fall through the
   `?? 'violation'` default and clear a finding while counted as a violation. Baseline 55 passed;
   `pnpm harness:scan` 144 passed, 0 failures.
+
+### [REJECTION] — 2026-08-29
+
+PR #2341 delivered the owner-selected ledger-kind correction at merge commit
+`8c8cde208c9510805a82b9e9d7ecec22fb6c07cd`; issue #2339's definitive correction records why that
+solution superseded this draft's refuted pattern-based proposal, and the focused suite passes 55/55.
+No implementation remains. Because this draft never entered an approved GATE-IMPLEMENT through
+GATE-COMPLETE history, it is rejected as stale rather than promoted to done, with its historical
+proposal and withdrawal evidence preserved.
