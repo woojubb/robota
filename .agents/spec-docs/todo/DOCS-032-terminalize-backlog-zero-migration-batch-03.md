@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -232,3 +232,29 @@ adds no runnable user-facing behavior.
   `87579e423a9971c3de7cfb8ea2e2b59a9293f261`, and committed HEAD. The open PR set, competing branch,
   extra worktree, and loop reservation sets are empty.
 - Independent exact readback: `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Committed five-unit/nine-path manifest b1c33a0f58; exact remote-grounded manifest db5fcd8365 and evidence commit 65380e38c2; issues #2441-#2445 and #2056 OPEN/unassigned; five exact handoffs; five unchanged Task blobs; zero baseline, carrier, package, API, policy, workflow, topology, or product/user-document changes; independent ACTIONABLE FINDINGS: 0.
+**Review fingerprint:** 9ffc24a011c0 (review ec0cf59b, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Committed five-unit/nine-path manifest b1c33a0f58; exact rem)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (9ffc24a011c0) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A;
+  route `CLASS` is the selected exclusive route, so the Route DIRECT semantic criterion does not
+  apply.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS; the manifest owns
+  five fixed-population Task handoffs and nine final lifecycle/ledger paths, stays below the six-unit
+  and fifteen-path limits, and changes no package/app source, API/contract, policy/gate document,
+  skill/workflow/hook/topology, baseline, carrier, or product/user documentation.
+- GATE-APPROVAL — Independent architecture validation: N/A; the narrowed batch adds or reclassifies
+  no package, app, presentation/interface surface, layer, or product-family boundary.
+- Guardian: all 3 pending semantic criteria resolved (1 PASS, 2 N/A); `ACTIONABLE FINDINGS: 0`.
