@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -294,3 +294,35 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent round-5 recommendation review ENDORSE with ACTIONABLE FINDINGS: 0; live readback confirms three high/now units, seven final paths, exact OPEN/unassigned owners and unmodified handoffs, corrected umbrella supersession, three unchanged population blobs, zero carriers/baselines, and no excluded or competing scope.
+**Review fingerprint:** 4c7257547e89 (review 4a11802b, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-5 recommendation review ENDORSE with ACTIO)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (4c7257547e89) equals the document's current fingerprint
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 367 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
+  `.agents/spec-docs/todo/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
+  `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828214443`; orchestrator run
+  `r20260828214440`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
