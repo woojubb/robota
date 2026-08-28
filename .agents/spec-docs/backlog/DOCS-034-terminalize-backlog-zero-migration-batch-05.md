@@ -200,3 +200,29 @@ runnable user-facing behavior.
 - GATE-WRITE — Evidence structure: this was the empty Evidence Log on the first GATE-WRITE run.
 - GATE-WRITE — Body field placement: the body contains no `## Status` or `## Classification` section.
 - GATE-WRITE — Totals: mechanical criteria 20/20 PASS; semantic criteria 7/7 PASS; TC-N/Test Plan count 5/5.
+
+### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
+
+- Audited committed HEAD `d8d88f2dfcfacd321611983e618df1aaa5e0a123` against unchanged
+  `origin/develop` base `cafe017de0941a50d7e96a512fe8b28e233de159`; frozen manifest commit
+  `5efedff39a945d18836519c463bc969207151a75` is an ancestor of HEAD.
+- Marker and owner readback is unique, OPEN, and unassigned: control issue #2451 carries
+  `backlog-zero:DOCS-034:2c875dd3`; exact owners #2326, #2394, and #2149 respectively carry
+  `backlog-zero:HARNESS-120:2c875dd3`, `backlog-zero:HARNESS-128:2c875dd3`, and
+  `backlog-zero:INFRA-133:2c875dd3`.
+- The three canonical append-only handoffs were read back exactly and remain unedited:
+  https://github.com/woojubb/robota/issues/2326#issuecomment-5456692501,
+  https://github.com/woojubb/robota/issues/2394#issuecomment-5456692845, and
+  https://github.com/woojubb/robota/issues/2149#issuecomment-5456693151.
+- Population object, base, HEAD, and worktree blobs are identical for every governed Task:
+  HARNESS-120 `5fc7ccc9f0a5dc0c73b5d18d451898eb0aa38edd`, HARNESS-128
+  `4a3d6fba1243f279873e8ee09aad0d24a952b417`, and INFRA-133
+  `7e386a9310360d5a19ef23e15f24ca875dad4088`.
+- No matching open PR, local or remote implementation branch, extra worktree, assignee, open loop
+  reservation, or implementation process owns any unit. The manifest remains exactly three units and
+  seven final logical paths, with zero baseline rekeys/additions, carrier changes, or package/app,
+  API/contract, policy/gate, skill/workflow/hook/topology, or product/user-document paths.
+- Diff from the frozen manifest changes only the three canonical handoff URLs and the planned control
+  marker statement to the grounded #2451 fact; the recommendation, Decision, dispositions, scope, and
+  Completion Criteria are unchanged.
+- `ACTIONABLE FINDINGS: 0`
