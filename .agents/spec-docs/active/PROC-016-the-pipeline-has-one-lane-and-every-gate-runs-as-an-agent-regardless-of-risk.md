@@ -328,10 +328,13 @@ suite and says so, which is the fail-closed direction, not a fallback.
       range REVISED, and each script the range ADDED (`gate.mjs`, `scan-lane-declaration.mjs`,
       `new-spec.mjs`) has a test file whose refusal cases are paired with an accepting control — the
       red-proof checker reports an added file as inconclusive by design.
-- [ ] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
+- [x] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
       first L1 item after it — measures, from the session log, prompt → PR opened ≤ 20 min excluding CI
-      wait, ≤ 2 subagent dispatches, ≤ 3 commits on the PR; the three numbers and the session id are
-      recorded in the Evidence Log. A miss is a GATE-COMPLETE FAIL, not a note.
+      wait, ≤ 2 subagent dispatches, ≤ 3 commits made by the lane itself (a commit that resolves a
+      review finding is counted separately, because the review-record contract requires a new head for
+      it); the numbers and the session id are recorded in the Evidence Log. A miss is a GATE-COMPLETE
+      FAIL, not a note. _Amended after approval on 2026-08-28 by the owner's instruction, recorded in_
+      _the Evidence Log: the review-fix commit is excluded from the count._
 
 ## Test Plan
 
@@ -572,3 +575,13 @@ Other criteria, checked in this run:
 - After all — `## Tasks` names the exact active task path: PASS — line 365 names `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md`, which exists.
 - After all — Task completion-ready: PASS on form — `## Plan` 12/12 `[x]`, 0 `[ ]`; `grep -niE 'blocked|pending'` → none; frontmatter `status: in-progress`, `depends_on: []`.
 - Verdict reason: TC-13 (measured endpoint is not the criterion's endpoint; no PR opened) and TC-12 (`harness:scan` 2/148 failing; red-proof accidental-green on a revised script).
+
+### [OWNER AMENDMENT: TC-13] — recorded | 2026-08-28
+
+**Instruction (verbatim):** "리뷰 반영 커밋 제외로 기준 개정 (권장)" — the owner's selection, this conversation,
+2026-08-28, in answer to the measured result on INFRA-137 (PR #2417: 12 min 56 s prompt → PR, 2 reviewer
+rounds, 4 commits of which the fourth resolved the reviewer's one SHOULD).
+**Change:** TC-13's commit bound now counts the commits the lane itself makes (planning, fix, close = 3)
+and excludes a commit that resolves a review finding. The time and dispatch bounds are unchanged.
+**Why it is recorded here:** a Completion Criterion changed after GATE-APPROVAL; the Architecture
+Review, `type:` and `tags:` are untouched, and the review fingerprint recorded at approval still holds.
