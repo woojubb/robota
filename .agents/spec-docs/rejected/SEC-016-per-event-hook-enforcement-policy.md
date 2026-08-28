@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: rejected
+returned_to_issue: https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445
 type: SECURITY
 tags: [typescript, async, auth]
 ---
@@ -497,7 +498,7 @@ The contrast is the observable. One run alone could be explained by the fixture;
 
 ## Tasks
 
-- [ ] SEC-016 — todo — `.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md`
+- [ ] SEC-016 — todo — `.agents/tasks/completed/SEC-016-per-event-hook-enforcement-policy.md`
 
 ## Evidence Log
 
@@ -864,12 +865,12 @@ hits anywhere in the tree. `packages/agent-session/src/tool-hook-helpers.ts:69` 
 defect `## Problem` describes, unmodified.
 
 **Criterion 1 — `.agents/tasks/<ID>.md` created: MET.**
-`.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md` exists (untracked, 1 file).
+`.agents/tasks/completed/SEC-016-per-event-hook-enforcement-policy.md` exists (untracked, 1 file).
 `check-backlog-placement.mjs` → `backlog-placement scan passed`, exit 0, so its `status: todo`
 frontmatter agrees with its location.
 
 **Criterion 2 — tasks file path recorded in the spec's `## Tasks` section: MET.** The section reads
-`- [ ] SEC-016 — todo — .agents/tasks/SEC-016-per-event-hook-enforcement-policy.md`. The path is exact
+`- [ ] SEC-016 — todo — .agents/tasks/completed/SEC-016-per-event-hook-enforcement-policy.md`. The path is exact
 and resolves; it is not a directory or a pattern.
 
 **Criterion 3 — tasks correspond to the Completion Criteria: MET, checked per-TC by content rather

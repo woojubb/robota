@@ -1,7 +1,9 @@
 ---
 title: 'STRUCT-011: the provider aggregator carries the prefix of what it aggregates'
 issue: https://github.com/woojubb/robota/issues/2198
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707
 created: 2026-08-23
 priority: high
 urgency: now
