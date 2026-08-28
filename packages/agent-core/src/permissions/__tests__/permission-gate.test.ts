@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearRegisteredToolProfiles,
   evaluatePermission,
+  hasUnevaluableArgumentPattern,
+  matchesAnyPattern,
   registerToolPermissionProfile,
 } from '../permission-gate.js';
+import { resolvePermissionByPolicy } from '../permission-policy.js';
 
 /**
  * CORE-030: the argument key a pattern like `Bash(pnpm *)` is matched against is declared by the
@@ -14,13 +17,38 @@ import {
  */
 beforeEach(() => {
   clearRegisteredToolProfiles();
-  registerToolPermissionProfile('Bash', { argumentKey: 'command', riskClass: 'execute' });
-  registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
-  registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
-  registerToolPermissionProfile('Write', { argumentKey: 'filePath', riskClass: 'modify' });
-  registerToolPermissionProfile('Edit', { argumentKey: 'filePath', riskClass: 'modify' });
-  registerToolPermissionProfile('Glob', { argumentKey: 'pattern', riskClass: 'inspect' });
-  registerToolPermissionProfile('Grep', { argumentKey: 'pattern', riskClass: 'inspect' });
+  registerToolPermissionProfile('Bash', {
+    argument: { key: 'command', kind: 'command' },
+    riskClass: 'execute',
+  });
+  registerToolPermissionProfile('Shell', {
+    argument: { key: 'command', kind: 'command' },
+    riskClass: 'execute',
+  });
+  registerToolPermissionProfile('Read', {
+    argument: { key: 'filePath', kind: 'path' },
+    riskClass: 'inspect',
+  });
+  registerToolPermissionProfile('Write', {
+    argument: { key: 'filePath', kind: 'path' },
+    riskClass: 'modify',
+  });
+  registerToolPermissionProfile('Edit', {
+    argument: { key: 'filePath', kind: 'path' },
+    riskClass: 'modify',
+  });
+  registerToolPermissionProfile('Glob', {
+    argument: { key: 'pattern', kind: 'text' },
+    riskClass: 'inspect',
+  });
+  registerToolPermissionProfile('Grep', {
+    argument: { key: 'pattern', kind: 'text' },
+    riskClass: 'inspect',
+  });
+  registerToolPermissionProfile('WebFetch', {
+    argument: { key: 'url', kind: 'url' },
+    riskClass: 'inspect',
+  });
 });
 
 afterEach(() => {
@@ -55,5 +83,219 @@ describe('evaluatePermission deny precedence', () => {
       deny: ['Glob'],
     });
     expect(decision).toBe('deny');
+  });
+});
+
+/**
+ * CORE-049 (issue #2350) — a pattern is matched by the KIND of argument it is scoped to.
+ *
+ * The anti-goal these cases state: the URL verdicts come from `new URL` canonicalisation
+ * (`0x7f.1` IS `127.0.0.1`, `SUB.EXAMPLE.COM` IS `sub.example.com`, `%61dmin` IS `admin`) and the
+ * deny-direction verdicts from a third state ("could not evaluate" prompts, it does not pass). No
+ * string glob, however many characters it escapes, produces either.
+ */
+const UNEVALUABLE_ARGUMENTS = [
+  'https://sub.example.com@evil.tld/', // userinfo
+  'not a url', // does not parse
+  'file:///etc/passwd', // host-less scheme
+  'foo://0x7f.1/', // non-special scheme: host is opaque, so it cannot be compared
+  'https://sub.example.com/%E0%A4%A/x', // a segment that does not percent-decode
+];
+const UNEVALUABLE_PATTERNS = [
+  'WebFetch(https://user@*.example.com/**)', // userinfo in a pattern: grammar-rejected
+  'WebFetch(https://*.example.com/x?q=1)', // a query in a pattern: grammar-rejected
+  'WebFetch(https://a**b.example.com/**)', // `**` inside a label: rule-rejected
+  'WebFetch(https://exa mple.com/**)', // grammar-accepted, but the literal host does not parse
+];
+
+describe('CORE-049 — url kind: a host pattern means a host', () => {
+  const allow = { allow: ['WebFetch(https://*.example.com/**)'] };
+  const auto = (url: string) => evaluatePermission('WebFetch', { url }, 'default', allow);
+
+  it('TC-01 matches hosts under the wildcard, at any subdomain depth, on the default port', () => {
+    expect(auto('https://sub.example.com/ok')).toBe('auto');
+    expect(auto('https://a.b.example.com/x')).toBe('auto');
+    expect(auto('https://sub.example.com:443/x')).toBe('auto');
+  });
+
+  it('TC-01 does not match when the matched text lives in the query, fragment, path or another host', () => {
+    // Today's allow side changes nothing for an `inspect` tool (auto in every mode), so the
+    // assertion is on the matcher: none of these is a MATCH.
+    for (const url of [
+      'https://evil.tld/?a=.example.com/x',
+      'https://evil.tld/#.example.com/x',
+      'https://evil.tld/.example.com/x',
+      'https://169.254.169.254/?x=.example.com/y',
+      'https://sub.example.com:8443/',
+      'https://example.com/',
+    ]) {
+      expect(matchesAnyPattern('WebFetch', { url }, allow.allow), url).toBe(false);
+    }
+    expect(matchesAnyPattern('WebFetch', { url: 'https://sub.example.com/ok' }, allow.allow)).toBe(
+      true,
+    );
+    // `**.` covers the apex; `*.` does not.
+    expect(
+      matchesAnyPattern('WebFetch', { url: 'https://example.com/' }, [
+        'WebFetch(https://**.example.com/**)',
+      ]),
+    ).toBe(true);
+  });
+
+  it('TC-02 canonicalises the argument host and path — the verdicts only parsing can give', () => {
+    const deny = { deny: ['WebFetch(http://127.0.0.1/**)'] };
+    for (const url of [
+      'http://0x7f.1/',
+      'http://2130706433/',
+      'http://127.1/',
+      'http://127.0.0.1:80/',
+      'http://127.0.0.1./',
+    ]) {
+      expect(evaluatePermission('WebFetch', { url }, 'default', deny), url).toBe('deny');
+    }
+    expect(
+      evaluatePermission('WebFetch', { url: 'http://[0:0:0:0:0:0:0:1]/' }, 'default', {
+        deny: ['WebFetch(http://[::1]/**)'],
+      }),
+    ).toBe('deny');
+    for (const url of ['https://SUB.EXAMPLE.COM/x', 'https://sub.example.com./x']) {
+      expect(
+        evaluatePermission('WebFetch', { url }, 'default', {
+          allow: ['WebFetch(https://sub.example.com/**)'],
+        }),
+        url,
+      ).toBe('auto');
+    }
+    expect(
+      evaluatePermission('WebFetch', { url: 'https://h/%61dmin/x' }, 'default', {
+        deny: ['WebFetch(https://h/admin/**)'],
+      }),
+    ).toBe('deny');
+  });
+
+  it('TC-03 an argument it cannot interpret under a DENY prompts — it never falls open', () => {
+    const deny = { deny: ['WebFetch(https://*.example.com/**)'] };
+    for (const url of UNEVALUABLE_ARGUMENTS) {
+      expect(hasUnevaluableArgumentPattern('WebFetch', { url }, deny.deny), url).toBe(true);
+      expect(evaluatePermission('WebFetch', { url }, 'default', deny), url).toBe('approve');
+      expect(evaluatePermission('WebFetch', { url }, 'acceptEdits', deny), url).toBe('approve');
+      expect(evaluatePermission('WebFetch', { url }, 'plan', deny), url).toBe('deny');
+      expect(
+        resolvePermissionByPolicy(
+          'inherit-allowlist',
+          'WebFetch',
+          { url },
+          { taskDeny: deny.deny },
+        ),
+        url,
+      ).toBe('deny');
+    }
+    expect(
+      hasUnevaluableArgumentPattern('WebFetch', { url: 'https://sub.example.com/ok' }, deny.deny),
+    ).toBe(false);
+  });
+
+  it('TC-03 a pattern that is unevaluable — grammar- or rule-rejected — is unevaluable for any argument', () => {
+    for (const pattern of UNEVALUABLE_PATTERNS) {
+      const deny = { deny: [pattern] };
+      expect(
+        hasUnevaluableArgumentPattern('WebFetch', { url: 'https://x/' }, deny.deny),
+        pattern,
+      ).toBe(true);
+      expect(evaluatePermission('WebFetch', { url: 'https://x/' }, 'default', deny), pattern).toBe(
+        'approve',
+      );
+      expect(evaluatePermission('WebFetch', { url: 'https://x/' }, 'plan', deny), pattern).toBe(
+        'deny',
+      );
+      expect(
+        resolvePermissionByPolicy(
+          'inherit-allowlist',
+          'WebFetch',
+          { url: 'https://x/' },
+          {
+            taskDeny: deny.deny,
+          },
+        ),
+        pattern,
+      ).toBe('deny');
+    }
+  });
+
+  it('TC-03 a bare wildcard is any invocation — what a preset deniedTools produces', () => {
+    for (const url of ['https://any.host/', 'not a url', 'file:///x']) {
+      expect(
+        evaluatePermission('WebFetch', { url }, 'default', { deny: ['WebFetch(*)'] }),
+        url,
+      ).toBe('deny');
+    }
+  });
+});
+
+describe('CORE-049 — path kind: `*` stays inside a segment and the path is normalised', () => {
+  it('TC-04 `*` does not cross `/`; `**` does', () => {
+    expect(
+      evaluatePermission('Read', { filePath: '/src/a.ts' }, 'default', { allow: ['Read(/src/*)'] }),
+    ).toBe('auto');
+    expect(matchesAnyPattern('Read', { filePath: '/src/a/b.ts' }, ['Read(/src/*)'])).toBe(false);
+    expect(
+      evaluatePermission('Read', { filePath: '/src/a/b.ts' }, 'default', {
+        allow: ['Read(/src/**)'],
+      }),
+    ).toBe('auto');
+  });
+
+  it('TC-04 a `..` cannot walk out of a denied directory, on either separator', () => {
+    expect(
+      evaluatePermission('Read', { filePath: '/w/src/../secrets/x' }, 'default', {
+        deny: ['Read(/w/secrets/**)'],
+      }),
+    ).toBe('deny');
+    expect(
+      evaluatePermission('Read', { filePath: 'C:\\w\\secrets\\x' }, 'default', {
+        deny: ['Read(C:/w/secrets/**)'],
+      }),
+    ).toBe('deny');
+  });
+
+  it('TC-04 a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
+    expect(
+      evaluatePermission('Read', { filePath: 'src/x' }, 'default', { deny: ['Read(/w/**)'] }),
+    ).toBe('approve');
+    expect(
+      evaluatePermission('Read', { filePath: '/any/path' }, 'default', { deny: ['Read(*)'] }),
+    ).toBe('deny');
+  });
+});
+
+describe("CORE-049 — command and text kinds keep today's glob; the declaration is one object", () => {
+  it('TC-05 `Bash(git *)` still matches a command with a slash in it', () => {
+    for (const command of ['git status', 'git add src/x']) {
+      expect(
+        evaluatePermission('Bash', { command }, 'default', { allow: ['Bash(git *)'] }),
+        command,
+      ).toBe('auto');
+    }
+  });
+
+  it('TC-05 a text-kind pattern crosses `/` as it always did', () => {
+    registerToolPermissionProfile('Tool', { argument: { key: 'query', kind: 'text' } });
+    expect(
+      evaluatePermission('Tool', { query: 'a/b/c' }, 'default', { allow: ['Tool(a/*)'] }),
+    ).toBe('auto');
+  });
+
+  it('TC-06 a keyless tool under `Tool(*)` is denied — the bare wildcard names no argument', () => {
+    registerToolPermissionProfile('Keyless', { riskClass: 'inspect' });
+    expect(
+      evaluatePermission('Keyless', { anything: 1 }, 'default', { deny: ['Keyless(*)'] }),
+    ).toBe('deny');
+  });
+
+  it('TC-06 the type refuses a key declared without a kind', () => {
+    // If the kind is ever made optional again this line stops being an error and `pnpm typecheck`
+    // goes red — the requirement is observed by the compiler, not by a runtime.
+    // @ts-expect-error — a key without a kind is not an argument declaration
+    registerToolPermissionProfile('KeyOnly', { argument: { key: 'x' } });
   });
 });

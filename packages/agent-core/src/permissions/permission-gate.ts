@@ -14,6 +14,9 @@
  * - `ToolName`      — match any invocation of that tool
  */
 
+import path from 'node:path';
+import { domainToASCII } from 'node:url';
+
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 
 import type { TToolRiskClass } from './permission-mode.js';
@@ -35,15 +38,188 @@ export interface IPermissionLists {
 }
 
 /**
- * Convert a glob-style wildcard pattern to a RegExp.
+ * What kind of thing a tool's primary argument is — which decides how a pattern is matched against
+ * it. CORE-049 (issue #2350): one glob served every kind, so `WebFetch(https://*.example.com/**)`
+ * was a wildcard over the whole URL string — query, fragment, userinfo and path included — and
+ * `Read(/src/*)` crossed `/`. Each kind has its own delimiter and its own canonical form:
+ *
+ * - `url`     — the pattern is split by a grammar (scheme, host, port, path) and the ARGUMENT is
+ *               parsed with `new URL`, so alternate host encodings canonicalise before comparison;
+ *               query and fragment never participate; only special schemes are comparable.
+ * - `path`    — separators normalised, both sides lexically normalised; `*` stays inside one
+ *               segment, `**` crosses.
+ * - `command` — today's shell-style glob (`*` any run of characters). The separator residual
+ *               (`Bash(git *)` matching `git status; rm -rf /`) is issue #2427.
+ * - `text`    — today's glob, for arguments that are neither (a search query, a glob pattern).
+ *
+ * A bare `*` or `**` argument pattern matches ANY invocation of the tool, for every kind and for a
+ * tool that declared no argument at all — the contract `toolNamesToPatterns` (preset
+ * `allowedTools`/`deniedTools` → `Tool(*)`) relies on.
+ */
+export type TArgumentKind = 'path' | 'url' | 'command' | 'text';
+
+/**
+ * One match is three answers, not two. A pattern or argument the matcher cannot interpret in the
+ * declared kind is UNEVALUABLE — `url`: the argument does not parse, carries userinfo, has no host
+ * or a non-special scheme, or a path segment does not percent-decode; the pattern does not fit the
+ * grammar, or its literal host does not parse; `path`: a relative argument under an absolute
+ * pattern. An unevaluable deny is not "not denied" (CORE-030: "I cannot tell" is not "no"):
+ * `hasUnevaluableArgumentPattern` reports it and the gate prompts instead of falling through to the
+ * allow list and the mode policy, which for an `inspect` tool is `auto` in every mode.
+ */
+type TPatternMatch = 'match' | 'no-match' | 'unevaluable';
+
+const REGEX_SPECIALS = /[.+^${}()|[\]\\]/g;
+
+/**
+ * Convert a glob-style wildcard pattern to a RegExp — the `command` and `text` matcher.
  * Only `*` and `**` wildcards are supported (same semantics as minimatch lite).
  */
 function globToRegex(glob: string): RegExp {
   const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape regex specials except * ?
+    .replace(REGEX_SPECIALS, '\\$&') // escape regex specials except * ?
     .replace(/\*\*/g, '.+') // ** → one-or-more any char
     .replace(/\*/g, '.*'); // * → zero-or-more any char (shell-style, not path-segment restricted)
   return new RegExp(`^${escaped}$`);
+}
+
+/** A segment glob: `*` never crosses `/`; `**` does. */
+function segmentGlobToRegex(glob: string): RegExp {
+  // Split on `**` first so the two wildcards never collide: `**` crosses segments, `*` stays in one.
+  const body = glob
+    .split('**')
+    .map((part) => part.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^/]*'))
+    .join('.*');
+  return new RegExp(`^${body}$`);
+}
+
+/** `/…` on every platform; `X:/…` is absolute too, so a Windows argument is judged, not dropped. */
+function isAbsolutePathLike(normalised: string): boolean {
+  return normalised.startsWith('/') || /^[A-Za-z]:\//.test(normalised);
+}
+
+/** The `path` matcher: separators and `.`/`..` normalised lexically; a relative argument under an absolute pattern is unevaluable. */
+function matchPath(pattern: string, argument: string): TPatternMatch {
+  const normalisedPattern = path.posix.normalize(pattern.replace(/\\/g, '/'));
+  const normalisedArgument = path.posix.normalize(argument.replace(/\\/g, '/'));
+  if (isAbsolutePathLike(normalisedPattern) && !isAbsolutePathLike(normalisedArgument)) {
+    // No base to resolve the argument against (issue #2429 owns where that happens). Not "no".
+    return 'unevaluable';
+  }
+  return segmentGlobToRegex(normalisedPattern).test(normalisedArgument) ? 'match' : 'no-match';
+}
+
+/**
+ * The grammar a `url` PATTERN must fit: `scheme://host[:port][/path]` — scheme a literal or `*`;
+ * host a bracketed IPv6 literal or labels carrying `*`/`**` (never `@`, `:`, `/`, `?`, `#`); port a
+ * number or `*`; path optional. Userinfo, query and fragment do not fit: such a pattern is not a
+ * host pattern and is refused as unevaluable rather than guessed at.
+ */
+const URL_PATTERN_GRAMMAR =
+  /^(\*|[a-z][a-z0-9+.-]*):\/\/(\[[0-9a-fA-F:.]+\]|[^/:?#@[\]]+)(?::(\d+|\*))?(\/[^?#]*)?$/i;
+
+/** The schemes whose host `new URL` canonicalises; any other scheme keeps its host opaque. */
+const SPECIAL_SCHEMES: ReadonlySet<string> = new Set(['http', 'https', 'ws', 'wss', 'ftp']);
+const DEFAULT_PORT: Readonly<Record<string, string>> = {
+  http: '80',
+  https: '443',
+  ws: '80',
+  wss: '443',
+  ftp: '21',
+};
+
+/** Both sides drop one trailing dot and lower-case; `new URL` does neither for the trailing dot. */
+function canonicalHostText(host: string): string {
+  return host.replace(/\.$/, '').toLowerCase();
+}
+
+/**
+ * A wildcard host pattern as a RegExp over the argument's canonical hostname. `*` as a whole
+ * label = one or more labels; `**` as a whole label = zero or more (so `**.example.com` covers the
+ * apex); `*` inside a label = within that label; `*` as the entire host = any host. Literal labels
+ * pass `domainToASCII` so an IDN pattern meets the argument's punycode form. `a**b` inside a label
+ * is not a rule this grammar states and yields null (unevaluable).
+ */
+function hostPatternToRegex(hostPattern: string): RegExp | null {
+  const parts: string[] = [];
+  for (const label of canonicalHostText(hostPattern).split('.')) {
+    if (label === '*') parts.push('[^.]+(?:\\.[^.]+)*');
+    else if (label === '**') parts.push('(?:[^.]+(?:\\.[^.]+)*)?');
+    else if (label.includes('**')) return null;
+    else if (label.includes('*')) {
+      parts.push(label.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^.]*'));
+    } else {
+      const ascii = domainToASCII(label);
+      if (ascii === '') return null;
+      parts.push(ascii.replace(REGEX_SPECIALS, '\\$&'));
+    }
+  }
+  // A `**` label may be empty, so the dot that follows it is optional too.
+  const body = parts.map((part, index) => (index === 0 ? part : `(?:\\.)?${part}`)).join('');
+  return new RegExp(`^${body}$`);
+}
+
+/** A percent-decoded pathname, segment by segment; null when a segment does not decode. */
+function decodedSegments(pathname: string): string | null {
+  try {
+    return pathname
+      .split('/')
+      .map((segment) => decodeURIComponent(segment))
+      .join('/');
+  } catch {
+    return null;
+  }
+}
+
+/** The `url` matcher: the pattern by grammar, the argument by `new URL`, compared structurally. */
+function matchUrl(pattern: string, argument: string): TPatternMatch {
+  const grammar = URL_PATTERN_GRAMMAR.exec(pattern);
+  if (grammar === null) return 'unevaluable';
+  const [, schemePattern, hostPattern, portPattern, pathPattern] = grammar;
+
+  let url: URL;
+  try {
+    url = new URL(argument);
+  } catch {
+    return 'unevaluable';
+  }
+  const scheme = url.protocol.slice(0, -1).toLowerCase();
+  if (!SPECIAL_SCHEMES.has(scheme)) return 'unevaluable'; // `file:`, `foo:`: host opaque or absent
+  if (url.hostname === '') return 'unevaluable';
+  if (url.username !== '' || url.password !== '') return 'unevaluable';
+
+  if (schemePattern !== '*' && schemePattern.toLowerCase() !== scheme) return 'no-match';
+
+  const host = canonicalHostText(url.hostname);
+  if (hostPattern.includes('*')) {
+    const regex = hostPatternToRegex(hostPattern);
+    if (regex === null) return 'unevaluable';
+    if (!regex.test(host)) return 'no-match';
+  } else {
+    // A literal pattern host is canonicalised the way the argument's was — by a special scheme,
+    // whatever the pattern's scheme (including `*`).
+    let literal: string;
+    try {
+      literal = new URL(`http://${hostPattern}/`).hostname;
+    } catch {
+      return 'unevaluable';
+    }
+    if (canonicalHostText(literal) !== host) return 'no-match';
+  }
+
+  if (portPattern === undefined) {
+    if (url.port !== '') return 'no-match'; // no port in the pattern: the scheme default only
+  } else if (portPattern !== '*') {
+    const port = url.port === '' ? DEFAULT_PORT[scheme] : url.port;
+    if (portPattern !== port) return 'no-match';
+  }
+
+  if (pathPattern !== undefined) {
+    const decoded = decodedSegments(url.pathname);
+    if (decoded === null) return 'unevaluable';
+    if (!segmentGlobToRegex(pathPattern).test(decoded)) return 'no-match';
+  }
+  return 'match';
 }
 
 /**
@@ -72,15 +248,27 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
  * and a mode-policy matrix keyed on a closed union of tool names — two layers below the packages
  * that define those tools, with nothing coupling the lists. CORE-030.
  */
+/**
+ * The argument a tool's permission patterns are scoped to, and what kind of thing it is. One
+ * object, so a key cannot be declared without its kind — a key alone would leave the tool on the
+ * string glob that matched a URL's query as its host (CORE-049).
+ */
+export interface IToolPermissionArgument {
+  /** `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. */
+  key: string;
+  /** How a pattern is matched against that argument. */
+  kind: TArgumentKind;
+}
+
 export interface IToolPermissionProfile {
   /**
-   * Which argument this tool's permission patterns are scoped to.
+   * Which argument this tool's permission patterns are scoped to, and its kind.
    *
-   * `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. Without it an
-   * argument-scoped pattern is UNEVALUABLE for this tool, and an unevaluable deny is not an allow —
-   * the gate prompts rather than proceeding.
+   * Without it an argument-scoped pattern is UNEVALUABLE for this tool (a bare `Tool(*)` still
+   * matches — it names no argument), and an unevaluable deny is not an allow — the gate prompts
+   * rather than proceeding.
    */
-  argumentKey?: string;
+  argument?: IToolPermissionArgument;
   /**
    * What kind of action this tool performs, which is what the modes actually decide about.
    *
@@ -123,7 +311,7 @@ export function getToolPermissionProfile(toolName: string): IToolPermissionProfi
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
 function argumentKeyFor(toolName: string): string | undefined {
-  return toolProfiles.get(toolName)?.argumentKey;
+  return toolProfiles.get(toolName)?.argument?.key;
 }
 
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
@@ -142,7 +330,7 @@ export function matchesAnyPattern(
   args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
-  return patterns.some((pattern) => matchesPattern(toolName, args, pattern));
+  return patterns.some((pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'match');
 }
 
 /**
@@ -154,44 +342,59 @@ export function matchesAnyPattern(
  */
 export function hasUnevaluableArgumentPattern(
   toolName: string,
-  _args: TToolArgs,
+  args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
-  return patterns.some((pattern) => {
-    const parsed = parsePattern(pattern);
-    if (parsed.toolName !== toolName || parsed.argPattern === undefined) return false;
-    // ONLY "nobody knows which argument this pattern is about". A tool whose key IS known but which
-    // was invoked without that argument is a real NON-match — the pattern is about `path`, there is
-    // no path, so there is nothing to deny — and it goes back to the allow list.
-    //
-    // The first version also treated that case as unevaluable, which contradicted its own comment
-    // and the test beside it. Review of #1596 caught the two conditions collapsing into one.
-    return argumentKeyFor(toolName) === undefined;
-  });
+  // Two shapes of "I cannot tell": nobody declared which argument the pattern is about (CORE-030),
+  // or the argument or the pattern cannot be interpreted in the declared kind (CORE-049). A tool
+  // whose key IS known but which was invoked without that argument is a real NON-match — the
+  // pattern is about `path`, there is no path, so there is nothing to deny — and it goes back to
+  // the allow list. (Review of #1596 caught those two conditions collapsing into one.)
+  return patterns.some(
+    (pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'unevaluable',
+  );
 }
 
 /**
- * Test whether a tool invocation matches a permission pattern entry.
+ * One invocation against one permission pattern entry: `match`, `no-match`, or `unevaluable`.
  */
-function matchesPattern(toolName: string, args: TToolArgs, pattern: string): boolean {
+function evaluateArgumentPattern(
+  toolName: string,
+  args: TToolArgs,
+  pattern: string,
+): TPatternMatch {
   const parsed = parsePattern(pattern);
 
   // Tool name must match (case-sensitive)
   if (parsed.toolName !== toolName) {
-    return false;
+    return 'no-match';
   }
 
-  // No argument constraint → matches any invocation of that tool
-  if (parsed.argPattern === undefined) {
-    return true;
+  // No argument constraint, or a bare wildcard → any invocation of that tool, whatever its kind —
+  // and whether or not it declared an argument: `Tool(*)` names none.
+  if (parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**') {
+    return 'match';
+  }
+
+  // Nobody declared which argument this pattern is about (CORE-030)
+  const argument = toolProfiles.get(toolName)?.argument;
+  if (argument === undefined) {
+    return 'unevaluable';
   }
 
   const primary = primaryArg(toolName, args);
   if (primary === undefined) {
-    return false;
+    return 'no-match';
   }
 
-  return globToRegex(parsed.argPattern).test(primary);
+  switch (argument.kind) {
+    case 'url':
+      return matchUrl(parsed.argPattern, primary);
+    case 'path':
+      return matchPath(parsed.argPattern, primary);
+    default:
+      return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
+  }
 }
 
 /**

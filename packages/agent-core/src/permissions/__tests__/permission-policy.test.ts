@@ -15,9 +15,18 @@ describe('resolvePermissionByPolicy (CORE-025)', () => {
   // declare it rather than relying on a table in this package.
   beforeEach(() => {
     clearRegisteredToolProfiles();
-    registerToolPermissionProfile('Bash', { argumentKey: 'command', riskClass: 'execute' });
-    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
-    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+    registerToolPermissionProfile('Bash', {
+      argument: { key: 'command', kind: 'command' },
+      riskClass: 'execute',
+    });
+    registerToolPermissionProfile('Shell', {
+      argument: { key: 'command', kind: 'command' },
+      riskClass: 'execute',
+    });
+    registerToolPermissionProfile('Read', {
+      argument: { key: 'filePath', kind: 'path' },
+      riskClass: 'inspect',
+    });
   });
 
   afterEach(() => {

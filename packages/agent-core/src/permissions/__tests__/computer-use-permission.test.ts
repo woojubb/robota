@@ -28,11 +28,20 @@ describe('computer-use permission decisions (SELFHOST-010)', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
     // Exactly what `@robota-sdk/agent-tools` declares for these four.
-    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
-    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Read', {
+      argument: { key: 'filePath', kind: 'path' },
+      riskClass: 'inspect',
+    });
+    registerToolPermissionProfile('Shell', {
+      argument: { key: 'command', kind: 'command' },
+      riskClass: 'execute',
+    });
     registerToolPermissionProfile('ComputerView', { riskClass: 'inspect' });
     registerToolPermissionProfile('Computer', { riskClass: 'execute' });
-    registerToolPermissionProfile('Write', { argumentKey: 'filePath', riskClass: 'modify' });
+    registerToolPermissionProfile('Write', {
+      argument: { key: 'filePath', kind: 'path' },
+      riskClass: 'modify',
+    });
   });
 
   afterEach(() => {
