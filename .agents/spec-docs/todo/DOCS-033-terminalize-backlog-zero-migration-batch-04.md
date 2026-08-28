@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -289,3 +289,33 @@ adds no runnable user-facing behavior.
 - Scope check: the manifest contains exactly four unit rows and eight final tracked paths, with zero
   baseline, carrier, package/app source, API/contract, or policy/gate change.
 - Guardian verdict: `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent remote-grounding audit at HEAD 0fb8a86a6: gh issue marker searches and gh api comment readback returned unique OPEN/unassigned #2447/#2449/#2448, OPEN/unassigned #1988/#2058, and all five canonical comments exact; git rev-parse population/base/HEAD/worktree blobs matched d178952d3a03a361e2474b817cbda19b86168d98, 68b69f36f17ad85f1880ea007985772af94e6142, 67f3d5570e441b71c3013e654ac27c01814a82e5, 270db6474f03cc2e0f6d170bad4c73bd88f411d4; gh pr list returned empty; manifest and git diff audit measured 4 units/8 paths and zero baseline/carrier/package/app/API/contract/policy/gate scope; ACTIONABLE FINDINGS: 0.
+**Review fingerprint:** 310acea0a34c (review 0ce601c2, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent remote-grounding audit at HEAD 0fb8a86a6: gh iss)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (310acea0a34c) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A;
+  route `CLASS` is the selected exclusive route, and the verbatim instruction directly and
+  unambiguously pre-authorizes documentation-only batches inside `BACKLOG-ZERO-MIGRATION`, so the
+  Route DIRECT semantic criterion does not apply.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS; all four governed
+  Tasks exist in the fixed population and retain their exact blobs at population, base, HEAD, and
+  worktree; the manifest has four units and eight final `.agents` lifecycle/ledger paths, below the
+  six-unit/fifteen-path limits; the current branch diff contains only this spec and the planned scope
+  changes no package/app source, API/contract, policy/gate document, skill/workflow/hook/topology,
+  baseline, carrier, or product/user documentation.
+- GATE-APPROVAL — Independent architecture validation: N/A; DOCS-033 adds or reclassifies no package,
+  app, presentation/interface surface, layer, or product-family boundary. The recorded independent
+  proposal `ENDORSE` with `ACTIONABLE FINDINGS: 0` is additional validation, not evidence that the
+  conditional new-surface criterion applies.
