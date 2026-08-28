@@ -348,7 +348,7 @@ describe('user-execution PLAN order — branch history', () => {
     // checkpoint. The merge's first-parent diff is the base's content, which is not the branch's
     // work — a false refusal on the branch tip today, fixed by the same exclusion. This is the
     // case that proves the decision is about attribution, not about CI's checkout.
-    const { root, base } = repository();
+    const { root } = repository();
     git(root, ['switch', '-q', 'develop']);
     write(root, 'packages/x/src/d.ts', 'export const d = 1;\n');
     commit(root, 'develop moves on (#2)');
