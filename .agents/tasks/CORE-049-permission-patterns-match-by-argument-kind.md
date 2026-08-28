@@ -1,7 +1,7 @@
 ---
 title: 'CORE-049: permission patterns match by argument kind'
 issue: https://github.com/woojubb/robota/issues/2350
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -57,27 +57,27 @@ lives in and in the profiles the tool packages contribute.
 
 ## Test Plan
 
-- URL matcher: `https://*.example.com/**` matches `https://sub.example.com/ok` and refuses the four
+- TC-01, TC-02, TC-03 — URL matcher: `https://*.example.com/**` matches `https://sub.example.com/ok` and refuses the four
   placements from the evidence (query, fragment, path, metadata host) plus userinfo
   (`https://sub.example.com@evil.tld/`) and port (`https://sub.example.com:8443/` without a port in
   the pattern); a host wildcard covers subdomain depth; a deny `WebFetch(http://127.0.0.1/**)` matches
   `http://0x7f.1/`, `http://2130706433/` and `http://127.1/` — the anti-goal stated: the verdict
   comes from `new URL` canonicalisation, which no string glob can produce.
-- Path matcher: `*` does not cross `/` (`Read(/src/*)` refuses `/src/a/b`); `**` does.
-- Command matcher: `Bash(git *)` still matches `git status` and `git add src/x` (unchanged
+- TC-04 — Path matcher: `*` does not cross `/` (`Read(/src/*)` refuses `/src/a/b`); `**` does.
+- TC-05 — Command matcher: `Bash(git *)` still matches `git status` and `git add src/x` (unchanged
   semantics; the separator residual is issue #2427, not fixed here).
-- Kind resolution: a tool profile declares its argument as one object, `argument: { key, kind }`
+- TC-06 — Kind resolution: a tool profile declares its argument as one object, `argument: { key, kind }`
   (`IToolPermissionArgument`); the shipped profiles declare `path`, `url`, `command`, `text`; a key
   without a kind does not type-check (a `// @ts-expect-error` registration pins it); a keyless tool
   under `Tool(*)` is denied/allowed by the bare-wildcard rule (today it prompts).
-- Shipped declarations: a test in `agent-tools` and one in `agent-framework` assert each registered
+- TC-06 — Shipped declarations: a test in `agent-tools` and one in `agent-framework` assert each registered
   profile's `argument.kind` (`WebFetch` → `url`, `Read`/`Write`/`Edit` → `path`, the command tools →
   `command`, `Glob`/`Grep`/`WebSearch` → `text`), so a missing declaration is red rather than a silent
   `text` default. Unparseable URL argument: not `auto` under an allow; under a deny in `default` mode
   the verdict is `approve` (a prompt), the fail direction stated.
-- Applied-check mutation: reverting the URL matcher to the string glob makes the placement cases
+- TC-07 — Applied-check mutation: reverting the URL matcher to the string glob makes the placement cases
   red; reverting the path matcher makes the `/`-crossing case red.
-- `pnpm build`, `pnpm test --filter agent-core --filter agent-tools --filter agent-framework`,
+- TC-08 — `pnpm build`, `pnpm test --filter agent-core --filter agent-tools --filter agent-framework`,
   `pnpm harness:scan` exit 0; `packages/agent-core/docs/SPEC.md` names `IToolPermissionArgument` and the
   per-kind semantics.
 
@@ -370,4 +370,4 @@ robota-cli` with `shipped-entrypoint=robota`; the command's first token is `robo
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/CORE-049-permission-patterns-match-by-argument-kind.md`
+`.agents/spec-docs/active/CORE-049-permission-patterns-match-by-argument-kind.md`

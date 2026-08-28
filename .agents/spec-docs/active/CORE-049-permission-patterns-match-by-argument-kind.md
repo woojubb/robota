@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: SECURITY
 lane: L2
 tags: [agent-core, permissions, security]
@@ -434,3 +434,24 @@ Non-failing observations for the author (no criterion turns on them): (a) TC-03 
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: MET. Semantic set judged by `backlog-gate-guard` on 2026-08-29 (mechanical set: `gate.mjs judge --gate GATE-APPROVAL`, 6 PASS / 0 FAIL / 3 PENDING-GUARDIAN). Provenance stated plainly: the guard did not observe the selection; the dispatch carries it, and the `**Instruction (verbatim):** "승인 (권장)"` field `gate.mjs approve` recorded above is the same string. The question the owner answered in this conversation was headed "GATE-APPROVAL" and opened "CORE-049 (issue #2350, P1 보안) GATE-APPROVAL — Route DIRECT. spec: `.agents/spec-docs/backlog/CORE-049-permission-patterns-match-by-argument-kind.md` (lane L2)", then summarised § Decision A1 as it stands on disk — `argument: { key, kind }` declared by the tool profile, the third state `unevaluable` for what cannot be interpreted, and the consequence that `Tool(*)` matches keyless tools (the `CodebaseRetrieval` verdict change A1 names) — and asked "승인하시겠습니까?" with options "승인 (권장)" / "보류 — 질문 있음" / "거절". The selected option is "승인", the first form the catalogue lists as explicit approval; it is not an answer to a clarifying question, not silence, and not approval of another item (the question names this ID, this issue, this path, this lane and this decision). Not a relay: given in this document's own conversation, on the approval date.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry argues for: N/A. Route is `DIRECT`; no class is claimed, so there is no registry boundary to evaluate (the only registered class, `LANE-L0-L1`, would not cover a lane-L2 document in any case).
 - GATE-APPROVAL — Independent architecture validation (conditional): N/A, reason verified. The spec introduces no new package, app, presentation or interface surface and reclassifies no layer or product-family boundary: `IToolPermissionArgument` is a nested interface on the existing exported `IToolPermissionProfile` (`packages/agent-core/src/permissions/permission-gate.ts:75`, replacing `argumentKey` at `:83`); every Affected Files row is an existing file except one new test file (`packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts`), which is not a surface; the Sibling scan line records `N/A for new-surface placement` with the two unchanged consumers. No `proposal-reviewer` placement verdict is therefore required. Ordering check: GATE-WRITE `✅ PASS | 2026-08-29` is the last GATE-WRITE entry (four resolved FAIL entries precede it) and carries per-criterion lines; `status: review-ready`, file under `backlog/` (the mapping `spec-workflow.md` gives for `review-ready`); lane L2. NON-COMPLIANCE trigger checked: branch `fix/2350-permission-patterns-match-by-argument-kind` at `dd46c9183` = `origin/develop`, 0 commits ahead, the spec and its paired Task (`status: todo`) are the only untracked files; `IToolPermissionArgument`/`argumentKind` have 0 occurrences in `permission-gate.ts` and the `agent-core` dist typings — nothing implemented before this gate.
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-29
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 0/8 TC ids and carries 0 checkbox task(s)
+  **Required action:** one task per TC-N
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — paired planning artifacts: `.agents/spec-docs/active/CORE-049-permission-patterns-match-by-argument-kind.md` (this document; `todo/` at judgement time, moved by the checkpoint) and `.agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md`; the Task's exact PLAN signal `SCENARIO DRAFTED: automatable | 3`; whole worktree = the pair and the subject-bound ledger record. Added by the orchestrator so the scan can bind the entry — the judge omits the spec token (issue #2433).
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (8)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 2112 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 3`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
