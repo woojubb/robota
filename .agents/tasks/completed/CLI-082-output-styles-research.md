@@ -1,6 +1,8 @@
 ---
 title: 'CLI-082: response shape can only be changed by rewriting the system prompt — output styles research pass'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/1988#issuecomment-5456241480
 created: 2026-08-22
 priority: high
 urgency: now

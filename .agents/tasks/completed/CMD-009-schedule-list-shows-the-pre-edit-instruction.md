@@ -1,6 +1,8 @@
 ---
 title: 'CMD-009: after `/schedule edit` changes the instruction, `/schedule list` keeps showing the old one'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2448#issuecomment-5456241485
 created: 2026-08-16
 priority: low
 urgency: later

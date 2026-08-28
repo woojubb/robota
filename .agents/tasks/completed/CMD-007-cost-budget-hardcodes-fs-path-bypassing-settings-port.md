@@ -1,6 +1,8 @@
 ---
 title: 'CMD-007: /cost budget persists to a hardcoded .robota/budget.json with direct node:fs inside the command module, bypassing the injected settings-adapter port'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2058#issuecomment-5456241547
 created: 2026-08-13
 priority: medium
 urgency: soon
