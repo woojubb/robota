@@ -1,6 +1,8 @@
 ---
 title: 'CMD-008: sessionRequirements is documented as a registration gate ("only register when the runtime is available") but implemented as a demand switch ("module present ⇒ force the runtime on")'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2449#issuecomment-5456241523
 created: 2026-08-13
 priority: medium
 urgency: later
