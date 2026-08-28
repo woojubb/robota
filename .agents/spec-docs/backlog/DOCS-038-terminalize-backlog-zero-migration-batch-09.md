@@ -1,5 +1,5 @@
 ---
-status: done
+status: review-ready
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -16,10 +16,13 @@ still has all eight end-to-end workspace-trust criteria unchecked after its orig
 on Task registration. STRUCT-011 delivered most of a package rename but left one live import of the
 removed package name and its final verification incomplete.
 
-The base is `origin/develop` at `cf5c83e627d88958497ea8c04633502d837f4452`. Each governed Task
-blob equals the fixed-population blob. There is no open PR, matching current implementation branch,
-extra worktree, assignee, or open loop owning any unit. Marking the records done would overclaim their
-state; leaving them active would retain competing queues.
+The base is `origin/develop` at `cf5c83e627d88958497ea8c04633502d837f4452`. At that base, each
+governed root-path Task full blob equals the fixed-population blob. At PR head and this review target,
+the completed-path full blobs include terminal lifecycle frontmatter while each frontmatter-stripped
+Task body remains byte-identical to its population body. At initial selection there was no open PR,
+matching current implementation branch, extra worktree, assignee, or open loop owning any unit. PR
+#2466 now solely owns the correction triggered by its published finding. Marking the records done
+would overclaim their state; leaving them active would retain competing queues.
 
 Issue #2404 owns prevention of future duplicate durable queues. DOCS-038 is finite containment only.
 
@@ -34,14 +37,17 @@ package, API, product, policy, workflow, hook, skill, or topology.
 
 ### Affected Scope
 
-- SEC-016 Task lifecycle move, its stale active plan rejection, three exact Task-path citation
-  rekeys inside that plan, and a cardinality-preserving standing-delegation baseline key move from
-  `active/` to `rejected/`.
+- SEC-016 Task lifecycle move, its stale active plan rejection, and three localized lifecycle
+  evidence corrections that separate the historical gate state from the current archived Task
+  location, plus a cardinality-preserving standing-delegation baseline key move from `active/` to
+  `rejected/`.
 - SECURITY-001 Task lifecycle move to the exact open successor created for its still-unfinished
   end-to-end outcome.
 - STRUCT-011 Task lifecycle move, its stale approved plan rejection, and its one exact Task-path
   citation rekey.
-- The paired DOCS-038 Task/spec and two required closed loop ledgers.
+- The paired DOCS-038 Task/spec, including six historical Task-path statements contextualized when
+  the done spec becomes live for reapproval; two required closed execution ledgers; and one
+  finding-resolution ledger opened for the published PR correction.
 - One control issue, one successor issue, three canonical handoff comments, and one append-only note
   linking the closed original SECURITY-001 report to its successor.
 
@@ -87,7 +93,7 @@ carrier edits. RULE-015 requires excluded rule/policy carriers. They are not sil
 
 ### Architecture Review Checklist
 
-- [x] Affected scope listed — ten internal lifecycle/ledger/baseline paths only.
+- [x] Affected scope listed — eleven internal lifecycle/ledger/baseline paths only.
 - [x] Sibling scan completed — all critical/high-now population records, blobs, current premises,
       issues, branches, worktrees, assignees, loops, citations, baselines, and carriers checked.
 - [x] At least two alternatives considered.
@@ -104,55 +110,82 @@ Population object: `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`.
 
 Pre-approval base: `origin/develop` at `cf5c83e627d88958497ea8c04633502d837f4452`.
 
-Limits: 3 units; 10 final tracked paths. Each governed Task blob is identical at population, base,
-HEAD, and worktree. No package source, API, policy, product documentation, workflow, hook, skill, or
-topology path is permitted.
+Limits: 3 units; 11 final tracked paths. Population/base full blobs, current completed-path full
+blobs, and body equality are distinct below. No package source, API, policy, product documentation,
+workflow, hook, skill, or topology path is permitted.
 
-| Unit         | Governed original path and blob OID                                                                                                            | Exact current owner and evidence                                                                                                                     | Disposition                                                                                                                   |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| SEC-016      | `.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md` @ `57c1a87e77de6a0f58beb23e7f409f3b470f7b25`                                      | OPEN/unassigned issue #2225; exact handoff https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445; TC-11 alone remains unchecked.     | Preserve Task body; reject plan with three Task-path rekeys; rekey baseline active→rejected. Issue #2093 is historical.       |
-| SECURITY-001 | `.agents/tasks/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md` @ `ebd76904511da6d18815d91fa67ab24b5b276017` | OPEN/unassigned successor issue #2465; exact handoff https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582; all eight criteria open. | Preserve Task body and archive skipped. Closed issue #2018 remains historical and carries only an append-only successor link. |
-| STRUCT-011   | `.agents/tasks/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md` @ `04317a761813dd04a66d5b8bdd9bb1eb127fcbe2`        | OPEN/unassigned issue #2198; exact handoff https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707; stale live import confirmed.       | Preserve Task body; reject plan with exactly one Task-path rekey. Product/package repair stays with issue #2198.              |
+Population original records, exact at object `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e` and the pinned
+base:
 
-Plan input blobs are fixed and current at `034fa55dd793b8b01871cfb45534a0895db8302c` for SEC-016 and
-`ff445f698f9d315fb9d0eb489cb3f53be5f3cc7f` for STRUCT-011. Exact citation rekeys produce plan
-postimages `4d09259798e236965b6bacd8d391f66f612c429d` and
-`ca8278c67787f33972b5f1348d0e6bfb79933b1f` respectively: SEC-016 has exactly three replacements
-and STRUCT-011 exactly one, with no other body byte changed. The standing-delegation baseline is
-`bbe76bd5d457ec5c496e4b82aa65373f79dc24d6` at the fixed-population object, but later authorized
-lifecycle rekeys make its base/HEAD/worktree preimage
-`9988892ae31e368fd2ffc43ee937b826e9e1d464`. Replacing only
+```text
+.agents/tasks/SEC-016-per-event-hook-enforcement-policy.md @ 57c1a87e77de6a0f58beb23e7f409f3b470f7b25
+.agents/tasks/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md @ ebd76904511da6d18815d91fa67ab24b5b276017
+.agents/tasks/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md @ 04317a761813dd04a66d5b8bdd9bb1eb127fcbe2
+```
+
+| Unit         | Current completed path and full blob at PR head/review target                                                                                                               | Exact current owner and evidence                                                                                                                     | Disposition                                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SEC-016      | `.agents/tasks/completed/SEC-016-per-event-hook-enforcement-policy.md` @ `670510e328e064638cea447a6a46bcda95240526`; body equals population input                           | OPEN/unassigned issue #2225; exact handoff https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445; TC-11 alone remains unchecked.     | Preserve Task body; reject plan; make three localized lifecycle-evidence corrections; rekey baseline active→rejected. Issue #2093 is historical. |
+| SECURITY-001 | `.agents/tasks/completed/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md` @ `eabd94636a7959b54dfd9af31109fb64a4a825f2`; body equals input | OPEN/unassigned successor issue #2465; exact handoff https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582; all eight criteria open. | Preserve Task body and archive skipped. Closed issue #2018 remains historical and carries only an append-only successor link.                    |
+| STRUCT-011   | `.agents/tasks/completed/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md` @ `1f631e439c2f83952fcd3ed8a995a7b9dd61fbd9`; body equals input        | OPEN/unassigned issue #2198; exact handoff https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707; stale live import confirmed.       | Preserve Task body; reject plan with exactly one Task-path rekey. Product/package repair stays with issue #2198.                                 |
+
+Plan input blobs are fixed at `034fa55dd793b8b01871cfb45534a0895db8302c` for SEC-016 and
+`ff445f698f9d315fb9d0eb489cb3f53be5f3cc7f` for STRUCT-011. The v2 citation-only body projection
+produced SEC-016 blob `4d09259798e236965b6bacd8d391f66f612c429d`; its actual rejected lifecycle
+blob at PR head, including the approved `status`/`returned_to_issue` frontmatter, is
+`e3668da70f4e2a0b7feaeac3f9483c93a4744391`. PR finding
+https://github.com/woojubb/robota/pull/2466#issuecomment-5458577670 proved that its surrounding evidence
+then made false present-tense claims about an archived Task being `todo` and untracked. The fresh
+projection starts from `e3668da70f4e2a0b7feaeac3f9483c93a4744391` and applies exactly three localized
+corrections: the live Tasks row becomes checked/skipped, and two historical gate paragraphs explicitly
+separate their then-active `todo` facts from the current completed location. Prettier-normalized output
+is frozen at `e73e2396b89e5ff3006761bcaf22252059ce70fc`. STRUCT-011 remains the exact one-citation
+postimage `ca8278c67787f33972b5f1348d0e6bfb79933b1f`. No SEC-016 policy/design claim changes. The
+standing-delegation baseline is `bbe76bd5d457ec5c496e4b82aa65373f79dc24d6` at the fixed-population
+object. At pinned `origin/develop`, its preimage is
+`9988892ae31e368fd2ffc43ee937b826e9e1d464`. The v2 transition replaced only
 `active/SEC-016-per-event-hook-enforcement-policy.md` with the same basename under `rejected/`
-produces expected postimage `7704d8bbf977e90bdf7fe032e02129e1cc4ed754`: cardinality remains
-218, the source key count changes 1→0, the destination key 0→1, and all other entries and order stay
-unchanged.
+and produced `7704d8bbf977e90bdf7fe032e02129e1cc4ed754`: cardinality remained 218, the
+source key count changed 1→0, the destination key 0→1, and all other entries and order stayed
+unchanged. PR head, this review target, and the corrected final projection all retain that exact
+`7704d8bb...` postimage; the fresh finding correction does not edit the baseline.
 
-Live ownership check: no open PR, current matching implementation branch, extra worktree, assignee,
-or open loop owns any unit. The remote `origin/docs/issue-2018-to-task` branch is stale registration
-residue: it is hundreds of commits behind develop, has no PR, and its sole unique commit predates the
-current SECURITY-001 Task blob and dependency state.
+Live ownership check: PR #2466 and this session own the batch correction at exact base
+`cf5c83e627d88958497ea8c04633502d837f4452` and head
+`1303237b8dc4bb013fc23dcbd061b999487e08f5`; no competing PR, current implementation branch, extra
+worktree, assignee, or open unit loop exists. The remote `origin/docs/issue-2018-to-task` branch is
+stale registration residue: it is hundreds of commits behind develop, has no PR, and its sole unique
+commit predates the current SECURITY-001 Task blob and dependency state.
 
 Control issue #2464 uniquely carries `backlog-zero:DOCS-038:2c875dd3`. Successor issue #2465 uniquely
 carries its SECURITY-001 residual marker. Issues #2464, #2465, #2225, and #2198 are OPEN and
 unassigned. All three canonical handoff comments are exact and unmodified (`created_at == updated_at`).
 
-Any governed blob, exact owner, current premise, disposition, or path-set change excludes that unit
-and requires a fresh recommendation and class approval.
+The published finding changes the SEC-016 plan postimage, adds the required PR finding-resolution
+ledger, and requires six paired-spec historical citations to distinguish their then-active Task from
+its current archive while the spec is live for reapproval. The v2 approval cannot authorize this
+eleven-path result. This corrected manifest requires a fresh independent recommendation and class
+approval before the SEC-016 evidence edit is applied.
+Any further governed blob, exact owner, current premise, disposition, or path-set change excludes that
+unit and requires another fresh recommendation and class approval.
 
 ## Solution
 
-1. Freeze the exact three-unit/ten-path manifest and preserve remote readback evidence.
+1. Freeze the exact three-unit/eleven-path manifest and preserve remote readback evidence.
 2. Obtain independent depth and recommendation review of urgency, ownership, current truth, baseline
    cardinality, and class boundary; record class approval only at zero actionable findings.
-3. Create the paired Task and subject-bound not-applicable scenario checkpoint before implementation.
-4. Apply only the three Task moves, two plan rejections, four exact in-plan Task citation rekeys,
-   and one exact baseline rekey.
+3. Re-open the paired Task/spec for the published finding and preserve the subject-bound
+   not-applicable scenario checkpoint before correction implementation.
+4. Apply only the three Task moves, two plan rejections, STRUCT-011's exact citation rekey,
+   SEC-016's three frozen lifecycle-evidence corrections, six paired-spec historical citation
+   contextualizations, and one exact baseline rekey.
 5. Verify normalized body preservation, exact paths/blobs/issues/comments, lifecycle/folder/citation/
    delegation/baseline/loop gates, current premises, full harness scan, and the CI mirror.
 
 ## Affected Files
 
 - `.agents/loop-runs/backlog-execution-orchestrator.jsonl`
+- `.agents/loop-runs/pr-finding-resolution-loop.jsonl`
 - `.agents/loop-runs/user-execution-scenario.jsonl`
 - `.agents/spec-docs/done/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`
 - `.agents/spec-docs/rejected/SEC-016-per-event-hook-enforcement-policy.md`
@@ -165,17 +198,19 @@ and requires a fresh recommendation and class approval.
 
 ## Completion Criteria
 
-- [x] TC-01: the approved manifest remains exactly three fixed-population units, ten final tracked
+- [ ] TC-01: the approved manifest remains exactly three fixed-population units, eleven final tracked
       paths, three exact skipped dispositions, two exact plan rejections, and one no-growth baseline
       rekey, with no excluded path.
-- [x] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
+- [ ] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
       unique where marked, and unmodified; each skipped Task cites its exact owner comment.
-- [x] TC-03: all three Task bodies remain byte-identical after normalization; the SEC-016 and
-      STRUCT-011 plan bodies differ only by exactly three and one approved Task-path citation rekeys,
-      producing frozen postimage blobs `4d092597...` and `ca8278c6...`.
-- [x] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
+- [ ] TC-03: all three Task bodies remain byte-identical after normalization; SEC-016 changes from
+      v2 rejected lifecycle blob `e3668da7...` only by the three approved lifecycle-evidence
+      corrections and produces `e73e2396...`; STRUCT-011 remains the frozen one-citation body
+      postimage `ca8278c6...`; six paired-spec history statements distinguish then-active facts from
+      the current archive and resolve exactly while the spec is live.
+- [ ] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
       its sorted set and cardinality; no package/app/API/policy/product/workflow/topology path changes.
-- [x] TC-05: the exact final path set is ten and focused lifecycle/current-premise checks plus
+- [ ] TC-05: the exact final path set is eleven and focused lifecycle/current-premise checks plus
       `pnpm harness:scan` and `pnpm harness:verify-like-ci` all exit 0.
 
 ## Test Plan
@@ -190,8 +225,10 @@ and requires a fresh recommendation and class approval.
 
 ## Tasks
 
-The exact Task `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md` is created only
-after GATE-APPROVAL passes, before GATE-IMPLEMENT.
+The paired Task remains at
+`.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md` while this correction
+recommendation is reviewed. After fresh approval it is re-opened at the root Task directory before
+GATE-IMPLEMENT. No SEC-016 evidence correction is applied before the fresh GATE-APPROVAL pass.
 
 ## User Execution Test Scenarios
 
@@ -200,20 +237,22 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 
 ## Remote Grounding Evidence
 
-- Base, HEAD, and worktree blobs equal the fixed-population input blobs for all three Tasks and both
-  plans. No-write projections produce the two exact plan postimages and replacement counts above.
-  The baseline is deliberately distinguished: population blob `bbe76bd5...`, current preimage
-  `9988892...`, and exact one-key expected postimage `7704d8bb...`, with cardinality 218 throughout
-  the current rekey.
+- At the pinned base, all three root-path Task full blobs equal their population inputs. At v2 PR
+  head and this review target, the completed-path full blobs are exactly `670510e3...`, `eabd9463...`,
+  and `1f631e43...`; stripping only terminal lifecycle frontmatter reproduces each population body.
+  No-write projections produce the corrected SEC-016 postimage, unchanged STRUCT-011 postimage, and
+  exact replacement counts above. The baseline is deliberately time-separated: population
+  `bbe76bd5...`, base preimage `9988892...`, and PR-head/target/corrected-final postimage
+  `7704d8bb...`, with cardinality 218 throughout.
 - Issues #2464, #2465, #2225, and #2198 are OPEN and unassigned. Control/successor markers are unique.
 - Canonical comments #5458301445, #5458301582, and #5458301707 carry exact Task paths/blobs and
   current residuals, and each has `created_at == updated_at`.
 - Closed original issue #2018 remains closed and now carries only append-only successor note
   #5458301853; no issue metadata was changed.
 - Current source confirms the SEC-016 TC-11 gap, SECURITY-001's eight unchecked criteria despite
-  trust-service primitives, and STRUCT-011's stale live import. No competing PR/worktree/assignee/
-  loop/current branch exists.
-- `ACTIONABLE FINDINGS: 0`.
+  trust-service primitives, and STRUCT-011's stale live import. PR #2466 is the sole current batch
+  owner; no competing PR/worktree/assignee/unit loop/current branch exists.
+- Published correction finding: `ACTIONABLE FINDINGS: 1` pending fresh recommendation review.
 
 ## Evidence Log
 
@@ -359,13 +398,18 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 **Status upgrade:** approved → in-progress
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: at this gate, `## Tasks` named the
+  then-active root Task; that lifecycle record is now archived at
+  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: at
+  this gate, the section named the then-active root Task with the spec's basename; that same record
+  is now archived at `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 449 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
-- Planning checkpoint binding: `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
+- Planning checkpoint binding: the then-active root Task, now archived at
+  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
   `.agents/spec-docs/active/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
   `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828223510`; orchestrator run
   `r20260828223510`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
@@ -375,7 +419,9 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 **Status upgrade:** in-progress → verifying
 
 - GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
-- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): at this gate, 5/5
+  tasks were `[x]` in the then-active Task, now archived at
+  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
 - GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan:reference-kind-qualified` → exit 0 ( ⏎ ::examined:: 3140 tracked document(s) ⏎ reference-kind-qualified scan passed (1465 unqualified reference(s) at baseline across 275 file(s)). It checks that a reference says WHICH it is, not that the kind it names is correct — deciding that needs a live GitHub read.); all 2 supplied commands exit 0
 - GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/check-task-archival.test.mjs scripts/harness/__tests__/scan-doc-folder-status-agreement.test.mjs scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs scripts/harness/__tests__/scan-spec-user-execution-section.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/scan-reference-kind-qualified.test.mjs scripts/harness/__tests__/scan-task-path-citations.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs scripts/harness/__tests__/scan-loop-proof.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
@@ -411,5 +457,49 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
 - GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
-- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, which exists
-- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under
+  `.agents/tasks/`: at this gate, `## Tasks` named the then-active root Task, now archived at
+  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+- GATE-COMPLETE — That active task exists and is completion-ready: at this gate the then-active Task
+  had 5/5 tasks `[x]`, with no pending or blocked item; that record is now archived at
+  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+
+### [PR FINDING ROUND 1] — 🔴 REVISE | 2026-08-29
+
+- Published finding: https://github.com/woojubb/robota/pull/2466#issuecomment-5458577670.
+- The v2 citation-only SEC-016 postimage is byte-reversible but semantically false around all three
+  rekeys: the live Tasks row still says `todo`, while historical evidence now reads as though the
+  current completed/skipped Task were untracked and its `status: todo` agreed with that location.
+- Decision: ACCEPTED. The DOCS-038 Task/spec return to the review-ready recommendation boundary; the
+  v2 approval and completion remain historical evidence but cannot authorize any further edit.
+- Corrected scope: three units, eleven final paths, exactly three localized SEC-016 lifecycle-evidence
+  corrections, six paired-spec historical citation contextualizations, unchanged STRUCT-011/
+  baseline/Task projections, and the required finding-resolution ledger. No package/API/policy/design
+  claim changes.
+- No correction implementation has been applied. A fresh independent recommendation review and class
+  approval are required before editing the SEC-016 plan.
+- `ACTIONABLE FINDINGS: 1`.
+
+**Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
+
+### [PR FINDING DEPTH] — ✅ PASS | 2026-08-29
+
+- `DEPTH: LOCAL` — the error was introduced by this PR's mechanical path rekeys and is fully
+  corrected by separating then-state evidence from the current archive location.
+- The correction does not hide a foundational defect, weaken a design, or require a new product/API/
+  policy owner. `DEPTH: 0 FOUNDATIONAL of 1`.
+
+### [RECOMMENDATION REVIEW ROUND 4] — 🔴 REVISE | 2026-08-29
+
+- The three planned SEC-016 replacements are sufficient, minimal, and reproduce
+  `e3668da70f4e2a0b7feaeac3f9483c93a4744391` →
+  `e73e2396b89e5ff3006761bcaf22252059ce70fc`; no policy/design claim changes.
+- Three Task bodies, STRUCT-011's projection, baseline cardinality/key transition, remote owners,
+  comments, class limits, and eleven-path boundary otherwise pass.
+- Finding: the manifest conflated population/base root-path input full blobs with current completed
+  full blobs, and called base/HEAD/worktree baseline state one preimage. The corrected manifest now
+  separates exact population paths/input OIDs, current completed paths/full OIDs, frontmatter-stripped
+  body equality, base baseline preimage, and PR-head/target/final baseline postimage.
+- `ACTIONABLE FINDINGS: 1`.
+
+**Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
