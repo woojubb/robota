@@ -82,8 +82,7 @@ export function parseRegistrySection(ruleText) {
  * restated here. Anchoring on the rule's text is what keeps this scan from confirming its own
  * assumption back to itself.
  *
- * Returns `{ route, instruction, classField }` — the exact bolded labels — or undefined if the form
- * names none.
+ * Returns the exact bolded labels used by both routes, or undefined if the form is incomplete.
  */
 export function parseEvidenceForm(sectionText) {
   const labels = new Set(
@@ -92,29 +91,109 @@ export function parseEvidenceForm(sectionText) {
   const route = [...labels].find((label) => /approval route/i.test(label));
   const instruction = [...labels].find((label) => /instruction/i.test(label));
   const classField = [...labels].find((label) => /^class$/i.test(label));
-  if (!route || !instruction || !classField) return undefined;
-  return { route, instruction, classField };
+  const given = [...labels].find((label) => /^given$/i.test(label));
+  const evidence = [...labels].find((label) => /evidence condition met/i.test(label));
+  if (!route || !instruction || !classField || !given || !evidence) return undefined;
+  return { route, instruction, classField, given, evidence };
 }
 
 /**
- * The registered classes, as `Map<classId, { registered: 'YYYY-MM-DD' }>`.
+ * The registered classes, retaining every field the owner must review.
  *
  * An empty registry is a valid state and NOT a parse failure: the registry ships empty by design, and
  * every document then takes the DIRECT route, which is the behaviour before this rule. The failure
  * this distinguishes it from is a missing TABLE, which means the criteria are unreadable.
  */
 export function parseRegistry(sectionText) {
-  const rows = [...sectionText.matchAll(/^\|(.+)\|\s*$/gm)].map((match) =>
-    match[1].split('|').map((cell) => cell.trim()),
-  );
+  const rows = sectionText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('|'))
+    .map((line) =>
+      line
+        .slice(1)
+        .replace(/\|\s*$/, '')
+        .split('|')
+        .map((cell) => cell.trim()),
+    );
   if (rows.length === 0) return undefined;
+  const headerIndex = rows.findIndex((cells) => cells[0] === 'Class ID');
+  if (headerIndex !== 0 || rows[0].length !== 5) {
+    throw new Error('delegated-class registry table has no complete 5-column header');
+  }
+  const separator = rows[1];
+  if (
+    !separator ||
+    separator.length !== 5 ||
+    !separator.every((cell) => /^:?-{3,}:?$/.test(cell))
+  ) {
+    throw new Error('delegated-class registry table has no complete 5-column separator row');
+  }
+  const dataRows = rows.slice(2);
+  const sentinelRows = dataRows.filter(
+    (cells) => (cells[0] ?? '').replace(/^`|`$/g, '') === '_(none registered)_',
+  );
+  if (sentinelRows.length > 0) {
+    if (dataRows.length !== 1) {
+      throw new Error(
+        'delegated-class registry mixes the empty sentinel with real rows; the sentinel is valid only by itself',
+      );
+    }
+    const sentinel = sentinelRows[0];
+    if (sentinel.length !== 5 || !sentinel.slice(1).every((cell) => cell === '—')) {
+      throw new Error(
+        'delegated-class registry empty sentinel is malformed; its four value cells must be em dashes',
+      );
+    }
+    return new Map();
+  }
+
   const registry = new Map();
-  for (const cells of rows) {
+  for (const cells of dataRows) {
+    if (cells.length !== 5) {
+      throw new Error(
+        `delegated-class registry row has ${cells.length} cells; exactly 5 are required`,
+      );
+    }
     const id = (cells[0] ?? '').replace(/^`|`$/g, '').trim();
+    const scope = cells[1] ?? '';
+    const evidence = cells[2] ?? '';
+    const instructionCell = cells[3] ?? '';
     const registered = (cells[4] ?? '').trim();
-    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(id)) continue;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(registered)) continue;
-    registry.set(id, { registered });
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(id)) {
+      throw new Error(`delegated-class registry row has invalid Class ID: ${id || '(blank)'}`);
+    }
+    if (!scope || !evidence || !instructionCell || !registered) {
+      throw new Error(
+        `delegated-class registry row \`${id}\` is incomplete; all 5 fields are required`,
+      );
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(registered)) {
+      throw new Error(`delegated-class registry row \`${id}\` has invalid registration date`);
+    }
+    if (!instructionCell.startsWith('"')) {
+      throw new Error(
+        `delegated-class registry row \`${id}\` instruction must start with an ASCII double quote`,
+      );
+    }
+    const closingQuote = instructionCell.indexOf('"', 1);
+    if (closingQuote === -1) {
+      throw new Error(
+        `delegated-class registry row \`${id}\` instruction has no closing ASCII double quote`,
+      );
+    }
+    if (closingQuote === 1) {
+      throw new Error(`delegated-class registry row \`${id}\` instruction payload is blank`);
+    }
+    if (registry.has(id)) {
+      throw new Error(`delegated-class registry contains duplicate Class ID \`${id}\``);
+    }
+    registry.set(id, {
+      scope,
+      evidence,
+      instruction: instructionCell.slice(1, closingQuote),
+      registered,
+    });
   }
   return registry;
 }
@@ -185,6 +264,14 @@ function labelValue(entry, label) {
   return match ? match[1].trim() : undefined;
 }
 
+/** Remove only the form's optional Markdown/code and ASCII-quote wrappers. */
+function approvalInstructionPayload(value) {
+  let payload = value;
+  if (payload.startsWith('`') && payload.endsWith('`')) payload = payload.slice(1, -1);
+  if (payload.startsWith('"') && payload.endsWith('"')) payload = payload.slice(1, -1);
+  return payload;
+}
+
 export function listApprovedSpecs(root = WORKSPACE_ROOT) {
   const specs = [];
   const base = path.join(root, SPEC_RELATIVE);
@@ -237,7 +324,15 @@ export function classifyApproval(verdict, { form, registry }) {
       problem: `route ${route} records no verbatim instruction under \`**${form.instruction}:**\`. An authorization that is paraphrased cannot be checked against what the user actually said.`,
     };
   }
-  if (route === 'DIRECT') return { route };
+  const given = labelValue(verdict, form.given);
+  if (route === 'DIRECT') {
+    if (!given) {
+      return {
+        problem: `route DIRECT records no provenance under \`**${form.given}:**\`. The instruction must identify when and where the user gave it.`,
+      };
+    }
+    return { route };
+  }
 
   const classId = labelValue(verdict, form.classField)?.replace(/`/g, '').trim();
   if (!classId) {
@@ -263,6 +358,23 @@ export function classifyApproval(verdict, { form, registry }) {
       problem: `route CLASS cites \`${classId}\`, registered ${registered.registered}, but the approval is dated ${approvedOn}. A class may not be registered retroactively.`,
     };
   }
+  if (!given) {
+    return {
+      problem: `route CLASS records no provenance under \`**${form.given}:**\`. A class citation does not identify where its approval was recorded.`,
+    };
+  }
+  const evidence = labelValue(verdict, form.evidence);
+  if (!evidence) {
+    return {
+      problem: `route CLASS records no measurement under \`**${form.evidence}:**\`. A registered class applies only after its evidence condition is shown to hold.`,
+    };
+  }
+  const actualInstruction = approvalInstructionPayload(instruction);
+  if (actualInstruction !== registered.instruction) {
+    return {
+      problem: `route CLASS instruction does not exactly match the canonical instruction registered for \`${classId}\`; comparison preserves whitespace and Unicode code points.`,
+    };
+  }
   return { route };
 }
 
@@ -282,7 +394,8 @@ export function findEvidenceFindings(root = WORKSPACE_ROOT) {
   if (!form) {
     throw new Error(
       'standing-delegation-evidence: the evidence form in backlog-execution.md names no route, ' +
-        'instruction, or class field. The shape this scan parses is unreadable, so a document ' +
+        'instruction, class, Given, or evidence-condition field. The shape this scan parses is ' +
+        'unreadable, so a document ' +
         'that omitted every field would pass — which is the opposite of what this scan is for.',
     );
   }
