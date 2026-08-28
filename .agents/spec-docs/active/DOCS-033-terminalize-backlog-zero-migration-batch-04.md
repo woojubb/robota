@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -165,7 +165,7 @@ None of the four governed Tasks has an existing baseline path key. No baseline f
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-033-terminalize-backlog-zero-migration-batch-04.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/DOCS-033-terminalize-backlog-zero-migration-batch-04.md`
 
 ## User Execution Test Scenarios
 
@@ -319,3 +319,19 @@ adds no runnable user-facing behavior.
   app, presentation/interface surface, layer, or product-family boundary. The recorded independent
   proposal `ENDORSE` with `ACTIONABLE FINDINGS: 0` is additional validation, not evidence that the
   conditional new-surface criterion applies.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-033-terminalize-backlog-zero-migration-batch-04.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-033-terminalize-backlog-zero-migration-batch-04.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 427 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-033-terminalize-backlog-zero-migration-batch-04.md`;
+  `.agents/spec-docs/active/DOCS-033-terminalize-backlog-zero-migration-batch-04.md`;
+  `SCENARIO DRAFTED: not-applicable | 0`; whole-worktree inventory limited to the exact Task/spec pair
+  and `.agents/loop-runs/` ledgers.
