@@ -1,8 +1,7 @@
 ---
 title: 'DOCS-038: terminalize backlog-zero migration batch 09'
 issue: https://github.com/woojubb/robota/issues/2464
-status: done
-completed: 2026-08-29
+status: todo
 created: 2026-08-29
 priority: critical
 urgency: now
