@@ -1,7 +1,9 @@
 ---
 title: 'HARNESS-120: wide-blast approval needs independent adversarial review'
 issue: https://github.com/woojubb/robota/issues/2326
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2326#issuecomment-5456692501
 created: 2026-08-25
 priority: high
 urgency: soon

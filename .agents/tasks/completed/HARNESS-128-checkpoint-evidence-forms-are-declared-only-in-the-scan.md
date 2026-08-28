@@ -1,7 +1,9 @@
 ---
 title: 'HARNESS-128: GATE-IMPLEMENT and Stage-1 checkpoint evidence forms are declared only in the scan and its fixture'
 issue: https://github.com/woojubb/robota/issues/2394
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2394#issuecomment-5456692845
 created: 2026-08-27
 priority: high
 urgency: soon
