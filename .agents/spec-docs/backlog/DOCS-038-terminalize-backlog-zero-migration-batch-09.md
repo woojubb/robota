@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: review-ready
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -20,8 +20,8 @@ The base is `origin/develop` at `cf5c83e627d88958497ea8c04633502d837f4452`. At t
 governed root-path Task full blob equals the fixed-population blob. At PR head and this review target,
 the completed-path full blobs include terminal lifecycle frontmatter while each frontmatter-stripped
 Task body remains byte-identical to its population body. At initial selection there was no open PR,
-matching current implementation branch, extra worktree, assignee, or open loop owning any unit. PR
-#2466 now solely owns the correction triggered by its published finding. Marking the records done
+matching current implementation branch, extra worktree, assignee, or open loop owning any unit.
+GitHub pull request 2466 now solely owns the correction triggered by its published finding. Marking the records done
 would overclaim their state; leaving them active would retain competing queues.
 
 Issue #2404 owns prevention of future duplicate durable queues. DOCS-038 is finite containment only.
@@ -48,6 +48,9 @@ package, API, product, policy, workflow, hook, skill, or topology.
 - The paired DOCS-038 Task/spec, including six historical Task-path statements contextualized when
   the done spec becomes live for reapproval; two required closed execution ledgers; and one
   finding-resolution ledger opened for the published PR correction.
+- The separate INFRA-138 root Task and visible containment note for the gate-reader defect discovered
+  by final local review. Gate source, tests, catalogue, policy, and the future INFRA-138 spec remain
+  excluded from this PR.
 - One control issue, one successor issue, three canonical handoff comments, and one append-only note
   linking the closed original SECURITY-001 report to its successor.
 
@@ -68,10 +71,24 @@ no-growth lifecycle rekey, not a policy change.
 4. Return each record to an exact open owner using append-only remote evidence. **Pro:** delivered
    and unfinished truth, urgency, and the delegated boundary are all preserved. **Con:** the repo
    records become historical pointers and the product work remains intentionally open in GitHub.
+5. Re-plan and withdraw DOCS-038 until INFRA-138 fixes the gate reader. **Pro:** the reusable gate is
+   repaired before another lifecycle transition lands. **Con:** it blocks a critical/now migration
+   correction whose root reopen sequence is already honest and whose result does not depend on the
+   future reader fix; it also couples this documentation batch to excluded source/test/design work.
+6. Land DOCS-038 under labelled INFRA-138 containment. **Pro:** the batch restores its own promised
+   root lifecycle sequence, adds no abstraction, and makes the separate high/now gate defect visible
+   through one root Task and issue. **Con:** the overall diff grows by one documentation path and
+   requires direct approval because that Task is outside the delegated fixed population.
 
 ### Decision
 
-Choose alternative 4.
+Choose alternative 4 for the migration disposition and alternative 6 for the foundational finding.
+DOCS-038 must land first because its duplicate critical/now queue records and published review
+correction are independently complete once the root Task lifecycle is executed honestly. INFRA-138 is
+also high/now, but its reader/source/test repair changes no DOCS-038 result and must enter its own
+issue-to-backlog and design flow. Labelled containment is therefore smaller and more truthful than
+withdrawing this batch, while re-plan remains the stronger option if the root lifecycle sequence itself
+cannot pass.
 
 - SEC-016 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445. The implementation leaf
@@ -93,7 +110,8 @@ carrier edits. RULE-015 requires excluded rule/policy carriers. They are not sil
 
 ### Architecture Review Checklist
 
-- [x] Affected scope listed — eleven internal lifecycle/ledger/baseline paths only.
+- [x] Affected scope listed — eleven fixed-batch lifecycle/ledger/baseline paths plus the mandatory
+      INFRA-138 containment Task; twelve internal documentation paths overall.
 - [x] Sibling scan completed — all critical/high-now population records, blobs, current premises,
       issues, branches, worktrees, assignees, loops, citations, baselines, and carriers checked.
 - [x] At least two alternatives considered.
@@ -110,9 +128,10 @@ Population object: `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`.
 
 Pre-approval base: `origin/develop` at `cf5c83e627d88958497ea8c04633502d837f4452`.
 
-Limits: 3 units; 11 final tracked paths. Population/base full blobs, current completed-path full
-blobs, and body equality are distinct below. No package source, API, policy, product documentation,
-workflow, hook, skill, or topology path is permitted.
+Limits: 3 fixed-population units; 11 final batch paths plus the mandatory INFRA-138 root-finding
+Task, 12 final tracked paths overall. Population/base full blobs, current completed-path full blobs,
+and body equality are distinct below. No package source, API, policy, product documentation, workflow,
+hook, skill, or topology path is permitted.
 
 Population original records, exact at object `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e` and the pinned
 base:
@@ -161,26 +180,41 @@ Control issue #2464 uniquely carries `backlog-zero:DOCS-038:2c875dd3`. Successor
 carries its SECURITY-001 residual marker. Issues #2464, #2465, #2225, and #2198 are OPEN and
 unassigned. All three canonical handoff comments are exact and unmodified (`created_at == updated_at`).
 
-The published finding changes the SEC-016 plan postimage, adds the required PR finding-resolution
-ledger, and requires six paired-spec historical citations to distinguish their then-active Task from
-its current archive while the spec is live for reapproval. The v2 approval cannot authorize this
-eleven-path result. This corrected manifest requires a fresh independent recommendation and class
-approval before the SEC-016 evidence edit is applied.
+The published finding changed the SEC-016 plan postimage, added the required PR finding-resolution
+ledger, and required six paired-spec historical citations to distinguish their then-active Task from
+its current archive while the spec was live for reapproval. The v2 approval could not authorize that
+eleven-path result; the corrected eleven-path manifest subsequently received fresh independent review
+and CLASS approval before checkpoint `df31bd91c` and implementation `e777b00ca`.
+
+The final-review finding added no fourth migration unit and changes none of those governed blobs,
+owners, premises, or dispositions. It requires one separate root-finding record,
+`.agents/tasks/INFRA-138-gate-judges-accept-archived-tasks-as-active.md`, registered as OPEN GitHub
+issue #2467. This containment path is outside the fixed population and therefore changes the approved
+overall path set from eleven to twelve; the prior class approval cannot authorize that change.
+
 Any further governed blob, exact owner, current premise, disposition, or path-set change excludes that
-unit and requires another fresh recommendation and class approval.
+unit and requires another fresh recommendation and approval.
 
 ## Solution
 
-1. Freeze the exact three-unit/eleven-path manifest and preserve remote readback evidence.
-2. Obtain independent depth and recommendation review of urgency, ownership, current truth, baseline
-   cardinality, and class boundary; record class approval only at zero actionable findings.
-3. Re-open the paired Task/spec for the published finding and preserve the subject-bound
-   not-applicable scenario checkpoint before correction implementation.
-4. Apply only the three Task moves, two plan rejections, STRUCT-011's exact citation rekey,
-   SEC-016's three frozen lifecycle-evidence corrections, six paired-spec historical citation
-   contextualizations, and one exact baseline rekey.
+1. Preserve checkpoint `df31bd91c`, which reopens the paired Task at the root before a fresh 7/7
+   GATE-IMPLEMENT PASS, and implementation `e777b00ca`, which applies the exact approved SEC-016
+   evidence correction after that checkpoint.
+2. Freeze the three-unit/eleven-batch-path manifest plus the mandatory INFRA-138 containment Task as a
+   twelve-path overall boundary; obtain independent review and DIRECT approval of this amended result.
+3. While the spec is live, rebind exactly eight citations that previously named the completed path to
+   the current root Task and give the six historical gate statements truthful then/current wording;
+   retain the current-path Affected Files and Tasks entries as the other two rebinding sites. Together
+   with the fresh GATE-IMPLEMENT entry's two truthful root-path citations, the live spec contains ten
+   root citations.
+4. Run GATE-VERIFY and GATE-COMPLETE against the root-active Task. In the final atomic completion
+   commit, move Task/spec to completed/done and bind those eight lifecycle-rekey citations to the final
+   completed path; retain the fresh GATE-IMPLEMENT entry's two root paths as historical gate evidence.
 5. Verify normalized body preservation, exact paths/blobs/issues/comments, lifecycle/folder/citation/
-   delegation/baseline/loop gates, current premises, full harness scan, and the CI mirror.
+   delegation/baseline/containment/loop gates, current premises, the twelve-path final diff, full
+   harness scan, and the CI mirror.
+6. Keep the reusable gate-reader repair out of this PR; issue #2467 and INFRA-138 own its separate
+   issue-to-backlog, design, source change, regression proof, and verification.
 
 ## Affected Files
 
@@ -190,28 +224,34 @@ unit and requires another fresh recommendation and class approval.
 - `.agents/spec-docs/done/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`
 - `.agents/spec-docs/rejected/SEC-016-per-event-hook-enforcement-policy.md`
 - `.agents/spec-docs/rejected/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md`
-- `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`
+- `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md` (current live path; the
+  final atomic completion commit moves it to `completed/`)
 - `.agents/tasks/completed/SEC-016-per-event-hook-enforcement-policy.md`
 - `.agents/tasks/completed/SECURITY-001-untrusted-workspace-configuration-crosses-the-user-trust-boundary.md`
 - `.agents/tasks/completed/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md`
+- `.agents/tasks/INFRA-138-gate-judges-accept-archived-tasks-as-active.md`
 - `scripts/harness/standing-delegation-baseline.json`
 
 ## Completion Criteria
 
-- [ ] TC-01: the approved manifest remains exactly three fixed-population units, eleven final tracked
-      paths, three exact skipped dispositions, two exact plan rejections, and one no-growth baseline
-      rekey, with no excluded path.
+- [ ] TC-01: the amended manifest remains exactly three fixed-population units, eleven final batch
+      paths, one separate INFRA-138 containment Task, twelve final tracked paths overall, three exact
+      skipped dispositions, two exact plan rejections, and one no-growth baseline rekey, with no
+      excluded implementation or policy path.
 - [ ] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
       unique where marked, and unmodified; each skipped Task cites its exact owner comment.
 - [ ] TC-03: all three Task bodies remain byte-identical after normalization; SEC-016 changes from
       v2 rejected lifecycle blob `e3668da7...` only by the three approved lifecycle-evidence
       corrections and produces `e73e2396...`; STRUCT-011 remains the frozen one-citation body
-      postimage `ca8278c6...`; six paired-spec history statements distinguish then-active facts from
-      the current archive and resolve exactly while the spec is live.
+      postimage `ca8278c6...`; exactly eight previously completed-path citations rebind to the root Task,
+      including six history statements that distinguish then-active facts from the current reopen; the
+      fresh GATE-IMPLEMENT entry adds two truthful root-path citations, and only the eight lifecycle
+      rekeys bind to the completed path after final atomic archive.
 - [ ] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
       its sorted set and cardinality; no package/app/API/policy/product/workflow/topology path changes.
-- [ ] TC-05: the exact final path set is eleven and focused lifecycle/current-premise checks plus
-      `pnpm harness:scan` and `pnpm harness:verify-like-ci` all exit 0.
+- [ ] TC-05: the exact final path set is twelve, its batch subset is the approved eleven, and focused
+      lifecycle/current-premise/containment checks plus `pnpm harness:scan` and
+      `pnpm harness:verify-like-ci` all exit 0.
 
 ## Test Plan
 
@@ -226,10 +266,10 @@ unit and requires another fresh recommendation and class approval.
 ## Tasks
 
 The active paired Task is
-`.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`. It remained at
-`.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md` while this correction
-recommendation was reviewed and was re-opened at the root after fresh approval, before
-GATE-IMPLEMENT. No SEC-016 evidence correction has been applied before the fresh GATE-APPROVAL pass.
+`.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`. It remained in the completed
+directory while this correction recommendation was reviewed and was re-opened at the root after fresh
+approval, before GATE-IMPLEMENT. No SEC-016 evidence correction was applied before the fresh
+GATE-APPROVAL pass.
 
 ## User Execution Test Scenarios
 
@@ -401,17 +441,19 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: at this gate, `## Tasks` named the
-  then-active root Task; that lifecycle record is now archived at
-  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+  then-active root Task; after the historical v2 completion it was archived, and the current
+  correction has reopened it at
+  `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: at
-  this gate, the section named the then-active root Task with the spec's basename; that same record
-  is now archived at `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+  this gate, the section named the then-active root Task with the spec's basename; after the historical
+  v2 completion it was archived, and the current correction has reopened that same record at
+  `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 449 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
-- Planning checkpoint binding: the then-active root Task, now archived at
-  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
+- Planning checkpoint binding: the then-active root Task, archived after historical v2 completion and
+  currently reopened at `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
   `.agents/spec-docs/active/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`;
   `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828223510`; orchestrator run
   `r20260828223510`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
@@ -422,8 +464,9 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 
 - GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
 - GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): at this gate, 5/5
-  tasks were `[x]` in the then-active Task, now archived at
-  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+  tasks were `[x]` in the then-active Task; after historical v2 completion it was archived, and the
+  current correction has reopened it at
+  `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
 - GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan:reference-kind-qualified` → exit 0 ( ⏎ ::examined:: 3140 tracked document(s) ⏎ reference-kind-qualified scan passed (1465 unqualified reference(s) at baseline across 275 file(s)). It checks that a reference says WHICH it is, not that the kind it names is correct — deciding that needs a live GitHub read.); all 2 supplied commands exit 0
 - GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/check-task-archival.test.mjs scripts/harness/__tests__/scan-doc-folder-status-agreement.test.mjs scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs scripts/harness/__tests__/scan-spec-user-execution-section.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/scan-reference-kind-qualified.test.mjs scripts/harness/__tests__/scan-task-path-citations.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs scripts/harness/__tests__/scan-loop-proof.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
@@ -460,11 +503,13 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
 - GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under
-  `.agents/tasks/`: at this gate, `## Tasks` named the then-active root Task, now archived at
-  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+  `.agents/tasks/`: at this gate, `## Tasks` named the then-active root Task; after historical v2
+  completion it was archived, and the current correction has reopened it at
+  `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 - GATE-COMPLETE — That active task exists and is completion-ready: at this gate the then-active Task
-  had 5/5 tasks `[x]`, with no pending or blocked item; that record is now archived at
-  `.agents/tasks/completed/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
+  had 5/5 tasks `[x]`, with no pending or blocked item; after historical v2 completion it was archived,
+  and the current correction has reopened that record at
+  `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`.
 
 ### [PR FINDING ROUND 1] — 🔴 REVISE | 2026-08-29
 
@@ -552,3 +597,28 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 449 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+### [PR FINDING ROUND 2] — 🔴 REVISE | 2026-08-29
+
+- Final local review found that the approved Solution required reopening the paired Task at the root
+  before fresh GATE-IMPLEMENT, while the superseded local checkpoint had false-passed against the
+  archived completed path.
+- The local lifecycle symptom is corrected in checkpoint `df31bd91c`: the Task is root-active before
+  a fresh 7/7 GATE-IMPLEMENT PASS, and implementation commit `e777b00ca` follows that checkpoint.
+- Independent depth verdict: `DEPTH: FOUNDATIONAL` — the reusable defect is that GATE-IMPLEMENT and
+  GATE-COMPLETE accept a nested archived Task by existence where their criteria require the exact
+  active root Task.
+- Root item: `.agents/tasks/INFRA-138-gate-judges-accept-archived-tasks-as-active.md`, registered as
+  OPEN GitHub issue #2467 with exact reproduction and falsification steps. Related issue #2265 has a
+  different reader and is not a duplicate.
+- Disposition: labelled containment. This PR restores only its already-approved lifecycle sequence,
+  adds the visible INFRA-138 containment record, and does not change gate source, tests, catalogue, or
+  policy. INFRA-138 owns the separate issue-to-backlog and implementation flow.
+- Scope consequence: the fixed migration batch remains three units and eleven paths, but the mandatory
+  root-finding Task makes the overall PR twelve paths. The previous immutable class approval is no
+  longer sufficient; the document returns to the recommendation boundary for direct approval.
+- `ACTIONABLE FINDINGS: 1`.
+
+> **Contained — INFRA-138.** The gate accepted an archived Task as active in the superseded local
+> checkpoint. This batch now executes the root reopen/rearchive sequence honestly; issue #2467 owns
+> the reusable gate-reader correction and regression proof.
