@@ -252,7 +252,8 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - Current source confirms the SEC-016 TC-11 gap, SECURITY-001's eight unchecked criteria despite
   trust-service primitives, and STRUCT-011's stale live import. PR #2466 is the sole current batch
   owner; no competing PR/worktree/assignee/unit loop/current branch exists.
-- Published correction finding: `ACTIONABLE FINDINGS: 1` pending fresh recommendation review.
+- Published correction finding accepted; fresh recommendation round 5 reports
+  `ACTIONABLE FINDINGS: 0` on the corrected eleven-path manifest.
 
 ## Evidence Log
 
@@ -503,3 +504,18 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - `ACTIONABLE FINDINGS: 1`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
+
+### [RECOMMENDATION REVIEW ROUND 5] — ✅ ENDORSE | 2026-08-29
+
+- Exact immutable target: `58270df7e74bda61809169b7a6a497f10ed4f9d8`.
+- The round-4 evidence finding is resolved: population/base input OIDs, current completed full OIDs,
+  frontmatter-stripped body equality, and baseline population/base/PR-head states are distinct and
+  exact.
+- SEC-016's three localized replacements independently reproduce `e3668da7... → e73e2396...`, cover
+  every published finding location, and alter no policy/design claim. STRUCT-011, all three Task
+  bodies, and baseline projections reproduce unchanged.
+- Exact three-unit/eleven-path scope, class exclusions, remote/current premises, sole PR ownership,
+  unmodified handoffs, and fresh-approval isolation all pass.
+- `ACTIONABLE FINDINGS: 0`.
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
