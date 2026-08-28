@@ -78,11 +78,11 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit      | `scripts/harness/__tests__/allocate-work-item-id.test.mjs` (`-t "local date"`) | RED with the fix reverted, GREEN with it |
+| TC-ID | Test Type | Tool / Approach                                                                   | Notes                                             |
+| ----- | --------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| TC-01 | Unit      | `scripts/harness/__tests__/allocate-work-item-id.test.mjs` (`-t "local date"`)    | RED with the fix reverted, GREEN with it          |
 | TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` — skip: a scan run, not a `.test.mjs` | Regression — the affected set, not the full suite |
-| TC-03 | Unit      | `scripts/harness/__tests__/allocate-work-item-id.test.mjs` | The whole test file |
+| TC-03 | Unit      | `scripts/harness/__tests__/allocate-work-item-id.test.mjs`                        | The whole test file                               |
 
 ## User Execution Test Scenarios
 
@@ -222,8 +222,8 @@ scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/I
 - GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-28; status `approved`
 - GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md,  M .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md); all 2 supplied commands exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exit 0 (   Duration  348ms (transform 33ms, setup 0ms, collect 38ms, tests 127ms, environment 0ms, prepare 44ms) ⏎  ⏎ 9:16:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/todo/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md, M .agents/tasks/INFRA-137-allocate-work-item-id-stamps-created-with-the-utc-date.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exit 0 ( Duration 348ms (transform 33ms, setup 0ms, collect 38ms, tests 127ms, environment 0ms, prepare 44ms) ⏎ ⏎ 9:16:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
 - GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
 - GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
 - GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
