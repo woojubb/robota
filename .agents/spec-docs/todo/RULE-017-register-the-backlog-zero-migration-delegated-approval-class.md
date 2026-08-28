@@ -175,7 +175,7 @@ None
       instruction code-point mismatch each fail; mutation/applied-check cases prove every new refusal
       is exercised.
 - [ ] TC-04: the rule owner's `Enforced by` paragraph names all structural refusals, and `node
-  scripts/harness/scan-standing-delegation-evidence.mjs` exits 0 on the live tree without adding a
+scripts/harness/scan-standing-delegation-evidence.mjs` exits 0 on the live tree without adding a
       frozen exemption or changing existing DIRECT/CLASS dispositions.
 - [ ] TC-05: `pnpm harness:scan` and `pnpm harness:verify-like-ci` pass on the final committed tree.
 
@@ -231,25 +231,6 @@ output. Engineering evidence is defined in the Test Plan.
 - `ACTIONABLE FINDINGS: 0`
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
-
-### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
-
-**Status remains:** approved; this fresh verdict replaces the withdrawn approval above.
-**Approval route:** `DIRECT`
-**Instruction (verbatim):** "끝까지 작업해줘"
-**Given:** 2026-08-28, this conversation
-
-- The user gave the instruction directly in response to the request to approve the committed revised
-  RULE-017 design and continue its implementation through completion.
-- Route CLASS is forbidden because RULE-017 registers a class, changes the rule that defines delegated
-  approval, and declares lane L2.
-- Recommendation round 2 records `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
-- Rebase onto current `origin/develop` `1d46006de` changed ancestry only. The approved Task/spec content
-  stayed byte-identical; upstream added two valid CLASS records but touched no RULE-017 implementation
-  path, and TC-04 already preserves existing DIRECT/CLASS dispositions.
-- Full current-tree `pnpm harness:scan`: 146 passed, 2 skipped.
-
-**Independent guardian verdict:** `GATE VERDICT: PASS`
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
 
@@ -314,3 +295,22 @@ re-run GATE-IMPLEMENT. No registry, scanner, or scanner-test implementation has 
 - `ACTIONABLE FINDINGS: 0`
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-28
+
+**Status remains:** approved; this fresh verdict replaces the withdrawn approval above.
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "끝까지 작업해줘"
+**Given:** 2026-08-28, this conversation
+
+- The user gave the instruction directly in response to the request to approve the committed revised
+  RULE-017 design and continue its implementation through completion.
+- Route CLASS is forbidden because RULE-017 registers a class, changes the rule that defines delegated
+  approval, and declares lane L2.
+- Recommendation round 2 records `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+- Rebase onto current `origin/develop` `1d46006de` changed ancestry only. The approved Task/spec content
+  stayed byte-identical; upstream added two valid CLASS records but touched no RULE-017 implementation
+  path, and TC-04 already preserves existing DIRECT/CLASS dispositions.
+- Full current-tree `pnpm harness:scan`: 146 passed, 2 skipped.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
