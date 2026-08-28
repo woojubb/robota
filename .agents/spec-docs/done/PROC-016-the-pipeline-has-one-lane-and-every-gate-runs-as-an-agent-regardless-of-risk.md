@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: RULE
 tags: [harness, enforcement]
 lane: L2
@@ -365,7 +365,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` — in-progress
+- [x] `.agents/tasks/completed/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md` — done 2026-08-28
 
 ## Evidence Log
 
@@ -585,3 +585,78 @@ rounds, 4 commits of which the fourth resolved the reviewer's one SHOULD).
 and excludes a commit that resolves a review finding. The time and dispatch bounds are unchanged.
 **Why it is recorded here:** a Completion Criterion changed after GATE-APPROVAL; the Architecture
 Review, `type:` and `tags:` are untouched, and the review fingerprint recorded at approval still holds.
+
+### [GATE-COMPLETE: TC-01] | 2026-08-28
+
+- Run 2 (supersedes the 2026-08-28 run-1 entry above; every TC re-run at `93235a880`). Command: `rg -n 'Lane: L0\|L1\|L2' .agents/rules/spec-workflow.md` → `177:**The lane is declared, and refused — never argued.** A change declares \`Lane: L0|L1|L2\` in three`— exit 0.`rg -n "all require this gate. No exceptions" .agents/rules/spec-workflow.md` → no output — exit 1. Result: PASS.
+
+### [GATE-COMPLETE: TC-02] | 2026-08-28
+
+- Command: `node node_modules/vitest/vitest.mjs run scripts/harness/__tests__/scan-lane-declaration.test.mjs --reporter=verbose` → 48 passed, 0 failed — exit 0. Cases observed: "L0 with a non-comment src change → refused", "L1 with a SPEC trigger-section hunk → refused", "L1 with a .github/workflows change → refused", "L1 with a .claude/hooks change → refused", "L1 with a gate-rule document change → refused", "L2 on anything → accepted", "L1 declared on an L0-eligible diff → accepted", "missing Lane → refused", "Fast-track on an L2 path → refused even at L2", "Fast-track on an L0 path → accepted (control)". Live: `node scripts/harness/scan-lane-declaration.mjs` → `Lane L2 … is at or above the floor L2`, `violations=0 result=PASS` — exit 0. Result: PASS.
+
+### [GATE-COMPLETE: TC-03] | 2026-08-28
+
+- Command: `grep -c -E '`(mechanical|semantic)`' .agents/specs/gate-catalogue.md` → `53` — exit 0. Criterion count (`awk` over `- [ ]` lines between `### GATE-WRITE` and `### GATE-CONFORMANCE`) → 53; 53 = 53. `## Gates per lane` table at catalogue line 43. Result: PASS.
+
+### [GATE-COMPLETE: TC-04] | 2026-08-28
+
+- Command: `node node_modules/vitest/vitest.mjs run scripts/harness/__tests__/gate.test.mjs --reporter=verbose` → 60 passed, 0 failed — exit 0. Cases observed: "judge — GATE-WRITE › passes a conforming L1 draft, appends the ✅ entry in the catalogue form, and exits 0 (TC-04)", "judge — GATE-WRITE › fails a draft missing a TC-N prefix, names the criterion in the ❌ entry, and exits 1 (TC-04)", "advance › moves draft/ → backlog/ per the fixture status table, rewrites status:, and re-points the paired Task", "advance › refuses when the last entry is a FAIL and leaves the file where it is", "approve › DIRECT writes the entry the standing-delegation parsers accept, judges the mechanical set into it, and exits 0 (TC-04)". Result: PASS.
+
+### [GATE-COMPLETE: TC-05] | 2026-08-28
+
+- Command: `rg -l 'gate.mjs' .agents/skills/backlog-pipeline/SKILL.md .agents/skills/user-request-gate/SKILL.md .agents/skills/backlog-execution-orchestrator/SKILL.md` → all three paths listed (3 files) — exit 0. Result: PASS.
+
+### [GATE-COMPLETE: TC-06] | 2026-08-28
+
+- Command (literal): `node scripts/harness/new-spec.mjs PROC-999 --type RULE --issue 1 --lane L1 --dry-run` → `new-spec: no .agents/tasks/PROC-999-*.md record. A spec document is paired with a Task and never precedes it` — exit 1 on the live tree (no PROC-999 Task exists; the scaffold refuses before emitting, by design; `new-spec.test.mjs › a missing Task record is refused with exit 1, even on --dry-run` pins that). The observable is demonstrated against the live catalogue: `gate.test.mjs › the scaffold passes its own gate against the LIVE catalogue (PROC-016 TC-06) › new-spec --lane L1 --dry-run → gate.mjs judge --gate GATE-WRITE --lane L1 → exit 0` ✓; `new-spec.test.mjs` 41 passed — vitest exit 0. Result: PASS.
+
+### [GATE-COMPLETE: TC-07] | 2026-08-28
+
+- Command: `node scripts/harness/run-all-scans.mjs --affected --changed scripts/harness/x.mjs --context pr --skip dist --skip build-contracts` → `affected: 34 selected, 112 excluded (…)`, `33 scans passed, 1 skipped` — exit 0 (34 < 40; excluded count printed). Unclassifiable path: `--changed some/unknown/path.xyz --list` → `matches no scan's declared globs — selecting the full suite (fail closed)`, `148 selected, 0 excluded`, `selected: lane-declaration (always)` — exit 0. `run-all-scans-affected.test.mjs` 22 passed ("selects an `always` scan for ANY change", "selects the FULL registry, and says which path, when a changed path matches no glob"). `.github/workflows/ci.yml:549` → `pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"`. `.github/workflows/scans-full.yml` `on:` → `push: branches: [develop]` + `workflow_dispatch`; line 78 runs `--context integration`; `schedule` appears only in the comment at lines 16–17 recording the 2026-08-04 owner directive — no `schedule:` trigger. Result: PASS.
+
+### [GATE-COMPLETE: TC-08] | 2026-08-28
+
+- Command: `/usr/bin/time -f "wall=%e s" node scripts/harness/run-all-scans.mjs --affected --changed scripts/harness/run-all-scans.mjs --context pr --skip dist --skip build-contracts` (machine otherwise idle) → `affected: 43 selected, 103 excluded`, `42 scans passed, 1 skipped`, **`wall=12.24 s`** — exit 0 (< 30 s). Wiring: `scripts/harness/pre-push.mjs:67` passes `'--affected'` to the scan stage. Result: PASS.
+
+### [GATE-COMPLETE: TC-09] | 2026-08-28
+
+- Command: `grep -n -B3 -A1 'advisory: true' scripts/harness/run-all-scans.mjs` → entries `reference-kind-qualified` (lines 619–622) and `progress-report-quantification` (lines 1116–1119) each carry `always: true, advisory: true`. `run-all-scans-affected.test.mjs › advisory scans under --context (TC-09)`: "pr: a failing advisory scan is reported on the advisory channel and does not fail the run", "integration: the same failure fails the run (RED control)", "pr: a failing NON-advisory scan still fails the run (RED control)", "refuses an unknown context rather than guessing which lane applies" — all ✓, vitest exit 0. Live: the `--context pr` runs in TC-07/TC-08 reported `1 advisory finding(s) — NOT failures` and exited 0. Result: PASS.
+
+### [GATE-COMPLETE: TC-10] | 2026-08-28
+
+- Command: `grep -n 'L0 and L1 items' .agents/rules/backlog-execution.md` → line 214: `LANE-L0-L1` | "L0 and L1 items as `spec-workflow.md` § Lanes defines them, judged by `scan-lane-declaration`" | instruction verbatim ("좋아 모두 승인한다. …") | Registered `2026-08-28`. `scan-standing-delegation-evidence.test.mjs` 26 passed ("parses exactly one class out of the live rule: LANE-L0-L1", "accepts a CLASS entry citing LANE-L0-L1 dated on or after the registration", "refuses the same entry dated 2026-08-27") — vitest exit 0. Live: `node scripts/harness/scan-standing-delegation-evidence.mjs` → `222 approved spec document(s); 4 DIRECT, 0 CLASS, 218 frozen; 1 registered class(es)` — exit 0. Result: PASS.
+
+### [GATE-COMPLETE: TC-11] | 2026-08-28
+
+- Command: `node node_modules/vitest/vitest.mjs run scripts/harness/__tests__/merge-gate-decision.test.mjs --reporter=verbose` → 60 passed, 0 failed — exit 0. Cases: "accepts fixture B: 2 branch files, 15 moved, overlap 0, MERGEABLE", "accepts fixture C: the mirror image", "refuses one overlapping file, and names it", "names EVERY overlapping file, not the first", "refuses when the current base cannot be fetched", "refuses when the REVIEWED base is gone", "refuses a zero-finding verdict for a stale head SHA". Refusal code: test lines 317/338/349/360/381/396 assert `toBe(2)`; hook `exit 2` at `merge-gate.sh:53,96,102,108,…` — matches the criterion's "refuses (exit 2, the PreToolUse blocking code)" (text corrected in `fa3541754`). Result: PASS.
+
+### [GATE-COMPLETE: TC-12] | 2026-08-28
+
+- Command: `pnpm harness:scan` (integration context, 148 scans) → `1 of 148 scans failed`: `✗ dist` only ("dist/ is missing or empty — run pnpm build first", 81 packages) — exit 1. The run-1 finding `reference-kind-qualified` (bare `#2406` at the GATE-VERIFY entry) is gone: the entry now reads `issue #2406` and that scan passes. `dist` reports the unbuilt worktree, not the change: `git diff --name-only bb4c3626e HEAD -- packages apps` → 0 paths, so no change on this branch can alter that scan's result; the scan run the repository itself defines for this change (`pre-push.mjs:64`, `ci.yml:549`) is `--skip dist --skip build-contracts`, and `pnpm harness:scan -- --skip dist` → `146 scans passed, 1 skipped` — exit 0. Treated as met on that ground, stated here rather than assumed.
+- Command: `pnpm harness:test` → first run (concurrent with the full `harness:scan` and a vitest run in the same worktree/TMPDIR): exit 1, `1 failed | 255 passed`, all 19 failures in `run-all-scans-affected.test.mjs` (`(0 , pathMatchesAny) is not a function` / `selectAffectedScans is not a function` — the module's exports read as undefined — plus two spawn exit-code mismatches). Second run, alone: tier all `Test Files 256 passed (256)`, `Tests 5293 passed | 1 skipped (5294)`; hermetic-stripped `73 passed`, `1153 passed` — **exit 0**. The same file passes 22/22 standalone. The criterion is met on the isolated run; the concurrent failure is recorded as an observation for the orchestrator (a shared-state sensitivity in the module import under a simultaneous scan run), not a criterion.
+- Command: `node scripts/harness/check-regression-red-proof.mjs` (range bb4c3626e..HEAD) → exit 0; `red-proof-ok (assertion-fail)` for every script with a behavioural revision — `merge-gate.sh`, `classify-changed-paths.mjs`, `pre-push.mjs`, `scan-user-execution-plan-order.mjs`, `ci-mirror-map.mjs` (run-1 `accidental-green-fail`, now pinned by `d97765ddd`), `scan-workflow-permissions.mjs`, `check-nested-package-glob-coverage.mjs` (both pinned by `dec21783a`), `run-all-scans.mjs`, `scan-guard-scope-fail-closed.mjs` — and for the three ADDED scripts `gate.mjs`, `scan-lane-declaration.mjs`, `new-spec.mjs` (red-proof-ok, stronger than the "inconclusive by design" the criterion allows). 0 accidental-green. Remaining `inconclusive`: `scripts/harness/harness-test-tiers.mjs` — N/A, `git diff bb4c3626e HEAD -- scripts/harness/harness-test-tiers.mjs` is 5 inserted `*` comment lines and 0 code lines, so there is no runtime change to prove red (the checker's own "type/comment-only change; runtime red proof is not applicable" verdict, which it applies to `.ts` emit and not to `.mjs`); `.claude/hooks/spec-first-gate.sh` — N/A, its diff changes only the reminder text the hook prints (no control flow, variable or exit change) and the checker states it cannot tie any test to this hook by design ("the spawn target is built at runtime"); `examined-adoption-baseline.json`, `measurement-provenance-pending.json` — not scripts. Each ADDED script's test pairs refusals with an accepting control (`scan-lane-declaration.test.mjs` "Fast-track on an L0 path → accepted (control)", `new-spec.test.mjs` "refusals, each beside its control", `gate.test.mjs` "frontmatter L1 + --lane L1 is accepted (control)").
+- Result: PASS.
+
+### [GATE-COMPLETE: TC-13] | 2026-08-28
+
+- Criterion as amended by the owner (entry `[OWNER AMENDMENT: TC-13]` above). The amendment was checked, not taken on trust: the main session transcript holds an `AskUserQuestion` at 2026-08-28T12:26:48Z offering "리뷰 반영 커밋 제외로 기준 개정 (권장)" and the user's answer at 12:35:56Z selecting exactly that option; `git show 93235a880` touches only the TC-13 text and the Evidence Log — no Architecture Review, `type:` or `tags:` hunk.
+- Command: `gh pr view 2417 --json number,state,baseRefName,headRefName,createdAt,commits` → number 2417, OPEN, base `feat/proc-016-pipeline-lanes` (this branch), head `fix/allocator-stamps-the-local-date`, `createdAt 2026-08-28T12:24:52Z` (= 21:24:52 KST), 4 commits: `d884472ef` 21:14:02 KST "docs(spec): open INFRA-137 …", `8237d2819` 21:15:25 "fix(harness): the allocator stamps created with the local date", `8f71477e8` 21:17:18 "docs(spec): close INFRA-137 — DONE passed under lane L1", `0d9620851` 21:19:45 "fix(harness): recordStub keeps its own JSDoc" (body: "The review found recordStub's one-line doc left above the new localDate()" — the review-fix commit). `git log origin/feat/proc-016-pipeline-lanes..origin/fix/allocator-stamps-the-local-date` → the same 4; merge-base with this branch `fa3541754`. `gh issue view 2415` → OPEN, created 12:10:52Z.
+- Session log, verified: session `3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c`, runner transcript `subagents/agent-ab33567da43e9ac5a.jsonl` (prompt "You are measuring PROC-016's claim (TC-13) …" received 2026-08-28T12:11:51.009Z; first Bash `date -Is; …` at **12:11:56.047Z = 21:11:56 KST**; 30 Bash calls; `gh pr create` issued 12:21:44Z; last message 12:25:35Z). Dispatches in that transcript: **1** `Agent` (`pr-review-reviewer`, "Review INFRA-137 diff vs base", 12:17:28Z — reviewer transcript `agent-a7bbc3305e1aa9bd3.jsonl` starts 12:17:28.934Z) + **1** `SendMessage` re-review to the same agent (12:20:10Z, "Re-review at new HEAD after JSDoc fix") = 2 reviewer rounds.
+- Measured against the bounds: prompt → PR opened **12 min 56 s** (first command → `createdAt`; 13 min 01 s from prompt receipt) ≤ 20 min ✓, no CI wait inside it; subagent dispatches **2** (1 dispatch + 1 resume; 1 if a resume is not a dispatch) ≤ 2 ✓; commits made by the lane itself **3** (`d884472ef`, `8237d2819`, `8f71477e8`) ≤ 3 ✓, plus **1** review-fix commit (`0d9620851`) counted separately per the amendment. The Task's `## The measurement after landing the lane (TC-13)` run-4 paragraph states the same PR, times, rounds and commit split; the Test Plan row still quotes run 3 (INFRA-136) and reaches run 4 only via "see the Task's measurement table" — observation, see the summary entry.
+- Result: PASS.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-28
+
+**Status upgrade:** verifying → done
+
+- Run context: run 2 of GATE-COMPLETE (run 1 ❌ FAIL 2026-08-28 on TC-12/TC-13 above). Worktree `scratchpad/wt-proc`, branch `feat/proc-016-pipeline-lanes` at `93235a880`, merge-base with `origin/develop` `bb4c3626e`, no `dist/`, `TMPDIR=/var/tmp/robota-harness`. Commits since run 1 (`a22a71caa`): `d97765ddd`, `0bd154f37`, `dec21783a`, `fa3541754`, `4dc701193`, `93235a880` — two `fix(harness)` commits adding regression tests, four `docs(spec)` commits on the PROC-016 pair.
+- Ordering: prior gate GATE-VERIFY shows ✅ PASS (2026-08-28, per-criterion evidence, recorded in `ca8002aa6`); document is `status: verifying` in `.agents/spec-docs/active/` — the input state this gate expects; `scan-doc-folder-status-agreement.mjs` → `violations=0 result=PASS` (7 statuses). Not skipped.
+- Per TC-N — checkbox `[x]`: PASS — 13/13 checked, 0 unchecked (`grep -c '^- \[x\] TC-'` over `## Completion Criteria` → 13; `'^- \[ \] TC-'` → 0).
+- Per TC-N — `[GATE-COMPLETE: TC-N]` entry with the exact command, observed output and exit code: PASS — run-2 entries above for TC-01…TC-13, each re-run at `93235a880`; every result PASS. Run-1's TC-12/TC-13 FAIL entries stand as history and are superseded, not edited.
+- Per Test Plan TC-N — test reference or skip reason: PASS — 13/13 rows carry `— test:` / `— measured:` in Notes; no row is silently unaddressed.
+- After all — `## Completion Criteria` all `[x]`: PASS (13/13).
+- After all — `## Test Plan` updated for all rows: PASS on form (13/13 referenced). Observations, not criteria: the TC-12 row's "new files advisory (no prior state)" does not match the observed checker output (ADDED files `red-proof-ok`; the revised set is `red-proof-ok` with two N/A inconclusives recorded in the TC-12 entry); the TC-13 row's inline numbers are run 3's (INFRA-136, the measurement run 1 rejected) and only "see the Task's measurement table" reaches the run-4 measurement (INFRA-137, PR #2417) that meets the criterion — the row should name run 4.
+- After all — `## Tasks` names the exact active task path: PASS — line 368 names `.agents/tasks/PROC-016-the-pipeline-has-one-lane-and-every-gate-runs-as-an-agent-regardless-of-risk.md`, which exists.
+- After all — Task completion-ready: PASS — `## Plan` 12/12 `[x]`, 0 `[ ]`; `grep -ciE 'blocked|pending'` → 0; frontmatter `status: in-progress`, `depends_on: []`.
+- Observation for the orchestrator (not a criterion of this gate): `git status --porcelain` shows one uncommitted line in `.agents/loop-runs/backlog-execution-orchestrator.jsonl` (`runId r20260828123701`, opened 2026-08-28T12:37:01Z, `roundFindings [9,2,0]`, `terminal converged`, `ref` = the PROC-016 Task) — it appeared during this run's first minute and was not written by this gate; the full `harness:scan` (loop-run-records included) passed with it present. Second observation: `pnpm harness:test` failed 19 cases in `run-all-scans-affected.test.mjs` only while it overlapped a full `harness:scan` in the same worktree, and passed alone — worth an issue, not a gate finding.
+- Verdict reason: every TC-01…TC-13 entry records PASS; the two run-1 failures are answered — TC-12 by the qualified reference, the `ci-mirror-map.mjs` pin and the finder tests (red-proof 0 accidental-green, every behavioural revision `red-proof-ok`), TC-13 by the INFRA-137 measurement (12 min 56 s, 2 rounds, 3 lane commits + 1 review-fix) under the owner-amended bound.
