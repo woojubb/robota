@@ -248,3 +248,22 @@ remote queue ownership only. It adds no runnable user-facing behavior.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 - Planning checkpoint binding: `.agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`; `.agents/spec-docs/active/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`; `SCENARIO DRAFTED: not-applicable | 0`; whole-worktree inventory limited to the exact Task/spec pair and loop ledger.
+
+### [MIGRATION-MANIFEST-REAPPROVAL] — ✅ PASS | 2026-08-29
+
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+
+- Fresh manifest commit: `12fa31d47`. The only manifest text change qualifies four GitHub issue
+  references by kind; original source paths, blob OIDs, three-unit scope, nine final paths,
+  ownership, dispositions, and zero-baseline-change boundary are unchanged.
+- Four already-staged file moves also entered `12fa31d47` with zero content changes. Their exact
+  pre-move blobs remain the approved OIDs; terminal status/content changes were not committed before
+  this fresh CLASS approval record.
+- Current readback: issues #2295, #2436, #2437, and parent issue #2404 remain OPEN; the three child
+  issues remain unassigned; the open PR set remains empty.
+- All six governed source/carrier blobs still match the approved manifest. No package/app source,
+  API/contract, policy/gate document, skill/workflow/hook, topology, product/user documentation, or
+  baseline changed.
