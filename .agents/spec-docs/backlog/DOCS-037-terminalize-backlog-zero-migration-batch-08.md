@@ -55,10 +55,11 @@ skill/workflow/hook/topology, baseline, carrier, or product-direction change is 
 Choose alternative 3.
 
 - HARNESS-057 becomes `skipped` after exact handoff
-  https://github.com/woojubb/robota/issues/2234#issuecomment-5457922583. The central runner rejects an
+  https://github.com/woojubb/robota/issues/2462#issuecomment-5457971404. The central runner rejects an
   unearned `::examined:: 0`, supports explicit expected-empty reasons, and freezes adopting scan names.
   Current `SCAN_COMMANDS` contains 148 registered scans while the adoption baseline contains 98,
-  leaving 50. Open tracking issue #2234 explicitly requires every scan to report its examined size.
+  leaving 50. Exact residual issue #2462 owns that adoption work; umbrella tracker #2234 remains
+  related context and is deliberately not treated as the canonical owner.
 - PLG-020 becomes `skipped` after exact handoff
   https://github.com/woojubb/robota/issues/2460#issuecomment-5457939546. Current code still dispatches
   only `beforeRun`, `afterRun`, `beforeProviderCall`, `afterProviderCall`, and `onError`; the affected
@@ -100,11 +101,11 @@ Pre-approval base: `origin/develop` at `92658e1781be80bb66ccd25db6bac4810d5b4444
 Limits: 3 units; 7 final tracked paths. Each governed Task blob is identical at population, base,
 HEAD, and worktree. There are zero baseline, carrier, package-document, or excluded-path changes.
 
-| Unit        | Governed original path and blob OID                                                                                                   | Current ownership and evidence                                                                                                                                           | Criterion-level disposition                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| HARNESS-057 | `.agents/tasks/HARNESS-057-a-scan-must-report-the-size-of-what-it-examined.md` @ `779a5cbe5c639e1e2ba9deea6c9f91c2d1d3dc26`           | OPEN/unassigned issue #2234 explicitly names HARNESS-057; exact handoff https://github.com/woojubb/robota/issues/2234#issuecomment-5457922583; measured adoption 98/148. | Preserve the Task body; archive skipped to the exact comment. The remaining 50 scan declarations stay open.       |
-| PLG-020     | `.agents/tasks/PLG-020-official-plugins-cannot-observe-the-runtime.md` @ `46b45d902d65fe3aa3d46f815bbc8868358f790e`                   | Unique OPEN/unassigned issue #2460; exact handoff https://github.com/woojubb/robota/issues/2460#issuecomment-5457939546; current dispatcher/plugin mismatch confirmed.   | Preserve the Task body; archive skipped to the exact comment. Package behavior and docs remain with issue #2460.  |
-| TOOL-004    | `.agents/tasks/TOOL-004-builtin-tool-descriptions-name-parameters-the-schema-rejects.md` @ `b6110f422457ea3e81cf3b272500466f8108da04` | Unique OPEN/unassigned issue #2461; exact handoff https://github.com/woojubb/robota/issues/2461#issuecomment-5457939714; current description/schema mismatch confirmed.  | Preserve the Task body; archive skipped to the exact comment. Package behavior and tests remain with issue #2461. |
+| Unit        | Governed original path and blob OID                                                                                                   | Current ownership and evidence                                                                                                                                          | Criterion-level disposition                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| HARNESS-057 | `.agents/tasks/HARNESS-057-a-scan-must-report-the-size-of-what-it-examined.md` @ `779a5cbe5c639e1e2ba9deea6c9f91c2d1d3dc26`           | Unique OPEN/unassigned residual issue #2462; exact handoff https://github.com/woojubb/robota/issues/2462#issuecomment-5457971404; measured adoption 98/148.             | Preserve the Task body; archive skipped to the exact comment. The remaining 50 scan declarations stay open.       |
+| PLG-020     | `.agents/tasks/PLG-020-official-plugins-cannot-observe-the-runtime.md` @ `46b45d902d65fe3aa3d46f815bbc8868358f790e`                   | Unique OPEN/unassigned issue #2460; exact handoff https://github.com/woojubb/robota/issues/2460#issuecomment-5457939546; current dispatcher/plugin mismatch confirmed.  | Preserve the Task body; archive skipped to the exact comment. Package behavior and docs remain with issue #2460.  |
+| TOOL-004    | `.agents/tasks/TOOL-004-builtin-tool-descriptions-name-parameters-the-schema-rejects.md` @ `b6110f422457ea3e81cf3b272500466f8108da04` | Unique OPEN/unassigned issue #2461; exact handoff https://github.com/woojubb/robota/issues/2461#issuecomment-5457939714; current description/schema mismatch confirmed. | Preserve the Task body; archive skipped to the exact comment. Package behavior and tests remain with issue #2461. |
 
 Live ownership check: no open PR, matching implementation branch, extra worktree, assignee, open
 loop, or reservation owns any unit. Current branch `docs/backlog-zero-batch-08` is the sole migration
@@ -112,9 +113,9 @@ owner and owns no package implementation. Any governed blob, remote owner, dispo
 change excludes that unit and requires fresh manifest approval.
 
 Control issue #2459 uniquely carries `backlog-zero:DOCS-037:2c875dd3` and records the pre-approval
-correction. Issues #2460 and #2461 uniquely carry their residual markers. All four owner/control
-issues (#2234, #2459, #2460, #2461) are OPEN and unassigned; all three handoff comments are exact and
-unmodified. Parent issue #2404 remains open for later batches and prevention.
+correction. Issues #2460, #2461, and #2462 uniquely carry their residual markers. All four exact
+owner/control issues (#2459, #2460, #2461, #2462) are OPEN and unassigned; all three handoff comments
+are exact and unmodified. Parent issue #2404 and related umbrella #2234 remain open.
 
 ### Baseline and carrier disposition
 
@@ -201,12 +202,23 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 
 **Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
 
+### [RECOMMENDATION REVIEW ROUND 2] — 🔴 REVISE | 2026-08-29
+
+- High — exact ownership: issue #2234 is explicitly an umbrella tracker that proposes no new work of
+  its own. RULE-017 forbids treating a related-only or umbrella issue as an exact implementation owner.
+- Create a dedicated OPEN/unassigned HARNESS-057 residual issue and canonical handoff, then update
+  every owner URL before approval. All other unit, blob, priority, path, and class-boundary checks pass.
+- `ACTIONABLE FINDINGS: 1`.
+
+**Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
+
 ### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
 
 - Base is `92658e1781be80bb66ccd25db6bac4810d5b4444`; all three population/current Task
   blobs match the manifest exactly.
-- Issues #2234, #2459, #2460, and #2461 are OPEN and unassigned. Control/residual markers are unique.
-- Canonical comments #5457922583, #5457939546, and #5457939714 belong to the exact owner issues,
+- Issues #2459, #2460, #2461, and #2462 are OPEN and unassigned. Control/residual markers are unique;
+  umbrella #2234 is related context only and is not used as an owner.
+- Canonical comments #5457971404, #5457939546, and #5457939714 belong to the exact owner issues,
   carry the exact Task paths/blobs/current residuals, and have `created_at == updated_at`.
 - Current code confirms all three residuals. There is no competing open PR, branch, worktree,
   assignee, or open loop. The final manifest is exactly three `high/now` units and seven paths with
