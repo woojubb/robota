@@ -32,9 +32,9 @@ export type TArgumentKind = 'path' | 'url' | 'command' | 'text';
 /**
  * One match is three answers, not two. A pattern or argument the matcher cannot interpret in the
  * declared kind is UNEVALUABLE — `url`: the argument does not parse, carries userinfo, has no host
- * or a non-special scheme, or a path segment does not percent-decode; the pattern does not fit the
- * grammar, or its literal host does not parse; `path`: a relative argument under an absolute
- * pattern. An unevaluable deny is not "not denied" (CORE-030: "I cannot tell" is not "no"):
+ * or a non-special scheme, or a path segment does not percent-decode or decodes to a separator
+ * (`%2F`); the pattern does not fit the grammar, its literal host does not parse, or a segment of
+ * its path does not decode; `path`: a relative argument under an absolute pattern. An unevaluable deny is not "not denied" (CORE-030: "I cannot tell" is not "no"):
  * `hasUnevaluableArgumentPattern` reports it and the gate prompts instead of falling through to the
  * allow list and the mode policy, which for an `inspect` tool is `auto` in every mode.
  */
@@ -59,15 +59,21 @@ export function globToRegex(glob: string): RegExp {
  * `a/**\/b` also matches `a/b` (zero or more directories), and a bare `**` matches anything.
  */
 function segmentGlobToRegex(glob: string): RegExp {
-  // Tokenise so the two wildcards never collide: `**` crosses segments, `*` stays inside one.
+  // Adjacent `**` mean what one means (gitignore: `a/**/**/b` is `a/**/b`); then tokenise so the
+  // two wildcards never collide — `**` crosses segments, `*` stays inside one. A `\uE000` mark is a
+  // literal `*` that percent-decoding produced (`%2A`): it must not become a wildcard.
   const body = glob
+    .replace(/\*\*(?:\/\*\*)+/g, '**')
     .split(/(\/\*\*\/|\/\*\*$|^\*\*\/|\*\*)/)
     .map((token) => {
       if (token === '/**/') return '(?:/.*)?/';
       if (token === '/**') return '(?:/.*)?';
       if (token === '**/') return '(?:.*/)?';
       if (token === '**') return '.*';
-      return token.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^/]*');
+      return token
+        .replace(REGEX_SPECIALS, '\\$&')
+        .replace(/\*/g, '[^/]*')
+        .replace(/\uE000/g, '\\*');
     })
     .join('');
   return new RegExp(`^${body}$`);
@@ -128,7 +134,10 @@ function canonicalHostText(host: string): string {
  * is not a rule this grammar states and yields null (unevaluable).
  */
 function hostPatternToRegex(hostPattern: string): RegExp | null {
-  const labels = canonicalHostText(hostPattern).split('.');
+  // Adjacent `**` labels mean what one means.
+  const labels = canonicalHostText(hostPattern)
+    .replace(/\*\*(?:\.\*\*)+/g, '**')
+    .split('.');
   const parts: string[] = [];
   const LABELS = '[^.]+(?:\\.[^.]+)*'; // one or more dot-separated labels
   for (const [index, label] of labels.entries()) {
@@ -219,7 +228,8 @@ export function matchUrl(pattern: string, argument: string): TPatternMatch {
 
   if (pathPattern !== undefined) {
     const decoded = decodedSegments(url.pathname);
-    const decodedPattern = decodedSegments(pathPattern);
+    // A percent-encoded `*` in the PATTERN is a literal star, not a wildcard: mark it before decoding.
+    const decodedPattern = decodedSegments(pathPattern.replace(/%2a/gi, '\uE000'));
     if (decoded === null || decodedPattern === null) return 'unevaluable';
     if (!segmentGlobToRegex(decodedPattern).test(decoded)) return 'no-match';
   }

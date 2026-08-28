@@ -159,8 +159,8 @@ observation (issue #2430).
    = any host, `a**b` inside a label = unevaluable. Port: equal to the pattern's, or the scheme
    default when the pattern names none (`*` = any). Path: absent in the pattern = any path; else
    compared segment-wise on PERCENT-DECODED segments (`decodeURIComponent` per segment; a segment that
-   fails to decode is unevaluable; a decoded `/` inside a segment can never equal a pattern segment,
-   so `%2F` is safe), `*` within a segment, `**` across, `/**` matches `/`. `search` and `hash` never
+   fails to decode, or decodes to a separator (`%2F`), is unevaluable — PR review, folded in; the
+   pattern's segments are decoded the same way, with a `%2A` kept a literal `*`), `*` within a segment, `**` across, `/**` matches `/`. `search` and `hash` never
    participate.
    **`path`.** Separators normalised (`\` → `/`), then `path.posix.normalize` on both sides (`.`/`..`
    collapsed, no filesystem access); absolute means `/…` or a drive prefix `X:/…`; a relative argument

@@ -294,6 +294,18 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     expect(
       matchesAnyPattern('Read', { filePath: 'c:\\w\\secrets\\x' }, ['Read(C:/w/secrets/**)']),
     ).toBe(true);
+    // Adjacent `**` mean what one means, in a path and in a host.
+    expect(matchesAnyPattern('Read', { filePath: '/a/b' }, ['Read(/a/**/**/b)'])).toBe(true);
+    expect(
+      matchesAnyPattern('WebFetch', { url: 'https://b/' }, ['WebFetch(https://**.**.b/**)']),
+    ).toBe(true);
+    // A percent-encoded `*` in a pattern is a literal star, not a wildcard.
+    expect(
+      matchesAnyPattern('WebFetch', { url: 'https://h/zzz/x' }, ['WebFetch(https://h/%2A/**)']),
+    ).toBe(false);
+    expect(
+      matchesAnyPattern('WebFetch', { url: 'https://h/*/x' }, ['WebFetch(https://h/%2A/**)']),
+    ).toBe(true);
   });
 
   it('TC-04 a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
