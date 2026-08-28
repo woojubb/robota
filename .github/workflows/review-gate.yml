@@ -181,6 +181,15 @@ jobs:
       # only supersedes it when code changed, so a docs-only PR fixed by `gh pr edit` would keep a
       # stale BLOCKED comment forever. Local equivalent:
       #   gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs
+      # The judge is loaded from the BASE revision. A base that predates PR #2409 (RULE-016 PR 1) —
+      # `main` until develop is promoted — has no judge, and a missing module would read as a
+      # body verdict. Fail closed with the true reason instead.
+      - name: Is the PR-body judge present at the base revision? (RULE-016)
+        run: |
+          [ -f scripts/harness/check-pr-body.mjs ] || {
+            echo "::error::review-gate: scripts/harness/check-pr-body.mjs is absent at the base revision — the base branch must carry PR #2409 (RULE-016 PR 1) before its pull requests can be judged; this is the fail-closed reason, not a body verdict"
+            exit 1
+          }
       - name: Does the PR body open with Background, and carry no session link? (RULE-016)
         env:
           PR_BODY: ${{ github.event.pull_request.body }}

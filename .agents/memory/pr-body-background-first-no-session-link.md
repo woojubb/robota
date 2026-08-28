@@ -13,7 +13,7 @@ instructions, not from anyone here, and the owner asked that the rule live in th
 (issue #2403, RULE-016).
 
 **Where the rule lives:** [backlog-execution.md](../rules/backlog-execution.md) § PR Unit Rule owns
-the PR body (seven ordered sections, Background first; no agent-session link or "Generated with"
+the PR body (six ordered sections and the `Closes` line, Background first; no agent-session link or "Generated with"
 footer). [git-branch.md](../rules/git-branch.md) § Git Operations owns the commit half (no session
 trailer; `Co-Authored-By` stays). `.github/PULL_REQUEST_TEMPLATE.md` is the human author's copy.
 Enforced by the `review-gate` required check (`scripts/harness/check-pr-body.mjs`) and commitlint's
