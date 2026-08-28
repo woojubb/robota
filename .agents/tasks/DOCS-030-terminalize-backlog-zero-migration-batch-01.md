@@ -57,7 +57,7 @@ implementation or policy.
 
 ## User Execution Test Scenarios
 
-`SCENARIO DRAFTED: not-applicable | 0`
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 Not applicable. This batch changes only internal lifecycle records and frozen-baseline path keys; it
 does not add or change a runnable product surface. Package/app source, API/contracts, policy,
