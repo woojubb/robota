@@ -19,7 +19,6 @@ ledger exists to forbid. `open` should close a run opened on an earlier UTC cale
 `abandoned` with `ref: "superseded by <new run id>"`, print one line saying so, then open the new run;
 a run opened the same UTC day is still refused exactly as today.
 
-
 ## Prior Art Research
 
 Waived: internal fix with no contract change; the remedy is the repository's own precedent
@@ -74,11 +73,11 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                          | Notes                                    |
-| ----- | --------- | ---------------------------------------- | ---------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` | RED with the fix reverted, GREEN with it |
-| TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Regression |
-| TC-03 | Scan      | `node scripts/harness/scan-loop-run-records.mjs` | Ledger reader accepts the new entries; reader contract in `scripts/harness/__tests__/scan-loop-run-records.test.mjs` |
+| TC-ID | Test Type | Tool / Approach                                                                                     | Notes                                                                                                                |
+| ----- | --------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs`                                  | RED with the fix reverted, GREEN with it                                                                             |
+| TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Regression                                                                                                           |
+| TC-03 | Scan      | `node scripts/harness/scan-loop-run-records.mjs`                                                    | Ledger reader accepts the new entries; reader contract in `scripts/harness/__tests__/scan-loop-run-records.test.mjs` |
 
 ## User Execution Test Scenarios
 
@@ -232,8 +231,8 @@ loop-run-records scan passed (70 entry(ies) examined across 11 ledger(s)). It ju
 - GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-28; status `approved`
 - GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md,  M .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md); all 2 supplied commands exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` → exit 0 (   Duration  276ms (transform 55ms, setup 0ms, collect 69ms, tests 21ms, environment 0ms, prepare 44ms) ⏎  ⏎ 9:17:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 53 scans passed, 2 skipped (38 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/todo/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md, M .agents/tasks/INFRA-136-loop-run-open-refuses-a-run-another-day-left-open-and-only-hand-editing-the-ledg.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs` → exit 0 ( Duration 276ms (transform 55ms, setup 0ms, collect 69ms, tests 21ms, environment 0ms, prepare 44ms) ⏎ ⏎ 9:17:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
 - GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
 - GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
 - GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
