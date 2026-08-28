@@ -338,3 +338,13 @@ describe('the examined count is what was read, not what was declared', () => {
     expect(examinedWriteScopeCount(), 'the count survived into a run that read nothing').toBe(0);
   });
 });
+
+describe('scans-full.yml is justified where it asks for issues: write (PROC-016)', () => {
+  it('names the job scope with a reason, and the live tree reports no finding for it', () => {
+    const entry = JUSTIFIED_JOB_WRITE_SCOPES['scans-full.yml']?.['scans-full'];
+    expect(typeof entry?.issues).toBe('string');
+    expect(entry.issues.length).toBeGreaterThan(20);
+    const findings = findWorkflowPermissionFindings();
+    expect(findings.filter((f) => JSON.stringify(f).includes('scans-full'))).toEqual([]);
+  });
+});

@@ -66,7 +66,7 @@ MANDATORY SEQUENCE before writing any code (.ts/.tsx/.js files):
    and declare it — `Lane: L0|L1|L2` — on the branch (commit trailer) and the pull request (body).
    The lane is the diff's floor: `scan-lane-declaration` refuses a declaration under it, and no
    argument lowers it.
-   → L0 (no non-comment change under `src/`, nothing on an L2 path): no spec document.
+   → L0 (no non-comment change under `src/` or `scripts/`, nothing on an L2 path — the floors table in spec-workflow.md § Lanes is the owner): no spec document.
    → L1 (a non-comment `src/` change, no L2 path): scaffold the spec document with
      `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`.
    → L2 (any L2 path): create a backlog draft `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`

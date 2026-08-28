@@ -2475,3 +2475,36 @@ describe('user-execution PLAN order — repository contract', () => {
     );
   });
 });
+
+describe('the finders read only the root they are given (PROC-016)', () => {
+  it('a root without its own .git is refused, not read through git discovery', () => {
+    const bare = makeTemp('robota-ues-plan-order-bare-');
+    write(bare, 'README.md', 'no repository here\n');
+    const history = findHistoryFindings(bare);
+    expect(history).toHaveLength(1);
+    expect(history[0].problem ?? history[0].message ?? JSON.stringify(history[0])).toMatch(
+      /has no \.git|failed closed/,
+    );
+    const staged = findStagedFindings(bare);
+    expect(staged).toHaveLength(1);
+  });
+
+  it("the hook's ambient GIT_DIR cannot redirect a .git-less root to another repository", () => {
+    const created = repository();
+    const real = typeof created === 'string' ? created : created.root;
+    const bare = makeTemp('robota-ues-plan-order-bare-');
+    write(bare, 'README.md', 'no repository here\n');
+    const saved = process.env.GIT_DIR;
+    process.env.GIT_DIR = path.join(real, '.git');
+    try {
+      const history = findHistoryFindings(bare);
+      expect(history).toHaveLength(1);
+      expect(JSON.stringify(history[0])).toMatch(/has no \.git|failed closed/);
+      // Control: the real repository root itself is still read.
+      expect(() => findHistoryFindings(real)).not.toThrow();
+    } finally {
+      if (saved === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = saved;
+    }
+  });
+});
