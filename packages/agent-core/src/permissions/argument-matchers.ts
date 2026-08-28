@@ -211,55 +211,72 @@ function decodedSegments(pathname: string): string | null {
   }
 }
 
+/** The argument as a `URL` whose host can be compared; null when it cannot be. */
+function parseComparableUrl(argument: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(argument);
+  } catch {
+    // allow-fallback: an argument that does not parse is reported by the caller as UNEVALUABLE.
+    return null;
+  }
+  const scheme = url.protocol.slice(0, -1).toLowerCase();
+  if (!SPECIAL_SCHEMES.has(scheme)) return null; // `file:`, `foo:`: host opaque or absent
+  if (url.hostname === '') return null;
+  if (url.username !== '' || url.password !== '') return null;
+  return url;
+}
+
+/** The host clause: a wildcard pattern by regex, a literal one canonicalised like the argument. */
+function matchHost(hostPattern: string, host: string): TPatternMatch {
+  if (hostPattern.includes('*')) {
+    const regex = hostPatternToRegex(hostPattern);
+    if (regex === null) return 'unevaluable';
+    return regex.test(host) ? 'match' : 'no-match';
+  }
+  // A literal pattern host is canonicalised the way the argument's was — by a special scheme,
+  // whatever the pattern's scheme (including `*`).
+  let literal: string;
+  try {
+    literal = new URL(`http://${hostPattern}/`).hostname;
+  } catch {
+    // allow-fallback: a literal host the parser refuses is reported as UNEVALUABLE, never matched.
+    return 'unevaluable';
+  }
+  return canonicalHostText(literal) === host ? 'match' : 'no-match';
+}
+
+/** The port clause: absent means the scheme default only; `*` means any; else the exact port. */
+function matchPort(portPattern: string | undefined, url: URL, scheme: string): boolean {
+  if (portPattern === undefined) return url.port === '';
+  if (portPattern === '*') return true;
+  const port = url.port === '' ? DEFAULT_PORT[scheme] : url.port;
+  return portPattern === port;
+}
+
+/** The path clause: both sides percent-decoded segment by segment, then a segment glob. */
+function matchPathname(pathPattern: string, pathname: string): TPatternMatch {
+  const decoded = decodedSegments(pathname);
+  // A percent-encoded `*` in the PATTERN is a literal star, not a wildcard: mark it before decoding.
+  const decodedPattern = decodedSegments(pathPattern.replace(/%2a/gi, '\uE000'));
+  if (decoded === null || decodedPattern === null) return 'unevaluable';
+  return segmentGlobToRegex(decodedPattern).test(decoded) ? 'match' : 'no-match';
+}
+
 /** The `url` matcher: the pattern by grammar, the argument by `new URL`, compared structurally. */
 export function matchUrl(pattern: string, argument: string): TPatternMatch {
   const grammar = URL_PATTERN_GRAMMAR.exec(pattern);
   if (grammar === null) return 'unevaluable';
   const [, schemePattern, hostPattern, portPattern, pathPattern] = grammar;
 
-  let url: URL;
-  try {
-    url = new URL(argument);
-  } catch {
-    return 'unevaluable';
-  }
+  const url = parseComparableUrl(argument);
+  if (url === null) return 'unevaluable';
   const scheme = url.protocol.slice(0, -1).toLowerCase();
-  if (!SPECIAL_SCHEMES.has(scheme)) return 'unevaluable'; // `file:`, `foo:`: host opaque or absent
-  if (url.hostname === '') return 'unevaluable';
-  if (url.username !== '' || url.password !== '') return 'unevaluable';
-
   if (schemePattern !== '*' && schemePattern.toLowerCase() !== scheme) return 'no-match';
 
-  const host = canonicalHostText(url.hostname);
-  if (hostPattern.includes('*')) {
-    const regex = hostPatternToRegex(hostPattern);
-    if (regex === null) return 'unevaluable';
-    if (!regex.test(host)) return 'no-match';
-  } else {
-    // A literal pattern host is canonicalised the way the argument's was — by a special scheme,
-    // whatever the pattern's scheme (including `*`).
-    let literal: string;
-    try {
-      literal = new URL(`http://${hostPattern}/`).hostname;
-    } catch {
-      return 'unevaluable';
-    }
-    if (canonicalHostText(literal) !== host) return 'no-match';
-  }
-
-  if (portPattern === undefined) {
-    if (url.port !== '') return 'no-match'; // no port in the pattern: the scheme default only
-  } else if (portPattern !== '*') {
-    const port = url.port === '' ? DEFAULT_PORT[scheme] : url.port;
-    if (portPattern !== port) return 'no-match';
-  }
-
-  if (pathPattern !== undefined) {
-    const decoded = decodedSegments(url.pathname);
-    // A percent-encoded `*` in the PATTERN is a literal star, not a wildcard: mark it before decoding.
-    const decodedPattern = decodedSegments(pathPattern.replace(/%2a/gi, '\uE000'));
-    if (decoded === null || decodedPattern === null) return 'unevaluable';
-    if (!segmentGlobToRegex(decodedPattern).test(decoded)) return 'no-match';
-  }
+  const host = matchHost(hostPattern, canonicalHostText(url.hostname));
+  if (host !== 'match') return host;
+  if (!matchPort(portPattern, url, scheme)) return 'no-match';
+  if (pathPattern !== undefined) return matchPathname(pathPattern, url.pathname);
   return 'match';
 }
