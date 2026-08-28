@@ -90,6 +90,9 @@ batches remain separate work units under the same open issue.
 - Recommendation re-review round 2: `REVIEW VERDICT: ENDORSE`, `ACTIONABLE FINDINGS: 0`. The reviewer
   confirmed the live premise, canonical payload, owner-prose synchronization, L2 declaration, prior
   approval withdrawal, and PR #2421's semantically disjoint hunk.
+- Fresh approval gate: `GATE VERDICT: PASS` via Route `DIRECT`; exact instruction `"끝까지 작업해줘"`
+  given 2026-08-28 in this conversation after the revised design was presented. Latest-base revalidation
+  on `origin/develop` `1d46006de` and the 146-pass full scan found no material design change.
 
 ## Test Plan
 
