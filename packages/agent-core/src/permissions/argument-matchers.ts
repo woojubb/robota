@@ -80,7 +80,7 @@ function segmentGlobToRegex(glob: string): RegExp {
 
 /** `/…` on every platform; `X:/…` is absolute too, so a Windows argument is judged, not dropped. */
 function isAbsolutePathLike(normalised: string): boolean {
-  return normalised.startsWith('/') || /^[A-Za-z]:\//.test(normalised);
+  return normalised.startsWith('/') || /^[A-Za-z]:(?=\/|$)/.test(normalised);
 }
 
 /**
@@ -103,7 +103,7 @@ function normalisePathText(text: string): string {
   }
   const joined = (absolute ? '/' : '') + out.join('/');
   const normalised = joined === '' ? '.' : joined;
-  return normalised.replace(/^[A-Za-z]:\//, (drive) => drive.toLowerCase());
+  return normalised.replace(/^[A-Za-z]:(?=\/|$)/, (drive) => drive.toLowerCase());
 }
 
 /** The `path` matcher: separators and `.`/`..` normalised lexically; a relative argument under an absolute pattern is unevaluable. */
@@ -124,7 +124,7 @@ export function matchPath(pattern: string, argument: string): TPatternMatch {
  * host pattern and is refused as unevaluable rather than guessed at.
  */
 const URL_PATTERN_GRAMMAR =
-  /^(\*|[a-z][a-z0-9+.-]*):\/\/(\[[0-9a-fA-F:.]+\]|[^/:?#@[\]]+)(?::(\d+|\*))?(\/[^?#]*)?$/i;
+  /^(\*|[a-z][a-z0-9+.-]*):\/\/(\[[0-9a-fA-F:.]+\]|[^/\\:?#@[\]]+)(?::(\d+|\*))?(\/[^?#]*)?$/i;
 
 /** The schemes whose host `new URL` canonicalises; any other scheme keeps its host opaque. */
 const SPECIAL_SCHEMES: ReadonlySet<string> = new Set(['http', 'https', 'ws', 'wss', 'ftp']);
@@ -157,7 +157,8 @@ function labelToASCII(label: string): string | null {
  * A wildcard host pattern as a RegExp over the argument's canonical hostname. `*` as a whole
  * label = one or more labels; `**` as a whole label = zero or more (so `**.example.com` covers the
  * apex); `*` inside a label = within that label; `*` as the entire host = any host. Literal labels
- * pass `domainToASCII` so an IDN pattern meets the argument's punycode form. `a**b` inside a label
+ * are mapped to their ASCII (punycode) form by the platform URL parser, so an IDN pattern meets the
+ * argument's punycode form; a label the parser refuses or splits makes the pattern unevaluable. `a**b` inside a label
  * is not a rule this grammar states and yields null (unevaluable).
  */
 function hostPatternToRegex(hostPattern: string): RegExp | null {

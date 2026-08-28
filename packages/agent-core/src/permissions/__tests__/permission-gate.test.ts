@@ -163,6 +163,24 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
     ]) {
       expect(matchesAnyPattern('WebFetch', { url }, [pattern]), `${pattern} vs ${url}`).toBe(true);
     }
+    // An IDN literal label in a wildcard pattern meets the argument's punycode form; a label the
+    // parser refuses makes the pattern unevaluable rather than a silent non-match.
+    expect(
+      matchesAnyPattern('WebFetch', { url: 'https://a.xn--bcher-kva.example/' }, [
+        'WebFetch(https://*.bücher.example/**)',
+      ]),
+    ).toBe(true);
+    expect(
+      evaluatePermission('WebFetch', { url: 'https://a.example.com/' }, 'default', {
+        deny: ['WebFetch(https://*.exa mple.com/**)'],
+      }),
+    ).toBe('approve');
+    // A backslash in a pattern host is not a host: unevaluable, never truncated.
+    expect(
+      evaluatePermission('WebFetch', { url: 'https://exam/' }, 'default', {
+        deny: ['WebFetch(https://exam\\ple.com/**)'],
+      }),
+    ).toBe('approve');
   });
 
   it('TC-02 canonicalises the argument host and path — the verdicts only parsing can give', () => {
@@ -306,6 +324,8 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     expect(
       matchesAnyPattern('WebFetch', { url: 'https://h/*/x' }, ['WebFetch(https://h/%2A/**)']),
     ).toBe(true);
+    // A drive root stays absolute and lower-cased.
+    expect(matchesAnyPattern('Read', { filePath: 'C:\\' }, ['Read(c:/**)'])).toBe(true);
   });
 
   it('TC-04 a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
