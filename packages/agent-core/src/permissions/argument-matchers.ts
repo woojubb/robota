@@ -3,11 +3,10 @@
  *
  * Kept beside the gate rather than inside it: the gate owns WHEN a pattern is consulted (deny,
  * unevaluable, allow, mode policy); this module owns HOW one pattern is compared with one argument
- * of a declared kind. Nothing here reads the profile registry or the mode.
+ * of a declared kind. Nothing here reads the profile registry or the mode — and nothing here
+ * imports a Node builtin: `agent-core` ships a browser bundle (CORE-028), so path normalisation is
+ * lexical and IDN mapping goes through the WHATWG `URL` the platform provides.
  */
-import path from 'node:path';
-import { domainToASCII } from 'node:url';
-
 /**
  * What kind of thing a tool's primary argument is — which decides how a pattern is matched against
  * it. CORE-049 (issue #2350): one glob served every kind, so `WebFetch(https://*.example.com/**)`
@@ -84,10 +83,26 @@ function isAbsolutePathLike(normalised: string): boolean {
   return normalised.startsWith('/') || /^[A-Za-z]:\//.test(normalised);
 }
 
-/** `\` → `/`, `.`/`..` collapsed, a drive letter lower-cased (case-insensitive filesystems). */
+/**
+ * `\` → `/`, `.`/`..` collapsed lexically (no filesystem access, no Node builtin), a drive letter
+ * lower-cased (case-insensitive filesystems). A leading `..` on an absolute path stays at the root,
+ * as `path.posix.normalize` does; on a relative path it is kept, so `../x` remains `../x`.
+ */
 function normalisePathText(text: string): string {
   const slashed = text.replace(/\\/g, '/');
-  const normalised = path.posix.normalize(slashed);
+  const absolute = slashed.startsWith('/');
+  const out: string[] = [];
+  for (const segment of slashed.split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') {
+      if (out.length > 0 && out[out.length - 1] !== '..') out.pop();
+      else if (!absolute) out.push('..');
+      continue;
+    }
+    out.push(segment);
+  }
+  const joined = (absolute ? '/' : '') + out.join('/');
+  const normalised = joined === '' ? '.' : joined;
   return normalised.replace(/^[A-Za-z]:\//, (drive) => drive.toLowerCase());
 }
 
@@ -126,6 +141,18 @@ function canonicalHostText(host: string): string {
   return host.replace(/\.$/, '').toLowerCase();
 }
 
+/** A single host label in its ASCII (punycode) form via the platform URL parser; null when invalid. */
+function labelToASCII(label: string): string | null {
+  try {
+    const host = new URL(`http://${label}/`).hostname;
+    return host === '' || host.includes('.') ? null : host;
+  } catch {
+    // allow-fallback: a label the URL parser refuses is reported as an unevaluable pattern by the
+    // caller (a prompt on the deny side), never as a match or a silent non-match.
+    return null;
+  }
+}
+
 /**
  * A wildcard host pattern as a RegExp over the argument's canonical hostname. `*` as a whole
  * label = one or more labels; `**` as a whole label = zero or more (so `**.example.com` covers the
@@ -158,8 +185,8 @@ function hostPatternToRegex(hostPattern: string): RegExp | null {
     else if (label.includes('*')) {
       parts.push(`${dot}${label.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^.]*')}`);
     } else {
-      const ascii = domainToASCII(label);
-      if (ascii === '') return null;
+      const ascii = labelToASCII(label);
+      if (ascii === null) return null;
       parts.push(`${dot}${ascii.replace(REGEX_SPECIALS, '\\$&')}`);
     }
   }
