@@ -38,6 +38,7 @@ Robota (Facade)
   │     └── EventService            — unified event emission with ownerPath binding
   ├── Permission Layer
   │     ├── permission-gate.ts      — evaluatePermission(): 3-step deterministic policy
+  │     ├── argument-matchers.ts  — the per-kind matchers (url/path/command/text) the gate dispatches to (CORE-049)
   │     ├── permission-mode.ts      — RISK_CLASS_POLICY matrix, UNCLASSIFIED_TOOL_FALLBACK
   │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
   ├── Hook Layer
