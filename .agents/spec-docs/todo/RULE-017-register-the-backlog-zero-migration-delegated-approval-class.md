@@ -2,6 +2,7 @@
 status: approved
 type: RULE
 tags: [backlog, governance, harness]
+lane: L2
 ---
 
 # RULE-017: register the BACKLOG-ZERO-MIGRATION delegated approval class
@@ -10,17 +11,21 @@ tags: [backlog, governance, harness]
 
 The owner authorized repeated documentation-only batches that migrate the finite 2026-08-28 local
 backlog to canonical GitHub issues or terminalize records whose outcomes were already delivered. The
-delegated-class registry remains empty, so every later batch would either need ceremonial DIRECT
+delegated-class registry now contains the unrelated `LANE-L0-L1` row delivered by PROC-016, but no
+`BACKLOG-ZERO-MIGRATION` row, so every later migration batch would either need ceremonial DIRECT
 approval or would falsely claim a CLASS route that no registered class supports.
 
-The empty registry is not the only gap. `standing-delegation-evidence` currently parses only the class
-ID and registration date from a row. A DIRECT approval can omit its rule-declared `Given`; a CLASS
-approval can omit `Given` and `Evidence condition met` or cite an instruction different from its
+The missing migration row is not the only gap. `standing-delegation-evidence` currently parses only
+the class ID and registration date from a row. A DIRECT approval can omit its rule-declared `Given`; a
+CLASS approval can omit `Given` and `Evidence condition met` or cite an instruction different from its
 registry row; and duplicate/incomplete rows are not all rejected. Registering a broad migration class
 without closing that structural gap would make the most important boundary evidence optional.
 
-Reproduction on the integration base: `node scripts/harness/scan-standing-delegation-evidence.mjs`
-reports `0 registered class(es)`, while `classifyApproval` returns a passing route for fixtures that
+Reproduction on integration base `e93e1485a`: `node
+scripts/harness/scan-standing-delegation-evidence.mjs` reports `1 registered class(es)`, `9 DIRECT`,
+`0 CLASS`, and `218 frozen`. Before the earlier RULE-017 approval was withdrawn, the branch added that
+approval and reported `10 DIRECT`; the revised tree again reports `9 DIRECT`. In both trees,
+`classifyApproval` returns a passing route for fixtures that
 omit DIRECT `Given`, omit CLASS `Given` plus `Evidence condition met`, or use a CLASS instruction that
 does not match the registered authorising instruction.
 
@@ -49,11 +54,15 @@ model that needs separate prior-art selection.
 No package/app source, public API/contract, CI workflow, hook, workspace topology, product behavior,
 user-authored document, or unrelated repository policy changes.
 
+The declared lane is `L2`: the intended diff edits `backlog-execution.md`, which is both an L2 path and
+a document defining an approval gate. This declaration is a floor derived from the path, not a claim
+that the change may use the `LANE-L0-L1` delegated class.
+
 ### Alternatives Considered
 
-1. **Add only the registry row.** Pro: smallest diff. Con: CLASS approvals can still omit the row's
-   declared provenance/evidence fields, so the authorization boundary is prose-only at its highest-risk
-   point.
+1. **Add only the second registry row.** Pro: smallest diff and leaves PROC-016 untouched. Con: CLASS
+   approvals can still omit the row's declared provenance/evidence fields, so the authorization
+   boundary is prose-only at its highest-risk point.
 2. **Register the row and enforce structural completeness.** Pro: the existing scanner can prove that
    every row and CLASS approval carries the fields the rule declares mandatory, while reviewers retain
    semantic judgement. Con: requires focused scanner/test changes. Chosen.
@@ -93,6 +102,19 @@ new baseline exemptions or any rule/policy change, including edits to this regis
 creation and append-only evidence comments only; issue edit/delete/reopen/transfer/metadata changes and
 issue closure are outside the class.
 
+The new row is additive to PROC-016's independently approved `LANE-L0-L1` row. RULE-017 must preserve
+that row's five fields byte-for-byte in substance, update the live-registry test from an obsolete
+exactly-one assertion to exactly the two named rows, and retain the lane class's on/after-date behavior.
+Neither class authorizes edits to the other class or to the registry after its own registration.
+
+The registry's canonical instruction payload is the first ASCII-double-quoted string at the start of
+the `Authorising instruction (verbatim)` cell. Existing provenance text after that closing quote is not
+part of the instruction; the live lane row already uses this form. The approval entry removes only one
+matched outer ASCII-quote pair (and Markdown representation delimiters), then compares the remaining
+Unicode code points exactly: no trimming, case folding, whitespace collapsing, or normalization. A
+missing/unterminated leading quote makes the registry row structurally incomplete. This preserves the
+lane row's explanatory suffix while refusing paraphrase or normalization drift.
+
 The scanner will enforce unique, complete registry rows; DIRECT `Given`; CLASS `Given` and
 `Evidence condition met`; exact CLASS-to-registry instruction matching; and date ordering. It will not
 infer semantic scope compliance; the proposal/approval guardian must read the committed manifest,
@@ -115,17 +137,21 @@ None
 
 ## Solution
 
-1. Replace the empty registry sentinel with one row whose class ID, finite scope, evidence condition,
-   exact verbatim instruction, and registration date are all non-empty and parseable.
+1. Append one `BACKLOG-ZERO-MIGRATION` row whose class ID, finite scope, evidence condition, exact
+   verbatim instruction, and registration date are all non-empty and parseable; preserve the existing
+   `LANE-L0-L1` row and its behavior.
 2. Extend the existing registry parser to retain the row's scope, evidence condition, instruction, and
-   date and reject structurally incomplete or duplicate rows.
+   date and reject structurally incomplete or duplicate rows. Parse the instruction from the cell's
+   leading matched ASCII quotes and preserve any following provenance text as non-payload.
 3. Extend approval classification to require non-empty DIRECT `Given`, non-empty CLASS `Given` and
    `Evidence condition met`, and an exact match between the CLASS entry's instruction and the registry
-   instruction while preserving existing route/date/baseline behavior. Do not add a semantic path or
-   issue-equivalence proxy.
-4. Add pass/fail fixtures for the live row, pre-registration approval, incomplete/duplicate rows,
+   canonical instruction payload while preserving existing route/date/baseline behavior. Update the
+   rule owner's `Enforced by` paragraph to enumerate every enforced refusal. Do not add a semantic path
+   or issue-equivalence proxy.
+4. Add pass/fail fixtures for both live rows, both classes' date ordering, incomplete/duplicate rows,
    missing DIRECT/CLASS evidence fields, mismatched CLASS instruction, and a complete post-registration
-   approval; prove each new refusal branch red.
+   BACKLOG approval. Pin the existing lane PASS with its registry-cell provenance suffix and prove each
+   new refusal branch red without weakening PROC-016 coverage.
 
 ## Affected Files
 
@@ -138,25 +164,29 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: parsing the live registry returns exactly one `BACKLOG-ZERO-MIGRATION` row registered
-      `2026-08-28` with non-empty scope, evidence condition, and exact owner instruction.
-- [ ] TC-02: a complete CLASS approval dated on/after `2026-08-28` passes, while the same class dated
-      `2026-08-27` fails as retroactive.
+- [ ] TC-01: parsing the live registry returns exactly two complete rows, the preserved `LANE-L0-L1`
+      row and `BACKLOG-ZERO-MIGRATION` registered `2026-08-28`, each with non-empty scope, evidence
+      condition, and exact owner instruction.
+- [ ] TC-02: complete `LANE-L0-L1` and `BACKLOG-ZERO-MIGRATION` CLASS approvals dated on/after
+      `2026-08-28` pass, while the same approvals dated `2026-08-27` fail as retroactive; the lane PASS
+      proves registry-cell provenance after the leading quoted payload is excluded from comparison.
 - [ ] TC-03: incomplete or duplicate registry rows, missing/blank DIRECT `Given`, missing/blank CLASS
-      `Given` or `Evidence condition met`, and a CLASS instruction mismatch each fail;
-      mutation/applied-check cases prove every new refusal is exercised.
-- [ ] TC-04: `node scripts/harness/scan-standing-delegation-evidence.mjs` exits 0 on the live tree without
-      adding a frozen exemption or changing existing DIRECT/CLASS dispositions.
+      `Given` or `Evidence condition met`, an unterminated/missing leading registry quote, and a CLASS
+      instruction code-point mismatch each fail; mutation/applied-check cases prove every new refusal
+      is exercised.
+- [ ] TC-04: the rule owner's `Enforced by` paragraph names all structural refusals, and `node
+    scripts/harness/scan-standing-delegation-evidence.mjs` exits 0 on the live tree without adding a
+      frozen exemption or changing existing DIRECT/CLASS dispositions.
 - [ ] TC-05: `pnpm harness:scan` and `pnpm harness:verify-like-ci` pass on the final committed tree.
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach                                                                | Notes                                                      |
 | ----- | --------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| TC-01 | RULE      | focused Vitest reads the live registry and asserts all row fields              | Prevents a syntactically registered but empty class.       |
-| TC-02 | RULE      | focused Vitest post-registration PASS and pre-registration FAIL fixtures       | Preserves non-retroactivity.                               |
-| TC-03 | RULE      | focused red/green plus applied-check mutation for every new structural refusal | Covers both routes, row uniqueness, and instruction match. |
-| TC-04 | RULE      | live standing-delegation scan plus frozen-baseline before/after set comparison | No exemption growth or existing-verdict rewrite allowed.   |
+| TC-01 | RULE      | focused Vitest reads the live registry and asserts both rows and all fields    | Preserves PROC-016 while preventing an empty new class.    |
+| TC-02 | RULE      | focused Vitest exercises both live classes before/on/after registration        | Preserves dates and lane instruction suffix semantics.     |
+| TC-03 | RULE      | focused red/green plus applied-check mutation for every new structural refusal | Covers provenance, quotes, uniqueness, and exact matching. |
+| TC-04 | RULE      | owner-prose assertion, live scan, and frozen-baseline before/after comparison  | Guard behavior and its SSOT must stay synchronized.        |
 | TC-05 | CI        | full harness scan and CI-equivalent verification                               | Existing repository behavior must remain green.            |
 
 ## User Execution Test Scenarios
@@ -223,3 +253,45 @@ output. Engineering evidence is defined in the Test Plan.
   record differed from `origin/develop`.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-28
+
+**Status remains:** approved; the lifecycle label is not rolled back, but implementation is prohibited
+until a fresh approval entry stands.
+
+**Violation:** the `GATE-APPROVAL — ✅ PASS` entry immediately above is withdrawn because its approved
+Architecture Review and tests were based on an empty delegated-class registry. Before implementation,
+PROC-016 merged as PR #2419 at `e93e1485a`, adding `LANE-L0-L1` and a live-registry test that asserts
+exactly that one row. After rebasing, the live scan reports one registered class rather than zero, so
+RULE-017 must preserve an existing authorization and revise the test to expect two rows. The old pass
+was valid for the document it reviewed; it cannot authorize this materially revised integration design.
+
+**Required action:** independently re-review the revised recommendation and Architecture Review, obtain
+fresh DIRECT user approval directed at that revision, record a new GATE-APPROVAL PASS, and only then
+re-run GATE-IMPLEMENT. No registry, scanner, or scanner-test implementation has started.
+
+### [RECOMMENDATION RE-REVIEW ROUND 1] — 🔴 REVISE | 2026-08-28
+
+- Correct the current-state wording and distinguish clean-base/current `9 DIRECT` from the withdrawn
+  branch approval's former `10 DIRECT`.
+- Define exact instruction matching so the preserved lane row's provenance suffix is not mistaken for
+  part of its canonical instruction payload.
+- Require the rule owner's `Enforced by` paragraph to enumerate the scanner's new refusal set.
+- `ACTIONABLE FINDINGS: 3`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: REVISE`
+
+### [RECOMMENDATION RE-REVIEW ROUND 2] — ✅ ENDORSE | 2026-08-28
+
+- The live premise is exact: one registered class, `9 DIRECT`, `0 CLASS`, and `218 frozen`; the former
+  branch-local `10 DIRECT` is identified as the now-withdrawn approval.
+- Canonical instruction extraction preserves the lane row's provenance suffix and compares only the
+  leading quoted payload by exact Unicode code points, with refusal fixtures required.
+- Solution and TC-04 keep the rule owner's `Enforced by` paragraph synchronized with every new
+  structural refusal.
+- `lane: L2` matches the rule-file floor; neither CLASS route can authorize this gate-definition edit.
+- PR #2421's same-file continuation-checkpoint hunk is semantically disjoint; a merge-first outcome
+  requires rebase/revalidation but no design expansion.
+- `ACTIONABLE FINDINGS: 0`
+
+**Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`

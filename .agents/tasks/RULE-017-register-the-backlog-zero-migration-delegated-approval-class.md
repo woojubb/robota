@@ -35,7 +35,8 @@ batches remain separate work units under the same open issue.
 ## Plan
 
 - [ ] Add one `BACKLOG-ZERO-MIGRATION` row to the delegated-class registry with the exact owner
-      instruction and registration date `2026-08-28`.
+      instruction and registration date `2026-08-28`, preserving the independently registered
+      `LANE-L0-L1` row that landed first through PROC-016.
 - [ ] Derive the eligible population directly from the exact Task/spec paths and blob OIDs at
       `2c875dd3ec6938d6eb0563b50c40d1f116fb4e7e`; do not depend on an ephemeral `/tmp` snapshot as
       authorization evidence.
@@ -74,7 +75,21 @@ batches remain separate work units under the same open issue.
   design closes the full evidence form, replaces ephemeral snapshot evidence with a committed manifest
   derived from git, and supports legacy Task-only/spec-only and stale-status records.
 - Approval gate: `GATE VERDICT: PASS` via Route `DIRECT` on 2026-08-28 after the final RULE-017
-  Architecture Review and ID reallocation; implementation had not started.
+  Architecture Review and ID reallocation; implementation had not started. That pass was later
+  withdrawn after PROC-016 landed first and invalidated the empty-registry/current-test premise.
+- Integration refresh: rebased onto `origin/develop` `e93e1485a`; the revised design now preserves the
+  live `LANE-L0-L1` row and tests exactly two live rows. Fresh independent recommendation review and
+  DIRECT approval are required before GATE-IMPLEMENT.
+- Lane refresh: the post-PROC full scan derived floor `L2` from the intended
+  `.agents/rules/backlog-execution.md` edit; the revised spec declares `lane: L2`. Route CLASS remains
+  forbidden because lane declaration and approval authority are separate mechanisms.
+- Recommendation re-review round 1: `REVIEW VERDICT: REVISE`, `ACTIONABLE FINDINGS: 3`. The revision
+  now defines the leading-quoted canonical instruction payload so the lane row's provenance suffix is
+  preserved, requires rule-owner enforcement prose synchronization, and corrects the live count to
+  `9 DIRECT` after withdrawal.
+- Recommendation re-review round 2: `REVIEW VERDICT: ENDORSE`, `ACTIONABLE FINDINGS: 0`. The reviewer
+  confirmed the live premise, canonical payload, owner-prose synchronization, L2 declaration, prior
+  approval withdrawal, and PR #2421's semantically disjoint hunk.
 
 ## Test Plan
 
