@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -242,7 +242,7 @@ to their GitHub owners.
 - Remote control plane: issue #2456 uniquely carries
   `backlog-zero:DOCS-036:2c875dd3`; issue #2457 uniquely carries
   `backlog-zero:HARNESS-108-RESIDUAL:2c875dd3`; both are OPEN and unassigned. Parent issue #2404 and
-  existing residual owner #2047 are also OPEN and unassigned. Canonical comments
+  existing residual owner issue #2047 are also OPEN and unassigned. Canonical comments
   https://github.com/woojubb/robota/issues/2047#issuecomment-5457499005 and
   https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038 belong to their declared
   issues, carry the exact Task paths, blob OIDs, population object, residual criteria, and handoff
@@ -284,3 +284,42 @@ to their GitHub owners.
 - `ACTIONABLE FINDINGS: 0`.
 
 `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent REMOTE-GROUNDING measured exact issues/comments/blobs/ownership/scope with ACTIONABLE FINDINGS: 0; independent recommendation review ENDORSE with ACTIONABLE FINDINGS: 0.
+**Review fingerprint:** bce143484f84 (review 9c6fdf2b, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent REMOTE-GROUNDING measured exact issues/comments/)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (bce143484f84) equals the document's current fingerprint
+- GATE-APPROVAL — ordering: prior GATE-WRITE records PASS and the document entered this gate as
+  `status: review-ready` in `.agents/spec-docs/backlog/`.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A
+  for route CLASS; the recorded standing instruction unambiguously pre-authorizes documentation-only
+  fixed-population backlog migration batches that satisfy the registered evidence boundary.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS. The class was
+  registered on 2026-08-28, before this 2026-08-29 approval. DOCS-036 contains three units and eleven
+  final paths, below the six-unit/fifteen-path ceilings; all six fixed-population Task/spec/carrier
+  blobs and the current baseline blob match the manifest; the two delivered units map to exact
+  merge-commit ancestry or current tests; the two unfinished units have exact OPEN/unassigned issue
+  owners and unmodified canonical handoffs; and the single baseline key move preserves value `2`
+  and cardinality `275`. The approved recommendation, unit set, path set, dispositions, exclusion
+  boundary, and implementation boundary remain unchanged from the frozen manifest; grounding added
+  only the exact owner URLs and measured facts before approval.
+- GATE-APPROVAL — Independent architecture validation (conditional): N/A. DOCS-036 introduces or
+  reclassifies no package, app, presentation/interface surface, API/contract, layer, product-family
+  boundary, policy, workflow, topology, or product behavior. Recommendation review round 1 records
+  `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`; the affected set contains only lifecycle
+  documents, exact citations, two loop ledgers, and one no-growth baseline rekey.
+- GATE-APPROVAL — Mechanical criteria: 6/6 PASS; semantic criteria: 3/3 PASS; total: 9/9 PASS;
+  approval route `CLASS`; review fingerprint `bce143484f84`; `ACTIONABLE FINDINGS: 0`.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
