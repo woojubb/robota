@@ -262,7 +262,7 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-4 recommendation review ENDORSE with ACTIO)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f0125c804afa) equals the document's current fingerprint
 
-### [GATE-APPROVAL WITHDRAWN] — 2026-08-29
+### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-29
 
 - A focused `reference-kind-qualified` scan after the first planning checkpoint found 12 unqualified
   issue references in this document, including one sentence in Architecture Review.
