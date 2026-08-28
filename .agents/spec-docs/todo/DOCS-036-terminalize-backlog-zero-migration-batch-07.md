@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -375,3 +375,42 @@ to their GitHub owners.
 - `ACTIONABLE FINDINGS: 0`.
 
 `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Independent round-2 recommendation review ENDORSE with ACTIONABLE FINDINGS: 0; live readback confirms 3 units, 11 paths, four open unassigned issues, no competing PR/branch/worktree, one exact single-line HARNESS-103 evidence annotation, unchanged remote dispositions, and no excluded source/API/policy path.
+**Review fingerprint:** 2d30c0747a33 (review fd75c71a, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-2 recommendation review ENDORSE with ACTIO)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (2d30c0747a33) equals the document's current fingerprint
+- GATE-APPROVAL — ordering: prior GATE-WRITE records PASS and the corrected document entered this
+  gate as `status: review-ready` in `.agents/spec-docs/backlog/`; the superseded approval is explicitly
+  withdrawn and this fresh approval follows recommendation review round 2.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: N/A
+  for route CLASS; the recorded standing instruction unambiguously pre-authorizes documentation-only
+  fixed-population backlog migration batches that satisfy the registered evidence boundary.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS. The class was
+  registered on 2026-08-28, before this 2026-08-29 approval. DOCS-036 contains three units and eleven
+  final paths, below the six-unit/fifteen-path ceilings; fixed-population blobs, owners, handoffs,
+  dispositions, citation rekeys, and the value-`2`, cardinality-`275` baseline rekey remain exact.
+  The corrected HARNESS-103 annotation is a frozen, single-line Task evidence annotation within the
+  manifest's documentation-only boundary; SEC-009 and HARNESS-108 remain byte-identical. No excluded
+  package/app source, API/contract, policy/gate, skill/workflow/hook/topology, or product/user-document
+  surface is changed.
+- GATE-APPROVAL — Independent architecture validation (conditional): N/A. DOCS-036 introduces or
+  reclassifies no package, app, presentation/interface surface, API/contract, layer, product-family
+  boundary, policy, workflow, topology, or product behavior. Recommendation review round 2 records
+  `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`; the affected set remains lifecycle
+  documentation, exact citations, loop ledgers, and one no-growth baseline rekey.
+- GATE-APPROVAL — Mechanical criteria: 6/6 PASS; semantic criteria: 3/3 PASS; total: 9/9 PASS;
+  approval route `CLASS`; review fingerprint `2d30c0747a33`; `ACTIONABLE FINDINGS: 0`.
+
+**Independent guardian verdict:** `GATE VERDICT: PASS`
