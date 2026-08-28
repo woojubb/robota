@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: rejected
 type: AGREEMENT
 tags: [typescript, async, cli]
+returned_to_issue: https://github.com/woojubb/robota/issues/2431#issuecomment-5454657040
 ---
 
 # AGREEMENT-001: Complete the active ARCH, DAG, and RUNTIME task set
@@ -183,6 +184,9 @@ Execute the twelve existing records without redefining their scope:
 
 ## Tasks
 
+Terminalized initiative Task:
+`.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`.
+
 - [x] ARCH-009 — done — `.agents/tasks/completed/ARCH-009-preset-registry-through-command-host.md`
 - [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
 - [x] ARCH-011 — done — `.agents/tasks/completed/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
@@ -264,12 +268,21 @@ Exact user statement: `다시 이어서 진행하고 커밋과 푸시 모두 다
 **Status remains:** approved
 **Failed criteria:**
 
-- Tasks file path is recorded in the `## Tasks` section of the spec document: the initiative Task exists at `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`, but the spec's `## Tasks` section records only the twelve source ARCH/DAG/RUNTIME Task paths and does not record this initiative Task path.
-  **Required action:** Add `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` to the spec document's `## Tasks` section before re-running GATE-IMPLEMENT.
+- Tasks file path is recorded in the `## Tasks` section of the spec document: at this gate the
+  initiative Task existed at the active Task root under the
+  `AGREEMENT-001-complete-arch-dag-runtime-backlog.md` basename, but the spec's `## Tasks` section
+  recorded only the twelve source ARCH/DAG/RUNTIME Task paths and did not record this initiative Task.
+  The record is now terminalized at
+  `.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`.
+  **Required action at the time:** Add the then-active initiative Task to the spec document's
+  `## Tasks` section before re-running GATE-IMPLEMENT.
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-12
 
 **Status upgrade:** approved → in-progress
-Tasks file: `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` exists and is now recorded in the spec document's `## Tasks` section; the prior failed GATE-IMPLEMENT entry and its required correction remain preserved.
+Tasks file: at this gate the initiative Task existed at the active Task root and was recorded in the
+spec document's `## Tasks` section; it is now terminalized at
+`.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`. The prior failed
+GATE-IMPLEMENT entry and its required correction remain preserved.
 Task correspondence: the Task file contains thirteen explicit Plan tasks mapped one-to-one to TC-01 through TC-13 — ARCH-009 preset registry; ARCH-010 trusted execution root; ARCH-012/ARCH-011 capability and transport conformance; ARCH-013 option projection; DAG-001 recovery; DAG-004 validated imports; RUNTIME-002 headless artifact; RUNTIME-003 advancement ownership; RUNTIME-004 cancellation; RUNTIME-005 interactive execution-state ownership; RUNTIME-006 settlement identity; source-Task evidence and archival; and initiative conformance/CI verification.
 Test Plan: the Task file contains a 485-character `## Test Plan` section covering targeted red-green package checks, user-execution scenarios, scoped harness verification, assembled conformance/CI gates, and final Task archival validation.

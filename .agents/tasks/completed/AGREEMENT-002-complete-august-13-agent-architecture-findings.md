@@ -1,6 +1,8 @@
 ---
 title: 'AGREEMENT-002: complete the 2026-08-13 agent architecture findings'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2432#issuecomment-5454657243
 created: 2026-08-15
 priority: critical
 urgency: now
@@ -38,7 +40,7 @@ The paired spec passed GATE-APPROVAL on 2026-08-15. The user's instruction
 
 ## Spec
 
-`.agents/spec-docs/active/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
+`.agents/spec-docs/rejected/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`
 
 ## Plan
 

@@ -1,6 +1,8 @@
 ---
 title: 'ARCH-043: workspace access is not a session-owned policy'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2139#issuecomment-5454701029
 created: 2026-08-22
 priority: critical
 urgency: now

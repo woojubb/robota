@@ -1,6 +1,8 @@
 ---
 title: 'ARCH-044: subagent child wire reuses live runtime contracts'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2047#issuecomment-5454657685
 created: 2026-08-22
 priority: critical
 urgency: now
