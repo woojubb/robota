@@ -214,3 +214,35 @@ runnable user-facing behavior and deliberately leaves CONFIG-002 package/API wor
   Evidence Log on the first run, and no body `Status` or `Classification` section exists.
 - GATE-WRITE — Mechanical criteria: 20/20 PASS; semantic criteria: 7/7 PASS; TC-N/Test Plan count: 5/5;
   `ACTIONABLE FINDINGS: 0`.
+
+### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
+
+- Branch and manifest identity: `HEAD` is `09940943e5b37d02a7a9ab153bdf14837c114801`;
+  base `50ae76f48da52afa37b2d717c42cf74cb9ef8823` and frozen-manifest commit
+  `88243db46600ec413a5a3e0b356d7fb26fe59587` are ancestors; the frozen commit is a direct child of
+  the base, and the remote-grounding commit changes only this DOCS-035 spec.
+- Governed blobs: all five fixed-population, base, `HEAD`, and worktree OIDs are exact — DOCS-028
+  Task `5c90a1d76a66966a940347b095e8a032c800b55c` and plan
+  `ba98347421ca1b75496cf4e12eef21c1e7057565`; HARNESS-122 Task
+  `6b14d4d9480c1358f1ff1fd460a931707bb14d8c` and plan
+  `488f739e1fb552c24c403e5ba129b188df0c665b`; CONFIG-002 Task
+  `1e890999cc72eab64bd9f5fe9398c6be16aa40dd`.
+- Remote control plane: issue #2454 uniquely carries `backlog-zero:DOCS-035:2c875dd3`; issue #2453
+  uniquely carries `backlog-zero:CONFIG-002-RESIDUAL:2c875dd3`; both are OPEN and unassigned.
+  Canonical comment https://github.com/woojubb/robota/issues/2453#issuecomment-5457119808 belongs
+  to issue #2453, carries the exact residual marker and handoff, and is unmodified
+  (`created_at == updated_at == 2026-08-28T19:55:02Z`).
+- Delivery provenance: issues #2194, #2339, and #2023 are CLOSED/COMPLETED and unassigned; PRs
+  #2204, #2257, #2341, and #2285 are MERGED with the manifest's exact merge commits. Delivery
+  commits `918ba647036b700e249d9b301287e5431c00931b`,
+  `8c8cde208c9510805a82b9e9d7ecec22fb6c07cd`, and
+  `91f11f7c093f7a8f66077fa0927fc68f872c145a` are ancestors of `HEAD` and `origin/develop`;
+  DOCS-028 delivery is also an ancestor of main-only promotion merge
+  `12a4ecd1b741199c989ded9f956bfaa0e212b9f8`. HARNESS-122 correction comment
+  https://github.com/woojubb/robota/issues/2339#issuecomment-5411165154 is exact and unmodified.
+- Ownership and scope: no open matching PR, implementation branch, extra worktree, assignee, open
+  loop run, long-lived process, or visible competing session owns a unit. The manifest contains
+  exactly three unique units and nine final tracked paths, with zero baseline/carrier rekeys or
+  additions and zero package/app, API/contract, product/package-documentation, policy/gate,
+  skill/workflow/hook/topology, or other excluded paths.
+- `ACTIONABLE FINDINGS: 0`.
