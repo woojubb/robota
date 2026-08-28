@@ -27,21 +27,22 @@ remains owned by issues #2225, #2465, and #2198 respectively.
 
 ## Plan
 
-- [x] TC-01 — preserve the exact three-unit/ten-path manifest, governed input/postimage blobs,
+- [x] TC-01 — preserve the exact three-unit/eleven-path manifest, governed input/postimage blobs,
       skipped/rejected dispositions, and excluded-scope boundary.
 - [x] TC-02 — preserve exact readback of control/owner issues and all three canonical handoffs; put
       only those exact comment URLs on the skipped Tasks and rejected plans.
-- [x] TC-03 — preserve all three Task bodies; rekey exactly three SEC-016 and one STRUCT-011 Task
-      citations inside the rejected plans and reproduce plan postimages `4d092597...`/`ca8278c6...`.
+- [x] TC-03 — preserve all three Task bodies; apply exactly three SEC-016 lifecycle-evidence
+      corrections (`e3668da7...` → `e73e2396...`) and preserve STRUCT-011's single citation rekey and
+      body postimage `ca8278c6...`.
 - [x] TC-04 — rekey only the SEC-016 standing-delegation baseline path from active to rejected,
       preserving cardinality 218 and every other entry/order; change no excluded path.
-- [x] TC-05 — keep the exact final changed-path set to ten approved lifecycle/ledger/baseline paths
+- [x] TC-05 — keep the exact final changed-path set to eleven approved lifecycle/ledger/baseline paths
       and pass focused lifecycle/current-premise checks plus the full harness CI mirror.
 
 ## Test Plan
 
-Compare governed input/postimage blobs, normalized Task bodies, and exact citation replacements; read
-back exact issues/comments; compare baseline preimage/postimage/cardinality/key counts; run task
+Compare governed input/postimage blobs, normalized Task bodies, and exact lifecycle-evidence
+corrections; read back exact issues/comments; compare baseline preimage/postimage/cardinality/key counts; run task
 archival, folder/status, standing-delegation, scenario-section, reference-kind, Task citation,
 baseline, and loop-ledger scans; run focused current-premise checks; then run `pnpm harness:scan` and
 `pnpm harness:verify-like-ci` against the final tree.
@@ -50,6 +51,6 @@ baseline, and loop-ledger scans; run focused current-premise checks; then run `p
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-Not applicable: this work changes internal lifecycle evidence, four exact lifecycle citations, one
-frozen lifecycle baseline key, and remote queue ownership only. It introduces no runnable user-facing
+Not applicable: this work changes internal lifecycle evidence, current-path citations, one frozen
+lifecycle baseline key, and remote queue ownership only. It introduces no runnable user-facing
 behavior.
