@@ -35,7 +35,7 @@
  * run RECORDABLE; HARNESS-113 is what makes recording one a condition of registering a new loop.
  *
  * Usage:
- *   node scripts/harness/loop-run.mjs open  --loop <skill>
+ *   node scripts/harness/loop-run.mjs open  --loop <skill>          (an OPEN run from an earlier UTC day is closed `abandoned`, superseded)
  *   node scripts/harness/loop-run.mjs expect --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --token <signal> [--cells <id,id>]
  *   node scripts/harness/loop-run.mjs coverage --loop <skill> --run <id> --agent <agent> --subject <subject> --cells <id,id>
  *   node scripts/harness/loop-run.mjs observe --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --signal '<terminal-line>'
@@ -205,16 +205,35 @@ export function openRun({ root, skill, now }) {
       `loop-run: \`${skill}\` declares no \`loop:\` frontmatter (or has no SKILL.md). Only a loop-driving skill has runs to record.`,
     );
   }
-  const existing = readLedger(root, skill);
+  let existing = readLedger(root, skill);
   const open = existing.find((e) => e.terminal === null);
-  if (open !== undefined) {
-    throw new Error(
-      `loop-run: \`${skill}\` already has run \`${open.runId}\` OPEN. Close it before opening another — two open runs cannot be told apart afterwards.`,
-    );
-  }
   let runId = makeRunId(now);
   const taken = new Set(existing.map((e) => e.runId));
   for (let n = 2; taken.has(runId); n += 1) runId = `${makeRunId(now)}-${n}`;
+  let superseded = null;
+  if (open !== undefined) {
+    // issue #2406. An OPEN run from an EARLIER UTC calendar day is a session that ended without
+    // closing its run — the dropped run `abandoned` exists to make visible — and the only way past
+    // the refusal was hand-editing the ledger, the amendment a sealed record forbids. So `open`
+    // seals it as `abandoned`, naming its successor, through the same write `close` uses. A run
+    // opened the SAME day is still refused: within one day two open runs cannot be told apart.
+    if (utcDay(open.opened) < utcDay(now)) {
+      closeRun({
+        root,
+        skill,
+        runId: open.runId,
+        terminal: 'abandoned',
+        ref: `superseded by ${runId}`,
+        now,
+      });
+      superseded = open.runId;
+      existing = readLedger(root, skill);
+    } else {
+      throw new Error(
+        `loop-run: \`${skill}\` already has run \`${open.runId}\` OPEN. Close it before opening another — two open runs cannot be told apart afterwards.`,
+      );
+    }
+  }
   const entry = {
     runId,
     opened: new Date(now).toISOString(),
@@ -226,7 +245,14 @@ export function openRun({ root, skill, now }) {
   };
   mkdirSync(path.join(root, LEDGER_DIR), { recursive: true });
   appendFileSync(ledgerPath(root, skill), JSON.stringify(entry) + '\n', 'utf8');
-  return entry;
+  // `superseded` is what the caller reports, not what the ledger stores: the closed run's own
+  // `ref` carries the link, and a second copy on the new line would be a fact to keep in sync.
+  return { ...entry, superseded };
+}
+
+/** The UTC calendar day of an instant, as `YYYY-MM-DD` — the unit the stale-run rule compares. */
+function utcDay(instant) {
+  return new Date(instant).toISOString().slice(0, 10);
 }
 
 function requireOpen(entries, skill, runId) {
@@ -632,6 +658,11 @@ export function main(
   switch (args.command) {
     case 'open': {
       const entry = openRun({ root, skill: args.loop, now: clock });
+      if (entry.superseded !== null) {
+        out(
+          `loop-run: closed run \`${entry.superseded}\` (opened an earlier UTC day, left OPEN) as abandoned, superseded by ${entry.runId}.`,
+        );
+      }
       out(`loop-run: ${args.loop} run ${entry.runId} OPEN — record each round, then close it.`);
       return 0;
     }
