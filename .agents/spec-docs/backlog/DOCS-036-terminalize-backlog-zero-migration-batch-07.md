@@ -76,12 +76,16 @@ Choose alternative 3.
   tests pass. Its rejected plan remains rejected because its literal zero-runtime and package-move
   criteria were superseded by the delivered, reviewed classification. Its evidence still names the
   deleted pre-move `packages/agent-interface-transport/src/session-capability-host.ts`; completion
-  therefore adds one formatter-safe inline annotation immediately after that path:
-  `<!-- evidence-superseded: PR #1804 moved this zero-production-consumer host to the sanctioned
-testing subpath; ARCH-106 later moved the same test double to the session-interface owner, where
-current tests cover it -->`. No other Task-body text changes. The current path is deliberately
-  omitted from the marker because the scanner applies one marker to every missing candidate on its
-  line.
+  therefore adds the following exact one-physical-line, formatter-safe annotation immediately after
+  that path:
+
+  ```html
+  <!-- evidence-superseded: PR #1804 moved this zero-production-consumer host to the sanctioned testing subpath; ARCH-106 later moved the same test double to the session-interface owner, where current tests cover it -->
+  ```
+
+  No other Task-body text changes. The current path is deliberately omitted from the marker because
+  the scanner applies one marker to every missing candidate on its line.
+
 - HARNESS-108 becomes `skipped` only after a new exact open residual issue and handoff. PR #1867
   merge `8150363b190d5e4d9a2eb9a72c63783c0592256a` delivered the original 55-barrel/16-finding subset.
   Current config still lists 55 while 61 root package barrels exist; declaration identity remains an
@@ -127,9 +131,9 @@ other entries. This batch moves one key and preserves its value `2`, with zero b
 | HARNESS-108 | Task `.agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md` @ `c8883411cc67ea8f78e926f695a3bfed823b9d01`; baseline `scripts/harness/reference-kind-baseline.json` current @ `ec67ae89d867028ea2683429f98b89cd4c99dd97`                                                                                                                                             | Closed issue #1851 and PR #1867 delivered 55/55 and 16/16 at that time; no exact owner existed at manifest freeze, and open/unassigned issue #2457 now owns the residual through canonical handoff https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038. | Preserve Task body; archive skipped to that exact comment; rekey its baseline key root→completed with value `2` unchanged.                                                                          |
 
 Live ownership check: no open PR, matching implementation branch, extra worktree, assignee, open loop,
-session, or reservation owns any unit. Current branch `docs/backlog-zero-batch-07` is the sole migration
-owner and owns no package implementation. Any governed blob, delivery conclusion, or ownership change
-excludes that unit and requires fresh manifest approval.
+session, or reservation owns any unit. Current branch `docs/backlog-zero-batch-07-v2` is the sole
+migration owner and owns no package implementation. Any governed blob, delivery conclusion, or
+ownership change excludes that unit and requires fresh manifest approval.
 
 Control issue #2456 carries `backlog-zero:DOCS-036:2c875dd3`. HARNESS-108 residual issue #2457 carries
 `backlog-zero:HARNESS-108-RESIDUAL:2c875dd3`. Both are unique, open, and unassigned. The SEC-009
