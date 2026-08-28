@@ -202,7 +202,6 @@ export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR) {
   return `${prefix}-${String(highest + 1).padStart(RECORD_ID_WIDTH, '0')}`;
 }
 
-/** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
 /**
  * The LOCAL calendar date, `YYYY-MM-DD` — the same formula `gate.mjs` exports (issue #2415).
  *
@@ -221,6 +220,7 @@ export function localDate(date = new Date(), timeZone = undefined) {
   }).format(date);
 }
 
+/** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
 export function recordStub({ id, title, today, issue = null }) {
   return `---
 title: '${id}: ${title}'
