@@ -208,8 +208,15 @@ function evaluateArgumentPattern(
       return matchUrl(parsed.argPattern, primary);
     case 'path':
       return matchPath(parsed.argPattern, primary);
-    default:
+    case 'command':
+    case 'text':
       return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
+    default: {
+      // A kind this switch does not name would otherwise land on the string glob — the failure
+      // mode CORE-049 removes. The compiler holds the enumeration closed.
+      const exhaustive: never = argument.kind;
+      throw new Error(`unknown argument kind: ${String(exhaustive)}`);
+    }
   }
 }
 

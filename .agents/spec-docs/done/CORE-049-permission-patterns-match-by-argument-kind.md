@@ -164,8 +164,8 @@ observation (issue #2430).
    participate.
    **`path`.** Separators normalised (`\` → `/`), then `path.posix.normalize` on both sides (`.`/`..`
    collapsed, no filesystem access); absolute means `/…` or a drive prefix `X:/…`; a relative argument
-   under an absolute pattern is unevaluable (issue #2429 owns resolving it); `*` → `[^/]*`, `**` →
-   `.*`, anchored.
+   under an absolute pattern is unevaluable (issue #2429 owns resolving it); `*` → `[^/]*`, `**`
+   gitignore-style (`a/**` also matches `a`, `a/**/b` also `a/b`), anchored (PR review, folded in).
    **`command` and `text`.** Today's glob, unchanged.
    Unevaluable is reported through `hasUnevaluableArgumentPattern`, so a deny that cannot be evaluated
    prompts (`approve`) in `default`/`acceptEdits`, denies in `plan`, and denies in the policy resolver —
@@ -201,9 +201,10 @@ observation (issue #2430).
 A1. The argument declaration is one object — `argument: { key, kind }` — in the profile the tool's
 package already contributes (CORE-030's principle: the package that defines the tool says how it is
 judged). Bare `*`/`**` means any invocation before any kind — or key — is consulted, which changes
-one existing verdict: `deniedTools: ['CodebaseRetrieval']` (a keyless tool) is `deny` now, where
-today the `(*)` pattern is unevaluable and prompts; that is the `toolNamesToPatterns` contract, stated
-and pinned. The `url` matcher splits the pattern by grammar, parses the argument, and compares scheme,
+the keyless `Tool(*)` verdict in BOTH directions: `deniedTools: ['CodebaseRetrieval']` is `deny` now,
+where today the `(*)` pattern is unevaluable and prompts, and `allowedTools` (or a background task's
+`preapproved` list) auto-approves it in every mode, where today it has no effect; that is the
+`toolNamesToPatterns` contract, stated and pinned (PR review, folded in). The `url` matcher splits the pattern by grammar, parses the argument, and compares scheme,
 host, port and path structurally under the rules A1 states; query and fragment are ignored;
 userinfo, an unparseable argument, a host-less or non-special scheme, a pattern the grammar rejects, a
 literal pattern host that does not parse, and an undecodable path segment are **unevaluable**, not

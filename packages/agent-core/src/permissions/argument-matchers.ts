@@ -54,13 +54,22 @@ export function globToRegex(glob: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-/** A segment glob: `*` never crosses `/`; `**` does. */
+/**
+ * A segment glob: `*` never crosses `/`; `**` does, gitignore-style — `a/**` also matches `a`,
+ * `a/**\/b` also matches `a/b` (zero or more directories), and a bare `**` matches anything.
+ */
 function segmentGlobToRegex(glob: string): RegExp {
-  // Split on `**` first so the two wildcards never collide: `**` crosses segments, `*` stays in one.
+  // Tokenise so the two wildcards never collide: `**` crosses segments, `*` stays inside one.
   const body = glob
-    .split('**')
-    .map((part) => part.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^/]*'))
-    .join('.*');
+    .split(/(\/\*\*\/|\/\*\*$|^\*\*\/|\*\*)/)
+    .map((token) => {
+      if (token === '/**/') return '(?:/.*)?/';
+      if (token === '/**') return '(?:/.*)?';
+      if (token === '**/') return '(?:.*/)?';
+      if (token === '**') return '.*';
+      return token.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^/]*');
+    })
+    .join('');
   return new RegExp(`^${body}$`);
 }
 
@@ -69,10 +78,17 @@ function isAbsolutePathLike(normalised: string): boolean {
   return normalised.startsWith('/') || /^[A-Za-z]:\//.test(normalised);
 }
 
+/** `\` → `/`, `.`/`..` collapsed, a drive letter lower-cased (case-insensitive filesystems). */
+function normalisePathText(text: string): string {
+  const slashed = text.replace(/\\/g, '/');
+  const normalised = path.posix.normalize(slashed);
+  return normalised.replace(/^[A-Za-z]:\//, (drive) => drive.toLowerCase());
+}
+
 /** The `path` matcher: separators and `.`/`..` normalised lexically; a relative argument under an absolute pattern is unevaluable. */
 export function matchPath(pattern: string, argument: string): TPatternMatch {
-  const normalisedPattern = path.posix.normalize(pattern.replace(/\\/g, '/'));
-  const normalisedArgument = path.posix.normalize(argument.replace(/\\/g, '/'));
+  const normalisedPattern = normalisePathText(pattern);
+  const normalisedArgument = normalisePathText(argument);
   if (isAbsolutePathLike(normalisedPattern) && !isAbsolutePathLike(normalisedArgument)) {
     // No base to resolve the argument against (issue #2429 owns where that happens). Not "no".
     return 'unevaluable';
@@ -112,31 +128,45 @@ function canonicalHostText(host: string): string {
  * is not a rule this grammar states and yields null (unevaluable).
  */
 function hostPatternToRegex(hostPattern: string): RegExp | null {
+  const labels = canonicalHostText(hostPattern).split('.');
   const parts: string[] = [];
-  for (const label of canonicalHostText(hostPattern).split('.')) {
-    if (label === '*') parts.push('[^.]+(?:\\.[^.]+)*');
-    else if (label === '**') parts.push('(?:[^.]+(?:\\.[^.]+)*)?');
+  const LABELS = '[^.]+(?:\\.[^.]+)*'; // one or more dot-separated labels
+  for (const [index, label] of labels.entries()) {
+    const first = index === 0;
+    const last = index === labels.length - 1;
+    // Dots between labels are LITERAL — `*.example.com` must not match `evilexample.com`. Only a
+    // `**` label, which may stand for zero labels, absorbs the dot beside it.
+    if (label === '**') {
+      if (first && last) parts.push(LABELS);
+      else if (last) parts.push(`(?:\\.${LABELS})?`);
+      else parts.push(`${first ? '' : '\\.'}(?:${LABELS}\\.)?`);
+      continue;
+    }
+    const previousWasAnyLabels = !first && labels[index - 1] === '**';
+    const dot = first || previousWasAnyLabels ? '' : '\\.';
+    if (label === '*') parts.push(`${dot}${LABELS}`);
     else if (label.includes('**')) return null;
     else if (label.includes('*')) {
-      parts.push(label.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^.]*'));
+      parts.push(`${dot}${label.replace(REGEX_SPECIALS, '\\$&').replace(/\*/g, '[^.]*')}`);
     } else {
       const ascii = domainToASCII(label);
       if (ascii === '') return null;
-      parts.push(ascii.replace(REGEX_SPECIALS, '\\$&'));
+      parts.push(`${dot}${ascii.replace(REGEX_SPECIALS, '\\$&')}`);
     }
   }
-  // A `**` label may be empty, so the dot that follows it is optional too.
-  const body = parts.map((part, index) => (index === 0 ? part : `(?:\\.)?${part}`)).join('');
-  return new RegExp(`^${body}$`);
+  return new RegExp(`^${parts.join('')}$`);
 }
 
-/** A percent-decoded pathname, segment by segment; null when a segment does not decode. */
+/**
+ * A percent-decoded pathname, segment by segment; null when a segment does not decode or decodes
+ * to something containing `/` (`%2F`) — such a segment is neither a separator nor a name a pattern
+ * segment could equal, so it is reported as unevaluable rather than guessed at.
+ */
 function decodedSegments(pathname: string): string | null {
   try {
-    return pathname
-      .split('/')
-      .map((segment) => decodeURIComponent(segment))
-      .join('/');
+    const segments = pathname.split('/').map((segment) => decodeURIComponent(segment));
+    if (segments.some((segment) => segment.includes('/'))) return null;
+    return segments.join('/');
   } catch {
     // allow-fallback: a segment that does not percent-decode is reported by the caller as
     // UNEVALUABLE (a prompt on the deny side), never as a match or a silent non-match.
@@ -189,8 +219,9 @@ export function matchUrl(pattern: string, argument: string): TPatternMatch {
 
   if (pathPattern !== undefined) {
     const decoded = decodedSegments(url.pathname);
-    if (decoded === null) return 'unevaluable';
-    if (!segmentGlobToRegex(pathPattern).test(decoded)) return 'no-match';
+    const decodedPattern = decodedSegments(pathPattern);
+    if (decoded === null || decodedPattern === null) return 'unevaluable';
+    if (!segmentGlobToRegex(decodedPattern).test(decoded)) return 'no-match';
   }
   return 'match';
 }

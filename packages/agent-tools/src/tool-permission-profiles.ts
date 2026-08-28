@@ -20,7 +20,8 @@ import { registerToolPermissionProfile, type IToolPermissionProfile } from '@rob
 /**
  * Every tool this package defines, and what the permission system needs to know about it.
  *
- * `argumentKey` is which argument a pattern like `Read(/src/**)` is matched against. A tool without
+ * `argument.key` is which argument a pattern like `Read(/src/**)` is matched against, and
+ * `argument.kind` how (CORE-049: a URL is parsed, a path is segment-wise, a command is a glob). A tool without
  * one cannot be narrowed by an argument pattern at all — the gate treats such a pattern as
  * unevaluable and prompts rather than proceeding, which is why the ones that CAN be narrowed say so.
  */

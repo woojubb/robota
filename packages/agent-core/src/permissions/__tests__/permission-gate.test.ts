@@ -100,6 +100,7 @@ const UNEVALUABLE_ARGUMENTS = [
   'file:///etc/passwd', // host-less scheme
   'foo://0x7f.1/', // non-special scheme: host is opaque, so it cannot be compared
   'https://sub.example.com/%E0%A4%A/x', // a segment that does not percent-decode
+  'https://sub.example.com/a%2Fb/x', // a segment that decodes to a separator
 ];
 const UNEVALUABLE_PATTERNS = [
   'WebFetch(https://user@*.example.com/**)', // userinfo in a pattern: grammar-rejected
@@ -140,6 +141,28 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
         'WebFetch(https://**.example.com/**)',
       ]),
     ).toBe(true);
+  });
+
+  it('TC-01 a label boundary is a literal dot — a suffix without it is another host', () => {
+    // The #2350 defect class inside the new matcher: a wildcard label must never absorb the dot
+    // beside it, or `*.example.com` names `evilexample.com`.
+    for (const [pattern, url] of [
+      ['WebFetch(https://*.example.com/**)', 'https://evilexample.com/'],
+      ['WebFetch(https://*.example.com/**)', 'https://sub.evilexample.com/'],
+      ['WebFetch(https://**.example.com/**)', 'https://examplecom/'],
+      ['WebFetch(https://a.*.c/**)', 'https://ab.c/'],
+      ['WebFetch(https://a.*.c/**)', 'https://a.bc/'],
+      ['WebFetch(https://api-*.example.com/**)', 'https://api-1example.com/'],
+    ]) {
+      expect(matchesAnyPattern('WebFetch', { url }, [pattern]), `${pattern} vs ${url}`).toBe(false);
+    }
+    for (const [pattern, url] of [
+      ['WebFetch(https://a.*.c/**)', 'https://a.b.c/'],
+      ['WebFetch(https://a.**.c/**)', 'https://a.c/'],
+      ['WebFetch(https://api-*.example.com/**)', 'https://api-1.example.com/'],
+    ]) {
+      expect(matchesAnyPattern('WebFetch', { url }, [pattern]), `${pattern} vs ${url}`).toBe(true);
+    }
   });
 
   it('TC-02 canonicalises the argument host and path — the verdicts only parsing can give', () => {
@@ -258,6 +281,21 @@ describe('CORE-049 — path kind: `*` stays inside a segment and the path is nor
     ).toBe('deny');
   });
 
+  it('TC-04 `**` is gitignore-style: zero or more directories', () => {
+    expect(matchesAnyPattern('Read', { filePath: '/src' }, ['Read(/src/**)'])).toBe(true);
+    expect(
+      matchesAnyPattern('Read', { filePath: '/w/secrets/key.pem' }, ['Read(/w/secrets/**/*.pem)']),
+    ).toBe(true);
+    expect(
+      matchesAnyPattern('Read', { filePath: '/w/secrets/a/b/key.pem' }, [
+        'Read(/w/secrets/**/*.pem)',
+      ]),
+    ).toBe(true);
+    expect(
+      matchesAnyPattern('Read', { filePath: 'c:\\w\\secrets\\x' }, ['Read(C:/w/secrets/**)']),
+    ).toBe(true);
+  });
+
   it('TC-04 a relative argument under an absolute deny is unevaluable — a prompt, not a pass', () => {
     expect(
       evaluatePermission('Read', { filePath: 'src/x' }, 'default', { deny: ['Read(/w/**)'] }),
@@ -290,6 +328,17 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     expect(
       evaluatePermission('Keyless', { anything: 1 }, 'default', { deny: ['Keyless(*)'] }),
     ).toBe('deny');
+  });
+
+  it('TC-06 the bare wildcard widens the allow side for a keyless tool too — stated and pinned', () => {
+    // Before CORE-049 `Keyless(*)` in an allow list had no effect (unevaluable); now it is the
+    // preset `allowedTools` contract in every mode, including a background task's preapproval.
+    registerToolPermissionProfile('Keyless', { riskClass: 'execute' });
+    expect(evaluatePermission('Keyless', {}, 'default', { allow: ['Keyless(*)'] })).toBe('auto');
+    expect(evaluatePermission('Keyless', {}, 'plan', { allow: ['Keyless(*)'] })).toBe('auto');
+    expect(
+      resolvePermissionByPolicy('preapproved', 'Keyless', {}, { taskAllow: ['Keyless(*)'] }),
+    ).toBe('allow');
   });
 
   it('TC-06 the type refuses a key declared without a kind', () => {
