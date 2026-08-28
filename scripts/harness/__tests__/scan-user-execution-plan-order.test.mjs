@@ -10,6 +10,7 @@ import {
   findStagedFindings,
   readExaminedPlanOrderCount,
   CONTINUATION_STATUS_LINE,
+  FIRST_CHECKPOINT_STATUS_LINE as FIRST_STATUS_LINE,
   resolveTopicMergeBase,
 } from '../scan-user-execution-plan-order.mjs';
 
@@ -467,6 +468,18 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(replanned.root, replanned.base))).toMatch(
       /no planning checkpoint/,
     );
+  });
+
+  it('refuses a FIRST checkpoint whose sole entry is in continuation form (HARNESS-131)', () => {
+    // The pair was never in-progress; a continuation status line (copied from a sequenced spec)
+    // is not a first checkpoint, symmetric to the first-form entry refused on an in-progress pair.
+    const { root, base } = repository();
+    write(root, TASK_PATH, taskText());
+    write(root, SPEC_PATH, specText().replace(FIRST_STATUS_LINE, CONTINUATION_STATUS_LINE));
+    commit(root, 'first checkpoint written in continuation form');
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+    expect(messages(findHistoryFindings(root, base))).toMatch(/no planning checkpoint/);
   });
 
   it('mirrors the continuation on the staged path (HARNESS-131)', () => {

@@ -219,7 +219,7 @@ nothing falls back.
       in first form (`approved → in-progress`) on an `in-progress` parent → not a checkpoint, the
       implementation refused; a continuation whose Task changes the PLAN signal (the prior PASS is
       bound to another signal) → not a checkpoint, the implementation refused.
-      **Evidence (2026-08-28):** same run → "keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)" ✓ — four arms: `changed before the planning checkpoint`; `multiple planning checkpoint candidates`; first-form second entry → `implementation exists with no planning checkpoint`; re-planned PLAN signal (`automatable | 1` on a `not-applicable | 0` prior PASS) → `no planning checkpoint`.
+      **Evidence (2026-08-28):** same run → "keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)" ✓ — four arms: `changed before the planning checkpoint`; `multiple planning checkpoint candidates`; first-form second entry → `implementation exists with no planning checkpoint`; re-planned PLAN signal (`automatable | 1` on a `not-applicable | 0` prior PASS) → `no planning checkpoint`. PR #2421 review (MUST, folded in): a FIRST checkpoint whose sole entry is in continuation form → `no planning checkpoint` — the first-form branch now also requires `gateImplementContinuationCount(spec, binding) === 0`, the symmetric check.
 - [x] **TC-03** Staged mirror: with the continuation committed, `findStagedFindings` on staged
       implementation → `[]`; without it → `staged implementation has no planning checkpoint
 ancestor` (unchanged); the continuation itself staged (spec-only, the hook's shape) → `[]`. A
