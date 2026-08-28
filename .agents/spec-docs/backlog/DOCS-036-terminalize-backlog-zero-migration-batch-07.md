@@ -1,5 +1,5 @@
 ---
-status: approved
+status: review-ready
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -36,7 +36,9 @@ makes no package, API, product, or policy implementation decision.
 
 ### Affected Scope
 
-- Three Task lifecycle moves: SEC-009, HARNESS-103, and HARNESS-108.
+- Three Task lifecycle moves: SEC-009, HARNESS-103, and HARNESS-108. SEC-009 and HARNESS-108 retain
+  byte-identical bodies; HARNESS-103 receives exactly one inline `evidence-superseded` annotation on
+  its deleted historical host path so the completed record states why that evidence path moved.
 - Task-path citation rekeys in the already rejected SEC-009/HARNESS-103 plans and the done ARCH-021
   carrier document.
 - One no-growth path rekey in `reference-kind-baseline.json` for HARNESS-108, preserving count `2`.
@@ -72,7 +74,14 @@ Choose alternative 3.
   rule with a two-edge scan, moved the zero-production-consumer host to the sanctioned testing
   subpath, and froze the remaining mechanisms as a shrink-only ratchet. Current scans and focused
   tests pass. Its rejected plan remains rejected because its literal zero-runtime and package-move
-  criteria were superseded by the delivered, reviewed classification.
+  criteria were superseded by the delivered, reviewed classification. Its evidence still names the
+  deleted pre-move `packages/agent-interface-transport/src/session-capability-host.ts`; completion
+  therefore adds one formatter-safe inline annotation immediately after that path:
+  `<!-- evidence-superseded: PR #1804 moved this zero-production-consumer host to the sanctioned
+testing subpath; ARCH-106 later moved the same test double to the session-interface owner, where
+current tests cover it -->`. No other Task-body text changes. The current path is deliberately
+  omitted from the marker because the scanner applies one marker to every missing candidate on its
+  line.
 - HARNESS-108 becomes `skipped` only after a new exact open residual issue and handoff. PR #1867
   merge `8150363b190d5e4d9a2eb9a72c63783c0592256a` delivered the original 55-barrel/16-finding subset.
   Current config still lists 55 while 61 root package barrels exist; declaration identity remains an
@@ -111,11 +120,11 @@ identical at population, base, HEAD, and worktree. The baseline current blob is 
 `9ef08cccbdb99f835efd8f5c0b64c2e74f2709f0` differs only because earlier approved batches rekeyed
 other entries. This batch moves one key and preserves its value `2`, with zero baseline growth.
 
-| Unit        | Governed original paths and blob OIDs                                                                                                                                                                                                                                                                                                                                                              | Current ownership and evidence                                                                                                                                                                                                                                            | Criterion-level disposition                                                                                                                |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| SEC-009     | Task `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md` @ `3402b39fb9a50fa57993e76f7d4958b3151222f1`; rejected plan `.agents/spec-docs/rejected/SEC-009-subagent-ipc-start-payload-carries-apikey.md` @ `acd5e186c3aca218870959d71c94f2460ea5e78e`; carrier `.agents/spec-docs/done/ARCH-021-child-process-subagent-composition.md` @ `7bb5725ddad30e844516fc564abaee0d4e53b3a7` | Closed issue #1786 and PR #1804 delivered reference preservation; open/unassigned issue #2047 owns the stronger residual through canonical handoff https://github.com/woojubb/robota/issues/2047#issuecomment-5457499005.                                                 | Preserve Task body; archive skipped to that exact comment; rekey three Task-path citations across the rejected plan and done carrier.      |
-| HARNESS-103 | Task `.agents/tasks/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` @ `1ec1965a168a7fff0d2aaf686326e1c388698d6e`; rejected plan `.agents/spec-docs/rejected/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` @ `04b74ff93f0b92c49238978e640ad0f197d453fa`                                                                                                         | Closed issue #1797; PR #1804 merge `7669851c565c958c455a6572c146d91b21007824`; current interface-runtime scan passes and focused tests pass.                                                                                                                              | Preserve Task body, mark done, and rekey its two Task-path citations in the already rejected plan. No remote handoff or plan-state change. |
-| HARNESS-108 | Task `.agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md` @ `c8883411cc67ea8f78e926f695a3bfed823b9d01`; baseline `scripts/harness/reference-kind-baseline.json` current @ `ec67ae89d867028ea2683429f98b89cd4c99dd97`                                                                                                                                             | Closed issue #1851 and PR #1867 delivered 55/55 and 16/16 at that time; no exact owner existed at manifest freeze, and open/unassigned issue #2457 now owns the residual through canonical handoff https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038. | Preserve Task body; archive skipped to that exact comment; rekey its baseline key root→completed with value `2` unchanged.                 |
+| Unit        | Governed original paths and blob OIDs                                                                                                                                                                                                                                                                                                                                                              | Current ownership and evidence                                                                                                                                                                                                                                            | Criterion-level disposition                                                                                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-009     | Task `.agents/tasks/SEC-009-subagent-ipc-start-payload-carries-apikey.md` @ `3402b39fb9a50fa57993e76f7d4958b3151222f1`; rejected plan `.agents/spec-docs/rejected/SEC-009-subagent-ipc-start-payload-carries-apikey.md` @ `acd5e186c3aca218870959d71c94f2460ea5e78e`; carrier `.agents/spec-docs/done/ARCH-021-child-process-subagent-composition.md` @ `7bb5725ddad30e844516fc564abaee0d4e53b3a7` | Closed issue #1786 and PR #1804 delivered reference preservation; open/unassigned issue #2047 owns the stronger residual through canonical handoff https://github.com/woojubb/robota/issues/2047#issuecomment-5457499005.                                                 | Preserve Task body; archive skipped to that exact comment; rekey three Task-path citations across the rejected plan and done carrier.                                                               |
+| HARNESS-103 | Task `.agents/tasks/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` @ `1ec1965a168a7fff0d2aaf686326e1c388698d6e`; rejected plan `.agents/spec-docs/rejected/HARNESS-103-interface-runtime-scan-is-narrower-than-its-rule.md` @ `04b74ff93f0b92c49238978e640ad0f197d453fa`                                                                                                         | Closed issue #1797; PR #1804 merge `7669851c565c958c455a6572c146d91b21007824`; current interface-runtime scan passes and focused tests pass.                                                                                                                              | Mark done; add exactly one inline `evidence-superseded` annotation to the deleted historical host path; rekey two Task-path citations in the rejected plan. No remote handoff or plan-state change. |
+| HARNESS-108 | Task `.agents/tasks/HARNESS-108-barrel-parameter-types-covers-two-of-fifty-five-barrels.md` @ `c8883411cc67ea8f78e926f695a3bfed823b9d01`; baseline `scripts/harness/reference-kind-baseline.json` current @ `ec67ae89d867028ea2683429f98b89cd4c99dd97`                                                                                                                                             | Closed issue #1851 and PR #1867 delivered 55/55 and 16/16 at that time; no exact owner existed at manifest freeze, and open/unassigned issue #2457 now owns the residual through canonical handoff https://github.com/woojubb/robota/issues/2457#issuecomment-5457499038. | Preserve Task body; archive skipped to that exact comment; rekey its baseline key root→completed with value `2` unchanged.                                                                          |
 
 Live ownership check: no open PR, matching implementation branch, extra worktree, assignee, open loop,
 session, or reservation owns any unit. Current branch `docs/backlog-zero-batch-07` is the sole migration
@@ -141,7 +150,8 @@ changes.
 2. Record class approval only after independent proof of issue/comment ownership, unchanged blobs,
    eleven-path scope, delivery mappings, and the one no-growth baseline rekey.
 3. Create the paired execution/scenario checkpoint, then apply the three Task moves and exact
-   citation/baseline rekeys without rewriting historical Task bodies.
+   citation/baseline rekeys. Preserve SEC-009/HARNESS-108 bodies byte-for-byte and change
+   HARNESS-103 only by the one approved inline `evidence-superseded` annotation.
 4. Run focused lifecycle/path/reference/delegation/scanner checks, preservation audit, full harness
    scan, and CI mirror on final atomic placement.
 
@@ -165,8 +175,9 @@ changes.
       eleven final tracked paths, exact mixed dispositions, and one value-preserving baseline rekey.
 - [ ] TC-02: control/residual issues and both canonical handoffs are read back exactly; SEC-009 and
       HARNESS-108 cite their exact open-owner comments while HARNESS-103 has no returned issue.
-- [ ] TC-03: HARNESS-103 becomes done; SEC-009 and HARNESS-108 become skipped; all three Task bodies
-      remain byte-identical and no rejected plan is promoted.
+- [ ] TC-03: HARNESS-103 becomes done; SEC-009 and HARNESS-108 become skipped; SEC-009/HARNESS-108
+      bodies remain byte-identical, HARNESS-103 differs only by the exact inline
+      `evidence-superseded` annotation, and no rejected plan is promoted.
 - [ ] TC-04: five Task-path citations across the SEC-009/HARNESS-103 carrier documents rekey exactly,
       and the HARNESS-108 baseline moves one key while retaining value `2` and cardinality.
 - [ ] TC-05: the exact final changed-path set is the eleven approved lifecycle/ledger paths, no
@@ -174,13 +185,13 @@ changes.
 
 ## Test Plan
 
-| TC-ID | Test Type              | Tool / Approach                                             | Notes                                                                   |
-| ----- | ---------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| TC-01 | Agreement / manifest   | Git blob comparison, unit/path count, baseline diff         | Test skipped: evidence audit observes fixed documentation state.        |
-| TC-02 | Agreement / remote     | Exact issue marker and `gh api` comment readback            | Test skipped: remote state is append-only control-plane evidence.       |
-| TC-03 | Agreement / lifecycle  | Task body/frontmatter comparison plus archival/folder scans | Test skipped: lifecycle scanners and Git bytes prove preservation.      |
-| TC-04 | Agreement / references | Exact citation diff, reference-kind and Task citation scans | Test skipped: document/baseline state is the observable result.         |
-| TC-05 | Agreement / CI         | Exact diff, focused scanners, full harness scan, CI mirror  | Test skipped: no new behavior; existing gates verify the atomic result. |
+| TC-ID | Test Type              | Tool / Approach                                             | Notes                                                                                  |
+| ----- | ---------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| TC-01 | Agreement / manifest   | Git blob comparison, unit/path count, baseline diff         | Test skipped: evidence audit observes fixed documentation state.                       |
+| TC-02 | Agreement / remote     | Exact issue marker and `gh api` comment readback            | Test skipped: remote state is append-only control-plane evidence.                      |
+| TC-03 | Agreement / lifecycle  | Task body/frontmatter comparison plus archival/folder scans | Test skipped: normalized comparison permits only the one exact HARNESS-103 annotation. |
+| TC-04 | Agreement / references | Exact citation diff, reference-kind and Task citation scans | Test skipped: document/baseline state is the observable result.                        |
+| TC-05 | Agreement / CI         | Exact diff, focused scanners, full harness scan, CI mirror  | Test skipped: no new behavior; existing gates verify the atomic result.                |
 
 ## Tasks
 
@@ -323,3 +334,22 @@ to their GitHub owners.
   approval route `CLASS`; review fingerprint `bce143484f84`; `ACTIONABLE FINDINGS: 0`.
 
 **Independent guardian verdict:** `GATE VERDICT: PASS`
+
+### [GATE-APPROVAL] — 🔴 NON-COMPLIANCE | 2026-08-29
+
+- The final aggregate `pnpm harness:scan` after the first implementation found one unapproved
+  completion requirement: HARNESS-103's evidence region still cited the deleted historical path
+  `packages/agent-interface-transport/src/session-capability-host.ts`. The `done-evidence` gate
+  requires an explicit `evidence-superseded` annotation when that Task is archived.
+- The first approval required every migrated Task body to remain byte-identical, so adding that
+  required annotation would have exceeded its approved implementation boundary. Its fingerprint
+  `bce143484f84` is therefore withdrawn and must not be reused. Completion commit
+  `e8dbee7e3551a8efac4b91470b4120e15c785d1c` was reverted by
+  `f193094786ad44de69b2f65d76628d16e7296ce4` before any push or PR.
+- The first checkpoint and paired control Task are withdrawn. Their sealed loop records remain
+  append-only evidence of the rolled-back attempt on the superseded local branch. The unit count
+  (3), final path count (11), remote owners, dispositions, citations, baseline rekey, and exclusion
+  boundary do not change.
+- This corrected recommendation preserves SEC-009/HARNESS-108 bodies and changes HARNESS-103 only
+  by one formatter-safe inline annotation on the stale evidence reference. It returns to
+  `review-ready` for a fresh independent recommendation review and class approval.
