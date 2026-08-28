@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -169,7 +169,7 @@ edit is required. Zero baseline and carrier changes are permitted by this manife
 
 ## Tasks
 
-- `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md` — created only after approval.
+- `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`
 
 ## User Execution Test Scenarios
 
@@ -260,3 +260,19 @@ runnable user-facing behavior and deliberately leaves all product/package work t
 - GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent round-4 recommendation review ENDORSE with ACTIO)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f0125c804afa) equals the document's current fingerprint
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 367 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
+  `.agents/spec-docs/active/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
+  `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828213330`; orchestrator run
+  `r20260828213326`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
