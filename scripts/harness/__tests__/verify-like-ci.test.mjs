@@ -566,7 +566,11 @@ describe('summarize', () => {
     }).lines.join('\n');
     expect(quiet).toContain('dependency audit — NOT mirrored locally');
     expect(quiet).toContain('windows-shell — NOT mirrored locally');
-    expect(quiet).not.toContain('this diff makes it relevant');
+    // review-gate judges every PR's body (RULE-016), so it is the one un-mirrorable context that is
+    // relevant to every diff; the others stay quiet on a diff that touches nothing of theirs.
+    expect(quiet).toContain('review-gate');
+    expect(quiet.split('this diff makes it relevant').length - 1).toBe(1);
+    expect(quiet).not.toMatch(/dependency audit[^\n]*\n[^\n]*this diff makes it relevant/);
 
     const loud = summarize([{ name: 'typecheck', status: 'pass' }], {
       notMirrored: annotateNotMirrored(['pnpm-lock.yaml']),

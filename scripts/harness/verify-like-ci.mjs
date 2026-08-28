@@ -762,6 +762,8 @@ export function annotateNotMirrored(
     // this function does not take.
     if (key === 'guarded-workflow')
       return changedFiles.some((file) => file.startsWith('.github/workflows/'));
+    // A check that judges the PR itself — its body — is relevant to every diff by construction.
+    if (key === 'every-pull-request') return true;
     // An unknown key must SHOUT rather than be ignored: the alternative is a required check
     // quietly demoted to a footnote by a relevance rule nobody implemented.
     return true;

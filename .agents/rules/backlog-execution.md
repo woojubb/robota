@@ -353,9 +353,18 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
   fan-out and to independent PR _units_, **not** to concurrently-open feature branches — the
   [One-Branch-At-A-Time rule](git-branch.md) still holds: branches are created and merged one at a time
   to avoid divergence. So: related → serial; unrelated → separate units, still merged in sequence.
-- Every PR description must include the accepted recommendation, its `REVIEW VERDICT`, rationale,
-  implementation summary, tests run, user execution test scenario gate result or not-applicable reason,
-  and residual risks.
+- A PR description MUST open with `## Background` — what is broken or missing, who is affected, and
+  why it matters, for a reader who was not in the session — then `## Purpose`, `## What changes`,
+  `## Why this way` (the accepted recommendation, the alternatives, its `REVIEW VERDICT` and depth
+  verdict), `## How it was verified` (tests run; the user execution test scenario gate result or
+  not-applicable reason), `## Not in this PR` (residual risks and the filed items that own them), and
+  then `Closes #N`. A PR description MUST NOT carry an agent-session link or a "Generated with …"
+  footer; `Co-Authored-By` on commits is attribution and stays. This section owns the PR body:
+  `.github/PULL_REQUEST_TEMPLATE.md` is its copy for human authors, [agent-conduct.md](agent-conduct.md)'s
+  formatting discipline points here, and the commit-message half lives with commit format in
+  [git-branch.md](git-branch.md) § Git Operations.
+  Enforced by: `review-gate` (the pr-body step judges the first heading and the links, not the order of
+  the later sections — that half is prose-owned), `no-session-link` (commitlint, the commit half)
 
 ## User Execution Test Scenario Rule
 

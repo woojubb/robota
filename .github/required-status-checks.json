@@ -84,7 +84,7 @@
           "context": "review-gate",
           "workflow": ".github/workflows/review-gate.yml",
           "job": "review-gate",
-          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS.",
+          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS. Also judges EVERY PR's body before any PR code is resolved (RULE-016): the first heading must be `## Background` and the body must carry no agent-session link — local equivalent `gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs`; an empty body BLOCKS.",
           "local": {
             "notRunnable": "ci-mirror-map NOT_MIRRORED"
           }

@@ -323,6 +323,7 @@ export async function main({
         `\nNext (promoting to \`main\` is a release-level action needing explicit user approval):\n` +
         `  git push -u origin ${branch}\n` +
         `  gh pr create --base main --head ${branch} --title "chore(release): promote develop to main"\n` +
+        `      # the body opens with \`## Background\` and ends with the Closes block above — review-gate judges it\n` +
         `  gh pr merge <n> --merge          # NEVER --squash; \`protect-main\` rejects it outright\n`,
     );
     return 0;

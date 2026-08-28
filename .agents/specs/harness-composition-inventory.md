@@ -537,52 +537,52 @@ statement pointing at a skill or agent must be _referenced_ from the rule, never
 
 ### 7.1 `backlog-execution.md` — 44 invariants (unaudited)
 
-| ID    | Invariant                                                                                               | Post-change home                                                               |
-| ----- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| BE-01 | Agent must form a recommendation with explicit reasoning before acting on agent authority               | stays                                                                          |
-| BE-02 | Agent must document the reasoning inline when acting on agent authority                                 | stays                                                                          |
-| BE-03 | Agent must stop and ask when any of the seven user-judgment conditions holds                            | stays                                                                          |
-| BE-04 | Disclosure in a PR body / commit / backlog note is never approval                                       | stays                                                                          |
-| BE-05 | Never write "사용자 결정 필요" without a concrete recommendation                                        | stays                                                                          |
-| BE-06 | A recommendation must include all seven listed elements                                                 | stays (document contract)                                                      |
-| BE-07 | Stop and ask when the recommendation is weak, conflicts, or needs product judgment                      | stays; routing edge in the orchestrator                                        |
-| BE-08 | Finish one backlog completely before starting the next — zero exceptions                                | stays                                                                          |
-| BE-09 | The working tree must be clean before creating the PR                                                   | stays (cross-ref `git-branch.md`)                                              |
-| BE-10 | Do not combine unrelated backlogs in one PR                                                             | stays                                                                          |
-| BE-11 | One backlog = one PR by default; splits need named work units, each with its own gate                   | stays                                                                          |
-| BE-12 | Related items serialize; unrelated ship as separate units, still merged in sequence                     | stays                                                                          |
-| BE-13 | Every PR description must record recommendation, rationale, summary, tests, gate result, residual risks | stays                                                                          |
-| BE-14 | Every backlog changing runnable user-facing behavior carries `## User Execution Test Scenarios` first   | stays                                                                          |
-| BE-15 | Disposable live-verification scripts live in `scratch/src/`, never in `packages/` or `apps/`            | stays                                                                          |
-| BE-16 | A scenario must use a product surface; engineering/governance verification never qualifies              | stays                                                                          |
-| BE-17 | Doc/rule/skill/backlog/governance-only changes mark the gate N/A — do not invent a scenario             | stays                                                                          |
-| BE-18 | A documented-procedure scenario must execute the procedure, not inspect the document                    | stays                                                                          |
-| BE-19 | A user-facing capability is not done until reachable via a product surface AND agent-run verified       | stays                                                                          |
-| BE-20 | The plan must include surface-wiring + agent-run verification from the start                            | stays                                                                          |
-| BE-21 | Capability specs declare the three frontmatter keys; the scan enforces no N/A dodge                     | stays                                                                          |
-| BE-22 | Before writing a scenario the agent must answer "can I execute this via Bash now?"                      | `user-execution-scenario` skill (routing) + agent criteria                     |
-| BE-23 | Writing an unexecutable scenario not labeled `manual-only:` is a process violation                      | stays                                                                          |
-| BE-24 | Each scenario must include all six listed fields                                                        | stays (document contract)                                                      |
-| BE-25 | A missing test environment must be built, proposed, or decided with the user first                      | stays                                                                          |
-| BE-26 | The agent must execute the scenario as a final gate whenever it is available from the workspace         | stays                                                                          |
-| BE-27 | Evidence is mandatory and must be written back into the backlog before completion                       | stays                                                                          |
-| BE-28 | Code-changing evidence must reference durable repo artifacts; retirement needs `evidence-superseded`    | stays                                                                          |
-| BE-29 | `status: done` requires BOTH gate stages — absolute, only the documented exceptions apply               | stays                                                                          |
-| BE-30 | Stage 1: every scenario fully written, or a recorded reason per unwritten scenario                      | `backlog-gate-guard` agent (criteria) + stays (the mandate)                    |
-| BE-31 | Stage 2: all three checkboxes `[x]` — agent-executed, matched, evidence recorded                        | `backlog-gate-guard` agent (criteria) + stays (the mandate)                    |
-| BE-32 | A capability-absence claim is invalid without a recorded probe                                          | stays                                                                          |
-| BE-33 | Engineering verification is NEVER user-execution evidence (authoritative statement)                     | **stays — must not move** (externally cited)                                   |
-| BE-34 | On gate pass, the final response states verification, command/steps, expected result, evidence          | stays                                                                          |
-| BE-35 | Scenario surface preference order 1→2→3; credential-only observables are a design smell                 | `user-execution-scenario-author` agent                                         |
-| BE-36 | Completion: status + `completed:` date, `git mv`, both in ONE commit                                    | `backlog-execution-orchestrator` (ordering) + stays (the one-commit invariant) |
-| BE-37 | Frontmatter `status:` is the only status record; `## Status` body sections are banned                   | stays                                                                          |
-| BE-38 | No terminal-status file in the root; no open-status file in `completed/`; `done` requires `completed:`  | stays                                                                          |
-| BE-39 | `wontfix`, `skipped`, `superseded` are valid terminal statuses                                          | stays                                                                          |
-| BE-40 | Always `git mv`, never `cp` — the root must have no duplicate                                           | stays                                                                          |
-| BE-41 | Initiative flow: base from `develop`, child PR per backlog, final PR to `develop`, never auto-merged    | `multi-backlog-initiative` (ordering) + stays (never auto-merge)               |
-| BE-42 | Backlog implementation must preserve owner boundaries                                                   | **relocate** to `.agents/project-structure.md`                                 |
-| BE-43 | An orchestration skill must stay thin — sequence, gate, record; never duplicate or redefine             | **relocate** to `enforcement-architecture.md`                                  |
-| BE-44 | Each of the eleven stop conditions halts the work                                                       | stays; terminate-edges in the orchestrator                                     |
+| ID    | Invariant                                                                                                                | Post-change home                                                               |
+| ----- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| BE-01 | Agent must form a recommendation with explicit reasoning before acting on agent authority                                | stays                                                                          |
+| BE-02 | Agent must document the reasoning inline when acting on agent authority                                                  | stays                                                                          |
+| BE-03 | Agent must stop and ask when any of the seven user-judgment conditions holds                                             | stays                                                                          |
+| BE-04 | Disclosure in a PR body / commit / backlog note is never approval                                                        | stays                                                                          |
+| BE-05 | Never write "사용자 결정 필요" without a concrete recommendation                                                         | stays                                                                          |
+| BE-06 | A recommendation must include all seven listed elements                                                                  | stays (document contract)                                                      |
+| BE-07 | Stop and ask when the recommendation is weak, conflicts, or needs product judgment                                       | stays; routing edge in the orchestrator                                        |
+| BE-08 | Finish one backlog completely before starting the next — zero exceptions                                                 | stays                                                                          |
+| BE-09 | The working tree must be clean before creating the PR                                                                    | stays (cross-ref `git-branch.md`)                                              |
+| BE-10 | Do not combine unrelated backlogs in one PR                                                                              | stays                                                                          |
+| BE-11 | One backlog = one PR by default; splits need named work units, each with its own gate                                    | stays                                                                          |
+| BE-12 | Related items serialize; unrelated ship as separate units, still merged in sequence                                      | stays                                                                          |
+| BE-13 | A PR description opens with Background and follows the seven ordered sections § PR Unit Rule owns; no agent-session link | stays                                                                          |
+| BE-14 | Every backlog changing runnable user-facing behavior carries `## User Execution Test Scenarios` first                    | stays                                                                          |
+| BE-15 | Disposable live-verification scripts live in `scratch/src/`, never in `packages/` or `apps/`                             | stays                                                                          |
+| BE-16 | A scenario must use a product surface; engineering/governance verification never qualifies                               | stays                                                                          |
+| BE-17 | Doc/rule/skill/backlog/governance-only changes mark the gate N/A — do not invent a scenario                              | stays                                                                          |
+| BE-18 | A documented-procedure scenario must execute the procedure, not inspect the document                                     | stays                                                                          |
+| BE-19 | A user-facing capability is not done until reachable via a product surface AND agent-run verified                        | stays                                                                          |
+| BE-20 | The plan must include surface-wiring + agent-run verification from the start                                             | stays                                                                          |
+| BE-21 | Capability specs declare the three frontmatter keys; the scan enforces no N/A dodge                                      | stays                                                                          |
+| BE-22 | Before writing a scenario the agent must answer "can I execute this via Bash now?"                                       | `user-execution-scenario` skill (routing) + agent criteria                     |
+| BE-23 | Writing an unexecutable scenario not labeled `manual-only:` is a process violation                                       | stays                                                                          |
+| BE-24 | Each scenario must include all six listed fields                                                                         | stays (document contract)                                                      |
+| BE-25 | A missing test environment must be built, proposed, or decided with the user first                                       | stays                                                                          |
+| BE-26 | The agent must execute the scenario as a final gate whenever it is available from the workspace                          | stays                                                                          |
+| BE-27 | Evidence is mandatory and must be written back into the backlog before completion                                        | stays                                                                          |
+| BE-28 | Code-changing evidence must reference durable repo artifacts; retirement needs `evidence-superseded`                     | stays                                                                          |
+| BE-29 | `status: done` requires BOTH gate stages — absolute, only the documented exceptions apply                                | stays                                                                          |
+| BE-30 | Stage 1: every scenario fully written, or a recorded reason per unwritten scenario                                       | `backlog-gate-guard` agent (criteria) + stays (the mandate)                    |
+| BE-31 | Stage 2: all three checkboxes `[x]` — agent-executed, matched, evidence recorded                                         | `backlog-gate-guard` agent (criteria) + stays (the mandate)                    |
+| BE-32 | A capability-absence claim is invalid without a recorded probe                                                           | stays                                                                          |
+| BE-33 | Engineering verification is NEVER user-execution evidence (authoritative statement)                                      | **stays — must not move** (externally cited)                                   |
+| BE-34 | On gate pass, the final response states verification, command/steps, expected result, evidence                           | stays                                                                          |
+| BE-35 | Scenario surface preference order 1→2→3; credential-only observables are a design smell                                  | `user-execution-scenario-author` agent                                         |
+| BE-36 | Completion: status + `completed:` date, `git mv`, both in ONE commit                                                     | `backlog-execution-orchestrator` (ordering) + stays (the one-commit invariant) |
+| BE-37 | Frontmatter `status:` is the only status record; `## Status` body sections are banned                                    | stays                                                                          |
+| BE-38 | No terminal-status file in the root; no open-status file in `completed/`; `done` requires `completed:`                   | stays                                                                          |
+| BE-39 | `wontfix`, `skipped`, `superseded` are valid terminal statuses                                                           | stays                                                                          |
+| BE-40 | Always `git mv`, never `cp` — the root must have no duplicate                                                            | stays                                                                          |
+| BE-41 | Initiative flow: base from `develop`, child PR per backlog, final PR to `develop`, never auto-merged                     | `multi-backlog-initiative` (ordering) + stays (never auto-merge)               |
+| BE-42 | Backlog implementation must preserve owner boundaries                                                                    | **relocate** to `.agents/project-structure.md`                                 |
+| BE-43 | An orchestration skill must stay thin — sequence, gate, record; never duplicate or redefine                              | **relocate** to `enforcement-architecture.md`                                  |
+| BE-44 | Each of the eleven stop conditions halts the work                                                                        | stays; terminate-edges in the orchestrator                                     |
 
 ### 7.2 `git-branch.md` — 35 invariants (**re-derived 2026-07-26: 84**)
 

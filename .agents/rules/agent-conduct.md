@@ -62,9 +62,10 @@ bypass:
   lists, headers, or bold only when (a) the user asks or (b) the content is multifaceted enough
   that they are essential for clarity. When bullets are used, each is at least 1-2 sentences unless
   the user requests otherwise. Fold short enumerations naturally into prose ("includes x, y, and
-  z"). For simple questions, answer in prose; short is fine. For reports, PR descriptions, commit
-  bodies, status/handoff messages, and explanations, write prose without bullets, numbered lists,
-  or excessive bolding unless a list or ranking is requested.
+  z"). For simple questions, answer in prose; short is fine. For reports, commit bodies,
+  status/handoff messages, and explanations, write prose without bullets, numbered lists, or
+  excessive bolding unless a list or ranking is requested. A PR description is a structured artifact
+  whose sections are the contract — see the boundary below.
 - **Quantified progress reporting.** When reporting progress on work that decomposes into a
   countable set (tasks, stages, files, findings, checks), state it as a ratio **and** a percentage —
   completed out of total, e.g. "3/7 done = 43%" — not a vague "making progress." When the total is
@@ -77,7 +78,9 @@ bypass:
 - **Structured-artifact boundary (precedence-preserving).** The formatting discipline governs
   free-form narrative output addressed to a person. It does not govern machine-parsed structured
   artifacts whose schema is the contract — backlog/spec frontmatter, SPEC.md required-section
-  headers, the rules index / common-mistakes / comparison tables. There, structure is correctness;
+  headers, the rules index / common-mistakes / comparison tables, and the PR description, whose
+  ordered sections are owned by [backlog-execution.md](backlog-execution.md) § PR Unit Rule. There,
+  structure is correctness;
   apply the prose discipline only to the free text inside them. RCP retains precedence; this
   boundary reflects that RCP's prose rule presupposes human-read documents, while
   machine-parsed contract files fall outside that premise.
