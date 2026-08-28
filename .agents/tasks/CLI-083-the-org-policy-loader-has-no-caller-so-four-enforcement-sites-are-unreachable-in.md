@@ -102,8 +102,8 @@ the TUI and headless surfaces. The default TUI channel→session hop and print/g
 `orgPolicy`. Those are not silently counted as delivered here: the actual omission sites in
 `buildTuiSessionOptions` and `HeadlessInteractionChannel` carry `Contained — ARCH-110.`, and the root
 work remains open in
-[`ARCH-110`](ARCH-110-session-capability-projections-can-silently-drop-optional-fields.md) /
-[issue #2295](https://github.com/woojubb/robota/issues/2295). CLI-083 completes the regression repair
+[the archived `ARCH-110` migration record](completed/ARCH-110-session-capability-projections-can-silently-drop-optional-fields.md) /
+[open implementation issue #2295](https://github.com/woojubb/robota/issues/2295). CLI-083 completes the regression repair
 that made the four enforcement sites reachable in the shipped composition; ARCH-110 owns making
 every presentation path complete and mechanically preventing the next optional-field drop.
 

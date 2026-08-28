@@ -1,5 +1,5 @@
 ---
-status: draft
+status: rejected
 type: RULE
 tags: [architecture, ownership, providers]
 ---
@@ -116,3 +116,14 @@ disposition.
   re-freeze in the same change; done, with the reason recorded at the constant.
 - 2026-08-26 — `agent-executor` 105, `agent-framework` 1559, `agent-product` 18, `agent-core` 1198
   tests pass. `pnpm run typecheck` exit 0 workspace-wide. `pnpm harness:scan` 143 passed, 0 failures.
+
+### [REJECTION] — 2026-08-29
+
+This planning document is deliberately rejected rather than retroactively promoted. PR #2357
+(`69496794df7324d1110de89dcb5a39074a0026be`) delivered the declared work on 2026-08-26, but this
+document remained `draft` and never passed the required GATE-WRITE through GATE-COMPLETE sequence.
+The historical evidence above is preserved verbatim; rejection closes the bypassed plan without
+manufacturing gate verdicts. Delivery is recorded by the completed ARCH-111 Task. GitHub issues
+[issue #2051](https://github.com/woojubb/robota/issues/2051) and
+[issue #2347](https://github.com/woojubb/robota/issues/2347) remain open for the separate ambient-resolver
+half.

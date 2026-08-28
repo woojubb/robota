@@ -1,6 +1,9 @@
 ---
 title: 'CLI-032: Git 통합 first-class 슬래시 커맨드 — /commit, /status, /diff'
-status: todo
+issue: https://github.com/woojubb/robota/issues/2437
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2437#issuecomment-5455186642
 created: 2026-05-24
 priority: medium
 urgency: soon
@@ -60,3 +63,11 @@ git 명령은 Bash 도구를 통해 실행하되, 결과 파싱과 UX는 커맨�
 - `/status` → 색깔 구분된 git status 표시
 - `/diff` → 코드 하이라이팅된 diff 표시
 - `/commit` → AI가 staged 변경 분석 후 conventional commit 형식 메시지 제안 → 사용자 확인 → 실제 커밋
+
+## Backlog-zero disposition
+
+Returned to the exact open GitHub owner at
+https://github.com/woojubb/robota/issues/2437#issuecomment-5455186642 on 2026-08-29. PR #589 changed no
+product source, and current source still has no first-class `/status`, `/diff`, or `/commit` module.
+The historical done spec is preserved unchanged as history and is not delivery evidence; issue #2437
+owns product-direction revalidation and any implementation that follows.
