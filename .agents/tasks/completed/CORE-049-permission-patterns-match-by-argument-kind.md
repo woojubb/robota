@@ -1,7 +1,8 @@
 ---
 title: 'CORE-049: permission patterns match by argument kind'
 issue: https://github.com/woojubb/robota/issues/2350
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -174,7 +175,7 @@ harness).
 - expected observable: change=created
 - observable rationale: source=robota-state-artifact
 - cleanup: `kill $SRV; rm -rf /tmp/core-049`
-- evidence: pending — filled at gate time with the Post-run reads for Scenario 1
+- evidence: measured 2026-08-29 against the fixed build (`e384e7dcf`, `packages/agent-cli/bin/robota.cjs` → `dist/node/bin.js`): exit `0`, stdout `CORE_049_DONE`, `session_<uuid>.json` created under `$HOME/.robota/sessions/`; Post-run reads: denied count `1` (`Permission denied. The user did not approve this action.` in the record), `hits.log` ABSENT (the fetch to `http://127.1:48731/probe-shorthand` never reached the fixture) — matches the "expected after" row 1 (`0`→`1`, `GET /probe-shorthand`→absent). Control arm: the same request with `"permissions":{}` gave denied count `0` and `hits.log` = `GET /probe-shorthand`, so the denial is the deny rule matching the canonicalised host, not an unevaluable URL failing closed.
 
 ### Scenario 2: `Write(<dir>/*)` in the allow list no longer covers a file one directory deeper (path kind, allow side)
 
@@ -188,7 +189,7 @@ harness).
 - expected observable: change=created
 - observable rationale: source=robota-state-artifact
 - cleanup: `kill $SRV; rm -rf /tmp/core-049`
-- evidence: pending — filled at gate time with the Post-run reads for Scenario 2
+- evidence: measured 2026-08-29 against the fixed build (`e384e7dcf`): exit `0`, stdout `CORE_049_DONE`, `session_<uuid>.json` created under `$HOME/.robota/sessions/`; Post-run reads: denied count `1` (`Permission denied. The user did not approve this action.` in the record), `/tmp/core-049/ws/out/deep/file.txt` ABSENT (`ls` finds nothing; `out/` was never created), `hits.log` absent as expected for a non-fetch scenario — matches the "expected after" row 2 (`0`→`1`, EXISTS→ABSENT).
 
 ### Scenario 3: text in the query string no longer satisfies a host wildcard (URL kind, placement, deny side)
 
@@ -202,7 +203,7 @@ harness).
 - expected observable: change=created
 - observable rationale: source=robota-state-artifact
 - cleanup: `kill $SRV; rm -rf /tmp/core-049`
-- evidence: pending — filled at gate time with the Post-run reads for Scenario 3
+- evidence: measured 2026-08-29 against the fixed build (`e384e7dcf`): exit `0`, stdout `CORE_049_DONE`, `session_<uuid>.json` created under `$HOME/.robota/sessions/`; Post-run reads: denied count `0` (no `Permission denied` in the record), `hits.log` = `GET /?a=.example.com/x` (the fetch reached the fixture on `127.0.0.1:48731`) — matches the "expected after" row 3 (`1`→`0`, absent→`GET /?a=.example.com/x`).
 
 ### Post-run reads (the discriminating observation for each scenario)
 
@@ -368,6 +369,70 @@ robota-cli` with `shipped-entrypoint=robota`; the command's first token is `robo
   `permission-mode.ts:62-66` confirmed, which is why the URL matcher is read on the deny side.
 - Exception clause: N/A — all three scenarios are written.
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** scenario written → scenario executed
+
+Judged by `backlog-gate-guard` against `.agents/specs/gate-catalogue.md` § DONE-GATE-STAGE-2 and
+`backlog-execution.md` > Done Gate Stage 2, on branch `fix/2350-permission-patterns-match-by-argument-kind`
+at `927602f31`.
+
+- Ordering: PASS — prior gate `[DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-29` is recorded above in this
+  section (after the kept FORM FAIL of the same date). Expected input state "scenarios written,
+  implementation complete": the three scenarios are in the canonical form; the implementation is on the
+  branch — `e384e7dcf` (`fix(agent-core): permission patterns match by the kind of argument they scope`:
+  `permission-gate.ts`, the four permission test files, `tool-permission-profiles.ts` in `agent-tools`
+  and `agent-framework`, `docs/SPEC.md`) and `927602f31` (`argument-matchers.ts` split out, exporting
+  `matchPath` / `matchUrl` / `globToRegex`). Task `status: in-progress`; bound spec `status: verifying`
+  with GATE-IMPLEMENT and GATE-VERIFY PASS. Built artifacts are current: `packages/agent-core/dist/node/index.js`
+  01:03:56 (its source map names `argument-matchers`) and `packages/agent-cli/dist/node/bin.js` 01:02:17,
+  both after `e384e7dcf` (00:59:33); `bin.js` resolves `@robota-sdk/agent-core` through the workspace
+  link (no bundled copy), so the CLI ran the `927602f31` matcher.
+- Parseability: PASS — `exactPlanSignal` → `{outcome: automatable, count: 3}`; `scenarioEntries` → 3
+  (numbered 1, 2, 3); `scenarioContract` complete for each (`robota-cli`, `product-state-file`,
+  `change=created`, `.robota/sessions`); the filled `evidence:` lines are known fields.
+- Criterion 1 (directly executed against the completed implementation): PASS — each scenario's
+  `evidence:` field records a run against the fixed build (`e384e7dcf`, `packages/agent-cli/bin/robota.cjs`
+  → `dist/node/bin.js`) with exit code, stdout literal and session record. Verified, not taken on trust:
+  the guardian ran the shared prerequisite block verbatim in `/tmp/core-049` (node `v22.14.0`, `bin.js`
+  md5 `f3f4b3afda5e`, `agent-core/dist/node/index.js` md5 `fb3c8e5de763`) and all four arms; every arm
+  exited `0` and printed `CORE_049_DONE`:
+  - Scenario 1 control (`"permissions":{}`, `short.jsonl`): denied count `0`, `hits.log` =
+    `GET /probe-shorthand`.
+  - Scenario 1 (`deny: ["WebFetch(http://127.0.0.1:48731/**)"]`, request
+    `http://127.1:48731/probe-shorthand`): denied count `1`, `hits.log` ABSENT.
+  - Scenario 2 (`allow: ["Write(/tmp/core-049/ws/out/*)"]`, write to `out/deep/file.txt`): denied count
+    `1`, `file.txt` ABSENT (`out/` never created).
+  - Scenario 3 (`deny: ["WebFetch(http://*.example.com/**)"]`, request
+    `http://127.0.0.1:48731/?a=.example.com/x`): denied count `0`, `hits.log` = `GET /?a=.example.com/x`.
+    Fixture server killed and `/tmp/core-049` removed afterwards; port 48731 free; tracked files unchanged.
+- Criterion 2 (observed matched expected for every scenario): PASS — each `evidence:` field quotes the
+  Post-run reads values, and each equals its "Expected after the change" row: row 1 (`0`→`1`,
+  `GET /probe-shorthand`→absent), row 2 (`0`→`1`, `file.txt` EXISTS→ABSENT), row 3 (`1`→`0`,
+  absent→`GET /?a=.example.com/x`). The STAGE-1 binding is honoured: no field rests on `change=created`
+  alone. The Scenario 1 control arm (denied `0`, hit recorded under empty permissions) shows the
+  Scenario 1 denial is the canonicalised deny match, not an unevaluable URL failing closed. The guardian's
+  own reads above are identical to the recorded values, arm for arm.
+- Criterion 3 (concrete evidence under each scenario's evidence field): PASS — each `evidence:` line
+  carries exit code, stdout literal, the session record's creation under `$HOME/.robota/sessions/`, the
+  `Permission denied. The user did not approve this action.` count, the `hits.log` content or absence,
+  and (Scenario 2) the file's absence.
+- Engineering verification cited as evidence: NOT present — `e384e7dcf` names the artifact under test;
+  no build, test, lint, harness or CI output is cited. Test output stays in the spec's GATE-VERIFY and
+  GATE-COMPLETE entries.
+- Unprobed capability-absence claim: N/A — no exception claimed; all three scenarios executed.
+- Durable repository artifacts: PASS — evidence references `packages/agent-cli/bin/robota.cjs` (tracked,
+  exists) and branch commit `e384e7dcf`; `check-done-evidence.mjs` passes on the tree.
+- Exception clause: N/A — no scenario is `manual-only`.
+- The guardian changed no status: Task stays `status: in-progress`; the transition follows the verdict
+  and belongs to the orchestrator.
+
+Per scenario — command run · observed · where the evidence lives:
+
+- Scenario 1 — `robota -p "go" --output-format text --permission-mode default --session-log /tmp/core-049/ws/short.jsonl` · exit `0`, `CORE_049_DONE`, denied count `1`, `hits.log` absent (control arm: `0`, `GET /probe-shorthand`) · the `- evidence:` line of Scenario 1.
+- Scenario 2 — `robota -p "go" --output-format text --permission-mode default --session-log /tmp/core-049/ws/write.jsonl` · exit `0`, `CORE_049_DONE`, denied count `1`, `/tmp/core-049/ws/out/deep/file.txt` absent · the `- evidence:` line of Scenario 2.
+- Scenario 3 — `robota -p "go" --output-format text --permission-mode default --session-log /tmp/core-049/ws/query.jsonl` · exit `0`, `CORE_049_DONE`, denied count `0`, `hits.log` = `GET /?a=.example.com/x` · the `- evidence:` line of Scenario 3.
+
 ## Bound spec document
 
-`.agents/spec-docs/active/CORE-049-permission-patterns-match-by-argument-kind.md`
+`.agents/spec-docs/done/CORE-049-permission-patterns-match-by-argument-kind.md`

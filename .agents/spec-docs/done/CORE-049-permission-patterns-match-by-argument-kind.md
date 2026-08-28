@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SECURITY
 lane: L2
 tags: [agent-core, permissions, security]
@@ -109,7 +109,9 @@ observation (issue #2430).
 
 ### Affected Scope
 
-- `packages/agent-core/src/permissions/permission-gate.ts` — the argument declaration becomes one
+- `packages/agent-core/src/permissions/permission-gate.ts` (and the new `argument-matchers.ts`, which
+  holds the per-kind matchers — the gate owns WHEN a pattern is consulted, the module HOW one is
+  compared) — the argument declaration becomes one
   object, `argument?: IToolPermissionArgument` with `{ key: string; kind: TArgumentKind }`, so a key
   cannot be declared without its kind (an `interface`, per code-quality.md, not a union alias);
   `matchesPattern` becomes tri-state (`match` / `no-match` / `unevaluable`) and dispatches by kind
@@ -226,7 +228,7 @@ Implementation note: `scan-tool-classification.mjs`'s `PROFILE_KEY_RE` counts a 
 
 ### Architecture Review Checklist
 
-- [x] Affected package/layer list complete — `agent-core` (gate, tests, SPEC), the two profile
+- [x] `.agents/tasks/completed/CORE-049-permission-patterns-match-by-argument-kind.md` — done 2026-08-29
       files and profile tests in `agent-tools` and `agent-framework`, the test registrations in
       `agent-core` and `agent-session`
 - [x] Sibling scan complete — `N/A for new-surface placement`: no new package, app, presentation or
@@ -276,21 +278,22 @@ riskClass?: TToolRiskClass }` (the interface stays an interface); JSDoc enumerat
 
 ## Affected Files
 
-| File                                                                            | Change                                                                                                                            |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-core/src/permissions/permission-gate.ts`                        | `IToolPermissionArgument`; tri-state matcher; `matchUrl`, `matchPath`; CORE-030 seam                                              |
-| `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts`         | matcher, anti-goal, deny-direction, tri-state, IPv6, percent-encoding, Windows cases                                              |
-| `packages/agent-core/src/permissions/__tests__/*.test.ts` (other registrations) | object form; `MyTool` declared `text`                                                                                             |
-| `packages/agent-session/src/__tests__/selfhost-009*.test.ts`                    | object form                                                                                                                       |
-| `packages/agent-tools/src/tool-permission-profiles.ts`                          | `argument: { key, kind }` for the shipped tools                                                                                   |
-| `packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts`           | shipped kinds asserted; `Tool(*)` through the real profiles; `profile.argument?.key`                                              |
-| `packages/agent-framework/src/tools/tool-permission-profiles.ts`                | object form for `BackgroundProcess`, `ExecuteCommand`; stale header comment corrected                                             |
-| `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` | new — the framework's kinds asserted                                                                                              |
-| `packages/agent-core/docs/SPEC.md`                                              | `IToolPermissionArgument`, per-kind grammar, every unevaluable condition, the keyless `Tool(*)` verdict, in the contract sections |
+| File                                                                            | Change                                                                                                                                                         |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/permissions/permission-gate.ts`                        | `IToolPermissionArgument`; tri-state matcher; `matchUrl`, `matchPath`; CORE-030 seam                                                                           |
+| `packages/agent-core/src/permissions/argument-matchers.ts`                      | new — the per-kind matchers (`globToRegex`, `matchPath`, `matchUrl`, the URL grammar), split from the gate by the file-size scan (300-line anti-monolith rule) |
+| `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts`         | matcher, anti-goal, deny-direction, tri-state, IPv6, percent-encoding, Windows cases                                                                           |
+| `packages/agent-core/src/permissions/__tests__/*.test.ts` (other registrations) | object form; `MyTool` declared `text`                                                                                                                          |
+| `packages/agent-session/src/__tests__/selfhost-009*.test.ts`                    | object form                                                                                                                                                    |
+| `packages/agent-tools/src/tool-permission-profiles.ts`                          | `argument: { key, kind }` for the shipped tools                                                                                                                |
+| `packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts`           | shipped kinds asserted; `Tool(*)` through the real profiles; `profile.argument?.key`                                                                           |
+| `packages/agent-framework/src/tools/tool-permission-profiles.ts`                | object form for `BackgroundProcess`, `ExecuteCommand`; stale header comment corrected                                                                          |
+| `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` | new — the framework's kinds asserted                                                                                                                           |
+| `packages/agent-core/docs/SPEC.md`                                              | `IToolPermissionArgument`, per-kind grammar, every unevaluable condition, the keyless `Tool(*)` verdict, in the contract sections                              |
 
 ## Completion Criteria
 
-- [ ] TC-01: URL placements: with `allow: ['WebFetch(https://*.example.com/**)']` on a `url`-kind
+- [x] TC-01: URL placements: with `allow: ['WebFetch(https://*.example.com/**)']` on a `url`-kind
       profile, `evaluatePermission('WebFetch', { url }, 'default', …)` returns `auto` for
       `https://sub.example.com/ok`, `https://a.b.example.com/x` and `https://sub.example.com:443/x`,
       and the matcher (`matchesAnyPattern`) is `false` for `https://evil.tld/?a=.example.com/x`,
@@ -298,14 +301,16 @@ riskClass?: TToolRiskClass }` (the interface stays an interface); JSDoc enumerat
       `https://169.254.169.254/?x=.example.com/y`, `https://sub.example.com:8443/` and
       `https://example.com/` (the apex is not under `*.`; `**.example.com` would cover it). Red
       before the fix.
-- [ ] TC-02: Canonicalisation (the anti-goal): with `deny: ['WebFetch(http://127.0.0.1/**)']`,
+      **Evidence (2026-08-29):** at `e384e7dcf`: `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts` → `8 files, 71 passed (71)`; the two TC-01 cases ✓ (`https://sub.example.com:443/x` auto; the six placements `matchesAnyPattern` false; `**.example.com` covers the apex). Red before the fix: tests-only against the unpatched gate in a throwaway worktree — `expected false to be true` on the TC-01 matcher case; `HARNESS_BASE_REF=origin/develop node scripts/harness/check-regression-red-proof.mjs --base origin/develop` → `red-proof-ok (assertion-fail)` for `permission-gate.ts` and both profile files.
+- [x] TC-02: Canonicalisation (the anti-goal): with `deny: ['WebFetch(http://127.0.0.1/**)']`,
       `http://0x7f.1/`, `http://2130706433/`, `http://127.1/`, `http://127.0.0.1:80/` and
       `http://127.0.0.1./` return `deny`; with `deny: ['WebFetch(http://[::1]/**)']`,
       `http://[0:0:0:0:0:0:0:1]/` returns `deny`; with `allow: ['WebFetch(https://sub.example.com/**)']`,
       `https://SUB.EXAMPLE.COM/x` and `https://sub.example.com./x` (a domain trailing dot, which the
       parser keeps) return `auto`; with `deny: ['WebFetch(https://h/admin/**)']`,
       `https://h/%61dmin/x` returns `deny`. These verdicts are only reachable through parsing.
-- [ ] TC-03: Deny direction (the third state): with `deny: ['WebFetch(https://*.example.com/**)']`,
+      **Evidence (2026-08-29):** same run → "TC-02 canonicalises the argument host and path — the verdicts only parsing can give" ✓: `0x7f.1`, `2130706433`, `127.1`, `127.0.0.1:80`, `127.0.0.1.` → `deny`; `[0:0:0:0:0:0:0:1]` under `[::1]` → `deny`; `SUB.EXAMPLE.COM` and `sub.example.com.` → `auto`; `%61dmin` under `/admin/**` → `deny`. Red before the fix (`http://0x7f.1/: expected 'approve' to be 'deny'`).
+- [x] TC-03: Deny direction (the third state): with `deny: ['WebFetch(https://*.example.com/**)']`,
       each of `https://sub.example.com@evil.tld/`, `not a url`, `file:///etc/passwd`,
       `foo://0x7f.1/` (non-special scheme) and `https://sub.example.com/%E0%A4%A/x` (undecodable
       segment) returns `approve` in `default` and `acceptEdits`, `deny` in `plan`, and
@@ -315,15 +320,18 @@ riskClass?: TToolRiskClass }` (the interface stays an interface); JSDoc enumerat
       `WebFetch(https://a**b.example.com/**)`, `WebFetch(https://exa mple.com/**)` — is unevaluable
       for any argument, with the same verdicts. With `deny: ['WebFetch(*)']` (what a preset
       `deniedTools: ['WebFetch']` produces) every argument returns `deny`.
-- [ ] TC-04: Paths: `allow: ['Read(/src/*)']` → `auto` for `/src/a.ts`, NOT for `/src/a/b.ts`;
+      **Evidence (2026-08-29):** same run → the three TC-03 cases ✓: five unevaluable arguments (userinfo, unparseable, `file:`, `foo://0x7f.1/`, `%E0%A4%A`) → `approve` in `default`/`acceptEdits`, `deny` in `plan`, `deny` from `resolvePermissionByPolicy('inherit-allowlist', …, { taskDeny })`, `hasUnevaluableArgumentPattern` true (false for `https://sub.example.com/ok`); four unevaluable patterns (two grammar-rejected, `a**b`, `exa mple.com`) the same; `WebFetch(*)` denies every argument.
+- [x] TC-04: Paths: `allow: ['Read(/src/*)']` → `auto` for `/src/a.ts`, NOT for `/src/a/b.ts`;
       `allow: ['Read(/src/**)']` → `auto` for `/src/a/b.ts`; `deny: ['Read(/w/secrets/**)']` →
       `deny` for `/w/src/../secrets/x` and for `C:\w\secrets\x` under `deny: ['Read(C:/w/secrets/**)']`;
       `deny: ['Read(/w/**)']` with `src/x` (relative) → `approve` in `default` (unevaluable);
       `deny: ['Read(*)']` → `deny` for `/any/path`. Red before the fix for the first refusal and the
       `..` case.
-- [ ] TC-05: Commands unchanged: `allow: ['Bash(git *)']` → `auto` for `git status` and
+      **Evidence (2026-08-29):** same run → the three TC-04 cases ✓: `Read(/src/*)` auto for `/src/a.ts`, no match for `/src/a/b.ts`; `Read(/src/**)` auto; `/w/src/../secrets/x` and `C:\\w\\secrets\\x` (under `C:/w/secrets/**`) → `deny`; `src/x` under `/w/**` → `approve`; `Read(*)` → `deny`. Red before the fix for the `/`-crossing and `..` cases.
+- [x] TC-05: Commands unchanged: `allow: ['Bash(git *)']` → `auto` for `git status` and
       `git add src/x`; a `text`-kind profile matches `Tool(a/*)` against `a/b/c` (today's glob).
-- [ ] TC-06: Shipped declarations, the bare-wildcard contract and the type: `getToolPermissionProfile(name).argument?.kind`
+      **Evidence (2026-08-29):** same run → "TC-05 `Bash(git *)` still matches a command with a slash in it" ✓ and "a text-kind pattern crosses `/` as it always did" ✓ (`Tool(a/*)` auto for `a/b/c`).
+- [x] TC-06: Shipped declarations, the bare-wildcard contract and the type: `getToolPermissionProfile(name).argument?.kind`
       is `'url'` for `WebFetch`, `'path'` for `Read`/`Write`/`Edit`, `'command'` for `Bash`/`Shell`
       (and `ExecuteCommand`/`BackgroundProcess` in `agent-framework`), `'text'` for
       `Glob`/`Grep`/`WebSearch`, asserted by a test in each package; with the real profiles
@@ -333,28 +341,31 @@ riskClass?: TToolRiskClass }` (the interface stays an interface); JSDoc enumerat
       `approve`); `permission-gate.test.ts` carries a `// @ts-expect-error` registration of
       `{ argument: { key: 'x' } }`, so `pnpm typecheck` is red if the requirement is ever loosened.
       Red before the fix (no kinds; keyless `(*)` prompts).
-- [ ] TC-07: Applied-check mutation: routing `url` to the string glob makes TC-01's placement
+      **Evidence (2026-08-29):** same run → `agent-tools` "declares the kind the argument actually is" ✓ (`WebFetch` url; `Read`/`Write`/`Edit` path; `Bash`/`Shell` command; `Glob`/`Grep`/`WebSearch` text), "a preset tool list still denies and allows through the real profiles" ✓ (`toolNamesToPatterns(['WebFetch','Write'])` denies `https://any.host/` and `/any/path`; `['Read']` allows `/any/path`), "a host pattern on the real WebFetch profile means a host" ✓; `agent-framework` "command tools are command-kind" ✓; "TC-06 a keyless tool under `Tool(*)` is denied" ✓; the `// @ts-expect-error` registration of `{ argument: { key: 'x' } }` is in `permission-gate.test.ts` and `pnpm exec tsgo -p tsconfig.json --noEmit` in each of the four packages exits 0 at `e384e7dcf` (the directive would be an unused-directive error if the type accepted it). Red before the fix (no kinds; keyless `(*)` prompted).
+- [x] TC-07: Applied-check mutation: routing `url` to the string glob makes TC-01's placement
       refusals and TC-02 red; routing `path` to the glob makes TC-04's segment and `..` cases red;
       returning `no-match` instead of `unevaluable` — for the argument side and, separately, for an
       unevaluable pattern (grammar-rejected or rule-rejected) — makes TC-03's `approve`/`deny` cases red; nothing outside those.
-- [ ] TC-08: `pnpm -r --filter ...` `build`, `typecheck` and `test` for the four packages
+      **Evidence (2026-08-29):** at `e384e7dcf`, each mutation restored from a copy, `git diff --stat` empty afterwards: `url` → string glob: `4 failed | 13 passed` — TC-01 placements, TC-02, both TC-03 unevaluable cases; `path` → string glob: `3 failed | 14 passed` — the three TC-04 cases; argument-side `unevaluable` → `no-match`: `1 failed` — TC-03 argument case; pattern-side `unevaluable` → `no-match`: `1 failed` — TC-03 pattern case. Nothing outside those.
+- [x] TC-08: `pnpm -r --filter ...` `build`, `typecheck` and `test` for the four packages
       (`agent-core`, `agent-tools`, `agent-framework`, `agent-session`) exit 0; `pnpm harness:scan` exit 0; `packages/agent-core/docs/SPEC.md` § Permission Argument
       Registry Public API names `IToolPermissionArgument` and the kinds' grammar, § Evaluation
       Algorithm step 2 enumerates every unevaluable condition and the keyless `Tool(*)` verdict
       (SPEC scans pass).
+      **Evidence (2026-08-29):** at `927602f31` (the fix `e384e7dcf` plus the matcher split): `pnpm build` → "✓ All build:types complete", exit 0; `pnpm exec tsgo -p tsconfig.json --noEmit` in `agent-core`, `agent-tools`, `agent-framework`, `agent-session` → no errors; the six test files → `8 files, 71 passed (71)`; `HARNESS_BASE_REF=origin/develop pnpm harness:scan` → `147 scans passed, 1 skipped`, exit 0 (the first run at `e384e7dcf` failed `no-fallback` and `file-size` on the new code — the declared degradation annotated, the matchers split into `argument-matchers.ts`); `packages/agent-core/docs/SPEC.md` § Permission Argument Registry Public API carries `IToolPermissionArgument`, the per-kind grammar table and the unevaluable conditions, § Evaluation Algorithm step 2 enumerates them and the keyless `Tool(*)` verdict, the module tree lists `argument-matchers.ts`.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                                                                    | Notes                                            |
-| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| TC-01 | Unit      | vitest `permission-gate.test.ts`, `evaluatePermission`/`matchesAnyPattern` with a `url`-kind profile                               | red-proof recorded before the matcher lands      |
-| TC-02 | Unit      | vitest, the canonicalisation, IPv6 and percent-encoding cases                                                                      | the anti-goal, stated in the test names          |
-| TC-03 | Unit      | vitest, deny-direction cases across modes and `resolvePermissionByPolicy`; rejected patterns                                       | the third state, stated in the test names        |
-| TC-04 | Unit      | vitest, `path`-kind profile incl. `..`, relative and Windows cases                                                                 | red-proof for the `/`-crossing and `..` refusals |
-| TC-05 | Unit      | vitest, `command`- and `text`-kind profiles                                                                                        | unchanged semantics pinned                       |
-| TC-06 | Unit      | vitest in `agent-tools` and `agent-framework` against the registered profiles; keyless `(*)`; `@ts-expect-error` under `typecheck` | red-proof: kinds absent before the fix           |
-| TC-07 | Mutation  | redirect one kind / one state, run the file, restore, record counts                                                                | `git diff --stat` empty after restore            |
-| TC-08 | Build     | pnpm build/typecheck/test for the four packages; `pnpm harness:scan`; SPEC scans                                                   |                                                  |
+| TC-ID | Test Type | Tool / Approach                                                                                                                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit      | vitest `permission-gate.test.ts`, `evaluatePermission`/`matchesAnyPattern` with a `url`-kind profile                               | **Test written:** `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts > CORE-049 — url kind: a host pattern means a host > TC-01 …` (two cases); red-proof before the matcher landed                                                                                                                                                                                                                                    |
+| TC-02 | Unit      | vitest, the canonicalisation, IPv6 and percent-encoding cases                                                                      | **Test written:** `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts > … > TC-02 canonicalises the argument host and path — the verdicts only parsing can give`                                                                                                                                                                                                                                                        |
+| TC-03 | Unit      | vitest, deny-direction cases across modes and `resolvePermissionByPolicy`; rejected patterns                                       | **Test written:** `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts > … > TC-03 an argument it cannot interpret under a DENY prompts`, `TC-03 a pattern that is unevaluable …`, `TC-03 a bare wildcard is any invocation`                                                                                                                                                                                             |
+| TC-04 | Unit      | vitest, `path`-kind profile incl. `..`, relative and Windows cases                                                                 | **Test written:** `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts > CORE-049 — path kind … > TC-04 …` (three cases)                                                                                                                                                                                                                                                                                                 |
+| TC-05 | Unit      | vitest, `command`- and `text`-kind profiles                                                                                        | **Test written:** `packages/agent-core/src/permissions/__tests__/permission-gate.test.ts > CORE-049 — command and text kinds … > TC-05 …` (two cases)                                                                                                                                                                                                                                                                                      |
+| TC-06 | Unit      | vitest in `agent-tools` and `agent-framework` against the registered profiles; keyless `(*)`; `@ts-expect-error` under `typecheck` | **Test written:** `packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts > CORE-049 — this package declares the kind …` (three cases), `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts > … > command tools are command-kind`, and `permission-gate.test.ts > … > TC-06 a keyless tool …` / `TC-06 the type refuses a key declared without a kind` (`@ts-expect-error`, observed by typecheck) |
+| TC-07 | Mutation  | redirect one kind / one state, run the file, restore, record counts                                                                | **Test skipped:** a mutation of the shipped source cannot be a committed test — four mutations recorded in the TC-07 evidence; `git diff --stat` empty after each restore                                                                                                                                                                                                                                                                  |
+| TC-08 | Build     | pnpm build/typecheck/test for the four packages; `pnpm harness:scan`; SPEC scans                                                   | **Test skipped:** build, typecheck, the scan and the SPEC reads are the commands themselves; recorded in the TC-08 evidence                                                                                                                                                                                                                                                                                                                |
 
 ## Tasks
 
@@ -455,3 +466,172 @@ Non-failing observations for the author (no criterion turns on them): (a) TC-03 
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 2112 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 3`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): .agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md carries no checkbox plan (a Task is the problem record, not a breakdown)
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `HARNESS_BASE_REF=origin/develop pnpm harness:scan` → exit 0 ( ⏎ 147 scans passed, 1 skipped (98 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/CORE-049-permission-patterns-match-by-argument-kind.md, M .agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts` → exit 0 ( Duration 620ms (transform 366ms, setup 0ms, collect 794ms, tests 38ms, environment 1ms, prepare 429ms) ⏎ ⏎ 1:05:43 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-29
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: no `[GATE-COMPLETE: TC-N]` entry for TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08
+  **Required action:** run `gate.mjs record` for each
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/permissions/__tests__ packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+ ✓ packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts (3 tests) 9ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-mode.test.ts (7 tests) 4ms
+ ✓ packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts (6 tests) 5ms
+ ✓ packages/agent-core/src/permissions/__tests__/permission-policy.test.ts (9 tests) 5ms
+ ✓ packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  71 passed (71)
+   Start at  01:07:19
+   Duration  695ms (transform 319ms, setup 0ms, collect 898ms, tests 46ms, environment 1ms, prepare 483ms)
+```
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-08-29
+
+**Test skipped:** applied-check mutations of the shipped source cannot be a committed test; four mutations run and restored at e384e7dcf — url→glob 4 red, path→glob 3 red, argument-side unevaluable→no-match 1 red, pattern-side 1 red — recorded in the TC-07 evidence line
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-08-29
+
+**Command:** `HARNESS_BASE_REF=origin/develop pnpm harness:scan`
+**Exit:** 0
+**Output:** (last 10 of 167 line(s))
+
+```
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2054/2858 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification: 11 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 9 real violation(s) recorded, not cleared by editing history; 2 finding(s) the scan read wrong, each with its reason.
+⚑ dist: @robota-sdk/agent-core: dist/ may be STALE — src/permissions/permission-gate.ts is 31s newer than dist/node/index-CuNdY5S8.d.ts.map
+⚑ dist: 1 package(s) have a dist/ older than their src/. A cross-package type error seen only in a whole-workspace typecheck should be re-checked after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before it is treated as a branch defect.
+
+147 scans passed, 1 skipped (98 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/CORE-049-permission-patterns-match-by-argument-kind.md
+exit=0
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (8)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: .agents/tasks/CORE-049-permission-patterns-match-by-argument-kind.md carries no checkbox plan (a Task is the problem record, not a breakdown)
