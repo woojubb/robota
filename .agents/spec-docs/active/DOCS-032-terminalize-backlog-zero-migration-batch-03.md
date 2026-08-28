@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -258,3 +258,19 @@ adds no runnable user-facing behavior.
 - GATE-APPROVAL — Independent architecture validation: N/A; the narrowed batch adds or reclassifies
   no package, app, presentation/interface surface, layer, or product-family boundary.
 - Guardian: all 3 pending semantic criteria resolved (1 PASS, 2 N/A); `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 434 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Planning checkpoint binding: `.agents/tasks/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`;
+  `.agents/spec-docs/active/DOCS-032-terminalize-backlog-zero-migration-batch-03.md`;
+  `SCENARIO DRAFTED: not-applicable | 0`; whole-worktree inventory limited to the exact Task/spec pair
+  and loop ledger.
