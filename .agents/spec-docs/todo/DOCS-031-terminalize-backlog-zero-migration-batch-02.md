@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -211,3 +211,19 @@ remote queue ownership only. It adds no runnable user-facing behavior.
 - Parent #2404 remains OPEN. All 6 source/carrier blobs, zero baseline changes, and sole migration
   ownership remain unchanged after remote mutation.
 - Independent exact readback: `ACTIONABLE FINDINGS: 0`.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-28, this conversation
+**Evidence condition met:** Committed manifest 0f9c021f1; exact remote grounding and independent zero-finding readback 5d5b6f516; 3 units, 9 final paths, 6 unchanged blobs, two canonical handoffs, zero baseline changes, and no package source/API/policy/package-document change.
+**Review fingerprint:** da0d9445a303 (review d1d004f2, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Committed manifest 0f9c021f1; exact remote grounding and ind)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (da0d9445a303) equals the document's current fingerprint
