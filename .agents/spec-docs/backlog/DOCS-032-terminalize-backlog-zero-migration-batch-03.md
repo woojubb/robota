@@ -217,3 +217,18 @@ adds no runnable user-facing behavior.
   counts, issue/comment readbacks, Task and blob preservation outcomes, a changed-path inventory, or
   command exits.
 - Scope-correction guardian: all 7 semantic criteria PASS; `ACTIONABLE FINDINGS: 0`.
+
+### [REMOTE-GROUNDING] — ✅ PASS | 2026-08-29
+
+- Scope manifest commit: `b1c33a0f58`; exact remote-grounded manifest commit:
+  `db5fcd8365209e667e849e20a852551144d240a4`.
+- Control issue #2441 and continuation issues #2442, #2443, #2444, and #2445 are OPEN,
+  unassigned, and uniquely match their committed `backlog-zero:*:2c875dd3` markers.
+- Existing issue #2056 remains OPEN and unassigned; parent issue #2404 remains OPEN.
+- The five canonical handoff comments were read back at the exact URLs in the manifest. Each contains
+  the decision, current evidence, remaining criteria, dependencies and resumption instructions,
+  original Task path/blob provenance, fixed population object, and migration owner issue #2441.
+- All five source Task blobs remain identical at the population object, current `origin/develop`
+  `87579e423a9971c3de7cfb8ea2e2b59a9293f261`, and committed HEAD. The open PR set, competing branch,
+  extra worktree, and loop reservation sets are empty.
+- Independent exact readback: `ACTIONABLE FINDINGS: 0`.
