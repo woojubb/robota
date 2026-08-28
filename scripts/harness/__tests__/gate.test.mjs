@@ -17,6 +17,7 @@ import {
   parseCatalogue,
   parsePriorGateMap,
   registryConditions,
+  reviewFingerprint,
   stripHtmlComments,
 } from '../gate.mjs';
 import { TEMPLATE_PATH } from '../new-spec.mjs';
@@ -1643,5 +1644,27 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
     expect(result.status).toBe(1);
     expect(readFileSync(doc, 'utf8')).toContain(`names \`${TASK_REL}\`, which does not exist`);
+  });
+});
+
+describe('the review fingerprint reads the VALUES of type: and tags: (PR #2419 review)', () => {
+  const doc = (tags) =>
+    `---\nstatus: draft\ntype: RULE\n${tags}\n---\n\n## Architecture Review\n\nsame\n`;
+
+  it('a changed block-sequence tag item changes the fingerprint', () => {
+    const before = reviewFingerprint(doc('tags:\n  - api\n  - west'));
+    const after = reviewFingerprint(doc('tags:\n  - api\n  - east'));
+    expect(after.typeTags).not.toBe(before.typeTags);
+    expect(after.combined).not.toBe(before.combined);
+  });
+
+  it('the same tags in flow and block form fingerprint alike, and a type change moves it', () => {
+    const flow = reviewFingerprint(doc('tags: [api, west]'));
+    const block = reviewFingerprint(doc('tags:\n  - api\n  - west'));
+    expect(block.typeTags).toBe(flow.typeTags);
+    const retyped = reviewFingerprint(
+      doc('tags: [api, west]').replace('type: RULE', 'type: INFRA'),
+    );
+    expect(retyped.typeTags).not.toBe(flow.typeTags);
   });
 });

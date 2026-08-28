@@ -164,7 +164,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { splitFrontmatter } from './frontmatter.mjs';
+import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
 import { collectSpecResearchFindings } from './scan-spec-research.mjs';
 import {
@@ -1070,14 +1070,13 @@ const shortSha = (text, length) =>
  * field leads with. The rendered form is the exact value `approve` writes and the criterion reads.
  */
 export function reviewFingerprint(text) {
-  const lines = String(text).split('\n');
-  const close = lines.findIndex((line, index) => index > 0 && /^---\s*$/.test(line));
-  const typeTags = [];
-  if (/^---\s*$/.test(lines[0] ?? '') && close > 0)
-    for (let i = 1; i < close; i += 1) {
-      const key = lines[i].startsWith(' ') ? '' : lines[i].split(':')[0].trim();
-      if (key === 'type' || key === 'tags') typeTags.push(lines[i]);
-    }
+  // The VALUES of `type:` and `tags:`, read through the frontmatter parser that owns multi-line
+  // YAML (HARNESS-046): a block-sequence `tags:` puts its items on continuation lines, and hashing
+  // only the key line let every item change without moving the fingerprint (PR #2419 review).
+  const fm = frontmatterObject(String(text));
+  const typeValue = asScalar(fm.type ?? '');
+  const tagValues = asList(fm.tags ?? []).map((tag) => String(tag).trim());
+  const typeTags = [`type=${typeValue}`, `tags=${tagValues.join(',')}`];
   const section = sectionBody(text, /^Architecture Review$/i);
   const normalise = (value) => value.replace(/\s+/g, ' ').trim();
   const review = shortSha(normalise(section ? section.body.join('\n') : ''), 8);
