@@ -1,7 +1,7 @@
 ---
 title: 'DOCS-036: terminalize backlog-zero migration batch 07'
 issue: https://github.com/woojubb/robota/issues/2456
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -23,7 +23,7 @@ owned by issue #2047 and HARNESS-108 remains owned by issue #2457.
 
 ## Spec
 
-`.agents/spec-docs/todo/DOCS-036-terminalize-backlog-zero-migration-batch-07.md`
+`.agents/spec-docs/active/DOCS-036-terminalize-backlog-zero-migration-batch-07.md`
 
 ## Plan
 
