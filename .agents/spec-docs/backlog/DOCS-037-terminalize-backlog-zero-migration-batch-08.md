@@ -36,7 +36,7 @@ topology.
 - Three Task lifecycle moves: HARNESS-057, PLG-020, and TOOL-004 become skipped only after exact
   append-only handoffs to open/unassigned GitHub issues.
 - The paired DOCS-037 Task/spec and two required loop ledgers.
-- One control issue, two new residual issues, and three canonical handoff comments.
+- One control issue, three new residual issues, and three canonical handoff comments.
 
 No package/app source, API/contract, package or product/user documentation, policy/gate document,
 skill/workflow/hook/topology, baseline, carrier, or product-direction change is in scope.
