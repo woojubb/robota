@@ -1,6 +1,8 @@
 ---
 title: 'ARCH-046: workspace contribution inventory duplicates loader ownership'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2140#issuecomment-5454658133
 created: 2026-08-22
 priority: high
 urgency: now

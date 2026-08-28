@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: rejected
 type: AGREEMENT
 tags: [typescript, async, cli]
+returned_to_issue: https://github.com/woojubb/robota/issues/2431#issuecomment-5454657040
 ---
 
 # AGREEMENT-001: Complete the active ARCH, DAG, and RUNTIME task set
@@ -264,12 +265,12 @@ Exact user statement: `다시 이어서 진행하고 커밋과 푸시 모두 다
 **Status remains:** approved
 **Failed criteria:**
 
-- Tasks file path is recorded in the `## Tasks` section of the spec document: the initiative Task exists at `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`, but the spec's `## Tasks` section records only the twelve source ARCH/DAG/RUNTIME Task paths and does not record this initiative Task path.
-  **Required action:** Add `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` to the spec document's `## Tasks` section before re-running GATE-IMPLEMENT.
+- Tasks file path is recorded in the `## Tasks` section of the spec document: the initiative Task exists at `.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`, but the spec's `## Tasks` section records only the twelve source ARCH/DAG/RUNTIME Task paths and does not record this initiative Task path.
+  **Required action:** Add `.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` to the spec document's `## Tasks` section before re-running GATE-IMPLEMENT.
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-12
 
 **Status upgrade:** approved → in-progress
-Tasks file: `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` exists and is now recorded in the spec document's `## Tasks` section; the prior failed GATE-IMPLEMENT entry and its required correction remain preserved.
+Tasks file: `.agents/tasks/completed/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` exists and is now recorded in the spec document's `## Tasks` section; the prior failed GATE-IMPLEMENT entry and its required correction remain preserved.
 Task correspondence: the Task file contains thirteen explicit Plan tasks mapped one-to-one to TC-01 through TC-13 — ARCH-009 preset registry; ARCH-010 trusted execution root; ARCH-012/ARCH-011 capability and transport conformance; ARCH-013 option projection; DAG-001 recovery; DAG-004 validated imports; RUNTIME-002 headless artifact; RUNTIME-003 advancement ownership; RUNTIME-004 cancellation; RUNTIME-005 interactive execution-state ownership; RUNTIME-006 settlement identity; source-Task evidence and archival; and initiative conformance/CI verification.
 Test Plan: the Task file contains a 485-character `## Test Plan` section covering targeted red-green package checks, user-execution scenarios, scoped harness verification, assembled conformance/CI gates, and final Task archival validation.

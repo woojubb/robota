@@ -1,6 +1,8 @@
 ---
 title: 'AGREEMENT-001: complete the active ARCH, DAG, and RUNTIME task set'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2431#issuecomment-5454657040
 created: 2026-08-12
 priority: critical
 urgency: now

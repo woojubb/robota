@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: rejected
 type: AGREEMENT
 tags: [typescript, async, cli, websocket]
+returned_to_issue: https://github.com/woojubb/robota/issues/2432#issuecomment-5454657243
 ---
 
 # AGREEMENT-002: Complete the 2026-08-13 agent architecture findings
@@ -336,7 +337,7 @@ adversarial review before code changes.
 
 ## Tasks
 
-Active initiative Task: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`.
+Active initiative Task: `.agents/tasks/completed/AGREEMENT-002-complete-august-13-agent-architecture-findings.md`.
 
 - [x] ARCH-014 — done — `.agents/tasks/completed/ARCH-014-session-log-external-payloads-have-no-dereferencer.md`
 - [x] ARCH-015 — done — `.agents/tasks/completed/ARCH-015-two-writers-one-record-contract-session-save-destroys-fields.md`
@@ -459,7 +460,7 @@ REVIEW VERDICT: ENDORSE
 
 **Status upgrade:** approved → in-progress
 
-- Tasks file: `.agents/tasks/AGREEMENT-002-complete-august-13-agent-architecture-findings.md` exists and is
+- Tasks file: `.agents/tasks/completed/AGREEMENT-002-complete-august-13-agent-architecture-findings.md` exists and is
   recorded in the spec document's `## Tasks` section as the active initiative execution record.
 - Completion-criteria correspondence: the Tasks file `## Plan` contains one explicit task for each
   agreement criterion, `TC-01` through `TC-16`, covering all fourteen child findings, child lifecycle

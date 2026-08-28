@@ -2,8 +2,8 @@
   "_comment": "HARNESS-105. Spec documents that reached implementation BEFORE this floor existed and carry no user-execution gate section. Frozen: a document may leave this list by gaining the section, never enter it. A new document must carry the section instead.",
   "_frozenAt": "2026-08-17",
   "exempt": [
-    "active/AGREEMENT-001-complete-arch-dag-runtime-backlog.md",
-    "active/AGREEMENT-002-complete-august-13-agent-architecture-findings.md",
+    "rejected/AGREEMENT-001-complete-arch-dag-runtime-backlog.md",
+    "rejected/AGREEMENT-002-complete-august-13-agent-architecture-findings.md",
     "active/ARCH-021-child-process-subagent-composition.md",
     "done/AGREEMENT-003-close-the-self-judgement-failure-class.md",
     "done/ARCH-005-external-product-composition.md",

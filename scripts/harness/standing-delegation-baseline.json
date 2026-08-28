@@ -3,8 +3,8 @@
   "frozenAt": "2026-08-27",
   "standingBasisAtFreeze": 52,
   "exempt": [
-    "active/AGREEMENT-001-complete-arch-dag-runtime-backlog.md",
-    "active/AGREEMENT-002-complete-august-13-agent-architecture-findings.md",
+    "rejected/AGREEMENT-001-complete-arch-dag-runtime-backlog.md",
+    "rejected/AGREEMENT-002-complete-august-13-agent-architecture-findings.md",
     "active/HARNESS-900-cross-check-the-projected-interface-graph-against-the-package-manifests.md",
     "active/INFRA-104-promotion-carries-closing-keywords-to-main.md",
     "active/SEC-016-per-event-hook-enforcement-policy.md",

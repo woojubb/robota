@@ -1,6 +1,8 @@
 ---
 title: 'ARCH-045: child provider credentials and destinations have separate owners'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2138#issuecomment-5454657897
 created: 2026-08-22
 priority: critical
 urgency: now

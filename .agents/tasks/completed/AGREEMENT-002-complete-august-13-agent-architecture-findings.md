@@ -1,6 +1,8 @@
 ---
 title: 'AGREEMENT-002: complete the 2026-08-13 agent architecture findings'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2432#issuecomment-5454657243
 created: 2026-08-15
 priority: critical
 urgency: now
