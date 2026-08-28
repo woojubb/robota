@@ -1,7 +1,8 @@
 ---
 title: "HARNESS-129: plan-order counts the pull request's synthetic merge commit as a planning-checkpoint candidate, so a PR whose spec is in-progress cannot pass its own required check"
 issue: https://github.com/woojubb/robota/issues/2373
-status: in-progress
+status: done
+completed: 2026-08-28
 created: 2026-08-28
 priority: high
 urgency: now
@@ -95,4 +96,4 @@ mutation.
 
 ## Bound spec document
 
-`.agents/spec-docs/active/HARNESS-129-plan-order-counts-the-synthetic-merge-ref-as-a-checkpoint-candidate.md`
+`.agents/spec-docs/done/HARNESS-129-plan-order-counts-the-synthetic-merge-ref-as-a-checkpoint-candidate.md`
