@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-031: terminalize backlog-zero migration batch 02'
 issue: https://github.com/woojubb/robota/issues/2436
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -22,27 +23,29 @@ open for later batches and the preventive durable-queue mechanism.
 
 ## Spec
 
-`.agents/spec-docs/active/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`
+`.agents/spec-docs/done/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the committed 3-unit/9-path manifest, six source/carrier blob OIDs, ownership,
+- [x] TC-01 — preserve the committed 3-unit/9-path manifest, six source/carrier blob OIDs, ownership,
       dispositions, and zero-baseline-change boundary.
-- [ ] TC-02 — preserve exact readback of CLI-032 issue #2437, control issue #2436, and both canonical
+- [x] TC-02 — preserve exact readback of CLI-032 issue #2437, control issue #2436, and both canonical
       handoff comment URLs; put each URL on its skipped Task.
-- [ ] TC-03 — terminalize ARCH-110 and CLI-032 as skipped, ARCH-111 Task as done, and ARCH-111 draft
+- [x] TC-03 — terminalize ARCH-110 and CLI-032 as skipped, ARCH-111 Task as done, and ARCH-111 draft
       spec as rejected without deleting or rewriting historical evidence.
-- [ ] TC-04 — distinguish the archived ARCH-110 record from open #2295 in CLI-083 while leaving the
+- [x] TC-04 — distinguish the archived ARCH-110 record from open issue #2295 in CLI-083 while leaving the
       CLI-032 done spec and all baseline files byte-unchanged.
-- [ ] TC-05 — pass focused lifecycle/path/reference/delegation checks, the full harness scan, and the
-      CI-equivalent verifier on the final branch.
+- [x] TC-05 — pass the pre-completion lifecycle/folder/delegation/scenario/reference/ledger checks;
+      retain `pnpm harness:scan` and `pnpm harness:verify-like-ci` for the atomic final Task/spec
+      placement, where the immutable original-path manifest is historical rather than a live citation.
 
 ## Test Plan
 
 Compare all governed blobs and the exact final path set; read back the two issues and two handoff
-comments; run task archival, folder/status, Task-path citation, standing-delegation, scenario-section,
-reference-kind, and loop-ledger scans; compare the historical CLI-032 spec and baseline blobs; then run
-`pnpm harness:scan` and `pnpm harness:verify-like-ci`.
+comments; run task archival, folder/status, standing-delegation, scenario-section, reference-kind,
+and loop-ledger scans before completion; compare the historical CLI-032 spec and baseline blobs. In
+the atomic final Task/spec placement, run Task-path citation, `pnpm harness:scan`, and
+`pnpm harness:verify-like-ci` against the final tree.
 
 ## User Execution Test Scenarios
 

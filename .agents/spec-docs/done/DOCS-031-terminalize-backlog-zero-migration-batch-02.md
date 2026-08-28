@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -137,30 +137,30 @@ so both keys remain unchanged. No governed source path appears in the reference-
 
 ## Completion Criteria
 
-- [ ] TC-01: the committed manifest contains exactly three units, nine final tracked paths, all six
+- [x] TC-01: the committed manifest contains exactly three units, nine final tracked paths, all six
       source/carrier blob OIDs, current ownership, one disposition per unit, and zero baseline changes.
-- [ ] TC-02: one unique CLI-032 continuation issue, two canonical handoff comments, and the DOCS-031
+- [x] TC-02: one unique CLI-032 continuation issue, two canonical handoff comments, and the DOCS-031
       control issue are read back; every skipped Task cites its exact canonical comment URL.
-- [ ] TC-03: ARCH-110 and CLI-032 become skipped, ARCH-111 becomes done, and its draft spec
+- [x] TC-03: ARCH-110 and CLI-032 become skipped, ARCH-111 becomes done, and its draft spec
       becomes rejected; no record is deleted or historical verdict rewritten.
-- [ ] TC-04: CLI-083 distinguishes the archived ARCH-110 record from open issue #2295; the CLI-032 done
+- [x] TC-04: CLI-083 distinguishes the archived ARCH-110 record from open issue #2295; the CLI-032 done
       spec and all baseline files are byte-unchanged.
-- [ ] TC-05: focused lifecycle/path/reference/delegation checks, `pnpm harness:scan`, and
+- [x] TC-05: focused lifecycle/path/reference/delegation checks, `pnpm harness:scan`, and
       `pnpm harness:verify-like-ci` exit 0 on the final branch.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                  | Notes                                                                 |
-| ----- | ------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
-| TC-01 | Agreement / manifest     | Git object/blob comparison, exact path set, unit/path count      | Prove immutable population and ceiling.                               |
-| TC-02 | Agreement / remote       | Exact title/marker search and `gh api` issue/comment readback    | Prove one canonical remote owner per skipped Task.                    |
-| TC-03 | Agreement / lifecycle    | Task archival and spec folder/status scanners                    | Prove terminal placement without deletion.                            |
-| TC-04 | Agreement / preservation | Git blob comparison, task-path citation and baseline diff checks | Prove carrier truth and zero mutation of protected history/baselines. |
-| TC-05 | Agreement / CI           | Focused scanners, full harness scan, CI mirror                   | Prove final repository gates.                                         |
+| TC-ID | Test Type                | Tool / Approach                                                  | Notes                                                                                        |
+| ----- | ------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| TC-01 | Agreement / manifest     | Git object/blob comparison, exact path set, unit/path count      | Test skipped: evidence audit observed 3 units, 9 paths, and 6/6 governed blobs.              |
+| TC-02 | Agreement / remote       | Exact title/marker search and `gh api` issue/comment readback    | Test skipped: remote readback observed three OPEN owners and both canonical handoffs.        |
+| TC-03 | Agreement / lifecycle    | Task archival and spec folder/status scanners                    | Test skipped: existing focused scanners exit 0 and preserve history.                         |
+| TC-04 | Agreement / preservation | Git blob comparison, task-path citation and baseline diff checks | Test skipped: existing scanners and blob checks prove carrier truth and zero baseline drift. |
+| TC-05 | Agreement / CI           | Focused scanners, full harness scan, CI mirror                   | Test skipped: no new behavior; existing full gates verify atomic final placement.            |
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`
+- [x] `.agents/tasks/completed/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`
 
 ## User Execution Test Scenarios
 
@@ -267,3 +267,127 @@ remote queue ownership only. It adds no runnable user-facing behavior.
 - All six governed source/carrier blobs still match the approved manifest. No package/app source,
   API/contract, policy/gate document, skill/workflow/hook, topology, product/user documentation, or
   baseline changed.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm --filter @robota-sdk/agent-subagent-runner build` → exit 0 (ℹ [ESM] dist/node/index.d.ts 18.51 kB │ gzip: 6.28 kB ⏎ ℹ [ESM] 4 files, total: 115.26 kB ⏎ ✔ Build complete in 571ms); all 5 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm --filter @robota-sdk/agent-subagent-runner test -- src/__tests__/child-process-subagent-runner.test.ts` → exit 0 ( Duration 1.30s (transform 384ms, setup 0ms, collect 516ms, tests 636ms, environment 0ms, prepare 42ms) ⏎ ⏎ 1:53:57 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 5 supplied commands exit 0
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-08-29
+
+**Status remains:** in-progress
+**Guardian finding:** TC-05 was checked as though `pnpm harness:scan` had already passed, but final
+Task/spec placement had not happened. The current 147/148 transitional result is the expected four
+live source/future-path citations from the immutable manifest and final affected-file list. The Task
+must distinguish the completed pre-completion suite from the two full commands reserved for atomic
+final placement.
+
+**Required action:** correct the Task's TC-05 and Test Plan timing, then rerun GATE-VERIFY.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm --filter @robota-sdk/agent-subagent-runner build` → exit 0 (ℹ [ESM] dist/node/index.d.ts 18.51 kB │ gzip: 6.28 kB ⏎ ℹ [ESM] 4 files, total: 115.26 kB ⏎ ✔ Build complete in 610ms); all 5 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm --filter @robota-sdk/agent-subagent-runner test -- src/__tests__/child-process-subagent-runner.test.ts` → exit 0 ( Duration 1.42s (transform 426ms, setup 0ms, collect 591ms, tests 659ms, environment 0ms, prepare 46ms) ⏎ ⏎ 1:57:09 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 5 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `fixed-object manifest unit/path/blob audit`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+units=3 final_paths=9 baselines=0
+ARCH-110=05c74b1cebaaa2cae46b9fd0d7ee5d50ce969f66
+ARCH-111-task=4bca928bc7e275b80c451d7372f9fb148a178346
+ARCH-111-spec=67d41d355a9d36e31240a77eb68c9bff5c5580e1
+CLI-032-task=f0d9836c693f9e35a89931528aa3448075ee8814
+CLI-032-spec=2a388db899665b6fcfaed0233b99109a81d0a3df
+CLI-083=31ab50304004a5d5a47cf413f4e0a722dc7277f3
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `gh api exact issue and handoff-comment readback`
+**Exit:** 0
+**Output:** (last 5 of 5 line(s))
+
+```
+2295	open		https://github.com/woojubb/robota/issues/2295
+2436	open		https://github.com/woojubb/robota/issues/2436
+2437	open		https://github.com/woojubb/robota/issues/2437
+https://api.github.com/repos/woojubb/robota/issues/2295	https://github.com/woojubb/robota/issues/2295#issuecomment-5455186636	true
+https://api.github.com/repos/woojubb/robota/issues/2437	https://github.com/woojubb/robota/issues/2437#issuecomment-5455186642	true
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `node scripts/harness/check-task-archival.mjs && node scripts/harness/scan-doc-folder-status-agreement.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+::examined:: 126 active task files
+task-archival scan passed (126 active task file(s) examined, 941 archived in .agents/tasks/completed/).
+✅ Folder ↔ status agreement: every spec document sits in the folder its status maps to (7 statuses).
+doc-folder-status-agreement summary: violations=0 result=PASS
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Command:** `baseline/blob comparison plus standing/scenario/reference scans`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+cli032_spec=2a388db899665b6fcfaed0233b99109a81d0a3df
+standing=9988892ae31e368fd2ffc43ee937b826e9e1d464
+scenario=b4eae1a19da062ab449276755761de2ebe38df34
+reference=ec67ae89d867028ea2683429f98b89cd4c99dd97
+105:[the archived `ARCH-110` migration record](completed/ARCH-110-session-capability-projections-can-silently-drop-optional-fields.md) /
+106:[open implementation issue #2295](https://github.com/woojubb/robota/issues/2295). CLI-083 completes the regression repair
+::examined:: 233 approved spec document(s); 11 DIRECT, 4 CLASS, 218 frozen (218 of them with no route at all); 2 registered class(es)
+::examined:: 300 governed spec document(s), 220 frozen exemption(s)
+::examined:: 3123 tracked document(s)
+reference-kind-qualified scan passed (1465 unqualified reference(s) at baseline across 275 file(s)). It checks that a reference says WHICH it is, not that the kind it names is correct — deciding that needs a live GitHub read.
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Test skipped:** No product behavior changed. Focused pre-completion checks passed; pnpm harness:scan and pnpm harness:verify-like-ci are reserved for and must pass against the atomic final Task/spec placement.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/DOCS-031-terminalize-backlog-zero-migration-batch-02.md
+
+### [FINAL-PLACEMENT-VERIFY] — ✅ PASS | 2026-08-29
+
+- `pnpm harness:scan` against the atomic done/completed placement exited 0: 146 scans passed and 2
+  declared skips; Task-path citation, lifecycle placement, reference qualification, delegation, and
+  loop-ledger checks all passed.
+- The first `pnpm harness:verify-like-ci` run found one formatting failure in this done spec. No
+  other stage failed: 4,220 contract tests, full typecheck, both scan suites, affected verification,
+  and lint ceiling passed. Prettier was applied only to this file and its check then passed.
+- The clean rerun of `pnpm harness:verify-like-ci` exited 0 with all 13 mirrored stages passing:
+  format, commitlint, 185 contract-test files/4,220 tests, dist-free and full scan suites, workspace
+  typecheck, affected verification, and lint ceiling. CI correctly selected no package build or E2E
+  scope for this documentation-only change.
