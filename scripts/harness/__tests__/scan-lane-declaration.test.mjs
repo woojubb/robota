@@ -15,6 +15,7 @@ import {
   findLaneFloors,
   globToRegExp,
   hunkHasCodeChange,
+  isCommentOrBlankLine,
   parseLaneFloors,
   parseSpecTriggerSections,
   parseUnifiedDiff,
@@ -775,5 +776,22 @@ describe('scan-lane-declaration — importing it does nothing', () => {
     );
     expect(run.status).toBe(0);
     expect(`${run.stdout}${run.stderr}`.trim()).toBe('');
+  });
+});
+
+describe('a line that starts with a block-comment marker is code when a statement follows it (PR #2419 review)', () => {
+  it('`/* a */ code();` and `*​/ code();` are code lines', () => {
+    expect(isCommentOrBlankLine('/* a */ code();')).toBe(false);
+    expect(isCommentOrBlankLine('*/ code();', true)).toBe(false);
+    expect(isCommentOrBlankLine('/* a */ /* b */ return 1;')).toBe(false);
+  });
+
+  it('a line whose comment segments cover it entirely is still a comment line', () => {
+    expect(isCommentOrBlankLine('/* a */')).toBe(true);
+    expect(isCommentOrBlankLine('/* a */ // note')).toBe(true);
+    expect(isCommentOrBlankLine('/* a */ /* b */')).toBe(true);
+    expect(isCommentOrBlankLine('/* opens and runs on')).toBe(true);
+    expect(isCommentOrBlankLine('*/', true)).toBe(true);
+    expect(isCommentOrBlankLine('* inside', true)).toBe(true);
   });
 });

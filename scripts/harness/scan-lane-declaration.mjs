@@ -299,15 +299,25 @@ export function parseUnifiedDiff(diffText) {
  * because upward is the direction that cannot hide a change.
  */
 export function isCommentOrBlankLine(text, inBlock = false) {
-  const t = text.trim();
-  return (
-    t === '' ||
-    t.startsWith('//') ||
-    t.startsWith('/*') ||
-    t.startsWith('*/') ||
-    (inBlock && (t.startsWith('* ') || t === '*')) ||
-    /^\/\*.*\*\/$/.test(t)
-  );
+  let t = text.trim();
+  if (inBlock && (t.startsWith('* ') || t === '*')) return true;
+  // Peel leading comment segments; whatever survives is code. A line that merely STARTS with
+  // `/*` or `*​/` can still carry a statement after the block closes (`/* a */ code();`,
+  // `*​/ code();`), and a change to that statement is a code change (PR #2419 review finding).
+  for (;;) {
+    if (t === '' || t.startsWith('//')) return true;
+    if (t.startsWith('/*')) {
+      const close = t.indexOf('*/', 2);
+      if (close === -1) return true; // the block runs past this line — nothing after it here
+      t = t.slice(close + 2).trim();
+      continue;
+    }
+    if (t.startsWith('*/')) {
+      t = t.slice(2).trim();
+      continue;
+    }
+    return false;
+  }
 }
 
 /**
