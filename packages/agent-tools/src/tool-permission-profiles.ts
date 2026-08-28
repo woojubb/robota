@@ -20,17 +20,18 @@ import { registerToolPermissionProfile, type IToolPermissionProfile } from '@rob
 /**
  * Every tool this package defines, and what the permission system needs to know about it.
  *
- * `argumentKey` is which argument a pattern like `Read(/src/**)` is matched against. A tool without
+ * `argument.key` is which argument a pattern like `Read(/src/**)` is matched against, and
+ * `argument.kind` how (CORE-049: a URL is parsed, a path is segment-wise, a command is a glob). A tool without
  * one cannot be narrowed by an argument pattern at all — the gate treats such a pattern as
  * unevaluable and prompts rather than proceeding, which is why the ones that CAN be narrowed say so.
  */
 export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermissionProfile>> = {
   // Reads and searches: observe, change nothing.
-  Read: { argumentKey: 'filePath', riskClass: 'inspect' },
-  Glob: { argumentKey: 'pattern', riskClass: 'inspect' },
-  Grep: { argumentKey: 'pattern', riskClass: 'inspect' },
-  WebFetch: { argumentKey: 'url', riskClass: 'inspect' },
-  WebSearch: { argumentKey: 'query', riskClass: 'inspect' },
+  Read: { argument: { key: 'filePath', kind: 'path' }, riskClass: 'inspect' },
+  Glob: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
+  Grep: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
+  WebFetch: { argument: { key: 'url', kind: 'url' }, riskClass: 'inspect' },
+  WebSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // The tool that had no classification at all until now. It reads the codebase and returns
   // excerpts; treating it as unknown meant prompting for every search and refusing it in plan mode,
   // which is the mode where searching is the only thing you CAN do.
@@ -42,13 +43,13 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   ComputerView: { riskClass: 'inspect' },
 
   // Workspace changes: what `acceptEdits` exists to stop asking about.
-  Write: { argumentKey: 'filePath', riskClass: 'modify' },
-  Edit: { argumentKey: 'filePath', riskClass: 'modify' },
+  Write: { argument: { key: 'filePath', kind: 'path' }, riskClass: 'modify' },
+  Edit: { argument: { key: 'filePath', kind: 'path' }, riskClass: 'modify' },
 
   // Arbitrary execution, where the blast radius is not bounded by a path.
-  Shell: { argumentKey: 'command', riskClass: 'execute' },
+  Shell: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
   // TERM-008: a model-familiar alias of the same implementation, so the same classification.
-  Bash: { argumentKey: 'command', riskClass: 'execute' },
+  Bash: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
   // SELFHOST-010: a GUI mutation is not a file edit, so `acceptEdits` must not cover it — which is
   // exactly what classifying it as execution rather than modification says.
   Computer: { riskClass: 'execute' },

@@ -12,7 +12,13 @@ export {
   clearRegisteredToolProfiles,
   getToolPermissionProfile,
 } from './permission-gate.js';
-export type { TToolArgs, IPermissionLists, IToolPermissionProfile } from './permission-gate.js';
+export type {
+  TToolArgs,
+  IPermissionLists,
+  IToolPermissionProfile,
+  IToolPermissionArgument,
+  TArgumentKind,
+} from './permission-gate.js';
 export { resolvePermissionByPolicy } from './permission-policy.js';
 export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';
 export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';

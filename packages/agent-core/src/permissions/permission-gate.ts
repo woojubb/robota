@@ -14,8 +14,10 @@
  * - `ToolName`      — match any invocation of that tool
  */
 
+import { globToRegex, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 
+import type { TArgumentKind, TPatternMatch } from './argument-matchers.js';
 import type { TToolRiskClass } from './permission-mode.js';
 import type { TPermissionMode, TPermissionDecision } from './types.js';
 
@@ -32,18 +34,6 @@ export type TToolArgs = Record<string, string | number | boolean | object>;
 export interface IPermissionLists {
   allow?: string[];
   deny?: string[];
-}
-
-/**
- * Convert a glob-style wildcard pattern to a RegExp.
- * Only `*` and `**` wildcards are supported (same semantics as minimatch lite).
- */
-function globToRegex(glob: string): RegExp {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape regex specials except * ?
-    .replace(/\*\*/g, '.+') // ** → one-or-more any char
-    .replace(/\*/g, '.*'); // * → zero-or-more any char (shell-style, not path-segment restricted)
-  return new RegExp(`^${escaped}$`);
 }
 
 /**
@@ -72,15 +62,29 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
  * and a mode-policy matrix keyed on a closed union of tool names — two layers below the packages
  * that define those tools, with nothing coupling the lists. CORE-030.
  */
+/**
+ * The argument a tool's permission patterns are scoped to, and what kind of thing it is. One
+ * object, so a key cannot be declared without its kind — a key alone would leave the tool on the
+ * string glob that matched a URL's query as its host (CORE-049).
+ */
+export type { TArgumentKind, TPatternMatch } from './argument-matchers.js';
+
+export interface IToolPermissionArgument {
+  /** `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. */
+  key: string;
+  /** How a pattern is matched against that argument. */
+  kind: TArgumentKind;
+}
+
 export interface IToolPermissionProfile {
   /**
-   * Which argument this tool's permission patterns are scoped to.
+   * Which argument this tool's permission patterns are scoped to, and its kind.
    *
-   * `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. Without it an
-   * argument-scoped pattern is UNEVALUABLE for this tool, and an unevaluable deny is not an allow —
-   * the gate prompts rather than proceeding.
+   * Without it an argument-scoped pattern is UNEVALUABLE for this tool (a bare `Tool(*)` still
+   * matches — it names no argument), and an unevaluable deny is not an allow — the gate prompts
+   * rather than proceeding.
    */
-  argumentKey?: string;
+  argument?: IToolPermissionArgument;
   /**
    * What kind of action this tool performs, which is what the modes actually decide about.
    *
@@ -123,7 +127,7 @@ export function getToolPermissionProfile(toolName: string): IToolPermissionProfi
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
 function argumentKeyFor(toolName: string): string | undefined {
-  return toolProfiles.get(toolName)?.argumentKey;
+  return toolProfiles.get(toolName)?.argument?.key;
 }
 
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
@@ -142,7 +146,7 @@ export function matchesAnyPattern(
   args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
-  return patterns.some((pattern) => matchesPattern(toolName, args, pattern));
+  return patterns.some((pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'match');
 }
 
 /**
@@ -154,44 +158,66 @@ export function matchesAnyPattern(
  */
 export function hasUnevaluableArgumentPattern(
   toolName: string,
-  _args: TToolArgs,
+  args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
-  return patterns.some((pattern) => {
-    const parsed = parsePattern(pattern);
-    if (parsed.toolName !== toolName || parsed.argPattern === undefined) return false;
-    // ONLY "nobody knows which argument this pattern is about". A tool whose key IS known but which
-    // was invoked without that argument is a real NON-match — the pattern is about `path`, there is
-    // no path, so there is nothing to deny — and it goes back to the allow list.
-    //
-    // The first version also treated that case as unevaluable, which contradicted its own comment
-    // and the test beside it. Review of #1596 caught the two conditions collapsing into one.
-    return argumentKeyFor(toolName) === undefined;
-  });
+  // Two shapes of "I cannot tell": nobody declared which argument the pattern is about (CORE-030),
+  // or the argument or the pattern cannot be interpreted in the declared kind (CORE-049). A tool
+  // whose key IS known but which was invoked without that argument is a real NON-match — the
+  // pattern is about `path`, there is no path, so there is nothing to deny — and it goes back to
+  // the allow list. (Review of #1596 caught those two conditions collapsing into one.)
+  return patterns.some(
+    (pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'unevaluable',
+  );
 }
 
 /**
- * Test whether a tool invocation matches a permission pattern entry.
+ * One invocation against one permission pattern entry: `match`, `no-match`, or `unevaluable`.
  */
-function matchesPattern(toolName: string, args: TToolArgs, pattern: string): boolean {
+function evaluateArgumentPattern(
+  toolName: string,
+  args: TToolArgs,
+  pattern: string,
+): TPatternMatch {
   const parsed = parsePattern(pattern);
 
   // Tool name must match (case-sensitive)
   if (parsed.toolName !== toolName) {
-    return false;
+    return 'no-match';
   }
 
-  // No argument constraint → matches any invocation of that tool
-  if (parsed.argPattern === undefined) {
-    return true;
+  // No argument constraint, or a bare wildcard → any invocation of that tool, whatever its kind —
+  // and whether or not it declared an argument: `Tool(*)` names none.
+  if (parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**') {
+    return 'match';
+  }
+
+  // Nobody declared which argument this pattern is about (CORE-030)
+  const argument = toolProfiles.get(toolName)?.argument;
+  if (argument === undefined) {
+    return 'unevaluable';
   }
 
   const primary = primaryArg(toolName, args);
   if (primary === undefined) {
-    return false;
+    return 'no-match';
   }
 
-  return globToRegex(parsed.argPattern).test(primary);
+  switch (argument.kind) {
+    case 'url':
+      return matchUrl(parsed.argPattern, primary);
+    case 'path':
+      return matchPath(parsed.argPattern, primary);
+    case 'command':
+    case 'text':
+      return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
+    default: {
+      // A kind this switch does not name would otherwise land on the string glob — the failure
+      // mode CORE-049 removes. The compiler holds the enumeration closed.
+      const exhaustive: never = argument.kind;
+      throw new Error(`unknown argument kind: ${String(exhaustive)}`);
+    }
+  }
 }
 
 /**
