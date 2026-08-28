@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -147,15 +147,15 @@ edit is required. Zero baseline and carrier changes are permitted by this manife
 
 ## Completion Criteria
 
-- [ ] TC-01: the committed corrected manifest contains exactly three `high/now` units, three governed
+- [x] TC-01: the committed corrected manifest contains exactly three `high/now` units, three governed
       blobs, seven final tracked paths, exact skipped dispositions, and zero baseline/carrier changes.
-- [ ] TC-02: the control/residual issues and all three canonical handoffs are read back exactly; each
+- [x] TC-02: the control/residual issues and all three canonical handoffs are read back exactly; each
       archived Task cites its exact OPEN/unassigned issue comment.
-- [ ] TC-03: all three Tasks become skipped with byte-identical bodies and only approved lifecycle
+- [x] TC-03: all three Tasks become skipped with byte-identical bodies and only approved lifecycle
       frontmatter/path changes.
-- [ ] TC-04: no package/app source, API/contract, package/product doc, policy/gate, skill/workflow/hook,
+- [x] TC-04: no package/app source, API/contract, package/product doc, policy/gate, skill/workflow/hook,
       topology, baseline, or carrier path changes.
-- [ ] TC-05: the exact final changed-path set is the seven approved lifecycle/ledger paths, and
+- [x] TC-05: the exact final changed-path set is the seven approved lifecycle/ledger paths, and
       focused/full verification exits 0.
 
 ## Test Plan
@@ -170,7 +170,7 @@ edit is required. Zero baseline and carrier changes are permitted by this manife
 
 ## Tasks
 
-- `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`
+- `.agents/tasks/completed/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`
 
 ## User Execution Test Scenarios
 
@@ -326,3 +326,47 @@ runnable user-facing behavior and deliberately leaves all product/package work t
   `.agents/spec-docs/todo/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`;
   `SCENARIO DRAFTED: not-applicable | 0`; scenario run `r20260828214443`; orchestrator run
   `r20260828214440`; whole-worktree inventory limited to the exact Task/spec pair and two loop ledgers.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan:reference-kind-qualified` → exit 0 ( ⏎ ::examined:: 3138 tracked document(s) ⏎ reference-kind-qualified scan passed (1465 unqualified reference(s) at baseline across 275 file(s)). It checks that a reference says WHICH it is, not that the kind it names is correct — deciding that needs a live GitHub read.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/check-task-archival.test.mjs scripts/harness/__tests__/scan-doc-folder-status-agreement.test.mjs scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs packages/agent-core/src/services/plugin-hook-dispatcher.test.ts packages/agent-plugin/src/limits/__tests__/limits-plugin.test.ts packages/agent-plugin/src/webhook/__tests__/webhook-plugin.test.ts packages/agent-plugin/src/conversation-history/__tests__/conversation-history-plugin.test.ts packages/agent-plugin/src/error-handling/__tests__/error-handling-plugin.test.ts packages/agent-tools/src/__tests__/builtin-descriptions.test.ts` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Agreement-only manifest criterion; the committed fixed unit, blob, urgency, disposition, and path inventory is verified by Git and the class audit.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Remote control-plane criterion; exact OPEN/unassigned issues and append-only canonical comments were read back from GitHub.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Lifecycle-record criterion; Git blob/body comparison plus archival and placement scanners directly verify the preserved result.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Test skipped:** Exclusion-boundary criterion; the exact Git path inventory directly proves that no excluded source, API, policy, workflow, topology, baseline, or carrier path changed.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Test skipped:** No new runnable behavior exists; focused gates and the final harness/CI mirror verify the atomic documentation-only result.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/DOCS-037-terminalize-backlog-zero-migration-batch-08.md

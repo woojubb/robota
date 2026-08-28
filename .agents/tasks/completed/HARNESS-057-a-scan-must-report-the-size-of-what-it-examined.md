@@ -1,6 +1,8 @@
 ---
 title: 'HARNESS-057: a scan must report the size of the subject it examined, and zero must fail'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2462#issuecomment-5457971404
 priority: high
 urgency: now
 type: INFRA

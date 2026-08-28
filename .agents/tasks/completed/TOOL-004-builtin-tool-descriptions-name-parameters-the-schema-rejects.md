@@ -1,6 +1,8 @@
 ---
 title: 'TOOL-004: built-in tool descriptions instruct the model to use parameters and mechanisms the schema and runtime reject — a compliant model gets a ValidationError or silent key-strip'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2461#issuecomment-5457939714
 created: 2026-08-13
 priority: high
 urgency: now

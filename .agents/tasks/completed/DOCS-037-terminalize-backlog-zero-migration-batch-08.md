@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-037: terminalize backlog-zero migration batch 08'
 issue: https://github.com/woojubb/robota/issues/2459
-status: todo
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -22,18 +23,18 @@ remains owned by issues #2462, #2460, and #2461 respectively. Umbrella issue #22
 
 ## Spec
 
-`.agents/spec-docs/active/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`
+`.agents/spec-docs/done/DOCS-037-terminalize-backlog-zero-migration-batch-08.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the corrected three-unit/seven-path manifest, three governed blob OIDs,
+- [x] TC-01 — preserve the corrected three-unit/seven-path manifest, three governed blob OIDs,
       exact high/now skipped dispositions, and zero-baseline/carrier boundary.
-- [ ] TC-02 — preserve exact readback of control issue #2459, residual issues #2462/#2460/#2461,
+- [x] TC-02 — preserve exact readback of control issue #2459, residual issues #2462/#2460/#2461,
       and all three canonical handoff URLs; put only those exact URLs on the skipped Tasks.
-- [ ] TC-03 — mark all three Tasks skipped and preserve all three historical Task bodies byte-for-byte.
-- [ ] TC-04 — change no package/app source, API/contract, package/product doc, policy/gate,
+- [x] TC-03 — mark all three Tasks skipped and preserve all three historical Task bodies byte-for-byte.
+- [x] TC-04 — change no package/app source, API/contract, package/product doc, policy/gate,
       skill/workflow/hook, topology, baseline, or carrier path.
-- [ ] TC-05 — keep the exact final changed-path set to seven approved lifecycle/ledger paths and pass
+- [x] TC-05 — keep the exact final changed-path set to seven approved lifecycle/ledger paths and pass
       focused lifecycle/current-premise checks plus the full harness CI mirror.
 
 ## Test Plan
