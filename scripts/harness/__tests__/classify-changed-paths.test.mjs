@@ -241,3 +241,18 @@ describe('CI capability wiring', () => {
     expect(scans).not.toMatch(/scripts\/harness\/\*\*/);
   });
 });
+
+describe('the harness records under .agents/ are infrastructure, not product (PROC-016)', () => {
+  it('a ledger append plus a harness script is code but not product', () => {
+    const verdict = classifyFiles([
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      'scripts/harness/loop-run.mjs',
+    ]);
+    expect(verdict.code).toBe(true);
+    expect(verdict.product).toBe(false);
+  });
+
+  it('a package source file is still product', () => {
+    expect(classifyFiles(['packages/agent-core/src/index.ts']).product).toBe(true);
+  });
+});

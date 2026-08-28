@@ -18,7 +18,7 @@ import {
   formatLockfileFailureMessage,
   parsePrePushUpdates,
 } from './pre-push-updates.mjs';
-import { checkTreePrerequisites } from './tree-prerequisites.mjs';
+import { PREREQUISITE_ORDER, checkTreePrerequisites } from './tree-prerequisites.mjs';
 import { CI_STAGES } from './ci-mirror-map.mjs';
 import {
   findReusableVerification,
@@ -43,18 +43,64 @@ import { classifyFiles, classifyRange } from './classify-changed-paths.mjs';
  * running MORE here than CI does would refuse pushes CI would accept, which is property 4 —
  * firing on correct work — and the fastest way to have a gate turned off. `pre-push-mirrors-ci-scans.test.mjs`
  * reads both sides so the two cannot drift silently.
+ *
+ * PROC-016: the scan stage runs the AFFECTED set (`--affected`) in the `pr` context, exactly as the
+ * `scans` job does on a pull request. `--base` carries the base the classification already
+ * resolved — the workflow writes `origin/$GITHUB_BASE_REF` in its place — so the diff the selection
+ * is computed from is the diff the push is about; without a base the runner falls back to the full
+ * suite and says so. The measured wall time of the stage is printed (TC-08).
  */
+export const CI_BASE_REF_PLACEHOLDER = 'origin/$GITHUB_BASE_REF';
+
 export const CI_SCANS_JOB_MIRROR = [
   ['pnpm', ['harness:test:contracts']],
   ['pnpm', ['harness:test:hermetic']],
-  ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+  [
+    'pnpm',
+    [
+      'harness:scan',
+      '--',
+      '--skip',
+      'dist',
+      '--skip',
+      'build-contracts',
+      '--affected',
+      '--context',
+      'pr',
+      '--base',
+      CI_BASE_REF_PLACEHOLDER,
+    ],
+  ],
 ];
 
-/** The local scans plan; an absent/unresolved verdict is deliberately harness-applicable. */
-export function createCiScansJobMirror(classification) {
+/** The one `scans` step ci.yml gates on the `harness` classification (`needs.changes.outputs.harness`). */
+const PATH_GATED_HARNESS_TEST = 'harness:test:hermetic';
+
+/**
+ * The local scans plan; an absent/unresolved verdict is deliberately harness-applicable.
+ *
+ * Exactly what the workflow gates, and no more. `harness:test:contracts` runs UNCONDITIONALLY in
+ * ci.yml (INFRA-093): the repository-contract tests inspect product, docs and policy content, so a
+ * diff that touches no harness file can still turn them red, and a mirror that skipped them on a
+ * `harness: false` verdict would pass locally on a push CI refuses. Only the hermetic tier is
+ * path-gated there — it reads nothing but `scripts/harness/**` and the files that decide how it
+ * runs, which is what `classifyFiles` names `harness` — so only the hermetic tier is gated here
+ * (PROC-016). A `false` verdict is a proof, not a default; anything else runs both tiers.
+ * `baseRef` replaces the workflow's `origin/$GITHUB_BASE_REF`; with none, the `--base` pair is
+ * dropped and the runner resolves (or fails closed to the full suite) on its own.
+ */
+export function createCiScansJobMirror(classification, { baseRef = null } = {}) {
+  const harnessApplicable = classification?.harness !== false;
   return CI_SCANS_JOB_MIRROR.filter(
-    ([, args]) => args[0] !== 'harness:test:hermetic' || classification?.harness !== false,
-  );
+    ([, args]) => args[0] !== PATH_GATED_HARNESS_TEST || harnessApplicable,
+  ).map(([command, args]) => [command, substituteBaseRef(args, baseRef)]);
+}
+
+function substituteBaseRef(args, baseRef) {
+  const at = args.indexOf('--base');
+  if (at === -1) return [...args];
+  if (baseRef) return args.map((arg, i) => (i === at + 1 ? baseRef : arg));
+  return args.filter((_, i) => i !== at && i !== at + 1);
 }
 
 function run(command, args) {
@@ -230,9 +276,29 @@ function resolvePrePushMode(value) {
  *
  * Called only from the verifying branch of `runPrePushGate` — see the ordering note there.
  */
-function assertTreePrerequisites() {
-  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT);
-  if (result.ok) return;
+/**
+ * Which prerequisites a push owes, from the same classifier CI's `changes` job reads (PROC-016).
+ * `build-output` is owed only when PRODUCT code changed — a package or app source the verification
+ * will build and test. A harness-only or docs-only change reads no `dist/`, and demanding 81
+ * packages' build output for it (88 s and ~2 GB in a fresh worktree, measured on INFRA-136) was the
+ * single largest cost of the L1 lane. `verify-like-ci` already decides the same question from the
+ * plan (`planRequiresPackageDist`); this is that decision at the pre-push gate. Fail-closed: an
+ * unclassifiable change (`product` not `false`) owes everything.
+ */
+export function prerequisitesFor(classification) {
+  return classification?.product === false ? ['install'] : PREREQUISITE_ORDER;
+}
+
+function assertTreePrerequisitesFor(classification) {
+  const required = prerequisitesFor(classification);
+  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT, required);
+  if (result.ok) {
+    if (required.length < PREREQUISITE_ORDER.length)
+      process.stdout.write(
+        '▶ build output not required: no product code changed (harness/docs-only push)\n',
+      );
+    return;
+  }
   process.stderr.write(result.message);
   process.exit(1);
 }
@@ -306,7 +372,7 @@ export function createPrePushSteps() {
     pruneAndWarnStaleWorktrees,
     assertCleanWorkingTree,
     assertLockfileConsistency,
-    assertTreePrerequisites,
+    assertTreePrerequisites: () => assertTreePrerequisitesFor(changeClassification),
 
     reportBaseResolution: () => {
       if (baseResolution.source === 'fallback') {
@@ -368,12 +434,31 @@ export function createPrePushSteps() {
       ]);
 
       process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
-      for (const [command, args] of createCiScansJobMirror(changeClassification)) {
+      const mirror = createCiScansJobMirror(changeClassification, {
+        baseRef: basePlan.classificationBaseRef ?? null,
+      });
+      for (const [command, args] of mirror) {
+        const started = Date.now();
         run(command, args);
+        // TC-08 (PROC-016): the stage's cost is a measurement, not a claim. Printed per stage so
+        // the scan stage's number can be read off a real push and recorded.
+        process.stdout.write(
+          `▶ ${args[0]} wall time: ${((Date.now() - started) / 1000).toFixed(1)}s\n`,
+        );
       }
 
-      process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
-      run('pnpm', ['cli:dev', '--version']);
+      // The smoke check runs the CLI from source, which resolves workspace packages through their
+      // built `dist/` (HARNESS-058). It is owed by the same pushes that owe build output: when no
+      // product code changed, the binary cannot have changed, and the check would only demand the
+      // build the prerequisite step just excused (PROC-016).
+      if (changeClassification?.product === false) {
+        process.stdout.write(
+          '\n▶ CLI smoke check skipped: no product code changed (harness/docs-only push)\n',
+        );
+      } else {
+        process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
+        run('pnpm', ['cli:dev', '--version']);
+      }
 
       process.stdout.write('\nRelease-grade verification remains explicit:\n');
       process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');

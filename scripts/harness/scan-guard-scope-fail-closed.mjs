@@ -97,6 +97,17 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the spec-document corpus IS the population this guard governs — over a root without it there is no GATE-APPROVAL entry to judge, and a silent empty pass would restate the defect the guard exists to end: a count nobody can check',
   },
   {
+    // PROC-016. This finder was INVISIBLE to the previous comment stripper — the string
+    // `'packages/*/dist'` opened a phantom block comment that ran to the `\/\*$/` of a later regex
+    // and swallowed the export — so it was never classified. First measured 2026-08-28 as
+    // `finder(bare)`: returned `[]`. Repaired in the same change to throw `pnpm-workspace.yaml
+    // missing from <root>`, and pinned here rather than recorded as a fourth vacuous entry.
+    file: 'check-nested-package-glob-coverage.mjs',
+    finder: 'findNestedGlobCoverageFindings',
+    tree: 'pnpm-workspace.yaml',
+    why: 'the workspace manifest declares the nested package groups this check quantifies over; with none read, "no workflow omits a nested dist glob" is a claim about no groups, which is the audit\'s own defect in miniature',
+  },
+  {
     // DOCS-028 (issue #2194). Measured as `collectSpecs(bare)`: throws `packages missing from
     // <root>` before a single SPEC is opened.
     file: 'check-spec-manifest-restatement.mjs',
@@ -884,6 +895,22 @@ export function rootFinderExports(sourceText) {
     .sort();
 }
 
+/** Keywords after which a `/` opens a regular expression rather than dividing. */
+const REGEX_POSITION_WORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'case',
+  'throw',
+  'do',
+  'else',
+  'yield',
+  'await',
+  'delete',
+  'void',
+  'new',
+]);
+
 /**
  * Remove block and line comments before matching declarations.
  *
@@ -894,9 +921,138 @@ export function rootFinderExports(sourceText) {
  * code is searched.
  */
 export function stripJsComments(sourceText) {
-  return String(sourceText ?? '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  // A small tokenizer, not a regex pair. The regex form was not string-aware, so the `/**` inside a
+  // glob STRING LITERAL (`const AGENTS = '.agents/**'`, PROC-016) opened a "comment" that swallowed
+  // the rest of the registration array and `registeredScanFiles()` parsed 4 scans of ~100 — every
+  // other finder was reported as "declared here but no longer registered". A string is code, so its
+  // body is copied through untouched, and a regular-expression literal is skipped (it may carry a
+  // quote or a `/*` of its own: `/`(src\/[^`\s]+)`/g` in one registered scan paired two backticks
+  // across the rest of the file and hid its finder). Only a `/*` or `//` met in CODE opens a comment.
+  const source = String(sourceText ?? '');
+  let out = '';
+  let i = 0;
+  // The last non-whitespace code character and the identifier ending at it — what decides whether
+  // a `/` opens a regular expression (value position) or divides (operand position).
+  let previousCode = '';
+  let previousWord = '';
+  let wordOpen = false;
+  // Brace depth of each open `${…}`, innermost last: the code inside may open another template.
+  const templateDepth = [];
+
+  /** Index just past the string that starts at `from` (its opener already consumed when `atOpener`). */
+  const stringEnd = (quote, from, atOpener) => {
+    let j = atOpener ? from + 1 : from;
+    while (j < source.length) {
+      const ch = source[j];
+      if (ch === '\\') {
+        j += 2;
+        continue;
+      }
+      if (ch === quote) return j + 1;
+      if (quote === '`' && ch === '$' && source[j + 1] === '{') {
+        templateDepth.push(1);
+        return j + 2;
+      }
+      // A plain string never closes on a later line: stop at the newline so a stray quote cannot
+      // swallow the rest of the file.
+      if (quote !== '`' && ch === '\n') return j;
+      j += 1;
+    }
+    return j;
+  };
+
+  const noteLiteral = (quote) => {
+    previousCode = quote;
+    previousWord = '';
+  };
+
+  while (i < source.length) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (c === "'" || c === '"' || c === '`') {
+      const j = stringEnd(c, i, true);
+      out += source.slice(i, j);
+      i = j;
+      noteLiteral(c);
+      continue;
+    }
+    // Inside a `${…}` the braces are code; the closing one resumes the template that opened it.
+    if (templateDepth.length > 0 && (c === '{' || c === '}')) {
+      templateDepth[templateDepth.length - 1] += c === '{' ? 1 : -1;
+      if (templateDepth[templateDepth.length - 1] === 0) {
+        templateDepth.pop();
+        const j = stringEnd('`', i + 1, false);
+        out += source.slice(i, j);
+        i = j;
+        noteLiteral('`');
+        continue;
+      }
+    }
+    if (c === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    if (c === '/' && next === '/') {
+      // `//` preceded by `:` is a URL scheme (`https://`) written bare, not a comment — the same
+      // `(^|[^:])` guard the regex form carried. It is copied through as code.
+      if (source[i - 1] !== ':') {
+        while (i < source.length && source[i] !== '\n') i += 1;
+        continue;
+      }
+      out += '//';
+      i += 2;
+      previousCode = '/';
+      previousWord = '';
+      continue;
+    }
+    if (
+      c === '/' &&
+      (previousCode === '' ||
+        /[(=,:[!&|?{};+\-*%<>~^]/.test(previousCode) ||
+        REGEX_POSITION_WORDS.has(previousWord))
+    ) {
+      // A regular-expression literal: skipped, not searched. `[…]` may hold an unescaped `/`; an
+      // unterminated one stops at the newline rather than eating the file.
+      let j = i + 1;
+      let inClass = false;
+      while (j < source.length) {
+        const ch = source[j];
+        if (ch === '\\') {
+          j += 2;
+          continue;
+        }
+        if (ch === '\n') break;
+        if (ch === '[') inClass = true;
+        else if (ch === ']') inClass = false;
+        else if (ch === '/' && !inClass) {
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      out += '/re/';
+      i = j;
+      noteLiteral('/');
+      continue;
+    }
+    out += c;
+    i += 1;
+    if (/[A-Za-z0-9_$]/.test(c)) {
+      if (!wordOpen) previousWord = '';
+      previousWord += c;
+      wordOpen = true;
+      previousCode = c;
+    } else if (/\s/.test(c)) {
+      // Whitespace closes the word but keeps it: `return /x/` must still see `return`.
+      wordOpen = false;
+    } else {
+      wordOpen = false;
+      previousWord = '';
+      previousCode = c;
+    }
+  }
+  return out;
 }
 
 /** Every `{ file, finder }` pair this scan is responsible for classifying, derived from the tree. */

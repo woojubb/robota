@@ -32,6 +32,7 @@
     "interface-family-owner",
     "interface-imports",
     "interface-runtime",
+    "lane-declaration",
     "literal-cast-union",
     "llms-txt",
     "loop-contract",

@@ -139,10 +139,14 @@ function zeroRefresh(runId, nestedRunId, round = 1) {
 
 describe('architecture-refresh runtime signal floor', () => {
   it('is registered in the aggregate harness', () => {
-    expect(SCAN_COMMANDS).toContainEqual({
-      name: 'architecture-refresh-signals',
-      command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
-    });
+    // `objectContaining`, not an exact shape: every entry also carries `examines`/`always`
+    // (PROC-016), and this test pins registration, not the whole registry row.
+    expect(SCAN_COMMANDS).toContainEqual(
+      expect.objectContaining({
+        name: 'architecture-refresh-signals',
+        command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
+      }),
+    );
   });
 
   it('reports the exact number of ledger records examined and resets between scans', () => {

@@ -92,6 +92,12 @@ export const JUSTIFIED_JOB_WRITE_SCOPES = {
       'pull-requests': 'disables the armed auto-merge on the PR and posts the disarm comment',
     },
   },
+  'scans-full.yml': {
+    'scans-full': {
+      issues:
+        'files (or comments on) the `scans-full is red on develop` issue when the full suite fails — the promotion blocker PROC-016 names',
+    },
+  },
 };
 
 /** Parse the top-level `permissions:` block of a workflow into `{scope: level}`. */

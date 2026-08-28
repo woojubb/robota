@@ -101,6 +101,11 @@ describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
     expect(CI_SETUP_STEPS.build.map((entry) => entry.step)).toContain(
       'Product verification not applicable',
     );
+    // PROC-016: the PR body is CI transport for scan-lane-declaration; locally the lane comes from the
+    // spec frontmatter and the commit trailers, so the step is plumbing, declared with its reason.
+    expect(CI_SETUP_STEPS.scans.map((entry) => entry.step)).toContain(
+      'Write pull request body for the lane declaration',
+    );
     expect(CI_SETUP_STEPS.quality.map((entry) => entry.step)).toContain(
       'Product verification not applicable',
     );

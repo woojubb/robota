@@ -336,6 +336,11 @@ export const CI_SETUP_STEPS = {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
     },
+    {
+      step: 'Write pull request body for the lane declaration',
+      reason:
+        'CI transport of the pull-request body into `HARNESS_PR_BODY_FILE` for `scan-lane-declaration`; locally the pull request does not exist yet and the lane is read from the spec frontmatter and the commit trailers (PROC-016)',
+    },
   ],
   commitlint: [
     {

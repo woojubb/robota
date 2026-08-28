@@ -12,12 +12,14 @@
  * Exit code 0 = all scans passed, 1 = at least one scan failed.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { classifyRange } from './classify-changed-paths.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
+import { resolveBaseRef } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -314,21 +316,110 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
  * when the registration is commented out, deleted from the array but named in a comment, or
  * mentioned in this very docstring. A presence-of-a-string standing in for a structural property is
  * the sub-shape that item's second axis is about; the structure is here, so read the structure.
+ *
+ * WHAT EACH SCAN READS (PROC-016). Every entry declares its subject, so `--affected` can select the
+ * scans a change can reach instead of running all of them on every pull request:
+ *
+ *   examines: [...globs]   the workspace-relative paths the scan reads — its governed tree, its path
+ *                          constants, the directories it enumerates. DERIVED FROM THE SCAN'S SOURCE,
+ *                          not from its name; a glob that is wider than the scan's real subject costs
+ *                          a spurious run, a glob that is narrower costs a missed finding, so the
+ *                          wider reading wins every tie.
+ *   always: true           the scan reads outside the tree or across it — git history, a diff against
+ *                          the base, transcripts, cited paths that may live anywhere — or its subject
+ *                          could not be pinned to a glob. It runs on every change. Unsure ⇒ always.
+ *   advisory: true         the scan grades PROSE the agent itself produced (transcripts, narrative
+ *                          references). Under `--context pr` its failure is reported as an advisory
+ *                          and does not fail the run; under `--context integration` it fails as ever.
+ *
+ * A changed path that matches NO scan's glob selects the FULL suite, and the runner says so. That is
+ * the fail-closed direction: an unclassifiable change is one nobody has declared safe to skip over.
  */
+/**
+ * `dir/**` spelled without the two characters `/*` adjacent in this file's source. Not style:
+ * `scan-guard-scope-fail-closed` reads this file as TEXT and strips block comments before it
+ * parses the registry, so a literal `'.agents/**'` opened a comment that swallowed every
+ * registration after it and reported the whole table as unregistered. Measured on this change.
+ */
+const under = (dir) => [dir, '**'].join('/');
+/**
+ * A harness HELPER a scan reads, spelled so the same text parser does not take it for a
+ * registration: `registeredScanFiles` matches every literal `scripts/harness/<name>.mjs` in this
+ * file and then classifies the finders it exports. Registered scans keep the literal form in
+ * `command`; a helper named here as a subject is joined at runtime.
+ */
+const harnessFile = (name) => ['scripts/harness', `${name}.mjs`].join('/');
+const AGENTS = under('.agents');
+const RULES = under('.agents/rules');
+const SKILLS = under('.agents/skills');
+const SPECS = under('.agents/specs');
+const SPEC_DOCS = under('.agents/spec-docs');
+const TASKS = under('.agents/tasks');
+const HARNESS_CONFIG = '.agents/harness.config.json';
+const PACKAGES = under('packages');
+const APPS = under('apps');
+const EXAMPLES = under('examples');
+/** The workspace as the scope enumerator sees it: the manifests plus every scope directory. */
+const WORKSPACE = ['package.json', 'pnpm-workspace.yaml', PACKAGES, APPS, EXAMPLES];
+const HARNESS = under('scripts/harness');
+const SCRIPTS = under('scripts');
+const GITHUB = under('.github');
+const CLAUDE = under('.claude');
+const HOOKS = under('.claude/hooks');
+const AGENT_DEFS = under('.claude/agents');
+const DOCS = under('docs');
+const CONTENT = under('content');
+const MARKDOWN = ['**', '*.md'].join('/');
+const REGISTRY = 'scripts/harness/run-all-scans.mjs';
+
 export const SCAN_COMMANDS = [
-  { name: 'consistency', command: ['node', 'scripts/harness/scan-consistency.mjs'] },
-  { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
-  { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },
-  { name: 'orchestration-map', command: ['node', 'scripts/harness/scan-orchestration-map.mjs'] },
-  { name: 'deployment-matrix', command: ['node', 'scripts/harness/scan-deployment-matrix.mjs'] },
+  {
+    // PROC-016. A pull request declares the lane it runs in (`Lane: L0|L1|L2`) and the lane's lower
+    // bound is derived from the diff, so this reads the declaration AND the whole diff against the
+    // base — there is no path it can be told is out of its reach.
+    name: 'lane-declaration',
+    command: ['node', 'scripts/harness/scan-lane-declaration.mjs'],
+    always: true,
+  },
+  {
+    name: 'consistency',
+    command: ['node', 'scripts/harness/scan-consistency.mjs'],
+    examines: [AGENTS, 'AGENTS.md', 'CLAUDE.md', CLAUDE, ...WORKSPACE],
+  },
+  {
+    name: 'memory-mirror',
+    command: ['node', 'scripts/harness/scan-memory-mirror.mjs'],
+    examines: [under('.agents/memory')],
+  },
+  {
+    name: 'spec-research',
+    command: ['node', 'scripts/harness/scan-spec-research.mjs'],
+    examines: [SPEC_DOCS],
+  },
+  {
+    name: 'orchestration-map',
+    command: ['node', 'scripts/harness/scan-orchestration-map.mjs'],
+    examines: [AGENT_DEFS, SKILLS, '.agents/specs/orchestration-map.md'],
+  },
+  {
+    name: 'deployment-matrix',
+    command: ['node', 'scripts/harness/scan-deployment-matrix.mjs'],
+    examines: ['.agents/specs/deployment-matrix.md', PACKAGES],
+  },
   {
     name: 'orchestration-neutrality',
     command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES],
   },
-  { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
+  {
+    name: 'hook-catalog',
+    command: ['node', 'scripts/harness/scan-hook-catalog.mjs'],
+    examines: [PACKAGES, 'content/guide/permissions-and-hooks.md'],
+  },
   {
     name: 'hook-enforcement-reachable',
     command: ['node', 'scripts/harness/scan-hook-enforcement-reachable.mjs'],
+    examines: [GITHUB, PACKAGES, APPS, SCRIPTS],
   },
   {
     // INFRA-078 — `hooks-have-execution-coverage` proves a hook CAN run; nothing read the file that
@@ -336,19 +427,27 @@ export const SCAN_COMMANDS = [
     // naming a deleted file, both stayed green.
     name: 'hook-registration',
     command: ['node', 'scripts/harness/scan-hook-registration.mjs'],
+    examines: ['.claude/settings.json', HOOKS],
   },
-  { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
+  {
+    name: 'review-findings',
+    command: ['node', 'scripts/harness/scan-review-findings.mjs'],
+    examines: [AGENT_DEFS, under('.agents/skills/pr-finding-resolution-loop')],
+  },
   {
     name: 'review-token-supply',
     command: ['node', 'scripts/harness/scan-review-token-supply.mjs'],
+    examines: [GITHUB, CONTENT],
   },
   {
     name: 'claude-review-coverage',
     command: ['node', 'scripts/harness/scan-claude-review-coverage.mjs'],
+    examines: [GITHUB],
   },
   {
     name: 'workflow-permissions',
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
+    examines: [GITHUB],
   },
   {
     // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an (allow-missing-artifact: INFRA-058 deleted the workflow; this names why the scan exists)
@@ -357,16 +456,19 @@ export const SCAN_COMMANDS = [
     // it stays off on a promotion to `main`); the static half runs everywhere.
     name: 'action-references',
     command: ['node', 'scripts/harness/scan-action-references.mjs'],
+    examines: [GITHUB, REGISTRY],
   },
   {
     // A rule or routing document that names a mechanism (a harness script, a hook, a package
     // script, an MCP server) must name one that resolves — a phantom name reads as satisfiable.
     name: 'named-mechanism-resolves',
     command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
+    examines: [RULES, 'AGENTS.md', SCRIPTS, 'package.json', CLAUDE],
   },
   {
     name: 'hook-syntax',
     command: ['node', 'scripts/harness/scan-hook-syntax.mjs'],
+    examines: [HOOKS],
   },
   {
     // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
@@ -374,90 +476,150 @@ export const SCAN_COMMANDS = [
     // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
     name: 'skill-registration',
     command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
+    examines: [under('.claude/skills'), SKILLS, HOOKS, REGISTRY],
   },
-  { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
-  { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
+  {
+    name: 'document-authority',
+    command: ['node', 'scripts/harness/check-document-authority.mjs'],
+    always: true,
+  },
+  {
+    name: 'commands',
+    command: ['node', 'scripts/harness/check-command-layering.mjs'],
+    examines: [under('packages/agent-cli'), under('packages/agent-framework')],
+  },
   {
     name: 'capability-placement',
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
+    examines: [
+      '.agents/project-structure.md',
+      HARNESS_CONFIG,
+      PACKAGES,
+      APPS,
+      'package.json',
+      DOCS,
+    ],
   },
   {
     name: 'spec-manifest-restatement',
     command: ['node', 'scripts/harness/check-spec-manifest-restatement.mjs'],
+    examines: [HARNESS_CONFIG, ...WORKSPACE],
   },
   {
     name: 'nested-package-glob-coverage',
     command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
+    examines: ['pnpm-workspace.yaml', PACKAGES, '.agents/rules/learning-loop.md', GITHUB],
   },
   {
     name: 'background-workspace',
     command: ['node', 'scripts/harness/check-background-workspace-conformance.mjs'],
+    examines: [PACKAGES, under('.agents/specs/architecture-map')],
   },
   {
     name: 'agent-server-boundary',
     command: ['node', 'scripts/harness/check-agent-server-boundary.mjs'],
+    examines: [...WORKSPACE, under('.agents/specs/architecture-map')],
   },
-  { name: 'sdk-public-surface', command: ['node', 'scripts/harness/check-sdk-public-surface.mjs'] },
-  { name: 'specs', command: ['node', 'scripts/harness/audit-spec-coverage.mjs'] },
-  { name: 'spec-paths', command: ['node', 'scripts/harness/check-spec-paths.mjs'] },
+  {
+    name: 'sdk-public-surface',
+    command: ['node', 'scripts/harness/check-sdk-public-surface.mjs'],
+    examines: [PACKAGES, '.agents/project-structure.md', 'package.json'],
+  },
+  {
+    name: 'specs',
+    command: ['node', 'scripts/harness/audit-spec-coverage.mjs'],
+    examines: [...WORKSPACE, DOCS, 'README.md'],
+  },
+  {
+    name: 'spec-paths',
+    command: ['node', 'scripts/harness/check-spec-paths.mjs'],
+    examines: [...WORKSPACE, DOCS],
+  },
   {
     name: 'arch-map-paths',
     command: ['node', 'scripts/harness/check-architecture-map-paths.mjs'],
+    examines: [under('.agents/specs/architecture-map'), PACKAGES, APPS],
   },
   {
     name: 'arch-map-completeness',
     command: ['node', 'scripts/harness/check-architecture-map-completeness.mjs'],
+    examines: [under('.agents/specs/architecture-map'), PACKAGES, 'README.md'],
   },
   {
     name: 'document-standards',
     command: ['node', 'scripts/harness/check-document-standards-index.mjs'],
+    examines: [AGENTS],
   },
   {
     name: 'agent-def-convention',
     command: ['node', 'scripts/harness/check-agent-def-convention.mjs'],
+    examines: [AGENT_DEFS, under('.agents/specs/document-standards'), SKILLS],
   },
   {
     name: 'fixture-floor',
     command: ['node', 'scripts/harness/check-fixture-floor.mjs'],
+    examines: [HARNESS],
   },
   {
     name: 'contract-disposition',
     command: ['node', 'scripts/harness/check-contract-disposition.mjs'],
+    examines: [under('.changeset'), 'README.md'],
   },
   {
     name: 'design-doc',
     command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
+    examines: [...WORKSPACE, SPECS, DOCS, REGISTRY],
   },
   {
     name: 'spec-whitebox-leakage',
     command: ['node', 'scripts/harness/check-spec-whitebox-leakage.mjs'],
+    examines: [...WORKSPACE, SKILLS, DOCS, REGISTRY],
   },
   {
     name: 'adr',
     command: ['node', 'scripts/harness/check-adr-completeness.mjs'],
+    examines: [under('.design')],
   },
   {
     name: 'spec-doc-frontmatter',
     command: ['node', 'scripts/harness/check-spec-doc-frontmatter.mjs'],
+    examines: [SPEC_DOCS],
   },
   {
     name: 'spec-public-surface',
     command: ['node', 'scripts/harness/check-spec-public-surface.mjs'],
+    examines: [...WORKSPACE, 'scripts/harness/spec-surface-baseline.json'],
   },
   {
     name: 'harness-config-paths',
     command: ['node', 'scripts/harness/check-harness-config-paths.mjs'],
+    examines: [HARNESS, HARNESS_CONFIG, PACKAGES],
   },
-  { name: 'workspace-refs', command: ['node', 'scripts/harness/check-workspace-refs.mjs'] },
+  {
+    name: 'workspace-refs',
+    command: ['node', 'scripts/harness/check-workspace-refs.mjs'],
+    examines: [...WORKSPACE, SCRIPTS],
+  },
   {
     name: 'ghost-package-refs',
     command: ['node', 'scripts/harness/check-ghost-package-refs.mjs'],
+    examines: [PACKAGES, APPS, MARKDOWN, CLAUDE, SCRIPTS],
   },
-  { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
-  { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  {
+    name: 'stub-markers',
+    command: ['node', 'scripts/harness/check-stub-markers.mjs'],
+    examines: [...WORKSPACE],
+  },
+  {
+    name: 'conflict-markers',
+    command: ['node', 'scripts/harness/scan-conflict-markers.mjs'],
+    examines: [AGENTS, 'AGENTS.md', PACKAGES, APPS, SCRIPTS],
+  },
   {
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
+    always: true,
+    advisory: true,
   },
   // HARNESS-118. A cited task-record path is a fact that a lifecycle move makes false in silence.
   // Resolution is by ID AND slug, because an ID-only resolver answers three cases in this tree with
@@ -465,35 +627,48 @@ export const SCAN_COMMANDS = [
   {
     name: 'task-path-citations',
     command: ['node', 'scripts/harness/scan-task-path-citations.mjs'],
+    examines: [AGENTS, SCRIPTS, 'AGENTS.md', 'CLAUDE.md'],
   },
   // INFRA-127. A rule catalogue's row IS the unit of obligation, so a row short of the columns its
   // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
   // state when this landed.
-  { name: 'rule-table-shape', command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'] },
+  {
+    name: 'rule-table-shape',
+    command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'],
+    examines: [AGENTS],
+  },
   // INFRA-126. The suite exhausted /tmp's inodes and stopped every push from the host. `makeTemp()`
   // owns creation and teardown together; this refuses a direct call regardless of teardown, because
   // whether a directory is removed is not something a scan can see.
-  { name: 'temp-dir-owner', command: ['node', 'scripts/harness/scan-temp-dir-owner.mjs'] },
+  {
+    name: 'temp-dir-owner',
+    command: ['node', 'scripts/harness/scan-temp-dir-owner.mjs'],
+    examines: [under('scripts/harness/__tests__')],
+  },
   // INFRA-127. `.agents/tasks/README.md` declares seven required fields and only `status` was ever
   // checked, by two scans that ask about placement and lifecycle rather than presence.
   {
     name: 'task-frontmatter-fields',
     command: ['node', 'scripts/harness/scan-task-frontmatter-fields.mjs'],
+    examines: [TASKS],
   },
   // INFRA-112. The accepted forms are derived from each hook's own source, so this compares the
   // declarations against the code rather than against a list that would drift beside them.
   {
     name: 'hook-override-declarations',
     command: ['node', 'scripts/harness/scan-hook-override-declarations.mjs'],
+    examines: ['AGENTS.md', HOOKS, AGENTS],
   },
   {
     name: 'symlink-following-enumeration',
     command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
+    examines: [SCRIPTS, CLAUDE, under('.husky')],
   },
   // issue #1916. Reads only the tracked tree, so it is hermetic and a clone can judge it offline.
   {
     name: 'work-item-id-collision',
     command: ['node', 'scripts/harness/scan-work-item-id-collision.mjs'],
+    always: true,
   },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
@@ -501,6 +676,7 @@ export const SCAN_COMMANDS = [
   {
     name: 'node-version-single-valued',
     command: ['node', 'scripts/harness/scan-node-version-single-valued.mjs'],
+    examines: ['package.json', 'pnpm-workspace.yaml', PACKAGES, APPS],
   },
   // HARNESS-105. The user-execution gate section is required BEFORE implementation starts, and
   // nothing enforced it — 217 of 257 `done/` documents had none when this floor was written. The
@@ -508,12 +684,14 @@ export const SCAN_COMMANDS = [
   {
     name: 'spec-user-execution-section',
     command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
+    examines: [SPEC_DOCS, RULES, 'scripts/harness/spec-user-execution-baseline.json'],
   },
   // HARNESS-121. A final section cannot prove it existed before code. Replay the topic ancestry and
   // require one exact Task/spec GATE-IMPLEMENT checkpoint before any implementation path changes.
   {
     name: 'user-execution-plan-order',
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
+    always: true,
   },
   // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
   // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
@@ -523,6 +701,7 @@ export const SCAN_COMMANDS = [
   {
     name: 'standing-delegation-evidence',
     command: ['node', 'scripts/harness/scan-standing-delegation-evidence.mjs'],
+    examines: [SPEC_DOCS, RULES, 'scripts/harness/standing-delegation-baseline.json'],
   },
   // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
   // itself to packages/apps, so nothing could see them — three of three were in violation. The
@@ -530,20 +709,39 @@ export const SCAN_COMMANDS = [
   {
     name: 'routing-document-size',
     command: ['node', 'scripts/harness/scan-routing-document-size.mjs'],
+    examines: ['AGENTS.md', RULES, '.agents/project-structure.md'],
   },
-  { name: 'shell-portability', command: ['node', 'scripts/harness/scan-shell-portability.mjs'] },
-  { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
+  {
+    name: 'shell-portability',
+    command: ['node', 'scripts/harness/scan-shell-portability.mjs'],
+    examines: ['.agents/rules/operational.md', SCRIPTS, under('.husky'), HOOKS],
+  },
+  {
+    name: 'ci-base-history',
+    command: ['node', 'scripts/harness/scan-ci-base-history.mjs'],
+    // The workflows, plus the four base-history scripts the scan declares by name.
+    examines: [
+      GITHUB,
+      harnessFile('check-regression-red-proof'),
+      harnessFile('check-patch-coverage'),
+      'scripts/harness/check-document-authority.mjs',
+      'scripts/harness/scan-promotion-ancestry.mjs',
+    ],
+  },
   {
     name: 'automerge-disarm-permission',
     command: ['node', 'scripts/harness/scan-automerge-disarm-permission.mjs'],
+    examines: [GITHUB],
   },
   {
     name: 'promotion-ancestry',
     command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
+    always: true,
   },
   {
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
+    examines: [GITHUB],
   },
   // INFRA-097. A required check triggered by `pull_request` loads its YAML from the PR, so the
   // change carries the control plane that judges it. This makes such an edit visible; it does not
@@ -551,6 +749,7 @@ export const SCAN_COMMANDS = [
   {
     name: 'workflow-provenance',
     command: ['node', 'scripts/harness/scan-workflow-provenance.mjs'],
+    examines: [GITHUB],
   },
   // Issue #2039. The sibling above makes a `pull_request` gate's edit VISIBLE; a `pull_request_target`
   // gate fails the opposite way — it loads its YAML from the default branch, so a fix to it is inert
@@ -558,26 +757,32 @@ export const SCAN_COMMANDS = [
   {
     name: 'pull-request-target-promotion-lag',
     command: ['node', 'scripts/harness/scan-pull-request-target-promotion-lag.mjs'],
+    examines: [GITHUB],
   },
   {
     name: 'new-rule-declares-enforcement',
     command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
+    always: true,
   },
   {
     name: 'named-artifact-resolves',
     command: ['node', 'scripts/harness/scan-named-artifact-resolves.mjs'],
+    always: true,
   },
   {
     name: 'required-check-local-reachability',
     command: ['node', 'scripts/harness/scan-required-check-local-reachability.mjs'],
+    examines: ['package.json', GITHUB, harnessFile('ci-mirror-map')],
   },
   {
     name: 'required-check-needs',
     command: ['node', 'scripts/harness/scan-required-check-needs.mjs'],
+    examines: [GITHUB],
   },
   {
     name: 'test-selection-tolerance',
     command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
+    examines: [GITHUB, PACKAGES, APPS, 'package.json'],
   },
   {
     // INFRA-063 D7 — `pnpm test` is `-r --if-present test`, which walks past every suite declared
@@ -586,6 +791,7 @@ export const SCAN_COMMANDS = [
     // `^test(:|$)` script and requires each to be run or excluded with a re-verified reason.
     name: 'release-sweep-coverage',
     command: ['node', 'scripts/harness/scan-release-sweep-coverage.mjs'],
+    examines: [...WORKSPACE, GITHUB, harnessFile('release-test-suites')],
   },
   {
     // INFRA-060 D4 — the affected-scope calculator resolved build tooling to ZERO scopes, so a PR
@@ -593,46 +799,85 @@ export const SCAN_COMMANDS = [
     // having verified nothing. Executes the calculator against each declared path.
     name: 'build-tooling-scope',
     command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
+    // The calculator, the declared tooling paths (the root-level scripts), and every input the
+    // calculator resolves a scope from.
+    examines: [
+      harnessFile('check-plan'),
+      harnessFile('shared'),
+      ['scripts', '*.mjs'].join('/'),
+      ...WORKSPACE,
+      'tsconfig*.json',
+      '.eslintrc.json',
+      'pnpm-lock.yaml',
+      'vitest*.ts',
+    ],
   },
-  { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  {
+    name: 'no-fallback',
+    command: ['node', 'scripts/harness/scan-no-fallback.mjs'],
+    examines: [...WORKSPACE],
+  },
   // CORE-030: a produced tool with no declared permission profile takes the fail-safe fallback,
   // which prompts on every call and is refused in plan mode. Silent, and it had already happened.
   {
     name: 'tool-classification',
     command: ['node', 'scripts/harness/scan-tool-classification.mjs'],
+    examines: [...WORKSPACE],
   },
   {
     // HARNESS-072 tractable subset: a quantified loop bound has one owner (the skill); the map and
     // the rules point rather than restate. #1615 produced five contradictions this way in one PR.
     name: 'loopback-bound-ownership',
     command: ['node', 'scripts/harness/scan-loopback-bound-ownership.mjs'],
+    examines: ['.agents/specs/orchestration-map.md', SKILLS, RULES, SPEC_DOCS],
   },
   {
     name: 'transport-admission',
     command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
+    examines: [PACKAGES, HARNESS_CONFIG],
   },
   {
     name: 'transport-conformance',
     command: ['node', 'scripts/harness/scan-transport-conformance.mjs'],
+    examines: [
+      PACKAGES,
+      HARNESS_CONFIG,
+      'scripts/harness/transport-conformance.tsconfig.json',
+      'package.json',
+    ],
   },
   {
     name: 'browser-package-node-subpath',
     command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
+    examines: [...WORKSPACE, HARNESS_CONFIG],
   },
-  { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
+  {
+    name: 'authority-bypass',
+    command: ['node', 'scripts/harness/scan-authority-bypass.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES, APPS],
+  },
   {
     // ARCH-042: public project APIs consume opaque authority/facets; removed cwd helpers and
     // ambient fallbacks must not re-enter through an initial/stateless consumer.
     name: 'public-project-authority',
     command: ['node', 'scripts/harness/scan-public-project-authority.mjs'],
+    examines: [PACKAGES],
   },
   {
     name: 'run-advancement-owner',
     command: ['node', 'scripts/harness/scan-run-advancement-owner.mjs'],
+    examines: [PACKAGES, APPS],
   },
   {
     name: 'contract-cast-ratchet',
     command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
+    examines: [
+      HARNESS_CONFIG,
+      'scripts/harness/contract-cast-baseline.json',
+      PACKAGES,
+      APPS,
+      SCRIPTS,
+    ],
   },
   {
     // ARCH-029: the load-bearing floor. Decomposing a god contract does not fix it — consumers
@@ -646,12 +891,20 @@ export const SCAN_COMMANDS = [
     // reader would take as covering all three.
     name: 'aggregate-naming',
     command: ['node', 'scripts/harness/scan-aggregate-naming.mjs'],
+    examines: [
+      'scripts/harness/aggregate-naming-baseline.json',
+      HARNESS_CONFIG,
+      CONTENT,
+      PACKAGES,
+      APPS,
+    ],
   },
   {
     // ARCH-029 TC-06: role ports carry no optional members. An aggregate-level optional CEILING
     // would not have caught the regression this guards, which is why the rule is per-port.
     name: 'role-port-optionals',
     command: ['node', 'scripts/harness/scan-role-port-optionals.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES, CONTENT],
   },
   {
     // ARCH-037: a barrel-exported function's parameter types must be exported from the same barrel.
@@ -659,6 +912,7 @@ export const SCAN_COMMANDS = [
     // casts into. ARCH-025 fixed that shape once and it recurred, which is why it is a floor.
     name: 'barrel-parameter-types',
     command: ['node', 'scripts/harness/scan-barrel-parameter-types.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES],
   },
   {
     // ARCH-013 stage 2: a resolved-preset field must reach a declared projection surface, and the
@@ -668,26 +922,32 @@ export const SCAN_COMMANDS = [
     // one session holds two answers for the same preset depending on when it was chosen.
     name: 'preset-projection',
     command: ['node', 'scripts/harness/scan-preset-projection.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES, APPS, CONTENT],
   },
   {
     name: 'literal-cast-union',
     command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
+    examines: [PACKAGES, APPS, SCRIPTS],
   },
   {
     name: 'option-reachability',
     command: ['node', 'scripts/harness/scan-option-reachability.mjs'],
+    examines: [HARNESS_CONFIG, 'scripts/harness/option-reachability-baseline.json', PACKAGES, APPS],
   },
   {
     name: 'publish-registry',
     command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
+    examines: ['.agents/publish-registry.md', '.agents/project-structure.md', ...WORKSPACE],
   },
   {
     name: 'product-identity',
     command: ['node', 'scripts/harness/scan-product-identity.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES, 'scripts/harness/product-identity-baseline.json'],
   },
   {
     name: 'harness-script-import-safety',
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
+    examines: [HARNESS],
   },
   // INFRA-039. The CEILING, not the count: `--max-warnings` on the root `lint` script does the
   // enforcing, on the release path where that script already runs. This keeps the number from
@@ -695,42 +955,52 @@ export const SCAN_COMMANDS = [
   {
     name: 'lint-warning-ratchet',
     command: ['node', 'scripts/harness/scan-lint-warning-ratchet.mjs'],
+    examines: ['scripts/harness/lint-warning-baseline.json', 'package.json'],
   },
   {
     name: 'ci-concurrency-footprint',
     command: ['node', 'scripts/harness/scan-ci-concurrency-footprint.mjs'],
+    examines: [GITHUB, 'scripts/harness/ci-footprint-baseline.json'],
   },
   {
     name: 'runner-wait',
     command: ['node', 'scripts/harness/scan-runner-wait.mjs'],
+    examines: [GITHUB],
   },
   {
     name: 'rule-case-narrative',
     command: ['node', 'scripts/harness/scan-rule-case-narrative.mjs'],
+    examines: [RULES, 'scripts/harness/rule-case-narrative-baseline.json'],
   },
   {
     name: 'loop-contract',
     command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
+    examines: [SKILLS, RULES, '.agents/specs/orchestration-map.md'],
   },
   {
     name: 'loop-run-records',
     command: ['node', 'scripts/harness/scan-loop-run-records.mjs'],
+    examines: [SKILLS, under('.agents/loop-runs'), RULES, SPECS],
   },
   {
     name: 'architecture-refresh-signals',
     command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
+    examines: [AGENTS, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
   },
   {
     name: 'retired-agent-references',
     command: ['node', 'scripts/harness/scan-retired-agent-references.mjs'],
+    examines: [CLAUDE, AGENTS, HARNESS],
   },
   {
     name: 'loop-proof',
     command: ['node', 'scripts/harness/scan-loop-proof.mjs'],
+    examines: [AGENTS, 'scripts/harness/loop-proof-baseline.json'],
   },
   {
     name: 'resolving-claims',
     command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
+    examines: [AGENTS, PACKAGES],
   },
   {
     // CORE-046: the remote streaming route's spelling, compared across two packages that must not
@@ -738,105 +1008,191 @@ export const SCAN_COMMANDS = [
     // survived long enough to make every remote streaming call a 404.
     name: 'remote-stream-route-spelling',
     command: ['node', 'scripts/harness/scan-remote-stream-route-spelling.mjs'],
+    examines: [under('apps/agent-server'), under('packages/agent-remote-client')],
   },
   {
     name: 'mistake-mechanisms',
     command: ['node', 'scripts/harness/scan-mistake-mechanisms.mjs'],
+    examines: [RULES, 'eslint.config.*', '.eslintrc.*', GITHUB, REGISTRY, CLAUDE],
   },
   {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
+    examines: [HARNESS_CONFIG, HARNESS, ...WORKSPACE],
   },
   {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
+    examines: [
+      'scripts/harness/verify-macos-release-artifacts.sh',
+      GITHUB,
+      under('apps/agent-app'),
+    ],
   },
   {
     name: 'legacy-typescript',
     command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
+    examines: [HARNESS, ...WORKSPACE, 'scripts/harness/legacy-typescript-baseline.json'],
   },
-  { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    name: 'no-fake-in-src',
+    command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'],
+    examines: [...WORKSPACE],
+  },
   {
     name: 'measurement-provenance',
     command: ['node', 'scripts/harness/scan-measurement-provenance.mjs'],
+    examines: [SCRIPTS, 'vitest.config.ts'],
   },
-  { name: 'helper-limits', command: ['node', 'scripts/harness/scan-helper-limits.mjs'] },
+  {
+    name: 'helper-limits',
+    command: ['node', 'scripts/harness/scan-helper-limits.mjs'],
+    examines: [HARNESS],
+  },
   {
     // HARNESS-052 — the audited "success over work it did not do" shape wearing a test: an
     // assertion that no implementation of the code under test could fail.
     name: 'tautological-assertions',
     command: ['node', 'scripts/harness/scan-tautological-assertions.mjs'],
+    examines: [PACKAGES, APPS, SCRIPTS],
   },
   {
     // HARNESS-052 — and the same shape wearing a GUARD: a scan whose governed tree is absent and
     // which reports a pass rather than an error.
     name: 'guard-scope-fail-closed',
     command: ['node', 'scripts/harness/scan-guard-scope-fail-closed.mjs'],
+    examines: [HARNESS],
   },
-  { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
+  {
+    name: 'api-pagination',
+    command: ['node', 'scripts/harness/scan-api-pagination.mjs'],
+    examines: [SCRIPTS, GITHUB, PACKAGES],
+  },
   {
     name: 'live-smoke-provider-coverage',
     command: ['node', 'scripts/harness/scan-live-smoke-provider-coverage.mjs'],
+    examines: [
+      harnessFile('live-provider-smoke'),
+      PACKAGES,
+      '.github/workflows/live-provider-smoke.yml',
+    ],
   },
   {
     name: 'composition-neutrality',
     command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],
+    examines: [HARNESS_CONFIG, ...WORKSPACE],
   },
   {
     name: 'session-artifact-neutrality',
     command: ['node', 'scripts/harness/scan-session-artifact-neutrality.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES],
   },
   {
     name: 'agent-tools-neutrality',
     command: ['node', 'scripts/harness/scan-agent-tools-neutrality.mjs'],
+    examines: [under('packages/agent-tools'), HARNESS_CONFIG],
   },
   {
     name: 'memory-neutrality',
     command: ['node', 'scripts/harness/scan-memory-neutrality.mjs'],
+    examines: [HARNESS_CONFIG, ...WORKSPACE],
   },
   {
     name: 'evals-neutrality',
     command: ['node', 'scripts/harness/scan-evals-neutrality.mjs'],
+    examines: [HARNESS_CONFIG, PACKAGES, EXAMPLES],
   },
   {
     name: 'prompt-prose',
     command: ['node', 'scripts/harness/scan-prompt-prose.mjs'],
+    examines: [HARNESS_CONFIG, ...WORKSPACE],
   },
   {
     name: 'capability-reachability',
     command: ['node', 'scripts/harness/scan-capability-reachability.mjs'],
+    examines: [AGENTS],
   },
   {
     name: 'progress-report-quantification',
     command: ['node', 'scripts/harness/scan-progress-report-quantification.mjs'],
+    always: true,
+    advisory: true,
   },
-  { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
-  { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
+  {
+    name: 'deprecated-markers',
+    command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'],
+    examines: [...WORKSPACE],
+  },
+  {
+    name: 'done-evidence',
+    command: ['node', 'scripts/harness/check-done-evidence.mjs'],
+    always: true,
+  },
   {
     // HARNESS-050 — the companion to done-evidence: that one guards evidence DECAY (a cited path
     // that later vanished), this one guards evidence that was NEVER THERE.
     name: 'unearned-done-claims',
     command: ['node', 'scripts/harness/scan-unearned-done-claims.mjs'],
+    always: true,
   },
-  { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
-  { name: 'test-module-mocks', command: ['node', 'scripts/harness/check-test-module-mocks.mjs'] },
-  { name: 'backlog-placement', command: ['node', 'scripts/harness/check-backlog-placement.mjs'] },
-  { name: 'doc-examples', command: ['node', 'scripts/harness/check-doc-examples.mjs'] },
-  { name: 'llms-txt', command: ['node', 'scripts/harness/check-llms-txt.mjs'] },
+  {
+    name: 'task-archival',
+    command: ['node', 'scripts/harness/check-task-archival.mjs'],
+    examines: [AGENTS, REGISTRY, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
+  },
+  {
+    name: 'test-module-mocks',
+    command: ['node', 'scripts/harness/check-test-module-mocks.mjs'],
+    examines: [HARNESS_CONFIG, ...WORKSPACE, TASKS],
+  },
+  {
+    name: 'backlog-placement',
+    command: ['node', 'scripts/harness/check-backlog-placement.mjs'],
+    examines: [AGENTS, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
+  },
+  {
+    name: 'doc-examples',
+    command: ['node', 'scripts/harness/check-doc-examples.mjs'],
+    examines: [...WORKSPACE, CONTENT, 'README.md', 'tsconfig.json'],
+  },
+  {
+    name: 'llms-txt',
+    command: ['node', 'scripts/harness/check-llms-txt.mjs'],
+    examines: ['llms.txt', MARKDOWN, CONTENT, DOCS],
+  },
   {
     name: 'temp-script-placement',
     command: ['node', 'scripts/harness/check-temp-script-placement.mjs'],
+    examines: [PACKAGES, APPS],
   },
-  { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
-  { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
-  { name: 'dep-kind', command: ['node', 'scripts/harness/check-dep-kind.mjs'] },
+  {
+    name: 'orphan-exports',
+    command: ['node', 'scripts/harness/check-orphan-exports.mjs'],
+    examines: [...WORKSPACE, '.agents/project-structure.md', SCRIPTS],
+  },
+  {
+    name: 'deps',
+    command: ['node', 'scripts/harness/check-dependency-direction.mjs'],
+    examines: [...WORKSPACE, HARNESS_CONFIG, '.agents/specs/contract-family-owner-map.md'],
+  },
+  {
+    name: 'dep-kind',
+    command: ['node', 'scripts/harness/check-dep-kind.mjs'],
+    examines: [...WORKSPACE],
+  },
   {
     name: 'interface-imports',
     command: ['node', 'scripts/harness/check-interface-imports.mjs'],
+    examines: [...WORKSPACE],
   },
   {
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
+    examines: [
+      '.agents/project-structure.md',
+      PACKAGES,
+      'scripts/harness/interface-entry-baseline.json',
+    ],
   },
   {
     // ARCH-100 (issue #2080): the contract-family owner map in
@@ -845,6 +1201,13 @@ export const SCAN_COMMANDS = [
     // sitting outside an owner package that already exists.
     name: 'interface-family-owner',
     command: ['node', 'scripts/harness/scan-interface-family-owner.mjs'],
+    examines: [
+      '.agents/specs/contract-family-owner-map.md',
+      '.agents/project-structure.md',
+      PACKAGES,
+      HARNESS_CONFIG,
+      'package.json',
+    ],
   },
   {
     // HARNESS-117 (issue #2178): a rule that is ENFORCED still has a STATEMENT somebody can read.
@@ -852,40 +1215,259 @@ export const SCAN_COMMANDS = [
     // one rule's statement can vanish while the file is still named for another.
     name: 'rule-statement-floor',
     command: ['node', 'scripts/harness/scan-rule-statement-floor.mjs'],
+    examines: [AGENTS, 'AGENTS.md', 'ARCHITECTURE.md', 'CLAUDE.md', DOCS, HARNESS],
   },
   {
     // ARCH-021: the same family as interface-runtime — "package X's src/ must not import Y". This one
     // holds the TOOL axis, which the manifest edge cannot cut (ARCH-035 / #1787).
     name: 'subagent-runner-composition',
     command: ['node', 'scripts/harness/scan-subagent-runner-composition.mjs'],
+    examines: [under('packages/agent-subagent-runner'), HARNESS_CONFIG, 'package.json'],
   },
-  { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
-  { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
-  { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },
+  {
+    name: 'publish',
+    command: ['node', 'scripts/harness/check-publish-safety.mjs'],
+    examines: [...WORKSPACE, DOCS, 'scripts/check-pnpm-publish.sh'],
+  },
+  {
+    name: 'release-governance',
+    command: ['node', 'scripts/harness/check-release-governance.mjs'],
+    examines: [
+      'package.json',
+      RULES,
+      GITHUB,
+      under('scripts/publish'),
+      REGISTRY,
+      harnessFile('release-run'),
+      under('.agents/release-runs'),
+      under('.agents/templates'),
+    ],
+  },
+  {
+    name: 'test-plans',
+    command: ['node', 'scripts/harness/scan-test-plan.mjs'],
+    examines: [AGENTS, DOCS, REGISTRY],
+  },
   {
     name: 'functional-coverage',
     command: ['node', 'scripts/harness/check-functional-coverage.mjs'],
+    examines: ['scripts/harness/functional-coverage-manifest.json', PACKAGES, APPS],
   },
   {
     name: 'coverage-scripts',
     command: ['node', 'scripts/harness/check-test-coverage-scripts.mjs'],
+    examines: [...WORKSPACE, REGISTRY, 'scripts/harness/check-test-coverage-scripts.mjs'],
   },
-  { name: 'file-size', command: ['node', 'scripts/harness/scan-file-size.mjs'] },
+  {
+    name: 'file-size',
+    command: ['node', 'scripts/harness/scan-file-size.mjs'],
+    examines: ['scripts/harness/file-size-baseline.json', HARNESS_CONFIG, CONTENT, PACKAGES, APPS],
+  },
   {
     name: 'build-contracts',
     command: ['node', 'scripts/harness/check-build-output-contracts.mjs'],
+    // Reads build OUTPUT, which no tree hash speaks for (`TREE_EXTERNAL_SCANS`), but the output is
+    // a function of the package sources and their build configuration — those are its subject.
+    examines: [...WORKSPACE, 'tsconfig*.json'],
   },
-  { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
+  {
+    name: 'dist',
+    command: ['node', 'scripts/harness/scan-dist-freshness.mjs'],
+    // Freshness is dist against each package's sources; a change outside the workspace cannot
+    // stale it.
+    examines: [...WORKSPACE, 'tsconfig*.json'],
+  },
   {
     name: 'doc-folder-status',
     command: ['node', 'scripts/harness/scan-doc-folder-status-agreement.mjs'],
+    examines: [SPEC_DOCS, '.agents/rules/spec-workflow.md'],
   },
   {
     name: 'vitest-resource-ceiling',
     command: ['node', 'scripts/harness/scan-vitest-resource-ceiling.mjs'],
+    examines: ['vitest.shared.ts', 'vitest.config.*', PACKAGES, APPS, 'pnpm-workspace.yaml'],
   },
-  { name: 'docs-structure', command: ['pnpm', 'docs:validate-structure'] },
+  {
+    name: 'docs-structure',
+    command: ['pnpm', 'docs:validate-structure'],
+    examines: [under('scripts/docs'), PACKAGES],
+  },
 ];
+
+/** The lanes a run can declare with `--context`; the default is the stricter one. */
+export const SCAN_CONTEXTS = ['pr', 'integration'];
+
+/** Names of the registered scans whose failure is advisory under `--context pr`. */
+export function advisoryScanNames(scans = SCAN_COMMANDS) {
+  return new Set(scans.filter((scan) => scan.advisory === true).map((scan) => scan.name));
+}
+
+/**
+ * A workspace glob as a RegExp over a repository-relative path. `**` spans directories, `*` and `?`
+ * stay inside one segment, `{a,b}` alternates. Anchored: `package.json` is the ROOT manifest, not
+ * every manifest — a scan that reads every one says `packages/**` beside it.
+ */
+export function globToRegExp(glob) {
+  let source = '';
+  const pattern = String(glob).replace(/^\.\//, '');
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+    if (char === '*') {
+      if (pattern[i + 1] === '*') {
+        // `**/` may match nothing at all; a bare `**` swallows the rest.
+        if (pattern[i + 2] === '/') {
+          source += '(?:.*/)?';
+          i += 2;
+        } else {
+          source += '.*';
+          i += 1;
+        }
+      } else {
+        source += '[^/]*';
+      }
+    } else if (char === '?') source += '[^/]';
+    else if (char === '{') source += '(?:';
+    else if (char === '}') source += ')';
+    else if (char === ',') source += '|';
+    else source += char.replace(/[.+^$()|[\]\\]/g, '\\$&');
+  }
+  return new RegExp(`^${source}$`);
+}
+
+/** Whether a repository-relative path is inside any of the globs. A trailing `/` (an untracked directory) is kept: `dir/` is read as everything under it. */
+export function pathMatchesAny(file, globs) {
+  const normalized = String(file).trim().replaceAll('\\', '/').replace(/^\.\//, '');
+  return globs.some((glob) => globToRegExp(glob).test(normalized));
+}
+
+/**
+ * Select the scans a set of changed paths can reach.
+ *
+ * Pure over the registry and the paths, so it is tested with a fixture list and never by spawning.
+ * Returns `{ selected, excluded, full, reason, unmatched }`:
+ *   - every `always` scan is selected on any change;
+ *   - a scan with `examines` is selected when any changed path is inside any of its globs;
+ *   - a changed path inside NO declared glob (the `always` scans declare none) selects the FULL
+ *     registry — `full: true`, `reason` names the path — because nobody has said a scan can skip it;
+ *   - a scan that declares neither is a REGISTRATION DEFECT and throws: a scan that cannot say what
+ *     it reads would otherwise be silently skipped on every affected run.
+ */
+export function selectAffectedScans(scans, changedPaths) {
+  const changed = [...new Set((changedPaths ?? []).map((p) => String(p).trim()).filter(Boolean))];
+  for (const scan of scans) {
+    if (scan.always !== true && !Array.isArray(scan.examines)) {
+      throw new Error(
+        `run-all-scans: \`${scan.name}\` declares neither \`examines\` nor \`always\`, so ` +
+          '--affected cannot tell whether a change reaches it. Declare what it reads (PROC-016).',
+      );
+    }
+  }
+  if (changed.length === 0) {
+    return {
+      selected: scans,
+      excluded: [],
+      full: true,
+      unmatched: [],
+      reason: 'no changed paths were resolved — selecting the full suite (fail closed)',
+    };
+  }
+  const declared = scans.filter((scan) => Array.isArray(scan.examines));
+  const unmatched = changed.filter(
+    (file) => !declared.some((scan) => pathMatchesAny(file, scan.examines)),
+  );
+  if (unmatched.length > 0) {
+    return {
+      selected: scans,
+      excluded: [],
+      full: true,
+      unmatched,
+      reason:
+        `changed path${unmatched.length === 1 ? '' : 's'} ${unmatched.map((f) => `\`${f}\``).join(', ')} ` +
+        `${unmatched.length === 1 ? 'matches' : 'match'} no scan's declared globs — selecting the full suite (fail closed)`,
+    };
+  }
+  const selected = scans.filter(
+    (scan) => scan.always === true || changed.some((file) => pathMatchesAny(file, scan.examines)),
+  );
+  const chosen = new Set(selected.map((scan) => scan.name));
+  return {
+    selected,
+    excluded: scans.filter((scan) => !chosen.has(scan.name)),
+    full: false,
+    unmatched: [],
+    reason: null,
+  };
+}
+
+/** One line a reader can compare against the summary: what was selected and what was left out. */
+export function describeAffectedSelection(selection) {
+  const names = selection.excluded.map((scan) => scan.name);
+  const tail = names.length > 0 ? ` (${names.join(', ')})` : '';
+  return `affected: ${selection.selected.length} selected, ${selection.excluded.length} excluded${tail}`;
+}
+
+function gitLines(args, root) {
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${args.join(' ')} failed: ${(result.stderr ?? '').trim() || '(no stderr)'}`,
+    );
+  }
+  return result.stdout.split('\n').map((line) => line.replace(/\r$/, ''));
+}
+
+/** Paths `git status --porcelain` reports (a rename is reported by its NEW name), tracked or not. */
+export function parseStatusPorcelain(output) {
+  const files = [];
+  for (const line of String(output ?? '').split('\n')) {
+    if (line.length < 4) continue;
+    const entry = line.slice(3);
+    const arrow = entry.indexOf(' -> ');
+    files.push(arrow === -1 ? entry : entry.slice(arrow + 4));
+  }
+  return files;
+}
+
+/**
+ * The changed paths of this checkout against a base: the committed delta (union across every merge
+ * base, as `classify-changed-paths.mjs` computes it) plus whatever the working tree holds that the
+ * index does not. Returns `{ files, base, error }`; an error is a reason to run the full suite, never
+ * a reason to run less.
+ */
+export function resolveChangedPaths({
+  explicitBase = null,
+  root = WORKSPACE_ROOT,
+  env = process.env,
+} = {}) {
+  const refExists = (ref) =>
+    spawnSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
+      cwd: root,
+      stdio: 'ignore',
+    }).status === 0;
+  const base = resolveBaseRef({ explicitBaseRef: explicitBase, env, refExists });
+  if (!base) {
+    return {
+      files: [],
+      base: null,
+      error: explicitBase
+        ? `base ref \`${explicitBase}\` does not resolve`
+        : 'no base ref resolves (set HARNESS_BASE_REF, pass --base, or fetch origin/develop)',
+    };
+  }
+  const range = classifyRange({ baseRef: base, head: 'HEAD', cwd: root });
+  if (range.error) return { files: [], base, error: range.error };
+  let working;
+  try {
+    working = parseStatusPorcelain(gitLines(['status', '--porcelain'], root).join('\n'));
+  } catch (error) {
+    return { files: [], base, error: error?.message ?? String(error) };
+  }
+  return { files: [...new Set([...range.files, ...working])].sort(), base, error: null };
+}
 
 function spawnScan(command) {
   return new Promise((resolve) => {
@@ -926,8 +1508,24 @@ export async function runScans(
   // with a subject is held to whether it declared. `checkAdoption` gates whether the ratchet runs at
   // all (a caller passing three fixtures wants none); `writeAdoption` re-freezes the set from this
   // pass instead of judging it.
-  { checkAdoption = false, writeAdoption = false, knownNames = null } = {},
+  // `context` and `advisoryNames` (PROC-016): under `pr`, a failing scan whose name is in
+  // `advisoryNames` is TOLERATED — printed in full, surfaced on the advisory channel, and left out of
+  // the verdict. `onOutcome` receives `{ tolerated }` so the caller can refuse to write a receipt
+  // for a pass that leaned on tolerance.
+  {
+    checkAdoption = false,
+    writeAdoption = false,
+    knownNames = null,
+    context = 'integration',
+    advisoryNames = new Set(),
+    onOutcome = null,
+  } = {},
 ) {
+  if (!SCAN_CONTEXTS.includes(context)) {
+    throw new Error(
+      `run-all-scans: unknown context \`${context}\` (expected ${SCAN_CONTEXTS.join('|')})`,
+    );
+  }
   const results = new Array(scans.length);
   let next = 0;
   async function worker() {
@@ -945,10 +1543,19 @@ export async function runScans(
   const poolSize = Math.max(1, Math.min(concurrency, scans.length));
   await Promise.all(Array.from({ length: poolSize }, () => worker()));
 
+  // A tolerated failure is an advisory scan that failed under `pr`. It is printed EXACTLY like a
+  // failure — the finding is real and the output is where it lives — and differs only in the verdict.
+  const tolerated = new Set(
+    results
+      .filter((result) => result.code !== 0 && context === 'pr' && advisoryNames.has(result.name))
+      .map((result) => result.name),
+  );
+
   // Surface the full captured output of each FAILED scan (in original order) for debuggability.
   for (const result of results) {
     if (result.code !== 0 && result.output.trim().length > 0) {
-      write(`\n----- ${result.name} (FAILED) -----`);
+      const label = tolerated.has(result.name) ? 'FAILED — advisory in pr context' : 'FAILED';
+      write(`\n----- ${result.name} (${label}) -----`);
       write(result.output.replace(/\n+$/, ''));
     }
   }
@@ -966,8 +1573,16 @@ export async function runScans(
     // Three marks, not two. A skip that renders as a tick is counted in "all N scans passed" and is
     // indistinguishable from a scan that examined its whole subject — the output above it may be
     // honest while the summary line is not, and the summary is the line people read.
-    const mark = result.code !== 0 ? '✗' : skippedNames.has(result.name) ? '↩' : '✓';
-    write(`${mark} ${result.name}`);
+    const mark = tolerated.has(result.name)
+      ? '⚑'
+      : result.code !== 0
+        ? '✗'
+        : skippedNames.has(result.name)
+          ? '↩'
+          : '✓';
+    write(
+      `${mark} ${result.name}${tolerated.has(result.name) ? ' (advisory: failed, not blocking in pr context)' : ''}`,
+    );
   }
 
   // ADVISORIES from EVERY scan, passing or failing (HARNESS-053). Deliberately placed after the
@@ -976,6 +1591,17 @@ export async function runScans(
   const advisories = results.flatMap((result) =>
     extractAdvisories(result.output).map((text) => ({ name: result.name, text })),
   );
+  // A tolerated failure joins the advisory channel under its own name, so the summary carries the
+  // fact in the one place advisories are read — and says where the same failure DOES block.
+  for (const result of results) {
+    if (!tolerated.has(result.name)) continue;
+    advisories.push({
+      name: result.name,
+      text:
+        `${ADVISORY_MARKER} failed (exit ${result.code}) — advisory in pr context, so it does not ` +
+        'fail this run; the same failure BLOCKS the integration run on develop.',
+    });
+  }
   if (advisories.length > 0) {
     write('');
     write(
@@ -1018,12 +1644,16 @@ export async function runScans(
     write(adoption.message);
   }
 
-  const failed = results.filter((result) => result.code !== 0);
+  const failed = results.filter((result) => result.code !== 0 && !tolerated.has(result.name));
+  if (typeof onOutcome === 'function') onOutcome({ tolerated: [...tolerated] });
   if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
     // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
-    // stronger claim than the run supports.
-    const ran = results.length - skippedNames.size;
-    const tail = skippedNames.size > 0 ? `, ${skippedNames.size} skipped` : '';
+    // stronger claim than the run supports — and a pass that tolerated an advisory failure says so
+    // in the same line, so the verdict cannot be read as "nothing failed".
+    const ran = results.length - skippedNames.size - tolerated.size;
+    const tail =
+      (skippedNames.size > 0 ? `, ${skippedNames.size} skipped` : '') +
+      (tolerated.size > 0 ? `, ${tolerated.size} advisory failure(s) tolerated (pr context)` : '');
     write(
       checkAdoption
         ? `${ran} scans passed${tail} (${declaring} declared what they examined)`
@@ -1051,8 +1681,54 @@ export function parseSkips(argv) {
   return skips;
 }
 
+/** The value after a `--flag`, or `undefined` when the flag is absent or has no value. */
+export function parseFlagValue(argv, flag) {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv[index + 1];
+}
+
+/**
+ * The runner's options as `main` reads them (PROC-016):
+ *   --affected            run the scans the change reaches (plus every `always` scan)
+ *   --changed a,b,c       the changed paths, given directly (tests, hooks that already know them)
+ *   --base <ref>          the base to diff against; default = HARNESS_BASE_REF / GITHUB_BASE_REF /
+ *                         origin/develop, as every other base-reading scan resolves it
+ *   --context pr|integration   default integration; `pr` tolerates advisory-scan failures
+ *   --list                print the selection and exit without running anything
+ */
+export function parseRunOptions(argv) {
+  const context = parseFlagValue(argv, '--context') ?? 'integration';
+  if (!SCAN_CONTEXTS.includes(context)) {
+    throw new Error(`--context must be one of ${SCAN_CONTEXTS.join('|')}, got \`${context}\``);
+  }
+  const changedRaw = parseFlagValue(argv, '--changed');
+  return {
+    skips: parseSkips(argv),
+    writeAdoption: argv.includes('--write-adoption-baseline'),
+    affected: argv.includes('--affected'),
+    list: argv.includes('--list'),
+    context,
+    base: parseFlagValue(argv, '--base') ?? null,
+    changed:
+      changedRaw === undefined
+        ? null
+        : changedRaw
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean),
+  };
+}
+
 export async function main() {
-  const skips = parseSkips(process.argv.slice(2));
+  let options;
+  try {
+    options = parseRunOptions(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error?.message ?? error}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const { skips, writeAdoption, context } = options;
   const unknownSkips = [...skips].filter(
     (name) => !SCAN_COMMANDS.some((scan) => scan.name === name),
   );
@@ -1064,11 +1740,48 @@ export async function main() {
   for (const name of skips) {
     process.stdout.write(`skipped: ${name} (--skip)\n`);
   }
-  const writeAdoption = process.argv.slice(2).includes('--write-adoption-baseline');
-  const scans = SCAN_COMMANDS.filter(({ name }) => !skips.has(name)).map(({ name, command }) => ({
+  let registry = SCAN_COMMANDS.filter(({ name }) => !skips.has(name));
+
+  // --affected (PROC-016): select what the change reaches. Every branch that cannot answer the
+  // question — no base, no diff, an unclassifiable path — runs the whole registry and says why.
+  if (options.affected) {
+    let changed = options.changed;
+    let why = null;
+    if (changed === null) {
+      const resolved = resolveChangedPaths({ explicitBase: options.base });
+      if (resolved.error) {
+        why = `could not compute changed paths (${resolved.error})`;
+        changed = [];
+      } else {
+        changed = resolved.files;
+        process.stdout.write(
+          `affected: ${changed.length} changed path(s) against ${resolved.base}\n`,
+        );
+      }
+    }
+    const selection = why
+      ? { selected: registry, excluded: [], full: true, reason: why }
+      : selectAffectedScans(registry, changed);
+    if (selection.full) {
+      process.stdout.write(`affected: ${selection.reason}\n`);
+    }
+    process.stdout.write(`${describeAffectedSelection(selection)}\n`);
+    registry = selection.selected;
+  }
+  process.stdout.write(`context: ${context}\n`);
+  if (options.list) {
+    for (const scan of registry) {
+      process.stdout.write(`selected: ${scan.name}${scan.always ? ' (always)' : ''}\n`);
+    }
+    process.exitCode = 0;
+    return;
+  }
+
+  const scans = registry.map(({ name, command }) => ({
     name,
     run: () => spawnScan(command),
   }));
+  const advisoryNames = advisoryScanNames(SCAN_COMMANDS);
   // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
   // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
   // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
@@ -1096,20 +1809,37 @@ export async function main() {
     // The adoption ratchet is deliberately NOT judged over this handful: it binds over the set that
     // ran, and this set is two scans by construction, which would read as every other scan going
     // missing. The ratchet was judged on the run that wrote the receipt.
-    process.exitCode = await runScans(rerun, undefined, undefined, { checkAdoption: false });
+    process.exitCode = await runScans(rerun, undefined, undefined, {
+      checkAdoption: false,
+      context,
+      advisoryNames,
+    });
     return;
   }
   process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
 
+  let outcome = { tolerated: [] };
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
     // The full registry — so a frozen scan deleted/renamed OUT of it is caught (GONE) instead of
     // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
     knownNames: SCAN_COMMANDS.map((scan) => scan.name),
+    context,
+    advisoryNames,
+    onOutcome: (result) => {
+      outcome = result;
+    },
   });
 
-  if (process.exitCode === 0) {
+  if (process.exitCode === 0 && outcome.tolerated.length > 0) {
+    // A receipt says "this tree passed these scans". A pass that tolerated an advisory failure is
+    // not that: the integration run would reuse it and report green over a scan that failed.
+    process.stdout.write(
+      `scan receipt NOT written: ${outcome.tolerated.length} advisory failure(s) were tolerated ` +
+        `(${outcome.tolerated.join(', ')}), and a receipt must not certify them.\n`,
+    );
+  } else if (process.exitCode === 0) {
     const written = writeScanReceipt({ scanNames, root: WORKSPACE_ROOT });
     process.stdout.write(
       written.written

@@ -24,9 +24,10 @@
 #
 # On (2) the hook cannot judge whether a finding was ADDRESSED — that is the reviewer's call, and a
 # hook pretending to make it would be a guard checking the wrong thing. What it CAN establish is that
-# a review exists, that it names the exact current base/head SHA pair, and that nobody is merging
-# while the reviewer's own machine-readable count says findings remain. A timestamp cannot identify
-# the comparison because the base may move while the child head does not.
+# a review exists, that it names the exact current head, that the base it named either IS the current
+# base or moved only over files this PR never touches while the merge stays clean (PROC-016, #2386),
+# and that nobody is merging while the reviewer's own machine-readable count says findings remain. A
+# timestamp cannot identify the comparison because the base may move while the child head does not.
 #
 # Override: MERGE_GATE_ACK=1 INLINE in the same command. It must be inline because this hook reads
 # the command string — an `export` in an earlier statement never reaches it, the same property
@@ -39,6 +40,8 @@ INPUT=$(cat)
 source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 # shellcheck source=lib/bounded-gh.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 
 # The shared parser, for the reason it exists: the hand-rolled grep this replaces stopped at the
 # first quote inside the command, and a `gh pr merge` written after any quoted argument was never
@@ -349,9 +352,162 @@ REVIEWED_BASE=$(printf '%s\n' "$BODY" | sed -nE 's/^REVIEWED BASE: ([0-9a-f]{40}
 REVIEWED_HEAD=$(printf '%s\n' "$BODY" | sed -nE 's/^REVIEWED HEAD: ([0-9a-f]{40})$/\1/p')
 COUNT=$(printf '%s\n' "$BODY" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p')
 
+# THE BASE IS JUDGED BY INTERACTION, NOT IDENTITY (PROC-016, issue #2386).
+#
+# This used to refuse whenever the reviewed base was not the current base. RULE-015 measured what
+# that bought: fixtures B (#2385) and C (#2382) were each rebased onto a base that had moved over
+# 15 files while the branch touched 2 — file overlap 0, rebase conflicts 0, `range-diff` identical —
+# and each rebase cost a push, a CI cycle and a fresh review that could only say what the last one
+# said. A verdict is a statement about a comparison; the base moving over files the comparison never
+# contained does not change the comparison. So the question is whether the two changes INTERACT:
+#
+#   1. which files did the base move over?    git diff <reviewed-base> <current-base>, locally
+#   2. which files does this PR touch?         the PR's own file list
+#   3. is the merge clean?                     the PR's `mergeable`, read NOW, not remembered
+#
+# Disjoint AND MERGEABLE is accepted. Any overlap is refused naming every file, because that is the
+# case the review has not seen. Anything unreadable is refused: unknown is not zero, the same rule
+# the thread block above applies. This is the non-strict policy the host already runs under
+# ("require branches to be up to date" is off), asked mechanically at the one moment it matters.
+#
+# (1) IS COMPUTED IN THE CHECKOUT, NOT ASKED OF THE COMPARE API. The first version read
+# `repos/…/compare/<reviewed>...<current>` with `--paginate`. That endpoint paginates over COMMITS
+# and caps `files` at 300 with no truncation signal — measured: a 1597-file range answered 301
+# unique files and said nothing about the rest. So a base that had moved over more than 300 files
+# hid every overlap past the cap, and the gate accepted the merge on a list it did not know was
+# short. Silent truncation is the exact failure the `__labels__` full-page check above exists to
+# refuse, and here it could not even be detected. A local `git diff` is the whole diff.
+#
+# So both commits are made present first — `cat-file -e`, and a `fetch origin <oid>` for one the
+# checkout lacks (GitHub serves any reachable commit by its full OID) — and a commit that is still
+# absent after that is refused BY NAME, because "could not list what moved" and "nothing moved" are
+# the two answers this block must never conflate. Ancestry is asked of the same objects:
+# `merge-base --is-ancestor <reviewed> <current>` is exactly "did the base move FORWARD", and
+# anything else (a force-pushed or retargeted base) is a state where a two-commit diff lists both
+# sides' changes rather than what moved, so it is refused rather than half-measured. Renames are
+# read on both sides (`--name-status -M` prints the old AND the new name on one line), because a
+# file the PR edits under a name the base has since moved is an interaction the new name alone
+# would hide. `core.quotePath=false` keeps a non-ASCII path in the same bytes GitHub lists it in —
+# quoted, it would never match the PR's file and the overlap would fail OPEN.
+#
+# Every git call goes through `hook_git_in` (lib/hook-facts.sh), which scrubs the ambient
+# `GIT_DIR`-family pointers that would otherwise make these questions about a different repository.
+#
+# The `__files__` sentinel line is the `__labels__` construction: a readable answer with no files
+# still answers one line, an unreadable one answers nothing.
 if [[ "$REVIEWED_BASE" != "$CURRENT_BASE_OID" ]]; then
-  echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID." >&2
-  exit 2
+  REPO_DIR="${CLAUDE_PROJECT_DIR:-.}"
+  # The fetch is bounded the way the gh calls are: a transfer that stalls below 1 KB/s for the same
+  # deadline is abandoned, and an abandoned fetch is a refusal below, not a silent "nothing moved".
+  for _OID in "$CURRENT_BASE_OID" "$REVIEWED_BASE"; do
+    if ! hook_git_in "$REPO_DIR" cat-file -e "${_OID}^{commit}" 2>/dev/null; then
+      hook_git_in "$REPO_DIR" -c http.lowSpeedLimit=1000 -c "http.lowSpeedTime=$HOOK_GH_DEADLINE_SECONDS" \
+        fetch --quiet origin "$_OID" >/dev/null 2>&1 || true
+    fi
+    if ! hook_git_in "$REPO_DIR" cat-file -e "${_OID}^{commit}" 2>/dev/null; then
+      echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+      echo "[merge-gate] and commit $_OID is not in this checkout and could not be fetched from origin," >&2
+      echo "[merge-gate] so what the base moved over cannot be listed — and unknown is not zero." >&2
+      echo "[merge-gate] Fetch it (git fetch origin $_OID) and retry, rebase and re-review, or verify by" >&2
+      echo "[merge-gate] hand and override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+      exit 2
+    fi
+  done
+
+  # 0 = ancestor, 1 = not, anything else = git could not answer. The three are kept apart: "no" is a
+  # base that did not move forward, and "could not tell" is a refusal on its own evidence.
+  ANCESTRY_RC=0
+  hook_git_in "$REPO_DIR" merge-base --is-ancestor "$REVIEWED_BASE" "$CURRENT_BASE_OID" 2>/dev/null || ANCESTRY_RC=$?
+  if [[ "$ANCESTRY_RC" -eq 1 ]]; then
+    echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+    echo "[merge-gate] and the current base is not a descendant of the reviewed one (git merge-base --is-ancestor: no)," >&2
+    echo "[merge-gate] so what moved between them cannot be listed from one side." >&2
+    echo "[merge-gate] Rebase and re-review, or verify by hand and override inline:" >&2
+    echo "[merge-gate]   MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+    exit 2
+  elif [[ "$ANCESTRY_RC" -ne 0 ]]; then
+    echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+    echo "[merge-gate] and whether the current base descends from the reviewed one could not be read" >&2
+    echo "[merge-gate] (git merge-base exit $ANCESTRY_RC). Verify by hand, then override inline:" >&2
+    echo "[merge-gate]   MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+    exit 2
+  fi
+
+  if ! MOVED_RAW=$(hook_git_in "$REPO_DIR" -c core.quotePath=false diff --name-status -M "$REVIEWED_BASE" "$CURRENT_BASE_OID" 2>/dev/null); then
+    echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+    echo "[merge-gate] and what the base moved over could not be read, so whether it touches this PR's" >&2
+    echo "[merge-gate] files is unknown — and unknown is not zero. Rebase and re-review, or verify by" >&2
+    echo "[merge-gate] hand and override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+    exit 2
+  fi
+  # `--name-status` is one status column and then every path column: one for a modification, two
+  # (old, new) for a rename or copy. Every path column is a name the base moved over.
+  MOVED_FILES=$(printf '%s\n' "$MOVED_RAW" |
+    awk -F'\t' 'NF >= 2 { for (i = 2; i <= NF; i++) if ($i != "") print $i }' | LC_ALL=C sort -u || true)
+
+  # The REST list rather than `gh pr view --json files`: the latter reads `files(first: 100)` and
+  # does not paginate, so a PR wider than a page would have to be refused as a possibly-truncated
+  # read — the exact wide PR this check exists to stop rebasing needlessly. `--paginate` follows
+  # the Link headers to the end, and a page that fails to load fails the whole call.
+  PR_FILES_RAW=$(bounded_gh api "repos/$REPO_NWO/pulls/$PR/files?per_page=100" --paginate \
+    --jq '"__files__", (.[] | .filename, (.previous_filename // empty))' || echo "")
+  if ! printf '%s\n' "$PR_FILES_RAW" | grep -qx '__files__'; then
+    echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+    echo "[merge-gate] and PR #$PR's own file list could not be read, so whether the base moved over" >&2
+    echo "[merge-gate] any of them is unknown. Verify by hand, then override inline:" >&2
+    echo "[merge-gate]   MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+    exit 2
+  fi
+  PR_FILES=$(printf '%s\n' "$PR_FILES_RAW" | grep -vx '__files__' | LC_ALL=C sort -u || true)
+
+  # Both lists are sorted under the same collation, so `comm` is exact set intersection.
+  OVERLAP=$(LC_ALL=C comm -12 <(printf '%s\n' "$MOVED_FILES") <(printf '%s\n' "$PR_FILES") | grep . || true)
+  MOVED_COUNT=$(printf '%s\n' "$MOVED_FILES" | grep -c . || true)
+  PR_FILE_COUNT=$(printf '%s\n' "$PR_FILES" | grep -c . || true)
+  if [[ -n "$OVERLAP" ]]; then
+    OVERLAP_COUNT=$(printf '%s\n' "$OVERLAP" | grep -c . || true)
+    echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+    echo "[merge-gate] and the base moved over $OVERLAP_COUNT of the $PR_FILE_COUNT file(s) this PR touches:" >&2
+    while IFS= read -r _FILE; do
+      echo "[merge-gate]   $_FILE" >&2
+    done <<< "$OVERLAP"
+    echo "[merge-gate] The review never saw that interaction. Rebase onto the current base and" >&2
+    echo "[merge-gate] re-review. Deliberate exception: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+    exit 2
+  fi
+
+  # Read NOW rather than inferred from the CLEAN state above: GitHub recomputes mergeability lazily
+  # after the base moves, and `UNKNOWN` is what it answers while it is still computing — which is
+  # precisely the moment this gate tends to run. UNKNOWN is not MERGEABLE.
+  MERGE_PAIR=$(bounded_gh pr view "$PR" --json mergeable,mergeStateStatus --jq '"\(.mergeable // "") \(.mergeStateStatus // "")"' || echo "")
+  MERGEABLE="${MERGE_PAIR%% *}"
+  case "$MERGEABLE" in
+    MERGEABLE) ;;
+    CONFLICTING | UNKNOWN)
+      echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID." >&2
+      echo "[merge-gate] The base moved over none of this PR's $PR_FILE_COUNT file(s), but GitHub reports" >&2
+      echo "[merge-gate] mergeable: $MERGEABLE (merge state: ${MERGE_PAIR#* }). A disjoint file set that does" >&2
+      echo "[merge-gate] not merge cleanly is an interaction the file lists cannot see." >&2
+      if [[ "$MERGEABLE" == "UNKNOWN" ]]; then
+        echo "[merge-gate] UNKNOWN is GitHub still computing — wait and retry; it is not MERGEABLE yet." >&2
+      else
+        echo "[merge-gate] Rebase onto the current base, resolve the conflict, and re-review." >&2
+      fi
+      echo "[merge-gate] Deliberate exception: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+      exit 2
+      ;;
+    *)
+      echo "[merge-gate] Blocked: reviewed base $REVIEWED_BASE does not match current base $CURRENT_BASE_OID," >&2
+      echo "[merge-gate] and PR #$PR's mergeability could not be read (got '${MERGE_PAIR}'). Verify by" >&2
+      echo "[merge-gate] hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+      exit 2
+      ;;
+  esac
+  echo "[merge-gate] Note: base moved $REVIEWED_BASE -> $CURRENT_BASE_OID over $MOVED_COUNT file(s), none of" >&2
+  echo "[merge-gate] PR #$PR's $PR_FILE_COUNT; GitHub reports MERGEABLE. The reviewed comparison stands." >&2
+  BASE_VERDICT="base moved disjointly"
+else
+  BASE_VERDICT="exact base"
 fi
 if [[ "$REVIEWED_HEAD" != "$CURRENT_HEAD_OID" ]]; then
   echo "[merge-gate] Blocked: reviewed head $REVIEWED_HEAD does not match current head $CURRENT_HEAD_OID." >&2
@@ -365,7 +521,9 @@ fi
 
 # The gate stops here on purpose. Whether a finding written in prose was addressed is the reviewer's
 # judgement, and a hook guessing at it would be a check measuring the wrong thing. What it has
-# established: CI is green, every inline finding is answered, and the latest verdict names the
-# exact current base/head comparison with zero findings.
-echo "[merge-gate] PR #$PR: CI CLEAN, exact base/head review, ACTIONABLE FINDINGS: 0. READ IT." >&2
+# established: CI is green, every inline finding is answered, the latest verdict names the exact
+# current head with zero findings, and its base is either the current base or an ancestor of it
+# whose local `git diff` to the current base — the whole diff, both names of every rename, no API
+# page cap — names no file this PR touches, with GitHub reporting the merge clean now.
+echo "[merge-gate] PR #$PR: CI CLEAN, exact head review, $BASE_VERDICT, ACTIONABLE FINDINGS: 0. READ IT." >&2
 exit 0

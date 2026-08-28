@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -20,6 +20,7 @@ import {
   PENDING_CLASSIFICATION,
   registeredScanFiles,
   rootFinderExports,
+  stripJsComments,
 } from '../scan-guard-scope-fail-closed.mjs';
 import { findNoFallbackFindings } from '../scan-no-fallback.mjs';
 import { findFakeInSrc } from '../scan-no-fake-in-src.mjs';
@@ -127,6 +128,111 @@ describe('derivation (the half that cannot be dodged by editing a table)', () =>
 
   it('keeps the vacuous ledger non-empty — an empty one would read as "all clear"', () => {
     expect(measuredVacuous().length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * PROC-016 regression. The registration file gained glob constants such as `const AGENTS =
+ * '.agents/**'`, and the comment stripper was a regex that did not know it was inside a string: the
+ * `/**` opened a "comment" that ran to the next `*\/` and swallowed most of `SCAN_COMMANDS`, so
+ * `registeredScanFiles()` parsed 4 scans and reported every other finder as no longer registered.
+ * A string is code; only a `/*` or `//` met outside one may open a comment.
+ */
+describe('comment stripping is string-aware (PROC-016)', () => {
+  const registrationOf = (files) =>
+    files
+      .map((file) => `  { name: 'x', command: ['node', 'scripts/harness/${file}'] },`)
+      .join('\n');
+
+  it('does not open a comment on the `/**` inside a glob string literal', () => {
+    const source = [
+      "const AGENTS = '.agents/**';",
+      'const DOCS = "docs/**";',
+      'const ALL = `**/*`;',
+      'export const SCAN_COMMANDS = [',
+      registrationOf(['scan-one.mjs', 'scan-two.mjs', 'scan-three.mjs']),
+      '  { name: "y", command: ["node", "scripts/harness/scan-four.mjs"], examines: [AGENTS] },',
+      '];',
+    ].join('\n');
+    const stripped = stripJsComments(source);
+    expect(stripped).toContain("'.agents/**'");
+    expect(stripped).toContain('scan-four.mjs');
+    const files = [...stripped.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
+    expect(files).toEqual(['scan-one.mjs', 'scan-two.mjs', 'scan-three.mjs', 'scan-four.mjs']);
+  });
+
+  it('yields every registration of a run-all-scans.mjs that declares glob constants', () => {
+    const root = bareRoot();
+    mkdirSync(path.join(root, 'scripts/harness'), { recursive: true });
+    writeFileSync(
+      path.join(root, 'scripts/harness/run-all-scans.mjs'),
+      [
+        "const AGENTS = '.agents/**';",
+        "const HARNESS = 'scripts/harness/**';",
+        'export const SCAN_COMMANDS = [',
+        "  { name: 'a', command: ['node', 'scripts/harness/scan-alpha.mjs'], examines: [AGENTS] },",
+        "  { name: 'b', command: ['node', 'scripts/harness/scan-beta.mjs'], examines: [HARNESS] },",
+        "  { name: 'c', command: ['node', 'scripts/harness/scan-gamma.mjs'], always: true },",
+        '];',
+        '',
+      ].join('\n'),
+    );
+    expect(registeredScanFiles(root)).toEqual([
+      'scan-alpha.mjs',
+      'scan-beta.mjs',
+      'scan-gamma.mjs',
+    ]);
+  });
+
+  /** HARNESS-052's property, re-pinned against the tokenizer: prose is still not structure. */
+  it('still excludes a registration that is commented out', () => {
+    const source = [
+      "const AGENTS = '.agents/**';",
+      'export const SCAN_COMMANDS = [',
+      "  { name: 'a', command: ['node', 'scripts/harness/scan-alive.mjs'], examines: [AGENTS] },",
+      "  // { name: 'b', command: ['node', 'scripts/harness/scan-line-dead.mjs'] },",
+      "  /* { name: 'c', command: ['node', 'scripts/harness/scan-block-dead.mjs'] }, */",
+      '  /*',
+      "   * { name: 'd', command: ['node', 'scripts/harness/scan-doc-dead.mjs'] },",
+      '   */',
+      '];',
+    ].join('\n');
+    const stripped = stripJsComments(source);
+    expect(stripped).toContain('scan-alive.mjs');
+    expect(stripped).not.toContain('scan-line-dead.mjs');
+    expect(stripped).not.toContain('scan-block-dead.mjs');
+    expect(stripped).not.toContain('scan-doc-dead.mjs');
+  });
+
+  it('keeps a `//` that is inside a string, and a bare `://` scheme', () => {
+    const source = [
+      "const url = 'https://x'; // trailing note",
+      'const doc = "see https://y/z";',
+      'const bare = https://example.test;',
+    ].join('\n');
+    const stripped = stripJsComments(source);
+    expect(stripped).toContain("'https://x'");
+    expect(stripped).not.toContain('trailing note');
+    expect(stripped).toContain('"see https://y/z"');
+    expect(stripped).toContain('https://example.test');
+  });
+
+  it('honours an escaped quote inside a string and does not let it open a comment', () => {
+    const source = [
+      "const s = 'it\\'s /* not a comment */';",
+      "const t = '/* still text */';",
+    ].join('\n');
+    expect(stripJsComments(source)).toBe(source);
+  });
+
+  it('does not let a comment containing a quote swallow the code after it', () => {
+    const source = [
+      "// don't stop here",
+      "/* it's a block */ export function findReal(root = X) {}",
+      "const q = 'ok';",
+    ].join('\n');
+    expect(rootFinderExports(source)).toEqual(['findReal']);
+    expect(stripJsComments(source)).toContain("const q = 'ok';");
   });
 });
 

@@ -128,3 +128,14 @@ describe('check-nested-package-glob-coverage CLI', () => {
     expect(result.stdout).toContain('[nested-group-dist-glob-missing] .github/workflows/ci.yml');
   });
 });
+
+describe('a root without pnpm-workspace.yaml fails closed (PROC-016)', () => {
+  it('throws instead of reporting an empty, vacuous pass', async () => {
+    const root = await createFixture({
+      '.github/workflows/ci.yml': COVERED_WORKFLOW,
+    });
+    await expect(findNestedGlobCoverageFindings(root)).rejects.toThrow(
+      /pnpm-workspace\.yaml missing/,
+    );
+  });
+});

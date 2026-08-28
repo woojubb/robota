@@ -10,14 +10,17 @@ phases and no routing), and not an agent charter (it holds no judgement discipli
 
 **The role is not here.** How to judge a gate — apply every criterion, check ordering first, never soften a
 verdict, record specific evidence, emit `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE` — is owned by the
-[`backlog-gate-guard` agent](../../.claude/agents/backlog-gate-guard.md). **The pipelines are not here
-either**: [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) dispatches the spec-document gates and
+[`backlog-gate-guard` agent](../../.claude/agents/backlog-gate-guard.md) for the criteria that need
+judgement, and by `scripts/harness/gate.mjs` for the criteria a script can decide (each criterion below
+carries its tag — see "Gate Criteria"). **The pipelines are not here either**:
+[`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) dispatches the spec-document gates and
 [`user-execution-scenario`](../skills/user-execution-scenario/SKILL.md) dispatches the two done-gate stages.
 
 ## Rule Anchor
 
 - `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation — the spec-document gate mandate
 - `.agents/rules/spec-workflow.md` > Spec-Document Status and Lifecycle Folders — the status ↔ folder mapping
+- `.agents/rules/spec-workflow.md` > Lanes — which gates a change runs, by lane
 - `.agents/rules/backlog-execution.md` > Done Gate — the done-gate mandate
 - `backlog-pipeline` skill > State Machine — the gate order for spec documents
 
@@ -36,6 +39,24 @@ either**: [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) dispatches t
 
 Spec-document gates are dispatched by `backlog-pipeline`; the two done-gate stages are dispatched by
 `user-execution-scenario`.
+
+## Gates per lane
+
+Which of the gates above a change runs is decided by its **lane**. The lanes, their floors, and the
+declaration are owned by [`spec-workflow.md` > Lanes](../rules/spec-workflow.md); this table restates
+only the consequence for the gates in this catalogue.
+
+| Lane | Spec document                                                                                                                 | Gates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Judged by                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| L0   | none — the pull-request body carries the `Lane:` line, the ground (the issue, or the fast track), and the issue               | CI, the reviewer verdict, and the merge gate                                                                                                                                                                                                                                                                                                                                                                                                                                                    | CI and the merge gate; no guardian agent                                             |
+| L1   | one, on the same schema as every spec document (`node scripts/harness/new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1`) | two — **PLAN** (`draft → approved`: GATE-WRITE's **mechanical** criteria, GATE-APPROVAL, and three GATE-IMPLEMENT criteria — "`.agents/tasks/<ID>.md` has been created", "Tasks file path is recorded in the `## Tasks` section of the spec document", and "The exact Task records a subject-bound user-execution PLAN terminal outcome" — never the worktree inventory) and **DONE** (`approved → done`: GATE-VERIFY plus GATE-COMPLETE criteria), each run by `node scripts/harness/gate.mjs` | `gate.mjs`; `backlog-gate-guard` only on a non-PASS                                  |
+| L2   | full schema, unchanged                                                                                                        | the five spec-document gates and the two done-gate stages, unchanged                                                                                                                                                                                                                                                                                                                                                                                                                            | **mechanical** criteria by `gate.mjs`, **semantic** criteria by `backlog-gate-guard` |
+
+For an L1 document the prior-gate map below reads PLAN → DONE: DONE's prior gate is PLAN, and its
+expected input status is `approved`. An L1 document never carries `in-progress` or `verifying`. The
+PLAN entry's three GATE-IMPLEMENT lines name the paired Task path and the Task's own
+`SCENARIO DRAFTED` outcome/count, which is what `scan-user-execution-plan-order` reads the L1
+planning checkpoint by.
 
 ## Evidence Log Entry Format
 
@@ -87,62 +108,74 @@ and is exempt; DONE-GATE-STAGE-1 has no prior gate. Authoritative spec-document 
 
 ## Gate Criteria
 
+**Every criterion under GATE-WRITE, GATE-APPROVAL, GATE-IMPLEMENT, GATE-VERIFY and GATE-COMPLETE ends
+with exactly one tag**, in code font: **mechanical** or **semantic**. A mechanical criterion is decidable
+by a script from the document, the tree, and git state alone — frontmatter, section presence, TC-N
+prefixes, row counts, banned phrases, checkbox ticks, a file's existence, `git status`, a scan's exit
+code, an approval entry's form. A semantic criterion needs judgement — the concreteness of a symptom, a
+reproduction condition, whether research feeds the decision, whether the decision names its trade-off,
+new-surface placement, whether an approval is directed at this document, capability preservation.
+`scripts/harness/gate.mjs judge` decides the mechanical set and writes the Evidence Log entry in the
+format above; it dispatches `backlog-gate-guard` for the semantic set on an L2 document, and for any
+lane when its own verdict is not PASS. The tag is the last token of the criterion's text; a criterion's
+indented sub-bullets are part of that criterion and carry no tag of their own.
+
 ### GATE-WRITE `draft → review-ready`
 
 Check every item. A single unmet item = FAIL.
 
 **Frontmatter:**
 
-- [ ] File begins with `---` YAML frontmatter block
-- [ ] `status: draft` present in frontmatter
-- [ ] `type:` is exactly one value from the 11-prefix list: SCREEN · API · FLOW · BEHAVIOR · DATA · RULE · AGREEMENT · INFRA · PERF · SECURITY · OBSERVABILITY
-- [ ] `tags:` field present in frontmatter (may be empty array `[]`)
+- [ ] File begins with `---` YAML frontmatter block — `mechanical`
+- [ ] `status: draft` present in frontmatter — `mechanical`
+- [ ] `type:` is exactly one value from the 11-prefix list: SCREEN · API · FLOW · BEHAVIOR · DATA · RULE · AGREEMENT · INFRA · PERF · SECURITY · OBSERVABILITY — `mechanical`
+- [ ] `tags:` field present in frontmatter (may be empty array `[]`) — `mechanical`
 
 **Problem section:**
 
-- [ ] Contains a concrete symptom (specific command, output, or behavior that is wrong)
-- [ ] Contains a reproduction condition (when/where it occurs)
-- [ ] Does not contain "TBD", "TODO", or vague single-sentence descriptions
+- [ ] Contains a concrete symptom (specific command, output, or behavior that is wrong) — `semantic`
+- [ ] Contains a reproduction condition (when/where it occurs) — `semantic`
+- [ ] Does not contain "TBD", "TODO", or vague single-sentence descriptions — `mechanical`
 
 **Prior Art Research (research.md — default-on):**
 
-- [ ] `## Prior Art Research` (or `## Research`) section present
-- [ ] Section is substantiated: cites ≥1 documentation source (product/API/design doc, release notes, protocol spec — NOT third-party source code per `research.md`), OR explicitly states no comparable reference was found
-- [ ] OR an explicit `Waived: <reason>` line is present (opt-out the agent proposed or the user requested) — a bare or missing section is FAIL
-- [ ] Research findings feed `Alternatives Considered` / `Decision` (evidence-based recommendation, not asserted)
+- [ ] `## Prior Art Research` (or `## Research`) section present — `mechanical`
+- [ ] Section is substantiated: cites ≥1 documentation source (product/API/design doc, release notes, protocol spec — NOT third-party source code per `research.md`), OR explicitly states no comparable reference was found — `mechanical`
+- [ ] OR an explicit `Waived: <reason>` line is present (opt-out the agent proposed or the user requested) — a bare or missing section is FAIL — `mechanical`
+- [ ] Research findings feed `Alternatives Considered` / `Decision` (evidence-based recommendation, not asserted) — `semantic`
 
 **Architecture Review Checklist:**
 
-- [ ] All 4 checklist items are `[x]`
-- [ ] Sibling scan item is `[x]` with either completion evidence or explicit `N/A: <reason>`
-- [ ] Alternatives Considered has at least 2 entries with pro/con for each
-- [ ] Decision references the trade-off that drove the choice
+- [ ] All 4 checklist items are `[x]` — `mechanical`
+- [ ] Sibling scan item is `[x]` with either completion evidence or explicit `N/A: <reason>` — `mechanical`
+- [ ] Alternatives Considered has at least 2 entries with pro/con for each — `mechanical`
+- [ ] Decision references the trade-off that drove the choice — `semantic`
 - [ ] **New-surface placement (conditional):** IF the spec introduces a new package / app / presentation
       or interface surface, or reclassifies a layer / product-family boundary, the Sibling scan / Decision
       MUST (a) name the analogous existing layer it mirrors + its product-family classification, and (b) show
       reuse is at the shared contract/core level, not a dependency on a sibling PRODUCT. See
       `spec-workflow.md` "New-Surface Architecture Placement". (N/A only if no new surface/boundary is
-      introduced.)
+      introduced.) — `semantic`
 
 **Completion Criteria:**
 
-- [ ] Every item has a `TC-N` prefix (TC-01, TC-02, …) — items without TC-N prefix = FAIL
-- [ ] At least 1 criterion per distinct feature or sub-item
-- [ ] Each criterion uses Command form or Observable behavior form (no vague language)
-- [ ] No criterion uses: "works correctly", "no errors", "implemented", "displays correctly"
+- [ ] Every item has a `TC-N` prefix (TC-01, TC-02, …) — items without TC-N prefix = FAIL — `mechanical`
+- [ ] At least 1 criterion per distinct feature or sub-item — `semantic`
+- [ ] Each criterion uses Command form or Observable behavior form (no vague language) — `semantic`
+- [ ] No criterion uses: "works correctly", "no errors", "implemented", "displays correctly" — `mechanical`
 
 **Test Plan section:**
 
-- [ ] `## Test Plan` section present
-- [ ] One row exists for each TC-N in Completion Criteria (count must match)
-- [ ] Each row has a non-empty Test Type and Tool/Approach (no "TBD")
-- [ ] Rows where Tool is "manual" have a non-empty Notes entry explaining why automated test is not possible
+- [ ] `## Test Plan` section present — `mechanical`
+- [ ] One row exists for each TC-N in Completion Criteria (count must match) — `mechanical`
+- [ ] Each row has a non-empty Test Type and Tool/Approach (no "TBD") — `mechanical`
+- [ ] Rows where Tool is "manual" have a non-empty Notes entry explaining why automated test is not possible — `mechanical`
 
 **Structure:**
 
-- [ ] Tasks section present with placeholder
-- [ ] Evidence Log section present and empty (first GATE-WRITE run)
-- [ ] No `## Status` or `## Classification` sections in the body (these are frontmatter fields)
+- [ ] Tasks section present with placeholder — `mechanical`
+- [ ] Evidence Log section present and empty (first GATE-WRITE run) — `mechanical`
+- [ ] No `## Status` or `## Classification` sections in the body (these are frontmatter fields) — `mechanical`
 
 **Evidence to record on PASS:** State each section checked and its result. Confirm TC-N count matches between Completion Criteria and Test Plan.
 
@@ -155,18 +188,18 @@ an entry that does not name one is FAIL, not a DIRECT entry by default.
 
 **Route DIRECT — the user approved this document.**
 
-- [ ] User has provided explicit approval in the current conversation
-- [ ] Approval is a direct, unambiguous statement directed at this spec document
+- [ ] User has provided explicit approval in the current conversation — `mechanical`
+- [ ] Approval is a direct, unambiguous statement directed at this spec document — `semantic`
 
 **Route CLASS — the user pre-authorised a registered class this document falls in.**
 
 - [ ] The named class exists in the delegated-class registry, and its registry entry predates this
       approval. `backlog-execution.md` § Delegated Approval Classes is the SSOT for the registry; this
-      catalogue points at it and does not restate it
-- [ ] The authorising instruction is recorded verbatim, with its date and the session it was given in
-- [ ] The class's stated evidence condition is shown to be met by measurement, not by assertion
+      catalogue points at it and does not restate it — `mechanical`
+- [ ] The authorising instruction is recorded verbatim, with its date and the session it was given in — `mechanical`
+- [ ] The class's stated evidence condition is shown to be met by measurement, not by assertion — `mechanical`
 - [ ] The item is inside the class as the registry defines it — a boundary the guard evaluates, not one
-      the entry argues for
+      the entry argues for — `semantic`
 
 A relay is not a route. An instruction reported by another session, agent, or document, rather than
 given in this document's own conversation, satisfies neither route on its own; it is recorded as
@@ -174,13 +207,13 @@ context and the approval still needs DIRECT or CLASS in its own right.
 
 **Both routes:**
 
-- [ ] No Architecture Review or frontmatter type/tags modified after approval
+- [ ] No Architecture Review or frontmatter type/tags modified after approval — `mechanical`
 - [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
       surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
       `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement —
       not a bare "reviewed" claim. Retain an `architecture-audit-fanout` structure-channel result as
       additional placement evidence when the surface is new. A new-surface spec approved without a recorded independent
-      placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").
+      placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement"). — `semantic`
 
 **What counts as explicit approval — Route DIRECT:**
 
@@ -212,16 +245,16 @@ parses it; an entry it cannot parse is a FAIL, never a pass.
 
 ### GATE-IMPLEMENT `approved → in-progress`
 
-- [ ] `.agents/tasks/<ID>.md` has been created
-- [ ] Tasks file path is recorded in the `## Tasks` section of the spec document
-- [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N)
+- [ ] `.agents/tasks/<ID>.md` has been created — `mechanical`
+- [ ] Tasks file path is recorded in the `## Tasks` section of the spec document — `mechanical`
+- [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N) — `mechanical`
 - [ ] The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the
-      `test-plans` harness scan requires development docs to carry one (else `harness:scan` fails). [AF-24]
+      `test-plans` harness scan requires development docs to carry one (else `harness:scan` fails). [AF-24] — `mechanical`
 - [ ] The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable`
       includes the author verdict and concrete reason; an applicable outcome includes the author verdict
-      and a `DONE-GATE-STAGE-1` PASS
+      and a `DONE-GATE-STAGE-1` PASS — `mechanical`
 - [ ] The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the
-      exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record
+      exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record — `mechanical`
 
 **Evidence to record on PASS:** Tasks file path + list of tasks created + exact PLAN outcome + whole
 worktree path inventory.
@@ -235,10 +268,10 @@ planning checkpoint before Phase 3 begins.
 
 ### GATE-VERIFY `in-progress → verifying`
 
-- [ ] All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`)
-- [ ] No tasks are blocked or pending
-- [ ] Build passes for all affected packages (`pnpm build`)
-- [ ] Tests pass for all affected packages (`pnpm test`)
+- [ ] All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`) — `mechanical`
+- [ ] No tasks are blocked or pending — `mechanical`
+- [ ] Build passes for all affected packages (`pnpm build`) — `mechanical`
+- [ ] Tests pass for all affected packages (`pnpm test`) — `mechanical`
 
 **Evidence to record on PASS:** Confirm tasks file completion state + build/test commands run and result.
 
@@ -250,25 +283,25 @@ planning checkpoint before Phase 3 begins.
 
 For each TC-N in `## Completion Criteria`:
 
-- [ ] The checkbox is checked (`[x]`)
-- [ ] A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with:
+- [ ] The checkbox is checked (`[x]`) — `mechanical`
+- [ ] A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: — `mechanical`
   - The exact command or action used to verify
   - The actual output or result observed
   - Exit code if applicable
 
 For each TC-N in `## Test Plan`:
 
-- [ ] **One of the following is recorded:**
+- [ ] **One of the following is recorded:** — `mechanical`
   - **Test written:** test file path + test function/describe name (e.g., `packages/agent-cli/src/__tests__/some-feature.test.ts > TC-01 expected behavior`)
   - **Test skipped:** explicit reason why automated test was not written (e.g., `TC-02: ANSI color requires visual inspection — manual verification via terminal screenshot`)
-- [ ] No TC-N is silently unaddressed — every row must have either a test reference or a skip reason
+- [ ] No TC-N is silently unaddressed — every row must have either a test reference or a skip reason — `mechanical`
 
 After all criteria:
 
-- [ ] Spec document `## Completion Criteria` checkboxes are all `[x]`
-- [ ] `## Test Plan` updated with test references or skip reasons for all TC-N rows
-- [ ] The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`
-- [ ] That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item
+- [ ] Spec document `## Completion Criteria` checkboxes are all `[x]` — `mechanical`
+- [ ] `## Test Plan` updated with test references or skip reasons for all TC-N rows — `mechanical`
+- [ ] The spec's `## Tasks` section names the exact active task path under `.agents/tasks/` — `mechanical`
+- [ ] That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item — `mechanical`
 
 **Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
 

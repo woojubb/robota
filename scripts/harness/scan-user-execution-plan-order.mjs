@@ -6,15 +6,31 @@
  * Presence in the final tree is not ordering: HARNESS-119 added its not-applicable verdict after
  * implementation and the old section scan could not tell. This guard uses the causal boundary Git
  * already records. A work unit gets one planning-only checkpoint commit containing the exact Task's
- * complete PLAN outcome and the paired spec's GATE-IMPLEMENT PASS. Every other path is implementation
- * and may change only after that checkpoint is an ancestor.
+ * complete PLAN outcome and the paired spec's gate PASS. Every other path is implementation and may
+ * change only after that checkpoint is an ancestor. What the checkpoint commit looks like is the
+ * spec's LANE (PROC-016; `.agents/rules/spec-workflow.md` § Lanes, gate catalogue § Gates per lane):
+ *
+ *   - L2 (lane absent or `lane: L2`): the commit that moves the spec into `active/` with
+ *     `status: in-progress`, the Task in-progress beside it, and adds the first complete
+ *     `[GATE-IMPLEMENT] — ✅ PASS` (`approved → in-progress`).
+ *   - L1 (`lane: L1`): the spec never enters `active/` and never carries `in-progress`. Its
+ *     checkpoint is the commit in which the spec, at `todo/<basename>` with `status: approved`, first
+ *     carries a complete `[GATE-PLAN] — ✅ PASS` (`draft → approved`, naming the paired Task path and
+ *     the `SCENARIO DRAFTED` outcome/count the Task itself records) while the Task exists as `todo`
+ *     or `in-progress`. The parent commit carries no GATE-PLAN PASS.
+ *
+ * Before either checkpoint only the pair's own planning documents may change, plus a pure append to
+ * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
+ * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
  *
  * Two entry points share this engine:
  *   - default: replay every commit after the topic merge base (CI / harness scan);
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */
 
+import { envWithoutGitVars } from './shared.mjs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
@@ -22,8 +38,9 @@ import { asScalar, frontmatterObject } from './frontmatter.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
 const SPEC_PREFIX = '.agents/spec-docs/';
-const POST_MERGE_LEDGER = '.agents/loop-runs/post-merge-cycle.jsonl';
-const UES_LEDGER = '.agents/loop-runs/user-execution-scenario.jsonl';
+const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
+const POST_MERGE_LEDGER = `${LOOP_RUNS_PREFIX}post-merge-cycle.jsonl`;
+const UES_LEDGER = `${LOOP_RUNS_PREFIX}user-execution-scenario.jsonl`;
 const SPEC_FOLDERS = new Set(['draft', 'backlog', 'todo', 'active', 'done']);
 const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['draft', 'draft'],
@@ -43,7 +60,9 @@ function finding(problem, commit = null) {
 }
 
 export function runGit(root, args) {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  // The hook's ambient GIT_DIR / GIT_WORK_TREE would redirect every call here to the repository the
+  // hook was invoked from, whatever `root` is (PROC-016; the hazard worktree-gate.mjs describes).
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: envWithoutGitVars() });
   return {
     code: result.status ?? 1,
     stdout: result.stdout ?? '',
@@ -78,6 +97,7 @@ function changedPaths(root, from, to) {
 }
 
 function stagedPaths(root) {
+  requireWorktreeTopLevel(root);
   const result = runGit(root, [
     'diff',
     '--cached',
@@ -137,6 +157,22 @@ function activePairCandidates(paths) {
   return [...tasks].filter((basename) => activeSpecs.has(basename)).sort();
 }
 
+/**
+ * Basenames of `todo/` specs a commit changes — the L1 checkpoint candidates (PROC-016). The Task
+ * need not change in the same commit: it may have been committed in the prelude, and the PLAN entry
+ * binds to it by path and signal rather than by co-change.
+ */
+function l1SpecCandidates(paths) {
+  return [
+    ...new Set(
+      paths
+        .filter((file) => file.startsWith(`${SPEC_PREFIX}todo/`))
+        .map(specBasename)
+        .filter(Boolean),
+    ),
+  ].sort();
+}
+
 function planningBasenames(paths) {
   return [
     ...new Set(paths.map((file) => taskBasename(file) ?? specBasename(file)).filter(Boolean)),
@@ -162,6 +198,15 @@ function isPreCheckpointPlanningPath(file, basename) {
 function frontmatterStatus(text) {
   const status = asScalar(frontmatterObject(text ?? '').status).trim();
   return status === '' ? null : status;
+}
+
+/** `lane: L1` and nothing else selects the L1 checkpoint rule; absent or `L2` is the L2 rule. */
+function isL1Spec(text) {
+  return (
+    asScalar(frontmatterObject(text ?? '').lane)
+      .trim()
+      .toUpperCase() === 'L1'
+  );
 }
 
 function isEscapedDelimiter(line, at) {
@@ -800,6 +845,41 @@ function gateImplementPassCount(spec, binding = null) {
   ).length;
 }
 
+/**
+ * The L1 PLAN entry (PROC-016) mirrors the GATE-IMPLEMENT entry minus the whole-worktree inventory,
+ * which PLAN does not produce: the `draft → approved` upgrade, the paired Task path, and the
+ * `SCENARIO DRAFTED` outcome/count — bound, when a binding is given, to the exact Task and to the
+ * signal that Task actually records.
+ */
+function completeGatePlanEntry(body, binding = null) {
+  const structurallyComplete =
+    /^\*\*Status upgrade:\*\* draft → approved\s*$/m.test(body) &&
+    /\.agents\/tasks\/[A-Z][A-Z0-9]*-\d+[^\s`]*\.md/.test(body) &&
+    /SCENARIO DRAFTED:\s*(?:not-applicable|automatable|manual)\s*\|\s*\d+/.test(body);
+  if (!structurallyComplete || binding === null) return structurallyComplete;
+  const evidenceSignals = [
+    ...body.matchAll(
+      /SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(0|[1-9]\d*)(?!\d)/g,
+    ),
+  ];
+  const hasExactSignal = evidenceSignals.some(
+    (match) => match[1] === binding.signal.outcome && Number(match[2]) === binding.signal.count,
+  );
+  return hasExactMarkdownToken(body, `${TASK_PREFIX}${binding.basename}`) && hasExactSignal;
+}
+
+/** Every `[GATE-PLAN] — ✅ PASS` heading, complete or not — what a parent or a prelude must lack. */
+function gatePlanPassHeadings(spec) {
+  return canonicalPassEntries(markdownSection(spec, '## Evidence Log'), 'GATE-PLAN').length;
+}
+
+/** GATE-PLAN PASS entries that are complete (and, with a binding, bound to the exact Task). */
+function gatePlanPassCount(spec, binding = null) {
+  return canonicalPassEntries(markdownSection(spec, '## Evidence Log'), 'GATE-PLAN').filter(
+    (body) => completeGatePlanEntry(body, binding),
+  ).length;
+}
+
 function exactPlanSignal(task) {
   const section = markdownSection(task, '## User Execution Test Scenarios');
   const matches = [
@@ -821,6 +901,98 @@ function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }
     gateImplementPassCount(parentSpec) === 0 &&
     gateImplementPassCount(spec, { basename, signal }) === 1
   );
+}
+
+/**
+ * The L1 checkpoint (PROC-016): the `todo/` spec is `lane: L1`, `status: approved`, and carries
+ * exactly one complete GATE-PLAN PASS bound to the Task's own signal, while no parent copy of the
+ * spec (at `todo/` or the `draft/` it came from) carried any GATE-PLAN PASS. The Task's status is
+ * not constrained here — an L1 Task may be `todo` or `in-progress` at PLAN.
+ */
+function isL1CheckpointTransition({ basename, parentSpecs, task, spec }) {
+  if (task === null || spec === null || !isL1Spec(spec)) return false;
+  const signal = exactPlanSignal(task);
+  return (
+    signal !== null &&
+    frontmatterStatus(spec) === 'approved' &&
+    parentSpecs.every((parentSpec) => gatePlanPassHeadings(parentSpec) === 0) &&
+    gatePlanPassCount(spec, { basename, signal }) === 1
+  );
+}
+
+function l1SpecPaths(basename) {
+  return {
+    taskPath: `${TASK_PREFIX}${basename}`,
+    specPath: `${SPEC_PREFIX}todo/${basename}`,
+    draftPath: `${SPEC_PREFIX}draft/${basename}`,
+  };
+}
+
+/**
+ * Every checkpoint transition a set of changed paths performs, judged against the resulting tree
+ * (`textAt`) and its parent (`parentTextAt`). L2 pairs are listed first and exactly as before; an
+ * L1 transition is added only for a `todo/` spec that declares `lane: L1`.
+ */
+function checkpointTransitions(paths, textAt, parentTextAt) {
+  const found = [];
+  for (const basename of activePairCandidates(paths)) {
+    const taskPath = `${TASK_PREFIX}${basename}`;
+    const specPath = `${SPEC_PREFIX}active/${basename}`;
+    const task = textAt(taskPath);
+    const spec = textAt(specPath);
+    if (task === null || spec === null) continue;
+    const transition = isCheckpointTransition({
+      basename,
+      parentTask: parentTextAt(taskPath),
+      parentSpec: parentTextAt(specPath),
+      task,
+      spec,
+    });
+    if (transition) found.push({ basename, lane: 'L2' });
+  }
+  for (const basename of l1SpecCandidates(paths)) {
+    if (found.some((candidate) => candidate.basename === basename)) continue;
+    const { taskPath, specPath, draftPath } = l1SpecPaths(basename);
+    const transition = isL1CheckpointTransition({
+      basename,
+      parentSpecs: [parentTextAt(specPath), parentTextAt(draftPath)],
+      task: textAt(taskPath),
+      spec: textAt(specPath),
+    });
+    if (transition) found.push({ basename, lane: 'L1' });
+  }
+  return found;
+}
+
+function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
+  const problems = [];
+  const id = subjectId(basename);
+  if (!id) problems.push(`cannot derive a Task ID from paired basename \`${basename}\`.`);
+  if (!['todo', 'in-progress'].includes(frontmatterStatus(task))) {
+    problems.push(
+      `paired L1 Task \`${basename}\` is not status \`todo\` or \`in-progress\` in the checkpoint tree.`,
+    );
+  }
+  if (frontmatterStatus(spec) !== 'approved') {
+    problems.push(
+      `paired L1 spec \`${basename}\` is not status \`approved\` in the checkpoint tree.`,
+    );
+  }
+  const tasksSection = markdownSection(spec, '## Tasks');
+  if (!tasksSection || !hasExactMarkdownToken(tasksSection, `${TASK_PREFIX}${basename}`)) {
+    problems.push(`paired spec does not bind its Tasks section to \`.agents/tasks/${basename}\`.`);
+  }
+  if (!isL1CheckpointTransition({ basename, parentSpecs, task, spec })) {
+    problems.push(
+      'L1 checkpoint does not add the first complete GATE-PLAN PASS (draft → approved, naming the paired Task path and its SCENARIO DRAFTED outcome/count) for the exact Task/spec pair.',
+    );
+  }
+  if (exactPlanSignal(task) === null) {
+    problems.push(
+      'paired Task must have exactly one subject-bound `SCENARIO DRAFTED` author verdict.',
+    );
+  }
+  return problems;
 }
 
 function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, task, spec }) {
@@ -977,16 +1149,93 @@ function exactSubjectRef(ref, basename) {
   );
 }
 
-function validateUesLedgerAppend(root, from, to, basename) {
-  const before = gitText(root, from, UES_LEDGER) ?? '';
-  const after = gitText(root, to, UES_LEDGER) ?? '';
-  const record = appendedRecord(before, after);
-  return successfulLoopRecord(record) && exactSubjectRef(record.ref, basename);
+/** A top-level `.agents/loop-runs/<skill>.jsonl` ledger. */
+function isLoopLedgerPath(file) {
+  return (
+    file.startsWith(LOOP_RUNS_PREFIX) &&
+    file.endsWith('.jsonl') &&
+    !file.slice(LOOP_RUNS_PREFIX.length).includes('/')
+  );
 }
 
-function planningPreludeProblems(paths, basename, textForPath) {
+/**
+ * The lines a change adds to the END of a ledger, or null when it is not a pure append: an existing
+ * line rewritten, extended, or removed, or an added line that is not one JSON object.
+ */
+function appendedLedgerLines(before, after) {
+  if (!after.startsWith(before)) return null;
+  const tail = after.slice(before.length);
+  if (before !== '' && !before.endsWith('\n') && !tail.startsWith('\n')) return null;
+  const appended = lines(tail);
+  if (appended.length === 0) return null;
+  const allRecords = appended.every((line) => {
+    try {
+      const record = JSON.parse(line);
+      return Boolean(record) && typeof record === 'object' && !Array.isArray(record);
+    } catch {
+      return false;
+    }
+  });
+  return allRecords ? appended : null;
+}
+
+/**
+ * Whether a ledger change is a planning path. The post-merge ledger is never one (it has its own
+ * prelude rule); the user-execution-scenario ledger keeps its strict subject-bound closed-record
+ * shape; every other `.agents/loop-runs/*.jsonl` — the `user-request-gate` run the skill records,
+ * for one — is a planning path exactly when it is a pure append (PROC-016).
+ */
+function validateLedgerAppend(file, before, after, basename) {
+  if (file === POST_MERGE_LEDGER || !isLoopLedgerPath(file)) return false;
+  if (file === UES_LEDGER) {
+    const record = appendedRecord(before, after);
+    return (
+      basename !== null && successfulLoopRecord(record) && exactSubjectRef(record.ref, basename)
+    );
+  }
+  return appendedLedgerLines(before, after) !== null;
+}
+
+function validateLedgerAppendBetween(root, from, to, file, basename) {
+  if (!isLoopLedgerPath(file) || file === POST_MERGE_LEDGER) return false;
+  return validateLedgerAppend(
+    file,
+    gitText(root, from, file) ?? '',
+    gitText(root, to, file) ?? '',
+    basename,
+  );
+}
+
+/** True when every path is a ledger the change purely appends to — a commit with no planning unit. */
+function onlyLedgerAppends(paths, textForPath, parentTextForPath) {
+  return (
+    paths.length > 0 &&
+    paths.every((file) =>
+      validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', null),
+    )
+  );
+}
+
+function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
   const problems = [];
-  const unexpected = paths.filter((file) => !isPreCheckpointPlanningPath(file, basename));
+  const ledgerAppend = (file) =>
+    isLoopLedgerPath(file) &&
+    file !== POST_MERGE_LEDGER &&
+    validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', basename);
+  const rewrittenLedgers = paths.filter(
+    (file) => isLoopLedgerPath(file) && file !== POST_MERGE_LEDGER && !ledgerAppend(file),
+  );
+  for (const file of rewrittenLedgers) {
+    problems.push(
+      `prelude ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, or a record is malformed).`,
+    );
+  }
+  const unexpected = paths.filter(
+    (file) =>
+      !isPreCheckpointPlanningPath(file, basename) &&
+      !ledgerAppend(file) &&
+      !rewrittenLedgers.includes(file),
+  );
   if (unexpected.length > 0) {
     problems.push(`non-planning prelude path(s): ${unexpected.join(', ')}.`);
   }
@@ -1026,6 +1275,11 @@ function planningPreludeProblems(paths, basename, textForPath) {
     if (specBasename(file) === basename && gateImplementPassCount(text) > 0) {
       problems.push(`prelude spec \`${file}\` already carries GATE-IMPLEMENT PASS.`);
     }
+    if (specBasename(file) === basename && isL1Spec(text) && gatePlanPassHeadings(text) > 0) {
+      problems.push(
+        `prelude L1 spec \`${file}\` already carries a GATE-PLAN PASS entry that is not a complete planning checkpoint (todo/, status approved, the paired Task path and its SCENARIO DRAFTED outcome/count).`,
+      );
+    }
   }
   return problems;
 }
@@ -1039,9 +1293,62 @@ function allowedCheckpointPaths(root, from, to, paths, basename) {
     (file) =>
       !isExactCheckpointPairPath(file, basename) &&
       !(file === sourceSpec && validSourceDeletion) &&
-      !(file === UES_LEDGER && validateUesLedgerAppend(root, from, to, basename)),
+      !validateLedgerAppendBetween(root, from, to, file, basename),
   );
   return unexpected;
+}
+
+/**
+ * An L1 checkpoint may change the Task, the `todo/` spec, delete the same-basename spec from the
+ * pre-checkpoint folder it advanced out of (its parent status matching that folder), and append to
+ * a ledger. Everything else is implementation mixed into planning.
+ */
+function allowedL1CheckpointPaths(paths, basename, textForPath, parentTextForPath) {
+  const { taskPath, specPath } = l1SpecPaths(basename);
+  const validSourceDeletion = (file) =>
+    specBasename(file) === basename &&
+    file !== specPath &&
+    textForPath(file) === null &&
+    frontmatterStatus(parentTextForPath(file)) ===
+      PRE_CHECKPOINT_SPEC_STATUS.get(file.slice(SPEC_PREFIX.length).split('/', 1)[0]);
+  return paths.filter(
+    (file) =>
+      file !== taskPath &&
+      file !== specPath &&
+      !validSourceDeletion(file) &&
+      !validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', basename),
+  );
+}
+
+function validateL1CheckpointCommit(root, parent, commit, paths, basename) {
+  const { taskPath, specPath, draftPath } = l1SpecPaths(basename);
+  const task = gitText(root, commit, taskPath);
+  const spec = gitText(root, commit, specPath);
+  const problems = [];
+  if (task === null || spec === null) {
+    problems.push(`checkpoint does not contain exact L1 pair \`${taskPath}\` + \`${specPath}\`.`);
+    return problems;
+  }
+  problems.push(
+    ...evaluateL1PlanTexts({
+      basename,
+      parentSpecs: [gitText(root, parent, specPath), gitText(root, parent, draftPath)],
+      task,
+      spec,
+    }),
+  );
+  const unexpected = allowedL1CheckpointPaths(
+    paths,
+    basename,
+    (file) => gitText(root, commit, file),
+    (file) => gitText(root, parent, file),
+  );
+  if (unexpected.length > 0) {
+    problems.push(
+      `checkpoint mixes planning with implementation path(s): ${unexpected.join(', ')}.`,
+    );
+  }
+  return problems;
 }
 
 function validateCheckpointCommit(root, parent, commit, paths, basename) {
@@ -1113,7 +1420,33 @@ export function resolveTopicMergeBase(root, requested, env = process.env) {
   throw new Error(`no merge base could be resolved from ${candidates.join(', ') || '(none)'}`);
 }
 
+/**
+ * The root must BE a git worktree's top level — not merely a directory from which git discovery
+ * finds some repository above it. Measured (PROC-016): with `HARNESS_BASE_REF` set, a finder run
+ * against a bare scratch root resolved the enclosing repository's commits and returned an empty
+ * list — a pass over a tree it never read, the exact shape `scan-guard-scope-fail-closed` hunts.
+ */
+function requireWorktreeTopLevel(root) {
+  if (!existsSync(path.join(root, '.git')))
+    throw new Error(
+      `${root} has no .git — not a git worktree; the governed population is this root's own history`,
+    );
+  const result = runGit(root, ['rev-parse', '--show-toplevel']);
+  const top = result.code === 0 ? result.stdout.trim() : '';
+  let same = false;
+  try {
+    same = top !== '' && realpathSync(top) === realpathSync(root);
+  } catch {
+    same = false;
+  }
+  if (!same)
+    throw new Error(
+      `${root} is not the top level of a git worktree (git rev-parse --show-toplevel → ${top || result.stderr || '(nothing)'}); the governed population is this root's own history`,
+    );
+}
+
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
   // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
   // against its parent, which is defined for a single-parent commit and undefined for a merge —
@@ -1149,25 +1482,23 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     return { commit, parent, paths: changedPaths(root, parent, commit) };
   });
 
+  const textIn = (revision) => (file) => gitText(root, revision, file);
   const candidates = [];
   for (const entry of entries) {
     // `--no-renames` reports both deleted active paths during completion. A checkpoint candidate
-    // must CONTAIN the active pair in its resulting tree, not merely mention their deletion.
-    const pairs = activePairCandidates(entry.paths).filter((basename) => {
-      const taskPath = `${TASK_PREFIX}${basename}`;
-      const specPath = `${SPEC_PREFIX}active/${basename}`;
-      const task = gitText(root, entry.commit, taskPath);
-      const spec = gitText(root, entry.commit, specPath);
-      if (task === null || spec === null) return false;
-      return isCheckpointTransition({
-        basename,
-        parentTask: gitText(root, entry.parent, taskPath),
-        parentSpec: gitText(root, entry.parent, specPath),
-        task,
-        spec,
+    // must CONTAIN the pair in its resulting tree, not merely mention their deletion.
+    const transitions = checkpointTransitions(
+      entry.paths,
+      textIn(entry.commit),
+      textIn(entry.parent),
+    );
+    if (transitions.length > 0) {
+      candidates.push({
+        ...entry,
+        pairs: transitions.map((transition) => transition.basename),
+        lanes: new Map(transitions.map((transition) => [transition.basename, transition.lane])),
       });
-    });
-    if (pairs.length > 0) candidates.push({ ...entry, pairs });
+    }
   }
   const findings = [];
   if (candidates.length === 0) {
@@ -1176,6 +1507,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     let planningStarted = false;
     for (const entry of entries) {
       if (entry.paths.length === 0) continue;
+      if (onlyLedgerAppends(entry.paths, textIn(entry.commit), textIn(entry.parent))) continue;
       if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base)) {
         postMergePreludes += 1;
         if (postMergePreludes > 1 || planningStarted) {
@@ -1202,8 +1534,11 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       const preludeProblems =
         basename === null
           ? ['paths do not identify exactly one planning unit.']
-          : planningPreludeProblems(entry.paths, basename, (file) =>
-              gitText(root, entry.commit, file),
+          : planningPreludeProblems(
+              entry.paths,
+              basename,
+              textIn(entry.commit),
+              textIn(entry.parent),
             );
       if (
         preludeProblems.length > 0 ||
@@ -1258,8 +1593,11 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         ),
       );
     }
-    const preludeProblems = planningPreludeProblems(entry.paths, basename, (file) =>
-      gitText(root, entry.commit, file),
+    const preludeProblems = planningPreludeProblems(
+      entry.paths,
+      basename,
+      textIn(entry.commit),
+      textIn(entry.parent),
     );
     if (preludeProblems.length > 0) {
       findings.push(
@@ -1273,7 +1611,9 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       planningStarted = true;
     }
   }
-  for (const problem of validateCheckpointCommit(
+  const lane = first.lanes.get(basename);
+  const validateCheckpoint = lane === 'L1' ? validateL1CheckpointCommit : validateCheckpointCommit;
+  for (const problem of validateCheckpoint(
     root,
     first.parent,
     first.commit,
@@ -1290,20 +1630,9 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     );
   }
   for (const entry of entries.slice(entries.indexOf(first) + 1)) {
-    const secondary = activePairCandidates(entry.paths).filter((candidateBasename) => {
-      if (candidateBasename === basename) return false;
-      const taskPath = `${TASK_PREFIX}${candidateBasename}`;
-      const specPath = `${SPEC_PREFIX}active/${candidateBasename}`;
-      const task = gitText(root, entry.commit, taskPath);
-      const spec = gitText(root, entry.commit, specPath);
-      return isCheckpointTransition({
-        basename: candidateBasename,
-        parentTask: gitText(root, entry.parent, taskPath),
-        parentSpec: gitText(root, entry.parent, specPath),
-        task,
-        spec,
-      });
-    });
+    const secondary = checkpointTransitions(entry.paths, textIn(entry.commit), textIn(entry.parent))
+      .map((transition) => transition.basename)
+      .filter((candidateBasename) => candidateBasename !== basename);
     if (secondary.length > 0) {
       findings.push(
         finding(
@@ -1317,7 +1646,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     base,
     commits,
     examined,
-    checkpoint: { commit: first.commit, basename },
+    checkpoint: { commit: first.commit, basename, lane },
     pendingBasename: null,
     findings,
   };
@@ -1340,17 +1669,76 @@ export function readExaminedPlanOrderCount(root = WORKSPACE_ROOT, requestedBase 
   return historyAnalysis(root, requestedBase).examined;
 }
 
+/**
+ * A staged `todo/` spec that declares `lane: L1` and carries any GATE-PLAN PASS heading is a
+ * proposed L1 checkpoint — judged in full below so an incomplete entry is refused by name rather
+ * than falling through to the prelude rule's generic refusal.
+ */
+function l1StagedPairs(root, paths) {
+  return l1SpecCandidates(paths).filter((basename) => {
+    const spec = indexText(root, `${SPEC_PREFIX}todo/${basename}`);
+    return spec !== null && isL1Spec(spec) && gatePlanPassHeadings(spec) > 0;
+  });
+}
+
+function stagedLedgerProblems(root, paths, basename) {
+  const problems = [];
+  for (const file of paths) {
+    if (!isLoopLedgerPath(file) || file === POST_MERGE_LEDGER) continue;
+    const before = gitText(root, 'HEAD', file) ?? '';
+    const after = indexText(root, file) ?? '';
+    if (validateLedgerAppend(file, before, after, basename)) continue;
+    problems.push(
+      file === UES_LEDGER
+        ? 'proposed PLAN ledger is not one append-only closed record subject-bound to the exact Task.'
+        : `proposed ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, or a record is malformed).`,
+    );
+  }
+  return problems;
+}
+
 function stagedCheckpoint(root, paths) {
-  const pairs = activePairCandidates(paths);
+  const activePairs = activePairCandidates(paths);
+  const l1Pairs = l1StagedPairs(root, paths).filter((basename) => !activePairs.includes(basename));
+  const pairs = [...activePairs, ...l1Pairs];
   if (pairs.length !== 1) return { pairs, problems: [] };
   const basename = pairs[0];
+  const problems = [];
+  const stagedText = (file) => indexText(root, file);
+  const headText = (file) => gitText(root, 'HEAD', file);
+  if (l1Pairs.length === 1) {
+    const { taskPath, specPath, draftPath } = l1SpecPaths(basename);
+    const task = stagedText(taskPath);
+    const spec = stagedText(specPath);
+    if (task === null || spec === null) {
+      problems.push(
+        `proposed L1 checkpoint does not stage the exact Task/todo-spec pair \`${basename}\`.`,
+      );
+    } else {
+      problems.push(
+        ...evaluateL1PlanTexts({
+          basename,
+          parentSpecs: [headText(specPath), headText(draftPath)],
+          task,
+          spec,
+        }),
+      );
+    }
+    const unexpected = allowedL1CheckpointPaths(paths, basename, stagedText, headText).filter(
+      (file) => !isLoopLedgerPath(file) || file === POST_MERGE_LEDGER,
+    );
+    if (unexpected.length > 0) {
+      problems.push(`proposed checkpoint mixes implementation path(s): ${unexpected.join(', ')}.`);
+    }
+    problems.push(...stagedLedgerProblems(root, paths, basename));
+    return { pairs, basename, problems };
+  }
   const taskPath = `${TASK_PREFIX}${basename}`;
   const specPath = `${SPEC_PREFIX}active/${basename}`;
-  const task = indexText(root, taskPath);
-  const spec = indexText(root, specPath);
-  const parentTask = gitText(root, 'HEAD', taskPath);
-  const parentSpec = gitText(root, 'HEAD', specPath);
-  const problems = [];
+  const task = stagedText(taskPath);
+  const spec = stagedText(specPath);
+  const parentTask = headText(taskPath);
+  const parentSpec = headText(specPath);
   if (task === null || spec === null) {
     problems.push(
       `proposed checkpoint does not stage the exact active Task/spec pair \`${basename}\`.`,
@@ -1360,27 +1748,17 @@ function stagedCheckpoint(root, paths) {
   }
   const sourceSpec = `${SPEC_PREFIX}todo/${basename}`;
   const validSourceDeletion =
-    frontmatterStatus(gitText(root, 'HEAD', sourceSpec)) === 'approved' &&
-    indexText(root, sourceSpec) === null;
+    frontmatterStatus(headText(sourceSpec)) === 'approved' && stagedText(sourceSpec) === null;
   const unexpected = paths.filter(
     (file) =>
       !isExactCheckpointPairPath(file, basename) &&
       !(file === sourceSpec && validSourceDeletion) &&
-      file !== UES_LEDGER,
+      (!isLoopLedgerPath(file) || file === POST_MERGE_LEDGER),
   );
   if (unexpected.length > 0) {
     problems.push(`proposed checkpoint mixes implementation path(s): ${unexpected.join(', ')}.`);
   }
-  if (paths.includes(UES_LEDGER)) {
-    const before = gitText(root, 'HEAD', UES_LEDGER) ?? '';
-    const after = indexText(root, UES_LEDGER) ?? '';
-    const record = appendedRecord(before, after);
-    if (!successfulLoopRecord(record) || !exactSubjectRef(record.ref, basename)) {
-      problems.push(
-        'proposed PLAN ledger is not one append-only closed record subject-bound to the exact Task.',
-      );
-    }
-  }
+  problems.push(...stagedLedgerProblems(root, paths, basename));
   return { pairs, basename, problems };
 }
 
@@ -1412,18 +1790,13 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
             ),
           ];
     }
+    const stagedText = (file) => indexText(root, file);
+    const headText = (file) => gitText(root, 'HEAD', file);
     if (history.checkpoint) {
-      const secondary = activePairCandidates(staged).filter((basename) => {
-        const taskPath = `${TASK_PREFIX}${basename}`;
-        const specPath = `${SPEC_PREFIX}active/${basename}`;
-        return isCheckpointTransition({
-          basename,
-          parentTask: gitText(root, 'HEAD', taskPath),
-          parentSpec: gitText(root, 'HEAD', specPath),
-          task: indexText(root, taskPath),
-          spec: indexText(root, specPath),
-        });
-      });
+      // A same-basename re-transition is refused here too, as before: the checkpoint already exists.
+      const secondary = checkpointTransitions(staged, stagedText, headText).map(
+        (transition) => transition.basename,
+      );
       return secondary.length === 0
         ? []
         : [
@@ -1440,11 +1813,15 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
       const basename = basenames.length === 1 ? basenames[0] : null;
       const preludeProblems =
         basename === null
-          ? ['paths do not identify exactly one planning unit.']
-          : planningPreludeProblems(staged, basename, (file) => indexText(root, file));
+          ? onlyLedgerAppends(staged, stagedText, headText)
+            ? []
+            : ['paths do not identify exactly one planning unit.']
+          : planningPreludeProblems(staged, basename, stagedText, headText);
       if (
         preludeProblems.length > 0 ||
-        (history.pendingBasename !== null && history.pendingBasename !== basename)
+        (basename !== null &&
+          history.pendingBasename !== null &&
+          history.pendingBasename !== basename)
       ) {
         findings.push(finding('staged implementation has no planning checkpoint ancestor.'));
       }

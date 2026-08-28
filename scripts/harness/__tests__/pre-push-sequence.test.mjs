@@ -17,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { runPrePushGate } from '../pre-push.mjs';
+import { prerequisitesFor, runPrePushGate } from '../pre-push.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
@@ -192,5 +192,21 @@ describe('the real decision reaches the gate as a skip', () => {
     });
     expect(result).toEqual({ verified: true, reason: null });
     expect(order).toContain('tree-prerequisites');
+  });
+});
+
+describe('the prerequisites a push owes follow the change classification (PROC-016)', () => {
+  it('a harness-only or docs-only push owes install only — no build output', () => {
+    expect(prerequisitesFor({ code: true, product: false, harness: true })).toEqual(['install']);
+    expect(prerequisitesFor({ code: false, product: false })).toEqual(['install']);
+  });
+
+  it('a product-code push owes install AND build output', () => {
+    expect(prerequisitesFor({ code: true, product: true })).toEqual(['install', 'build-output']);
+  });
+
+  it('an unclassifiable change owes everything — fail closed', () => {
+    expect(prerequisitesFor(undefined)).toEqual(['install', 'build-output']);
+    expect(prerequisitesFor({})).toEqual(['install', 'build-output']);
   });
 });

@@ -205,7 +205,8 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 
 Hand to the gated merge path (detailed wiring is HARNESS-018d). The gate is mechanical:
 `.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and the newest verdict names
-the exact current `baseRefOid` and `headRefOid`, and refuses outright while
+the exact current `headRefOid` and a `baseRefOid` that is current or moved over no file the PR
+touches (PROC-016), and refuses outright while
 `ACTIONABLE FINDINGS: <n>` is non-zero — so a step of this pipeline cannot be skipped by merging
 directly. A newer timestamp cannot substitute for that pair because the base may change without a
 new child-head commit.
