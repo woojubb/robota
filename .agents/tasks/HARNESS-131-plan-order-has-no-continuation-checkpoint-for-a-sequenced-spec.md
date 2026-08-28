@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-131: plan-order recognises only a first checkpoint, so the second PR of a spec whose delivery is sequenced across PRs cannot pass the scans check'
 issue: https://github.com/woojubb/robota/issues/2418
-status: todo
+status: in-progress
 created: 2026-08-28
 priority: high
 urgency: now
@@ -66,7 +66,8 @@ declared in the catalogue text AND accepted by the parser, the same pattern as t
   whose status line is the first form (`approved → in-progress`) on an `in-progress` parent → not a
   checkpoint; a continuation whose Task changes the PLAN signal → not a checkpoint.
 - Staged path: with the continuation committed, staged implementation is accepted; without it, the
-  refusal measured above is unchanged.
+  refusal measured above is unchanged; the continuation itself staged is accepted; a staged first-form
+  entry on an in-progress pair is refused with a message naming both forms.
 - Live: in a throwaway worktree at this branch's tip after the fix commit, `HARNESS_BASE_REF=<tip>`,
   a continuation commit for RULE-016 (its real spec, a second GATE-IMPLEMENT PASS in continuation
   form) committed through the pre-commit hook, then PR 2's held patch staged → the scan accepts,
@@ -92,4 +93,4 @@ verification surface is the fixture, the live worktree run (TC-04), and the muta
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`
+`.agents/spec-docs/active/HARNESS-131-plan-order-has-no-continuation-checkpoint-for-a-sequenced-spec.md`
