@@ -28,7 +28,9 @@
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */
 
+import { envWithoutGitVars } from './shared.mjs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
@@ -58,7 +60,9 @@ function finding(problem, commit = null) {
 }
 
 export function runGit(root, args) {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  // The hook's ambient GIT_DIR / GIT_WORK_TREE would redirect every call here to the repository the
+  // hook was invoked from, whatever `root` is (PROC-016; the hazard worktree-gate.mjs describes).
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: envWithoutGitVars() });
   return {
     code: result.status ?? 1,
     stdout: result.stdout ?? '',
@@ -93,6 +97,7 @@ function changedPaths(root, from, to) {
 }
 
 function stagedPaths(root) {
+  requireWorktreeTopLevel(root);
   const result = runGit(root, [
     'diff',
     '--cached',
@@ -1415,7 +1420,33 @@ export function resolveTopicMergeBase(root, requested, env = process.env) {
   throw new Error(`no merge base could be resolved from ${candidates.join(', ') || '(none)'}`);
 }
 
+/**
+ * The root must BE a git worktree's top level — not merely a directory from which git discovery
+ * finds some repository above it. Measured (PROC-016): with `HARNESS_BASE_REF` set, a finder run
+ * against a bare scratch root resolved the enclosing repository's commits and returned an empty
+ * list — a pass over a tree it never read, the exact shape `scan-guard-scope-fail-closed` hunts.
+ */
+function requireWorktreeTopLevel(root) {
+  if (!existsSync(path.join(root, '.git')))
+    throw new Error(
+      `${root} has no .git — not a git worktree; the governed population is this root's own history`,
+    );
+  const result = runGit(root, ['rev-parse', '--show-toplevel']);
+  const top = result.code === 0 ? result.stdout.trim() : '';
+  let same = false;
+  try {
+    same = top !== '' && realpathSync(top) === realpathSync(root);
+  } catch {
+    same = false;
+  }
+  if (!same)
+    throw new Error(
+      `${root} is not the top level of a git worktree (git rev-parse --show-toplevel → ${top || result.stderr || '(nothing)'}); the governed population is this root's own history`,
+    );
+}
+
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
   // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
   // against its parent, which is defined for a single-parent commit and undefined for a merge —
