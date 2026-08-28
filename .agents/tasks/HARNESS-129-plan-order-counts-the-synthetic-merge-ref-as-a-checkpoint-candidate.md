@@ -1,7 +1,7 @@
 ---
 title: "HARNESS-129: plan-order counts the pull request's synthetic merge commit as a planning-checkpoint candidate, so a PR whose spec is in-progress cannot pass its own required check"
 issue: https://github.com/woojubb/robota/issues/2373
-status: todo
+status: in-progress
 created: 2026-08-28
 priority: high
 urgency: now
@@ -70,7 +70,8 @@ merge's OWN content is judged by nothing, and the staged path refuses honest bac
 
 ## Test Plan
 
-- PR-shape fixture: a valid branch merged `--no-ff` onto the base, evaluated at the merge — red
+- PR-shape fixture: a valid branch merged `--no-ff` onto the base, evaluated at the merge with base =
+  the pre-merge base SHA — red
   before the fix (`multiple planning checkpoint candidates`), green after, with the invariance
   (findings and examined count at the merge equal those at the tip).
 - Promotion-shape fixture: a `main` of `--no-ff` promotion merges with develop merged in, base =
@@ -94,4 +95,4 @@ mutation.
 
 ## Bound spec document
 
-`.agents/spec-docs/todo/HARNESS-129-plan-order-counts-the-synthetic-merge-ref-as-a-checkpoint-candidate.md`
+`.agents/spec-docs/active/HARNESS-129-plan-order-counts-the-synthetic-merge-ref-as-a-checkpoint-candidate.md`
