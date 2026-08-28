@@ -16,6 +16,7 @@ import {
   collectClaimed,
   idsFromIssueTitles,
   idsFromRecords,
+  localDate,
   nextFreeId,
   positionalArgs,
   readExamined,
@@ -190,6 +191,53 @@ describe('the reported size', () => {
   it('counts an unread source as contributing nothing, without dropping the others', () => {
     collectClaimed(RECORDS, CITATIONS, null);
     expect(readExamined()).toBe(3);
+  });
+});
+
+describe('the created stamp is the local date (issue #2415)', () => {
+  // Every other date the harness writes — gate entries, `completed:`, the delegated-class
+  // `Registered` column — is the LOCAL calendar date (`gate.mjs` `localDate()`). A record stamped
+  // with the UTC date is dated one day BEFORE the gate entries that follow it whenever the
+  // allocation happens after midnight local time. UTC+14 and UTC-12 are 26 hours apart, so at
+  // no instant do they share a calendar date: a stamp that agrees between them is not local.
+  it('localDate mirrors gate.mjs: the same instant is two dates in UTC+14 and UTC-12', () => {
+    const late = new Date('2026-08-27T16:55:00Z'); // 01:55 KST on the 28th
+    expect(localDate(late, 'Asia/Seoul')).toBe('2026-08-28');
+    expect(localDate(late, 'UTC')).toBe('2026-08-27');
+    expect(localDate(late, 'Etc/GMT+12')).toBe('2026-08-27');
+    expect(localDate(late, 'Etc/GMT-14')).toBe('2026-08-28');
+  });
+
+  it('the process-local stamp differs between TZ=Etc/GMT-14 and TZ=Etc/GMT+12', () => {
+    const script = path.join(import.meta.dirname, '../allocate-work-item-id.mjs');
+    const stampUnder = (zone) => {
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `import('${script}').then((m) => console.log(m.localDate()))`,
+        ],
+        { encoding: 'utf8', env: { ...process.env, TZ: zone } },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout.trim();
+    };
+    const east = stampUnder('Etc/GMT-14');
+    const west = stampUnder('Etc/GMT+12');
+    expect(east).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(east).not.toBe(west);
+  });
+
+  it('`created:` is stamped from localDate, and no UTC slice remains in the source', () => {
+    // The script has no `--root`, so a functional run writes into the real repository; the
+    // property is which formula the stamp uses, asserted on the source as the `wx` test below does.
+    const source = readFileSync(
+      path.join(import.meta.dirname, '../allocate-work-item-id.mjs'),
+      'utf8',
+    );
+    expect(source).toContain('const today = localDate();');
+    expect(source).not.toContain('toISOString()');
   });
 });
 
