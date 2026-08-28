@@ -361,7 +361,8 @@ describe('user-execution PLAN order — branch history', () => {
     write(root, 'scripts/harness/change.mjs', 'implementation\n');
     commit(root, 'implementation');
 
-    expect(findHistoryFindings(root, undefined)).toEqual([]);
+    // The base is what CI resolves for a branch that merged develop in: develop's tip.
+    expect(findHistoryFindings(root, advanced)).toEqual([]);
   });
 
   it('accepts applicable PLAN only with DONE-GATE-STAGE-1 PASS', () => {

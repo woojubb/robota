@@ -1115,15 +1115,16 @@ export function resolveTopicMergeBase(root, requested, env = process.env) {
 
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   const base = resolveTopicMergeBase(root, requestedBase);
-  // `--no-merges`: this scan attributes a commit's content by diffing it against its parent, which
-  // is defined for a single-parent commit and undefined for a merge — `commit^` is the FIRST parent,
-  // so a merge whose first parent is the base diffs as the other side's whole history. CI evaluates
-  // `refs/pull/N/merge`, exactly that shape: the checkpoint's todo → active transition inside the
-  // merge's diff read as a second candidate and refused every PR whose spec was still in-progress
-  // (issue #2373); on the branch tip a back-merge carrying the base's content was refused the same
-  // way. Fail direction, stated: merges are EXCLUDED, so a merge's OWN pre-checkpoint content — a
-  // conflict resolution introducing a path in neither parent — is not judged on this path.
-  // Contained — HARNESS-130. That residual, and the staged path's mirror of it, is that item's.
+  // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
+  // against its parent, which is defined for a single-parent commit and undefined for a merge —
+  // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
+  // side's whole history. CI evaluates `refs/pull/N/merge`, exactly that shape: the checkpoint's
+  // todo → active transition inside the merge's diff read as a second candidate and refused every
+  // PR whose spec was still in-progress (issue #2373); on the branch tip a back-merge carrying the
+  // base's content was refused the same way. Fail direction, stated: merges are EXCLUDED, so a
+  // merge's OWN pre-checkpoint content — a conflict resolution introducing a path in neither
+  // parent — is not judged on this path. That residual, and the staged path's mirror of it, is
+  // HARNESS-130's.
   const listed = runGit(root, [
     'rev-list',
     '--reverse',
@@ -1527,7 +1528,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
     console.log(
       result.staged
         ? '::examined:: 0 staged path(s) ::expected-empty:: the proposed commit index is empty'
-        : '::examined:: 0 topic commit(s) ::expected-empty:: HEAD has no commits beyond the integration merge base',
+        : '::examined:: 0 topic commit(s) ::expected-empty:: no non-merge commits beyond the integration merge base (merges are excluded from the enumeration)',
     );
   } else {
     console.log(
