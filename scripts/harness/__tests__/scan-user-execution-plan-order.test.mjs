@@ -256,6 +256,115 @@ describe('user-execution PLAN order — branch history', () => {
     expect(readExaminedPlanOrderCount(root, base)).toBe(2);
   });
 
+  it('does not count the synthetic merge of a valid branch as a second checkpoint (HARNESS-129)', () => {
+    // CI checks out refs/pull/N/merge — the branch merged onto the base — and a merge commit's `^`
+    // is its first parent, so its diff against the base is the whole branch, checkpoint transition
+    // included. Evaluated at that merge, the scan must judge the branch's commits and nothing more.
+    const { root, base } = repository();
+    checkpoint(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+    const tip = git(root, ['rev-parse', 'HEAD']);
+
+    git(root, ['switch', '-q', 'develop']);
+    git(root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'Merge feature into develop (refs/pull/N/merge)',
+      tip,
+    ]);
+    expect(git(root, ['rev-parse', 'HEAD^1'])).toBe(base);
+    expect(git(root, ['rev-parse', 'HEAD^2'])).toBe(tip);
+
+    // HEAD-spelling independence: the merge of the tip onto the base judges exactly as the tip.
+    const atMerge = findHistoryFindings(root, base);
+    const examinedAtMerge = readExaminedPlanOrderCount(root, base);
+    git(root, ['switch', '-q', 'feature']);
+    expect(atMerge).toEqual(findHistoryFindings(root, base));
+    expect(atMerge).toEqual([]);
+    expect(examinedAtMerge).toBe(readExaminedPlanOrderCount(root, base));
+    expect(examinedAtMerge).toBe(2);
+  });
+
+  it('judges a promotion merge of develop into main as an empty topic range (HARNESS-129)', () => {
+    // main holds only --no-ff promotion merges of earlier develop states; then develop is merged
+    // into main and HEAD is that merge, base = develop's tip (the release-grade job's shape). Every
+    // one of those merges diffs as a whole promotion against its first parent, so today they all
+    // read as topic commits — and the checkpoint transitions inside them as candidates.
+    const { root } = repository();
+    write(root, 'packages/x/src/a.ts', 'export const a = 1;\n');
+    commit(root, 'first develop step');
+    checkpoint(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+    const developTip = git(root, ['rev-parse', 'HEAD']);
+    git(root, ['update-ref', 'refs/remotes/origin/develop', developTip]);
+    git(root, ['switch', '-q', '-c', 'main', git(root, ['rev-list', '--max-parents=0', 'HEAD'])]);
+    git(root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'Merge pull request #1 from develop (earlier)',
+      `${developTip}~2`,
+    ]);
+    git(root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'Merge pull request #2 from develop (promotion)',
+      developTip,
+    ]);
+    expect(git(root, ['rev-list', '--count', `${developTip}..HEAD`])).not.toBe('0');
+
+    expect(findHistoryFindings(root, developTip)).toEqual([]);
+    expect(readExaminedPlanOrderCount(root, developTip)).toBe(0);
+  });
+
+  it('still judges the branch at its own tip, and still refuses two real checkpoints (HARNESS-129 controls)', () => {
+    const branch = repository();
+    checkpoint(branch.root);
+    write(branch.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(branch.root, 'implementation');
+    expect(findHistoryFindings(branch.root, branch.base)).toEqual([]);
+
+    // Two genuine checkpoint commits on one branch are two candidates — the ambiguity refusal
+    // must survive the merge exclusion, or the flag silenced more than the merge.
+    const twice = repository();
+    checkpoint(twice.root);
+    git(twice.root, ['rm', '-q', '-r', '.agents']);
+    commit(twice.root, 'retract the pair');
+    checkpoint(twice.root);
+    expect(messages(findHistoryFindings(twice.root, twice.base))).toMatch(
+      /multiple planning checkpoint candidates/,
+    );
+  });
+
+  it('accepts a back-merge of an advanced base before the checkpoint (HARNESS-129 control)', () => {
+    // The base moves on with an implementation path; the branch merges it in BEFORE its own
+    // checkpoint. The merge's first-parent diff is the base's content, which is not the branch's
+    // work — a false refusal on the branch tip today, fixed by the same exclusion. This is the
+    // case that proves the decision is about attribution, not about CI's checkout.
+    const { root } = repository();
+    git(root, ['switch', '-q', 'develop']);
+    write(root, 'packages/x/src/d.ts', 'export const d = 1;\n');
+    commit(root, 'develop moves on (#2)');
+    const advanced = git(root, ['rev-parse', 'HEAD']);
+    git(root, ['update-ref', 'refs/remotes/origin/develop', advanced]);
+    git(root, ['switch', '-q', 'feature']);
+    git(root, ['commit', '--allow-empty', '-m', 'pathless start']);
+    git(root, ['merge', '--no-ff', '-q', '-m', 'merge develop into feature', advanced]);
+    checkpoint(root);
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+
+    // The base is what CI resolves for a branch that merged develop in: develop's tip.
+    expect(findHistoryFindings(root, advanced)).toEqual([]);
+  });
+
   it('accepts applicable PLAN only with DONE-GATE-STAGE-1 PASS', () => {
     const { root, base } = repository();
     checkpoint(root, { outcome: 'automatable', stage1: true });
