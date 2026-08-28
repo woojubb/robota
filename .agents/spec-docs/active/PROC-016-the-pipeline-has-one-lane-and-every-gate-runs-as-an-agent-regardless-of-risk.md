@@ -323,7 +323,7 @@ suite and says so, which is the fail-closed direction, not a fallback.
       0 and a clean merge exits 0; the same with one overlapping file refuses (exit 2, the PreToolUse
       blocking code) naming the file; the same with a conflicting merge refuses; reviewed head ≠
       current head still refuses. Issue #2386 closes on this criterion.
-- [ ] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
+- [x] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
       `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every script the
       range REVISED, and each script the range ADDED (`gate.mjs`, `scan-lane-declaration.mjs`,
       `new-spec.mjs`) has a test file whose refusal cases are paired with an accepting control — the

@@ -56,6 +56,17 @@ where the tooling was wrong, the defect was fixed on this branch, and the run re
 | 1   | ID allocation, 2 min                              | allocator hands out a live ID (issue #2390, not this item's); harness scripts fell to L0; L1 sent to the research step                    |
 | 2   | affected scans after implementation, 6 min 17 s   | plan-order scan knew no L1 checkpoint; `new-spec --title` broke the pair's basename; approve UTC date, `--evidence`, judge-before-approve |
 | 3   | `git push`, 11 min 39 s (lane complete at ~7 min) | pre-push demanded 81 packages' build output and the CLI smoke for a harness-only push; hook `GIT_DIR` made a finder vacuous               |
+| 4   | **completed** — PR opened                         | none; INFRA-137 (issue #2415), PR #2417 — the criterion's own clock, see below                                                            |
+
+**Run 4 — the criterion's own clock, after every fix and with the base on the remote.** INFRA-137
+(issue #2415, the allocator's UTC `created:` stamp), a fresh subagent, session
+`3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c`: first command `2026-08-28T21:11:56+09:00`, PR #2417 opened
+`2026-08-28T21:24:52+09:00` — **12 min 56 s prompt → PR, 2 reviewer rounds (1 dispatch + 1 resume),
+4 commits** against ≤ 20 min / ≤ 2 / ≤ 3. Time and dispatches met; commits missed by one: the fourth
+commit fixed the reviewer's single SHOULD (a JSDoc attached to the wrong function), because
+`record-local-review` records only a zero-finding round at the head it reviewed. The planning phase
+(allocate → Task → scaffold → approve → PLAN → advance → commit) took under 4 minutes; PLAN judged 28
+criteria with 0 FAIL, DONE 13/13.
 
 Run 3, the lane proper (allocate → scaffold → approve → PLAN → implement → record → DONE →
 review recorded): **≈ 7 min wall clock, 1 subagent dispatch (the local reviewer), 3 commits** —
