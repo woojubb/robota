@@ -1,6 +1,8 @@
 ---
 title: 'CLI-062: CJK input real terminal cursor positioning disabled (Terminal.app SIGSEGV workaround)'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2442#issuecomment-5455751558
 created: 2026-06-10
 priority: low
 urgency: later
