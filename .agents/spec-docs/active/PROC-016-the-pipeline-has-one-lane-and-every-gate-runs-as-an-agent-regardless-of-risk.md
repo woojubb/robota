@@ -320,15 +320,15 @@ suite and says so, which is the fail-closed direction, not a fallback.
       verbatim and the registration date; `scan-standing-delegation-evidence.mjs` accepts a CLASS
       entry citing it.
 - [x] TC-11: `.claude/hooks/merge-gate.sh` on fixtures → reviewed base ≠ current base with file overlap
-      0 and a clean merge exits 0; the same with one overlapping file exits 1 naming the file; the
-      same with a conflicting merge exits 1; reviewed head ≠ current head still exits 1. Issue #2386
-      closes on this criterion.
-- [x] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
+      0 and a clean merge exits 0; the same with one overlapping file refuses (exit 2, the PreToolUse
+      blocking code) naming the file; the same with a conflicting merge refuses; reviewed head ≠
+      current head still refuses. Issue #2386 closes on this criterion.
+- [ ] TC-12: `pnpm harness:scan` exits 0; `pnpm harness:test` exits 0;
       `node scripts/harness/check-regression-red-proof.mjs` reports `red-proof-ok` for every script the
       range REVISED, and each script the range ADDED (`gate.mjs`, `scan-lane-declaration.mjs`,
       `new-spec.mjs`) has a test file whose refusal cases are paired with an accepting control — the
       red-proof checker reports an added file as inconclusive by design.
-- [x] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
+- [ ] TC-13: one L1 item run end to end through the new lane — on this branch before landing, or the
       first L1 item after it — measures, from the session log, prompt → PR opened ≤ 20 min excluding CI
       wait, ≤ 2 subagent dispatches, ≤ 3 commits on the PR; the three numbers and the session id are
       recorded in the Evidence Log. A miss is a GATE-COMPLETE FAIL, not a note.
