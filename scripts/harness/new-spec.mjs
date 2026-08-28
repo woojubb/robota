@@ -291,8 +291,8 @@ export function buildFields(options, task) {
   const criteria = [
     '- [ ] TC-01: `pnpm exec vitest run <test file>` → exits 0, and exits 1 with the fix reverted\n' +
       '      <!-- name the test; the reverted run is the red-proof of the refusal -->',
-    '- [ ] TC-02: `pnpm harness:scan` → exits 0',
-    '- [ ] TC-03: `pnpm harness:test` → exits 0',
+    '- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0',
+    '- [ ] TC-03: `pnpm exec vitest run <the test file TC-01 names>` → exits 0 on the whole file, not only the new case',
   ].join('\n');
 
   const testPlan = formatTable(
@@ -304,8 +304,13 @@ export function buildFields(options, task) {
         '`pnpm exec vitest run` on the named test',
         'RED with the fix reverted, GREEN with it',
       ],
-      ['TC-02', 'Suite', '`pnpm harness:scan`', 'Regression'],
-      ['TC-03', 'Suite', '`pnpm harness:test`', 'Regression'],
+      [
+        'TC-02',
+        'Suite',
+        '`run-all-scans.mjs --affected --context pr`',
+        'Regression — the affected set, not the full suite',
+      ],
+      ['TC-03', 'Unit', '`pnpm exec vitest run <path>.test.mjs`', 'The whole test file'],
     ],
   );
 

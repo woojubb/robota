@@ -18,7 +18,7 @@ import {
   formatLockfileFailureMessage,
   parsePrePushUpdates,
 } from './pre-push-updates.mjs';
-import { checkTreePrerequisites } from './tree-prerequisites.mjs';
+import { PREREQUISITE_ORDER, checkTreePrerequisites } from './tree-prerequisites.mjs';
 import { CI_STAGES } from './ci-mirror-map.mjs';
 import {
   findReusableVerification,
@@ -276,9 +276,29 @@ function resolvePrePushMode(value) {
  *
  * Called only from the verifying branch of `runPrePushGate` — see the ordering note there.
  */
-function assertTreePrerequisites() {
-  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT);
-  if (result.ok) return;
+/**
+ * Which prerequisites a push owes, from the same classifier CI's `changes` job reads (PROC-016).
+ * `build-output` is owed only when PRODUCT code changed — a package or app source the verification
+ * will build and test. A harness-only or docs-only change reads no `dist/`, and demanding 81
+ * packages' build output for it (88 s and ~2 GB in a fresh worktree, measured on INFRA-136) was the
+ * single largest cost of the L1 lane. `verify-like-ci` already decides the same question from the
+ * plan (`planRequiresPackageDist`); this is that decision at the pre-push gate. Fail-closed: an
+ * unclassifiable change (`product` not `false`) owes everything.
+ */
+export function prerequisitesFor(classification) {
+  return classification?.product === false ? ['install'] : PREREQUISITE_ORDER;
+}
+
+function assertTreePrerequisitesFor(classification) {
+  const required = prerequisitesFor(classification);
+  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT, required);
+  if (result.ok) {
+    if (required.length < PREREQUISITE_ORDER.length)
+      process.stdout.write(
+        '▶ build output not required: no product code changed (harness/docs-only push)\n',
+      );
+    return;
+  }
   process.stderr.write(result.message);
   process.exit(1);
 }
@@ -352,7 +372,7 @@ export function createPrePushSteps() {
     pruneAndWarnStaleWorktrees,
     assertCleanWorkingTree,
     assertLockfileConsistency,
-    assertTreePrerequisites,
+    assertTreePrerequisites: () => assertTreePrerequisitesFor(changeClassification),
 
     reportBaseResolution: () => {
       if (baseResolution.source === 'fallback') {

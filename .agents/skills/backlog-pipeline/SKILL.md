@@ -117,9 +117,12 @@ work, and before a `develop → main` release. See
 4. `gate.mjs judge --gate PLAN --doc <PATH> --lane L1`
 5. `gate.mjs advance --doc <PATH>` (`draft → approved`, `todo/`)
 6. ONE planning commit — the spec and its Task, trailer `Lane: L1`
-7. Implement
+7. Implement, then tick what is done BEFORE judging it: every `TC-NN` checkbox in the spec, every
+   Task Plan item, and a test reference (a `.test.` / `__tests__/` path, or a skip reason) in each
+   Test Plan row — DONE's criteria read those boxes, and a FAIL entry is permanent
 8. `gate.mjs record --doc <PATH> --tc TC-NN …` per TC
-9. `gate.mjs judge --gate DONE --doc <PATH> --lane L1 --verify-cmd "<build>" --verify-cmd "<test>"`
+9. `gate.mjs judge --gate DONE --doc <PATH> --lane L1 --verify-cmd "<build-shaped>" --verify-cmd "<test-shaped>"`
+   (an affected scan run counts as build-shaped: `node scripts/harness/run-all-scans.mjs --affected --context pr …`)
 10. `gate.mjs advance --doc <PATH>` (`approved → done`, `done/`), the Task to `completed/`, commit
 
 When the guard is dispatched — the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md)

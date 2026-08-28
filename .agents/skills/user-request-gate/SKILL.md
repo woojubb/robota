@@ -106,7 +106,8 @@ After the draft is written:
 
 **L1, in order:** scaffold (`new-spec.mjs … --lane L1`) → write → `gate.mjs approve --route CLASS
 --class LANE-L0-L1` (evidence measured by the script) → `gate.mjs judge --gate PLAN --lane L1` →
-`gate.mjs advance` → ONE planning commit (trailer `Lane: L1`) → implement (Phase 4) → `gate.mjs record`
+`gate.mjs advance` → ONE planning commit (trailer `Lane: L1`) → implement (Phase 4) → tick the TC boxes,
+the Task Plan and the Test Plan references → `gate.mjs record`
 per TC → `gate.mjs judge --gate DONE --lane L1 --verify-cmd …` → `gate.mjs advance` → Task to
 `completed/` → commit.
 
