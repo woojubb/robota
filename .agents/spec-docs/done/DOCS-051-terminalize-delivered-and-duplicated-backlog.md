@@ -2,7 +2,7 @@
 status: done
 type: INFRA
 tags: [backlog-zero-migration]
-lane: L2
+lane: L1
 ---
 
 # DOCS-051: terminalize delivered and duplicated backlog records
