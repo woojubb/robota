@@ -1,8 +1,9 @@
 ---
 title: 'PROC-021: Support squash-merged continuation ancestry'
 issue: https://github.com/woojubb/robota/issues/2514
-status: in-progress
+status: done
 created: 2026-08-30
+completed: 2026-08-30
 priority: critical
 urgency: now
 area: workflow harness
@@ -19,11 +20,11 @@ merge behavior and exact predecessor-byte binding.
 
 ## Plan
 
-- [ ] TC-01: Add a real squash-merge fixture whose continuation binds the squash commit and passes.
-- [ ] TC-02: Generalize predecessor discovery from merge-only commits to first-parent integration
+- [x] TC-01: Add a real squash-merge fixture whose continuation binds the squash commit and passes.
+- [x] TC-02: Generalize predecessor discovery from merge-only commits to first-parent integration
       transitions without weakening exact raw-entry matching.
-- [ ] TC-03: Preserve the existing refusal for an unrelated later integration commit.
-- [ ] TC-04: Run focused plan-order tests, affected scans, and contract verification.
+- [x] TC-03: Preserve the existing refusal for an unrelated later integration commit.
+- [x] TC-04: Run focused plan-order tests, affected scans, and contract verification.
 
 ## Test Plan
 
@@ -37,3 +38,11 @@ merge behavior and exact predecessor-byte binding.
 
 Not applicable because this changes repository-internal planning ancestry enforcement and exposes no
 CLI, TUI, browser, SDK, configuration, or product behavior.
+
+## Result
+
+- Predecessor discovery now finds the exact first-parent integration commit where the latest raw PASS
+  first appears, covering squash and no-ff histories.
+- A real squash continuation and the existing no-ff control pass; an unrelated later integration SHA
+  remains refused.
+- Verification passed: 135 focused tests, 55 affected scans (1 skipped), and 4,297 contract tests.

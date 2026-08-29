@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-021: Support squash-merged continuation ancestry
 
-Paired with `.agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md`. Arising from
+Paired with `.agents/tasks/completed/PROC-021-support-squash-merged-continuation-ancestry.md`. Arising from
 [issue #2514](https://github.com/woojubb/robota/issues/2514).
 
 ## Problem
@@ -88,13 +88,13 @@ later unrelated integration commit remains a hard refusal.
 
 ## Completion Criteria
 
-- [ ] TC-01: a real temporary Git fixture squash-merges the first checkpoint PR and its later
+- [x] TC-01: a real temporary Git fixture squash-merges the first checkpoint PR and its later
       continuation returns `findHistoryFindings(...) === []`.
-- [ ] TC-02: predecessor discovery selects the exact first-parent commit where the latest raw PASS
+- [x] TC-02: predecessor discovery selects the exact first-parent commit where the latest raw PASS
       count increases over its first parent, for both squash and no-ff histories.
-- [ ] TC-03: a continuation whose `ancestorSha` names an unrelated later integration commit returns
+- [x] TC-03: a continuation whose `ancestorSha` names an unrelated later integration commit returns
       an ancestry-binding finding.
-- [ ] TC-04: focused Vitest, `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`,
+- [x] TC-04: focused Vitest, `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`,
       and `pnpm harness:test:contracts` all exit 0.
 
 ## Test Plan
@@ -115,7 +115,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md` — todo
+- [x] `.agents/tasks/completed/PROC-021-support-squash-merged-continuation-ancestry.md` — done
 
 ## Evidence Log
 
@@ -232,3 +232,96 @@ Recorded as the rule's required choice rather than skipped.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'binds ancestorSha'`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+Switched to a new branch 'feature'
+Switched to a new branch 'feature'
+ ✓ scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs (135 tests | 133 skipped) 1480ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the merge that introduced the prior sequenced checkpoint  789ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the squash commit that introduced the prior sequenced checkpoint  677ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 133 skipped (135)
+   Start at  05:33:06
+   Duration  1.72s (transform 68ms, setup 0ms, collect 95ms, tests 1.48s, environment 0ms, prepare 28ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'binds ancestorSha'`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+Switched to a new branch 'feature'
+Switched to a new branch 'feature'
+ ✓ scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs (135 tests | 133 skipped) 1480ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the merge that introduced the prior sequenced checkpoint  789ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the squash commit that introduced the prior sequenced checkpoint  677ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 133 skipped (135)
+   Start at  05:33:06
+   Duration  1.72s (transform 68ms, setup 0ms, collect 95ms, tests 1.48s, environment 0ms, prepare 28ms)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'binds ancestorSha'`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+Switched to a new branch 'feature'
+Switched to a new branch 'feature'
+ ✓ scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs (135 tests | 133 skipped) 1480ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the merge that introduced the prior sequenced checkpoint  789ms
+   ✓ user-execution PLAN order — branch history > binds ancestorSha to the squash commit that introduced the prior sequenced checkpoint  677ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 133 skipped (135)
+   Start at  05:33:06
+   Duration  1.72s (transform 68ms, setup 0ms, collect 95ms, tests 1.48s, environment 0ms, prepare 28ms)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs && node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && pnpm harness:test:contracts`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+focused: Test Files  1 passed (1) |       Tests  135 passed (135)
+affected: 55 scans passed, 1 skipped (39 declared what they examined)
+contracts: Test Files  195 passed (195) |       Tests  4297 passed (4297)
+```
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 4/4 tasks `[x]` in .agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 55 scans passed, 1 skipped (39 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-021-support-squash-merged-continuation-ancestry.md, M .agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'binds ancestorSha'` → exit 0 (5:54:26 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-30; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/PROC-021-support-squash-merged-continuation-ancestry.md
