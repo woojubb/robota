@@ -12,6 +12,12 @@ depends_on: []
 
 ## Problem
 
+**Approval route:** `CLASS`
+**Class:** `LANE-L0-L1`
+**Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
+**Given:** 2026-08-29, this conversation
+**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` exits 0 and declares this work unit L1.
+
 When a text-delta callback is set (the framework's normal interactive path), GeminiProvider assembles
 the response from text only — a model `functionCall` part and `usageMetadata` are silently dropped —
 even though the provider advertises `functionCalling.supported: true` and its non-streaming path maps
@@ -53,6 +59,12 @@ GeminiProvider's `chat`/`chatStream`. Red-first with a tool-calling stream fixtu
 
 ## User Execution Test Scenarios
 
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+
+The provider behavior is observable through the CLI's interactive streaming mode. The scenario
+below exercises a built CLI against Gemini with a configured API key; its expected output is the
+tool call being executed and usage being retained in the completed turn.
+
 **Applies** (Gemini is a selectable provider in the CLI).
 
 - Prerequisites: built CLI + a Gemini API key; a prompt that requires a tool call (e.g. read a file).
@@ -63,3 +75,12 @@ GeminiProvider's `chat`/`chatStream`. Red-first with a tool-calling stream fixtu
   had no tools, and usage is unattributed.
 - Cleanup: none.
 - Evidence (fill in after implementation): TUI transcript showing the Gemini tool call executing.
+
+## Planning Gate
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-29
+
+The user-execution scenario is executable after building the CLI and configuring a Gemini API key.
+The exact interaction is: select Gemini in the interactive CLI, ask for an answer requiring a tool
+call, and observe the transcript. Expected observables are a Gemini function call execution and a
+completed turn retaining the tool result; cleanup is not required.

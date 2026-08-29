@@ -3,6 +3,7 @@ import { GeminiProvider } from './provider';
 import type {
   IProviderNativeRawPayloadEvent,
   TUniversalMessage,
+  IAssistantMessage,
   IExecutor,
 } from '@robota-sdk/agent-core';
 
@@ -434,6 +435,69 @@ describe('GeminiProvider - chatStream', () => {
     expect(response.content).toBe('Hello Gemini');
     expect(onTextDelta).toHaveBeenNthCalledWith(1, 'Hello ');
     expect(onTextDelta).toHaveBeenNthCalledWith(2, 'Gemini');
+  });
+
+  it('preserves function calls and usage when chat assembles a streaming response', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'I will check that.' };
+        yield {
+          candidates: [
+            {
+              content: {
+                parts: [{ functionCall: { id: 'call_1', name: 'lookup', args: { q: 'Gemini' } } }],
+              },
+            },
+          ],
+          usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 7, totalTokenCount: 11 },
+        };
+      })(),
+    );
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+
+    const response = await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'lookup Gemini',
+          timestamp: new Date(),
+        },
+      ],
+      { model: 'gemini-pro', onTextDelta: vi.fn() },
+    );
+
+    expect(response.content).toBe('I will check that.');
+    expect((response as IAssistantMessage).toolCalls).toEqual([
+      { id: 'call_1', type: 'function', function: { name: 'lookup', arguments: '{"q":"Gemini"}' } },
+    ]);
+    expect(response.metadata).toEqual({ promptTokens: 4, completionTokens: 7, totalTokens: 11 });
+  });
+
+  it('rejects unsupported native web tools in chat and chatStream', async () => {
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const messages = [
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'user' as const,
+        content: 'search',
+        timestamp: new Date(),
+      },
+    ];
+
+    await expect(
+      provider.chat(messages, { model: 'gemini-pro', nativeWebTools: { webSearch: true } }),
+    ).rejects.toThrow('Provider gemini does not support native web search');
+    await expect(async () => {
+      for await (const _chunk of provider.chatStream(messages, {
+        model: 'gemini-pro',
+        nativeWebTools: { webFetch: true },
+      })) {
+        // consume
+      }
+    }).rejects.toThrow('Provider gemini does not support native web fetch');
   });
 
   it('emits ordered native Gemini stream chunks', async () => {

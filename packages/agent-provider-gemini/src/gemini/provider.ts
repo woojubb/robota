@@ -4,8 +4,9 @@ import { GoogleGenAI } from '@google/genai';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
-import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
+import { executeDirect, executeDirectStream } from './execution-helpers';
 import { mapImageInputSourceToPart } from './image-operations';
+import { runImageRequest } from './image-request';
 
 import type { IGeminiProviderOptions } from './types';
 import type {
@@ -62,6 +63,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -99,6 +101,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
     if (this.executor) {
       try {
         yield* this.executeStreamViaExecutorOrDirect(messages, options);
