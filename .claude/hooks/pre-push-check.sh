@@ -797,7 +797,7 @@ esac
 # pull request is clean, stop editing it". One switch must not disarm two unrelated rules, and the
 # override's own message never claimed to excuse this one.
 frozen_diff_refusal() {
-  local branch="$1" open_pr latest_count
+  local branch="$1" open_pr latest_count latest_body
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
   # shape, so a branch named `42` would be answered with pull request #42's state.
@@ -808,15 +808,15 @@ frozen_diff_refusal() {
   # input its own subject can write is not a gate, and jq's regex does not anchor at line
   # boundaries. Unknown is NOT zero — a refusal on a failed measurement blocks correct work on no
   # evidence, so an unreadable count returns 1 and the push proceeds to the checks below.
-  latest_count=$( (cd "$PROJECT_DIR" &&
+  latest_body=$( (cd "$PROJECT_DIR" &&
     bounded_gh pr view "$open_pr" --json comments,reviews \
-      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
-    sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
+      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) || echo "")
+  latest_count=$(printf '%s\n' "$latest_body" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1)
   [[ "$latest_count" =~ ^[0-9]+$ ]] || return 1
   # The latest findings verdict governs the next action. A push is permitted only when a maintainer
   # has approved a request bound to that exact verdict count and current remote head.
   local remote_head approved
-  remote_head=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json headRefOid --jq '.headRefOid // empty' 2>/dev/null || echo "")
+  remote_head=$(printf '%s\n' "$latest_body" | sed -nE 's/.*REVIEWED HEAD:[[:space:]]*([0-9a-fA-F]{40}).*/\1/p' | tail -1)
   [[ "$remote_head" =~ ^[0-9a-fA-F]{7,40}$ ]] || return 0
   approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
     --jq "[.comments[]? | .body // \"\"] | map(select(test(\"POST_FINDINGS_ACTION_REQUEST\"))) | map(select(test(\"HEAD:[[:space:]]*$remote_head\"))) | map(select(test(\"VERDICT:[[:space:]]*$latest_count([[:space:]]|$)\"))) | map(select(test(\"ACTION:[[:space:]]*(push|rebase)\"; \"i\"))) | map(select(test(\"GROUND:[[:space:]]*(finding|red-check|rebase)\"; \"i\"))) | map(select(test(\"EVIDENCE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"SCOPE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"APPROVED:[[:space:]]*yes\"; \"i\"))) | map(select(test(\"APPROVED-BY:[[:space:]]*@[^[:space:]]\"))) | length" 2>/dev/null || echo "")

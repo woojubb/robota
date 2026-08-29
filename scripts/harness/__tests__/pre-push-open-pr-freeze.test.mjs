@@ -81,7 +81,7 @@ function stubGh({
             },
             {
               author: { login: author },
-              body: `REVIEWED HEAD: ${'0'.repeat(40)}\nACTIONABLE FINDINGS: ${findings}`,
+              body: `REVIEWED HEAD: ${remoteHead}\nACTIONABLE FINDINGS: ${findings}`,
               createdAt: '2020-01-02T00:00:00Z',
             },
           ],
