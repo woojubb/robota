@@ -81,6 +81,41 @@ describe('checkpoint evidence contract', () => {
     });
   });
 
+  it('returns structured contract and form diagnostics for malformed JSON member-key escapes', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const malformedContract = rule.replace('"version": 1,', '"ver\\uZZZZsion": 1,');
+    expect(() => parseCheckpointEvidenceContract(malformedContract)).not.toThrow();
+    expect(parseCheckpointEvidenceContract(malformedContract)).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/contract.*member key.*invalid/i),
+    });
+
+    const { contract } = parseCheckpointEvidenceContract(rule);
+    const rendered = formatCheckpointEvidence(contract, 'gateImplementFirst', {
+      version: 1,
+      form: 'gateImplementFirst',
+      taskPath: '.agents/tasks/INFRA-999-fixture.md',
+      specPath: '.agents/spec-docs/todo/INFRA-999-fixture.md',
+      taskItems: [],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [],
+    });
+    if (!rendered.ok) throw new Error(rendered.error);
+    const malformedPayload = rendered.text.replace('"version": 1,', '"ver\\uZZZZsion": 1,');
+    expect(() =>
+      parseCheckpointEvidence(contract, 'gateImplementFirst', malformedPayload),
+    ).not.toThrow();
+    expect(parseCheckpointEvidence(contract, 'gateImplementFirst', malformedPayload)).toMatchObject(
+      {
+        ok: false,
+        error: expect.stringMatching(/gateImplementFirst.*member key.*invalid/i),
+      },
+    );
+  });
+
   it.each([
     ['unsupported version', '"version": 1,', '"version": 2,', /version/i],
     [
@@ -230,6 +265,53 @@ describe('checkpoint evidence contract', () => {
         specPath: '.agents/spec-docs/todo/INFRA-999-fixture.md',
       }),
     ).toMatchObject({ ok: false, error: expect.stringMatching(/active/) });
+  });
+
+  it('selects authoritative visible GATE and Decision sections while preserving exact raw offsets', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const { contract } = parseCheckpointEvidenceContract(rule);
+    const spec = [
+      '```markdown',
+      '## Evidence Log',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-01',
+      'fenced fake gate',
+      '## Architecture Review',
+      '### Decision',
+      '**Continuation artifacts:** `scripts/harness/shared.mjs`',
+      '```',
+      '',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-02',
+      'visible but outside Evidence Log',
+      '',
+      '## Evidence Log',
+      '',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29',
+      '',
+      '**Status upgrade:** approved → in-progress',
+      'raw evidence with trailing spaces  ',
+      '',
+      '## Architecture Review',
+      '',
+      '### Decision',
+      '',
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+      '',
+      '## After',
+    ].join('\n');
+    const actualStart = spec.lastIndexOf('### [GATE-IMPLEMENT]');
+    const actualEnd = spec.indexOf('## Architecture Review', actualStart);
+
+    const entries = rawGateImplementPassEntries(spec);
+
+    expect(entries).toEqual([spec.slice(actualStart, actualEnd)]);
+    expect(priorPassDigest(entries[0])).toBe(priorPassDigest(spec.slice(actualStart, actualEnd)));
+    expect(continuationArtifacts(contract, spec)).toEqual({
+      ok: true,
+      artifacts: ['scripts/harness/gate.mjs'],
+    });
   });
 
   it('enforces the Stage-1 closed fields and manual-TUI action mapping (TC-05)', () => {

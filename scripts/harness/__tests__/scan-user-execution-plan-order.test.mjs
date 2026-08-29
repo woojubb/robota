@@ -582,6 +582,50 @@ describe('user-execution PLAN order — branch history', () => {
     );
   });
 
+  it('validates each continuation against its own introduction context across three PRs', () => {
+    const sequence = v1SequencedRepository();
+    const nextDecision = '**Continuation artifacts:** `scripts/harness/shared.mjs`';
+    const afterPr2 = readFileSync(path.join(sequence.root, SPEC_PATH), 'utf8').replace(
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`',
+      nextDecision,
+    );
+    write(sequence.root, SPEC_PATH, afterPr2);
+    commit(sequence.root, 'PR 2 implementation records the next Decision scope');
+    git(sequence.root, ['switch', '-q', 'develop']);
+    git(sequence.root, ['merge', '--no-ff', '-q', '-m', 'merge PR 2', 'feature-2']);
+    const base = git(sequence.root, ['rev-parse', 'HEAD']);
+    git(sequence.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(sequence.root, ['switch', '-q', '-c', 'feature-3']);
+
+    const parentSpec = readFileSync(path.join(sequence.root, SPEC_PATH), 'utf8');
+    const ledgerPath = '.agents/loop-runs/user-execution-scenario.jsonl';
+    const payload = formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementContinuation', {
+      version: 1,
+      form: 'gateImplementContinuation',
+      priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+      sequencedArtifacts: ['scripts/harness/shared.mjs'],
+      ancestorSha: base,
+      taskPath: TASK_PATH,
+      specPath: SPEC_PATH,
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [ledgerPath, SPEC_PATH, TASK_PATH].sort(),
+    });
+    if (!payload.ok) throw new Error(payload.error);
+    write(
+      sequence.root,
+      ledgerPath,
+      `${JSON.stringify(userScenarioRecord(TASK_ID, 'r20260829000003'))}\n`,
+    );
+    write(
+      sequence.root,
+      SPEC_PATH,
+      `${parentSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${CONTINUATION_STATUS_LINE}\n\n${payload.text}\n`,
+    );
+    commit(sequence.root, 'PR 3 continuation checkpoint with its own inventory');
+
+    expect(findHistoryFindings(sequence.root, base)).toEqual([]);
+  });
+
   it('admits legacy-v0 only before the unique v1 ancestry cutover (TC-06)', () => {
     const founding = repository();
     checkpoint(founding.root);

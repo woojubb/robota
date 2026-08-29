@@ -748,6 +748,7 @@ function gateImplementEntryResults(
     legacyCounts.set(key, (legacyCounts.get(key) ?? 0) + 1);
   }
   return entries.map((body, index) => {
+    const isCurrentIntroduction = priorEntries !== null && index >= priorEntries.length;
     const entryForm = gateImplementEntryForm(body);
     const formName =
       entryForm === 'first'
@@ -787,8 +788,11 @@ function gateImplementEntryResults(
       }
     }
     if (formName === 'gateImplementFirst') {
-      if (taskItemsError !== null) return { ok: false, error: taskItemsError, body };
+      if (isCurrentIntroduction && taskItemsError !== null) {
+        return { ok: false, error: taskItemsError, body };
+      }
       if (
+        isCurrentIntroduction &&
         expectedTaskItems !== null &&
         JSON.stringify(parsed.payload.taskItems) !== JSON.stringify(expectedTaskItems)
       ) {
@@ -815,7 +819,7 @@ function gateImplementEntryResults(
         body,
       };
     }
-    if (binding !== null && checkpointPaths !== null) {
+    if (isCurrentIntroduction && binding !== null && checkpointPaths !== null) {
       const expectedWorktreePaths = [
         `${TASK_PREFIX}${binding.basename}`,
         `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`,
@@ -832,7 +836,7 @@ function gateImplementEntryResults(
       }
     }
     if (formName === 'gateImplementContinuation') {
-      const priorEntry = priorEntries === null ? entries[index - 1] : priorEntries.at(-1);
+      const priorEntry = isCurrentIntroduction ? priorEntries.at(-1) : entries[index - 1];
       if (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry)) {
         return {
           ok: false,
@@ -841,19 +845,21 @@ function gateImplementEntryResults(
           body,
         };
       }
-      const artifacts = continuationArtifacts(parsedContract.contract, baseSpec ?? spec);
-      if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
-      if (
-        JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
-      ) {
-        return {
-          ok: false,
-          error:
-            'gateImplementContinuation.sequencedArtifacts do not bind the base parentSpec Decision line',
-          body,
-        };
+      if (isCurrentIntroduction) {
+        const artifacts = continuationArtifacts(parsedContract.contract, baseSpec ?? spec);
+        if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
+        if (
+          JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
+        ) {
+          return {
+            ok: false,
+            error:
+              'gateImplementContinuation.sequencedArtifacts do not bind the base parentSpec Decision line',
+            body,
+          };
+        }
       }
-      if (priorEntries !== null && ancestorSha === null) {
+      if (isCurrentIntroduction && ancestorSha === null) {
         return {
           ok: false,
           error:
@@ -862,7 +868,7 @@ function gateImplementEntryResults(
         };
       }
       if (
-        priorEntries !== null &&
+        isCurrentIntroduction &&
         ancestorSha !== null &&
         parsed.payload.ancestorSha !== ancestorSha
       ) {

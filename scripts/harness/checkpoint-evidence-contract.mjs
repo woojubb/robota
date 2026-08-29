@@ -129,12 +129,17 @@ function duplicateJsonMember(source) {
     let next = index + 1;
     while (/\s/.test(source[next] ?? '')) next += 1;
     if (source[next] !== ':' || objects.length === 0) continue;
-    const key = JSON.parse(source.slice(start, index + 1));
+    let key;
+    try {
+      key = JSON.parse(source.slice(start, index + 1));
+    } catch (error) {
+      return { error: `member key JSON is invalid: ${error.message}` };
+    }
     const keys = objects[objects.length - 1];
-    if (keys.has(key)) return key;
+    if (keys.has(key)) return { duplicate: key };
     keys.add(key);
   }
-  return null;
+  return {};
 }
 
 function exactKeys(value, expected, member) {
@@ -461,8 +466,9 @@ export function parseCheckpointEvidenceContract(ruleText) {
   const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
   if (!fenced) return failure('checkpoint evidence contract region must contain one json fence');
   const duplicate = duplicateJsonMember(fenced[1]);
-  if (duplicate !== null)
-    return failure(`duplicate checkpoint evidence contract field: ${duplicate}`);
+  if (duplicate.error) return failure(`checkpoint evidence contract ${duplicate.error}`);
+  if (duplicate.duplicate !== undefined)
+    return failure(`duplicate checkpoint evidence contract field: ${duplicate.duplicate}`);
   let contract;
   try {
     contract = JSON.parse(fenced[1]);
@@ -516,7 +522,9 @@ export function parseCheckpointEvidence(contract, formName, body) {
   ).exec(region);
   if (!fence) return failure(`${formName} evidence must contain one ${encoding.fence} fence`);
   const duplicate = duplicateJsonMember(fence[1]);
-  if (duplicate !== null) return failure(`duplicate ${formName} payload field: ${duplicate}`);
+  if (duplicate.error) return failure(`${formName} payload ${duplicate.error}`);
+  if (duplicate.duplicate !== undefined)
+    return failure(`duplicate ${formName} payload field: ${duplicate.duplicate}`);
   let payload;
   try {
     payload = JSON.parse(fence[1]);
@@ -527,47 +535,146 @@ export function parseCheckpointEvidence(contract, formName, body) {
   return error ? failure(error) : { ok: true, payload };
 }
 
-export function rawGateImplementPassEntries(specText) {
-  const source = String(specText);
-  const headings = [
-    ...source.matchAll(/^### \[GATE-IMPLEMENT\] — ✅ PASS \| \d{4}-\d{2}-\d{2}\s*$/gm),
-  ];
-  return headings.map((heading) => {
-    const following = source.slice(heading.index + heading[0].length);
-    const nextHeading = /^#{1,3}\s+/m.exec(following);
-    const end =
-      nextHeading === null ? source.length : heading.index + heading[0].length + nextHeading.index;
-    return source.slice(heading.index, end);
+function markdownProjection(text) {
+  const source = String(text);
+  const sourceLines = source.split('\n');
+  const lineStarts = [];
+  let offset = 0;
+  for (const line of sourceLines) {
+    lineStarts.push(offset);
+    offset += line.length + 1;
+  }
+  const visibleLines = [];
+  const rawIndices = [];
+  let fence = null;
+  let comment = false;
+  for (let index = 0; index < sourceLines.length; index += 1) {
+    const raw = sourceLines[index];
+    if (fence !== null) {
+      const closing = /^ {0,3}(`+|~+)\s*$/.exec(raw)?.[1] ?? null;
+      if (closing && closing[0] === fence[0] && closing.length >= fence.length) fence = null;
+      continue;
+    }
+    const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(raw);
+    if (!comment && opening && !(opening[1][0] === '`' && opening[2].includes('`'))) {
+      fence = opening[1];
+      continue;
+    }
+    let line = raw;
+    let cursor = 0;
+    let visible = '';
+    while (cursor < line.length) {
+      if (comment) {
+        const close = line.indexOf('-->', cursor);
+        if (close === -1) {
+          cursor = line.length;
+          continue;
+        }
+        comment = false;
+        cursor = close + 3;
+        continue;
+      }
+      const open = line.indexOf('<!--', cursor);
+      if (open === -1) {
+        visible += line.slice(cursor);
+        break;
+      }
+      visible += line.slice(cursor, open);
+      comment = true;
+      cursor = open + 4;
+    }
+    line = visible;
+    if (/^(?: {4}|\t)/.test(line)) continue;
+    visibleLines.push(line);
+    rawIndices.push(index);
+  }
+  return { source, sourceLines, lineStarts, visibleLines, rawIndices };
+}
+
+function projectedHeading(line) {
+  const match = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/.exec(line);
+  if (!match) return null;
+  return {
+    level: match[1].length,
+    content: (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').trim(),
+  };
+}
+
+function projectedSection(projection, level, title) {
+  const start = projection.visibleLines.findIndex((line) => {
+    const heading = projectedHeading(line);
+    return heading?.level === level && heading.content === title;
   });
+  if (start === -1) return null;
+  let end = projection.visibleLines.length;
+  for (let index = start + 1; index < projection.visibleLines.length; index += 1) {
+    const heading = projectedHeading(projection.visibleLines[index]);
+    if (heading && heading.level <= level) {
+      end = index;
+      break;
+    }
+  }
+  return { start, end };
+}
+
+export function rawGateImplementPassEntries(specText) {
+  const projection = markdownProjection(specText);
+  const section = projectedSection(projection, 2, 'Evidence Log');
+  if (section === null) return [];
+  const entries = [];
+  for (let index = section.start + 1; index < section.end; index += 1) {
+    const heading = projectedHeading(projection.visibleLines[index]);
+    if (
+      heading?.level !== 3 ||
+      !/^\[GATE-IMPLEMENT\] — ✅ PASS \| \d{4}-\d{2}-\d{2}$/.test(heading.content)
+    ) {
+      continue;
+    }
+    let end = section.end;
+    for (let cursor = index + 1; cursor < section.end; cursor += 1) {
+      const next = projectedHeading(projection.visibleLines[cursor]);
+      if (next && next.level <= 3) {
+        end = cursor;
+        break;
+      }
+    }
+    const rawStart = projection.lineStarts[projection.rawIndices[index]];
+    const rawEnd =
+      end === projection.visibleLines.length
+        ? projection.source.length
+        : projection.lineStarts[projection.rawIndices[end]];
+    entries.push(projection.source.slice(rawStart, rawEnd));
+  }
+  return entries;
 }
 
 export function priorPassDigest(rawEntry) {
   return `sha256:${createHash('sha256').update(String(rawEntry), 'utf8').digest('hex')}`;
 }
 
-function markdownSubsection(text, level, title) {
-  const source = String(text).split('\n');
-  const marker = `${'#'.repeat(level)} ${title}`;
-  const start = source.findIndex((line) => line.trim() === marker);
-  if (start === -1) return null;
-  let end = source.length;
-  for (let index = start + 1; index < source.length; index += 1) {
-    const heading = /^(#{1,6})\s+/.exec(source[index].trim());
-    if (heading && heading[1].length <= level) {
-      end = index;
+export function continuationArtifacts(contract, specText) {
+  const [parentTitle, childTitle] = contract.decisionArtifacts.section.split('/');
+  const projection = markdownProjection(specText);
+  const parent = projectedSection(projection, 2, parentTitle);
+  if (parent === null) return failure(`missing ${contract.decisionArtifacts.section} section`);
+  const childStart = projection.visibleLines.findIndex((line, index) => {
+    if (index <= parent.start || index >= parent.end) return false;
+    const heading = projectedHeading(line);
+    return heading?.level === 3 && heading.content === childTitle;
+  });
+  if (childStart === -1) return failure(`missing ${contract.decisionArtifacts.section} section`);
+  let childEnd = parent.end;
+  for (let index = childStart + 1; index < parent.end; index += 1) {
+    const heading = projectedHeading(projection.visibleLines[index]);
+    if (heading && heading.level <= 3) {
+      childEnd = index;
       break;
     }
   }
-  return source.slice(start + 1, end).join('\n');
-}
-
-export function continuationArtifacts(contract, specText) {
-  const [parentTitle, childTitle] = contract.decisionArtifacts.section.split('/');
-  const parent = markdownSubsection(specText, 2, parentTitle);
-  const decision = parent === null ? null : markdownSubsection(parent, 3, childTitle);
-  if (decision === null) return failure(`missing ${contract.decisionArtifacts.section} section`);
   const prefix = contract.decisionArtifacts.linePrefix;
-  const lines = decision.split('\n').filter((line) => line.startsWith(prefix));
+  const lines = projection.visibleLines
+    .slice(childStart + 1, childEnd)
+    .filter((line) => line.startsWith(prefix));
   if (lines.length !== 1) {
     return failure(`Continuation artifacts line must occur exactly once, found ${lines.length}`);
   }
