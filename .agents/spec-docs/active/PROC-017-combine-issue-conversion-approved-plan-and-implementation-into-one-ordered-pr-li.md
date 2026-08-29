@@ -91,7 +91,7 @@ Task marker/comment URL is carried into the planning evidence before implementat
 idempotency prevents duplicate Tasks/comments/labels; the branch ancestry guard prevents a missing or
 retrospective PLAN from authorizing implementation.
 
-**Continuation artifacts:** `.agents/evidence/PROC-017-candidate.json`, `.agents/loop-runs/pr-finding-resolution-loop.jsonl`, `.agents/skills/backlog-execution-orchestrator/SKILL.md`, `.agents/skills/user-request-gate/SKILL.md`, `scripts/harness/__tests__/conversion-evidence.test.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Continuation artifacts:** `.agents/evidence/PROC-017-candidate.json`, `.agents/loop-runs/pr-finding-resolution-loop.jsonl`, `.agents/skills/backlog-execution-orchestrator/SKILL.md`, `.agents/skills/user-request-gate/SKILL.md`, `scripts/harness/scan-user-execution-plan-order.mjs`, `scripts/harness/__tests__/conversion-evidence.test.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
 
 Eligibility is limited to a triaged single-cause P0/P1 Issue with one work-kind label, no existing
 Task marker, no security/data-correctness claim, no user-owned product/contract decision, no separate
