@@ -11,8 +11,8 @@ Paired with `.agents/tasks/DOCS-046-terminalize-harness-070-and-gui-008.md`.
 
 ## Problem
 
-HARNESS-070 is partially superseded by canonical warning and ratchet issues #2251 and #2255, while
-GUI-008 is an explicitly named repeated instance under ARCH-059 / issue #2164. Keeping both root
+HARNESS-070 is partially superseded by canonical warning and ratchet issues [#2251](https://github.com/woojubb/robota/issues/2251) and [#2255](https://github.com/woojubb/robota/issues/2255), while
+GUI-008 is an explicitly named repeated instance under ARCH-059 / issue [#2164](https://github.com/woojubb/robota/issues/2164). Keeping both root
 records actionable duplicates ownership and obscures that implementation remains outstanding.
 
 ## Prior Art Research
@@ -66,7 +66,7 @@ Not applicable — no user-facing behavior changes.
 **Class:** `BACKLOG-ZERO-MIGRATION`
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 **Given:** 2026-08-29, this conversation
-**Evidence condition met:** `git diff --name-only origin/develop...HEAD | rg '^(packages|apps)/' | wc -l` = `0`; three handoff comments were recorded at #2251, #2255, and #2164.
+**Evidence condition met:** `git diff --name-only origin/develop...HEAD | rg '^(packages|apps)/' | wc -l` = `0`; three handoff comments were recorded at [#2251](https://github.com/woojubb/robota/issues/2251), [#2255](https://github.com/woojubb/robota/issues/2255), and [#2164](https://github.com/woojubb/robota/issues/2164).
 **Review fingerprint:** f7deccebbb2d (review 1a633ef2, type/tags e5720b83)
 **Failed criteria:**
 
