@@ -1,0 +1,40 @@
+name: Enhancement request
+description: Propose a capability or improvement tied to a concrete problem
+title: '[enhancement] '
+labels: ['enhancement', 'status:needs-triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe the current limitation and who it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What observable outcome do you want?
+      description: State what a user should be able to do or observe after the change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What alternatives have you considered?
+      description: Include current workarounds and why they are insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add examples, links, or constraints that affect the decision.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched for an existing issue describing the same need.
+          required: true

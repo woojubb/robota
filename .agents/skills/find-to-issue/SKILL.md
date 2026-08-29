@@ -54,6 +54,11 @@ Enough that the next session does not re-derive the finding:
 is **not** that draft, and filing one does not permit you to start changing code for it. It records
 the finding so the gate can be walked properly later.
 
+Use an Issue Form when one matches. A manual/API-created Issue must receive `status:needs-triage`
+explicitly so it cannot disappear between intake paths. The
+[`github-issue-triage`](../github-issue-triage/SKILL.md) skill owns later classification and selection;
+do not assign a P label merely to make the newly filed Issue look complete.
+
 ## Then keep going
 
 Return to the work in flight. Do not start the issue's work, do not restructure the current change

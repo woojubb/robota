@@ -1,8 +1,9 @@
 ---
 title: 'RULE-018: GitHub Issues need one deterministic triage and conversion queue'
 issue: https://github.com/woojubb/robota/issues/2468
-status: in-progress
+status: done
 created: 2026-08-29
+completed: 2026-08-29
 priority: high
 urgency: now
 area: GitHub issue intake, label governance, backlog conversion, and harness enforcement
@@ -35,19 +36,19 @@ execution. Removing an Issue's priority label at conversion prevents continuing 
 
 ## Plan
 
-- [ ] Declare every live label in one machine-readable registry, including the seven core Issue labels
+- [x] Declare every live label in one machine-readable registry, including the seven core Issue labels
       and the exact protected PR-gate labels, without deleting historical labels.
-- [ ] Replace the Bug and Enhancement Markdown templates and add a Documentation Issue Form; each form
+- [x] Replace the Bug and Enhancement Markdown templates and add a Documentation Issue Form; each form
       applies exactly one work kind plus `status:needs-triage` and requires actionable evidence.
-- [ ] Add the thin Issue triage and conversion invariants to the existing Issue↔Task rule owner and put
+- [x] Add the thin Issue triage and conversion invariants to the existing Issue↔Task rule owner and put
       the operational steps in one triage skill linked from `find-to-issue` and `issue-to-backlog`.
-- [ ] Add a static registry guard and focused tests for schema, core-label cardinality, form references,
+- [x] Add a static registry guard and focused tests for schema, core-label cardinality, form references,
       a fixed protected-consumer baseline, and non-empty examination reporting.
-- [ ] Add a read-only open-Issue audit and a fail-closed conversion command that comments the Task ID/path
+- [x] Add a read-only open-Issue audit and a fail-closed conversion command that comments the Task ID/path
       before removing P labels; incomplete write-back or label removal must prohibit implementation.
-- [ ] Add report-first live label reconciliation that creates or updates registry labels only after
+- [x] Add report-first live label reconciliation that creates or updates registry labels only after
       dry-run and never deletes an unexpected live label.
-- [ ] Run focused tests, the live dry-run/apply/check sequence, the full harness scan, and
+- [x] Run focused tests, the live dry-run/apply/check sequence, the full harness scan, and
       `pnpm harness:verify-like-ci`.
 
 ## Recommendation Gate
@@ -98,4 +99,13 @@ GitHub-administration Test Plan.
 
 ## Result
 
-Pending.
+Implemented the approved minimal Issue intake and conversion queue. The live repository now has all 23
+declared labels with zero declared drift; the four missing core labels were created without deleting or
+rewriting historical labels. The read-only audit classified all 256 open Issues observed at execution
+time: 0 valid intake, 0 unconverted priority candidates, 2 Task-linked, and 254
+malformed/unclassified. Existing Issues were deliberately not bulk-classified.
+
+Verification passed: focused Vitest 23/23, hermetic harness 1,153/1,153, static registry scan over 33
+registry/form/consumer relations, final-state full harness scan 147 passed and 2 skipped, and CI-equivalent
+verification 13/13 stages. No package source or public product surface changed, so package SPEC, README,
+content guide, build, publish, and docs deployment steps were not applicable.

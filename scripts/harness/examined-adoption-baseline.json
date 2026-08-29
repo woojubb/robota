@@ -23,6 +23,7 @@
     "fixture-floor",
     "guard-scope-fail-closed",
     "harness-script-import-safety",
+    "github-label-registry",
     "helper-limits",
     "hook-catalog",
     "hook-enforcement-reachable",
