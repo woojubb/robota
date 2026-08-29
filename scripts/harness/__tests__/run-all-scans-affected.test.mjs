@@ -57,7 +57,6 @@ describe('globToRegExp / pathMatchesAny', () => {
     expect(globToRegExp('a.b').test('axb')).toBe(false);
   });
 });
-
 describe('selectAffectedScans (fixture registry, nothing spawned)', () => {
   it('selects the scans whose globs a changed path reaches, plus every `always` scan', () => {
     const selection = selectAffectedScans(FIXTURE, ['scripts/harness/x.mjs']);

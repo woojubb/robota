@@ -43,6 +43,7 @@ import {
   rawGateImplementPassEntries,
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
+import { parseConversionEvidence } from './conversion-evidence.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
@@ -64,6 +65,7 @@ const LOOP_TERMINALS = new Set([
   'halted-for-user',
   'abandoned',
 ]);
+const gitTextCache = new Map();
 
 function finding(problem, commit = null) {
   return { commit, problem };
@@ -89,8 +91,12 @@ function nulPaths(text) {
 }
 
 function gitText(root, revision, file) {
+  const key = `${root}\0${revision}\0${file}`;
+  if (gitTextCache.has(key)) return gitTextCache.get(key);
   const result = runGit(root, ['show', `${revision}:${file}`]);
-  return result.code === 0 ? result.stdout : null;
+  const text = result.code === 0 ? result.stdout : null;
+  gitTextCache.set(key, text);
+  return text;
 }
 
 function hasValidCheckpointContract(root, revision) {
@@ -211,13 +217,38 @@ function checkpointOptionsAt(
   checkpointPaths = null,
 ) {
   const cutovers = checkpointContractCutovers(root, revision);
+  let baseOid = null;
+  const taskText = gitText(root, revision, `${TASK_PREFIX}${basename}`);
+  if (String(taskText ?? '').includes('Conversion evidence:')) {
+    try {
+      baseOid = resolveTopicMergeBase(root, 'origin/develop');
+    } catch {
+      // Scratch repositories used by the scanner tests may intentionally have no origin ref.
+      // Conversion evidence is still rejected there unless a real base identity is available.
+    }
+  }
   return {
     ...(cutovers.length === 1
       ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
       : {}),
     ancestorSha: precedingSequencedMerge(root, parentRevision, basename),
+    ...(baseOid === null ? {} : { baseOid }),
     ...(checkpointPaths === null ? {} : { checkpointPaths }),
   };
+}
+
+function conversionEvidenceResult(task, spec, basename, checkpointOptions = {}) {
+  if (!String(task ?? '').includes('Conversion evidence:')) return null;
+  const issueMatch = String(task ?? '').match(
+    /^issue:\s*https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)\s*$/m,
+  );
+  return parseConversionEvidence({
+    taskText: task,
+    specText: spec,
+    issueNumber: issueMatch?.[1] ?? '',
+    taskId: subjectId(basename) ?? '',
+    baseOid: checkpointOptions.baseOid,
+  });
 }
 
 function indexText(root, file) {
@@ -1232,6 +1263,8 @@ function isCheckpointTransition({
 }) {
   const signal = exactPlanSignal(task);
   if (signal === null) return false;
+  const conversion = conversionEvidenceResult(task, spec, basename, checkpointOptions);
+  if (conversion !== null && conversion.kind !== 'eligible') return false;
   if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
     return false;
   }
@@ -1406,6 +1439,10 @@ function evaluatePlanTexts({
   checkpointOptions = {},
 }) {
   const problems = [];
+  const conversion = conversionEvidenceResult(task, spec, basename, checkpointOptions);
+  if (conversion !== null && conversion.kind !== 'eligible') {
+    problems.push(`combined lifecycle conversion evidence refused: ${conversion.reason}.`);
+  }
   const id = subjectId(basename);
   if (!id) problems.push(`cannot derive a Task ID from paired basename \`${basename}\`.`);
   if (frontmatterStatus(task) !== 'in-progress') {

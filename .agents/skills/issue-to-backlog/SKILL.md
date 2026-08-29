@@ -95,3 +95,13 @@ split.
   next step, not this one.
 - **Do not carry the issue's structure into the Task** if that structure is a list of deliverables
   rather than a statement of causes.
+
+## Combined lifecycle handoff (PROC-017)
+
+For one eligible, single-cause enhancement Issue, continue the existing Task/spec pair on the same
+ordered topic branch after the GitHub Task marker has been written and read back. Record exactly one
+`Conversion evidence:` line and one `Combined lifecycle eligibility:` line in the Task before the
+planning checkpoint. Marker/read-back and priority-label mutation remain owned by
+`github-issue-triage.mjs`; this skill never treats a local write as remote success. Refused, malformed,
+security, data-correctness, user-decision, multi-owner, or contract-owned Issues remain on the guarded
+route.

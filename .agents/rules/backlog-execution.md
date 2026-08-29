@@ -921,3 +921,14 @@ skills treat them as terminate edges and do not restate them.
 - The final initiative PR would be auto-merged into `develop`.
 - An orchestration skill duplicates implementation details from invoked skills instead of only
   coordinating them.
+
+### Combined conversion and implementation lifecycle
+
+This procedure permits one eligible Issue-to-Task conversion and its implementation to share one ordered
+topic-branch PR. This is limited to a single-cause enhancement with explicit recommendation evidence;
+the Task marker/read-back, priority removal, PLAN checkpoint, implementation ordering, review, CI,
+merge verification, and Issue writeback remain separate fail-closed gates. Other work-kind, security,
+data-correctness, user-decision, multi-owner, and contract-owned work remains on its existing route.
+Case: [PROC-017](https://github.com/woojubb/robota/issues/2514).
+Enforced by: `scan-user-execution-plan-order.mjs` consumes the Task's conversion evidence and the
+existing gate/branch guards enforce the remaining lifecycle boundaries.
