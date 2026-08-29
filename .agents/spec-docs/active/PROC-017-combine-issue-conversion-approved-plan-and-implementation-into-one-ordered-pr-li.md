@@ -461,3 +461,43 @@ repository-internal workflow/harness work.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — the approved PROC-017 plan continues after the six sequenced implementation
+  artifacts landed through the verified integration commit bound below.
+- GATE-IMPLEMENT — the exact paired Task remains `SCENARIO DRAFTED: not-applicable | 0` and the
+  checkpoint inventory contains only this active spec and its paired Task.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:baa12856b52227d6526be3bfa0d4624c4c13e3f8bd74c9c67b3de5af96b861f0",
+  "sequencedArtifacts": [
+    ".agents/evidence/PROC-017-candidate.json",
+    ".agents/loop-runs/pr-finding-resolution-loop.jsonl",
+    ".agents/skills/backlog-execution-orchestrator/SKILL.md",
+    ".agents/skills/user-request-gate/SKILL.md",
+    "scripts/harness/__tests__/conversion-evidence.test.mjs",
+    "scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs"
+  ],
+  "ancestorSha": "026d7ac799706d9cd0c2d71b951304bdf8810727",
+  "taskPath": ".agents/tasks/PROC-017-combine-issue-conversion-approved-plan-and-implementation-into-one-ordered-pr-li.md",
+  "specPath": ".agents/spec-docs/active/PROC-017-combine-issue-conversion-approved-plan-and-implementation-into-one-ordered-pr-li.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/PROC-017-combine-issue-conversion-approved-plan-and-implementation-into-one-ordered-pr-li.md",
+    ".agents/tasks/PROC-017-combine-issue-conversion-approved-plan-and-implementation-into-one-ordered-pr-li.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
