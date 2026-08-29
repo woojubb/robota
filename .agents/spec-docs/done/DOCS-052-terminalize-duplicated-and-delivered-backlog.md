@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L1
@@ -28,7 +28,7 @@ runtime changes are included.
 
 ## Completion Criteria
 
-- [ ] TC-01: all three records are terminal, with exact issue or merge evidence and no root todo copy.
+- [x] TC-01: all three records are terminal, with exact issue or merge evidence and no root todo copy.
 
 ## Test Plan
 
@@ -43,8 +43,8 @@ issue ownership; it changes no user-facing execution surface.
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-052-terminalize-duplicated-and-delivered-backlog.md`
-- [ ] TC-01: archive the three stale records with their evidence.
+- [x] `.agents/tasks/DOCS-052-terminalize-duplicated-and-delivered-backlog.md`
+- [x] TC-01: archive the three stale records with their evidence.
 
 ## Evidence Log
 
@@ -53,5 +53,38 @@ issue ownership; it changes no user-facing execution surface.
 **Approval route:** `CLASS`
 **Class:** `BACKLOG-ZERO-MIGRATION`
 **Given:** 2026-08-29, this conversation
-**Evidence condition met:** all records are being reconciled against current GitHub issue/PR state.
+**Evidence condition met:** all records are reconciled against current GitHub issue/PR state.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/DOCS-052-terminalize-duplicated-and-delivered-backlog.md` exists and is bound above.
+- Subject-bound PLAN: `SCENARIO DRAFTED: not-applicable | 0`, because this is document-only backlog lifecycle work with no user-facing execution surface.
+- Whole-worktree precondition: only the exact paired spec and Task changed at this checkpoint.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/DOCS-052-terminalize-duplicated-and-delivered-backlog.md",
+  "specPath": ".agents/spec-docs/todo/DOCS-052-terminalize-duplicated-and-delivered-backlog.md",
+  "taskItems": [{ "kind": "tc-id", "value": "TC-01" }],
+  "plan": { "outcome": "not-applicable", "count": 0 },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/DOCS-052-terminalize-duplicated-and-delivered-backlog.md",
+    ".agents/tasks/DOCS-052-terminalize-duplicated-and-delivered-backlog.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+TOOL-007 is handed off to open issue #1999, MEM-001 is handed off to open issue #2055, and HARNESS-123
+is closed as delivered by merged PR #2363 (`f1fdf8d0ddd6f83c86677535306fea919e1f5bc5`). No source,
+API, policy, CI, or runtime paths changed.

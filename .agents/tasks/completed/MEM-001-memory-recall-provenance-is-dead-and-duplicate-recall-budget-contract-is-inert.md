@@ -1,6 +1,6 @@
 ---
 title: 'MEM-001: memory recall provenance is dead — the memory_retrieved event is emitted by nothing and usedMemoryReferences is never written (so /memory used is permanently empty), and IAutomaticMemoryConfig.retrieval is a required contract field read only by dead code'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -65,3 +65,8 @@ method with no production callers, so tuning it changes nothing.
   memory was injected into the turn.
 - Cleanup: clear the stored memory.
 - Evidence (fill in after implementation): the `/memory used` output after a recall.
+
+## Terminal disposition
+
+Skipped as duplicate of canonical open GitHub issue #2055: https://github.com/woojubb/robota/issues/2055.
+The issue owns the memory provenance and recall contract work for future conversion to a fresh backlog item.
