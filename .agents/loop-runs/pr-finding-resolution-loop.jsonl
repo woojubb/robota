@@ -12,4 +12,4 @@
 {"runId":"r20260825160551","opened":"2026-08-25T16:05:51.056Z","closed":"2026-08-25T16:07:18.645Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"HARNESS-121 exact HEAD 5b8cb5f00 ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260825161407","opened":"2026-08-25T16:14:07.574Z","closed":"2026-08-25T16:15:50.460Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"HARNESS-121 pre-push SSOT fix exact HEAD 913d85f2b ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260828225049","opened":"2026-08-28T22:50:49.688Z","closed":"2026-08-29T03:19:07.238Z","roundFindings":[1],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260829031907"}
-{"runId":"r20260829031907","opened":"2026-08-29T03:19:07.238Z","closed":"2026-08-29T04:25:18.486Z","roundFindings":[8,3,2,1,0],"extensions":{},"terminal":"converged","ref":"INFRA-139 exact HEAD fc9598892 ACTIONABLE FINDINGS: 0"}
+{"runId":"r20260829031907","opened":"2026-08-29T03:19:07.238Z","closed":"2026-08-29T04:25:18.486Z","roundFindings":[8,3,2,1,0],"extensions":{},"terminal":"converged","ref":"INFRA-140 exact HEAD fc9598892 ACTIONABLE FINDINGS: 0"}

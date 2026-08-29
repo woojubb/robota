@@ -5,10 +5,10 @@ tags: [harness, gate-contract, evidence]
 lane: L2
 ---
 
-# INFRA-139: checkpoint evidence forms need a declared owner and revision-bound consumers
+# INFRA-140: checkpoint evidence forms need a declared owner and revision-bound consumers
 
 Paired with
-`.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`.
+`.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`.
 Implementing the canonical root [issue #2394](https://github.com/woojubb/robota/issues/2394) and
 containing its blocking writer symptom [issue #2433](https://github.com/woojubb/robota/issues/2433)
 and diagnostic symptom [issue #2395](https://github.com/woojubb/robota/issues/2395).
@@ -290,14 +290,14 @@ worktree` with its exact path inventory. The line is appended to that same PASS 
 commit. Any mismatch is a gate FAIL; no implementation starts.
 
 This one-time action is explicitly owner-authorized by the current post-FAIL/valid-recommendation
-instruction and independently judged. It is permitted only for INFRA-139's founding checkpoint, named
+instruction and independently judged. It is permitted only for INFRA-140's founding checkpoint, named
 in that entry, and sealed by the dedicated planning commit. The existing scanner can validate this v0
 shape; the later v1 scanner recognizes it only through the ancestry cutover below. No other entry may be
 hand-amended or claim bootstrap eligibility.
 
 #### Bootstrap and legacy cutover
 
-The founding INFRA-139 planning checkpoint necessarily precedes the rule edit that introduces v1. A
+The founding INFRA-140 planning checkpoint necessarily precedes the rule edit that introduces v1. A
 sealed legacy-v0 validator therefore remains in code solely for entries whose introducing commit is
 proved to be a strict ancestor of the first commit that changes the rule from no valid declaration to
 the exact valid v1 declaration. Eligibility is derived from Git ancestry and the commit that first adds
@@ -413,7 +413,7 @@ environment, manual exception, or Stage-1 scenario gate applies.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md` — done
+- [x] `.agents/tasks/completed/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md` — done
 
 ## Evidence Log
 
@@ -428,7 +428,7 @@ environment, manual exception, or Stage-1 scenario gate applies.
 
 ### [RECOMMENDATION REVIEW ROUND 1] — 🔴 REVISE | 2026-08-29
 
-- Re-scope INFRA-139 to canonical root issue #2394 or label it only as containment; the catalogue's
+- Re-scope INFRA-140 to canonical root issue #2394 or label it only as containment; the catalogue's
   semantic summary is not the exact machine-readable schema.
 - Enforce form-specific folders: first checkpoint → `todo/`; continuation → `active/`. Do not let
   either status form accept either folder.
@@ -443,25 +443,25 @@ environment, manual exception, or Stage-1 scenario gate applies.
 - Issue #2433 and issue #2395 are contained instances. Issue #2422 remains separate because it owns continuation gate
   execution and ordering rather than evidence-form declaration/validation.
 - `ACTIONABLE FINDINGS: 0`
-- `DEPTH: LOCAL — expanded INFRA-139 owns the single canonical evidence-form cause, its finite
+- `DEPTH: LOCAL — expanded INFRA-140 owns the single canonical evidence-form cause, its finite
 bootstrap, writer/consumer conformance, and diagnostics without absorbing the separate
 continuation-execution cause.`
 - `DEPTH: 0 FOUNDATIONAL of 1`
 
 ### [FINDING DEPTH RE-CHECK] — ROOT OWNED | 2026-08-29
 
-- Revised INFRA-139 owns the canonical issue #2394 cause across rule declaration, catalogue reference,
+- Revised INFRA-140 owns the canonical issue #2394 cause across rule declaration, catalogue reference,
   strict parser, writer conformance, revision-bound consumers, and compatibility/mutation tests.
 - Issue #2433 is now a contained blocking instance rather than the claimed contract owner; issue #2395 is
   contained by field-specific validation results, while issue #2422 remains correctly separated.
 - `ACTIONABLE FINDINGS: 0`
-- `DEPTH: LOCAL — revised INFRA-139 owns and resolves the canonical evidence-form contract rather than
+- `DEPTH: LOCAL — revised INFRA-140 owns and resolves the canonical evidence-form contract rather than
 patching the issue #2433 writer symptom.`
 - `DEPTH: 0 FOUNDATIONAL of 1`
 
 ### [RECOMMENDATION REVIEW ROUND 2] — 🔴 REVISE | 2026-08-29
 
-- Define an ancestry-proven bootstrap/cutover because INFRA-139's founding planning checkpoint and
+- Define an ancestry-proven bootstrap/cutover because INFRA-140's founding planning checkpoint and
   existing entries predate their own v1 declaration; never treat an absent declaration as fallback.
 - Specify v1 grammar, versioning, multiplicity/order/unknown policy, and the complete Stage-1
   conditional truth table before implementation.
@@ -568,8 +568,8 @@ patching the issue #2433 writer symptom.`
 **Status remains:** review-ready
 **Failed criteria:**
 
-- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the recorded instruction authorizes a future category and its measured condition is met, but it does not name or directly approve INFRA-139; an unregistered standing category cannot become Route DIRECT or CLASS under the current approval contract
-  **Required action:** obtain a fresh Route DIRECT instruction explicitly approving the current INFRA-139 recommendation and authorizing its implementation, then re-run GATE-APPROVAL
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the recorded instruction authorizes a future category and its measured condition is met, but it does not name or directly approve INFRA-140; an unregistered standing category cannot become Route DIRECT or CLASS under the current approval contract
+  **Required action:** obtain a fresh Route DIRECT instruction explicitly approving the current INFRA-140 recommendation and authorizing its implementation, then re-run GATE-APPROVAL
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
 
@@ -584,22 +584,22 @@ patching the issue #2433 writer symptom.`
 - GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (c7962be995b3) equals the document's current fingerprint
-- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — given as the immediate response to the explicit request for fresh approval of the current INFRA-139 recommendation; `그 추천안` refers to INFRA-139, whose `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0` satisfy the stated validity condition
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — given as the immediate response to the explicit request for fresh approval of the current INFRA-140 recommendation; `그 추천안` refers to INFRA-140, whose `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0` satisfy the stated validity condition
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — route DIRECT, so no delegated CLASS boundary applies
-- GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — INFRA-139 introduces no new package, app, product surface, layer reclassification, or product-family boundary
+- GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — INFRA-140 introduces no new package, app, product surface, layer reclassification, or product-family boundary
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
 
 **Status upgrade:** approved → in-progress
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, whose basename is the spec's
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (11)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 873 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
-- Legacy-v0 bootstrap binding: Task `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; spec `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; SCENARIO DRAFTED: not-applicable | 0; whole worktree: `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`
+- Legacy-v0 bootstrap binding: Task `.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; spec `.agents/spec-docs/todo/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; SCENARIO DRAFTED: not-applicable | 0; whole worktree: `.agents/spec-docs/todo/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, `.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`
 
 ### [IMPLEMENTATION VERIFICATION] — PASS | 2026-08-29
 
@@ -620,7 +620,7 @@ patching the issue #2433 writer symptom.`
 **Status upgrade:** in-progress → verifying
 
 - GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
-- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 11/11 tasks `[x]` in .agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 11/11 tasks `[x]` in .agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
 - GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (43 declared what they examined) ⏎ scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.); all 2 supplied commands exit 0
 - GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
@@ -845,5 +845,5 @@ process exit code: 0
 - GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (11) carries a test reference or a skip reason
 - GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 11/11 TC checkboxes `[x]`
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (11) carries a test reference or a skip reason
-- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
-- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/INFRA-140-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md

@@ -29,5 +29,5 @@
 {"runId":"r20260829004144","opened":"2026-08-29T00:41:44.656Z","closed":"2026-08-29T01:17:48.589Z","roundFindings":[3,0,1,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260829010301","opened":"2026-08-29T01:03:01.209Z","closed":"2026-08-29T01:47:51.216Z","roundFindings":[],"extensions":{},"terminal":"converged","ref":"DOCS-039 PR #2472 MERGE VERIFIED PASS"}
 {"runId":"r20260829014753","opened":"2026-08-29T01:47:53.842Z","closed":null,"roundFindings":[],"extensions":{},"terminal":null,"ref":null}
-{"runId":"r20260829011645","opened":"2026-08-29T01:16:45.716Z","closed":"2026-08-29T01:39:18.189Z","roundFindings":[2,3,3],"extensions":{},"terminal":"bound-reached","ref":"INFRA-139 recommendation rounds 1-3; user-authorized grounded post-FAIL continuation"}
-{"runId":"r20260829013918","opened":"2026-08-29T01:39:18.215Z","closed":"2026-08-29T01:39:23.205Z","roundFindings":[2,2,0],"extensions":{},"terminal":"converged","ref":"INFRA-139 (issue #2394; user-authorized post-FAIL continuation)"}
+{"runId":"r20260829011645","opened":"2026-08-29T01:16:45.716Z","closed":"2026-08-29T01:39:18.189Z","roundFindings":[2,3,3],"extensions":{},"terminal":"bound-reached","ref":"INFRA-140 recommendation rounds 1-3; user-authorized grounded post-FAIL continuation"}
+{"runId":"r20260829013918","opened":"2026-08-29T01:39:18.215Z","closed":"2026-08-29T01:39:23.205Z","roundFindings":[2,2,0],"extensions":{},"terminal":"converged","ref":"INFRA-140 (issue #2394; user-authorized post-FAIL continuation)"}

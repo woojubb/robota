@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-139: checkpoint evidence forms need a declared owner and revision-bound consumers'
+title: 'INFRA-140: checkpoint evidence forms need a declared owner and revision-bound consumers'
 issue: https://github.com/woojubb/robota/issues/2394
 status: done
 created: 2026-08-29
@@ -12,7 +12,7 @@ area: .agents/rules/backlog-execution.md, .agents/specs/gate-catalogue.md,
 depends_on: []
 ---
 
-# INFRA-139: checkpoint evidence forms need a declared owner and revision-bound consumers
+# INFRA-140: checkpoint evidence forms need a declared owner and revision-bound consumers
 
 ## Objective
 
@@ -29,7 +29,7 @@ https://github.com/woojubb/robota/issues/2395.
 
 Finding-depth triage identified issue #2394 as the already-filed foundational owner. Issue #2433 is a
 blocking instance of that cause, not a second contract: the current GATE-IMPLEMENT writer omits a token
-from the scan-private form. INFRA-139 therefore implements issue #2394 as one Task and explicitly contains
+from the scan-private form. INFRA-140 therefore implements issue #2394 as one Task and explicitly contains
 issue #2433. GATE-IMPLEMENT first/continuation forms and DONE-GATE-STAGE-1 share the same missing declaration
 cause and one independent completion outcome. Issue #2422 still owns continuation gate execution;
 issue #2395 is now contained because field-specific declared-form results directly resolve its opaque
@@ -54,7 +54,7 @@ in-progress nor one continuation PASS`.
   conjuncts being collapsed into a false “missing PASS” diagnostic and is contained here.
 - The gate catalogue states semantic evidence summaries but does not declare the exact parsed form;
   the completed migrated HARNESS-128 record and open issue #2394 explicitly preserve this obligation.
-- The founding INFRA-139 planning checkpoint necessarily predates its own rule declaration. A valid
+- The founding INFRA-140 planning checkpoint necessarily predates its own rule declaration. A valid
   cutover must prove legacy eligibility by ancestry rather than treating a missing declaration as an
   unbounded fallback.
 
@@ -132,13 +132,13 @@ user-facing capability. The executable surface belongs in the engineering Test P
 - `pnpm harness:scan` → 147/148 scans passed (99.3%). Every Task schema, lifecycle, issue-link,
   collision, placement, and scenario-section scan passed. The sole failure is a host-transcript
   conduct finding from two earlier progress messages; it is unrelated to this Task conversion and is
-  not absorbed into INFRA-139.
+  not absorbed into INFRA-140.
 
 ## Recommendation Review
 
 Finding-depth triage returned `FOUNDATIONAL`; `DEPTH: 1 FOUNDATIONAL of 1`; `ACTIONABLE FINDINGS: 1`.
 The initial issue #2433-only proposal synchronized one writer token with a scan-private schema but did not
-create the canonical contract its title claimed. INFRA-139 is now re-scoped to the open foundational
+create the canonical contract its title claimed. INFRA-140 is now re-scoped to the open foundational
 owner issue #2394, with issue #2433 explicitly contained.
 
 Independent review round 1 returned `REVISE`; `ACTIONABLE FINDINGS: 2`. It confirmed the same root
@@ -150,13 +150,13 @@ execution route out of scope.
 
 Final finding-depth re-check confirms the expanded design remains one cause and needs no deeper owner
 or split. Issue #2433 and issue #2395 are writer/diagnostic instances of the canonical form gap; issue #2422 remains a
-separate continuation-execution cause. `DEPTH: LOCAL — expanded INFRA-139 owns the single canonical
+separate continuation-execution cause. `DEPTH: LOCAL — expanded INFRA-140 owns the single canonical
 evidence-form cause, its finite bootstrap, writer/consumer conformance, and diagnostics`;
 `ACTIONABLE FINDINGS: 0`; `DEPTH: 0 FOUNDATIONAL of 1`.
 
 Finding-depth re-check confirmed the canonical root is now owned across rule declaration, catalogue
 reference, strict parser, writer, revision-bound consumers, and compatibility/mutation tests.
-`DEPTH: LOCAL — revised INFRA-139 owns and resolves the canonical evidence-form contract`; `DEPTH: 0
+`DEPTH: LOCAL — revised INFRA-140 owns and resolves the canonical evidence-form contract`; `DEPTH: 0
 FOUNDATIONAL of 1`; `ACTIONABLE FINDINGS: 0`.
 
 Independent review round 2 returned `REVISE`; `ACTIONABLE FINDINGS: 3`. The revision must define an
