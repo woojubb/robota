@@ -47,8 +47,8 @@ Not applicable — internal backlog lifecycle only.
 ## Tasks
 
 - Paired Task: `.agents/tasks/DOCS-050-terminalize-harness-115-and-125.md`
-- [ ] Archive HARNESS-115 as skipped to issue #2322.
-- [ ] Archive HARNESS-125 as skipped to issue #2308.
+- [x] Archive HARNESS-115 as skipped to issue #2322.
+- [x] Archive HARNESS-125 as skipped to issue #2308.
 
 ## Evidence Log
 

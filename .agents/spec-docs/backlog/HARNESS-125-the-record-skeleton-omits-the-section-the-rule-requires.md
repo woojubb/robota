@@ -141,7 +141,7 @@ this is the "not applicable, with the reason" branch of it.
 
 ## Tasks
 
-- [ ] `.agents/tasks/completed/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md` — done
+- [x] `.agents/tasks/completed/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md` — skipped (handed off to canonical issue #2308)
 
 ## Evidence Log
 
