@@ -1,4 +1,3 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 HARNESS_PRE_PUSH_REMOTE_NAME="$1" HARNESS_PRE_PUSH_REMOTE_URL="$2" pnpm harness:pre-push
