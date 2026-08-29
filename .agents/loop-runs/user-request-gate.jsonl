@@ -15,3 +15,4 @@
 {"runId":"r20260827142857","opened":"2026-08-27T14:28:57.359Z","closed":"2026-08-27T14:29:01.796Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/active/INFRA-134-claude-pr-review-output-is-english.md"}
 {"runId":"r20260829003444","opened":"2026-08-29T00:34:44.868Z","closed":"2026-08-29T00:39:13.805Z","roundFindings":[],"extensions":{},"terminal":"halted-for-user","ref":"RULE-018 foundational priority-authority decision required"}
 {"runId":"r20260829004144","opened":"2026-08-29T00:41:44.673Z","closed":"2026-08-29T00:50:12.208Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/todo/RULE-018-github-issues-need-one-deterministic-triage-and-conversion-queue.md"}
+{"runId":"r20260829011316","opened":"2026-08-29T01:13:16.530Z","closed":"2026-08-29T01:15:15.405Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"INFRA-140 issue #2433 converted as one root-cause Task"}

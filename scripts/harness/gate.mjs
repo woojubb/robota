@@ -165,6 +165,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
+import {
+  checkpointCheckboxItems,
+  checkpointCompletionCriteria,
+  formatCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+  taskItemsForCheckpoint,
+} from './checkpoint-evidence-contract.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
 import { collectSpecResearchFindings } from './scan-spec-research.mjs';
 import {
@@ -338,24 +345,7 @@ function sectionEnd(lines, startIndex) {
 
 /** Every `- [ ]` / `- [x]` item (any indent) in a run of lines, with its continuation joined. */
 export function checkboxItems(lines) {
-  const items = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const match = /^(\s*)[-*]\s+\[([ xX])\]\s*(.*)$/.exec(lines[i]);
-    if (!match) continue;
-    const indent = match[1].length;
-    const parts = [match[3]];
-    let next = i + 1;
-    for (; next < lines.length; next += 1) {
-      const line = lines[next];
-      if (line.trim() === '') break;
-      const lead = /^(\s*)/.exec(line)[1].length;
-      if (lead <= indent) break;
-      parts.push(line.trim());
-    }
-    items.push({ checked: match[2] !== ' ', text: parts.join(' ').trim(), line: i, indent });
-    i = next - 1;
-  }
-  return items;
+  return checkpointCheckboxItems(lines);
 }
 
 /** Pipe-table data rows (header and separator dropped) as arrays of trimmed cells. */
@@ -518,9 +508,7 @@ export function taskPathFromSpec(text) {
 }
 
 function completionCriteria(text) {
-  const section = sectionBody(text, /^Completion Criteria$/i);
-  if (!section) return null;
-  return checkboxItems(section.body).filter((item) => item.indent === 0);
+  return checkpointCompletionCriteria(text);
 }
 
 function tcIdOf(itemText) {
@@ -1789,6 +1777,42 @@ function passEntry(gateName, date, upgrade, results) {
   ];
 }
 
+function checkpointWorktreePaths(root) {
+  const status = git(root, ['status', '--porcelain', '--untracked-files=all']);
+  if (!status.ok) throw new Error(`checkpoint worktree query failed: ${status.stderr.trim()}`);
+  return status.stdout
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => line.slice(3).split(' -> ').pop().trim().replace(/^"|"$/g, ''))
+    .sort();
+}
+
+function firstCheckpointEvidence(ctx) {
+  const parsed = parseCheckpointEvidenceContract(
+    requireFile(ctx.backlogRule, 'backlog-execution rule'),
+  );
+  if (!parsed.ok) throw new Error(`GATE-IMPLEMENT evidence contract unreadable: ${parsed.error}`);
+  const task = taskContext(ctx);
+  const taskItems = taskItemsForCheckpoint(ctx.doc.text, task.text);
+  if (!taskItems.ok)
+    throw new Error(`GATE-IMPLEMENT task evidence unavailable: ${taskItems.error}`);
+  const scenarios = sectionBody(task.text, /^User Execution Test Scenarios$/i);
+  const signals = [...(scenarios?.body.join('\n') ?? '').matchAll(AUTHOR_VERDICT_LINE)];
+  if (signals.length !== 1) throw new Error('GATE-IMPLEMENT PLAN signal is not unique');
+  const payload = {
+    version: parsed.contract.version,
+    form: 'gateImplementFirst',
+    taskPath: task.rel,
+    specPath: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
+    taskItems: taskItems.items,
+    plan: { outcome: signals[0][1], count: Number(signals[0][2]) },
+    worktreePaths: checkpointWorktreePaths(ctx.root),
+  };
+  const rendered = formatCheckpointEvidence(parsed.contract, 'gateImplementFirst', payload);
+  if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
+  return rendered.text.split('\n');
+}
+
 function failEntry(gateName, date, current, failed) {
   return [
     `### [${gateName}] — ❌ FAIL | ${date}`,
@@ -1877,6 +1901,7 @@ export function runJudge(options) {
         `the catalogue heading for ${gate.name} states no \`from → to\` status upgrade`,
       );
     entry = passEntry(gate.name, date, upgrade, results);
+    if (gate.name === 'GATE-IMPLEMENT') entry.push('', ...firstCheckpointEvidence(ctx));
   }
 
   let written = false;

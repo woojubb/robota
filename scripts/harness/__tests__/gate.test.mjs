@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,6 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { recordStub } from '../allocate-work-item-id.mjs';
+import {
+  parseCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+} from '../checkpoint-evidence-contract.mjs';
 import {
   APPROVE_FIRST,
   L1_NOT_REQUIRED,
@@ -29,11 +33,19 @@ import {
   parseRegistrySection,
   standingVerdict,
 } from '../scan-standing-delegation-evidence.mjs';
+import { findStagedFindings } from '../scan-user-execution-plan-order.mjs';
 
 const GATE_SCRIPT = fileURLToPath(new URL('../gate.mjs', import.meta.url));
 const NEW_SPEC_SCRIPT = fileURLToPath(new URL('../new-spec.mjs', import.meta.url));
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const DATE = '2026-08-28';
+const LIVE_BACKLOG_RULE = readFileSync(
+  path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+  'utf8',
+);
+const LIVE_CONTRACT_REGION = LIVE_BACKLOG_RULE.match(
+  /<!-- checkpoint-evidence-contract:v1:start -->[\s\S]*?<!-- checkpoint-evidence-contract:v1:end -->/,
+)?.[0];
 
 /**
  * A catalogue that mirrors the real one's SHAPE — level-3 gate headings carrying the status upgrade,
@@ -368,6 +380,7 @@ function makeWorkspace({
   spec = conformingSpec(),
   folder = 'draft',
   task = TASK,
+  backlogRule = `${BACKLOG_RULE}\n${LIVE_CONTRACT_REGION}`,
 } = {}) {
   const root = makeTemp('robota-gate-');
   const write = (relative, text) => {
@@ -378,7 +391,7 @@ function makeWorkspace({
   };
   write('.agents/specs/gate-catalogue.md', catalogue);
   write('.agents/rules/spec-workflow.md', RULE);
-  write('.agents/rules/backlog-execution.md', BACKLOG_RULE);
+  write('.agents/rules/backlog-execution.md', backlogRule);
   const doc = write(`.agents/spec-docs/${folder}/${SPEC_ID}.md`, spec);
   if (task) write(TASK_REL, task);
   return { root, doc };
@@ -1623,7 +1636,68 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     writeFileSync(path.join(root, TASK_REL), TASK + '\nmore\n');
     const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
     expect(result.status, result.stdout + result.stderr).toBe(0);
-    expect(readFileSync(doc, 'utf8')).toContain('**Status upgrade:** approved → in-progress');
+    const written = readFileSync(doc, 'utf8');
+    expect(written).toContain('**Status upgrade:** approved → in-progress');
+    const contract = parseCheckpointEvidenceContract(
+      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
+    ).contract;
+    const entry = evidenceEntries(written).at(-1);
+    const parsed = parseCheckpointEvidence(contract, 'gateImplementFirst', entry.lines.join('\n'));
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect(parsed.payload.specPath).toBe(`.agents/spec-docs/todo/${SPEC_ID}.md`);
+  });
+
+  it('writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)', () => {
+    const zeroCheckboxTask = TASK.replace(
+      '- [x] TC-01: write the refusal fixture\n- [x] TC-02: write the control fixture',
+      'TC-01 and TC-02 are both covered by the fixture implementation plan.',
+    )
+      .replace(`# ${SPEC_ID}: fixture task`, '# PROC-999: fixture task')
+      .replace(
+        'Harness-only change.',
+        'Not applicable because this repository-internal harness fixture exposes no product command, UI, SDK, or runtime behavior.',
+      );
+    const { root, doc } = approvedWorkspace();
+    writeFileSync(path.join(root, TASK_REL), zeroCheckboxTask);
+    const git = gitInit(root);
+    const base = git(['rev-parse', 'HEAD']).stdout.trim();
+    writeFileSync(path.join(root, TASK_REL), `${zeroCheckboxTask}\nplanning checkpoint update\n`);
+    writeFileSync(doc, `${readFileSync(doc, 'utf8')}\n`);
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    const written = readFileSync(doc, 'utf8');
+    const contract = parseCheckpointEvidenceContract(
+      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
+    ).contract;
+    const parsed = parseCheckpointEvidence(
+      contract,
+      'gateImplementFirst',
+      evidenceEntries(written).at(-1).lines.join('\n'),
+    );
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect(parsed.payload.taskItems).toEqual([
+      { kind: 'tc-id', value: 'TC-01' },
+      { kind: 'tc-id', value: 'TC-02' },
+    ]);
+
+    const active = path.join(root, `.agents/spec-docs/active/${SPEC_ID}.md`);
+    mkdirSync(path.dirname(active), { recursive: true });
+    renameSync(doc, active);
+    writeFileSync(
+      active,
+      readFileSync(active, 'utf8').replace('status: approved', 'status: in-progress'),
+    );
+    writeFileSync(
+      path.join(root, TASK_REL),
+      readFileSync(path.join(root, TASK_REL), 'utf8').replace(
+        'status: todo',
+        'status: in-progress',
+      ),
+    );
+    git(['add', '-A']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
   });
 
   it('fails naming a path outside the paired artifacts', () => {

@@ -34,6 +34,15 @@ import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { visibleMarkdown } from './markdown-visibility.mjs';
+import {
+  continuationArtifacts,
+  parseCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+  priorPassDigest,
+  rawGateImplementPassEntries,
+  taskItemsForCheckpoint,
+} from './checkpoint-evidence-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
@@ -41,6 +50,7 @@ const SPEC_PREFIX = '.agents/spec-docs/';
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
 const POST_MERGE_LEDGER = `${LOOP_RUNS_PREFIX}post-merge-cycle.jsonl`;
 const UES_LEDGER = `${LOOP_RUNS_PREFIX}user-execution-scenario.jsonl`;
+const BACKLOG_RULE_PATH = '.agents/rules/backlog-execution.md';
 const SPEC_FOLDERS = new Set(['draft', 'backlog', 'todo', 'active', 'done']);
 const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['draft', 'draft'],
@@ -81,6 +91,133 @@ function nulPaths(text) {
 function gitText(root, revision, file) {
   const result = runGit(root, ['show', `${revision}:${file}`]);
   return result.code === 0 ? result.stdout : null;
+}
+
+function hasValidCheckpointContract(root, revision) {
+  const rule = gitText(root, revision, BACKLOG_RULE_PATH);
+  return rule !== null && parseCheckpointEvidenceContract(rule).ok;
+}
+
+function checkpointContractCutovers(root, revision) {
+  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
+  if (listed.code !== 0) {
+    throw new Error(
+      `cannot inspect checkpoint contract ancestry: ${listed.stderr || '(no stderr)'}`,
+    );
+  }
+  return lines(listed.stdout).filter((commit) => {
+    if (!hasValidCheckpointContract(root, commit)) return false;
+    const parent = runGit(root, ['rev-parse', `${commit}^`]);
+    return parent.code !== 0 || !hasValidCheckpointContract(root, parent.stdout.trim());
+  });
+}
+
+function checkpointContractMarkerCommits(root, revision) {
+  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
+  if (listed.code !== 0) {
+    throw new Error(
+      `cannot inspect checkpoint contract markers: ${listed.stderr || '(no stderr)'}`,
+    );
+  }
+  return lines(listed.stdout).filter((commit) =>
+    String(gitText(root, commit, BACKLOG_RULE_PATH) ?? '').includes(
+      'checkpoint-evidence-contract:v1:',
+    ),
+  );
+}
+
+function entryCounts(specText) {
+  const counts = new Map();
+  for (const entry of rawGateImplementPassEntries(specText)) {
+    const key = entry.trimEnd();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function legacyEntriesBeforeCutover(root, cutover, revision, basename) {
+  const parent = runGit(root, ['rev-parse', `${cutover}^`]);
+  if (parent.code !== 0) return [];
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const baseline = rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath));
+  const baselineCounts = entryCounts(gitText(root, parent.stdout.trim(), specPath));
+  const minimumCounts = new Map(baselineCounts);
+  const previousCounts = new Map(baselineCounts);
+  const reintroduced = new Set();
+  const changed = runGit(root, [
+    'rev-list',
+    '--reverse',
+    '--ancestry-path',
+    `${parent.stdout.trim()}..${revision}`,
+    '--',
+    specPath,
+  ]);
+  if (changed.code !== 0) {
+    throw new Error(
+      `cannot inspect legacy checkpoint occurrence ancestry: ${changed.stderr || '(no stderr)'}`,
+    );
+  }
+  for (const commit of lines(changed.stdout)) {
+    const counts = entryCounts(gitText(root, commit, specPath));
+    for (const key of baselineCounts.keys()) {
+      const count = counts.get(key) ?? 0;
+      if (count > (previousCounts.get(key) ?? 0)) reintroduced.add(key);
+      minimumCounts.set(key, Math.min(minimumCounts.get(key) ?? 0, count));
+      previousCounts.set(key, count);
+    }
+  }
+  const remaining = new Map(
+    [...baselineCounts.keys()].map((key) => [
+      key,
+      reintroduced.has(key) ? 0 : (minimumCounts.get(key) ?? 0),
+    ]),
+  );
+  return baseline.filter((entry) => {
+    const key = entry.trimEnd();
+    const count = remaining.get(key) ?? 0;
+    if (count === 0) return false;
+    remaining.set(key, count - 1);
+    return true;
+  });
+}
+
+function precedingSequencedMerge(root, revision, basename) {
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);
+  if (priorEntry === undefined) return null;
+  const result = runGit(root, ['rev-list', '--first-parent', '--merges', revision]);
+  if (result.code !== 0) {
+    throw new Error(`cannot inspect preceding merge ancestry: ${result.stderr || '(no stderr)'}`);
+  }
+  for (const merge of lines(result.stdout)) {
+    const parent = runGit(root, ['rev-parse', `${merge}^1`]);
+    if (parent.code !== 0) continue;
+    const inMerge = rawGateImplementPassEntries(gitText(root, merge, specPath)).filter(
+      (entry) => entry === priorEntry,
+    ).length;
+    const inFirstParent = rawGateImplementPassEntries(
+      gitText(root, parent.stdout.trim(), specPath),
+    ).filter((entry) => entry === priorEntry).length;
+    if (inMerge > inFirstParent) return merge;
+  }
+  return null;
+}
+
+function checkpointOptionsAt(
+  root,
+  revision,
+  basename,
+  parentRevision = revision,
+  checkpointPaths = null,
+) {
+  const cutovers = checkpointContractCutovers(root, revision);
+  return {
+    ...(cutovers.length === 1
+      ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
+      : {}),
+    ancestorSha: precedingSequencedMerge(root, parentRevision, basename),
+    ...(checkpointPaths === null ? {} : { checkpointPaths }),
+  };
 }
 
 function indexText(root, file) {
@@ -229,203 +366,6 @@ function isL1Spec(text) {
   );
 }
 
-function isEscapedDelimiter(line, at) {
-  let slashes = 0;
-  for (let index = at - 1; index >= 0 && line[index] === '\\'; index -= 1) slashes += 1;
-  return slashes % 2 === 1;
-}
-
-function startsParagraphInterruptingHtmlBlock(line) {
-  return (
-    /^ {0,3}<(?:script|pre|style|textarea)(?:\s|>|$)/i.test(line) ||
-    /^ {0,3}<!--/.test(line) ||
-    /^ {0,3}<\?/.test(line) ||
-    /^ {0,3}<!\[CDATA\[/.test(line) ||
-    /^ {0,3}<![A-Z]/.test(line) ||
-    /^ {0,3}<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|\/?>|$)/i.test(
-      line,
-    )
-  );
-}
-
-function startsNewMarkdownBlock(line) {
-  return (
-    line.trim() === '' ||
-    /^ {0,3}#{1,6}(?:\s|$)/.test(line) ||
-    fenceOpening(line) !== null ||
-    /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line) ||
-    /^ {0,3}(?:=+|-+)\s*$/.test(line) ||
-    /^ {0,3}>/.test(line) ||
-    /^ {0,3}(?:[-+*]|1[.)])[ \t]+\S/.test(line) ||
-    startsParagraphInterruptingHtmlBlock(line)
-  );
-}
-
-function fenceOpening(line) {
-  const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-  if (!match) return null;
-  if (match[1][0] === '`' && match[2].includes('`')) return null;
-  return match[1];
-}
-
-function hasMatchingBacktickRun(lines, lineIndex, cursor, length) {
-  for (let index = lineIndex; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (index > lineIndex && startsNewMarkdownBlock(line)) return false;
-    let at = index === lineIndex ? cursor : 0;
-    while (at < line.length) {
-      if (line[at] !== '`') {
-        at += 1;
-        continue;
-      }
-      let end = at + 1;
-      while (line[end] === '`') end += 1;
-      if (end - at === length) return true;
-      at = end;
-    }
-  }
-  return false;
-}
-
-function stripHtmlCommentsOutsideCode(line, state, hasClosingRun) {
-  let output = '';
-  let cursor = 0;
-  while (cursor < line.length) {
-    if (state.comment) {
-      const close = line.indexOf('-->', cursor);
-      if (close === -1) return output;
-      state.comment = false;
-      cursor = close + 3;
-      continue;
-    }
-    if (line[cursor] === '`') {
-      if (state.codeSpan === null && isEscapedDelimiter(line, cursor)) {
-        output += line[cursor];
-        cursor += 1;
-        continue;
-      }
-      let end = cursor + 1;
-      while (line[end] === '`') end += 1;
-      const length = end - cursor;
-      if (state.codeSpan === null && hasClosingRun(end, length)) state.codeSpan = length;
-      else if (state.codeSpan === length) state.codeSpan = null;
-      output += line.slice(cursor, end);
-      cursor = end;
-      continue;
-    }
-    if (
-      state.codeSpan === null &&
-      line.startsWith('<!--', cursor) &&
-      !isEscapedDelimiter(line, cursor)
-    ) {
-      state.comment = true;
-      cursor += 4;
-      continue;
-    }
-    output += line[cursor];
-    cursor += 1;
-  }
-  return output;
-}
-
-function visibleMarkdown(text) {
-  const kept = [];
-  let fence = null;
-  let htmlBlockEnd = null;
-  let paragraphOpen = false;
-  const inlineState = { comment: false, codeSpan: null };
-  const sourceLines = String(text ?? '').split('\n');
-  for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex += 1) {
-    const rawLine = sourceLines[lineIndex];
-    let line = rawLine;
-    if (htmlBlockEnd !== null) {
-      if (htmlBlockEnd === 'blank') {
-        if (line.trim() === '') htmlBlockEnd = null;
-      } else if (htmlBlockEnd.test(line)) {
-        htmlBlockEnd = null;
-      }
-      paragraphOpen = false;
-      continue;
-    }
-    if (fence !== null) {
-      const closing = /^ {0,3}(`+|~+)\s*$/.exec(line)?.[1] ?? null;
-      if (closing !== null && closing[0] === fence.character && closing.length >= fence.length) {
-        fence = null;
-      }
-      paragraphOpen = false;
-      continue;
-    }
-    const rawOpening = fenceOpening(line);
-    if (!inlineState.comment && inlineState.codeSpan === null && rawOpening !== null) {
-      fence = { character: rawOpening[0], length: rawOpening.length };
-      paragraphOpen = false;
-      continue;
-    }
-    if (
-      !paragraphOpen &&
-      !inlineState.comment &&
-      inlineState.codeSpan === null &&
-      /^(?: {4}|\t)/.test(line)
-    ) {
-      continue;
-    }
-    line = stripHtmlCommentsOutsideCode(line, inlineState, (cursor, length) =>
-      hasMatchingBacktickRun(sourceLines, lineIndex, cursor, length),
-    );
-    const opening = fenceOpening(line);
-    if (opening !== null) {
-      fence = { character: opening[0], length: opening.length };
-      paragraphOpen = false;
-      continue;
-    }
-    if (!paragraphOpen && /^(?: {4}|\t)/.test(line)) continue;
-    if (line.trim() === '') {
-      kept.push(line);
-      paragraphOpen = false;
-      continue;
-    }
-    const rawStart = /^ {0,3}<(script|pre|style|textarea)(?:\s|>|$)/i.exec(line)?.[1];
-    if (rawStart) {
-      htmlBlockEnd = new RegExp(`</${rawStart}>`, 'i');
-      if (htmlBlockEnd.test(line)) htmlBlockEnd = null;
-      paragraphOpen = false;
-      continue;
-    }
-    if (/^ {0,3}<\?/.test(line)) {
-      if (!line.includes('?>')) htmlBlockEnd = /\?>/;
-      paragraphOpen = false;
-      continue;
-    }
-    if (/^ {0,3}<!\[CDATA\[/.test(line)) {
-      if (!line.includes(']]>')) htmlBlockEnd = /\]\]>/;
-      paragraphOpen = false;
-      continue;
-    }
-    if (/^ {0,3}<![A-Z]/.test(line)) {
-      if (!line.includes('>')) htmlBlockEnd = />/;
-      paragraphOpen = false;
-      continue;
-    }
-    const typeSix =
-      /^ {0,3}<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|\/?>|$)/i.test(
-        line,
-      );
-    const typeSeven = /^ {0,3}<\/?[A-Za-z][^>]*>\s*$/.test(line);
-    if (typeSix || (!paragraphOpen && typeSeven)) {
-      htmlBlockEnd = 'blank';
-      paragraphOpen = false;
-      continue;
-    }
-    kept.push(line);
-    paragraphOpen = !(
-      /^ {0,3}#{1,6}(?:\s|$)/.test(line) ||
-      /^ {0,3}(?:=+|-+)\s*$/.test(line) ||
-      /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)
-    );
-  }
-  return kept.join('\n');
-}
-
 function atxHeading(line) {
   const match = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/.exec(line);
   if (!match) return null;
@@ -463,6 +403,41 @@ function isCanonicalDatedPass(content, gateName) {
   if (!match) return false;
   const date = new Date(`${match[1]}T00:00:00.000Z`);
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === match[1];
+}
+
+function canonicalRawPassEntries(text, sectionHeading, gateName) {
+  const projection = visibleMarkdown(text, true);
+  const sectionStart = projection.lines.findIndex((line) => {
+    const heading = atxHeading(line);
+    return heading?.level === 2 && heading.content === sectionHeading;
+  });
+  if (sectionStart === -1) return [];
+  let sectionEnd = projection.lines.length;
+  for (let index = sectionStart + 1; index < projection.lines.length; index += 1) {
+    const heading = atxHeading(projection.lines[index]);
+    if (heading && heading.level <= 2) {
+      sectionEnd = index;
+      break;
+    }
+  }
+  const entries = [];
+  for (let index = sectionStart + 1; index < sectionEnd; index += 1) {
+    const heading = atxHeading(projection.lines[index]);
+    if (heading?.level !== 3 || !isCanonicalDatedPass(heading.content, gateName)) continue;
+    let end = sectionEnd;
+    for (let cursor = index + 1; cursor < sectionEnd; cursor += 1) {
+      const next = atxHeading(projection.lines[cursor]);
+      if (next && next.level <= 3) {
+        end = cursor;
+        break;
+      }
+    }
+    const rawStart = projection.rawIndices[index] + 1;
+    const rawEnd =
+      end === projection.lines.length ? projection.sourceLines.length : projection.rawIndices[end];
+    entries.push(projection.sourceLines.slice(rawStart, rawEnd).join('\n'));
+  }
+  return entries;
 }
 
 function canonicalPassEntries(section, gateName) {
@@ -507,7 +482,7 @@ function gateImplementEntryForm(body) {
   return null;
 }
 
-function completeGateImplementEntry(body, binding = null) {
+function completeLegacyGateImplementEntry(body, binding = null) {
   const structurallyComplete =
     gateImplementEntryForm(body) !== null &&
     /\.agents\/tasks\/[A-Z][A-Z0-9]*-\d+[^\s`]*\.md/.test(body) &&
@@ -531,6 +506,234 @@ function completeGateImplementEntry(body, binding = null) {
     (match) => match[1] === binding.signal.outcome && Number(match[2]) === binding.signal.count,
   );
   return hasExactMarkdownToken(body, taskPath) && hasSpecPath && hasExactSignal;
+}
+
+function gateImplementEntryResults(
+  spec,
+  binding = null,
+  ruleText = null,
+  {
+    legacyEntries = [],
+    priorEntries = null,
+    ancestorSha = null,
+    expectedTaskItems = null,
+    taskItemsError = null,
+    baseSpec = null,
+    checkpointPaths = null,
+  } = {},
+) {
+  const evidence = markdownSection(spec, '## Evidence Log');
+  const visibleEntries = canonicalPassEntries(evidence, 'GATE-IMPLEMENT');
+  const rawEntries = rawGateImplementPassEntries(spec);
+  const entries = rawEntries;
+  if (rawEntries.length !== visibleEntries.length) {
+    return rawEntries.map((body) => ({
+      ok: false,
+      error:
+        'raw and canonical PASS populations must correspond exactly under real-calendar date semantics',
+      body,
+    }));
+  }
+  if (
+    priorEntries !== null &&
+    (rawEntries.length !== priorEntries.length + 1 ||
+      priorEntries.some((entry, index) => rawEntries[index] !== entry))
+  ) {
+    return entries.map((body) => ({
+      ok: false,
+      error:
+        'parent raw PASS entries must remain byte-identical in exact prefix order before exactly one appended entry',
+      body,
+    }));
+  }
+  const rule = String(ruleText ?? '');
+  const declaresV1 = rule.includes('checkpoint-evidence-contract:v1:');
+  if (!declaresV1) {
+    return entries.map((body) => ({
+      ok: completeLegacyGateImplementEntry(body, binding),
+      error: 'legacy-v0 GATE-IMPLEMENT binding is incomplete',
+      body,
+    }));
+  }
+  const parsedContract = parseCheckpointEvidenceContract(rule);
+  if (!parsedContract.ok) {
+    return entries.map((body) => ({
+      ok: false,
+      error: `checkpoint evidence contract unreadable: ${parsedContract.error}`,
+      body,
+    }));
+  }
+  const legacyCounts = new Map();
+  for (const entry of legacyEntries) {
+    const key = entry.trimEnd();
+    legacyCounts.set(key, (legacyCounts.get(key) ?? 0) + 1);
+  }
+  const results = entries.map((body, index) => {
+    const isCurrentIntroduction = priorEntries !== null && index === priorEntries.length;
+    const entryForm = gateImplementEntryForm(body);
+    const formName =
+      entryForm === 'first'
+        ? 'gateImplementFirst'
+        : entryForm === 'continuation'
+          ? 'gateImplementContinuation'
+          : null;
+    if (formName === null)
+      return { ok: false, error: 'GATE-IMPLEMENT status form is invalid', body };
+    if (!body.includes(parsedContract.contract.entryEncoding.startMarker)) {
+      const key = body.trimEnd();
+      const eligible = (legacyCounts.get(key) ?? 0) > 0;
+      if (eligible) legacyCounts.set(key, legacyCounts.get(key) - 1);
+      return {
+        ok: eligible && completeLegacyGateImplementEntry(body, binding),
+        error:
+          'legacy-v0 GATE-IMPLEMENT occurrence is not ancestry-eligible: no continuously surviving introduction ancestry before the v1 cutover',
+        body,
+      };
+    }
+    const parsed = parseCheckpointEvidence(parsedContract.contract, formName, body);
+    if (!parsed.ok) return { ok: false, error: parsed.error, body };
+    if (binding !== null) {
+      const expectedTask = `${TASK_PREFIX}${binding.basename}`;
+      const expectedSpec = `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`;
+      if (parsed.payload.taskPath !== expectedTask) {
+        return { ok: false, error: `${formName}.taskPath does not bind ${expectedTask}`, body };
+      }
+      if (parsed.payload.specPath !== expectedSpec) {
+        return { ok: false, error: `${formName}.specPath does not bind ${expectedSpec}`, body };
+      }
+      if (
+        parsed.payload.plan.outcome !== binding.signal.outcome ||
+        parsed.payload.plan.count !== binding.signal.count
+      ) {
+        return { ok: false, error: `${formName}.plan does not bind the Task author verdict`, body };
+      }
+    }
+    if (formName === 'gateImplementFirst') {
+      if (isCurrentIntroduction && taskItemsError !== null) {
+        return { ok: false, error: taskItemsError, body };
+      }
+      if (
+        isCurrentIntroduction &&
+        expectedTaskItems !== null &&
+        JSON.stringify(parsed.payload.taskItems) !== JSON.stringify(expectedTaskItems)
+      ) {
+        return {
+          ok: false,
+          error: 'gateImplementFirst.taskItems do not bind the Task/Completion Criteria selection',
+          body,
+        };
+      }
+    }
+    const allowedWorktreePaths = new Set([
+      parsed.payload.taskPath,
+      parsed.payload.specPath,
+      ...parsed.payload.worktreePaths.filter((entry) => entry.startsWith(LOOP_RUNS_PREFIX)),
+    ]);
+    if (
+      !parsed.payload.worktreePaths.includes(parsed.payload.taskPath) ||
+      !parsed.payload.worktreePaths.includes(parsed.payload.specPath) ||
+      parsed.payload.worktreePaths.some((entry) => !allowedWorktreePaths.has(entry))
+    ) {
+      return {
+        ok: false,
+        error: `${formName}.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`,
+        body,
+      };
+    }
+    if (isCurrentIntroduction && binding !== null && checkpointPaths !== null) {
+      const expectedWorktreePaths = [
+        `${TASK_PREFIX}${binding.basename}`,
+        `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`,
+        ...checkpointPaths.filter(
+          (entry) => entry.startsWith(LOOP_RUNS_PREFIX) && entry !== POST_MERGE_LEDGER,
+        ),
+      ].sort();
+      if (JSON.stringify(parsed.payload.worktreePaths) !== JSON.stringify(expectedWorktreePaths)) {
+        return {
+          ok: false,
+          error: `${formName}.worktreePaths do not bind the exact checkpoint inventory`,
+          body,
+        };
+      }
+    }
+    if (formName === 'gateImplementContinuation') {
+      const priorEntry = isCurrentIntroduction ? null : entries[index - 1];
+      if (
+        !isCurrentIntroduction &&
+        (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry))
+      ) {
+        return {
+          ok: false,
+          error:
+            'gateImplementContinuation.priorPass does not hash the latest prior raw PASS entry',
+          body,
+        };
+      }
+      if (isCurrentIntroduction) {
+        const artifacts = continuationArtifacts(parsedContract.contract, baseSpec ?? spec);
+        if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
+        if (
+          JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
+        ) {
+          return {
+            ok: false,
+            error:
+              'gateImplementContinuation.sequencedArtifacts do not bind the base parentSpec Decision line',
+            body,
+          };
+        }
+      }
+      if (isCurrentIntroduction && ancestorSha === null) {
+        return {
+          ok: false,
+          error:
+            'gateImplementContinuation.ancestorSha has no preceding merge commit that introduced the sequenced checkpoint',
+          body,
+        };
+      }
+      if (
+        isCurrentIntroduction &&
+        ancestorSha !== null &&
+        parsed.payload.ancestorSha !== ancestorSha
+      ) {
+        return {
+          ok: false,
+          error:
+            'gateImplementContinuation.ancestorSha does not bind the preceding merge commit that introduced the sequenced checkpoint',
+          body,
+        };
+      }
+    }
+    return { ok: true, payload: parsed.payload, body };
+  });
+  if (priorEntries === null) return results;
+
+  const currentIndex = priorEntries.length;
+  const priorResults = results.slice(0, currentIndex);
+  if (priorResults.some((result) => !result.ok)) {
+    results[currentIndex] = {
+      ok: false,
+      error: 'every prior canonical PASS must be complete and valid before a continuation',
+      body: entries[currentIndex],
+    };
+    return results;
+  }
+  const current = results[currentIndex];
+  const latestValidatedPredecessor = priorResults.findLast((result) => result.ok);
+  if (
+    current?.ok &&
+    current.payload.form === 'gateImplementContinuation' &&
+    (latestValidatedPredecessor === undefined ||
+      current.payload.priorPass !== priorPassDigest(latestValidatedPredecessor.body))
+  ) {
+    results[currentIndex] = {
+      ok: false,
+      error:
+        'gateImplementContinuation.priorPass does not hash the latest complete validated predecessor PASS entry',
+      body: current.body,
+    };
+  }
+  return results;
 }
 
 function normalizedScenarioLines(body) {
@@ -825,8 +1028,11 @@ function scenarioContract(body, outcome) {
     evidence !== null;
   return complete
     ? {
+        executability,
         surface,
         invocation,
+        command,
+        browserSteps,
         barrier,
         unavailableCapability,
         attemptedAutomation,
@@ -836,8 +1042,94 @@ function scenarioContract(body, outcome) {
         observableRationale,
         productStatePath: normalizedStatePath,
         uiSteps,
+        prerequisites,
+        cleanup,
+        evidence,
       }
     : null;
+}
+
+function stageOneScenarioPayload(scenario, outcome, contract) {
+  const binding = scenarioContract(scenario.body, outcome);
+  if (binding === null) return null;
+  const actionKind = contract.actionMapping[`${outcome}:${binding.surface}`];
+  const actionValue =
+    actionKind === 'command'
+      ? (tokenizeCanonicalShell(binding.command)?.invocation ?? null)
+      : actionKind === 'browserSteps'
+        ? binding.browserSteps
+        : actionKind === 'uiSteps'
+          ? binding.uiSteps
+          : null;
+  if (actionValue === null) return null;
+  return {
+    name: scenario.name,
+    surface: binding.surface,
+    surfaceRationale: binding.surfaceRationale,
+    invocation: binding.invocation,
+    observableType: binding.observableType,
+    observable: binding.observable,
+    observableRationale: binding.observableRationale,
+    guardianObservableVerdict: 'product-behavior',
+    executability: binding.executability,
+    prerequisite: binding.prerequisites,
+    action: { kind: actionKind, value: actionValue },
+    expectedObservable: binding.observable,
+    cleanup: binding.cleanup,
+    evidence: binding.evidence,
+    ...(binding.productStatePath ? { productStatePath: binding.productStatePath } : {}),
+    ...(outcome === 'manual'
+      ? {
+          barrier: binding.barrier,
+          unavailableCapability: binding.unavailableCapability,
+          attemptedAutomation: binding.attemptedAutomation,
+        }
+      : {}),
+    ...(outcome === 'manual' && binding.surface === 'robota-tui'
+      ? { uiSteps: binding.uiSteps }
+      : {}),
+  };
+}
+
+function v1StageOneResult(task, scenarios, outcome, ruleText) {
+  const declared = parseCheckpointEvidenceContract(ruleText);
+  if (!declared.ok) return declared;
+  const form = declared.contract.forms.doneGateStageOne;
+  const entries = canonicalRawPassEntries(task, 'User Execution Test Scenarios', form.heading);
+  if (entries.length !== 1) {
+    return { ok: false, error: `DONE-GATE-STAGE-1 PASS count is ${entries.length}, expected 1` };
+  }
+  const expectedStatus = `**Status upgrade:** ${form.statusUpgrade}`;
+  const statusLines = entries[0]
+    .split('\n')
+    .filter((line) => /^\*\*Status upgrade:\*\*/.test(line.trim()));
+  if (statusLines.length !== 1 || statusLines[0].trim() !== expectedStatus) {
+    return {
+      ok: false,
+      error: `doneGateStageOne.statusUpgrade must be ${form.statusUpgrade}`,
+    };
+  }
+  const parsed = parseCheckpointEvidence(declared.contract, 'doneGateStageOne', entries[0]);
+  if (!parsed.ok) return parsed;
+  const expectedScenarios = scenarios.map((scenario) =>
+    stageOneScenarioPayload(scenario, outcome, declared.contract),
+  );
+  if (expectedScenarios.some((scenario) => scenario === null)) {
+    return {
+      ok: false,
+      error: 'authored scenario does not satisfy the canonical product contract',
+    };
+  }
+  if (parsed.payload.outcome !== outcome) {
+    return { ok: false, error: 'doneGateStageOne.outcome does not bind the Task author verdict' };
+  }
+  if (JSON.stringify(parsed.payload.scenarios) !== JSON.stringify(expectedScenarios)) {
+    return {
+      ok: false,
+      error: 'doneGateStageOne.scenarios do not exactly bind the authored scenario fields',
+    };
+  }
+  return { ok: true };
 }
 
 function completeStageOneEntry(body, scenarios, outcome) {
@@ -873,11 +1165,9 @@ function completeStageOneEntry(body, scenarios, outcome) {
   });
 }
 
-function gateImplementPassCount(spec, binding = null) {
-  const evidence = markdownSection(spec, '## Evidence Log');
-  return canonicalPassEntries(evidence, 'GATE-IMPLEMENT').filter((body) =>
-    completeGateImplementEntry(body, binding),
-  ).length;
+function gateImplementPassCount(spec, binding = null, ruleText = null, options = {}) {
+  return gateImplementEntryResults(spec, binding, ruleText, options).filter((result) => result.ok)
+    .length;
 }
 
 /**
@@ -915,11 +1205,9 @@ function gatePlanPassCount(spec, binding = null) {
   ).length;
 }
 
-function gateImplementContinuationCount(spec, binding = null) {
-  const evidence = markdownSection(spec, '## Evidence Log');
-  return canonicalPassEntries(evidence, 'GATE-IMPLEMENT').filter(
-    (body) =>
-      gateImplementEntryForm(body) === 'continuation' && completeGateImplementEntry(body, binding),
+function gateImplementContinuationCount(spec, binding = null, ruleText = null, options = {}) {
+  return gateImplementEntryResults(spec, binding, ruleText, options).filter(
+    (result) => result.ok && gateImplementEntryForm(result.body) === 'continuation',
   ).length;
 }
 
@@ -933,13 +1221,30 @@ function exactPlanSignal(task) {
   return matches.length === 1 ? { outcome: matches[0][1], count: Number(matches[0][2]) } : null;
 }
 
-function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }) {
+function isCheckpointTransition({
+  basename,
+  parentTask,
+  parentSpec,
+  task,
+  spec,
+  ruleText = null,
+  checkpointOptions = {},
+}) {
   const signal = exactPlanSignal(task);
   if (signal === null) return false;
   if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
     return false;
   }
   const binding = { basename, signal };
+  const selectedTaskItems = taskItemsForCheckpoint(spec, task);
+  const currentOptions = {
+    ...checkpointOptions,
+    priorEntries: rawGateImplementPassEntries(parentSpec),
+    baseSpec: parentSpec,
+    ...(selectedTaskItems.ok
+      ? { expectedTaskItems: selectedTaskItems.items }
+      : { taskItemsError: selectedTaskItems.error }),
+  };
   const parentInProgress =
     frontmatterStatus(parentTask) === 'in-progress' &&
     frontmatterStatus(parentSpec) === 'in-progress';
@@ -950,10 +1255,10 @@ function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }
       frontmatterStatus(parentTask) !== 'in-progress' &&
       frontmatterStatus(parentSpec) !== 'in-progress' &&
       gateImplementPassCount(parentSpec) === 0 &&
-      gateImplementPassCount(spec, binding) === 1 &&
+      gateImplementPassCount(spec, binding, ruleText, currentOptions) === 1 &&
       // …and that one entry is in FIRST form: a continuation line on a pair that was never
       // in-progress (copied from a sequenced spec) is not a first checkpoint.
-      gateImplementContinuationCount(spec, binding) === 0
+      gateImplementContinuationCount(spec, binding, ruleText, currentOptions) === 0
     );
   }
   // A continuation checkpoint (HARNESS-131): the pair is already in-progress with a checkpoint on
@@ -963,10 +1268,11 @@ function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }
   return (
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
-    gateImplementPassCount(parentSpec, binding) >= 1 &&
-    gateImplementPassCount(spec, binding) === gateImplementPassCount(parentSpec, binding) + 1 &&
-    gateImplementContinuationCount(spec, binding) ===
-      gateImplementContinuationCount(parentSpec, binding) + 1
+    gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
+    gateImplementPassCount(spec, binding, ruleText, currentOptions) ===
+      gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) + 1 &&
+    gateImplementContinuationCount(spec, binding, ruleText, currentOptions) ===
+      gateImplementContinuationCount(parentSpec, binding, ruleText, checkpointOptions) + 1
   );
 }
 
@@ -1000,7 +1306,7 @@ function l1SpecPaths(basename) {
  * (`textAt`) and its parent (`parentTextAt`). L2 pairs are listed first and exactly as before; an
  * L1 transition is added only for a `todo/` spec that declares `lane: L1`.
  */
-function checkpointTransitions(paths, textAt, parentTextAt) {
+function checkpointTransitions(paths, textAt, parentTextAt, optionsFor = () => ({})) {
   const found = [];
   for (const basename of pairCandidates(paths, textAt)) {
     const taskPath = `${TASK_PREFIX}${basename}`;
@@ -1014,6 +1320,8 @@ function checkpointTransitions(paths, textAt, parentTextAt) {
       parentSpec: parentTextAt(specPath),
       task,
       spec,
+      ruleText: textAt(BACKLOG_RULE_PATH),
+      checkpointOptions: optionsFor(basename),
     });
     if (transition) found.push({ basename, lane: 'L2' });
   }
@@ -1029,6 +1337,32 @@ function checkpointTransitions(paths, textAt, parentTextAt) {
     if (transition) found.push({ basename, lane: 'L1' });
   }
   return found;
+}
+
+function malformedL2CheckpointCandidates(paths, textAt, parentTextAt) {
+  const ruleText = textAt(BACKLOG_RULE_PATH);
+  if (!String(ruleText ?? '').includes('checkpoint-evidence-contract:v1:')) return [];
+  return pairCandidates(paths, textAt).filter((basename) => {
+    const taskPath = `${TASK_PREFIX}${basename}`;
+    const specPath = `${SPEC_PREFIX}active/${basename}`;
+    const task = textAt(taskPath);
+    const spec = textAt(specPath);
+    if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
+      return false;
+    }
+    const entries = canonicalPassEntries(
+      markdownSection(spec, '## Evidence Log'),
+      'GATE-IMPLEMENT',
+    );
+    const parentEntries = canonicalPassEntries(
+      markdownSection(parentTextAt(specPath), '## Evidence Log'),
+      'GATE-IMPLEMENT',
+    );
+    const parentInProgress =
+      frontmatterStatus(parentTextAt(taskPath)) === 'in-progress' &&
+      frontmatterStatus(parentTextAt(specPath)) === 'in-progress';
+    return entries.length > 0 && (!parentInProgress || entries.length > parentEntries.length);
+  });
 }
 
 function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
@@ -1062,7 +1396,15 @@ function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
   return problems;
 }
 
-function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, task, spec }) {
+function evaluatePlanTexts({
+  basename,
+  parentTask = null,
+  parentSpec = null,
+  task,
+  spec,
+  ruleText = null,
+  checkpointOptions = {},
+}) {
   const problems = [];
   const id = subjectId(basename);
   if (!id) problems.push(`cannot derive a Task ID from paired basename \`${basename}\`.`);
@@ -1098,9 +1440,36 @@ function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, tas
   ) {
     problems.push(`paired spec does not bind its Tasks section to \`.agents/tasks/${basename}\`.`);
   }
-  if (!isCheckpointTransition({ basename, parentTask, parentSpec, task, spec })) {
+  if (
+    !isCheckpointTransition({
+      basename,
+      parentTask,
+      parentSpec,
+      task,
+      spec,
+      ruleText,
+      checkpointOptions,
+    })
+  ) {
+    const signal = exactPlanSignal(task);
+    const selectedTaskItems = taskItemsForCheckpoint(spec, task);
+    const diagnostics =
+      signal === null
+        ? []
+        : gateImplementEntryResults(spec, { basename, signal }, ruleText, {
+            ...checkpointOptions,
+            priorEntries: rawGateImplementPassEntries(parentSpec),
+            baseSpec: parentSpec,
+            ...(selectedTaskItems.ok
+              ? { expectedTaskItems: selectedTaskItems.items }
+              : { taskItemsError: selectedTaskItems.error }),
+          })
+            .filter((result) => !result.ok)
+            .map((result) => result.error);
     problems.push(
-      'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
+      diagnostics.length > 0
+        ? `GATE-IMPLEMENT checkpoint binding failed: ${[...new Set(diagnostics)].join('; ')}.`
+        : 'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
     );
   }
 
@@ -1145,11 +1514,19 @@ function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, tas
         'applicable PLAN scenario count or required executability/prerequisite/command/UI/observable/cleanup/evidence fields are incomplete.',
       );
     }
-    const hasStageOnePass = canonicalPassEntries(scenarioSection, 'DONE-GATE-STAGE-1').some(
-      (body) => completeStageOneEntry(body, scenarios, outcome),
-    );
+    const declaresV1 = String(ruleText ?? '').includes('checkpoint-evidence-contract:v1:');
+    const stageOneV1 = declaresV1 ? v1StageOneResult(task, scenarios, outcome, ruleText) : null;
+    const hasStageOnePass = declaresV1
+      ? stageOneV1.ok
+      : canonicalPassEntries(scenarioSection, 'DONE-GATE-STAGE-1').some((body) =>
+          completeStageOneEntry(body, scenarios, outcome),
+        );
     if (!hasStageOnePass) {
-      problems.push('applicable PLAN has no DONE-GATE-STAGE-1 PASS.');
+      problems.push(
+        declaresV1
+          ? `DONE-GATE-STAGE-1 checkpoint binding failed: ${stageOneV1.error}.`
+          : 'applicable PLAN has no DONE-GATE-STAGE-1 PASS.',
+      );
     }
   }
   return problems;
@@ -1432,7 +1809,17 @@ function validateCheckpointCommit(root, parent, commit, paths, basename) {
     );
     return problems;
   }
-  problems.push(...evaluatePlanTexts({ basename, parentTask, parentSpec, task, spec }));
+  problems.push(
+    ...evaluatePlanTexts({
+      basename,
+      parentTask,
+      parentSpec,
+      task,
+      spec,
+      ruleText: gitText(root, commit, BACKLOG_RULE_PATH),
+      checkpointOptions: checkpointOptionsAt(root, commit, basename, parent, paths),
+    }),
+  );
   const unexpected = allowedCheckpointPaths(root, parent, commit, paths, basename);
   if (unexpected.length > 0) {
     problems.push(
@@ -1515,6 +1902,46 @@ function requireWorktreeTopLevel(root) {
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
+  const headCutovers = checkpointContractCutovers(root, 'HEAD');
+  const markerCommits = checkpointContractMarkerCommits(root, 'HEAD');
+  if (headCutovers.length === 0 && markerCommits.length > 0) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(
+          'checkpoint evidence contract markers exist but no valid v1 cutover can be proven.',
+        ),
+      ],
+    };
+  }
+  if (headCutovers.length > 1) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(`checkpoint evidence contract cutover is ambiguous: ${headCutovers.join(', ')}.`),
+      ],
+    };
+  }
+  if (headCutovers.length === 1 && !hasValidCheckpointContract(root, 'HEAD')) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding('checkpoint evidence contract is missing or invalid after the v1 cutover.'),
+      ],
+    };
+  }
   // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
   // against its parent, which is defined for a single-parent commit and undefined for a merge —
   // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
@@ -1558,12 +1985,22 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       entry.paths,
       textIn(entry.commit),
       textIn(entry.parent),
+      (basename) => checkpointOptionsAt(root, entry.commit, basename, entry.parent, entry.paths),
     );
-    if (transitions.length > 0) {
+    const malformed =
+      transitions.length === 0
+        ? malformedL2CheckpointCandidates(entry.paths, textIn(entry.commit), textIn(entry.parent))
+        : [];
+    if (transitions.length > 0 || malformed.length > 0) {
       candidates.push({
         ...entry,
-        pairs: transitions.map((transition) => transition.basename),
-        lanes: new Map(transitions.map((transition) => [transition.basename, transition.lane])),
+        pairs:
+          transitions.length > 0 ? transitions.map((transition) => transition.basename) : malformed,
+        lanes: new Map(
+          transitions.length > 0
+            ? transitions.map((transition) => [transition.basename, transition.lane])
+            : malformed.map((basename) => [basename, 'L2']),
+        ),
       });
     }
   }
@@ -1697,7 +2134,13 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     );
   }
   for (const entry of entries.slice(entries.indexOf(first) + 1)) {
-    const secondary = checkpointTransitions(entry.paths, textIn(entry.commit), textIn(entry.parent))
+    const secondary = checkpointTransitions(
+      entry.paths,
+      textIn(entry.commit),
+      textIn(entry.parent),
+      (candidateBasename) =>
+        checkpointOptionsAt(root, entry.commit, candidateBasename, entry.parent, entry.paths),
+    )
       .map((transition) => transition.basename)
       .filter((candidateBasename) => candidateBasename !== basename);
     if (secondary.length > 0) {
@@ -1811,7 +2254,17 @@ function stagedCheckpoint(root, paths) {
       `proposed checkpoint does not stage the exact active Task/spec pair \`${basename}\`.`,
     );
   } else {
-    problems.push(...evaluatePlanTexts({ basename, parentTask, parentSpec, task, spec }));
+    problems.push(
+      ...evaluatePlanTexts({
+        basename,
+        parentTask,
+        parentSpec,
+        task,
+        spec,
+        ruleText: stagedText(BACKLOG_RULE_PATH),
+        checkpointOptions: checkpointOptionsAt(root, 'HEAD', basename, 'HEAD', paths),
+      }),
+    );
   }
   const sourceSpec = `${SPEC_PREFIX}todo/${basename}`;
   const validSourceDeletion =
@@ -1835,6 +2288,14 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (staged.length === 0) return [];
     const history = historyAnalysis(root, requestedBase);
     if (history.findings.length > 0) return history.findings;
+    if (staged.includes(BACKLOG_RULE_PATH)) {
+      const stagedContract = parseCheckpointEvidenceContract(indexText(root, BACKLOG_RULE_PATH));
+      if (!stagedContract.ok) {
+        return [
+          finding(`staged checkpoint evidence contract is unreadable: ${stagedContract.error}.`),
+        ];
+      }
+    }
     if (staged.includes(POST_MERGE_LEDGER)) {
       const before = gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '';
       const after = indexText(root, POST_MERGE_LEDGER) ?? '';
@@ -1861,9 +2322,9 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const headText = (file) => gitText(root, 'HEAD', file);
     if (history.checkpoint) {
       // A same-basename re-transition is refused here too, as before: the checkpoint already exists.
-      const secondary = checkpointTransitions(staged, stagedText, headText).map(
-        (transition) => transition.basename,
-      );
+      const secondary = checkpointTransitions(staged, stagedText, headText, (basename) =>
+        checkpointOptionsAt(root, 'HEAD', basename, 'HEAD', staged),
+      ).map((transition) => transition.basename);
       return secondary.length === 0
         ? []
         : [
