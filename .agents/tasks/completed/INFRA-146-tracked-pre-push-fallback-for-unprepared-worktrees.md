@@ -47,3 +47,5 @@ missing generated path as success.
 - Focused harness tests: 104 passed (`harness-scripts.test.mjs`, `pre-push-sequence.test.mjs`).
 - Manual fail-closed check: removing `.husky/_/h` still invokes the tracked bootstrap and blocks
   the push instead of silently succeeding.
+- Contract-tier file execution is serialized while retaining the two-worker ceiling, preventing
+  concurrent fixture cleanup from making the gate nondeterministic.
