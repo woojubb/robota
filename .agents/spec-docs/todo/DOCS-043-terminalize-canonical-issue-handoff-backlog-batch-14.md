@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [docs]
 lane: L2
@@ -100,6 +100,18 @@ Not applicable — internal backlog lifecycle documentation only; no user-facing
 | CLI-083  | `.agents/tasks/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in-the-shipped-product.md` | [issue #2295 comment](https://github.com/woojubb/robota/issues/2295#issuecomment-5460534959) | skipped and archived |
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-29
+
+The duplicate-root symptom, canonical issue handoffs, migration manifest, alternatives, and document-only scope are recorded.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Evidence condition:** RULE-015 → issue #2391 and CLI-083 → issue #2295 handoff comments are recorded; no source/API/policy changes are included.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-29
 
