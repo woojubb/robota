@@ -296,9 +296,13 @@ function decodeInvisibleHtmlEntities(text) {
       return String.fromCodePoint(codePoint);
     },
   );
-  return decodedNumeric.replace(
-    /&(?:Tab|NewLine|nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|ZeroWidthSpace|NegativeMediumSpace|NegativeThickSpace|NegativeThinSpace|NegativeVeryThinSpace|NoBreak|zwnj|zwj|lrm|rlm|shy|ApplyFunction|InvisibleTimes|InvisibleComma|af|it|ic);/gi,
+  const decodedWhitespace = decodedNumeric.replace(
+    /&(?:Tab|NewLine|nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace);/gi,
     ' ',
+  );
+  return decodedWhitespace.replace(
+    /&(?:ZeroWidthSpace|NegativeMediumSpace|NegativeThickSpace|NegativeThinSpace|NegativeVeryThinSpace|NoBreak|zwnj|zwj|lrm|rlm|shy|ApplyFunction|InvisibleTimes|InvisibleComma|af|it|ic);/gi,
+    '',
   );
 }
 
@@ -308,7 +312,9 @@ function renderedMarkdownText(markdown) {
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
     .replace(/<(pre|code|script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
   return decodeInvisibleHtmlEntities(stripHtmlTags(html))
-    .replace(/[\p{White_Space}\p{Cc}\p{Default_Ignorable_Code_Point}]+/gu, ' ')
+    .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
+    .replace(/\p{White_Space}+/gu, ' ')
+    .replace(/\p{Cc}+/gu, '')
     .trim();
 }
 
