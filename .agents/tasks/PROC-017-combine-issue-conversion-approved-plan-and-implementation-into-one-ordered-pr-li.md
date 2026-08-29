@@ -17,8 +17,8 @@ Reduce the eligible Issue-to-Task delivery path from two complete PR lifecycles 
 topic-branch PR without weakening the repository's fail-closed planning, review, CI, merge, or
 issue-writeback gates. Source issue: https://github.com/woojubb/robota/issues/2514.
 
-The measured baseline from #2512 is one merged conversion PR (#2501) plus one merged implementation
-PR (#2507) for #2082; #2506 was closed without merge and is excluded:
+The measured baseline from issue #2512 is one merged conversion PR #2501 plus one merged implementation
+PR #2507 for issue #2082; PR #2506 was closed without merge and is excluded:
 conversion-start to merge was 23m 14s, PR-open to merge was 11m 34s, and no runtime source changed
 during the 44m 48s observed pre-implementation interval. This is evidence of duplicated ceremony, not
 proof that this child alone solves the full queue-growth problem; B/C/D/E/F remain outside this Task.
@@ -38,7 +38,7 @@ reviewed again before implementation.
 - [ ] TC-02 — implement and run the deterministic affected-path classification fixture and affected scans.
 - [ ] TC-03 — implement and run conversion/checkpoint refusal fixtures and preserve downstream guardians.
 - [ ] TC-04 — wire all four owner documents and both harness owners, then run exact path scans.
-- [ ] TC-05 — run pure parser and existing `finalizeIssueConversion` read-back failure tests plus #2514 read-back.
+- [ ] TC-05 — run pure parser and existing `finalizeIssueConversion` read-back failure tests plus issue #2514 read-back.
 - [ ] TC-06 — record/compare baseline and candidate lifecycle JSON evidence and verify both artifacts are tracked.
 
 ## Test Plan

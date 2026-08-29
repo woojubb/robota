@@ -12,9 +12,9 @@ Paired with `.agents/tasks/PROC-017-combine-issue-conversion-approved-plan-and-i
 ## Problem
 
 For an eligible accepted Issue, the current process pays for a conversion PR and then a separate
-implementation PR before the product code changes. #2512 re-read the representative #2082 evidence:
+implementation PR before the product code changes. issue #2512 re-read the representative issue #2082 evidence:
 23m 14s from conversion start to merge, 11m 34s of PR-open remote wait, and 44m 48s observed before
-implementation with zero runtime source changes. The exact queue measurements in #2512 show this is
+implementation with zero runtime source changes. The exact queue measurements in issue #2512 show this is
 one contributor to a systemic throughput problem, not the whole initiative.
 
 Reproduction: follow `.agents/skills/issue-to-backlog/SKILL.md` through
@@ -52,9 +52,12 @@ external citation supplies a reason to weaken the repository's own gates.
 - `.agents/skills/user-request-gate/SKILL.md` — one-branch conversion-to-implementation route
 - `scripts/harness/scan-user-execution-plan-order.mjs` — mechanical conversion/PLAN/implementation ordering guard
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — conversion-before-checkpoint fixtures
-- `scripts/harness/__tests__/run-all-scans-affected.test.mjs` — deterministic affected-path classification fixture
+- `scripts/harness/__tests__/proc-017-affected-paths.test.mjs` — deterministic affected-path classification fixture
 - `scripts/harness/record-pr-lifecycle-measurement.mjs` — read-only lifecycle evidence recorder
 - `scripts/harness/compare-pr-lifecycle-measurements.mjs` — lifecycle evidence comparator
+- `scripts/harness/__tests__/pr-lifecycle-measurement.test.mjs` — measurement comparison fixtures
+- `scripts/harness/__tests__/record-pr-lifecycle-measurement.test.mjs` — recorder boundary fixture
+- `scripts/harness/__tests__/compare-pr-lifecycle-measurements.test.mjs` — comparator boundary fixture
 - `scripts/harness/conversion-evidence.mjs` — pure parser and subject/eligibility binding
 - `scripts/harness/__tests__/conversion-evidence.test.mjs` — contract and refusal fixtures
 
@@ -224,7 +227,7 @@ the existing guarded route and are not converted by this coordinator.
    mismatched, or retrospective.
 3. Preserve the existing triage/gate/PR/review/CI/merge-verification owners; do not create a second
    command, receipt schema, or merge authority.
-4. Measure the representative #2082 baseline against one same-branch PR lifecycle: PR lifecycle count
+4. Measure the representative issue #2082 baseline against one same-branch PR lifecycle: PR lifecycle count
    drops from 2 to 1 for the eligible path, and PR-open remote wait is removed from the conversion
    phase; do not claim that this child proves queue-wide throughput improvement.
 
@@ -260,8 +263,8 @@ test does not make a live GitHub mutation. TC-05's live command is read-only.
 Measurement contract: each measurement JSON contains `{ schema: 1, capturedAt, repository,
 sourcePrs: [{ number, title, state, openedAt, mergedAt, mergeCommit, labels }], prLifecycleCount,
 conversionPrCount, conversionPrOpenWaitSeconds }`. A conversion PR is identified by the exact
-`docs(security-002): convert issue 2082 to decoder task` title, with the conversion label as a
-secondary assertion; a record is conversion only when both match. Timestamps are ISO UTC and wait
+`docs(security-002): convert issue 2082 to decoder task` title; labels are recorded as corroborating
+metadata but are not required because the verified baseline PR has no labels. Timestamps are ISO UTC and wait
 seconds are the sum of `mergedAt - openedAt` intervals for conversion PRs. Candidate selection runs
 `gh pr list --repo woojubb/robota --head "$(git branch --show-current)" --state merged --json number`
 and first asserts exactly one result with `jq -e 'length == 1'`, then passes that number to the
@@ -269,7 +272,7 @@ measurement command; the command refuses a non-merged or missing PR and creates 
 directory. Measurement tools are read-only except for their explicitly requested output file.
 
 - [ ] TC-01: after implementation, `pnpm exec vitest run scripts/harness/__tests__/conversion-evidence.test.mjs -t "rejects missing evidence"` exits 0; RED proof uses `git worktree add --detach /tmp/proc-017-red origin/develop`, `mkdir -p /tmp/proc-017-red/scripts/harness/__tests__`, `cp scripts/harness/__tests__/conversion-evidence.test.mjs /tmp/proc-017-red/scripts/harness/__tests__/`, runs the same command there and observes exit 1 because `conversion-evidence.mjs` is absent, verifies the non-zero status, then runs `git worktree remove --force /tmp/proc-017-red` and verifies `test ! -e /tmp/proc-017-red`.
-- [ ] TC-02: `pnpm exec vitest run scripts/harness/__tests__/run-all-scans-affected.test.mjs -t "classifies PROC-017 affected paths"` exits 0 with a pure changed-path fixture whose exact expected set is `scripts/harness/conversion-evidence.mjs`, `scripts/harness/__tests__/conversion-evidence.test.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, `scripts/harness/__tests__/run-all-scans-affected.test.mjs`, `scripts/harness/record-pr-lifecycle-measurement.mjs`, `scripts/harness/compare-pr-lifecycle-measurements.mjs`, `.agents/rules/backlog-execution.md`, `.agents/skills/issue-to-backlog/SKILL.md`, `.agents/skills/backlog-execution-orchestrator/SKILL.md`, and `.agents/skills/user-request-gate/SKILL.md`; then `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0 on the clean committed change.
+- [ ] TC-02: `pnpm exec vitest run scripts/harness/__tests__/proc-017-affected-paths.test.mjs -t "classifies PROC-017 affected paths"` exits 0 with a pure changed-path fixture whose exact expected set is `scripts/harness/conversion-evidence.mjs`, `scripts/harness/__tests__/conversion-evidence.test.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`, `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, `scripts/harness/__tests__/proc-017-affected-paths.test.mjs`, `scripts/harness/record-pr-lifecycle-measurement.mjs`, `scripts/harness/compare-pr-lifecycle-measurements.mjs`, `scripts/harness/__tests__/pr-lifecycle-measurement.test.mjs`, `scripts/harness/__tests__/record-pr-lifecycle-measurement.test.mjs`, `scripts/harness/__tests__/compare-pr-lifecycle-measurements.test.mjs`, `.agents/rules/backlog-execution.md`, `.agents/skills/issue-to-backlog/SKILL.md`, `.agents/skills/backlog-execution-orchestrator/SKILL.md`, and `.agents/skills/user-request-gate/SKILL.md`; then `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0 on the clean committed change.
 - [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/conversion-evidence.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t "accepts eligible|refuses|checkpoint"` exits 0 and covers the named zero/multiple/malformed/mismatched evidence, eligibility refusal, retrospective checkpoint, and implementation-before-checkpoint tests. `git diff --exit-code origin/develop...HEAD -- .github/workflows/review-gate.yml scripts/harness/check-review-gate.mjs .agents/skills/post-merge-cycle/SKILL.md` exits 0, proving downstream guardians remain unchanged.
 - [ ] TC-04: `pnpm harness:scan --affected` exits 0; each exact command below returns a match: `rg -n "same ordered topic branch|fail-closed" .agents/rules/backlog-execution.md`, `rg -n "Conversion evidence|Combined lifecycle eligibility" .agents/skills/issue-to-backlog/SKILL.md`, `rg -n "same ordered topic branch|fail-closed" .agents/skills/backlog-execution-orchestrator/SKILL.md`, `rg -n "Conversion evidence|P0|P1" .agents/skills/user-request-gate/SKILL.md`, `rg -n "parseConversionEvidence|checkpoint" scripts/harness/scan-user-execution-plan-order.mjs`, and `rg -n "refused|malformed|P0|P1" scripts/harness/__tests__/conversion-evidence.test.mjs`.
 - [ ] TC-05: `pnpm exec vitest run scripts/harness/__tests__/conversion-evidence.test.mjs -t "marker evidence is pure"` exits 0 and proves the parser has no GitHub mutation dependency; `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs -t "does not remove priority when Task-marker write-back fails"` exercises `finalizeIssueConversion({ getIssue, postComment, removeLabels })`, expects the existing unreadable-marker error, and asserts `removeCalled=false`; `gh issue view 2514 --repo woojubb/robota --json labels,comments | jq -e '([.labels[].name] | index("priority:P0")) == null and ([.comments[].body] | any(test("robota-task: PROC-017")))'` verifies the live marker/priority state read-only.
@@ -283,8 +286,8 @@ directory. Measurement tools are read-only except for their explicitly requested
 | TC-02 | Suite              | `run-all-scans-affected.test.mjs` pure classification fixture, then `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` on the clean commit | exact affected harness and owner set                                        |
 | TC-03 | Unit + owner gates | `conversion-evidence.test.mjs` and `scan-user-execution-plan-order.test.mjs` focused fixtures; existing review gate, CI, merge-verifier, and Issue writeback                                | explicit conversion/checkpoint fixtures; downstream owners remain unchanged |
 | TC-04 | Governance         | `pnpm harness:scan --affected` plus one exact `rg` command per owner file                                                                                                                   | every owner surface wired                                                   |
-| TC-05 | Integration        | pure conversion parser test plus existing `github-issue-triage.test.mjs` adapter failure fixture and read-only #2514 read-back                                                              | marker precedes label removal                                               |
-| TC-06 | Measurement        | `record-pr-lifecycle-measurement.mjs` plus `compare-pr-lifecycle-measurements.mjs` over committed `.agents/evidence/PROC-017-*.json` artifacts; baseline is merged #2501 + #2507            | 2→1 lifecycle; conversion wait target 0                                     |
+| TC-05 | Integration        | pure conversion parser test plus existing `github-issue-triage.test.mjs` adapter failure fixture and read-only issue #2514 read-back                                                        | marker precedes label removal                                               |
+| TC-06 | Measurement        | `record-pr-lifecycle-measurement.mjs` plus `compare-pr-lifecycle-measurements.mjs` over committed `.agents/evidence/PROC-017-*.json` artifacts; baseline is merged PRs #2501 and #2507      | 2→1 lifecycle; conversion wait target 0                                     |
 
 ## User Execution Test Scenarios
 
@@ -315,12 +318,12 @@ the user-execution rule.
   runnable refusal fixtures, and durable lifecycle measurement were made explicit in Completion Criteria.
 - 2026-08-29 — latest independent gate guard: `GATE-WRITE: FAIL`; implementation remains forbidden
   until the parser/guard, refusal fixtures, and measurement artifacts are independently accepted.
-- 2026-08-29 — GitHub read-back verified the representative baseline: #2501 is the merged conversion
-  PR and #2507 is the merged implementation PR; #2506 is closed without merge and is excluded from
+- 2026-08-29 — GitHub read-back verified the representative baseline: PR #2501 is the merged conversion
+  PR and PR #2507 is the merged implementation PR; PR #2506 is closed without merge and is excluded from
   lifecycle measurement.
-- 2026-08-29 — baseline merge identity recorded: #2501 merged as
+- 2026-08-29 — baseline merge identity recorded: PR #2501 merged as
   `5889201b069d339190ce35e749985934dce90866` at `2026-08-29T08:31:35Z` after opening at
-  `2026-08-29T08:20:01Z`; #2507 merged as `f14b164ba7ef402458f0cf08c69ff920dce9966c` at
+  `2026-08-29T08:20:01Z`; PR #2507 merged as `f14b164ba7ef402458f0cf08c69ff920dce9966c` at
   `2026-08-29T11:17:05Z` after opening at `2026-08-29T09:59:49Z`.
 - 2026-08-29 — latest audit findings incorporated: affected-path verification is a deterministic
   fixture, triage failure testing names the existing function/error/counter, measurement schema now

@@ -227,3 +227,11 @@ node scripts/harness/loop-run.mjs open  --loop backlog-execution-orchestrator
 node scripts/harness/loop-run.mjs round --loop backlog-execution-orchestrator --run <id> --findings <n>
 node scripts/harness/loop-run.mjs close --loop backlog-execution-orchestrator --run <id> --terminal <reason>
 ```
+
+## Ordered conversion-to-implementation handoff (PROC-017)
+
+When the recommendation gate records a combined-lifecycle eligible Issue, route the exact Task/spec
+pair through marker read-back, priority removal read-back, PLAN, and the first GATE-IMPLEMENT checkpoint
+on one topic branch. Keep conversion, PLAN, implementation, and verification as separate commits; the
+checkpoint ancestry scanner is the authority that permits implementation. Any unreadable or mismatched
+remote evidence stops the route and resumes only the exact existing pair.

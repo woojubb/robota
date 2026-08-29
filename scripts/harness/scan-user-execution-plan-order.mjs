@@ -43,6 +43,7 @@ import {
   rawGateImplementPassEntries,
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
+import { parseConversionEvidence } from './conversion-evidence.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
@@ -216,8 +217,23 @@ function checkpointOptionsAt(
       ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
       : {}),
     ancestorSha: precedingSequencedMerge(root, parentRevision, basename),
+    baseOid: resolveTopicMergeBase(root, 'origin/develop'),
     ...(checkpointPaths === null ? {} : { checkpointPaths }),
   };
+}
+
+function conversionEvidenceResult(task, spec, basename, checkpointOptions = {}) {
+  if (!String(task ?? '').includes('Conversion evidence:')) return null;
+  const issueMatch = String(task ?? '').match(
+    /^issue:\s*https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)\s*$/m,
+  );
+  return parseConversionEvidence({
+    taskText: task,
+    specText: spec,
+    issueNumber: issueMatch?.[1] ?? '',
+    taskId: subjectId(basename) ?? '',
+    baseOid: checkpointOptions.baseOid,
+  });
 }
 
 function indexText(root, file) {
@@ -1232,6 +1248,8 @@ function isCheckpointTransition({
 }) {
   const signal = exactPlanSignal(task);
   if (signal === null) return false;
+  const conversion = conversionEvidenceResult(task, spec, basename, checkpointOptions);
+  if (conversion !== null && conversion.kind !== 'eligible') return false;
   if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
     return false;
   }
@@ -1406,6 +1424,10 @@ function evaluatePlanTexts({
   checkpointOptions = {},
 }) {
   const problems = [];
+  const conversion = conversionEvidenceResult(task, spec, basename, checkpointOptions);
+  if (conversion !== null && conversion.kind !== 'eligible') {
+    problems.push(`combined lifecycle conversion evidence refused: ${conversion.reason}.`);
+  }
   const id = subjectId(basename);
   if (!id) problems.push(`cannot derive a Task ID from paired basename \`${basename}\`.`);
   if (frontmatterStatus(task) !== 'in-progress') {

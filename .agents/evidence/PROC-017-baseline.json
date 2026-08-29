@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-08-29T11:54:14.693Z",
+  "repository": "woojubb/robota",
+  "sourcePrs": [
+    {
+      "number": 2501,
+      "title": "docs(security-002): convert issue 2082 to decoder task",
+      "state": "MERGED",
+      "openedAt": "2026-08-29T08:20:01Z",
+      "mergedAt": "2026-08-29T08:31:35Z",
+      "mergeCommit": "5889201b069d339190ce35e749985934dce90866",
+      "labels": []
+    },
+    {
+      "number": 2507,
+      "title": "fix(agent-framework): add strict frontmatter decoder",
+      "state": "MERGED",
+      "openedAt": "2026-08-29T09:59:49Z",
+      "mergedAt": "2026-08-29T11:17:05Z",
+      "mergeCommit": "f14b164ba7ef402458f0cf08c69ff920dce9966c",
+      "labels": ["disposition-containment"]
+    }
+  ],
+  "prLifecycleCount": 2,
+  "conversionPrCount": 1,
+  "conversionPrOpenWaitSeconds": 694
+}
