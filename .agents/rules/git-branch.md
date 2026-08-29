@@ -552,6 +552,9 @@ evidence, scope, and approval. A local review record, private judgement, advice 
 verdict, or an override token is not approval. After an approved action, a new head or verdict requires
 a new decision comment.
 
+Enforced by: `.claude/hooks/pre-push-check.sh` blocks pushes without a matching request; the merge gate
+must apply the same current-verdict/action check before allowing a merge.
+
 **A push into an open pull request requires a NAMED GROUND, and there are exactly three.** This is not
 a caution and not a preference. Work with no ground does not get done more carefully — **it does not
 get started.**
