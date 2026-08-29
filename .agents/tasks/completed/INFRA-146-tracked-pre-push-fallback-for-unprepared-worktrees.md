@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-146: keep the pre-push gate present in unprepared worktrees'
 status: done
+completed: 2026-08-30
 created: 2026-08-29
 priority: high
 urgency: now
