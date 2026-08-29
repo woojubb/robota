@@ -40,8 +40,11 @@ trust assumptions, failure policy, or verification, keep them as separate causes
 same transport.
 
 Every Task converted from an issue must cite its source issue. Conversion does not authorize
-implementation; the issue remains open until the tracked work lands or receives an explicit terminal
-disposition. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
+implementation; an unsplit issue remains open until the tracked work lands or receives an explicit
+terminal disposition. When an issue is decomposed into child Issues, the parent must be linked to every
+child and closed immediately with a comment naming those children; the children, not the parent, remain
+as the open work queue. This prevents repeated decomposition from growing the queue without reducing
+it. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
 
 ### GitHub Issue Intake and Conversion Queue
 
@@ -365,6 +368,13 @@ or the PR description. A gate whose verdict leaves no trace cannot be audited, a
 verification done; every changed file committed so the working tree is clean before the PR is created; the
 PR opened and merged into `develop` (or the initiative base branch). Only after the merge may the next
 backlog begin.
+
+**Merge is the terminal outcome, not an optional handoff.** A pending or failed check is a work state,
+not permission to stop and report partial delivery. The owning session must continue the bounded
+observe→diagnose→fix→recheck loop, using the no-progress escape in
+[`enforcement-architecture.md`](enforcement-architecture.md) when the same failure recurs unchanged,
+until the PR is confirmed `MERGED` and the merge commit is an ancestor of `origin/develop`. A final
+report must include that confirmation; otherwise the work is `in-progress`, never complete.
 
 **Violations:**
 

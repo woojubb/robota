@@ -145,8 +145,9 @@ or a reported semantic set — and the move plus status rewrite is `node scripts
 1. Open the PR — one item or one named work unit per PR, sized per the rule's PR Unit Rule. Its description
    carries every field that rule requires, including the gate result or the not-applicable reason.
 2. Route the PR through the project's review and merge path; this pipeline does not merge protected
-   branches on its own authority.
-3. Report the outcome, and — when the gate passed — tell the user what was verified, the exact command or
+   branches on its own authority. Remain in this phase until the PR is confirmed `MERGED` and its merge
+   commit is an ancestor of `origin/develop`; pending checks or an open PR are not terminal outcomes.
+3. Report the outcome only after that merge confirmation, and — when the gate passed — tell the user what was verified, the exact command or
    steps they can run, the expected result, and the evidence already observed.
 
 The pipeline ends here. It does not start the next item.
