@@ -52,3 +52,15 @@ dist/
     └── index.js / index.cjs / index.d.ts   # root export
     └── google ...             # sub-path entry
 ```
+
+## Streaming Response Contract
+
+`GeminiProvider` preserves every assistant function call and `usageMetadata` value returned by
+Gemini's streaming API. `chatStream()` emits text deltas as they arrive and also emits a universal
+assistant message for a function-call chunk or a usage-only terminal chunk. When `chat()` uses its
+streaming assembly path (`onTextDelta` is set), it returns one complete assistant message whose
+text, `toolCalls`, and `metadata` are assembled from all stream chunks.
+
+Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()` through the
+provider capability contract. Gemini currently does not advertise native web tools, so such a
+request fails explicitly instead of being silently ignored.

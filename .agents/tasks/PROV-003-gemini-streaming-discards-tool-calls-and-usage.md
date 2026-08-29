@@ -12,6 +12,12 @@ depends_on: []
 
 ## Problem
 
+**Approval route:** `CLASS`
+**Class:** `LANE-L0-L1`
+**Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
+**Given:** 2026-08-29, this conversation
+**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` exits 0 and declares this work unit L1.
+
 When a text-delta callback is set (the framework's normal interactive path), GeminiProvider assembles
 the response from text only — a model `functionCall` part and `usageMetadata` are silently dropped —
 even though the provider advertises `functionCalling.supported: true` and its non-streaming path maps

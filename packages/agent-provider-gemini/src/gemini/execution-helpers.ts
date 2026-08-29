@@ -18,6 +18,7 @@ import type { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
 import type {
   TUniversalMessage,
+  IAssistantMessage,
   IChatOptions,
   IImageGenerationResult,
   TProviderMediaResult,
@@ -104,6 +105,14 @@ export async function* executeDirectStream(
   for await (const chunk of stream) {
     emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
     sequence++;
+    const convertedChunk = convertStreamChunk(chunk);
+    if (convertedChunk) {
+      if (typeof convertedChunk.content === 'string') {
+        options?.onTextDelta?.(convertedChunk.content);
+      }
+      yield convertedChunk;
+      continue;
+    }
     const text = extractStreamText(chunk);
     if (text) {
       options?.onTextDelta?.(text);
@@ -172,6 +181,8 @@ async function assembleStreamingChatResponse(
   providerName = 'gemini',
 ): Promise<TUniversalMessage> {
   const textParts: string[] = [];
+  const toolCalls: NonNullable<IAssistantMessage['toolCalls']> = [];
+  let metadata: TUniversalMessage['metadata'];
   for await (const chunk of executeDirectStream(
     client,
     providerOptions,
@@ -182,6 +193,17 @@ async function assembleStreamingChatResponse(
     if (typeof chunk.content === 'string') {
       textParts.push(chunk.content);
     }
+    if (chunk.role === 'assistant') {
+      const assistantChunk = chunk as IAssistantMessage;
+      for (const toolCall of assistantChunk.toolCalls ?? []) {
+        if (!toolCalls.some((existing) => existing.id === toolCall.id)) {
+          toolCalls.push(toolCall);
+        }
+      }
+    }
+    if (chunk.metadata) {
+      metadata = chunk.metadata;
+    }
   }
   const content = textParts.join('');
   return {
@@ -189,6 +211,8 @@ async function assembleStreamingChatResponse(
     role: 'assistant',
     content,
     parts: content.length > 0 ? [{ type: 'text', text: content }] : [],
+    ...(toolCalls.length > 0 && { toolCalls }),
+    ...(metadata && { metadata }),
     state: 'complete',
     timestamp: new Date(),
   };
@@ -215,6 +239,34 @@ function extractStreamText(
 ): string | undefined {
   const textValue = chunk.text;
   return typeof textValue === 'function' ? textValue() : textValue;
+}
+
+function convertStreamChunk(chunk: GenerateContentResponse): TUniversalMessage | undefined {
+  const candidate = chunk.candidates?.[0];
+  if (candidate?.content?.parts && candidate.content.parts.length > 0) {
+    return convertFromGeminiResponse(chunk);
+  }
+  const usageMetadata = chunk.usageMetadata;
+  if (
+    usageMetadata &&
+    typeof usageMetadata.promptTokenCount === 'number' &&
+    typeof usageMetadata.candidatesTokenCount === 'number' &&
+    typeof usageMetadata.totalTokenCount === 'number'
+  ) {
+    return {
+      id: randomUUID(),
+      role: 'assistant',
+      content: null,
+      state: 'complete',
+      timestamp: new Date(),
+      metadata: {
+        promptTokens: usageMetadata.promptTokenCount,
+        completionTokens: usageMetadata.candidatesTokenCount,
+        totalTokens: usageMetadata.totalTokenCount,
+      },
+    };
+  }
+  return undefined;
 }
 
 /**

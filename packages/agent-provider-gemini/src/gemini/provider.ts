@@ -62,6 +62,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -99,6 +100,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
     if (this.executor) {
       try {
         yield* this.executeStreamViaExecutorOrDirect(messages, options);
