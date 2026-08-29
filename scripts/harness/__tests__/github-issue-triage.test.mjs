@@ -427,11 +427,220 @@ describe('read-only native child-Issue audit', () => {
     expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
   });
 
+  it('does not accept a semantic review receipt hidden inside an HTML attribute', () => {
+    const child = {
+      number: 22,
+      title: 'Hidden review receipt',
+      body: '## Independent external lifecycle\n<span data-hidden="\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n">Separate external release.</span>',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).missing).toEqual([
+      {
+        issue: child,
+        parentNumber: 1,
+        parentUrl: 'https://github.com/owner/repo/issues/1',
+        reason: 'missing semantic RETAIN review receipt',
+      },
+    ]);
+  });
+
+  it('accepts a visible receipt inside a GitHub-sanitized script element', () => {
+    const child = {
+      number: 23,
+      title: 'Visible review receipt in sanitized markup',
+      body: '## Independent external lifecycle\nSeparate external release.\n<script>\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n</script>',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
   it('does not double-decode an escaped entity literal into a receipt variant', () => {
     const child = {
       number: 8,
       title: 'Literal entity notation',
       body: '## Independent external lifecycle\nSeparate release; the text Semantic&amp;#160 review is literal notation.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('preserves valid lifecycle evidence before a raw HTML heading in the same token', () => {
+    const child = {
+      number: 9,
+      title: 'Reviewed lifecycle before notes',
+      body: '## Independent external lifecycle\n<div>\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<h2>Notes</h2>\n</div>\nAfter',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toEqual([
+      {
+        issue: child,
+        parentNumber: 1,
+        parentUrl: 'https://github.com/owner/repo/issues/1',
+        reason: 'Separate external release.',
+        semanticReview: 'Semantic review: @reviewer on 2026-08-30 — RETAIN',
+      },
+    ]);
+  });
+
+  it('preserves valid lifecycle evidence before an escaped heading inside raw HTML', () => {
+    const child = {
+      number: 11,
+      title: 'Reviewed lifecycle before escaped raw-HTML heading',
+      body: '## Independent external lifecycle\n<div>\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n\\<h2>Notes</h2>\n</div>\nAfter',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    ['inline code', '<span>`<h2>` is literal code.</span>'],
+    ['an escape', '<span>\\<h2> is literal text.</span>'],
+  ])('preserves evidence between a %s literal and a later real heading', (_, literal) => {
+    const child = {
+      number: 12,
+      title: 'Reviewed lifecycle between literal and heading',
+      body: `## Independent external lifecycle\n${literal}\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<h2>Notes</h2>\nAfter`,
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    ['CDATA', '<![CDATA[<h2>literal</h2>]]>'],
+    ['a processing instruction', '<?pi "<h2>literal"?>'],
+  ])('preserves evidence after %s containing a heading literal', (_, declaration) => {
+    const child = {
+      number: 14,
+      title: 'Reviewed lifecycle after an HTML declaration',
+      body: `## Independent external lifecycle\n<div>\n${declaration}\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<h2>Notes</h2>\n</div>`,
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    ['a bang-close comment', '<!-- <h2>hidden --!>'],
+    ['an abruptly closed empty comment', '<!-->'],
+    ['an abruptly closed empty comment with a dash', '<!--->'],
+  ])('preserves evidence after %s', (_, comment) => {
+    const child = {
+      number: 15,
+      title: 'Reviewed lifecycle after an HTML comment',
+      body: `## Independent external lifecycle\n<div>\n${comment}\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<h2>Notes</h2>\n</div>`,
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'an inline-code comment opener',
+      '## Independent external lifecycle\nSeparate external release; `<!--` is literal code.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    ],
+    [
+      'a fenced-code comment opener',
+      '## Independent external lifecycle\nSeparate external release.\n```html\n<!-- example\n```\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    ],
+  ])('preserves evidence after %s', (_, body) => {
+    const child = {
+      number: 16,
+      title: 'Reviewed lifecycle with a code literal',
+      body,
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('preserves a comment opener inside inline code in a list item', () => {
+    const child = {
+      number: 17,
+      title: 'Reviewed list lifecycle with a code literal',
+      body: '## Independent external lifecycle\n- Separate external release; `<!--` is literal.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('preserves a comment opener inside a quoted HTML attribute', () => {
+    const child = {
+      number: 18,
+      title: 'Reviewed lifecycle with an attribute literal',
+      body: '## Independent external lifecycle\n<span title="<!--">Separate external release.</span>\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('does not map a link-title literal to a later codespan token', () => {
+    const child = {
+      number: 19,
+      title: 'Reviewed lifecycle with a link-title literal',
+      body: '## Independent external lifecycle\n[link](https://example.test "`<!--`") Separate external release; `<!--` literal.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('preserves nested image-link destination ranges independently', () => {
+    const child = {
+      number: 20,
+      title: 'Reviewed lifecycle with a nested image link',
+      body: '## Independent external lifecycle\n[![alt](https://example.test/i.png)](https://example.test "`<!--`") Separate external release; `<!--` literal.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it('does not map an image-alt link literal to a later link token', () => {
+    const child = {
+      number: 21,
+      title: 'Reviewed lifecycle after an image alt literal',
+      body: '## Independent external lifecycle\n![literal [x](u "`<!--`") tail](img)\n[x](u "`<!--`") Separate external release; `<!--` literal.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    ['inline code', '<span>`<h2>` is literal code.</span>'],
+    ['an escape', '<span>\\<h2> is literal text.</span>'],
+  ])('preserves evidence after a %s literal in the same token as a real heading', (_, literal) => {
+    const child = {
+      number: 13,
+      title: 'Reviewed lifecycle in a compound paragraph',
+      body: `## Independent external lifecycle\n${literal}\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<span><h2>Notes</h2></span>\nAfter`,
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
+  it.each([
+    ['an escaped heading literal', '\\<h2> is literal text.'],
+    ['an inline-code heading literal', '`<h2>` is literal code.'],
+    ['a heading literal inside an HTML attribute', '<span title="<h2>">Attribute example.</span>'],
+    ['inline code inside an HTML span', '<span>`<h2>` is literal code.</span>'],
+    ['an escaped heading inside an HTML span', '<span>\\<h2> is literal text.</span>'],
+    ['inline code inside an HTML emphasis element', '<em>`<h2>` is literal code.</em>'],
+  ])('does not treat %s as a lifecycle boundary', (_, reason) => {
+    const child = {
+      number: 10,
+      title: 'Literal heading example',
+      body: `## Independent external lifecycle\n${reason}\nSemantic review: @reviewer on 2026-08-30 — RETAIN`,
       parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
     };
 
@@ -577,6 +786,10 @@ describe('read-only native child-Issue audit', () => {
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&#xA0 review: @other on 2026-08-30 — RETAIN</div>',
     },
     {
+      name: 'one valid receipt plus an uppercase-X hexadecimal whitespace entity',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&#XA0;review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
       name: 'one valid receipt plus a raw-HTML legacy named entity without a semicolon',
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&nbsp review: @other on 2026-08-30 — RETAIN</div>',
     },
@@ -585,8 +798,44 @@ describe('read-only native child-Issue audit', () => {
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Sem&#8204antic review: @other on 2026-08-30 — RETAIN</div>',
     },
     {
+      name: 'one valid receipt plus an uppercase-X hexadecimal zero-width token variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Sem&#X200C;antic review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
       name: 'one valid receipt plus a semicolonless legacy soft-hyphen token variant',
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Sem&shyantic review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
+      name: 'a comment-only receipt after a backslash before a single-backtick closer',
+      body: 'Separate external release; `code\\` tail.\n<!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt after a backslash before a double-backtick closer',
+      body: 'Separate external release; ``code\\`` tail.\n<!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt after an unmatched single backtick',
+      body: 'Separate external release with an unmatched ` marker.\n<!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt after unmatched double backticks',
+      body: 'Separate external release with unmatched `` markers.\n<!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt after an unmatched backtick with a hidden closer',
+      body: 'Separate external release with unmatched ` marker.\n<!-- hidden closer `\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt after unmatched double backticks with a hidden closer',
+      body: 'Separate external release with unmatched `` markers.\n<!-- hidden closer ``\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->',
+    },
+    {
+      name: 'a comment-only receipt inside a list item',
+      body: '- Separate external release.\n  <!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n  -->',
+    },
+    {
+      name: 'a comment-only receipt inside an invalid pseudo-link destination',
+      body: '[bad](<!--\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n-->)\nSeparate external release.',
     },
   ])('rejects $name', ({ body, completeBody = false }) => {
     const child = {
@@ -612,6 +861,53 @@ describe('read-only native child-Issue audit', () => {
     {
       name: 'a following Setext section',
       body: '## Independent external lifecycle\n\nNotes\n-----\nInternal implementation only.',
+    },
+    {
+      name: 'a following raw HTML H1 section',
+      body: '## Independent external lifecycle\n\n<h1>Notes</h1>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following raw HTML H2 section',
+      body: '## Independent external lifecycle\n\n<h2 class="notes">Notes</h2>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following self-closing raw HTML H2 section',
+      body: '## Independent external lifecycle\n\n<h2/>Notes\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following raw HTML H2 section with form-feed whitespace',
+      body: '## Independent external lifecycle\n\n<h2\fclass="notes">Notes</h2>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following raw HTML H2 section inside a wrapper',
+      body: '## Independent external lifecycle\n\n<div><h2>Notes</h2></div>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following raw HTML H2 section inside a blockquote',
+      body: '## Independent external lifecycle\n\n> <h2>Notes</h2>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following multiline raw HTML H2 section inside a wrapper',
+      body: '## Independent external lifecycle\n\n<div><h2\nclass="notes">Notes</h2></div>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'a following blockquoted Setext H2 section',
+      body: '## Independent external lifecycle\n\n> Notes\n> -----\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'an escaped raw HTML H2 inside a script element',
+      body: '## Independent external lifecycle\n<script>\\<h2>Notes</h2></script>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      completeBody: true,
+    },
+    {
+      name: 'an escaped raw HTML H2 inside a style element',
+      body: '## Independent external lifecycle\n<style>\\<h2>Notes</h2></style>\nSeparate release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      completeBody: true,
+    },
+    {
+      name: 'a duplicate receipt after an invalid spaced tag and before a real heading',
+      body: '## Independent external lifecycle\n<div>\nSeparate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n< h2> literal.\nSemantic review: @other on 2026-08-30 — RETAIN\n<h2>Notes</h2>\n</div>',
+      completeBody: true,
     },
   ])('rejects $name as readable lifecycle evidence', ({ body }) => {
     const child = {

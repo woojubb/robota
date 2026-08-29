@@ -160,15 +160,216 @@ export function readExaminedOpenIssueCount() {
   return examinedOpenIssues;
 }
 
+function htmlCommentEnd(text, start) {
+  const contentStart = start + '<!--'.length;
+  if (text.startsWith('>', contentStart)) return contentStart + 1;
+  if (text.startsWith('->', contentStart)) return contentStart + 2;
+  const standardEnd = text.indexOf('-->', contentStart);
+  const bangEnd = text.indexOf('--!>', contentStart);
+  if (standardEnd === -1 && bangEnd === -1) return text.length;
+  if (standardEnd === -1) return bangEnd + '--!>'.length;
+  if (bangEnd === -1) return standardEnd + '-->'.length;
+  return standardEnd < bangEnd ? standardEnd + '-->'.length : bangEnd + '--!>'.length;
+}
+
+function stripHtmlComments(text) {
+  let uncommented = '';
+  for (let cursor = 0; cursor < text.length; cursor += 1) {
+    if (text.startsWith('<!--', cursor)) {
+      cursor = htmlCommentEnd(text, cursor) - 1;
+      continue;
+    }
+    if (text[cursor] === '<') {
+      const markupEnd = htmlMarkupEnd(text, cursor);
+      if (markupEnd !== null) {
+        uncommented += text.slice(cursor, markupEnd);
+        cursor = markupEnd - 1;
+        continue;
+      }
+    }
+    uncommented += text[cursor];
+  }
+  return uncommented;
+}
+
+function collectTokenSourceRanges(token, types) {
+  const result = [];
+  function locateChildren(parent, source, sourceStart, initialSearchStart = 0) {
+    let furthest = initialSearchStart;
+    for (const children of [parent.tokens, parent.items]) {
+      let searchStart = initialSearchStart;
+      for (const child of children ?? []) {
+        const relativeStart = source.indexOf(child.raw, searchStart);
+        if (relativeStart === -1) {
+          searchStart = locateChildren(child, source, sourceStart, searchStart);
+          furthest = Math.max(furthest, searchStart);
+          continue;
+        }
+        const absoluteStart = sourceStart + relativeStart;
+        if (types.has(child.type)) {
+          result.push({
+            start: absoluteStart,
+            end: absoluteStart + child.raw.length,
+            raw: child.raw,
+          });
+        }
+        locateChildren(child, child.raw, absoluteStart);
+        searchStart = relativeStart + child.raw.length;
+        furthest = Math.max(furthest, searchStart);
+      }
+    }
+    return furthest;
+  }
+  if (types.has(token.type)) result.push({ start: 0, end: token.raw.length, raw: token.raw });
+  locateChildren(token, token.raw, 0);
+  return result;
+}
+
+function isBackslashEscaped(text, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && text[cursor] === '\\'; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
+}
+
+function htmlMarkupEnd(text, start) {
+  const delimited = text.startsWith('<![CDATA[', start)
+    ? [']]>', 9]
+    : text.startsWith('<?', start)
+      ? ['?>', 2]
+      : null;
+  if (delimited !== null) {
+    const [terminator, contentStart] = delimited;
+    const end = text.indexOf(terminator, start + contentStart);
+    return end === -1 ? text.length : end + terminator.length;
+  }
+
+  let cursor = start + 1;
+  if (text[cursor] === '!') cursor += 1;
+  else {
+    if (text[cursor] === '/') cursor += 1;
+    const name = /^[A-Za-z][\w:-]*/.exec(text.slice(cursor))?.[0] ?? null;
+    if (name === null || !/[\t\n\f\r />]/.test(text[cursor + name.length] ?? '')) {
+      return null;
+    }
+    cursor += name.length;
+  }
+
+  let quote = null;
+  for (; cursor < text.length; cursor += 1) {
+    const character = text[cursor];
+    if (quote !== null) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") quote = character;
+    else if (character === '>') return cursor + 1;
+  }
+  return text.length;
+}
+
+function linkDestinationRange(text) {
+  let range = null;
+  const brackets = [];
+  for (let cursor = 0; cursor < text.length; cursor += 1) {
+    if (isBackslashEscaped(text, cursor)) continue;
+    if (text[cursor] === '[') {
+      brackets.push(cursor);
+      continue;
+    }
+    if (text[cursor] !== ']' || text[cursor + 1] !== '(' || brackets.length === 0) continue;
+    brackets.pop();
+    const start = cursor + 2;
+    let quote = null;
+    let depth = 1;
+    let end = start;
+    for (; end < text.length; end += 1) {
+      const character = text[end];
+      if (isBackslashEscaped(text, end)) continue;
+      if (quote !== null) {
+        if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") quote = character;
+      else if (character === '(') depth += 1;
+      else if (character === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (depth === 0) {
+      range = { start, end: end + 1 };
+      cursor = end;
+    }
+  }
+  return range;
+}
+
+function stripHtmlCommentsFromToken(token) {
+  if (token.type === 'code') return token.raw;
+  const codeSpans = collectTokenSourceRanges(token, new Set(['codespan']));
+  const images = collectTokenSourceRanges(token, new Set(['image']));
+  const links = collectTokenSourceRanges(token, new Set(['link']));
+  let codeSpanIndex = 0;
+  let imageIndex = 0;
+  let linkIndex = 0;
+  const pendingLinkDestinations = [];
+  let uncommented = '';
+  for (let cursor = 0; cursor < token.raw.length; cursor += 1) {
+    const pendingLinkDestination = pendingLinkDestinations.at(-1);
+    if (pendingLinkDestination?.start === cursor) {
+      uncommented += token.raw.slice(pendingLinkDestination.start, pendingLinkDestination.end);
+      cursor = pendingLinkDestination.end - 1;
+      pendingLinkDestinations.pop();
+      continue;
+    }
+    const image = images[imageIndex];
+    if (image?.start === cursor) {
+      uncommented += image.raw;
+      cursor = image.end - 1;
+      imageIndex += 1;
+      continue;
+    }
+    const link = links[linkIndex];
+    if (link?.start === cursor) {
+      const destination = linkDestinationRange(link.raw);
+      if (destination !== null) {
+        pendingLinkDestinations.push({
+          start: cursor + destination.start,
+          end: cursor + destination.end,
+        });
+      }
+      linkIndex += 1;
+    }
+    const codeSpan = codeSpans[codeSpanIndex];
+    if (codeSpan?.start === cursor) {
+      uncommented += codeSpan.raw;
+      cursor = codeSpan.end - 1;
+      codeSpanIndex += 1;
+      continue;
+    }
+    if (token.raw.startsWith('<!--', cursor)) {
+      cursor = htmlCommentEnd(token.raw, cursor) - 1;
+      continue;
+    }
+    if (token.raw[cursor] === '<') {
+      const markupEnd = htmlMarkupEnd(token.raw, cursor);
+      if (markupEnd !== null) {
+        uncommented += token.raw.slice(cursor, markupEnd);
+        cursor = markupEnd - 1;
+        continue;
+      }
+    }
+    uncommented += token.raw[cursor];
+  }
+  return uncommented;
+}
+
+function stripHtmlCommentsOutsideInlineCode(text) {
+  return marked.lexer(text).map(stripHtmlCommentsFromToken).join('');
+}
+
 function markdownLinesOutsideCode(body) {
-  const withoutHtmlCode = String(body ?? '').replace(
-    /<(pre|code)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
-    '',
-  );
-  const uncommented = withoutHtmlCode.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
   const visible = [];
   let fence = null;
-  for (const line of uncommented.split(/\r?\n/)) {
+  for (const line of String(body ?? '').split(/\r?\n/)) {
     const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1] ?? null;
     if (fence !== null) {
       const trimmed = line.trim();
@@ -188,7 +389,10 @@ function markdownLinesOutsideCode(body) {
     }
     visible.push(beginsIndentedMarkdownCode(line) ? '' : line);
   }
-  return visible;
+  const withoutHtmlCode = visible
+    .join('\n')
+    .replace(/<(pre|code)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+  return stripHtmlCommentsOutsideInlineCode(withoutHtmlCode).split('\n');
 }
 
 function validSemanticReviewReceipt(line) {
@@ -382,7 +586,7 @@ function decodeAuditTextEntities(text) {
       continue;
     }
 
-    const numeric = /^&#(?:x([0-9A-Fa-f]+)|([0-9]+));?/.exec(text.slice(index));
+    const numeric = /^&#(?:[xX]([0-9A-Fa-f]+)|([0-9]+));?/.exec(text.slice(index));
     if (numeric !== null) {
       decoded += decodeNumericAuditReference(
         numeric[1] ?? numeric[2],
@@ -416,11 +620,143 @@ function decodeAuditTextEntities(text) {
   return decoded;
 }
 
+function htmlContainsSectionHeading(html) {
+  let inTag = false;
+  let quote = null;
+  let tag = '';
+  for (const character of html) {
+    if (!inTag) {
+      if (character === '<') {
+        inTag = true;
+        tag = '';
+      }
+      continue;
+    }
+    if (quote !== null) {
+      if (character === quote) quote = null;
+      tag += character;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      tag += character;
+      continue;
+    }
+    if (character !== '>') {
+      tag += character;
+      continue;
+    }
+    const tagName = /^\s*([A-Za-z][\w:-]*)/.exec(tag)?.[1]?.toLowerCase() ?? null;
+    if (tagName === 'h1' || tagName === 'h2') return true;
+    inTag = false;
+  }
+  return false;
+}
+
+function renderedMarkdownContainsSectionHeading(markdown) {
+  const html = stripHtmlComments(marked.parse(markdown)).replace(
+    /<(pre|code)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
+    '',
+  );
+  return htmlContainsSectionHeading(html);
+}
+
+function rawHtmlSectionHeadingStart(html) {
+  for (let index = 0; index < html.length; index += 1) {
+    if (html[index] !== '<') continue;
+
+    if (html.startsWith('<!--', index)) {
+      index = htmlCommentEnd(html, index) - 1;
+      continue;
+    }
+    const delimitedDeclaration = html.startsWith('<![CDATA[', index)
+      ? [']]>', 9]
+      : html.startsWith('<?', index)
+        ? ['?>', 2]
+        : null;
+    if (delimitedDeclaration !== null) {
+      const [terminator, contentStart] = delimitedDeclaration;
+      const end = html.indexOf(terminator, index + contentStart);
+      index = end === -1 ? html.length : end + terminator.length - 1;
+      continue;
+    }
+    if (html.startsWith('<!', index)) {
+      let quote = null;
+      let cursor = index + 2;
+      for (; cursor < html.length; cursor += 1) {
+        const character = html[cursor];
+        if (quote !== null) {
+          if (character === quote) quote = null;
+        } else if (character === '"' || character === "'") quote = character;
+        else if (character === '>') break;
+      }
+      index = cursor;
+      continue;
+    }
+
+    let cursor = index + 1;
+    const closing = html[cursor] === '/';
+    if (closing) cursor += 1;
+    const name = /^[A-Za-z][\w:-]*/.exec(html.slice(cursor))?.[0] ?? null;
+    if (name === null) continue;
+    const delimiter = html[cursor + name.length] ?? '';
+    if (!/[\t\n\f\r />]/.test(delimiter)) continue;
+
+    let quote = null;
+    for (cursor += name.length; cursor < html.length; cursor += 1) {
+      const character = html[cursor];
+      if (quote !== null) {
+        if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") quote = character;
+      else if (character === '>') break;
+    }
+    if (cursor >= html.length) continue;
+
+    const normalizedName = name.toLowerCase();
+    if (!closing && (normalizedName === 'h1' || normalizedName === 'h2')) {
+      return index;
+    }
+    index = cursor;
+  }
+  return null;
+}
+
+function sectionHeadingStartWithinToken(token) {
+  if (token.type === 'heading' && (token.depth === 1 || token.depth === 2)) return 0;
+  if (token.type === 'html') return rawHtmlSectionHeadingStart(token.raw);
+  if (!Array.isArray(token.tokens)) return null;
+
+  let cursor = 0;
+  for (const child of token.tokens) {
+    const childStart = token.raw.indexOf(child.raw, cursor);
+    const nestedStart = sectionHeadingStartWithinToken(child);
+    if (nestedStart !== null) {
+      return childStart === -1 ? 0 : childStart + nestedStart;
+    }
+    if (childStart !== -1) cursor = childStart + child.raw.length;
+  }
+  return null;
+}
+
+function markdownBeforeSectionHeading(markdown) {
+  let evidence = '';
+  for (const token of marked.lexer(markdown)) {
+    if (!renderedMarkdownContainsSectionHeading(token.raw)) {
+      evidence += token.raw;
+      continue;
+    }
+    const headingStart = sectionHeadingStartWithinToken(token);
+    if (headingStart !== null) evidence += token.raw.slice(0, headingStart);
+    break;
+  }
+  return evidence;
+}
+
 function renderedMarkdownText(markdown) {
-  const html = marked
-    .parse(markdown)
-    .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
-    .replace(/<(pre|code|script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+  const html = stripHtmlComments(marked.parse(markdown)).replace(
+    /<(pre|code)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
+    '',
+  );
   return decodeAuditTextEntities(stripHtmlTags(html))
     .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
     .replace(/\p{White_Space}+/gu, ' ')
@@ -435,15 +771,7 @@ function independentLifecycleEvidence(body) {
   );
   if (headings.length !== 1) return { reason: null, semanticReview: null };
   const [heading] = headings;
-  const section = [];
-  for (let index = heading + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^#{1,2}\s+/.test(line.trim())) break;
-    if (line.trim() !== '' && /^(?:=+|-+)\s*$/.test((lines[index + 1] ?? '').trim())) {
-      break;
-    }
-    section.push(line);
-  }
+  const section = markdownBeforeSectionHeading(lines.slice(heading + 1).join('\n')).split(/\r?\n/);
   const receipts = section.flatMap((line, index) => {
     const receipt = validSemanticReviewReceipt(line);
     return receipt === null ? [] : [{ index, receipt }];
@@ -451,10 +779,16 @@ function independentLifecycleEvidence(body) {
   const receiptIndexes = new Set(receipts.map(({ index }) => index));
   const evidenceMarkdown = section.filter((_, index) => !receiptIndexes.has(index)).join('\n');
   const reason = renderedMarkdownText(evidenceMarkdown);
+  const renderedSection = renderedMarkdownText(section.join('\n'));
   const hasReceiptVariant = /\bSemantic review\b/i.test(reason);
+  const visibleReceiptCount =
+    receipts.length === 1 ? renderedSection.split(receipts[0].receipt).length - 1 : 0;
   return {
     reason: reason === '' ? null : reason,
-    semanticReview: receipts.length === 1 && !hasReceiptVariant ? receipts[0].receipt : null,
+    semanticReview:
+      receipts.length === 1 && visibleReceiptCount === 1 && !hasReceiptVariant
+        ? receipts[0].receipt
+        : null,
   };
 }
 
