@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-08-29T17:04:24.705Z",
+  "repository": "woojubb/robota",
+  "sourcePrs": [
+    {
+      "number": 2542,
+      "title": "feat(proc-017): combine issue conversion and implementation lifecycle",
+      "state": "MERGED",
+      "openedAt": "2026-08-29T16:46:27Z",
+      "mergedAt": "2026-08-29T17:03:16Z",
+      "mergeCommit": "026d7ac799706d9cd0c2d71b951304bdf8810727",
+      "labels": []
+    }
+  ],
+  "prLifecycleCount": 1,
+  "conversionPrCount": 0,
+  "conversionPrOpenWaitSeconds": 0
+}

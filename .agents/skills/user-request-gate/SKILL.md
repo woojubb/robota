@@ -165,7 +165,7 @@ node scripts/harness/loop-run.mjs close --loop user-request-gate --run <id> --te
 
 ## Combined Issue lifecycle (PROC-017)
 
-For a recommendation-gated, single-cause enhancement Issue with the exact conversion receipt, the
-conversion commit and approved PLAN may precede implementation on the same topic branch. The normal
-L2 approval, checkpoint ancestry, review, CI, merge, and writeback gates still apply; missing or
-mismatched conversion evidence fails closed.
+For a recommendation-gated, single-cause P0 or P1 enhancement Issue with the exact
+`Conversion evidence:` receipt, the conversion commit and approved PLAN may precede implementation on
+the same topic branch. The normal L2 approval, checkpoint ancestry, review, CI, merge, and writeback
+gates still apply; missing or mismatched conversion evidence fails closed.
