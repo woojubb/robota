@@ -815,10 +815,15 @@ frozen_diff_refusal() {
   [[ "$latest_count" =~ ^[0-9]+$ ]] || return 1
   # The latest findings verdict governs the next action. A push is permitted only when a maintainer
   # has approved a request bound to that exact verdict count and current remote head.
-  local remote_head approved
+  local remote_head actual_remote_head approved
   remote_head=$(printf '%s\n' "$latest_body" | sed -nE 's/.*REVIEWED HEAD:[[:space:]]*([0-9a-fA-F]{40}).*/\1/p' | tail -1)
   if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
     echo "[pre-push-check] Blocked: latest findings verdict has no parseable REVIEWED HEAD; re-read the review before pushing." >&2
+    return 0
+  fi
+  actual_remote_head=$(cd "$PROJECT_DIR" && git ls-remote origin "refs/heads/$branch" | awk 'NR==1 {print $1}' || echo "")
+  if [[ -n "$actual_remote_head" && "$actual_remote_head" != "$remote_head" ]]; then
+    echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
     return 0
   fi
   approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
