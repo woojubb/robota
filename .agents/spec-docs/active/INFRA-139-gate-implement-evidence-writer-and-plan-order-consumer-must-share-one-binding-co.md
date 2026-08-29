@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: []
 lane: L2
@@ -587,3 +587,16 @@ patching the #2433 writer symptom.`
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — given as the immediate response to the explicit request for fresh approval of the current INFRA-139 recommendation; `그 추천안` refers to INFRA-139, whose `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0` satisfy the stated validity condition
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — route DIRECT, so no delegated CLASS boundary applies
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — INFRA-139 introduces no new package, app, product surface, layer reclassification, or product-family boundary
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (11)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 873 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+- Legacy-v0 bootstrap binding: Task `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; spec `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; SCENARIO DRAFTED: not-applicable | 0; whole worktree: `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`

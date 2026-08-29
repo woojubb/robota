@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-139: checkpoint evidence forms need a declared owner and revision-bound consumers'
 issue: https://github.com/woojubb/robota/issues/2394
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
