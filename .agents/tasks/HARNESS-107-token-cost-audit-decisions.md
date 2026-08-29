@@ -130,7 +130,7 @@ letter that still reads as absolute.
 `verification.md:33` — "…re-running the build by hand after it is wasted minutes."
 
 Unconditional at `:11`, conditioned away at `:33`, neither citing the other, inside one document.
-`.agents/tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md` is open for the
+`.agents/tasks/completed/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md` is open for the
 detection problem; this instance still needs an answer.
 
 ### D5 — A standing "keep going" authorization

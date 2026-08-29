@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs]
 lane: L2
@@ -11,8 +11,8 @@ Paired with `.agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with
 
 ## Problem
 
-HARNESS-072 remains a root `todo` record although issue #1617 is closed and subsets 1–2 shipped.
-Its explicitly documented subset 3 residual is now tracked by new canonical issue #2485. Leaving the
+HARNESS-072 remains a root `todo` record although its original [GitHub issue](https://github.com/woojubb/robota/issues/1617) is closed and subsets 1–2 shipped.
+Its explicitly documented subset 3 residual is now tracked by the new canonical [GitHub issue](https://github.com/woojubb/robota/issues/2485). Leaving the
 old record actionable would conflate the shipped work with the new unresolved scope.
 
 <!-- Symptom and reproduction condition are recorded above. -->
@@ -25,14 +25,14 @@ Waived: internal backlog lifecycle migration under the standing BACKLOG-ZERO-MIG
 
 ### Affected Scope
 
-.agents/tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md
+.agents/tasks/completed/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md
 .agents/tasks/completed/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md
 
 ### Alternatives Considered
 
 1. Keep HARNESS-072 as root todo. Pro: preserves history. Con: leaves a stale actionable duplicate.
-2. Mark it skipped, link subset 3 to issue #2485, and archive it. Pro: canonicalizes ownership. Con:
-   implementation must recreate a fresh Task from #2485.
+2. Mark it skipped, link subset 3 to the canonical issue, and archive it. Pro: canonicalizes ownership. Con:
+   implementation must recreate a fresh Task from that issue.
 
 ### Decision
 
@@ -65,9 +65,9 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: HARNESS-072 has terminal metadata, exact issue-comment link, and archive destination.
-- [ ] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing.
-- [ ] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes.
+- [x] TC-01: HARNESS-072 has terminal metadata, exact issue-comment link, and archive destination.
+- [x] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing.
+- [x] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes.
 
 ## Test Plan
 
@@ -83,7 +83,7 @@ Not applicable — internal backlog lifecycle documentation only; no user-facing
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md` — todo
+- [x] `.agents/tasks/completed/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md` — done
 
 ## Evidence Log
 
@@ -99,6 +99,29 @@ The superseded original issue, shipped subset evidence, new subset 3 issue, and 
 **Given:** 2026-08-29, this conversation; standing approval recorded in DOCS-029.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 **Evidence condition met:** HARNESS-072 subset 3 handoff to issue #2485 is recorded; no source/API/policy changes are included.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- All three Task criteria are checked after archiving HARNESS-072.
+- Command: `pnpm harness:scan` — lifecycle and citation scans passed.
+- Command: `pnpm harness:verify-like-ci` — document-only CI-like verification passed.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Action:** Verified the archived HARNESS-072 Task has terminal metadata, the exact issue #2485
+handoff comment link, and a resolution section.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:scan` — 146 scans passed with advisory findings only.
+**Test skipped:** the repository scan is the lifecycle/citation regression evidence.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:verify-like-ci` — document-only verification passed.
+**Test skipped:** no package source, API, policy, or runtime behavior changed.
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
 
