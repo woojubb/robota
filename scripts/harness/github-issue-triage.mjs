@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { decodeHTML } from 'entities';
 import { marked } from 'marked';
 
 import { asList, frontmatterObject } from './frontmatter.mjs';
@@ -284,34 +285,12 @@ function stripHtmlTags(html) {
   return text;
 }
 
-function decodeInvisibleHtmlEntities(text) {
-  const decodedNumeric = text.replace(
-    /&#(?:x([0-9a-f]+)|([0-9]+));/gi,
-    (entity, hexadecimal, decimal) => {
-      const codePoint = Number.parseInt(
-        hexadecimal ?? decimal,
-        hexadecimal === undefined ? 10 : 16,
-      );
-      if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return entity;
-      return String.fromCodePoint(codePoint);
-    },
-  );
-  const decodedWhitespace = decodedNumeric.replace(
-    /&(?:Tab|NewLine|nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace);/gi,
-    ' ',
-  );
-  return decodedWhitespace.replace(
-    /&(?:ZeroWidthSpace|NegativeMediumSpace|NegativeThickSpace|NegativeThinSpace|NegativeVeryThinSpace|NoBreak|zwnj|zwj|lrm|rlm|shy|ApplyFunction|InvisibleTimes|InvisibleComma|af|it|ic);/gi,
-    '',
-  );
-}
-
 function renderedMarkdownText(markdown) {
   const html = marked
     .parse(markdown)
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
     .replace(/<(pre|code|script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
-  return decodeInvisibleHtmlEntities(stripHtmlTags(html))
+  return decodeHTML(stripHtmlTags(html))
     .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
     .replace(/\p{White_Space}+/gu, ' ')
     .replace(/\p{Cc}+/gu, '')

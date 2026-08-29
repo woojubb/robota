@@ -427,6 +427,17 @@ describe('read-only native child-Issue audit', () => {
     expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
   });
 
+  it('does not double-decode an escaped entity literal into a receipt variant', () => {
+    const child = {
+      number: 8,
+      title: 'Literal entity notation',
+      body: '## Independent external lifecycle\nSeparate release; the text Semantic&amp;#160 review is literal notation.\nSemantic review: @reviewer on 2026-08-30 — RETAIN',
+      parent: { number: 1, url: 'https://github.com/owner/repo/issues/1' },
+    };
+
+    expect(classifyOpenIssueHierarchy([child]).retained).toHaveLength(1);
+  });
+
   it.each([
     {
       name: 'a reviewer login ending in a hyphen',
@@ -556,6 +567,18 @@ describe('read-only native child-Issue audit', () => {
     {
       name: 'one valid receipt plus a soft-hyphen token receipt variant',
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\nSem&shy;antic review: @other on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'one valid receipt plus a raw-HTML decimal entity without a semicolon',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&#160 review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
+      name: 'one valid receipt plus a raw-HTML hexadecimal entity without a semicolon',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&#xA0 review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
+      name: 'one valid receipt plus a raw-HTML legacy named entity without a semicolon',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&nbsp review: @other on 2026-08-30 — RETAIN</div>',
     },
   ])('rejects $name', ({ body, completeBody = false }) => {
     const child = {

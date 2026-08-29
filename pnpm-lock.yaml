@@ -102,6 +102,9 @@ importers:
       dependency-cruiser:
         specifier: ^17.4.3
         version: 17.4.3
+      entities:
+        specifier: 6.0.1
+        version: 6.0.1
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
