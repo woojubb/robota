@@ -19,7 +19,7 @@ HARNESS-123, which was already delivered by a merged pull request.
 
 ## Plan
 
-- [ ] TC-01: archive the three records with exact issue or merge evidence.
+- [x] TC-01: archive the three records with exact issue or merge evidence.
 
 ## User Execution Test Scenarios
 
@@ -36,4 +36,4 @@ document verification. The diff must contain no package, app, API, policy, CI, o
 
 ## Tasks
 
-- [ ] TC-01: archive TOOL-007, MEM-001, and HARNESS-123 with evidence.
+- [x] TC-01: archive TOOL-007, MEM-001, and HARNESS-123 with evidence.
