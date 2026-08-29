@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-051: terminalize delivered and duplicated backlog records'
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -25,6 +25,8 @@ merged pull requests, and canonical issue ownership.
 Reason: not applicable because this task only archives backlog documents and records existing delivery or
 issue ownership; it changes no user-facing execution surface.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Recorded reason: not applicable because this document-only batch changes no user-facing execution surface.
 
 ## Test Plan
 
