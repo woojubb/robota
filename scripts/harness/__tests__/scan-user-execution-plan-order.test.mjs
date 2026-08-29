@@ -661,6 +661,27 @@ describe('user-execution PLAN order — branch history', () => {
     }
   });
 
+  it('accepts the Prettier blank separator before a continuation heading', () => {
+    const fixture = v1SequencedRepository({
+      mutateContinuationSpec: (spec) =>
+        spec.replace(
+          '<!-- checkpoint-evidence:v1:end -->\n### [GATE-IMPLEMENT]',
+          '<!-- checkpoint-evidence:v1:end -->\n\n### [GATE-IMPLEMENT]',
+        ),
+    });
+    const parentSpec = execFileSync('git', ['show', `${fixture.base}:${SPEC_PATH}`], {
+      cwd: fixture.root,
+      encoding: 'utf8',
+    });
+    const continuedSpec = readFileSync(path.join(fixture.root, SPEC_PATH), 'utf8');
+
+    expect(rawGateImplementPassEntries(continuedSpec).slice(0, -1)).toEqual(
+      rawGateImplementPassEntries(parentSpec),
+    );
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
   it('rejects incomplete and invalid-date raw predecessors before a continuation', () => {
     const incomplete = v1SequencedRepository({
       mutateParentSpec: (spec) =>

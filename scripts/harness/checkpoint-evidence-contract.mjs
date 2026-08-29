@@ -584,11 +584,26 @@ export function rawGateImplementPassEntries(specText) {
         break;
       }
     }
+    // Markdown formatters own the blank separator immediately before the next heading. It is not a
+    // byte of either entry: a PASS ending at EOF must keep the same identity after a formatter adds
+    // the required blank line before an appended continuation. Inspect ORIGINAL source lines here;
+    // visibleMarkdown deliberately hides evidence payload regions, so projected blank lines could
+    // otherwise make the boundary walk skip nonblank raw JSON/comment bytes.
+    let rawBoundaryLine = end === projection.lines.length ? null : projection.rawIndices[end];
+    if (rawBoundaryLine !== null && projectedHeading(projection.lines[end])) {
+      const rawEntryStartLine = projection.rawIndices[index];
+      while (rawBoundaryLine > rawEntryStartLine + 1) {
+        const preceding = projection.source.slice(
+          projection.lineStarts[rawBoundaryLine - 1],
+          projection.lineStarts[rawBoundaryLine],
+        );
+        if (preceding.trim() !== '') break;
+        rawBoundaryLine -= 1;
+      }
+    }
     const rawStart = projection.lineStarts[projection.rawIndices[index]];
     const rawEnd =
-      end === projection.lines.length
-        ? projection.source.length
-        : projection.lineStarts[projection.rawIndices[end]];
+      rawBoundaryLine === null ? projection.source.length : projection.lineStarts[rawBoundaryLine];
     entries.push(projection.source.slice(rawStart, rawEnd));
   }
   return entries;

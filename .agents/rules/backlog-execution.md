@@ -581,11 +581,14 @@ checkbox coverage records every checkbox label in Task source order. `plan` bind
 outcome/count, and `worktreePaths` is the sorted exact planning-only inventory.
 
 Continuation `priorPass` is `sha256:` plus lowercase sha256 of the prior complete GATE-IMPLEMENT
-entry's raw Git-blob UTF-8 bytes, from its level-3 PASS heading through the byte before the next
-level-1–3 heading or EOF, without normalization. `sequencedArtifacts` is extracted in order from the
-single exact `**Continuation artifacts:** ` line under `### Decision`, whose values are comma-space
-separated Markdown code repository paths. At checkpoint time it binds planned scope; it does not claim
-the paths have changed. `ancestorSha` is the preceding merge commit's full lowercase SHA.
+entry's raw Git-blob UTF-8 bytes, from its level-3 PASS heading through its final nonblank raw line.
+Contiguous blank Markdown separator lines immediately before the next visible level-1–3 heading are
+structural and excluded from the entry; at EOF the existing terminal newline remains part of the raw
+entry. No byte inside those boundaries—including internal blank lines and trailing spaces—is
+normalized. `sequencedArtifacts` is extracted in order from the single exact
+`**Continuation artifacts:** ` line under `### Decision`, whose values are comma-space separated
+Markdown code repository paths. At checkpoint time it binds planned scope; it does not claim the paths
+have changed. `ancestorSha` is the preceding integration commit's full lowercase SHA.
 
 Stage-1 required keys follow `scenarioKeys`; conditional keys follow their declared order.
 `productStatePath` is required only for `product-state-file`; the barrier trio only for manual; and
