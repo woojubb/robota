@@ -1,0 +1,45 @@
+name: Bug report
+description: Report reproducible broken or unexpected behavior
+title: '[bug] '
+labels: ['bug', 'status:needs-triage']
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Include the exact behavior, output, or error you observed.
+      placeholder: Describe the failure and paste the smallest relevant output.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How can we reproduce it?
+      description: Give the smallest ordered sequence that reproduces the problem.
+      placeholder: |
+        1. Run ...
+        2. Configure ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen?
+      description: State the expected observable result.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Node.js, Robota version, provider, and other relevant configuration.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched for an existing issue describing the same behavior.
+          required: true

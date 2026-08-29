@@ -64,9 +64,14 @@ split.
 4. **Write the Task(s)** per the README schema. Cite the source issue in every Task. For several
    related children, add a parent `AGREEMENT` Task
    **and its paired spec-doc** — `task-archival` fails an AGREEMENT with no spec.
-5. Record any finding the conversion itself produced; do not turn internal implementation steps into
+5. For a triaged P0/P1 Issue, use
+   [`github-issue-triage`](../github-issue-triage/SKILL.md) to dry-run and finalize the handoff. P0 maps
+   to Task `urgency: now`; P1 maps to `urgency: soon`; P2 must be promoted first. Finalization writes
+   the exact Task ID/path back to the Issue and reads it before removing the P label. Do not implement
+   while either operation is incomplete. A Task created without an Issue does not run this step.
+6. Record any finding the conversion itself produced; do not turn internal implementation steps into
    new issues unless they meet the child-issue test above.
-6. **Verify**: `task-lifecycle.mjs classify` returns `open` for each, and `pnpm harness:scan` is green.
+7. **Verify**: `task-lifecycle.mjs classify` returns `open` for each, and `pnpm harness:scan` is green.
 
 ## Do not
 

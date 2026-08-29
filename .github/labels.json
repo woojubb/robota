@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "core": {
+    "workKinds": ["bug", "enhancement", "documentation"],
+    "intake": "status:needs-triage",
+    "priorities": ["priority:P0", "priority:P1", "priority:P2"]
+  },
+  "labels": [
+    {
+      "name": "blocks-landing",
+      "color": "b60205",
+      "description": "Blocks other work from landing",
+      "category": "analysis",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human analysis"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "bug",
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "category": "work-kind",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["Bug Issue Form", "human triage"],
+      "consumers": ["Issue audit", "human selection"]
+    },
+    {
+      "name": "disposition-containment",
+      "color": "fbca04",
+      "description": "finding-depth: this change lands under a labelled containment hold naming a filed root item.",
+      "category": "pr-protocol",
+      "appliesTo": ["pull_request"],
+      "lifecycle": "system",
+      "protected": true,
+      "producers": ["scripts/harness/record-local-review.mjs"],
+      "consumers": [
+        ".github/workflows/review-gate.yml",
+        ".claude/hooks/merge-gate.sh",
+        "scripts/harness/record-local-review.mjs"
+      ]
+    },
+    {
+      "name": "disposition-re-plan",
+      "color": "b60205",
+      "description": "finding-depth: a foundational finding WITHDREW this change. Do not merge; work the root item.",
+      "category": "pr-protocol",
+      "appliesTo": ["pull_request"],
+      "lifecycle": "system",
+      "protected": true,
+      "producers": ["scripts/harness/record-local-review.mjs"],
+      "consumers": [
+        ".github/workflows/review-gate.yml",
+        ".claude/hooks/merge-gate.sh",
+        "scripts/harness/record-local-review.mjs"
+      ]
+    },
+    {
+      "name": "documentation",
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "category": "work-kind",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["Documentation Issue Form", "human triage"],
+      "consumers": ["Issue audit", "human selection"]
+    },
+    {
+      "name": "duplicate",
+      "color": "cfd3d7",
+      "description": "This issue or pull request already exists",
+      "category": "resolution",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human disposition"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "enhancement",
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "category": "work-kind",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["Enhancement Issue Form", "human triage"],
+      "consumers": ["Issue audit", "human selection"]
+    },
+    {
+      "name": "good first issue",
+      "color": "7057ff",
+      "description": "Good for newcomers",
+      "category": "contribution",
+      "appliesTo": ["issue"],
+      "lifecycle": "optional",
+      "producers": ["human triage"],
+      "consumers": ["contributor filters"]
+    },
+    {
+      "name": "help wanted",
+      "color": "008672",
+      "description": "Extra attention is needed",
+      "category": "contribution",
+      "appliesTo": ["issue"],
+      "lifecycle": "optional",
+      "producers": ["human triage"],
+      "consumers": ["contributor filters"]
+    },
+    {
+      "name": "idea",
+      "color": "c2e0c6",
+      "description": "A proposal, not a defect — the assignee may reject and close it",
+      "category": "scope",
+      "appliesTo": ["issue"],
+      "lifecycle": "optional",
+      "producers": ["human triage"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "invalid",
+      "color": "e4e669",
+      "description": "This doesn't seem right",
+      "category": "resolution",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human disposition"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "machinery",
+      "color": "0e8a16",
+      "description": "Rules, hooks, skills, gates",
+      "category": "scope",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human triage"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "priority:P0",
+      "color": "b60205",
+      "description": "Interrupt candidate; convert immediately and initialize Task urgency now",
+      "category": "priority",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["human triage"],
+      "consumers": ["Issue audit", "conversion selection"]
+    },
+    {
+      "name": "priority:P1",
+      "color": "d93f0b",
+      "description": "Committed next Issue-to-Task conversion queue",
+      "category": "priority",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["human triage", "P2 promotion"],
+      "consumers": ["Issue audit", "conversion selection"]
+    },
+    {
+      "name": "priority:P2",
+      "color": "fbca04",
+      "description": "Valid uncommitted intake; promote to P1 before conversion",
+      "category": "priority",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["human triage"],
+      "consumers": ["Issue audit", "P1 promotion"]
+    },
+    {
+      "name": "question",
+      "color": "d876e3",
+      "description": "Further information is requested",
+      "category": "scope",
+      "appliesTo": ["issue"],
+      "lifecycle": "optional",
+      "producers": ["human triage"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "record-drift",
+      "color": "fbca04",
+      "description": "Code landed, the record did not follow",
+      "category": "analysis",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human analysis"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "review-findings-acknowledged",
+      "color": "b60205",
+      "description": "review-gate override: findings read and consciously accepted. Say why in a PR comment.",
+      "category": "pr-protocol",
+      "appliesTo": ["pull_request"],
+      "lifecycle": "system",
+      "protected": true,
+      "producers": ["human review disposition"],
+      "consumers": ["scripts/harness/check-review-gate.mjs"]
+    },
+    {
+      "name": "silent-defect",
+      "color": "d73a4a",
+      "description": "Does not announce its own absence — bypass, silent pass, unfalsifiable check",
+      "category": "analysis",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human analysis"],
+      "consumers": ["GitHub filters"]
+    },
+    {
+      "name": "status:blocked",
+      "color": "b60205",
+      "description": "Owned, waiting on a decision or dependency outside the lane",
+      "category": "legacy-status",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["historical human workflow"],
+      "consumers": ["historical GitHub filters"]
+    },
+    {
+      "name": "status:needs-triage",
+      "color": "fbca04",
+      "description": "Awaiting work-kind and conversion-priority decision",
+      "category": "intake",
+      "appliesTo": ["issue"],
+      "lifecycle": "core",
+      "producers": ["Issue Forms", "manual/API intake"],
+      "consumers": ["Issue audit", "human triage"]
+    },
+    {
+      "name": "status:parked",
+      "color": "fef2c0",
+      "description": "Owned, deliberately held — see the PR or issue for why",
+      "category": "legacy-status",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["historical human workflow"],
+      "consumers": ["historical GitHub filters"]
+    },
+    {
+      "name": "wontfix",
+      "color": "ffffff",
+      "description": "This will not be worked on",
+      "category": "resolution",
+      "appliesTo": ["issue", "pull_request"],
+      "lifecycle": "optional",
+      "producers": ["human disposition"],
+      "consumers": ["GitHub filters"]
+    }
+  ]
+}

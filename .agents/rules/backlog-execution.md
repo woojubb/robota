@@ -43,6 +43,44 @@ Every Task converted from an issue must cite its source issue. Conversion does n
 implementation; the issue remains open until the tracked work lands or receives an explicit terminal
 disposition. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
 
+### GitHub Issue Intake and Conversion Queue
+
+GitHub priority labels order only the optional front stage: they decide which unconverted Issue becomes
+a Task next. Task `priority` and `urgency` are the sole execution authority after conversion. An Issue
+priority label is never maintained as a mirror of Task frontmatter.
+
+The label SSOT is [`.github/labels.json`](../../.github/labels.json). Its required Issue core is exactly
+one work kind (`bug`, `enhancement`, or `documentation`), intake marker `status:needs-triage`, and one
+conversion priority (`priority:P0`, `priority:P1`, or `priority:P2`). There is no P3. Existing non-core
+labels remain declared but do not become required workflow axes merely by existing.
+
+- A new Issue Form applies exactly one work kind and `status:needs-triage`.
+- Triage removes the intake marker and applies exactly one P label. P0 is an interrupt candidate; P1 is
+  the committed next conversion queue; P2 is valid uncommitted intake.
+- Selection order is P0, then P1 Issues that unblock other Issues through native GitHub dependency
+  edges, then the oldest unassigned P1. P2 must be promoted to P1 before conversion.
+- P0 initializes Task `urgency: now`; P1 initializes Task `urgency: soon`. Task `priority` independently
+  records impact.
+- Conversion is incomplete until an idempotent Issue comment naming the exact Task ID and path is read
+  back and every Issue P label is removed. Any failed write-back or label removal prohibits
+  implementation. Task-only work remains valid and bypasses this front stage.
+
+Assignee plus a linked branch or pull request is the active-work signal. Native Issue dependencies own
+blocking; a status label does not duplicate that relation. No GitHub Project or Project priority field
+may mirror this queue. Introducing a Project later requires a deliberate single-owner migration.
+
+The exact PR protocol labels `disposition-containment`, `disposition-re-plan`, and
+`review-findings-acknowledged` are protected system labels. Their minimum production consumers are fixed
+in `scan-github-label-registry.mjs`, independently of editable registry metadata. They are not renamed or
+deleted until every consumer is changed and verified first.
+
+Enforced by: `scan-github-label-registry.mjs` checks the registry, Issue Form references, fixed protected
+consumer relations, additive declared consumer relations, and a non-empty examined population.
+`github-issue-triage.mjs` owns read-only Issue auditing, ordered fail-closed conversion finalization, and
+report-first live label synchronization. Its audit classifies open Issues without guessing or mutating
+metadata; synchronization creates or updates declared labels and never deletes unexpected live labels.
+The [`github-issue-triage`](../skills/github-issue-triage/SKILL.md) skill owns the human procedure.
+
 ## Registration is not authorization — an item may be declined
 
 **An issue being open does not oblige anyone to implement it.** Issues arrive here through many routes —

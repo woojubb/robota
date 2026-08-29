@@ -703,6 +703,22 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-standing-delegation-evidence.mjs'],
     examines: [SPEC_DOCS, RULES, 'scripts/harness/standing-delegation-baseline.json'],
   },
+  // RULE-018. GitHub applies a missing Issue Form label silently, while PR gates consume three
+  // exact-name labels from the same repository namespace. The registry and fixed consumer baseline
+  // make both relations fail closed without claiming to discover arbitrary label-shaped strings.
+  {
+    name: 'github-label-registry',
+    command: ['node', 'scripts/harness/scan-github-label-registry.mjs'],
+    examines: [
+      '.github/labels.json',
+      under('.github/ISSUE_TEMPLATE'),
+      '.github/workflows/review-gate.yml',
+      '.claude/hooks/merge-gate.sh',
+      harnessFile('record-local-review'),
+      harnessFile('check-review-gate'),
+      harnessFile('scan-github-label-registry'),
+    ],
+  },
   // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
   // itself to packages/apps, so nothing could see them — three of three were in violation. The
   // ratchet enforces the direction; the gap to the 80-line target is reported every run.
