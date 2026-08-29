@@ -12,10 +12,11 @@ Paired with `.agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active
 ## Problem
 
 When a spec's `## Tasks` section names an existing archived path such as
-`.agents/tasks/completed/INFRA-138-...md`, the gate's active-task criteria currently pass because
+`.agents/tasks/INFRA-138-gate-judges-accept-archived-tasks-as-active.md` after it has been archived,
+the gate's active-task criteria currently pass because
 the common reader checks existence without enforcing the active root path. This reproduced in the
 DOCS-038 correction: the archived Task was accepted by fresh GATE-IMPLEMENT and later
-GATE-COMPLETE. The issue is tracked in [#2467](https://github.com/woojubb/robota/issues/2467).
+GATE-COMPLETE. The issue is tracked in the linked issue recorded in frontmatter.
 
 <!-- Symptom + reproduction condition: the command, the output that is wrong, and when it occurs.
      Replace the seed above if it does not name both. -->

@@ -1235,6 +1235,11 @@ function taskExists(ctx) {
       '`## Tasks` names no `.agents/tasks/<ID>.md` path',
       'record the Task path in `## Tasks`',
     );
+  if (!/^\.agents\/tasks\/[^/]+\.md$/.test(task.rel))
+    return fail(
+      `\`## Tasks\` names \`${task.rel}\`, which is not an active root Task path`,
+      'record the active Task at `.agents/tasks/<ID>.md` rather than an archived or nested path',
+    );
   if (task.text === null)
     return fail(`\`## Tasks\` names \`${task.rel}\`, which does not exist`, 'create the Task file');
   return pass(`\`## Tasks\` names \`${task.rel}\`, which exists`);
