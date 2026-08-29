@@ -213,11 +213,14 @@ function checkpointOptionsAt(
 ) {
   const cutovers = checkpointContractCutovers(root, revision);
   let baseOid = null;
-  try {
-    baseOid = resolveTopicMergeBase(root, 'origin/develop');
-  } catch {
-    // Scratch repositories used by the scanner tests may intentionally have no origin ref.
-    // Conversion evidence is still rejected there unless a real base identity is available.
+  const taskText = gitText(root, revision, `${TASK_PREFIX}${basename}`);
+  if (String(taskText ?? '').includes('Conversion evidence:')) {
+    try {
+      baseOid = resolveTopicMergeBase(root, 'origin/develop');
+    } catch {
+      // Scratch repositories used by the scanner tests may intentionally have no origin ref.
+      // Conversion evidence is still rejected there unless a real base identity is available.
+    }
   }
   return {
     ...(cutovers.length === 1
