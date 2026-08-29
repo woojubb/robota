@@ -325,6 +325,7 @@ function v1SequencedRepository({
   withUnrelatedMerge = false,
   withConversionEvidence = false,
   withNonAncestorConversionBase = false,
+  squashFirstPr = false,
 } = {}) {
   const { root, base: repositoryBase } = repository({ withContract: true });
   let conversionBase = repositoryBase;
@@ -350,8 +351,14 @@ function v1SequencedRepository({
   );
   commit(root, 'PR 1 v1 checkpoint');
   git(root, ['switch', '-q', 'develop']);
-  git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
-  const sequencedMerge = git(root, ['rev-parse', 'HEAD']);
+  let sequencedMerge;
+  if (squashFirstPr) {
+    git(root, ['merge', '--squash', '-q', 'feature']);
+    sequencedMerge = commit(root, 'squash merge PR 1 (#1)');
+  } else {
+    git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
+    sequencedMerge = git(root, ['rev-parse', 'HEAD']);
+  }
   if (withUnrelatedMerge) {
     git(root, ['switch', '-q', '-c', 'unrelated']);
     write(root, 'UNRELATED.md', 'unrelated branch\n');
@@ -588,7 +595,7 @@ describe('user-execution PLAN order — branch history', () => {
       mutatePayload: (payload) => ({ ...payload, ancestorSha: '0'.repeat(40) }),
     });
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
-      /ancestorSha.*preceding merge commit/,
+      /ancestorSha.*preceding integration commit/,
     );
   });
 
@@ -699,8 +706,15 @@ describe('user-execution PLAN order — branch history', () => {
 
     expect(unrelatedLatest.base).not.toBe(unrelatedLatest.sequencedMerge);
     expect(messages(findHistoryFindings(unrelatedLatest.root, unrelatedLatest.base))).toMatch(
-      /ancestorSha.*merge.*sequenced/i,
+      /ancestorSha.*integration.*sequenced/i,
     );
+  });
+
+  it('binds ancestorSha to the squash commit that introduced the prior sequenced checkpoint', () => {
+    const squashIntegrated = v1SequencedRepository({ squashFirstPr: true });
+
+    expect(squashIntegrated.sequencedMerge).toBe(squashIntegrated.base);
+    expect(findHistoryFindings(squashIntegrated.root, squashIntegrated.base)).toEqual([]);
   });
 
   it('validates each continuation against its own introduction context across three PRs', () => {
