@@ -1,12 +1,14 @@
 ---
 title: 'TRANS-008: a truthy non-string submit prompt is re-broadcast to every attached client as a typed frame'
 issue: https://github.com/woojubb/robota/issues/2045
-status: todo
+status: done
 created: 2026-08-24
 priority: medium
 urgency: soon
 area: packages/agent-transport-protocol
 depends_on: []
+completed: 2026-08-29
+completed_by: https://github.com/woojubb/robota/commit/05c4f99c5
 ---
 
 # TRANS-008: a truthy non-string submit prompt is re-broadcast to every attached client as a typed frame
