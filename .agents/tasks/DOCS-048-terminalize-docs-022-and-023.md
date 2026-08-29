@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-048: terminalize duplicate DOCS-022 and DOCS-023 architecture-document records'
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: soon
@@ -18,8 +18,11 @@ API, policy, CI, or runtime files.
 
 ## User Execution Test Scenarios
 
-Not applicable — internal backlog lifecycle only; no user-facing behavior changes.
+Not applicable — internal backlog lifecycle only; no user-facing behavior changes; verification is
+performed by repository document scans rather than a product-facing command.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+The plan is not applicable because this migration changes only repository lifecycle documents; no
+user-facing behavior, command, API, or runtime output is introduced.
 
 ## Tasks
 
