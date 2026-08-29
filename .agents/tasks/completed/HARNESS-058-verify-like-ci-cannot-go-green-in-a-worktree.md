@@ -1,6 +1,8 @@
 ---
 title: 'HARNESS-058: verify-like-ci cannot go green on a docs branch in a worktree, so it gets skipped'
-status: todo
+issue: https://github.com/woojubb/robota/issues/1571
+status: done
+completed: 2026-08-29
 priority: medium
 urgency: soon
 type: INFRA
@@ -8,6 +10,12 @@ area: scripts/harness
 created: 2026-07-28
 depends_on: [INFRA-069]
 ---
+
+## Resolution
+
+The fresh-worktree prerequisite contract and stage ordering were implemented and merged in PR #1577
+(`03e582ab…`). Issue #1571 records the returned verification evidence. This stale Task is therefore
+terminalized by the DOCS-041 backlog migration without changing source in this batch.
 
 # HARNESS-058 — the mandated gate is unrunnable where the work happens
 
