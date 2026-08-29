@@ -212,7 +212,9 @@ function validSemanticReviewReceipt(line) {
 }
 
 function isSemanticReviewReceiptCandidate(line) {
-  return /\bSemantic review\b/i.test(line);
+  return (
+    /\bSemantic review\b/i.test(line) || /\bSemantic review\b/i.test(renderedMarkdownText(line))
+  );
 }
 
 function isMarkdownThematicBreak(line) {

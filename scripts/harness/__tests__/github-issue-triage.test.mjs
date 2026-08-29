@@ -521,6 +521,18 @@ describe('read-only native child-Issue audit', () => {
       name: 'one valid receipt plus a list-item receipt variant',
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n- Semantic review: @other on 2026-08-30 — RETAIN',
     },
+    {
+      name: 'one valid receipt plus an NBSP receipt variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\nSemantic\u00A0review: @other on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'one valid receipt plus a Markdown-emphasis receipt variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\nSemantic **review**: @other on 2026-08-30 — RETAIN',
+    },
+    {
+      name: 'one valid receipt plus an HTML-entity receipt variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\nSemantic&nbsp;review: @other on 2026-08-30 — RETAIN',
+    },
   ])('rejects $name', ({ body, completeBody = false }) => {
     const child = {
       number: 6,
