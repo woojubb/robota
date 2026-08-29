@@ -54,6 +54,7 @@ Recorded reason: not applicable because this document-only batch changes no user
 **Approval route:** `CLASS`
 **Class:** `BACKLOG-ZERO-MIGRATION`
 **Given:** 2026-08-29, this conversation
+**Evidence condition met:** all three records have exact merged-PR or canonical-issue evidence recorded below.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
