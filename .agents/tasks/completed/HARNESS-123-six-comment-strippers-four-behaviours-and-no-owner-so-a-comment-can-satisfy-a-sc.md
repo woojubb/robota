@@ -1,12 +1,13 @@
 ---
 title: 'HARNESS-123: ten comment-stripping sites, no owner, and two scans a comment is currently holding up'
 issue: https://github.com/woojubb/robota/issues/2258
-status: todo
+status: done
 created: 2026-08-26
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-08-29
 ---
 
 # HARNESS-123: no owner for comment stripping, and two scans a comment vouches for
@@ -121,3 +122,8 @@ Plan, which is not a product scenario a user can run.
 
 **This reason does not expire** — it is a property of what the item delivers, not of an undecided
 disposition.
+
+## Terminal disposition
+
+Done: delivered by merged PR #2363 (`f1fdf8d0ddd6f83c86677535306fea919e1f5bc5`). The broader issue
+#2258 remains open and is not closed by this delivery record.

@@ -1,11 +1,13 @@
 ---
 title: 'TOOL-007: the sandbox ISandboxToolOptions.cwd field means three incompatible things across the contract doc, the shell tool, the file tools, and the README — a consumer cannot determine its semantics'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-tools
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/1999
 ---
 
 # TOOL-007: `cwd` has three contradictory meanings
@@ -58,3 +60,8 @@ the file tools, and the README must agree on one meaning per mode.
   containment claim does not hold.
 - Cleanup: none.
 - Evidence (fill in after implementation): tool outputs demonstrating the consistent semantics.
+
+## Terminal disposition
+
+Skipped as duplicate of canonical open GitHub issue #1999: https://github.com/woojubb/robota/issues/1999.
+The issue owns the unresolved sandbox cwd semantics for future conversion to a fresh backlog item.
