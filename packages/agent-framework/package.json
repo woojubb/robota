@@ -72,6 +72,7 @@
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
+    "yaml": "^2.9.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
