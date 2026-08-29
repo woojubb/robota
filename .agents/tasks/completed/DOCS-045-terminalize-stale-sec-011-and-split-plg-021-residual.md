@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-045: Terminalize stale SEC-011 and split PLG-021 residual'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -19,9 +20,9 @@ remaining project-scope install/load defect into canonical issue #2487.
 
 ## Plan
 
-- [ ] Record exact handoff comments and evidence for both dispositions.
-- [ ] Mark SEC-011 and PLG-021 skipped with completed metadata and move both to `completed/`.
-- [ ] Run lifecycle, citation, and CI-like verification scans.
+- [x] Record exact handoff comments and evidence for both dispositions.
+- [x] Mark SEC-011 and PLG-021 skipped with completed metadata and move both to `completed/`.
+- [x] Run lifecycle, citation, and CI-like verification scans.
 
 ## Test Plan
 

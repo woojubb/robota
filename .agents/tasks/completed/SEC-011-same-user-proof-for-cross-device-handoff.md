@@ -1,6 +1,8 @@
 ---
 title: 'SEC-011: cross-device hand-off has no proof of same USER — device identity and trusted-device enrolment both describe a machine, and a successful WebRTC connection describes neither'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/1812#issuecomment-5460706691
 created: 2026-08-17
 priority: high
 urgency: soon
@@ -11,8 +13,8 @@ depends_on: []
 # SEC-011: what proves "the same user", across two computers
 
 Registered as [issue #1812](https://github.com/woojubb/robota/issues/1812), the security child of
-[#1808](https://github.com/woojubb/robota/issues/1808). The functional sibling is
-[#1811](https://github.com/woojubb/robota/issues/1811), which consumes the authorization result this
+[issue #1808](https://github.com/woojubb/robota/issues/1808). The functional sibling is
+[issue #1811](https://github.com/woojubb/robota/issues/1811), which consumes the authorization result this
 item defines.
 
 Sibling in shape, not in substance, to [SEC-010](completed/SEC-010-same-environment-proof-for-local-peers.md).
@@ -188,3 +190,9 @@ depends on which alternative is built. Under C the observable is two local proce
 devices — a root signing both, a hand-off authorized; then a third device signed by a different root,
 refused before any state moves. That is agent-executable with no network and no credentials, which is
 the shape to aim for.
+
+## Resolution
+
+Skipped and archived: the same-user proof boundary and its channel/consent consumers landed in
+[PR #1834](https://github.com/woojubb/robota/pull/1834) and [PR #1969](https://github.com/woojubb/robota/pull/1969). The remaining carrier/orchestration is owned by active HANDOFF-001 ([issue #1811](https://github.com/woojubb/robota/issues/1811)), so
+this record must not claim completion. The exact disposition is recorded on [issue #1812](https://github.com/woojubb/robota/issues/1812#issuecomment-5460706691).

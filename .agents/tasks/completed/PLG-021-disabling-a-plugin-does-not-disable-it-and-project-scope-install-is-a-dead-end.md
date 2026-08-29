@@ -1,6 +1,8 @@
 ---
 title: "PLG-021: /plugin disable writes enablement state that no loader reads (a disabled plugin's hooks/commands/skills keep loading every session), and project-scope plugin install writes to .robota/plugins/ that nothing loads or lists — both bundle-plugin contract halves are dead end-to-end"
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2487#issuecomment-5460706799
 created: 2026-08-13
 priority: high
 urgency: soon
@@ -66,3 +68,8 @@ scope parameter.
   writes files nothing loads.
 - Cleanup: uninstall the fixture plugin.
 - Evidence (fill in after implementation): before/after command availability for the disabled plugin.
+
+## Resolution
+
+Skipped and archived as a split disposition: the enable/disable half landed in [PR #2278](https://github.com/woojubb/robota/pull/2278), while the
+project-scope install/load dead path remains unresolved. That residual is now owned by [issue #2487](https://github.com/woojubb/robota/issues/2487), with the exact handoff comment recorded there. A fresh Task must be created from that issue when implementation is selected.

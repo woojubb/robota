@@ -132,7 +132,6 @@
   ".agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md": 2,
   ".agents/tasks/RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md": 2,
   ".agents/tasks/SEC-005-codeql-dead-code-backlog.md": 4,
-  ".agents/tasks/SEC-011-same-user-proof-for-cross-device-handoff.md": 2,
   ".agents/tasks/WORKFLOW-005-complete-workflows-track.md": 7,
   ".agents/tasks/completed/AGREEMENT-002-complete-august-13-agent-architecture-findings.md": 1,
   ".agents/tasks/completed/AGREEMENT-003-close-the-self-judgement-failure-class.md": 2,
