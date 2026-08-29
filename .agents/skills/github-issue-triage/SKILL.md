@@ -17,6 +17,9 @@ This skill owns procedure only. It does not redefine the queue or make Issues th
 
 ## Create an Issue (mandatory intake contract)
 
+Write GitHub Issue titles and bodies in English by default. Preserve quoted user text and technical
+identifiers when translation would alter the evidence; explain any retained non-English text.
+
 Use one of the three repository Issue Forms for every new Issue:
 
 - **Bug report** → exactly `bug` + `status:needs-triage`

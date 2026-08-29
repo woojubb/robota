@@ -11,8 +11,9 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
   language, and it applies to every message addressed to the user (especially reports, questions, and
   decision-requests). Do not mix another language into that user-facing narrative.
 - **Everything else defaults to English**, unless the user explicitly requests otherwise: code and comments,
-  ALL repository documents (including `.design/`), commit messages (conventional-commits format), and any other
-  written artifact.
+  ALL repository documents (including `.design/`), GitHub Issue titles and bodies, commit messages
+  (conventional-commits format), and any other written artifact. Quoted user text and technical identifiers
+  may remain in their original form.
 
 ### Korean Writing Style (only when Korean output is explicitly requested)
 
