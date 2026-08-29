@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-043: Terminalize canonical issue handoff backlog batch 14'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -18,9 +19,9 @@ evidence and ensuring no duplicate actionable root records remain.
 
 ## Plan
 
-- [ ] Mark both Tasks skipped with exact returned-to-issue links.
-- [ ] Move both records to completed archive and record resolutions.
-- [ ] Run lifecycle, citation, and CI-like verification scans.
+- [x] Mark both Tasks skipped with exact returned-to-issue links.
+- [x] Move both records to completed archive and record resolutions.
+- [x] Run lifecycle, citation, and CI-like verification scans.
 
 ## Test Plan
 

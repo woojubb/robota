@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs]
 lane: L2
@@ -28,7 +28,7 @@ product research cannot determine whether a local Task duplicates its canonical 
 ### Affected Scope
 
 .agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md
-.agents/tasks/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in-the-shipped-product.md
+.agents/tasks/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in.md
 .agents/tasks/completed/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md
 
 ### Alternatives Considered
@@ -67,14 +67,14 @@ None
 ## Affected Files
 
 .agents/tasks/completed/RULE-015-grounds-are-recorded-where-the-work-is.md
-.agents/tasks/completed/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in-the-shipped-product.md
+.agents/tasks/completed/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in.md
 .agents/tasks/completed/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md
 
 ## Completion Criteria
 
-- [ ] TC-01: both archived Tasks have terminal metadata and exact issue-comment links.
-- [ ] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing.
-- [ ] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes.
+- [x] TC-01: both archived Tasks have terminal metadata and exact issue-comment links.
+- [x] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing.
+- [x] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes.
 
 ## Test Plan
 
@@ -90,14 +90,14 @@ Not applicable — internal backlog lifecycle documentation only; no user-facing
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md` — todo
+- [x] `.agents/tasks/completed/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md` — done
 
 ## Migration Manifest
 
-| Unit     | Current Task                                                                                                                    | Canonical issue / evidence                                                                   | Disposition          |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
-| RULE-015 | `.agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md`                                                              | [issue #2391 comment](https://github.com/woojubb/robota/issues/2391#issuecomment-5460534894) | skipped and archived |
-| CLI-083  | `.agents/tasks/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in-the-shipped-product.md` | [issue #2295 comment](https://github.com/woojubb/robota/issues/2295#issuecomment-5460534959) | skipped and archived |
+| Unit     | Current Task                                                                                                | Canonical issue / evidence                                                                   | Disposition          |
+| -------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
+| RULE-015 | `.agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md`                                          | [issue #2391 comment](https://github.com/woojubb/robota/issues/2391#issuecomment-5460534894) | skipped and archived |
+| CLI-083  | `.agents/tasks/CLI-083-the-org-policy-loader-has-no-caller-so-four-enforcement-sites-are-unreachable-in.md` | [issue #2295 comment](https://github.com/woojubb/robota/issues/2295#issuecomment-5460534959) | skipped and archived |
 
 ## Evidence Log
 
@@ -110,8 +110,9 @@ The duplicate-root symptom, canonical issue handoffs, migration manifest, altern
 **Status upgrade:** review-ready → approved
 **Approval route:** `CLASS`
 **Class:** `BACKLOG-ZERO-MIGRATION`
+**Given:** 2026-08-29, this conversation; standing approval recorded in DOCS-029.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
-**Evidence condition:** RULE-015 → issue #2391 and CLI-083 → issue #2295 handoff comments are recorded; no source/API/policy changes are included.
+**Evidence condition met:** RULE-015 → issue #2391 and CLI-083 → issue #2295 handoff comments are recorded; no source/API/policy changes are included.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-29
 
@@ -122,8 +123,32 @@ The concrete duplicate-root symptom, canonical open issue links, and archive alt
 **Status upgrade:** review-ready → approved
 **Approval route:** `CLASS`
 **Class:** `BACKLOG-ZERO-MIGRATION`
+**Given:** 2026-08-29, this conversation; standing approval recorded in DOCS-029.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
-**Evidence condition:** RULE-015 and CLI-083 handoff comments are recorded above; no implementation changes are included.
+**Evidence condition met:** RULE-015 and CLI-083 handoff comments are recorded above; no implementation changes are included.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- All three Task criteria are checked after archiving the two handed-off records.
+- Command: `pnpm harness:scan` — lifecycle and citation scans passed.
+- Command: `pnpm harness:verify-like-ci` — document-only CI-like verification passed.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Action:** Inspected both archived Tasks; each has `status: skipped`, an exact `returned_to_issue`
+comment link, and a resolution section.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:scan` — 146 scans passed with advisory findings only.
+**Test skipped:** the repository scan is the regression evidence for document lifecycle and citations.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:verify-like-ci` — document-only verification passed.
+**Test skipped:** no package source, API, policy, or runtime behavior changed.
 
 ### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-29
 

@@ -6,7 +6,7 @@ tags: [harness, enforcement]
 
 # RULE-015: a ground is recorded where the work is, and an incident closes on demonstrated prevention
 
-Paired with `.agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md`.
+Paired with `.agents/tasks/completed/RULE-015-grounds-are-recorded-where-the-work-is.md`.
 Arising from [issue #2384](https://github.com/woojubb/robota/issues/2384).
 
 ## Problem
@@ -242,7 +242,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-015-grounds-are-recorded-where-the-work-is.md` — todo
+- [x] `.agents/tasks/completed/RULE-015-grounds-are-recorded-where-the-work-is.md` — skipped and archived
 
 ## Evidence Log
 
