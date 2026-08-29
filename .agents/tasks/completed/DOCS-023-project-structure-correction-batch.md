@@ -1,14 +1,24 @@
 ---
 title: 'DOCS-023: project-structure.md contradicts the manifests and itself — wrong module inventory, phantom types/packages, a layer diagram the dependency graph disproves'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: high
 urgency: soon
 area: .agents/project-structure.md
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2049#issuecomment-5461013004
 ---
 
 # DOCS-023: project-structure.md correction batch
+
+## Resolution — terminalized as canonical issue handoff
+
+The manifest and project-structure contradictions remain valid, but issue #2049 is the canonical
+owner for the architecture/source-graph and architecture-contract refresh and explicitly tracks
+DOCS-022/023/024. This legacy queue record is skipped rather than marked complete; a fresh Task must
+be recreated from the canonical issue when implementation starts. No package source, API, policy, or
+runtime change is included in this disposition.
 
 ## Problem
 
