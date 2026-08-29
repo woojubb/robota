@@ -1749,9 +1749,7 @@ function agreementProjection(text, heading) {
   return { missing: false, rows, malformed };
 }
 
-function stagedAgreementPrelude(root, paths) {
-  const stagedText = (file) => indexText(root, file);
-  const headText = (file) => gitText(root, 'HEAD', file);
+function agreementPrelude(paths, textForPath, parentTextForPath) {
   const taskPaths = paths.filter(
     (file) => file.startsWith(TASK_PREFIX) && !file.slice(TASK_PREFIX.length).includes('/'),
   );
@@ -1765,11 +1763,11 @@ function stagedAgreementPrelude(root, paths) {
     const id = subjectId(taskBasename(file) ?? '');
     return (
       id?.startsWith('AGREEMENT-') &&
-      asList(frontmatterObject(stagedText(file) ?? '').children).length > 0
+      asList(frontmatterObject(textForPath(file) ?? '').children).length > 0
     );
   });
   const agreementSpecs = specPaths.filter(
-    (file) => asScalar(frontmatterObject(stagedText(file) ?? '').type).trim() === 'AGREEMENT',
+    (file) => asScalar(frontmatterObject(textForPath(file) ?? '').type).trim() === 'AGREEMENT',
   );
   if (parentTasks.length === 0 && agreementSpecs.length === 0) return null;
 
@@ -1778,7 +1776,7 @@ function stagedAgreementPrelude(root, paths) {
     problems.push(
       `atomic AGREEMENT prelude requires exactly one parent Task and one AGREEMENT spec; found ${parentTasks.length} parent Task(s) and ${agreementSpecs.length} spec(s).`,
     );
-    return problems;
+    return { basename: null, problems };
   }
 
   const parentTaskPath = parentTasks[0];
@@ -1786,11 +1784,11 @@ function stagedAgreementPrelude(root, paths) {
   const parentBasename = taskBasename(parentTaskPath);
   if (parentBasename === null || specBasename(parentSpecPath) !== parentBasename) {
     problems.push('atomic AGREEMENT parent Task and spec do not have the exact same basename.');
-    return problems;
+    return { basename: null, problems };
   }
-  const parentTask = stagedText(parentTaskPath);
-  const parentSpec = stagedText(parentSpecPath);
-  if (headText(parentTaskPath) !== null || headText(parentSpecPath) !== null) {
+  const parentTask = textForPath(parentTaskPath);
+  const parentSpec = textForPath(parentSpecPath);
+  if (parentTextForPath(parentTaskPath) !== null || parentTextForPath(parentSpecPath) !== null) {
     problems.push('atomic AGREEMENT parent Task/spec must both be newly added.');
   }
   if (frontmatterStatus(parentTask) !== 'todo') {
@@ -1825,9 +1823,9 @@ function stagedAgreementPrelude(root, paths) {
       continue;
     }
     const childPath = matches[0];
-    const childText = stagedText(childPath);
+    const childText = textForPath(childPath);
     const childFields = frontmatterObject(childText ?? '');
-    if (headText(childPath) !== null)
+    if (parentTextForPath(childPath) !== null)
       problems.push(`atomic AGREEMENT child ${childId} must be newly added.`);
     if (frontmatterStatus(childText) !== 'todo')
       problems.push(`atomic AGREEMENT child ${childId} must have status \`todo\`.`);
@@ -1850,7 +1848,12 @@ function stagedAgreementPrelude(root, paths) {
     if (
       isLoopLedgerPath(file) &&
       file !== POST_MERGE_LEDGER &&
-      validateLedgerAppend(file, headText(file) ?? '', stagedText(file) ?? '', parentBasename)
+      validateLedgerAppend(
+        file,
+        parentTextForPath(file) ?? '',
+        textForPath(file) ?? '',
+        parentBasename,
+      )
     ) {
       continue;
     }
@@ -1874,7 +1877,7 @@ function stagedAgreementPrelude(root, paths) {
       problems.push(`atomic AGREEMENT ## ${heading} must exactly project every declared child.`);
     }
   }
-  return problems;
+  return { basename: parentBasename, problems };
 }
 
 function allowedCheckpointPaths(root, from, to, paths, basename) {
@@ -2182,6 +2185,24 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         );
         continue;
       }
+      const agreement = agreementPrelude(entry.paths, textIn(entry.commit), textIn(entry.parent));
+      if (agreement !== null) {
+        if (
+          agreement.problems.length > 0 ||
+          (pendingBasename !== null && pendingBasename !== agreement.basename)
+        ) {
+          findings.push(
+            finding(
+              `implementation exists with no planning checkpoint: ${entry.paths.join(', ')}${agreement.problems.length > 0 ? ` (${agreement.problems.join(' ')})` : ''}.`,
+              entry.commit,
+            ),
+          );
+          continue;
+        }
+        planningStarted = true;
+        pendingBasename = agreement.basename;
+        continue;
+      }
       const basenames = planningBasenames(entry.paths);
       const basename = basenames.length === 1 ? basenames[0] : null;
       const preludeProblems =
@@ -2486,9 +2507,9 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const proposed = stagedCheckpoint(root, staged);
     const findings = proposed.problems.map((problem) => finding(problem));
     if (proposed.pairs.length === 0) {
-      const agreementProblems = stagedAgreementPrelude(root, staged);
-      if (agreementProblems !== null) {
-        findings.push(...agreementProblems.map((problem) => finding(problem)));
+      const agreement = agreementPrelude(staged, stagedText, headText);
+      if (agreement !== null) {
+        findings.push(...agreement.problems.map((problem) => finding(problem)));
         if (history.pendingBasename !== null) {
           findings.push(
             finding(

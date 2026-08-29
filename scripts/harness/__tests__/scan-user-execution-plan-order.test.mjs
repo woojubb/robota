@@ -2531,6 +2531,16 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(findStagedFindings(root, base)).toEqual([]);
   });
 
+  it('accepts the same atomic AGREEMENT manifest after the staged transaction is committed', () => {
+    const { root, base } = repository();
+    stageAgreementPrelude(root);
+    expect(findStagedFindings(root, base)).toEqual([]);
+
+    commit(root, 'convert issue into atomic agreement manifest');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
   it('rejects an atomic AGREEMENT manifest without one concrete source Issue', () => {
     const { root, base } = repository();
     const removeIssue = (text) => text.replace(/^issue:.*\n/m, '');
