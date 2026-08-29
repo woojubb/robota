@@ -56,11 +56,11 @@ None; no package source, API, policy, or runtime behavior changes.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                           | Notes                         |
-| ----- | --------- | ----------------------------------------- | ----------------------------- |
-| TC-01 | Document  | **Action:** inspect archived Tasks and issue comments | **Test skipped:** no executable product behavior; GATE-COMPLETE: TC-01 |
-| TC-02 | Suite     | `pnpm harness:scan` (147 scans passed)    | **Test skipped:** scan command is the regression check; GATE-COMPLETE: TC-02 |
-| TC-03 | CI-like   | `pnpm harness:verify-like-ci` (13/13 pass)| **Test skipped:** CI-like command is the applicable check; GATE-COMPLETE: TC-03 |
+| TC-ID | Test Type | Tool / Approach                                       | Notes                                                                           |
+| ----- | --------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
+| TC-01 | Document  | **Action:** inspect archived Tasks and issue comments | **Test skipped:** no executable product behavior; GATE-COMPLETE: TC-01          |
+| TC-02 | Suite     | `pnpm harness:scan` (147 scans passed)                | **Test skipped:** scan command is the regression check; GATE-COMPLETE: TC-02    |
+| TC-03 | CI-like   | `pnpm harness:verify-like-ci` (13/13 pass)            | **Test skipped:** CI-like command is the applicable check; GATE-COMPLETE: TC-03 |
 
 - TC-01 — **Test skipped:** document inspection has no executable test function; the action and result
   are recorded in GATE-COMPLETE: TC-01.
@@ -227,6 +227,7 @@ links, and resolution sections; issue comments confirm HANDOFF-001 and [issue #2
 
 **Command:** `pnpm harness:verify-like-ci` — all 13 mirrored stages passed. The run confirmed no package/app
 scope and no source/API/policy changes.
+
 - GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-01, TC-02, TC-03: no test reference and no skip reason
   **Required action:** name the test or record why it was skipped
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-01, TC-02, TC-03: no test reference and no skip reason
