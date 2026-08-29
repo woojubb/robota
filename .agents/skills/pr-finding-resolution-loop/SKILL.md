@@ -97,7 +97,12 @@ nobody takes. This session holds the checkout, the history and the tools, so the
 What travels back to the PR is the DECISION, not the reasoning — Round B step 2 is where that happens,
 because that is where the CI comments exist.
 
-A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and push.
+A3. **Record the verdict.** When the findings count is zero, record it with
+`pnpm harness:review:record -- --findings 0`; when non-zero, record the actual count and resolve each
+finding. **Before every next action, read the latest verdict and stop until it is recorded.** A further
+push, rebase, or merge requires the exact `POST_FINDINGS_ACTION_REQUEST` comment and maintainer approval
+defined in `git-branch.md`, including the latest verdict count and head, action, ground, inspectable
+evidence, and scope. Never substitute a private judgement or local review record.
 
 `pre-push-check` enforces A3: a feature-branch push whose HEAD has no matching record is refused, naming
 `PRE_PUSH_ALLOW_UNREVIEWED=1` for a deliberate exception. The record says a review RAN at this commit and

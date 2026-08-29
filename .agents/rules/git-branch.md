@@ -524,10 +524,33 @@ asking before acting.
 
 Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
-### `ACTIONABLE FINDINGS: 0` ends the loop — it does not start a merge
+### A published findings verdict freezes the pull request — it does not authorize more work
 
-**Zero findings obliges exactly one thing: STOP EDITING.** It is not a signal to merge, not a
-deadline, and not a reason to hurry.
+**Any published findings verdict obliges exactly one thing: STOP EDITING.** This includes both
+`ACTIONABLE FINDINGS: 0` and a non-zero count. It is not a signal to merge, not a deadline, and not a
+reason to hurry.
+
+Before every next action (edit/push, rebase, or merge), the owning session must read the latest verdict
+and publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR. A maintainer
+must approve it. The comment
+must contain exactly these auditable fields:
+
+```
+POST_FINDINGS_ACTION_REQUEST
+HEAD: <exact current PR head SHA>
+VERDICT: <latest ACTIONABLE FINDINGS count>
+ACTION: push | rebase | merge
+GROUND: finding | red-check | rebase
+EVIDENCE: <link or command output another person can inspect>
+SCOPE: <the files/operation the request permits>
+APPROVED: yes
+APPROVED-BY: @<maintainer>
+```
+
+The next-action guard checks the marker, latest verdict count, exact head, action, explicit ground,
+evidence, scope, and approval. A local review record, private judgement, advice attached to a passing
+verdict, or an override token is not approval. After an approved action, a new head or verdict requires
+a new decision comment.
 
 **A push into an open pull request requires a NAMED GROUND, and there are exactly three.** This is not
 a caution and not a preference. Work with no ground does not get done more carefully — **it does not
@@ -554,7 +577,7 @@ and every unjustified round in the measured case could have said it.
 frozen diff; it is a reason to write it down somewhere it will survive. The pull request under review
 is the one place it must not go.
 
-**Advice arriving alongside a zero count is not a finding.** A reviewer may add SHOULD or CONSIDER
+**Advice arriving alongside any count is not a finding.** A reviewer may add SHOULD or CONSIDER
 notes on a diff it has just passed. Those are input for a FUTURE pull request. Acting on them
 re-opens the diff, producing a new head, a new round, and new advice on the new code — a loop with no
 terminal condition, because each fix creates the surface the next round reads.
