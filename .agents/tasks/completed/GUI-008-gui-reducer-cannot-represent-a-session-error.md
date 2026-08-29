@@ -1,11 +1,13 @@
 ---
 title: 'GUI-008: the GUI session reducer has no error/protocol_error case — after a session error the partial text stays "streaming", the next turn concatenates onto it, tools stay running, and the user never sees the error'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: high
 urgency: soon
 area: packages/agent-transport-gui, packages/agent-transport-webrtc-web, apps/agent-app, apps/agent-web
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2164#issuecomment-5460833502
 ---
 
 # GUI-008: session errors are silently dropped by every GUI surface
@@ -67,3 +69,10 @@ tools failed, and surface the message via a new error slot on `IWsSessionState`.
   turn's text is glued onto it, and a tool spinner never stops.
 - Cleanup: none.
 - Evidence (fill in after implementation): before/after screenshots of the GUI on an errored turn.
+
+## Resolution
+
+This local finding is a concrete repeated instance of the broader per-surface protocol-variant
+contract tracked by ARCH-059 / issue #2164. The reducer gap remains an implementation concern, so
+this record is archived as skipped and returned to that canonical issue rather than claiming the
+GUI behavior is fixed locally.
