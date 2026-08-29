@@ -1,11 +1,13 @@
 ---
 title: 'DOCS-024: package SPEC/README conformance sweep — ~60 verified doc↔code contradictions across 20 agent-* packages'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-*/docs/SPEC.md, packages/agent-*/README.md, package.json descriptions
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2049#issuecomment-5461135648
 ---
 
 # DOCS-024: package SPEC/README conformance sweep

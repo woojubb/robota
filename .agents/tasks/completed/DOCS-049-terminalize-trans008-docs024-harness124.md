@@ -1,11 +1,12 @@
 ---
 title: 'DOCS-049: terminalize TRANS-008, DOCS-024, and HARNESS-124'
-status: in-progress
+status: done
 created: 2026-08-29
 priority: high
 urgency: soon
 area: .agents/tasks, .agents/spec-docs
 depends_on: []
+completed: 2026-08-29
 ---
 
 # DOCS-049: terminalize TRANS-008, DOCS-024, and HARNESS-124

@@ -1,12 +1,14 @@
 ---
 title: 'HARNESS-124: re-deriving CI state and delegating it are different prescriptions, and one shared helper would merge them'
 issue: https://github.com/woojubb/robota/issues/2237
-status: todo
+status: skipped
 created: 2026-08-26
 priority: medium
 urgency: soon
 area: scripts/harness, .claude/hooks
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2237#issuecomment-5461135731
 ---
 
 # HARNESS-124: two questions about CI, and only one of them may be re-derived
