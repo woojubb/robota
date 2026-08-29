@@ -6,6 +6,12 @@ import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 import {
+  formatCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+  priorPassDigest,
+  rawGateImplementPassEntries,
+} from '../checkpoint-evidence-contract.mjs';
+import {
   findHistoryFindings,
   findStagedFindings,
   readExaminedPlanOrderCount,
@@ -17,6 +23,12 @@ import {
 const TASK_ID = 'HARNESS-900-plan-order-fixture';
 const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
 const SPEC_PATH = `.agents/spec-docs/active/${TASK_ID}.md`;
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const LIVE_BACKLOG_RULE = readFileSync(
+  path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+  'utf8',
+);
+const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -34,12 +46,13 @@ function commit(root, message) {
   return git(root, ['rev-parse', 'HEAD']);
 }
 
-function repository({ taskInBase = false } = {}) {
+function repository({ taskInBase = false, withContract = false } = {}) {
   const root = makeTemp('robota-ues-plan-order-');
   git(root, ['init', '-b', 'develop']);
   git(root, ['config', 'user.email', 'fixture@example.com']);
   git(root, ['config', 'user.name', 'Fixture']);
   write(root, 'README.md', 'base\n');
+  if (withContract) write(root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
   if (taskInBase) {
     write(
       root,
@@ -97,7 +110,7 @@ function taskText({
     '',
     '## Test Plan',
     '',
-    'This fixture carries more than fifty characters of concrete verification planning.',
+    'TC-01: this fixture carries more than fifty characters of concrete verification planning.',
     '',
     '## User Execution Test Scenarios',
     '',
@@ -150,15 +163,57 @@ function taskText({
   ].join('\n');
 }
 
+function v1AutomatableBrowserTask() {
+  const invocation = 'open Robota browser UI and activate the fixture control';
+  const observable = 'visible=fixture control active in browser UI';
+  const payload = formatCheckpointEvidence(LIVE_CONTRACT, 'doneGateStageOne', {
+    version: 1,
+    form: 'doneGateStageOne',
+    outcome: 'automatable',
+    scenarios: [
+      {
+        name: 'Scenario 1',
+        surface: 'robota-browser-ui',
+        surfaceRationale: 'shipped-interface=robota-browser-ui',
+        invocation,
+        observableType: 'ui-state',
+        observable,
+        observableRationale: 'source=rendered-product-ui',
+        guardianObservableVerdict: 'product-behavior',
+        executability: 'agent-executable',
+        prerequisite: 'fixture repository initialized',
+        action: { kind: 'browserSteps', value: invocation },
+        expectedObservable: observable,
+        cleanup: 'none',
+        evidence: 'pending',
+      },
+    ],
+  });
+  if (!payload.ok) throw new Error(payload.error);
+  return `${taskText({ outcome: 'automatable', stage1: true, browserAutomatable: true })}\n${payload.text}\n`;
+}
+
 function specText({
   subject = TASK_ID,
   outcome = 'not-applicable',
   worktreeLine = undefined,
+  v1 = false,
 } = {}) {
   const signal =
     outcome === 'not-applicable'
       ? 'SCENARIO DRAFTED: not-applicable | 0'
       : `SCENARIO DRAFTED: ${outcome} | 1`;
+  const payload = v1
+    ? formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementFirst', {
+        version: 1,
+        form: 'gateImplementFirst',
+        taskPath: `.agents/tasks/${subject}.md`,
+        specPath: `.agents/spec-docs/todo/${subject}.md`,
+        taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+        plan: { outcome, count: outcome === 'not-applicable' ? 0 : 1 },
+        worktreePaths: [`.agents/spec-docs/todo/${subject}.md`, `.agents/tasks/${subject}.md`],
+      }).text
+    : null;
   return [
     '---',
     'status: in-progress',
@@ -167,6 +222,10 @@ function specText({
     '---',
     '',
     `# ${subject}`,
+    '',
+    '## Completion Criteria',
+    '',
+    '- [ ] TC-01: the checkpoint binding is accepted.',
     '',
     '## Tasks',
     '',
@@ -182,6 +241,7 @@ function specText({
     `- Subject-bound PLAN terminal result: \`${signal}\` is recorded with its concrete reason.`,
     worktreeLine ??
       `- Whole-worktree precondition: only \`.agents/tasks/${subject}.md\` and \`.agents/spec-docs/todo/${subject}.md\` are present; no implementation path exists.`,
+    ...(payload ? [payload] : []),
     '',
   ].join('\n');
 }
@@ -239,6 +299,54 @@ function continuation(root, options = {}) {
   return commit(root, 'continuation checkpoint');
 }
 
+function v1SequencedRepository({ mutatePayload = (payload) => payload } = {}) {
+  const { root } = repository({ withContract: true });
+  write(root, TASK_PATH, taskText());
+  write(
+    root,
+    SPEC_PATH,
+    specText({
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    }).replace(
+      '## Evidence Log',
+      '## Architecture Review\n\n### Decision\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`\n\n## Evidence Log',
+    ),
+  );
+  commit(root, 'PR 1 v1 checkpoint');
+  git(root, ['switch', '-q', 'develop']);
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
+  const base = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+  git(root, ['switch', '-q', '-c', 'feature-2']);
+
+  const priorSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+  const priorRaw = rawGateImplementPassEntries(priorSpec).at(-1);
+  const payload = mutatePayload({
+    version: 1,
+    form: 'gateImplementContinuation',
+    priorPass: priorPassDigest(priorRaw),
+    sequencedArtifacts: [
+      'scripts/harness/gate.mjs',
+      'scripts/harness/scan-user-execution-plan-order.mjs',
+    ],
+    ancestorSha: base,
+    taskPath: TASK_PATH,
+    specPath: SPEC_PATH,
+    plan: { outcome: 'not-applicable', count: 0 },
+    worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+  });
+  const rendered = formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementContinuation', payload);
+  if (!rendered.ok) throw new Error(rendered.error);
+  write(
+    root,
+    SPEC_PATH,
+    `${priorSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
+  );
+  commit(root, 'v1 continuation checkpoint');
+  return { root, base };
+}
+
 function postMergeRecord(base, runId = 'r20260825000000') {
   return {
     runId,
@@ -267,6 +375,188 @@ function messages(findings) {
 }
 
 describe('user-execution PLAN order — branch history', () => {
+  it('reads v1 first-checkpoint evidence from the checkpoint rule revision and names a mismatched specPath (TC-03, TC-08)', () => {
+    const valid = repository({ withContract: true });
+    checkpoint(valid.root, {
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    });
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const invalid = repository({ withContract: true });
+    writeCheckpoint(invalid.root, {
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    });
+    const current = readFileSync(path.join(invalid.root, SPEC_PATH), 'utf8');
+    write(
+      invalid.root,
+      SPEC_PATH,
+      current.replace(
+        `.agents/spec-docs/todo/${TASK_ID}.md`,
+        '.agents/spec-docs/todo/HARNESS-901-other.md',
+      ),
+    );
+    commit(invalid.root, 'mismatched v1 spec binding');
+
+    expect(
+      findHistoryFindings(invalid.root, invalid.base)
+        .map((item) => item.problem)
+        .join('\n'),
+    ).toMatch(/gateImplementFirst.*(?:specPath|basename)/i);
+  });
+
+  it('binds a v1 Stage-1 payload to the authored browser scenario (TC-05)', () => {
+    const valid = repository({ withContract: true });
+    write(valid.root, TASK_PATH, v1AutomatableBrowserTask());
+    write(
+      valid.root,
+      SPEC_PATH,
+      specText({
+        outcome: 'automatable',
+        v1: true,
+        worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+      }),
+    );
+    commit(valid.root, 'v1 browser scenario checkpoint');
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const invalid = repository({ withContract: true });
+    write(
+      invalid.root,
+      TASK_PATH,
+      v1AutomatableBrowserTask().replace(
+        '"guardianObservableVerdict": "product-behavior"',
+        '"guardianObservableVerdict": "engineering-check"',
+      ),
+    );
+    write(
+      invalid.root,
+      SPEC_PATH,
+      specText({
+        outcome: 'automatable',
+        v1: true,
+        worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+      }),
+    );
+    commit(invalid.root, 'invalid v1 browser scenario checkpoint');
+    expect(messages(findHistoryFindings(invalid.root, invalid.base))).toMatch(
+      /guardianObservableVerdict.*product-behavior/,
+    );
+  });
+
+  it('binds v1 continuation to prior raw bytes and Decision artifacts (TC-04, TC-07)', () => {
+    const valid = v1SequencedRepository();
+    expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
+
+    const badDigest = v1SequencedRepository({
+      mutatePayload: (payload) => ({ ...payload, priorPass: `sha256:${'0'.repeat(64)}` }),
+    });
+    expect(messages(findHistoryFindings(badDigest.root, badDigest.base))).toMatch(
+      /priorPass.*latest prior raw PASS/,
+    );
+
+    const badArtifacts = v1SequencedRepository({
+      mutatePayload: (payload) => ({
+        ...payload,
+        sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      }),
+    });
+    expect(messages(findHistoryFindings(badArtifacts.root, badArtifacts.base))).toMatch(
+      /sequencedArtifacts.*Decision/,
+    );
+
+    const badAncestor = v1SequencedRepository({
+      mutatePayload: (payload) => ({ ...payload, ancestorSha: '0'.repeat(40) }),
+    });
+    expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
+      /ancestorSha.*preceding merge commit/,
+    );
+  });
+
+  it('admits legacy-v0 only before the unique v1 ancestry cutover (TC-06)', () => {
+    const founding = repository();
+    checkpoint(founding.root);
+    write(founding.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(founding.root, 'introduce v1 contract after founding checkpoint');
+    write(founding.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(founding.root, 'implementation');
+    expect(findHistoryFindings(founding.root, founding.base)).toEqual([]);
+
+    const sequenced = repository();
+    write(sequenced.root, TASK_PATH, taskText());
+    write(
+      sequenced.root,
+      SPEC_PATH,
+      specText().replace(
+        '## Evidence Log',
+        '## Architecture Review\n\n### Decision\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`\n\n## Evidence Log',
+      ),
+    );
+    commit(sequenced.root, 'legacy founding checkpoint');
+    git(sequenced.root, ['switch', '-q', 'develop']);
+    git(sequenced.root, ['merge', '--no-ff', '-q', '-m', 'merge legacy PR 1', 'feature']);
+    const precedingMerge = git(sequenced.root, ['rev-parse', 'HEAD']);
+    write(sequenced.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    const sequencedBase = commit(sequenced.root, 'v1 cutover');
+    git(sequenced.root, ['update-ref', 'refs/remotes/origin/develop', sequencedBase]);
+    git(sequenced.root, ['switch', '-q', '-c', 'feature-2']);
+    const parentSpec = readFileSync(path.join(sequenced.root, SPEC_PATH), 'utf8');
+    const continuationPayload = formatCheckpointEvidence(
+      LIVE_CONTRACT,
+      'gateImplementContinuation',
+      {
+        version: 1,
+        form: 'gateImplementContinuation',
+        priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+        sequencedArtifacts: ['scripts/harness/gate.mjs'],
+        ancestorSha: precedingMerge,
+        taskPath: TASK_PATH,
+        specPath: SPEC_PATH,
+        plan: { outcome: 'not-applicable', count: 0 },
+        worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+      },
+    );
+    if (!continuationPayload.ok) throw new Error(continuationPayload.error);
+    write(
+      sequenced.root,
+      SPEC_PATH,
+      `${parentSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${continuationPayload.text}\n`,
+    );
+    commit(sequenced.root, 'v1 continuation after legacy founding checkpoint');
+    expect(findHistoryFindings(sequenced.root, sequencedBase)).toEqual([]);
+
+    const postCutover = repository({ withContract: true });
+    checkpoint(postCutover.root);
+    expect(messages(findHistoryFindings(postCutover.root, postCutover.base))).toMatch(
+      /legacy-v0.*not ancestry-eligible.*v1 cutover/,
+    );
+
+    const removed = repository({ withContract: true });
+    write(removed.root, '.agents/rules/backlog-execution.md', '# removed\n');
+    commit(removed.root, 'remove v1 contract');
+    expect(messages(findHistoryFindings(removed.root, removed.base))).toMatch(
+      /contract is missing or invalid after the v1 cutover/,
+    );
+
+    write(removed.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(removed.root, 'reintroduce a second v1 contract cutover');
+    expect(messages(findHistoryFindings(removed.root, removed.base))).toMatch(
+      /cutover is ambiguous/,
+    );
+
+    const invalidIntroduction = repository();
+    write(
+      invalidIntroduction.root,
+      '.agents/rules/backlog-execution.md',
+      '<!-- checkpoint-evidence-contract:v1:start -->\n```json\n{}\n```\n<!-- checkpoint-evidence-contract:v1:end -->\n',
+    );
+    git(invalidIntroduction.root, ['add', '-A']);
+    expect(
+      messages(findStagedFindings(invalidIntroduction.root, invalidIntroduction.base)),
+    ).toMatch(/staged checkpoint evidence contract is unreadable/);
+  });
+
   it('treats pathless commits consistently before and after a checkpoint', () => {
     const beforeOnly = repository();
     expect(findStagedFindings(beforeOnly.root, beforeOnly.base)).toEqual([]);

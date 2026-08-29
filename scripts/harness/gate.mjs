@@ -165,6 +165,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
+import {
+  formatCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+  taskItemsForCheckpoint,
+} from './checkpoint-evidence-contract.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
 import { collectSpecResearchFindings } from './scan-spec-research.mjs';
 import {
@@ -1789,6 +1794,42 @@ function passEntry(gateName, date, upgrade, results) {
   ];
 }
 
+function checkpointWorktreePaths(root) {
+  const status = git(root, ['status', '--porcelain', '--untracked-files=all']);
+  if (!status.ok) throw new Error(`checkpoint worktree query failed: ${status.stderr.trim()}`);
+  return status.stdout
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => line.slice(3).split(' -> ').pop().trim().replace(/^"|"$/g, ''))
+    .sort();
+}
+
+function firstCheckpointEvidence(ctx) {
+  const parsed = parseCheckpointEvidenceContract(
+    requireFile(ctx.backlogRule, 'backlog-execution rule'),
+  );
+  if (!parsed.ok) throw new Error(`GATE-IMPLEMENT evidence contract unreadable: ${parsed.error}`);
+  const task = taskContext(ctx);
+  const taskItems = taskItemsForCheckpoint(ctx.doc.text, task.text);
+  if (!taskItems.ok)
+    throw new Error(`GATE-IMPLEMENT task evidence unavailable: ${taskItems.error}`);
+  const scenarios = sectionBody(task.text, /^User Execution Test Scenarios$/i);
+  const signals = [...(scenarios?.body.join('\n') ?? '').matchAll(AUTHOR_VERDICT_LINE)];
+  if (signals.length !== 1) throw new Error('GATE-IMPLEMENT PLAN signal is not unique');
+  const payload = {
+    version: parsed.contract.version,
+    form: 'gateImplementFirst',
+    taskPath: task.rel,
+    specPath: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
+    taskItems: taskItems.items,
+    plan: { outcome: signals[0][1], count: Number(signals[0][2]) },
+    worktreePaths: checkpointWorktreePaths(ctx.root),
+  };
+  const rendered = formatCheckpointEvidence(parsed.contract, 'gateImplementFirst', payload);
+  if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
+  return rendered.text.split('\n');
+}
+
 function failEntry(gateName, date, current, failed) {
   return [
     `### [${gateName}] — ❌ FAIL | ${date}`,
@@ -1877,6 +1918,7 @@ export function runJudge(options) {
         `the catalogue heading for ${gate.name} states no \`from → to\` status upgrade`,
       );
     entry = passEntry(gate.name, date, upgrade, results);
+    if (gate.name === 'GATE-IMPLEMENT') entry.push('', ...firstCheckpointEvidence(ctx));
   }
 
   let written = false;

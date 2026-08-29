@@ -1,7 +1,7 @@
 ---
-status: in-progress
+status: done
 type: INFRA
-tags: []
+tags: [harness, gate-contract, evidence]
 lane: L2
 ---
 
@@ -354,37 +354,37 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: repository-contract tests parse exactly one rule-owned first, continuation, and Stage-1
+- [x] TC-01: repository-contract tests parse exactly one rule-owned first, continuation, and Stage-1
       declaration and prove the catalogue references that owner without duplicating its field list.
-- [ ] TC-02: contract-parser tests reject unreadable, missing, duplicate, malformed, and unsupported
+- [x] TC-02: contract-parser tests reject unreadable, missing, duplicate, malformed, and unsupported
       declarations and name the failed form or field.
-- [ ] TC-03: a cross-component Vitest runs the real GATE-IMPLEMENT judge for a valid approved pair,
+- [x] TC-03: a cross-component Vitest runs the real GATE-IMPLEMENT judge for a valid approved pair,
       stages the generated first checkpoint, and `findStagedFindings()` returns `[]` without any
       hand-authored evidence line; the matrix includes a zero-checkbox Task accepted through complete
       TC-ID coverage.
-- [ ] TC-04: focused tests accept first evidence only with `todo/<basename>` and continuation evidence
+- [x] TC-04: focused tests accept first evidence only with `todo/<basename>` and continuation evidence
       only with `active/<basename>`; the inverse folder mappings fail by name. An end-to-end staged
       continuation fixture with a non-empty Decision artifact list and a planning-only worktree passes.
-- [ ] TC-05: focused Stage-1 tests accept declared required/conditional fields and reject a missing
+- [x] TC-05: focused Stage-1 tests accept declared required/conditional fields and reject a missing
       product, state-path, manual-only, guardian-verdict, or completeness binding as applicable; a
       manual-TUI fixture proves `uiSteps` is the sole action while the start command remains invocation.
-- [ ] TC-06: staged/history tests read the rule blob at the judged revision; the founding checkpoint
+- [x] TC-06: staged/history tests read the rule blob at the judged revision; the founding checkpoint
       and existing pre-v1 entries pass legacy-v0 only when their entry-introduction commits are strict
       ancestors of the unique v1 cutover, while missing/ambiguous provenance and every post-cutover
       legacy entry fail.
-- [ ] TC-07: existing valid checkpoint/scenario fixtures remain green, while another basename,
+- [x] TC-07: existing valid checkpoint/scenario fixtures remain green, while another basename,
       mismatched PLAN signal, missing whole-worktree evidence, extra path, and a mutated v1 declaration
       remain refused; continuation mutations cover raw-byte prior-PASS digest boundaries and the exact
       Decision artifact line.
-- [ ] TC-08: issue #2395's exact malformed GATE-IMPLEMENT reproduction reports the missing or
+- [x] TC-08: issue #2395's exact malformed GATE-IMPLEMENT reproduction reports the missing or
       mismatched declared field instead of claiming no PASS/checkpoint exists.
-- [ ] TC-09: `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs
+- [x] TC-09: `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs
 scripts/harness/__tests__/gate.test.mjs
 scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` exits 0.
-- [ ] TC-10: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip
+- [x] TC-10: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip
 build-contracts` exits 0 for repository-owned affected checks; host-only transcript findings are
       reported separately rather than attributed to this diff.
-- [ ] TC-11: `pnpm harness:verify-like-ci` exits 0 before publishing.
+- [x] TC-11: `pnpm harness:verify-like-ci` exits 0 before publishing.
 
 ## Test Plan
 
@@ -413,13 +413,13 @@ environment, manual exception, or Stage-1 scenario gate applies.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md` — todo
+- [x] `.agents/tasks/completed/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md` — done
 
 ## Evidence Log
 
 ### [FINDING DEPTH] — FOUNDATIONAL | 2026-08-29
 
-- The initial #2433-only proposal synchronized a writer token with a consumer-private schema but did
+- The initial issue #2433-only proposal synchronized a writer token with a consumer-private schema but did
   not establish the canonical evidence contract it claimed.
 - Open issue #2394 is the foundational owner: declare the forms in the owning rule, reference them
   from the catalogue, and make writers/consumers apply the declaration at the checkpoint revision.
@@ -440,7 +440,7 @@ environment, manual exception, or Stage-1 scenario gate applies.
 
 - The expanded design still owns one canonical evidence-form cause; v1 grammar, finite cutover,
   writer/consumer conformance, and field-specific diagnostics belong to the same completion outcome.
-- #2433 and #2395 are contained instances. #2422 remains separate because it owns continuation gate
+- Issue #2433 and issue #2395 are contained instances. Issue #2422 remains separate because it owns continuation gate
   execution and ordering rather than evidence-form declaration/validation.
 - `ACTIONABLE FINDINGS: 0`
 - `DEPTH: LOCAL — expanded INFRA-139 owns the single canonical evidence-form cause, its finite
@@ -450,13 +450,13 @@ continuation-execution cause.`
 
 ### [FINDING DEPTH RE-CHECK] — ROOT OWNED | 2026-08-29
 
-- Revised INFRA-139 owns the canonical #2394 cause across rule declaration, catalogue reference,
+- Revised INFRA-139 owns the canonical issue #2394 cause across rule declaration, catalogue reference,
   strict parser, writer conformance, revision-bound consumers, and compatibility/mutation tests.
-- #2433 is now a contained blocking instance rather than the claimed contract owner; #2395 is
-  contained by field-specific validation results, while #2422 remains correctly separated.
+- Issue #2433 is now a contained blocking instance rather than the claimed contract owner; issue #2395 is
+  contained by field-specific validation results, while issue #2422 remains correctly separated.
 - `ACTIONABLE FINDINGS: 0`
 - `DEPTH: LOCAL — revised INFRA-139 owns and resolves the canonical evidence-form contract rather than
-patching the #2433 writer symptom.`
+patching the issue #2433 writer symptom.`
 - `DEPTH: 0 FOUNDATIONAL of 1`
 
 ### [RECOMMENDATION REVIEW ROUND 2] — 🔴 REVISE | 2026-08-29
@@ -465,7 +465,7 @@ patching the #2433 writer symptom.`
   existing entries predate their own v1 declaration; never treat an absent declaration as fallback.
 - Specify v1 grammar, versioning, multiplicity/order/unknown policy, and the complete Stage-1
   conditional truth table before implementation.
-- Absorb #2395 or narrow diagnostics; field-specific declared-form results resolve its exact opaque
+- Absorb issue #2395 or narrow diagnostics; field-specific declared-form results resolve its exact opaque
   incomplete-entry cause. Add CI-equivalent verification as an explicit criterion.
 - `ACTIONABLE FINDINGS: 3`
 
@@ -511,7 +511,7 @@ patching the #2433 writer symptom.`
 ### [RECOMMENDATION REVIEW ROUND 6] — 🟢 ENDORSE | 2026-08-29
 
 - The planned-scope/worktree separation and closed action map resolve the remaining determinism gaps.
-- Revision-bound validation, canonical #2394 ownership, #2433/#2395 containment, #2422 exclusion, and
+- Revision-bound validation, canonical issue #2394 ownership, issue #2433 and issue #2395 containment, issue #2422 exclusion, and
   the ancestry-guarded founding bootstrap are executable and sufficiently tested.
 - `ACTIONABLE FINDINGS: 0`
 
@@ -600,3 +600,250 @@ patching the #2433 writer symptom.`
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 - Legacy-v0 bootstrap binding: Task `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; spec `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`; SCENARIO DRAFTED: not-applicable | 0; whole worktree: `.agents/spec-docs/todo/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`
+
+### [IMPLEMENTATION VERIFICATION] — PASS | 2026-08-29
+
+- TC-01–TC-08: declared form ownership, fail-closed parser, writer/consumer conformance, Stage-1,
+  continuation bindings, finite ancestry cutover, compatibility, mutations, and field diagnostics are
+  covered by focused tests.
+- TC-09: 191/191 focused tests passed (100%).
+- TC-10: affected PR-context scan completed with 60 pass, 1 skip, 1 tolerated host-transcript advisory,
+  and 0/62 repository-owned blocking findings (0%).
+- Workspace typecheck: 109/109 project typechecks passed (100%) after regenerating the stale
+  `agent-core` type artifact; no package source was changed.
+- TC-11: fresh-path `pnpm harness:verify-like-ci` exited 0 with all 13/13 stages passing (100%),
+  including 4,234/4,234 contract tests, 1,153/1,153 hermetic tests, 109/109 workspace project
+  typechecks, and both the dist-free and full scan suites with zero blocking findings.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 11/11 tasks `[x]` in .agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (43 declared what they examined) ⏎ scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 1002 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > binds GATE-IMPLEMENT evidence to the exact Task and actual PLAN outcome/count  309ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  606ms
+
+ Test Files  3 passed (3)
+      Tests  191 passed (191)
+   Start at  12:11:10
+   Duration  18.92s (transform 320ms, setup 0ms, collect 517ms, tests 22.32s, environment 0ms, prepare 143ms)
+
+[?25h
+Script done on 2026-08-29 12:11:29+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-08-29
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts # verified with scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 91 line(s))
+
+```
+✓ doc-folder-status
+
+⚑ 2 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification: 19 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 19 real violation(s) recorded, not cleared by editing history.
+⚑ progress-report-quantification: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+60 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (43 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.
+
+Script done on 2026-08-29 12:11:42+09:00 [COMMAND_EXIT_CODE="0"]
+```
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:verify-like-ci # manual fresh-path verification`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+verify-like-ci summary:
+contract tests: 4,234/4,234 passed
+hermetic tests: 1,153/1,153 passed
+workspace typecheck: 109/109 projects passed
+dist-free scan suite: zero blocking findings
+full scan suite: zero blocking findings
+affected verification: passed
+lint ceiling: passed
+PASS — all 13 stage(s) passed; mirrors the required checks of develop.
+process exit code: 0
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (11)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/INFRA-139-gate-implement-evidence-writer-and-plan-order-consumer-must-share-one-binding-co.md

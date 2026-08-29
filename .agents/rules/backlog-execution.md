@@ -455,6 +455,131 @@ path fails.
 
 Enforced by: `user-execution-plan-order`
 
+### Checkpoint evidence contract
+
+This section is the single machine-readable owner of the evidence forms written and consumed at the
+pre-implementation checkpoint and DONE-GATE-STAGE-1. The gate catalogue references these form names;
+writers and validators parse this declaration rather than maintaining private Markdown-token schemas.
+The declared scope is GATE-IMPLEMENT first/continuation entries and DONE-GATE-STAGE-1 scenario entries.
+
+<!-- checkpoint-evidence-contract:v1:start -->
+
+```json
+{
+  "version": 1,
+  "entryEncoding": {
+    "startMarker": "<!-- checkpoint-evidence:v1:start -->",
+    "fence": "json",
+    "endMarker": "<!-- checkpoint-evidence:v1:end -->",
+    "multiplicity": "exactly-one"
+  },
+  "priorPassDigest": {
+    "algorithm": "sha256",
+    "encoding": "lowercase-hex",
+    "source": "prior-complete-gate-implement-entry-raw-utf8"
+  },
+  "decisionArtifacts": {
+    "section": "Architecture Review/Decision",
+    "linePrefix": "**Continuation artifacts:** ",
+    "separator": ", ",
+    "token": "markdown-code-repository-path",
+    "multiplicity": "exactly-one"
+  },
+  "actionMapping": {
+    "automatable:robota-cli": "command",
+    "automatable:robota-tui": "command",
+    "automatable:robota-browser-ui": "browserSteps",
+    "automatable:public-sdk-example": "command",
+    "manual:robota-tui": "uiSteps",
+    "manual:robota-browser-ui": "uiSteps"
+  },
+  "forms": {
+    "gateImplementFirst": {
+      "heading": "GATE-IMPLEMENT",
+      "statusUpgrade": "approved → in-progress",
+      "specFolder": "todo",
+      "payloadKeys": [
+        "version",
+        "form",
+        "taskPath",
+        "specPath",
+        "taskItems",
+        "plan",
+        "worktreePaths"
+      ]
+    },
+    "gateImplementContinuation": {
+      "heading": "GATE-IMPLEMENT",
+      "statusUpgrade": "in-progress → in-progress (continuation)",
+      "specFolder": "active",
+      "payloadKeys": [
+        "version",
+        "form",
+        "priorPass",
+        "sequencedArtifacts",
+        "ancestorSha",
+        "taskPath",
+        "specPath",
+        "plan",
+        "worktreePaths"
+      ]
+    },
+    "doneGateStageOne": {
+      "heading": "DONE-GATE-STAGE-1",
+      "statusUpgrade": "scenario drafted → scenario written",
+      "payloadKeys": ["version", "form", "outcome", "scenarios"],
+      "scenarioKeys": [
+        "name",
+        "surface",
+        "surfaceRationale",
+        "invocation",
+        "observableType",
+        "observable",
+        "observableRationale",
+        "guardianObservableVerdict",
+        "executability",
+        "prerequisite",
+        "action",
+        "expectedObservable",
+        "cleanup",
+        "evidence"
+      ],
+      "conditionalScenarioKeys": [
+        "productStatePath",
+        "barrier",
+        "unavailableCapability",
+        "attemptedAutomation",
+        "uiSteps"
+      ]
+    }
+  }
+}
+```
+
+<!-- checkpoint-evidence-contract:v1:end -->
+
+The declaration is closed: unknown versions, forms, fields, duplicate members, malformed JSON, or
+missing/duplicate regions fail by name. Each evidence payload appears exactly once between the declared
+entry markers in one `json` fence. Payload keys occur exactly once in declared order; paths are
+normalized repository-relative strings, arrays preserve declared source order, and unknown keys fail.
+
+`taskItems` mirrors GATE-IMPLEMENT coverage deterministically: complete TC-ID coverage wins and records
+`{ "kind": "tc-id", "value": "TC-NN" }` objects in Completion Criteria order; otherwise sufficient
+checkbox coverage records every checkbox label in Task source order. `plan` binds the exact Task author
+outcome/count, and `worktreePaths` is the sorted exact planning-only inventory.
+
+Continuation `priorPass` is `sha256:` plus lowercase sha256 of the prior complete GATE-IMPLEMENT
+entry's raw Git-blob UTF-8 bytes, from its level-3 PASS heading through the byte before the next
+level-1–3 heading or EOF, without normalization. `sequencedArtifacts` is extracted in order from the
+single exact `**Continuation artifacts:** ` line under `### Decision`, whose values are comma-space
+separated Markdown code repository paths. At checkpoint time it binds planned scope; it does not claim
+the paths have changed. `ancestorSha` is the preceding merge commit's full lowercase SHA.
+
+Stage-1 required keys follow `scenarioKeys`; conditional keys follow their declared order.
+`productStatePath` is required only for `product-state-file`; the barrier trio only for manual; and
+`uiSteps` only for manual `robota-tui`. Action selection is exactly the declared outcome/surface map.
+Manual TUI keeps its start command in `invocation` and its interaction in `action: uiSteps`.
+
 **Script home**: disposable live-verification scripts (evidence runs, repro probes)
 live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
 `@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the

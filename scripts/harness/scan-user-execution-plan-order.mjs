@@ -34,6 +34,14 @@ import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import {
+  continuationArtifacts,
+  parseCheckpointEvidence,
+  parseCheckpointEvidenceContract,
+  priorPassDigest,
+  rawGateImplementPassEntries,
+  taskItemsForCheckpoint,
+} from './checkpoint-evidence-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
@@ -41,6 +49,7 @@ const SPEC_PREFIX = '.agents/spec-docs/';
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
 const POST_MERGE_LEDGER = `${LOOP_RUNS_PREFIX}post-merge-cycle.jsonl`;
 const UES_LEDGER = `${LOOP_RUNS_PREFIX}user-execution-scenario.jsonl`;
+const BACKLOG_RULE_PATH = '.agents/rules/backlog-execution.md';
 const SPEC_FOLDERS = new Set(['draft', 'backlog', 'todo', 'active', 'done']);
 const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['draft', 'draft'],
@@ -81,6 +90,64 @@ function nulPaths(text) {
 function gitText(root, revision, file) {
   const result = runGit(root, ['show', `${revision}:${file}`]);
   return result.code === 0 ? result.stdout : null;
+}
+
+function hasValidCheckpointContract(root, revision) {
+  const rule = gitText(root, revision, BACKLOG_RULE_PATH);
+  return rule !== null && parseCheckpointEvidenceContract(rule).ok;
+}
+
+function checkpointContractCutovers(root, revision) {
+  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
+  if (listed.code !== 0) {
+    throw new Error(
+      `cannot inspect checkpoint contract ancestry: ${listed.stderr || '(no stderr)'}`,
+    );
+  }
+  return lines(listed.stdout).filter((commit) => {
+    if (!hasValidCheckpointContract(root, commit)) return false;
+    const parent = runGit(root, ['rev-parse', `${commit}^`]);
+    return parent.code !== 0 || !hasValidCheckpointContract(root, parent.stdout.trim());
+  });
+}
+
+function checkpointContractMarkerCommits(root, revision) {
+  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
+  if (listed.code !== 0) {
+    throw new Error(
+      `cannot inspect checkpoint contract markers: ${listed.stderr || '(no stderr)'}`,
+    );
+  }
+  return lines(listed.stdout).filter((commit) =>
+    String(gitText(root, commit, BACKLOG_RULE_PATH) ?? '').includes(
+      'checkpoint-evidence-contract:v1:',
+    ),
+  );
+}
+
+function legacyEntriesBeforeCutover(root, cutover, basename) {
+  const parent = runGit(root, ['rev-parse', `${cutover}^`]);
+  if (parent.code !== 0) return [];
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  return rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath));
+}
+
+function latestMergeAncestor(root, revision) {
+  const result = runGit(root, ['rev-list', '--merges', '-n', '1', revision]);
+  if (result.code !== 0) {
+    throw new Error(`cannot inspect preceding merge ancestry: ${result.stderr || '(no stderr)'}`);
+  }
+  return result.stdout.trim() || null;
+}
+
+function checkpointOptionsAt(root, revision, basename, parentRevision = revision) {
+  const cutovers = checkpointContractCutovers(root, revision);
+  return {
+    ...(cutovers.length === 1
+      ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], basename) }
+      : {}),
+    ancestorSha: latestMergeAncestor(root, parentRevision),
+  };
 }
 
 function indexText(root, file) {
@@ -507,7 +574,7 @@ function gateImplementEntryForm(body) {
   return null;
 }
 
-function completeGateImplementEntry(body, binding = null) {
+function completeLegacyGateImplementEntry(body, binding = null) {
   const structurallyComplete =
     gateImplementEntryForm(body) !== null &&
     /\.agents\/tasks\/[A-Z][A-Z0-9]*-\d+[^\s`]*\.md/.test(body) &&
@@ -531,6 +598,155 @@ function completeGateImplementEntry(body, binding = null) {
     (match) => match[1] === binding.signal.outcome && Number(match[2]) === binding.signal.count,
   );
   return hasExactMarkdownToken(body, taskPath) && hasSpecPath && hasExactSignal;
+}
+
+function gateImplementEntryResults(
+  spec,
+  binding = null,
+  ruleText = null,
+  {
+    legacyEntries = [],
+    priorEntries = null,
+    ancestorSha = null,
+    expectedTaskItems = null,
+    taskItemsError = null,
+  } = {},
+) {
+  const evidence = markdownSection(spec, '## Evidence Log');
+  const visibleEntries = canonicalPassEntries(evidence, 'GATE-IMPLEMENT');
+  const rawEntries = rawGateImplementPassEntries(spec);
+  const entries = rawEntries.length === visibleEntries.length ? rawEntries : visibleEntries;
+  const rule = String(ruleText ?? '');
+  const declaresV1 = rule.includes('checkpoint-evidence-contract:v1:');
+  if (!declaresV1) {
+    return entries.map((body) => ({
+      ok: completeLegacyGateImplementEntry(body, binding),
+      error: 'legacy-v0 GATE-IMPLEMENT binding is incomplete',
+      body,
+    }));
+  }
+  const parsedContract = parseCheckpointEvidenceContract(rule);
+  if (!parsedContract.ok) {
+    return entries.map((body) => ({
+      ok: false,
+      error: `checkpoint evidence contract unreadable: ${parsedContract.error}`,
+      body,
+    }));
+  }
+  const legacyCounts = new Map();
+  for (const entry of legacyEntries) {
+    const key = entry.trimEnd();
+    legacyCounts.set(key, (legacyCounts.get(key) ?? 0) + 1);
+  }
+  return entries.map((body, index) => {
+    const entryForm = gateImplementEntryForm(body);
+    const formName =
+      entryForm === 'first'
+        ? 'gateImplementFirst'
+        : entryForm === 'continuation'
+          ? 'gateImplementContinuation'
+          : null;
+    if (formName === null)
+      return { ok: false, error: 'GATE-IMPLEMENT status form is invalid', body };
+    if (!body.includes(parsedContract.contract.entryEncoding.startMarker)) {
+      const key = body.trimEnd();
+      const eligible = (legacyCounts.get(key) ?? 0) > 0;
+      if (eligible) legacyCounts.set(key, legacyCounts.get(key) - 1);
+      return {
+        ok: eligible && completeLegacyGateImplementEntry(body, binding),
+        error: 'legacy-v0 GATE-IMPLEMENT entry is not ancestry-eligible before the v1 cutover',
+        body,
+      };
+    }
+    const parsed = parseCheckpointEvidence(parsedContract.contract, formName, body);
+    if (!parsed.ok) return { ok: false, error: parsed.error, body };
+    if (binding !== null) {
+      const expectedTask = `${TASK_PREFIX}${binding.basename}`;
+      const expectedSpec = `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`;
+      if (parsed.payload.taskPath !== expectedTask) {
+        return { ok: false, error: `${formName}.taskPath does not bind ${expectedTask}`, body };
+      }
+      if (parsed.payload.specPath !== expectedSpec) {
+        return { ok: false, error: `${formName}.specPath does not bind ${expectedSpec}`, body };
+      }
+      if (
+        parsed.payload.plan.outcome !== binding.signal.outcome ||
+        parsed.payload.plan.count !== binding.signal.count
+      ) {
+        return { ok: false, error: `${formName}.plan does not bind the Task author verdict`, body };
+      }
+    }
+    if (formName === 'gateImplementFirst') {
+      if (taskItemsError !== null) return { ok: false, error: taskItemsError, body };
+      if (
+        expectedTaskItems !== null &&
+        JSON.stringify(parsed.payload.taskItems) !== JSON.stringify(expectedTaskItems)
+      ) {
+        return {
+          ok: false,
+          error: 'gateImplementFirst.taskItems do not bind the Task/Completion Criteria selection',
+          body,
+        };
+      }
+    }
+    const allowedWorktreePaths = new Set([
+      parsed.payload.taskPath,
+      parsed.payload.specPath,
+      ...parsed.payload.worktreePaths.filter((entry) => entry.startsWith(LOOP_RUNS_PREFIX)),
+    ]);
+    if (
+      !parsed.payload.worktreePaths.includes(parsed.payload.taskPath) ||
+      !parsed.payload.worktreePaths.includes(parsed.payload.specPath) ||
+      parsed.payload.worktreePaths.some((entry) => !allowedWorktreePaths.has(entry))
+    ) {
+      return {
+        ok: false,
+        error: `${formName}.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`,
+        body,
+      };
+    }
+    if (formName === 'gateImplementContinuation') {
+      const priorEntry = priorEntries === null ? entries[index - 1] : priorEntries.at(-1);
+      if (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry)) {
+        return {
+          ok: false,
+          error:
+            'gateImplementContinuation.priorPass does not hash the latest prior raw PASS entry',
+          body,
+        };
+      }
+      const artifacts = continuationArtifacts(parsedContract.contract, spec);
+      if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
+      if (
+        JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
+      ) {
+        return {
+          ok: false,
+          error: 'gateImplementContinuation.sequencedArtifacts do not bind the Decision line',
+          body,
+        };
+      }
+      if (priorEntries !== null && ancestorSha === null) {
+        return {
+          ok: false,
+          error: 'gateImplementContinuation.ancestorSha has no preceding merge commit to bind',
+          body,
+        };
+      }
+      if (
+        priorEntries !== null &&
+        ancestorSha !== null &&
+        parsed.payload.ancestorSha !== ancestorSha
+      ) {
+        return {
+          ok: false,
+          error: 'gateImplementContinuation.ancestorSha does not bind the preceding merge commit',
+          body,
+        };
+      }
+    }
+    return { ok: true, payload: parsed.payload, body };
+  });
 }
 
 function normalizedScenarioLines(body) {
@@ -825,8 +1041,11 @@ function scenarioContract(body, outcome) {
     evidence !== null;
   return complete
     ? {
+        executability,
         surface,
         invocation,
+        command,
+        browserSteps,
         barrier,
         unavailableCapability,
         attemptedAutomation,
@@ -836,8 +1055,100 @@ function scenarioContract(body, outcome) {
         observableRationale,
         productStatePath: normalizedStatePath,
         uiSteps,
+        prerequisites,
+        cleanup,
+        evidence,
       }
     : null;
+}
+
+function stageOneScenarioPayload(scenario, outcome, contract) {
+  const binding = scenarioContract(scenario.body, outcome);
+  if (binding === null) return null;
+  const actionKind = contract.actionMapping[`${outcome}:${binding.surface}`];
+  const actionValue =
+    actionKind === 'command'
+      ? (tokenizeCanonicalShell(binding.command)?.invocation ?? null)
+      : actionKind === 'browserSteps'
+        ? binding.browserSteps
+        : actionKind === 'uiSteps'
+          ? binding.uiSteps
+          : null;
+  if (actionValue === null) return null;
+  return {
+    name: scenario.name,
+    surface: binding.surface,
+    surfaceRationale: binding.surfaceRationale,
+    invocation: binding.invocation,
+    observableType: binding.observableType,
+    observable: binding.observable,
+    observableRationale: binding.observableRationale,
+    guardianObservableVerdict: 'product-behavior',
+    executability: binding.executability,
+    prerequisite: binding.prerequisites,
+    action: { kind: actionKind, value: actionValue },
+    expectedObservable: binding.observable,
+    cleanup: binding.cleanup,
+    evidence: binding.evidence,
+    ...(binding.productStatePath ? { productStatePath: binding.productStatePath } : {}),
+    ...(outcome === 'manual'
+      ? {
+          barrier: binding.barrier,
+          unavailableCapability: binding.unavailableCapability,
+          attemptedAutomation: binding.attemptedAutomation,
+        }
+      : {}),
+    ...(outcome === 'manual' && binding.surface === 'robota-tui'
+      ? { uiSteps: binding.uiSteps }
+      : {}),
+  };
+}
+
+function rawPassEntries(text, gateName) {
+  const source = String(text);
+  const escaped = gateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const headings = [
+    ...source.matchAll(
+      new RegExp(`^### \\[${escaped}\\] — ✅ PASS \\| \\d{4}-\\d{2}-\\d{2}\\s*$`, 'gm'),
+    ),
+  ];
+  return headings.map((heading) => {
+    const following = source.slice(heading.index + heading[0].length);
+    const nextHeading = /^#{1,3}\s+/m.exec(following);
+    const end =
+      nextHeading === null ? source.length : heading.index + heading[0].length + nextHeading.index;
+    return source.slice(heading.index, end);
+  });
+}
+
+function v1StageOneResult(task, scenarios, outcome, ruleText) {
+  const declared = parseCheckpointEvidenceContract(ruleText);
+  if (!declared.ok) return declared;
+  const entries = rawPassEntries(task, 'DONE-GATE-STAGE-1');
+  if (entries.length !== 1) {
+    return { ok: false, error: `DONE-GATE-STAGE-1 PASS count is ${entries.length}, expected 1` };
+  }
+  const parsed = parseCheckpointEvidence(declared.contract, 'doneGateStageOne', entries[0]);
+  if (!parsed.ok) return parsed;
+  const expectedScenarios = scenarios.map((scenario) =>
+    stageOneScenarioPayload(scenario, outcome, declared.contract),
+  );
+  if (expectedScenarios.some((scenario) => scenario === null)) {
+    return {
+      ok: false,
+      error: 'authored scenario does not satisfy the canonical product contract',
+    };
+  }
+  if (parsed.payload.outcome !== outcome) {
+    return { ok: false, error: 'doneGateStageOne.outcome does not bind the Task author verdict' };
+  }
+  if (JSON.stringify(parsed.payload.scenarios) !== JSON.stringify(expectedScenarios)) {
+    return {
+      ok: false,
+      error: 'doneGateStageOne.scenarios do not exactly bind the authored scenario fields',
+    };
+  }
+  return { ok: true };
 }
 
 function completeStageOneEntry(body, scenarios, outcome) {
@@ -873,11 +1184,9 @@ function completeStageOneEntry(body, scenarios, outcome) {
   });
 }
 
-function gateImplementPassCount(spec, binding = null) {
-  const evidence = markdownSection(spec, '## Evidence Log');
-  return canonicalPassEntries(evidence, 'GATE-IMPLEMENT').filter((body) =>
-    completeGateImplementEntry(body, binding),
-  ).length;
+function gateImplementPassCount(spec, binding = null, ruleText = null, options = {}) {
+  return gateImplementEntryResults(spec, binding, ruleText, options).filter((result) => result.ok)
+    .length;
 }
 
 /**
@@ -915,11 +1224,9 @@ function gatePlanPassCount(spec, binding = null) {
   ).length;
 }
 
-function gateImplementContinuationCount(spec, binding = null) {
-  const evidence = markdownSection(spec, '## Evidence Log');
-  return canonicalPassEntries(evidence, 'GATE-IMPLEMENT').filter(
-    (body) =>
-      gateImplementEntryForm(body) === 'continuation' && completeGateImplementEntry(body, binding),
+function gateImplementContinuationCount(spec, binding = null, ruleText = null, options = {}) {
+  return gateImplementEntryResults(spec, binding, ruleText, options).filter(
+    (result) => result.ok && gateImplementEntryForm(result.body) === 'continuation',
   ).length;
 }
 
@@ -933,13 +1240,29 @@ function exactPlanSignal(task) {
   return matches.length === 1 ? { outcome: matches[0][1], count: Number(matches[0][2]) } : null;
 }
 
-function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }) {
+function isCheckpointTransition({
+  basename,
+  parentTask,
+  parentSpec,
+  task,
+  spec,
+  ruleText = null,
+  checkpointOptions = {},
+}) {
   const signal = exactPlanSignal(task);
   if (signal === null) return false;
   if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
     return false;
   }
   const binding = { basename, signal };
+  const selectedTaskItems = taskItemsForCheckpoint(spec, task);
+  const currentOptions = {
+    ...checkpointOptions,
+    priorEntries: rawGateImplementPassEntries(parentSpec),
+    ...(selectedTaskItems.ok
+      ? { expectedTaskItems: selectedTaskItems.items }
+      : { taskItemsError: selectedTaskItems.error }),
+  };
   const parentInProgress =
     frontmatterStatus(parentTask) === 'in-progress' &&
     frontmatterStatus(parentSpec) === 'in-progress';
@@ -950,10 +1273,10 @@ function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }
       frontmatterStatus(parentTask) !== 'in-progress' &&
       frontmatterStatus(parentSpec) !== 'in-progress' &&
       gateImplementPassCount(parentSpec) === 0 &&
-      gateImplementPassCount(spec, binding) === 1 &&
+      gateImplementPassCount(spec, binding, ruleText, currentOptions) === 1 &&
       // …and that one entry is in FIRST form: a continuation line on a pair that was never
       // in-progress (copied from a sequenced spec) is not a first checkpoint.
-      gateImplementContinuationCount(spec, binding) === 0
+      gateImplementContinuationCount(spec, binding, ruleText, currentOptions) === 0
     );
   }
   // A continuation checkpoint (HARNESS-131): the pair is already in-progress with a checkpoint on
@@ -963,10 +1286,11 @@ function isCheckpointTransition({ basename, parentTask, parentSpec, task, spec }
   return (
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
-    gateImplementPassCount(parentSpec, binding) >= 1 &&
-    gateImplementPassCount(spec, binding) === gateImplementPassCount(parentSpec, binding) + 1 &&
-    gateImplementContinuationCount(spec, binding) ===
-      gateImplementContinuationCount(parentSpec, binding) + 1
+    gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
+    gateImplementPassCount(spec, binding, ruleText, currentOptions) ===
+      gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) + 1 &&
+    gateImplementContinuationCount(spec, binding, ruleText, currentOptions) ===
+      gateImplementContinuationCount(parentSpec, binding, ruleText, checkpointOptions) + 1
   );
 }
 
@@ -1000,7 +1324,7 @@ function l1SpecPaths(basename) {
  * (`textAt`) and its parent (`parentTextAt`). L2 pairs are listed first and exactly as before; an
  * L1 transition is added only for a `todo/` spec that declares `lane: L1`.
  */
-function checkpointTransitions(paths, textAt, parentTextAt) {
+function checkpointTransitions(paths, textAt, parentTextAt, optionsFor = () => ({})) {
   const found = [];
   for (const basename of pairCandidates(paths, textAt)) {
     const taskPath = `${TASK_PREFIX}${basename}`;
@@ -1014,6 +1338,8 @@ function checkpointTransitions(paths, textAt, parentTextAt) {
       parentSpec: parentTextAt(specPath),
       task,
       spec,
+      ruleText: textAt(BACKLOG_RULE_PATH),
+      checkpointOptions: optionsFor(basename),
     });
     if (transition) found.push({ basename, lane: 'L2' });
   }
@@ -1029,6 +1355,32 @@ function checkpointTransitions(paths, textAt, parentTextAt) {
     if (transition) found.push({ basename, lane: 'L1' });
   }
   return found;
+}
+
+function malformedL2CheckpointCandidates(paths, textAt, parentTextAt) {
+  const ruleText = textAt(BACKLOG_RULE_PATH);
+  if (!String(ruleText ?? '').includes('checkpoint-evidence-contract:v1:')) return [];
+  return pairCandidates(paths, textAt).filter((basename) => {
+    const taskPath = `${TASK_PREFIX}${basename}`;
+    const specPath = `${SPEC_PREFIX}active/${basename}`;
+    const task = textAt(taskPath);
+    const spec = textAt(specPath);
+    if (frontmatterStatus(task) !== 'in-progress' || frontmatterStatus(spec) !== 'in-progress') {
+      return false;
+    }
+    const entries = canonicalPassEntries(
+      markdownSection(spec, '## Evidence Log'),
+      'GATE-IMPLEMENT',
+    );
+    const parentEntries = canonicalPassEntries(
+      markdownSection(parentTextAt(specPath), '## Evidence Log'),
+      'GATE-IMPLEMENT',
+    );
+    const parentInProgress =
+      frontmatterStatus(parentTextAt(taskPath)) === 'in-progress' &&
+      frontmatterStatus(parentTextAt(specPath)) === 'in-progress';
+    return entries.length > 0 && (!parentInProgress || entries.length > parentEntries.length);
+  });
 }
 
 function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
@@ -1062,7 +1414,15 @@ function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
   return problems;
 }
 
-function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, task, spec }) {
+function evaluatePlanTexts({
+  basename,
+  parentTask = null,
+  parentSpec = null,
+  task,
+  spec,
+  ruleText = null,
+  checkpointOptions = {},
+}) {
   const problems = [];
   const id = subjectId(basename);
   if (!id) problems.push(`cannot derive a Task ID from paired basename \`${basename}\`.`);
@@ -1098,9 +1458,31 @@ function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, tas
   ) {
     problems.push(`paired spec does not bind its Tasks section to \`.agents/tasks/${basename}\`.`);
   }
-  if (!isCheckpointTransition({ basename, parentTask, parentSpec, task, spec })) {
+  if (
+    !isCheckpointTransition({
+      basename,
+      parentTask,
+      parentSpec,
+      task,
+      spec,
+      ruleText,
+      checkpointOptions,
+    })
+  ) {
+    const signal = exactPlanSignal(task);
+    const diagnostics =
+      signal === null
+        ? []
+        : gateImplementEntryResults(spec, { basename, signal }, ruleText, {
+            ...checkpointOptions,
+            priorEntries: rawGateImplementPassEntries(parentSpec),
+          })
+            .filter((result) => !result.ok)
+            .map((result) => result.error);
     problems.push(
-      'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
+      diagnostics.length > 0
+        ? `GATE-IMPLEMENT checkpoint binding failed: ${[...new Set(diagnostics)].join('; ')}.`
+        : 'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
     );
   }
 
@@ -1145,11 +1527,19 @@ function evaluatePlanTexts({ basename, parentTask = null, parentSpec = null, tas
         'applicable PLAN scenario count or required executability/prerequisite/command/UI/observable/cleanup/evidence fields are incomplete.',
       );
     }
-    const hasStageOnePass = canonicalPassEntries(scenarioSection, 'DONE-GATE-STAGE-1').some(
-      (body) => completeStageOneEntry(body, scenarios, outcome),
-    );
+    const declaresV1 = String(ruleText ?? '').includes('checkpoint-evidence-contract:v1:');
+    const stageOneV1 = declaresV1 ? v1StageOneResult(task, scenarios, outcome, ruleText) : null;
+    const hasStageOnePass = declaresV1
+      ? stageOneV1.ok
+      : canonicalPassEntries(scenarioSection, 'DONE-GATE-STAGE-1').some((body) =>
+          completeStageOneEntry(body, scenarios, outcome),
+        );
     if (!hasStageOnePass) {
-      problems.push('applicable PLAN has no DONE-GATE-STAGE-1 PASS.');
+      problems.push(
+        declaresV1
+          ? `DONE-GATE-STAGE-1 checkpoint binding failed: ${stageOneV1.error}.`
+          : 'applicable PLAN has no DONE-GATE-STAGE-1 PASS.',
+      );
     }
   }
   return problems;
@@ -1432,7 +1822,17 @@ function validateCheckpointCommit(root, parent, commit, paths, basename) {
     );
     return problems;
   }
-  problems.push(...evaluatePlanTexts({ basename, parentTask, parentSpec, task, spec }));
+  problems.push(
+    ...evaluatePlanTexts({
+      basename,
+      parentTask,
+      parentSpec,
+      task,
+      spec,
+      ruleText: gitText(root, commit, BACKLOG_RULE_PATH),
+      checkpointOptions: checkpointOptionsAt(root, commit, basename, parent),
+    }),
+  );
   const unexpected = allowedCheckpointPaths(root, parent, commit, paths, basename);
   if (unexpected.length > 0) {
     problems.push(
@@ -1515,6 +1915,46 @@ function requireWorktreeTopLevel(root) {
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
+  const headCutovers = checkpointContractCutovers(root, 'HEAD');
+  const markerCommits = checkpointContractMarkerCommits(root, 'HEAD');
+  if (headCutovers.length === 0 && markerCommits.length > 0) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(
+          'checkpoint evidence contract markers exist but no valid v1 cutover can be proven.',
+        ),
+      ],
+    };
+  }
+  if (headCutovers.length > 1) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(`checkpoint evidence contract cutover is ambiguous: ${headCutovers.join(', ')}.`),
+      ],
+    };
+  }
+  if (headCutovers.length === 1 && !hasValidCheckpointContract(root, 'HEAD')) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding('checkpoint evidence contract is missing or invalid after the v1 cutover.'),
+      ],
+    };
+  }
   // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
   // against its parent, which is defined for a single-parent commit and undefined for a merge —
   // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
@@ -1558,12 +1998,22 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       entry.paths,
       textIn(entry.commit),
       textIn(entry.parent),
+      (basename) => checkpointOptionsAt(root, entry.commit, basename, entry.parent),
     );
-    if (transitions.length > 0) {
+    const malformed =
+      transitions.length === 0
+        ? malformedL2CheckpointCandidates(entry.paths, textIn(entry.commit), textIn(entry.parent))
+        : [];
+    if (transitions.length > 0 || malformed.length > 0) {
       candidates.push({
         ...entry,
-        pairs: transitions.map((transition) => transition.basename),
-        lanes: new Map(transitions.map((transition) => [transition.basename, transition.lane])),
+        pairs:
+          transitions.length > 0 ? transitions.map((transition) => transition.basename) : malformed,
+        lanes: new Map(
+          transitions.length > 0
+            ? transitions.map((transition) => [transition.basename, transition.lane])
+            : malformed.map((basename) => [basename, 'L2']),
+        ),
       });
     }
   }
@@ -1697,7 +2147,13 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     );
   }
   for (const entry of entries.slice(entries.indexOf(first) + 1)) {
-    const secondary = checkpointTransitions(entry.paths, textIn(entry.commit), textIn(entry.parent))
+    const secondary = checkpointTransitions(
+      entry.paths,
+      textIn(entry.commit),
+      textIn(entry.parent),
+      (candidateBasename) =>
+        checkpointOptionsAt(root, entry.commit, candidateBasename, entry.parent),
+    )
       .map((transition) => transition.basename)
       .filter((candidateBasename) => candidateBasename !== basename);
     if (secondary.length > 0) {
@@ -1811,7 +2267,17 @@ function stagedCheckpoint(root, paths) {
       `proposed checkpoint does not stage the exact active Task/spec pair \`${basename}\`.`,
     );
   } else {
-    problems.push(...evaluatePlanTexts({ basename, parentTask, parentSpec, task, spec }));
+    problems.push(
+      ...evaluatePlanTexts({
+        basename,
+        parentTask,
+        parentSpec,
+        task,
+        spec,
+        ruleText: stagedText(BACKLOG_RULE_PATH),
+        checkpointOptions: checkpointOptionsAt(root, 'HEAD', basename),
+      }),
+    );
   }
   const sourceSpec = `${SPEC_PREFIX}todo/${basename}`;
   const validSourceDeletion =
@@ -1835,6 +2301,14 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (staged.length === 0) return [];
     const history = historyAnalysis(root, requestedBase);
     if (history.findings.length > 0) return history.findings;
+    if (staged.includes(BACKLOG_RULE_PATH)) {
+      const stagedContract = parseCheckpointEvidenceContract(indexText(root, BACKLOG_RULE_PATH));
+      if (!stagedContract.ok) {
+        return [
+          finding(`staged checkpoint evidence contract is unreadable: ${stagedContract.error}.`),
+        ];
+      }
+    }
     if (staged.includes(POST_MERGE_LEDGER)) {
       const before = gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '';
       const after = indexText(root, POST_MERGE_LEDGER) ?? '';
@@ -1861,9 +2335,9 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const headText = (file) => gitText(root, 'HEAD', file);
     if (history.checkpoint) {
       // A same-basename re-transition is refused here too, as before: the checkpoint already exists.
-      const secondary = checkpointTransitions(staged, stagedText, headText).map(
-        (transition) => transition.basename,
-      );
+      const secondary = checkpointTransitions(staged, stagedText, headText, (basename) =>
+        checkpointOptionsAt(root, 'HEAD', basename),
+      ).map((transition) => transition.basename);
       return secondary.length === 0
         ? []
         : [

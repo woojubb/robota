@@ -262,7 +262,10 @@ parses it; an entry it cannot parse is a FAIL, never a pass.
       exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record — `mechanical`
 
 **Evidence to record on PASS:** Tasks file path + list of tasks created + exact PLAN outcome + whole
-worktree path inventory.
+worktree path inventory. The machine record uses the rule-owned `gateImplementFirst` form (or
+`gateImplementContinuation` for the sequenced route) from
+[`backlog-execution.md`](../rules/backlog-execution.md) § Checkpoint evidence contract; this catalogue
+does not duplicate that form's field schema.
 
 **NON-COMPLIANCE trigger:** Any implementation path was modified or committed before this gate ran, or
 the PLAN evidence was added retrospectively. After PASS, the orchestrator—not this guardian—commits the
@@ -388,7 +391,9 @@ pass.
 invocation, observable type + rationale, and expected observable plus the field-completeness result. This
 guardian verdict owns the semantic product-vs-engineering judgment; the scanner binds it but does not
 replace it with prose keyword guesses. A manual scenario also binds its exact barrier, unavailable
-capability, and attempted automation evidence.
+capability, and attempted automation evidence. The machine record uses the rule-owned
+`doneGateStageOne` form from [`backlog-execution.md`](../rules/backlog-execution.md) § Checkpoint evidence
+contract; its field schema remains owned there.
 
 ---
 
