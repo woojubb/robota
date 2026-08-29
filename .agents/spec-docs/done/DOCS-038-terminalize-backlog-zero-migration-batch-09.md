@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: done
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -234,22 +234,22 @@ unit and requires another fresh recommendation and approval.
 
 ## Completion Criteria
 
-- [ ] TC-01: the amended manifest remains exactly three fixed-population units, eleven final batch
+- [x] TC-01: the amended manifest remains exactly three fixed-population units, eleven final batch
       paths, one separate INFRA-138 containment Task, twelve final tracked paths overall, three exact
       skipped dispositions, two exact plan rejections, and one no-growth baseline rekey, with no
       excluded implementation or policy path.
-- [ ] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
+- [x] TC-02: control/owner issues and three canonical handoffs read back exactly as OPEN, unassigned,
       unique where marked, and unmodified; each skipped Task cites its exact owner comment.
-- [ ] TC-03: all three Task bodies remain byte-identical after normalization; SEC-016 changes from
+- [x] TC-03: all three Task bodies remain byte-identical after normalization; SEC-016 changes from
       v2 rejected lifecycle blob `e3668da7...` only by the three approved lifecycle-evidence
       corrections and produces `e73e2396...`; STRUCT-011 remains the frozen one-citation body
       postimage `ca8278c6...`; exactly eight previously completed-path citations rebind to the root Task,
       including six history statements that distinguish then-active facts from the current reopen; the
       fresh GATE-IMPLEMENT entry adds two truthful root-path citations, and only the eight lifecycle
       rekeys bind to the completed path after final atomic archive.
-- [ ] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
+- [x] TC-04: the standing-delegation baseline changes only the SEC-016 folder prefix and preserves
       its sorted set and cardinality; no package/app/API/policy/product/workflow/topology path changes.
-- [ ] TC-05: the exact final path set is twelve, its batch subset is the approved eleven, and focused
+- [x] TC-05: the exact final path set is twelve, its batch subset is the approved eleven, and focused
       lifecycle/current-premise/containment checks plus `pnpm harness:scan` and
       `pnpm harness:verify-like-ci` all exit 0.
 
@@ -647,3 +647,85 @@ remote queue ownership only. It introduces no runnable user-facing behavior.
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인힘"
+**Given:** 2026-08-29, this conversation
+**Review fingerprint:** 4b412c0de7db (review 5fbbbf9a, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-29, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (4b412c0de7db) equals the document's current fingerprint
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-29
+
+**Status remains:** review-ready
+**Failed criteria:**
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: status is `review-ready`, `approved` expected
+  **Required action:** run the prior gate to PASS first
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인힘"
+**Given:** 2026-08-29, this conversation
+**Review fingerprint:** 4b412c0de7db (review 5fbbbf9a, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-29, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (4b412c0de7db) equals the document's current fingerprint
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 458 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan` → exit 0 ( ⏎ 146 scans passed, 2 skipped (98 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: RM .agents/spec-docs/backlog/DOCS-038-terminalize-backlog-zero-migration-batch-09.md -> .agents/spec-docs/active/DOCS-038-terminalize-backlog-zero-migration-batch-09.md, M .agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/scan-task-path-citations.test.mjs scripts/harness/__tests__/scan-doc-folder-status-agreement.test.mjs` → exit 0 ( Duration 348ms (transform 83ms, setup 0ms, collect 116ms, tests 104ms, environment 0ms, prepare 89ms) ⏎ ⏎ 9:40:00 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-29
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — The checkbox is checked (`[x]`): TC-02, TC-03, TC-04 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: TC-02, TC-03, TC-04 unticked
+  **Required action:** verify and tick every TC
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/DOCS-038-terminalize-backlog-zero-migration-batch-09.md

@@ -1,8 +1,9 @@
 ---
 title: 'DOCS-038: terminalize backlog-zero migration batch 09'
 issue: https://github.com/woojubb/robota/issues/2464
-status: todo
+status: done
 created: 2026-08-29
+completed: 2026-08-29
 priority: critical
 urgency: now
 area: internal backlog lifecycle documentation
@@ -25,11 +26,11 @@ gate-reader defect exposed by the final local review.
 
 ## Spec
 
-`.agents/spec-docs/backlog/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`
+`.agents/spec-docs/done/DOCS-038-terminalize-backlog-zero-migration-batch-09.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the exact three-unit/eleven-batch-path manifest, the one INFRA-138 root Task,
+- [x] TC-01 — preserve the exact three-unit/eleven-batch-path manifest, the one INFRA-138 root Task,
       the twelve-path overall boundary, governed input/postimage blobs, skipped/rejected dispositions,
       and excluded implementation/policy scope.
 - [x] TC-02 — preserve exact readback of control/owner issues and all three canonical handoffs; put
@@ -39,7 +40,7 @@ gate-reader defect exposed by the final local review.
       body postimage `ca8278c6...`.
 - [x] TC-04 — rekey only the SEC-016 standing-delegation baseline path from active to rejected,
       preserving cardinality 218 and every other entry/order; change no excluded path.
-- [ ] TC-05 — keep the exact batch subset at eleven lifecycle/ledger/baseline paths and the overall
+- [x] TC-05 — keep the exact batch subset at eleven lifecycle/ledger/baseline paths and the overall
       changed-path set at twelve with INFRA-138; pass focused lifecycle/current-premise/containment
       checks plus the full harness CI mirror.
 
