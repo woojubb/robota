@@ -35,6 +35,8 @@ with the test file's own fixture helpers against a scratch copy of the scan:
 - Evil merge (adds `scripts/harness/evil.mjs`, in neither parent, before the checkpoint): unpatched
   scan refuses it only by accident (alongside a false positive on `README.md`); with `--no-merges`
   → `findings=0`.
+  <!-- evidence-superseded: scripts/harness/evil.mjs was a transient fixture removed after the
+  measurement; the committed scan tests and issue #2410 preserve the finding. -->
 - Staged path: an honest clean back-merge of the base before the checkpoint → "staged
   implementation has no planning checkpoint ancestor" (a clean `git merge` fires
   `pre-merge-commit`, which `.husky/` does not install; a conflicted merge finished by `git commit`
