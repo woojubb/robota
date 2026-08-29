@@ -7,6 +7,7 @@ priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-08-29
 ---
 
 # HARNESS-123: no owner for comment stripping, and two scans a comment vouches for
