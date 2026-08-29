@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -103,3 +103,52 @@ Recorded as the rule's required choice rather than skipped.
 - [ ] `.agents/tasks/DOCS-041-terminalize-stale-resolved-backlog-batch-12.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** draft → review-ready
+**Judged by:** self-assessment against `.agents/specs/gate-catalogue.md` § GATE-WRITE.
+
+- GATE-WRITE — File begins with frontmatter: `---` block present
+- GATE-WRITE — Draft status: `status: draft`
+- GATE-WRITE — Allowed type: `type: INFRA`
+- GATE-WRITE — Tags present: `[docs, migration]`
+- GATE-WRITE — Concrete symptom: three resolved implementation Tasks remain `todo` at the root
+- GATE-WRITE — Reproduction condition: root Task scan lists INFRA-138, HARNESS-058, and HARNESS-118 after their merged fixes
+- GATE-WRITE — No vague problem statement: two concrete sentences and command reproduction
+- GATE-WRITE — Prior Art Research section: present
+- GATE-WRITE — Research substantiation: explicit BACKLOG-ZERO-MIGRATION waiver recorded
+- GATE-WRITE — Waiver explicit: internal lifecycle ownership is named
+- GATE-WRITE — Research feeds decision: prior delegated batches and current evidence select archival
+- GATE-WRITE — Architecture checklist: all items checked
+- GATE-WRITE — Sibling scan: explicit no-contract-change scope
+- GATE-WRITE — Alternatives: three entries with Pro and Con
+- GATE-WRITE — Decision trade-off: evidence-preserving archival versus stale queue retention
+- GATE-WRITE — New-surface placement: N/A, no package/app/interface/layer added
+- GATE-WRITE — Criteria prefixes: TC-01 through TC-03
+- GATE-WRITE — Feature coverage: each terminalization and verification outcome is covered
+- GATE-WRITE — Observable form: archive paths, statuses, and command exits are directly observable
+- GATE-WRITE — Prohibited vague wording: absent
+- GATE-WRITE — Test Plan: present
+- GATE-WRITE — Test row count: three rows match TC-01 through TC-03
+- GATE-WRITE — Test row fields: type and approach populated
+- GATE-WRITE — Manual notes: no manual rows
+- GATE-WRITE — Tasks section: paired Task path recorded
+- GATE-WRITE — Evidence Log: first gate entry
+- GATE-WRITE — Body status/classification sections: absent
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `CLASS`
+**Class:** `BACKLOG-ZERO-MIGRATION`
+**Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+**Given:** 2026-08-29, this conversation
+**Evidence condition met:** Independent audits confirmed INFRA-138, HARNESS-058, and HARNESS-118 are already resolved by merged implementation PRs and canonical issue records; no source/API/policy changes are included.
+**Review fingerprint:** 9572366fc294 (review 435c742d, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route CLASS, class registered before the approval date
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route CLASS; evidence condition recorded as a measurement (Independent audits confirmed INFRA-138, HARNESS-058, and HAR)
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (9572366fc294) equals the document's current fingerprint
