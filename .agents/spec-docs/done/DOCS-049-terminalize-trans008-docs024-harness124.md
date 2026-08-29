@@ -11,7 +11,7 @@ Paired with `.agents/tasks/DOCS-049-terminalize-trans008-docs024-harness124.md`.
 
 ## Problem
 
-TRANS-008 is a root `todo` record whose ingress fix landed in commit `05c4f99c5` (#2307). DOCS-024
+TRANS-008 is a root `todo` record whose ingress fix landed in commit `05c4f99c5` (PR #2307). DOCS-024
 is explicitly tracked by canonical issue #2049, and HARNESS-124 is tracked by canonical issue #2237.
 Leaving these records actionable duplicates ownership or misstates completed work.
 

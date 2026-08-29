@@ -125,5 +125,5 @@ disposition.
 
 ## Terminal disposition
 
-Done: delivered by merged PR #2363 (`f1fdf8d0ddd6f83c86677535306fea919e1f5bc5`). The broader issue
-#2258 remains open and is not closed by this delivery record.
+Done: delivered by merged PR #2363 (`f1fdf8d0ddd6f83c86677535306fea919e1f5bc5`). The broader issue #2258
+remains open and is not closed by this delivery record.

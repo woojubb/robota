@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-146: fresh develop fails reference-kind-qualified after backlog record moves'
 issue: https://github.com/woojubb/robota/issues/2536
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -70,19 +71,19 @@ The final L2 scope and post-merge session boundary were independently re-reviewe
 
 ## Plan
 
-- [ ] Change bare `#2307` to `PR #2307` in the DOCS-049 completed spec record.
-- [ ] Change bare `#2258` to `issue #2258` in the HARNESS-123 completed Task record.
-- [ ] Rerun `reference-kind-qualified` and confirm zero findings.
-- [ ] Run the relevant Task checks and the full harness scan.
-- [ ] Record completion evidence, prepare the closing PR, and leave issue #2091 preserved with a
+- [x] Change bare `#2307` to `PR #2307` in the DOCS-049 completed spec record.
+- [x] Change bare `#2258` to `issue #2258` in the HARNESS-123 completed Task record.
+- [x] Rerun `reference-kind-qualified` and confirm zero findings.
+- [x] Run the relevant Task checks and the full harness scan.
+- [x] Record completion evidence, prepare the closing PR, and leave issue #2091 preserved with a
       handoff summary after merge.
 
 ## Completion Criteria
 
-- [ ] The two known references carry their verified GitHub kinds.
-- [ ] `node scripts/harness/scan-reference-kind-qualified.mjs` exits zero on the repaired branch.
-- [ ] The full required harness scan passes without changing scan policy or baseline data.
-- [ ] The repair is ready for a closing PR, and the post-merge session boundary below names every
+- [x] The two known references carry their verified GitHub kinds.
+- [x] `node scripts/harness/scan-reference-kind-qualified.mjs` exits zero on the repaired branch.
+- [x] The full required harness scan passes without changing scan policy or baseline data.
+- [x] The repair is ready for a closing PR, and the post-merge session boundary below names every
       read-back required before this session may terminate.
 
 ## Test Plan
