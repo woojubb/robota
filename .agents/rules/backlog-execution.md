@@ -930,3 +930,5 @@ the Task marker/read-back, priority removal, PLAN checkpoint, implementation ord
 merge verification, and Issue writeback remain separate fail-closed gates. Other work-kind, security,
 data-correctness, user-decision, multi-owner, and contract-owned work remains on its existing route.
 Case: [PROC-017](https://github.com/woojubb/robota/issues/2514).
+Enforced by: `scan-user-execution-plan-order.mjs` consumes the Task's conversion evidence and the
+existing gate/branch guards enforce the remaining lifecycle boundaries.
