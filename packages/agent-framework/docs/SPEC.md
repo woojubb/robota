@@ -105,7 +105,7 @@ Key design rules:
   descriptors, so a validated parent rename or symlink swap cannot redirect the mutation. Other platforms
   fail closed rather than falling back to pathname mutation.
 
-  > **Contained — [ARCH-047](../../../.agents/tasks/ARCH-047-stable-root-anchored-project-mutation.md).**
+  > **Contained — [ARCH-047](../../../.agents/tasks/completed/ARCH-047-stable-root-anchored-project-mutation.md).**
   > The current hold is Linux-specific and lives in the existing writer. ARCH-047 owns a shared,
   > cross-platform stable root-anchored mutation primitive and its portable refusal contract.
 
@@ -1136,7 +1136,7 @@ agent-cli (Ink TUI — CLI-specific)
   only when the real working directory is the trusted root or one of its descendants. `createQuery()`
   applies the same initial cross-root refusal.
 
-  > **Contained — [ARCH-048](../../../.agents/tasks/ARCH-048-canonical-project-root-binding.md).**
+  > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
   > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
   > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 

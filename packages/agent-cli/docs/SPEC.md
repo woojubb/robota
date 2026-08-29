@@ -305,7 +305,7 @@ a project settings store is added. `cwd` remains provenance and cannot mint any 
 Trusted composition is refused when the real CLI working directory is outside the authority's frozen
 workspace root.
 
-> **Contained — [ARCH-048](../../../.agents/tasks/ARCH-048-canonical-project-root-binding.md).**
+> **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
 > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
 > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 

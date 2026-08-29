@@ -1,7 +1,9 @@
 ---
 title: 'ARCH-048: Canonical project root binding contract'
-status: todo
+status: skipped
 created: 2026-08-22
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2152#issuecomment-5459345529
 priority: high
 urgency: now
 area: packages/agent-framework public composition and packages/agent-cli startup
