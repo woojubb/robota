@@ -3426,7 +3426,7 @@ describe('the finders read only the root they are given (PROC-016)', () => {
     expect(staged).toHaveLength(1);
   });
 
-  it("the hook's ambient GIT_DIR cannot redirect a .git-less root to another repository", () => {
+  it("the hook's ambient GIT_DIR cannot redirect a .git-less root to another repository", async () => {
     const created = repository();
     const real = typeof created === 'string' ? created : created.root;
     const bare = makeTemp('robota-ues-plan-order-bare-');
@@ -3438,10 +3438,19 @@ describe('the finders read only the root they are given (PROC-016)', () => {
       expect(history).toHaveLength(1);
       expect(JSON.stringify(history[0])).toMatch(/has no \.git|failed closed/);
       // Control: the real repository root itself is still read.
-      expect(() => findHistoryFindings(real)).not.toThrow();
+      const result = await execFileAsync(
+        process.execPath,
+        [
+          path.join(WORKSPACE_ROOT, 'scripts/harness/scan-user-execution-plan-order.mjs'),
+          '--history',
+        ],
+        { cwd: real },
+      );
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toMatch(/::examined:: \d+ topic commit\(s\)/);
     } finally {
       if (saved === undefined) delete process.env.GIT_DIR;
       else process.env.GIT_DIR = saved;
     }
-  });
+  }, 300_000);
 });
