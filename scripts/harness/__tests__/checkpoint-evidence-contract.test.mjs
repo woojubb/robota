@@ -267,6 +267,28 @@ describe('checkpoint evidence contract', () => {
     ).toMatchObject({ ok: false, error: expect.stringMatching(/active/) });
   });
 
+  it('keeps a predecessor raw PASS stable across a Prettier heading separator', () => {
+    const parent = [
+      '## Evidence Log',
+      '',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30',
+      '',
+      '**Status upgrade:** approved → in-progress',
+      '',
+      'raw evidence with significant trailing spaces  ',
+      '',
+    ].join('\n');
+    const formattedContinuation = `${parent}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${'**Status upgrade:** in-progress → in-progress (continuation)'}\n`;
+    const parentRaw = rawGateImplementPassEntries(parent)[0];
+    const continuedRaw = rawGateImplementPassEntries(formattedContinuation)[0];
+
+    expect(continuedRaw).toBe(parentRaw);
+    expect(priorPassDigest(continuedRaw)).toBe(priorPassDigest(parentRaw));
+    expect(priorPassDigest(continuedRaw.replace('spaces  \n', 'spaces \n'))).not.toBe(
+      priorPassDigest(parentRaw),
+    );
+  });
+
   it('selects authoritative visible GATE and Decision sections while preserving exact raw offsets', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
@@ -303,11 +325,14 @@ describe('checkpoint evidence contract', () => {
     ].join('\n');
     const actualStart = spec.lastIndexOf('### [GATE-IMPLEMENT]');
     const actualEnd = spec.indexOf('## Architecture Review', actualStart);
+    const actualRawEnd = spec.lastIndexOf('\n\n', actualEnd) + 1;
 
     const entries = rawGateImplementPassEntries(spec);
 
-    expect(entries).toEqual([spec.slice(actualStart, actualEnd)]);
-    expect(priorPassDigest(entries[0])).toBe(priorPassDigest(spec.slice(actualStart, actualEnd)));
+    expect(entries).toEqual([spec.slice(actualStart, actualRawEnd)]);
+    expect(priorPassDigest(entries[0])).toBe(
+      priorPassDigest(spec.slice(actualStart, actualRawEnd)),
+    );
     expect(continuationArtifacts(contract, spec)).toEqual({
       ok: true,
       artifacts: ['scripts/harness/gate.mjs'],
@@ -358,8 +383,9 @@ describe('checkpoint evidence contract', () => {
     ].join('\n');
     const actualStart = spec.lastIndexOf('### [GATE-IMPLEMENT]');
     const actualEnd = spec.indexOf('## Architecture Review', actualStart);
+    const actualRawEnd = spec.lastIndexOf('\n\n', actualEnd) + 1;
 
-    expect(rawGateImplementPassEntries(spec)).toEqual([spec.slice(actualStart, actualEnd)]);
+    expect(rawGateImplementPassEntries(spec)).toEqual([spec.slice(actualStart, actualRawEnd)]);
     expect(continuationArtifacts(contract, spec)).toEqual({
       ok: true,
       artifacts: ['scripts/harness/gate.mjs'],
