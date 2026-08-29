@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-141: make multi-task AGREEMENT conversion atomic across commit ordering and issue handoff'
 issue: https://github.com/woojubb/robota/issues/2484
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: critical
 urgency: now

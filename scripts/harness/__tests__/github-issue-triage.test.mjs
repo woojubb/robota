@@ -1,15 +1,19 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { makeTemp } from './make-temp.mjs';
 import {
   applyLabelPlan,
+  auditOpenIssues,
   classifyOpenIssues,
+  collectOpenTaskCandidates,
   finalizeIssueConversion,
   planLabelReconciliation,
   readExaminedLiveLabelCount,
   readExaminedOpenIssueCount,
+  resolveOpenTaskLinks,
   scanLiveLabelReconciliation,
   scanOpenIssues,
   taskMarker,
@@ -89,6 +93,177 @@ describe('live GitHub label reconciliation', () => {
 });
 
 describe('read-only open-Issue audit', () => {
+  it('collects every open Task citation instead of keeping the traversal-order winner', () => {
+    const root = makeTemp('robota-issue-triage-');
+    const directory = path.join(root, '.agents/tasks');
+    mkdirSync(directory, { recursive: true });
+    for (const name of ['AGREEMENT-004-parent.md', 'FLOW-008-child.md']) {
+      writeFileSync(
+        path.join(directory, name),
+        '---\nissue: https://github.com/woojubb/robota/issues/1987\nstatus: todo\n---\n',
+      );
+    }
+
+    const candidates = collectOpenTaskCandidates(root);
+
+    expect(candidates.get(1987).map(({ taskPath }) => taskPath)).toEqual([
+      '.agents/tasks/AGREEMENT-004-parent.md',
+      '.agents/tasks/FLOW-008-child.md',
+    ]);
+  });
+
+  it('uses the exact AGREEMENT parent marker when several Tasks cite one Issue', () => {
+    const parentPath = '.agents/tasks/AGREEMENT-004-parent.md';
+    const childPath = '.agents/tasks/FLOW-008-child.md';
+    const issue = {
+      number: 1987,
+      labels: [{ name: 'bug' }],
+      comments: [{ body: taskMarker({ id: 'AGREEMENT-004', taskPath: parentPath }) }],
+    };
+    const candidates = new Map([
+      [
+        1987,
+        [
+          {
+            taskPath: parentPath,
+            taskText:
+              '---\nissue: https://github.com/woojubb/robota/issues/1987\nchildren: [FLOW-008]\n---\n',
+          },
+          {
+            taskPath: childPath,
+            taskText: '---\nissue: https://github.com/woojubb/robota/issues/1987\n---\n',
+          },
+        ],
+      ],
+    ]);
+
+    const resolved = resolveOpenTaskLinks([issue], candidates);
+
+    expect(resolved.links.get(1987)).toBe(parentPath);
+    expect(resolved.problems).toEqual(new Map());
+  });
+
+  it('classifies the marker-owned AGREEMENT parent through the audit path', () => {
+    const parentPath = '.agents/tasks/AGREEMENT-004-parent.md';
+    const issue = {
+      number: 1987,
+      labels: [{ name: 'bug' }],
+      comments: [{ body: taskMarker({ id: 'AGREEMENT-004', taskPath: parentPath }) }],
+    };
+    const result = auditOpenIssues(
+      [issue],
+      new Map([
+        [
+          1987,
+          [
+            {
+              taskPath: parentPath,
+              taskText:
+                '---\nissue: https://github.com/woojubb/robota/issues/1987\nchildren: [FLOW-008]\n---\n',
+            },
+            {
+              taskPath: '.agents/tasks/FLOW-008-child.md',
+              taskText: '---\nissue: https://github.com/woojubb/robota/issues/1987\n---\n',
+            },
+          ],
+        ],
+      ]),
+    );
+
+    expect(result.converted[0].taskPath).toBe(parentPath);
+    expect(result.malformed).toEqual([]);
+  });
+
+  it('reports multiple Task citations without a parent marker as malformed', () => {
+    const issue = { number: 1987, labels: [{ name: 'bug' }], comments: [] };
+    const candidates = new Map([
+      [
+        1987,
+        [
+          {
+            taskPath: '.agents/tasks/AGREEMENT-004-parent.md',
+            taskText:
+              '---\nissue: https://github.com/woojubb/robota/issues/1987\nchildren: [FLOW-008]\n---\n',
+          },
+          {
+            taskPath: '.agents/tasks/FLOW-008-child.md',
+            taskText: '---\nissue: https://github.com/woojubb/robota/issues/1987\n---\n',
+          },
+        ],
+      ],
+    ]);
+    const resolved = resolveOpenTaskLinks([issue], candidates);
+
+    const result = classifyOpenIssues([issue], resolved.links, resolved.problems);
+
+    expect(result.malformed[0].reason).toMatch(/parent marker/i);
+  });
+
+  it('rejects conflicting parent and child markers instead of choosing one', () => {
+    const parentPath = '.agents/tasks/AGREEMENT-004-parent.md';
+    const childPath = '.agents/tasks/FLOW-008-child.md';
+    const issue = {
+      number: 1987,
+      labels: [{ name: 'bug' }],
+      comments: [
+        { body: taskMarker({ id: 'AGREEMENT-004', taskPath: parentPath }) },
+        { body: taskMarker({ id: 'FLOW-008', taskPath: childPath }) },
+      ],
+    };
+    const candidates = new Map([
+      [
+        1987,
+        [
+          {
+            taskPath: parentPath,
+            taskText:
+              '---\nissue: https://github.com/woojubb/robota/issues/1987\nchildren: [FLOW-008]\n---\n',
+          },
+          {
+            taskPath: childPath,
+            taskText: '---\nissue: https://github.com/woojubb/robota/issues/1987\n---\n',
+          },
+        ],
+      ],
+    ]);
+
+    const resolved = resolveOpenTaskLinks([issue], candidates);
+
+    expect(resolved.links.has(1987)).toBe(false);
+    expect(resolved.problems.get(1987)).toMatch(/conflicting|one AGREEMENT parent marker/i);
+  });
+
+  it('rejects a parent marker whose declared children do not match the Issue candidates', () => {
+    const parentPath = '.agents/tasks/AGREEMENT-004-parent.md';
+    const issue = {
+      number: 1987,
+      labels: [{ name: 'bug' }],
+      comments: [{ body: taskMarker({ id: 'AGREEMENT-004', taskPath: parentPath }) }],
+    };
+    const resolved = resolveOpenTaskLinks(
+      [issue],
+      new Map([
+        [
+          1987,
+          [
+            {
+              taskPath: parentPath,
+              taskText:
+                '---\nissue: https://github.com/woojubb/robota/issues/1987\nchildren: [API-999]\n---\n',
+            },
+            {
+              taskPath: '.agents/tasks/FLOW-008-child.md',
+              taskText: '---\nissue: https://github.com/woojubb/robota/issues/1987\n---\n',
+            },
+          ],
+        ],
+      ]),
+    );
+
+    expect(resolved.links.has(1987)).toBe(false);
+    expect(resolved.problems.get(1987)).toMatch(/children|candidate/i);
+  });
+
   it('classifies every Issue exactly once without guessing missing metadata', () => {
     const issue = (number, labels) => ({
       number,

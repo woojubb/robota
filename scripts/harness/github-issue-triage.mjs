@@ -11,6 +11,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+import { asList, frontmatterObject } from './frontmatter.mjs';
+
 const WORK_KINDS = new Set(['bug', 'enhancement', 'documentation']);
 const PRIORITIES = new Set(['priority:P0', 'priority:P1', 'priority:P2']);
 const INTAKE = 'status:needs-triage';
@@ -83,7 +85,7 @@ function labelNames(issue) {
   return (issue.labels ?? []).map((label) => (typeof label === 'string' ? label : label.name));
 }
 
-export function classifyOpenIssues(issues, openTaskLinks) {
+export function classifyOpenIssues(issues, openTaskLinks, taskLinkProblems = new Map()) {
   const result = { intake: [], candidates: [], converted: [], malformed: [], examined: 0 };
   for (const issue of issues) {
     result.examined += 1;
@@ -92,9 +94,18 @@ export function classifyOpenIssues(issues, openTaskLinks) {
     const priorities = labels.filter((label) => PRIORITIES.has(label));
     const needsTriage = labels.includes(INTAKE);
     const taskPath = openTaskLinks.get(issue.number);
+    const taskLinkProblem = taskLinkProblems.get(issue.number);
     let category;
     let reason;
-    if (taskPath !== undefined && kinds.length === 1 && priorities.length === 0 && !needsTriage) {
+    if (taskLinkProblem !== undefined) {
+      category = 'malformed';
+      reason = taskLinkProblem;
+    } else if (
+      taskPath !== undefined &&
+      kinds.length === 1 &&
+      priorities.length === 0 &&
+      !needsTriage
+    ) {
       category = 'converted';
       reason = `linked to ${taskPath}`;
     } else if (
@@ -122,8 +133,8 @@ export function classifyOpenIssues(issues, openTaskLinks) {
   return result;
 }
 
-export function scanOpenIssues(issues, openTaskLinks) {
-  const result = classifyOpenIssues(issues, openTaskLinks);
+export function scanOpenIssues(issues, openTaskLinks, taskLinkProblems = new Map()) {
+  const result = classifyOpenIssues(issues, openTaskLinks, taskLinkProblems);
   examinedOpenIssues = result.examined;
   return result;
 }
@@ -147,6 +158,57 @@ export function taskMarker({ id, taskPath }) {
 
 function taskField(taskText, field) {
   return new RegExp(`^${field}:\\s*(.+?)\\s*$`, 'm').exec(taskText)?.[1];
+}
+
+function taskChildren(taskText) {
+  return asList(frontmatterObject(taskText).children);
+}
+
+export function resolveOpenTaskLinks(issues, taskCandidates) {
+  const links = new Map();
+  const problems = new Map();
+  const issueByNumber = new Map(issues.map((issue) => [issue.number, issue]));
+  for (const [issueNumber, candidates] of taskCandidates) {
+    if (candidates.length === 1) {
+      links.set(issueNumber, candidates[0].taskPath);
+      continue;
+    }
+    const issue = issueByNumber.get(issueNumber);
+    const markedCandidates = candidates.filter(({ taskPath }) => {
+      const id = taskIdentity(taskPath);
+      return hasExactMarker(issue ?? {}, taskMarker({ id, taskPath }));
+    });
+    if (markedCandidates.length !== 1) {
+      problems.set(issueNumber, 'multiple Task citations require one AGREEMENT parent marker');
+      continue;
+    }
+    const parent = markedCandidates[0];
+    const parentId = taskIdentity(parent.taskPath);
+    const declaredChildren = taskChildren(parent.taskText).sort();
+    const candidateChildren = candidates
+      .filter((candidate) => candidate !== parent)
+      .map(({ taskPath }) => taskIdentity(taskPath))
+      .sort();
+    const hasNestedAgreement = candidates
+      .filter((candidate) => candidate !== parent)
+      .some(({ taskText }) => taskChildren(taskText).length > 0);
+    if (
+      parentId.startsWith('AGREEMENT-') &&
+      declaredChildren.length > 0 &&
+      JSON.stringify(declaredChildren) === JSON.stringify(candidateChildren) &&
+      !hasNestedAgreement
+    ) {
+      links.set(issueNumber, parent.taskPath);
+    } else {
+      problems.set(issueNumber, 'AGREEMENT parent children do not match Task candidates');
+    }
+  }
+  return { links, problems };
+}
+
+export function auditOpenIssues(issues, taskCandidates) {
+  const resolved = resolveOpenTaskLinks(issues, taskCandidates);
+  return classifyOpenIssues(issues, resolved.links, resolved.problems);
 }
 
 function validateConversionState({ repo, issueNumber, taskPath, taskText, issue }) {
@@ -236,9 +298,9 @@ function readRegistry(root) {
   return JSON.parse(readFileSync(path.join(root, '.github/labels.json'), 'utf8'));
 }
 
-function openTaskLinks(root) {
+export function collectOpenTaskCandidates(root) {
   const directory = path.join(root, '.agents/tasks');
-  const links = new Map();
+  const candidates = new Map();
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name === 'README.md') continue;
     const taskPath = `.agents/tasks/${entry.name}`;
@@ -246,9 +308,13 @@ function openTaskLinks(root) {
     const issueNumber = /^issue:\s*https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)\s*$/m.exec(
       text,
     )?.[1];
-    if (issueNumber !== undefined) links.set(Number(issueNumber), taskPath);
+    if (issueNumber === undefined) continue;
+    const numericIssue = Number(issueNumber);
+    const issueCandidates = candidates.get(numericIssue) ?? [];
+    issueCandidates.push({ taskPath, taskText: text });
+    candidates.set(numericIssue, issueCandidates);
   }
-  return links;
+  return candidates;
 }
 
 function printLabelPlan(plan) {
@@ -310,9 +376,10 @@ function auditCommand({ args, repo, root }) {
     '--limit',
     '10000',
     '--json',
-    'number,title,url,labels',
+    'number,title,url,labels,comments',
   ]);
-  const result = scanOpenIssues(issues, openTaskLinks(root));
+  const resolved = resolveOpenTaskLinks(issues, collectOpenTaskCandidates(root));
+  const result = scanOpenIssues(issues, resolved.links, resolved.problems);
   for (const category of ['intake', 'candidates', 'converted', 'malformed']) {
     console.log(`${category}: ${result[category].length}`);
     for (const item of result[category]) {
