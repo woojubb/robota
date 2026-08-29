@@ -29,6 +29,13 @@ contract.
 - `packages/agent-provider-gemini/src/gemini/provider-extended.test.ts`
 - `packages/agent-provider-gemini/docs/SPEC.md`
 
+## Prior Art Research
+
+- The repository's OpenAI-compatible stream assembler is the nearest local precedent for retaining tool
+  calls and usage metadata across provider chunks.
+- Sibling providers validate unsupported native web-tool requests at both chat entry points; Gemini follows
+  that established capability-contract behavior.
+
 ## Completion Criteria
 
 - [ ] Streaming function calls are present in the returned assistant message.

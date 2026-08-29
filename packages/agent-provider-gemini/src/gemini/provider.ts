@@ -4,8 +4,9 @@ import { GoogleGenAI } from '@google/genai';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
-import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
+import { executeDirect, executeDirectStream } from './execution-helpers';
 import { mapImageInputSourceToPart } from './image-operations';
+import { runImageRequest } from './image-request';
 
 import type { IGeminiProviderOptions } from './types';
 import type {

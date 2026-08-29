@@ -1,11 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import {
-  hasImagePart,
-  mapInlineImagePartsToMediaOutputs,
-  buildResponseModalities,
-  buildGenerationConfig,
-} from './image-operations';
+import { hasImagePart, buildResponseModalities, buildGenerationConfig } from './image-operations';
 import {
   convertToGeminiRequestFormat,
   convertFromGeminiResponse,
@@ -16,13 +11,7 @@ import { toGeminiFunctionCallingConfig } from './tool-schema-converter';
 import type { IGeminiProviderOptions } from './types';
 import type { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
-import type {
-  TUniversalMessage,
-  IAssistantMessage,
-  IChatOptions,
-  IImageGenerationResult,
-  TProviderMediaResult,
-} from '@robota-sdk/agent-core';
+import type { TUniversalMessage, IAssistantMessage, IChatOptions } from '@robota-sdk/agent-core';
 
 /**
  * Execute a direct (non-streaming) chat request against the Gemini API.
@@ -274,34 +263,4 @@ function convertStreamChunk(chunk: GenerateContentResponse): TUniversalMessage |
     };
   }
   return undefined;
-}
-
-/**
- * Run an image generation request through the chat API.
- */
-export async function runImageRequest(
-  chatFn: (messages: TUniversalMessage[], options?: IChatOptions) => Promise<TUniversalMessage>,
-  messages: TUniversalMessage[],
-  model: string,
-): Promise<TProviderMediaResult<IImageGenerationResult>> {
-  try {
-    const response = await chatFn(messages, {
-      model,
-      google: { responseModalities: ['TEXT', 'IMAGE'] },
-    });
-    const outputs = mapInlineImagePartsToMediaOutputs(response.parts);
-    if (outputs.length === 0) {
-      return {
-        ok: false,
-        error: {
-          code: 'PROVIDER_UPSTREAM_ERROR',
-          message: 'Google image response did not include image output parts.',
-        },
-      };
-    }
-    return { ok: true, value: { outputs, model } };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Google image request failed.';
-    return { ok: false, error: { code: 'PROVIDER_UPSTREAM_ERROR', message: errorMessage } };
-  }
 }
