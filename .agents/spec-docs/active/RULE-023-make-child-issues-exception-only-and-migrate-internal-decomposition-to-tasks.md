@@ -762,3 +762,41 @@ scan receipt NOT written: working tree is not clean:  M .agents/loop-runs/backlo
    Start at  03:51:47
    Duration  114.57s (transform 85ms, setup 0ms, collect 114ms, tests 114.25s, environment 0ms, prepare 67ms)
 ```
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs scripts/harness/__tests__/conversion-evidence.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 500 line(s))
+
+```
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses each eligibility field 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses duplicate evidence 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses malformed evidence 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses subject mismatch 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses unreachable base 0ms
+
+ Test Files  3 passed (3)
+      Tests  209 passed (209)
+   Start at  04:24:35
+   Duration  143.16s (transform 90ms, setup 0ms, collect 126ms, tests 142.81s, environment 0ms, prepare 74ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs scripts/harness/__tests__/conversion-evidence.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 500 line(s))
+
+```
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses each eligibility field 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses duplicate evidence 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses malformed evidence 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses subject mismatch 0ms
+ ✓ scripts/harness/__tests__/conversion-evidence.test.mjs > parseConversionEvidence > refuses unreachable base 0ms
+
+ Test Files  3 passed (3)
+      Tests  209 passed (209)
+   Start at  04:24:35
+   Duration  143.16s (transform 90ms, setup 0ms, collect 126ms, tests 142.81s, environment 0ms, prepare 74ms)
+```
