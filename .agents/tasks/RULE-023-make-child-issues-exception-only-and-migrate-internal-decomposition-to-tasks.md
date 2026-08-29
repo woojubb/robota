@@ -62,9 +62,10 @@ requested queue-consolidation outcome.
 
 ## Progress
 
-- 2026-08-30 — Work unit A implementation is locally complete through TC-04. The focused triage suite
-  passed 56/56 tests; the full harness suite passed 5,479/5,479 tests under the repository's Node 22.14.0
-  and GNU tool environment; all 148 applicable scans passed. A fresh read-only GitHub audit examined 281
+- 2026-08-30 — Work unit A implementation is locally complete through TC-04. After rebasing onto fresh
+  `origin/develop`, the focused triage and PROC-017 compatibility suites passed 196/196 tests; the full
+  harness suite passed 5,492/5,492 tests under the repository's Node 22.14.0 and GNU tool environment;
+  all 148 applicable scans passed. A fresh read-only GitHub audit examined 281
   open Issues and 78 open child Issues, rejected all 78 as missing the new exception receipt, and classified
   issue #2490 as ordinary intake rather than as RULE-021-linked malformed state. TC-05 remains open until
   independent review, PR merge, and fresh `origin/develop` ancestry read-back complete.
