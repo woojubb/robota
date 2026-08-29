@@ -8,7 +8,9 @@
 # the configured path. Once Husky has installed, the generated `h` dispatcher
 # takes over and invokes the same tracked hook.
 
-set -eu
+# Do not enable `set -u` here: Husky's generated `h` intentionally reads the
+# optional HUSKY variable without a default on older installations.
+set -e
 
 HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 if [ -f "$HOOK_DIR/h" ]; then
