@@ -7,6 +7,9 @@ lane: L2
 
 # DOCS-041: Terminalize stale resolved backlog batch 12
 
+This batch is grouped as three terminalization units so the durable backlog reflects the current
+implementation state without reopening already-delivered work.
+
 Paired with `.agents/tasks/DOCS-041-terminalize-stale-resolved-backlog-batch-12.md`. Arising from [issue #2404](https://github.com/woojubb/robota/issues/2404).
 
 ## Problem
