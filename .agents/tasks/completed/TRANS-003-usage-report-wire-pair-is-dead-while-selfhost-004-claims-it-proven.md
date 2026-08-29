@@ -1,6 +1,8 @@
 ---
 title: "TRANS-003: the get-usage-report/usage_report wire pair is unroutable at every consumer while SELFHOST-004's done record marks TC-08 (GUI renders it over the WS stream) as proven"
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2164#issuecomment-5459592489
 created: 2026-08-13
 priority: high
 urgency: now

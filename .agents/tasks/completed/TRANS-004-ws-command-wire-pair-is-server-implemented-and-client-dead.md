@@ -1,6 +1,8 @@
 ---
 title: 'TRANS-004: the WS command/command_result wire pair is fully server-implemented but no GUI/remote client can send it or render its result — CMD-004 built command execution into the wire and REMOTE-006 declares remote drivers "full drivers", yet no remote surface can run a command, and the wire submit path has no slash parsing'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2164#issuecomment-5459592489
 created: 2026-08-13
 priority: high
 urgency: soon
