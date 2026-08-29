@@ -1,7 +1,7 @@
 ---
 title: 'DOCS-039: terminalize backlog-zero migration batch 10'
 issue: https://github.com/woojubb/robota/issues/2404
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -20,7 +20,7 @@ product documentation. The batch is a documentation-only application of the regi
 
 ## Spec
 
-`.agents/spec-docs/todo/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
+`.agents/spec-docs/active/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
 
 ## Plan
 
