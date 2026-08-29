@@ -20,13 +20,13 @@ product documentation. The batch is a documentation-only application of the regi
 
 ## Spec
 
-`.agents/spec-docs/backlog/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
+`.agents/spec-docs/todo/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
 
 ## Plan
 
-- [ ] TC-01 — preserve the exact three-unit/12-path manifest, current blobs, owner issues, handoff
+- [x] TC-01 — preserve the exact three-unit/12-path manifest, current blobs, owner issues, handoff
       comments, four package documentation carrier links, and excluded-scope boundary.
-- [ ] TC-02 — mark ARCH-047, ARCH-048, and ARCH-049 skipped with exact `returned_to_issue` links,
+- [x] TC-02 — mark ARCH-047, ARCH-048, and ARCH-049 skipped with exact `returned_to_issue` links,
       preserving each body and moving each Task atomically to `completed/`.
 - [ ] TC-03 — pass lifecycle, citation, manifest, delegation, carrier, and no-growth path scans
       with no package source or policy files changed.

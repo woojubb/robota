@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [docs, migration]
 lane: L2
@@ -209,7 +209,7 @@ GATE VERDICT: PASS
 
 ### [FINDING DEPTH REVIEW] — ✅ PASS | 2026-08-29
 
-- `DEPTH: FOUNDATIONAL` — the duplicate queue is the parent #2404 lifetime/ownership invariant;
+- `DEPTH: FOUNDATIONAL` — the duplicate queue is the parent issue #2404 lifetime/ownership invariant;
   the four carrier links additionally expose structural coupling to mutable Task paths. DOCS-039 is
   finite containment and leaves the three implementation issues OPEN.
 - `ACTIONABLE FINDINGS: 0`.
@@ -227,6 +227,20 @@ GATE VERDICT: PASS
 - `ACTIONABLE FINDINGS: 0`.
 
 **Independent reviewer verdict:** `REVIEW VERDICT: ENDORSE`
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "앞으로 너가 타당한 근거와 함께 추천안을 제시하면 그게 타당할 경우 자동승인 하겠습니다."
+**Given:** 2026-08-29, this conversation
+**Review fingerprint:** 6cdd9d89d064 (review a5213307, type/tags a0d6c0d0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-29, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (6cdd9d89d064) equals the document's current fingerprint
 
 ## User Execution Test Scenarios
 
