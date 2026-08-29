@@ -1,12 +1,13 @@
 ---
 title: 'DOCS-052: terminalize duplicated and delivered backlog records'
-status: todo
+status: done
 created: 2026-08-29
 priority: high
 urgency: now
 area: .agents/tasks, .agents/spec-docs
 depends_on: []
 no-issue: document batch authorized by DOCS-029; records existing issue and PR ownership
+completed: 2026-08-29
 ---
 
 # DOCS-052: terminalize duplicated and delivered backlog records
