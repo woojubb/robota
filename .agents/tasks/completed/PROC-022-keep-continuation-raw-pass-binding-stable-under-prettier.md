@@ -1,8 +1,9 @@
 ---
 title: 'PROC-022: Keep continuation raw PASS binding stable under Prettier'
 issue: https://github.com/woojubb/robota/issues/2547
-status: in-progress
+status: done
 created: 2026-08-30
+completed: 2026-08-30
 priority: critical
 urgency: now
 area: workflow harness
@@ -18,11 +19,11 @@ without weakening exact-byte checks inside each PASS entry.
 
 ## Plan
 
-- [ ] TC-01: Add an EOF-versus-formatted-separator contract fixture and define the raw entry boundary.
-- [ ] TC-02: Preserve internal trailing-space, replacement, deletion, and reorder refusals.
-- [ ] TC-03: Add a temporary Git history proving a formatted continuation passes while existing
+- [x] TC-01: Add an EOF-versus-formatted-separator contract fixture and define the raw entry boundary.
+- [x] TC-02: Preserve internal trailing-space, replacement, deletion, and reorder refusals.
+- [x] TC-03: Add a temporary Git history proving a formatted continuation passes while existing
       ancestry controls remain green.
-- [ ] TC-04: Run focused tests, affected scans, and full harness contract verification.
+- [x] TC-04: Run focused tests, affected scans, and full harness contract verification.
 
 ## Test Plan
 
@@ -41,4 +42,8 @@ and has no user-runnable product surface.
 
 ## Result
 
-Pending implementation and verification.
+- Raw PASS boundaries now exclude only contiguous raw blank separator lines immediately before the
+  next visible heading; EOF terminal newlines and all internal bytes remain bound.
+- The Prettier separator regression passes in both direct contract and temporary Git history tests.
+- Verification passed: owner suites 153/153, affected scans 60 passed/1 skipped, and contract tier
+  195 files/4,299 tests.

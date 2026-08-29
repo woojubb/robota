@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-022: Keep continuation raw PASS binding stable under Prettier
 
-Paired with `.agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md`.
+Paired with `.agents/tasks/completed/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md`.
 Arising from [issue #2547](https://github.com/woojubb/robota/issues/2547), discovered while closing
 [issue #2514](https://github.com/woojubb/robota/issues/2514).
 
@@ -97,13 +97,13 @@ are excluded from entry identity.
 
 ## Completion Criteria
 
-- [ ] TC-01: a parent PASS ending at EOF and the same PASS followed by a Prettier-style blank
+- [x] TC-01: a parent PASS ending at EOF and the same PASS followed by a Prettier-style blank
       separator produce byte-identical predecessor entries and the same `priorPassDigest`.
-- [ ] TC-02: changing trailing spaces or any non-separator byte inside the predecessor PASS changes
+- [x] TC-02: changing trailing spaces or any non-separator byte inside the predecessor PASS changes
       its digest and the continuation prefix validation refuses replacement, deletion, and reorder.
-- [ ] TC-03: a real temporary Git continuation history with the formatted separator returns
+- [x] TC-03: a real temporary Git continuation history with the formatted separator returns
       `findHistoryFindings(...) === []`, while existing squash/no-ff ancestry controls remain green.
-- [ ] TC-04: focused Vitest, affected harness scans, and `pnpm harness:test:contracts` all exit 0.
+- [x] TC-04: focused Vitest, affected harness scans, and `pnpm harness:test:contracts` all exit 0.
 
 ## Test Plan
 
@@ -123,7 +123,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [x] `.agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md` — in-progress
+- [x] `.agents/tasks/completed/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md` — done
 
 ## Evidence Log
 
@@ -225,3 +225,51 @@ Recorded as the rule's required choice rather than skipped.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs -t "keeps a predecessor raw PASS"`
+**Exit:** 0
+**Output:** direct EOF-versus-Prettier separator identity and digest assertions passed.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** internal trailing-space sensitivity and replacement/deletion/reorder controls passed; owner suites 153/153.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t "accepts the Prettier blank separator"`
+**Exit:** 0
+**Output:** formatted temporary Git continuation returned no history findings; full plan-order suite passed 136/136.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && pnpm harness:test:contracts`
+**Exit:** 0
+**Output:** 60 affected scans passed with 1 declared skip; contract tier passed 195 files and 4,299 tests.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 4/4 tasks `[x]` in .agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 60 scans passed, 1 skipped (43 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md, M .agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-30; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/PROC-022-keep-continuation-raw-pass-binding-stable-under-prettier.md
