@@ -524,7 +524,7 @@ asking before acting.
 
 Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
-### A published findings verdict freezes the pull request — it does not authorize more work
+### `ACTIONABLE FINDINGS: 0` ends the loop — it does not start a merge
 
 <!-- enforcement declaration -->
 
