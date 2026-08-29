@@ -54,10 +54,14 @@ Enough that the next session does not re-derive the finding:
 is **not** that draft, and filing one does not permit you to start changing code for it. It records
 the finding so the gate can be walked properly later.
 
-Use an Issue Form when one matches. A manual/API-created Issue must receive `status:needs-triage`
-explicitly so it cannot disappear between intake paths. The
+Use one of the repository Issue Forms whenever one matches; they apply exactly one work-kind label and
+`status:needs-triage`, and blank Issues are disabled. If a manual/API path is unavoidable, reproduce that
+contract explicitly: choose exactly one of `bug`, `enhancement`, or `documentation`, add
+`status:needs-triage`, add no `priority:P0/P1/P2`, include the form-equivalent observed/expected or
+outcome/reproduction-or-location evidence, and run the read-only audit after creation. The
 [`github-issue-triage`](../github-issue-triage/SKILL.md) skill owns later classification and selection;
-do not assign a P label merely to make the newly filed Issue look complete.
+do not assign a P label merely to make the newly filed Issue look complete. A malformed audit result is a
+failed intake that must be corrected, not hidden by guessing a priority.
 
 ## Then keep going
 
