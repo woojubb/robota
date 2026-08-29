@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-046: terminalize superseded HARNESS-070 and GUI-008 backlog records'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -18,9 +19,14 @@ issues, preserving the unresolved implementation scope without claiming that beh
 
 ## Plan
 
-- [ ] Record exact handoff comments on #2251, #2255, and #2164.
-- [ ] Mark HARNESS-070 and GUI-008 skipped with terminal metadata and move them to `completed/`.
-- [ ] Run lifecycle, citation, and CI-like verification scans.
+- [x] Record exact handoff comments on #2251, #2255, and #2164.
+- [x] Mark HARNESS-070 and GUI-008 skipped with terminal metadata and move them to `completed/`.
+- [x] Run lifecycle, citation, and CI-like verification scans.
+
+## Resolution
+
+`pnpm harness:scan` passed 144 scans (5 skipped) and `pnpm harness:verify-like-ci` passed all 13
+mirrored stages. The batch changed only backlog records and a mechanical path citation/baseline.
 
 ## Test Plan
 

@@ -1,11 +1,14 @@
 ---
 title: 'HARNESS-070: lint warnings have no ceiling, so a rule set to warn enforces nothing'
-status: todo
+status: skipped
 created: 2026-08-03
 priority: medium
 urgency: next
 area: scripts/harness, eslint.config
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2251#issuecomment-5460833334
+returned_to_issue_secondary: https://github.com/woojubb/robota/issues/2255#issuecomment-5460833419
 ---
 
 # HARNESS-070: 1927 warnings, and nothing objects to 1928
@@ -76,3 +79,10 @@ simpler.
 
 **Does not apply.** This governs the repository's own build gates and delivers no user-facing
 behaviour change. The evidence is the scan's own red-proof plus a CI run showing it registered.
+
+## Resolution
+
+This record is superseded and split between the canonical warning-reduction queue (#2251) and the
+ratchet-semantics investigation (#2255). The current repository has a warning ceiling, but the
+remaining rule-by-rule reduction and measured-output semantics are owned by those issues. The local
+record is archived as skipped so it does not compete with the canonical implementation work.
