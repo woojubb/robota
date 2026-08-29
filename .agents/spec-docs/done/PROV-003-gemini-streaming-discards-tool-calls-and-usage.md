@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [streaming, cli]
 lane: L1
@@ -40,10 +40,10 @@ contract.
 
 ## Completion Criteria
 
-- [ ] Streaming function calls are present in the returned assistant message.
-- [ ] Streaming usage metadata is present in the returned assistant message.
-- [ ] Unsupported native web search/fetch requests fail explicitly.
-- [ ] Gemini package tests and build pass.
+- [x] Streaming function calls are present in the returned assistant message (PR #2497).
+- [x] Streaming usage metadata is present in the returned assistant message (PR #2497).
+- [x] Unsupported native web search/fetch requests fail explicitly (PR #2497).
+- [x] Gemini package tests and build pass (PR #2497).
 
 ## Test Plan
 
@@ -57,7 +57,7 @@ See the paired Task's applicable scenario: interactive CLI Gemini request requir
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROV-003-gemini-streaming-discards-tool-calls-and-usage.md` — implement and verify
+- [x] `.agents/tasks/completed/PROV-003-gemini-streaming-discards-tool-calls-and-usage.md` — implemented and verified by PR #2497.
 
 ## Evidence Log
 
@@ -84,3 +84,8 @@ this spec is `.agents/spec-docs/todo/PROV-003-gemini-streaming-discards-tool-cal
 It carries the automatable `SCENARIO DRAFTED` outcome and
 `SCENARIO DRAFTED: automatable | 1`.
 `DONE-GATE-STAGE-1` PASS. This planning checkpoint contains only the paired planning artifacts.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+PR #2497 (`11cfca22b`) merged the implementation and tests into `develop`; this stale record is
+archived as complete.

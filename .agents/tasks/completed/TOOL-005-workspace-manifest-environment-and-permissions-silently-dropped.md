@@ -1,14 +1,20 @@
 ---
 title: 'TOOL-005: IWorkspaceManifest.environment and .permissions are accepted contract fields the applicator silently ignores — no effect, no error, no unsupported marker'
-status: todo
+status: done
 created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-tools, packages/agent-framework
 depends_on: []
+completed: 2026-08-29
+completion: PR #2275 (312e8682a)
 ---
 
 # TOOL-005: two workspace-manifest fields are dropped without a marker
+
+## Terminal disposition
+
+Implemented and merged by PR #2275 (`312e8682a`); issue #2027 is closed.
 
 ## Problem
 
