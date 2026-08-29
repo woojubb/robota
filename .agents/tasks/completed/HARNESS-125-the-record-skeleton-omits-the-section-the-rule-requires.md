@@ -1,12 +1,14 @@
 ---
 title: 'HARNESS-125: the record skeleton omits the section the rule requires'
 issue: https://github.com/woojubb/robota/issues/2308
-status: todo
+status: skipped
 created: 2026-08-27
 priority: medium
 urgency: soon
 area: .agents/templates, scripts/harness
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2308#issuecomment-5461292528
 ---
 
 # HARNESS-125: the record skeleton omits the section the rule requires

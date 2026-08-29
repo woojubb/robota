@@ -1,11 +1,13 @@
 ---
 title: 'HARNESS-115: the record→issue link is produced but consumed by nothing, and the cross-source ID comparison it exists for is unbuilt'
-status: todo
+status: skipped
 created: 2026-08-22
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2322#issuecomment-5461292436
 ---
 
 # HARNESS-115: nothing consumes the record→issue link
