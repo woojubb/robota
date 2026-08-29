@@ -15,6 +15,34 @@ description: Audit, triage, select, and convert GitHub Issues using the declared
 
 This skill owns procedure only. It does not redefine the queue or make Issues the execution SSOT.
 
+## Create an Issue (mandatory intake contract)
+
+Use one of the three repository Issue Forms for every new Issue:
+
+- **Bug report** → exactly `bug` + `status:needs-triage`
+- **Enhancement request** → exactly `enhancement` + `status:needs-triage`
+- **Documentation request** → exactly `documentation` + `status:needs-triage`
+
+The forms are the mechanical entry point: blank Issues are disabled, the work-kind label is applied by
+the selected form, and the required fields capture an observable problem or requested outcome before a
+triager sees it. Do not add `priority:P0`, `priority:P1`, or `priority:P2` while filing an Issue. Priority
+is assigned only after a human triager reads the body, discussion, duplicate context, and dependency
+edges. Do not use status labels for activity or blocking; use assignee plus linked branch/PR for activity
+and native Issue dependencies for blocking.
+
+When a manual or API path is unavoidable, it must reproduce the same contract before publication:
+
+1. Select exactly one of `bug`, `enhancement`, or `documentation` from the Issue's actual claim.
+2. Add `status:needs-triage` and no P label.
+3. Include the form-equivalent evidence: observed problem, expected/outcome, reproduction or location,
+   and relevant environment/context; state whether a duplicate was searched.
+4. Run the read-only audit after creation. A malformed result is a failed intake, not an item to hide by
+   adding an arbitrary priority.
+
+An agent filing a defect discovered during other work must route through
+[`find-to-issue`](../find-to-issue/SKILL.md), which owns the evidence and scope boundary, then return to
+this contract for the labels. Filing an Issue never authorizes implementation or Task creation.
+
 ## Audit Intake
 
 Run the read-only audit before a triage session:
