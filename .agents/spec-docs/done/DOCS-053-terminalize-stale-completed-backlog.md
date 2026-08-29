@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -26,7 +26,7 @@ runtime changes are included.
 
 ## Completion Criteria
 
-- [ ] TC-01: both records are terminal, with exact delivery/issue evidence and no root todo copy.
+- [x] TC-01: both records are terminal, with exact delivery/issue evidence and no root todo copy.
 
 ## Test Plan
 
@@ -41,8 +41,10 @@ issue ownership; it changes no user-facing execution surface.
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md`
-- [ ] TC-01: archive the two stale records with their evidence.
+- [x] `.agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md`
+- [x] TC-01: archive the two stale records with their evidence.
+
+## Evidence Log
 
 ## Evidence Log
 
@@ -56,7 +58,7 @@ issue ownership; it changes no user-facing execution surface.
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
 
-**Status upgrade:** approved → in-progress
+**Status upgrade:** todo → in-progress
 
 - Task record: `.agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md`.
 - Subject-bound PLAN: `SCENARIO DRAFTED: not-applicable | 0` because this is document-only lifecycle work.
@@ -80,3 +82,8 @@ issue ownership; it changes no user-facing execution surface.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+TOOL-006 is complete via PR #2040 (`a432cd380`), and HARNESS-130 is handed off to open issue #2410.
+The batch changed only backlog/spec documents.

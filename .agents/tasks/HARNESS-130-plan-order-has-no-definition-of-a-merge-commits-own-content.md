@@ -1,15 +1,21 @@
 ---
 title: "HARNESS-130: plan-order has no definition of a merge commit's own content, so an evil merge before the checkpoint is judged by nothing and the staged path refuses honest back-merges"
 issue: https://github.com/woojubb/robota/issues/2410
-status: todo
+status: skipped
 created: 2026-08-28
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/2410
 ---
 
 # HARNESS-130: plan-order has no definition of a merge commit's own content
+
+## Terminal disposition
+
+Skipped as a duplicate of canonical open issue #2410, which owns this plan-order merge-content scope.
 
 ## Problem
 
