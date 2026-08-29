@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 # Protected-branch commit guard (git-native, defense-in-depth).
 #

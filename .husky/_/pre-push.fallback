@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+
+# This file is intentionally tracked even though Husky normally generates
+# `.husky/_/pre-push`. Git reads core.hooksPath before any package install runs;
+# a fresh linked worktree can therefore have no generated Husky directory at
+# all. In that state, a missing hook path is treated as success by Git and a
+# push silently bypasses every repository gate. Keep a fail-closed fallback at
+# the configured path. Once Husky has installed, the generated `h` dispatcher
+# takes over and invokes the same tracked hook.
+
+# Do not enable `set -u` here: Husky's generated `h` intentionally reads the
+# optional HUSKY variable without a default on older installations.
+set -e
+
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$HOOK_DIR/h" ]; then
+	. "$HOOK_DIR/h"
+fi
+
+REPO_HOOK="$HOOK_DIR/../pre-push"
+if [ ! -x "$REPO_HOOK" ]; then
+	echo "[pre-push] Blocked: tracked hook target is missing or not executable: $REPO_HOOK" >&2
+	exit 1
+fi
+
+exec "$REPO_HOOK" "$@"

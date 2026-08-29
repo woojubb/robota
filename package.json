@@ -27,7 +27,7 @@
     "dev": "pnpm run -r --if-present dev",
     "clean": "pnpm run -r --if-present clean",
     "clean:js": "find ./src -type f \\( -name \"*.js\" -o -name \"*.js.map\" -o -name \"*.d.ts\" -o -name \"*.d.ts.map\" \\) -not -path \"*/node_modules/*\" -delete",
-    "prepare": "husky install",
+    "prepare": "husky install && node scripts/harness/restore-tracked-husky-hooks.mjs",
     "docs:dev": "pnpm --filter robota-docs run dev",
     "docs:build": "node scripts/docs/prepare-docs.js",
     "docs:preview": "pnpm --filter robota-docs run preview",
