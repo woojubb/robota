@@ -2,6 +2,7 @@
 title: 'INFRA-139: Gate judges reject archived Tasks as active'
 issue: https://github.com/woojubb/robota/issues/2467
 status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
