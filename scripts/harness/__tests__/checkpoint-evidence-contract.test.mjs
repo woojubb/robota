@@ -10,11 +10,33 @@ import {
   parseCheckpointEvidenceContract,
   priorPassDigest,
   rawGateImplementPassEntries,
+  taskItemsForCheckpoint,
 } from '../checkpoint-evidence-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 describe('checkpoint evidence contract', () => {
+  it('mirrors gate Completion Criteria selection for top-level soft-wrapped labels', () => {
+    const spec = [
+      '## Completion Criteria',
+      '',
+      '- [ ] TC-01: top-level criterion whose label',
+      '      continues on the next indented line',
+      '  - [ ] TC-99: nested implementation detail',
+    ].join('\n');
+    const task = 'TC-01 is covered without a Task checkbox';
+
+    expect(taskItemsForCheckpoint(spec, task)).toEqual({
+      ok: true,
+      items: [{ kind: 'tc-id', value: 'TC-01' }],
+    });
+
+    expect(taskItemsForCheckpoint(spec, '- [ ] fallback task label\n      continued')).toEqual({
+      ok: true,
+      items: [{ kind: 'checkbox', value: 'fallback task label continued' }],
+    });
+  });
+
   it('parses one v1 declaration from the owning rule (TC-01)', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
@@ -124,6 +146,29 @@ describe('checkpoint evidence contract', () => {
       ok: false,
       error: expect.stringMatching(/order/i),
     });
+  });
+
+  it.each([
+    '.agents//tasks/INFRA-999-fixture.md',
+    '.agents/./tasks/INFRA-999-fixture.md',
+    '.agents/tasks/INFRA-999-fixture.md\nextra',
+  ])('rejects non-normalized repository path %j', (invalidPath) => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const { contract } = parseCheckpointEvidenceContract(rule);
+    expect(
+      formatCheckpointEvidence(contract, 'gateImplementFirst', {
+        version: 1,
+        form: 'gateImplementFirst',
+        taskPath: '.agents/tasks/INFRA-999-fixture.md',
+        specPath: '.agents/spec-docs/todo/INFRA-999-fixture.md',
+        taskItems: [],
+        plan: { outcome: 'not-applicable', count: 0 },
+        worktreePaths: [invalidPath],
+      }),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/worktreePaths.*invalid/i) });
   });
 
   it('binds continuation raw bytes, Decision artifacts, folder, and ancestry fields (TC-04, TC-07)', () => {

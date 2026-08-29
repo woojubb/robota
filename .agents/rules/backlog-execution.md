@@ -457,6 +457,8 @@ Enforced by: `user-execution-plan-order`
 
 ### Checkpoint evidence contract
 
+Enforced by: `user-execution-plan-order`
+
 This section is the single machine-readable owner of the evidence forms written and consumed at the
 pre-implementation checkpoint and DONE-GATE-STAGE-1. The gate catalogue references these form names;
 writers and validators parse this declaration rather than maintaining private Markdown-token schemas.

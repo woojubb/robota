@@ -299,7 +299,11 @@ function continuation(root, options = {}) {
   return commit(root, 'continuation checkpoint');
 }
 
-function v1SequencedRepository({ mutatePayload = (payload) => payload } = {}) {
+function v1SequencedRepository({
+  mutatePayload = (payload) => payload,
+  mutateContinuationSpec = (spec) => spec,
+  withUnrelatedMerge = false,
+} = {}) {
   const { root } = repository({ withContract: true });
   write(root, TASK_PATH, taskText());
   write(
@@ -316,6 +320,14 @@ function v1SequencedRepository({ mutatePayload = (payload) => payload } = {}) {
   commit(root, 'PR 1 v1 checkpoint');
   git(root, ['switch', '-q', 'develop']);
   git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
+  const sequencedMerge = git(root, ['rev-parse', 'HEAD']);
+  if (withUnrelatedMerge) {
+    git(root, ['switch', '-q', '-c', 'unrelated']);
+    write(root, 'UNRELATED.md', 'unrelated branch\n');
+    commit(root, 'unrelated change');
+    git(root, ['switch', '-q', 'develop']);
+    git(root, ['merge', '--no-ff', '-q', '-m', 'merge unrelated PR', 'unrelated']);
+  }
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(root, ['switch', '-q', '-c', 'feature-2']);
@@ -341,10 +353,12 @@ function v1SequencedRepository({ mutatePayload = (payload) => payload } = {}) {
   write(
     root,
     SPEC_PATH,
-    `${priorSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
+    mutateContinuationSpec(
+      `${priorSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
+    ),
   );
   commit(root, 'v1 continuation checkpoint');
-  return { root, base };
+  return { root, base, sequencedMerge };
 }
 
 function postMergeRecord(base, runId = 'r20260825000000') {
@@ -406,6 +420,21 @@ describe('user-execution PLAN order — branch history', () => {
     ).toMatch(/gateImplementFirst.*(?:specPath|basename)/i);
   });
 
+  it('replays expected taskItems and reports the mismatched field by name', () => {
+    const invalid = repository({ withContract: true });
+    writeCheckpoint(invalid.root, {
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    });
+    const current = readFileSync(path.join(invalid.root, SPEC_PATH), 'utf8');
+    write(invalid.root, SPEC_PATH, current.replace('"value": "TC-01"', '"value": "TC-99"'));
+    commit(invalid.root, 'mismatched v1 task items');
+
+    expect(messages(findHistoryFindings(invalid.root, invalid.base))).toMatch(
+      /gateImplementFirst\.taskItems.*Completion Criteria/i,
+    );
+  });
+
   it('binds a v1 Stage-1 payload to the authored browser scenario (TC-05)', () => {
     const valid = repository({ withContract: true });
     write(valid.root, TASK_PATH, v1AutomatableBrowserTask());
@@ -445,6 +474,58 @@ describe('user-execution PLAN order — branch history', () => {
     );
   });
 
+  it('selects Stage-1 PASS only from the authoritative scenario section and binds its status envelope', () => {
+    const unrelated = repository({ withContract: true });
+    write(
+      unrelated.root,
+      TASK_PATH,
+      v1AutomatableBrowserTask().replace(
+        '## User Execution Test Scenarios',
+        [
+          '### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-20',
+          '',
+          '**Status upgrade:** unrelated → unrelated',
+          '',
+          '## User Execution Test Scenarios',
+        ].join('\n'),
+      ),
+    );
+    write(
+      unrelated.root,
+      SPEC_PATH,
+      specText({
+        outcome: 'automatable',
+        v1: true,
+        worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+      }),
+    );
+    commit(unrelated.root, 'authoritative v1 stage one section');
+    expect(findHistoryFindings(unrelated.root, unrelated.base)).toEqual([]);
+
+    const wrongUpgrade = repository({ withContract: true });
+    write(
+      wrongUpgrade.root,
+      TASK_PATH,
+      v1AutomatableBrowserTask().replace(
+        '**Status upgrade:** scenario drafted → scenario written',
+        '**Status upgrade:** scenario drafted → scenario executed',
+      ),
+    );
+    write(
+      wrongUpgrade.root,
+      SPEC_PATH,
+      specText({
+        outcome: 'automatable',
+        v1: true,
+        worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+      }),
+    );
+    commit(wrongUpgrade.root, 'wrong v1 stage one status');
+    expect(messages(findHistoryFindings(wrongUpgrade.root, wrongUpgrade.base))).toMatch(
+      /doneGateStageOne\.statusUpgrade/i,
+    );
+  });
+
   it('binds v1 continuation to prior raw bytes and Decision artifacts (TC-04, TC-07)', () => {
     const valid = v1SequencedRepository();
     expect(findHistoryFindings(valid.root, valid.base)).toEqual([]);
@@ -471,6 +552,33 @@ describe('user-execution PLAN order — branch history', () => {
     });
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
       /ancestorSha.*preceding merge commit/,
+    );
+  });
+
+  it('binds continuation Decision artifacts to the exact base parent spec', () => {
+    const changedAtCheckpoint = v1SequencedRepository({
+      mutatePayload: (payload) => ({
+        ...payload,
+        sequencedArtifacts: ['scripts/harness/shared.mjs'],
+      }),
+      mutateContinuationSpec: (spec) =>
+        spec.replace(
+          '**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`',
+          '**Continuation artifacts:** `scripts/harness/shared.mjs`',
+        ),
+    });
+
+    expect(
+      messages(findHistoryFindings(changedAtCheckpoint.root, changedAtCheckpoint.base)),
+    ).toMatch(/sequencedArtifacts.*base.*Decision/i);
+  });
+
+  it('binds ancestorSha to the merge that introduced the prior sequenced checkpoint', () => {
+    const unrelatedLatest = v1SequencedRepository({ withUnrelatedMerge: true });
+
+    expect(unrelatedLatest.base).not.toBe(unrelatedLatest.sequencedMerge);
+    expect(messages(findHistoryFindings(unrelatedLatest.root, unrelatedLatest.base))).toMatch(
+      /ancestorSha.*merge.*sequenced/i,
     );
   });
 
@@ -555,6 +663,27 @@ describe('user-execution PLAN order — branch history', () => {
     expect(
       messages(findStagedFindings(invalidIntroduction.root, invalidIntroduction.base)),
     ).toMatch(/staged checkpoint evidence contract is unreadable/);
+  });
+
+  it('rejects a byte-identical legacy entry removed and reappended after cutover', () => {
+    const fixture = repository();
+    checkpoint(fixture.root);
+    const legacySpec = readFileSync(path.join(fixture.root, SPEC_PATH), 'utf8');
+    write(fixture.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    const cutover = commit(fixture.root, 'introduce v1 contract');
+
+    write(
+      fixture.root,
+      SPEC_PATH,
+      legacySpec.replace(/### \[GATE-IMPLEMENT\][\s\S]*$/, 'GATE evidence temporarily removed.\n'),
+    );
+    commit(fixture.root, 'remove legacy checkpoint occurrence');
+    write(fixture.root, SPEC_PATH, legacySpec);
+    commit(fixture.root, 'reappend byte-identical legacy checkpoint occurrence');
+
+    expect(messages(findHistoryFindings(fixture.root, cutover))).toMatch(
+      /legacy-v0.*(?:introduction|occurrence).*ancestry/i,
+    );
   });
 
   it('treats pathless commits consistently before and after a checkpoint', () => {
@@ -2395,6 +2524,42 @@ describe('user-execution PLAN order — staged transaction', () => {
     git(root, ['add', TASK_PATH, SPEC_PATH, '.agents/loop-runs/user-execution-scenario.jsonl']);
 
     expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('binds v1 worktreePaths to the exact staged PLAN ledger inventory', () => {
+    const omitted = repository({ withContract: true });
+    writeCheckpoint(omitted.root, {
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    });
+    write(
+      omitted.root,
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      `${JSON.stringify(userScenarioRecord())}\n`,
+    );
+    git(omitted.root, ['add', '-A']);
+    expect(messages(findStagedFindings(omitted.root, omitted.base))).toMatch(
+      /worktreePaths.*exact.*inventory/i,
+    );
+
+    const invented = repository({ withContract: true });
+    writeCheckpoint(invented.root, {
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    });
+    const current = readFileSync(path.join(invented.root, SPEC_PATH), 'utf8');
+    write(
+      invented.root,
+      SPEC_PATH,
+      current.replace(
+        '"worktreePaths": [\n    ".agents/spec-docs',
+        '"worktreePaths": [\n    ".agents/loop-runs/user-execution-scenario.jsonl",\n    ".agents/spec-docs',
+      ),
+    );
+    git(invented.root, ['add', '-A']);
+    expect(messages(findStagedFindings(invented.root, invented.base))).toMatch(
+      /worktreePaths.*exact.*inventory/i,
+    );
   });
 
   it('allows implementation staging after HEAD contains the valid checkpoint', () => {

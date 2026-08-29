@@ -217,14 +217,17 @@ function validateContractShape(contract) {
 }
 
 function isRepositoryPath(value) {
-  return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    !value.startsWith('/') &&
-    !value.includes('\\') &&
-    !value.split('/').includes('..') &&
-    !value.startsWith('./')
-  );
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.startsWith('/') ||
+    value.includes('\\') ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return false;
+  }
+  const segments = value.split('/');
+  return segments.every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 }
 
 function validateStringArray(values, member, { sorted = false, allowEmpty = false } = {}) {
@@ -267,6 +270,53 @@ function validatePlan(plan) {
   }
   if (!Number.isInteger(plan.count) || plan.count < 0) return 'plan.count must be non-negative';
   return null;
+}
+
+function levelTwoSectionLines(text, headingPattern) {
+  const source = String(text).split('\n');
+  let fenced = false;
+  let start = -1;
+  for (let index = 0; index < source.length; index += 1) {
+    const line = source[index];
+    if (/^\s*```/.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    if (start === -1) {
+      if (/^##\s+/.test(line) && headingPattern.test(line.replace(/^##\s+/, '').trim())) {
+        start = index;
+      }
+      continue;
+    }
+    if (/^##\s+/.test(line)) return source.slice(start + 1, index);
+  }
+  return start === -1 ? null : source.slice(start + 1);
+}
+
+export function checkpointCheckboxItems(lines) {
+  const items = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^(\s*)[-*]\s+\[([ xX])\]\s*(.*)$/.exec(lines[index]);
+    if (!match) continue;
+    const indent = match[1].length;
+    const parts = [match[3]];
+    let next = index + 1;
+    for (; next < lines.length; next += 1) {
+      const line = lines[next];
+      if (line.trim() === '') break;
+      const lead = /^(\s*)/.exec(line)[1].length;
+      if (lead <= indent) break;
+      parts.push(line.trim());
+    }
+    items.push({ checked: match[2] !== ' ', text: parts.join(' ').trim(), line: index, indent });
+    index = next - 1;
+  }
+  return items;
+}
+
+export function checkpointCompletionCriteria(text) {
+  const section = levelTwoSectionLines(text, /^Completion Criteria$/i);
+  return section === null
+    ? null
+    : checkpointCheckboxItems(section).filter((item) => item.indent === 0);
 }
 
 function validatePayload(contract, formName, payload) {
@@ -372,30 +422,19 @@ function validatePayload(contract, formName, payload) {
   return null;
 }
 
-function levelTwoSection(text, title) {
-  const source = String(text).split('\n');
-  const start = source.findIndex((line) => line.trim() === `## ${title}`);
-  if (start === -1) return '';
-  const end = source.findIndex((line, index) => index > start && /^##\s+/.test(line));
-  return source.slice(start + 1, end === -1 ? source.length : end).join('\n');
-}
-
 export function taskItemsForCheckpoint(specText, taskText) {
-  const criteria = [
-    ...levelTwoSection(specText, 'Completion Criteria').matchAll(
-      /^\s*[-*]\s+\[[ xX]\]\s+(TC-\d{2,}):/gm,
-    ),
-  ].map((match) => match[1]);
+  const criterionItems = checkpointCompletionCriteria(specText) ?? [];
+  const criteria = criterionItems
+    .map((item) => /^(TC-\d{2,}):/.exec(item.text)?.[1] ?? null)
+    .filter(Boolean);
   if (criteria.every((id) => String(taskText).includes(id))) {
     return {
       ok: true,
       items: criteria.map((value) => ({ kind: 'tc-id', value })),
     };
   }
-  const checkboxes = [...String(taskText).matchAll(/^\s*[-*]\s+\[[ xX]\]\s+(.+)$/gm)].map((match) =>
-    match[1].trim(),
-  );
-  if (checkboxes.length < criteria.length) {
+  const checkboxes = checkpointCheckboxItems(String(taskText).split('\n')).map((item) => item.text);
+  if (checkboxes.length < criterionItems.length) {
     return failure(
       `Task names ${criteria.filter((id) => String(taskText).includes(id)).length}/${criteria.length} TC ids and carries ${checkboxes.length} checkbox task(s)`,
     );

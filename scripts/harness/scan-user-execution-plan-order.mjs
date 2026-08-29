@@ -125,28 +125,97 @@ function checkpointContractMarkerCommits(root, revision) {
   );
 }
 
-function legacyEntriesBeforeCutover(root, cutover, basename) {
+function entryCounts(specText) {
+  const counts = new Map();
+  for (const entry of rawGateImplementPassEntries(specText)) {
+    const key = entry.trimEnd();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function legacyEntriesBeforeCutover(root, cutover, revision, basename) {
   const parent = runGit(root, ['rev-parse', `${cutover}^`]);
   if (parent.code !== 0) return [];
   const specPath = `${SPEC_PREFIX}active/${basename}`;
-  return rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath));
+  const baseline = rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath));
+  const baselineCounts = entryCounts(gitText(root, parent.stdout.trim(), specPath));
+  const minimumCounts = new Map(baselineCounts);
+  const previousCounts = new Map(baselineCounts);
+  const reintroduced = new Set();
+  const changed = runGit(root, [
+    'rev-list',
+    '--reverse',
+    '--ancestry-path',
+    `${parent.stdout.trim()}..${revision}`,
+    '--',
+    specPath,
+  ]);
+  if (changed.code !== 0) {
+    throw new Error(
+      `cannot inspect legacy checkpoint occurrence ancestry: ${changed.stderr || '(no stderr)'}`,
+    );
+  }
+  for (const commit of lines(changed.stdout)) {
+    const counts = entryCounts(gitText(root, commit, specPath));
+    for (const key of baselineCounts.keys()) {
+      const count = counts.get(key) ?? 0;
+      if (count > (previousCounts.get(key) ?? 0)) reintroduced.add(key);
+      minimumCounts.set(key, Math.min(minimumCounts.get(key) ?? 0, count));
+      previousCounts.set(key, count);
+    }
+  }
+  const remaining = new Map(
+    [...baselineCounts.keys()].map((key) => [
+      key,
+      reintroduced.has(key) ? 0 : (minimumCounts.get(key) ?? 0),
+    ]),
+  );
+  return baseline.filter((entry) => {
+    const key = entry.trimEnd();
+    const count = remaining.get(key) ?? 0;
+    if (count === 0) return false;
+    remaining.set(key, count - 1);
+    return true;
+  });
 }
 
-function latestMergeAncestor(root, revision) {
-  const result = runGit(root, ['rev-list', '--merges', '-n', '1', revision]);
+function precedingSequencedMerge(root, revision, basename) {
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);
+  if (priorEntry === undefined) return null;
+  const result = runGit(root, ['rev-list', '--first-parent', '--merges', revision]);
   if (result.code !== 0) {
     throw new Error(`cannot inspect preceding merge ancestry: ${result.stderr || '(no stderr)'}`);
   }
-  return result.stdout.trim() || null;
+  for (const merge of lines(result.stdout)) {
+    const parent = runGit(root, ['rev-parse', `${merge}^1`]);
+    if (parent.code !== 0) continue;
+    const inMerge = rawGateImplementPassEntries(gitText(root, merge, specPath)).filter(
+      (entry) => entry === priorEntry,
+    ).length;
+    const inFirstParent = rawGateImplementPassEntries(
+      gitText(root, parent.stdout.trim(), specPath),
+    ).filter((entry) => entry === priorEntry).length;
+    if (inMerge > inFirstParent) return merge;
+  }
+  return null;
 }
 
-function checkpointOptionsAt(root, revision, basename, parentRevision = revision) {
+function checkpointOptionsAt(
+  root,
+  revision,
+  basename,
+  parentRevision = revision,
+  checkpointPaths = null,
+) {
   const cutovers = checkpointContractCutovers(root, revision);
   return {
     ...(cutovers.length === 1
-      ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], basename) }
+      ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
       : {}),
-    ancestorSha: latestMergeAncestor(root, parentRevision),
+    ancestorSha: precedingSequencedMerge(root, parentRevision, basename),
+    ...(checkpointPaths === null ? {} : { checkpointPaths }),
   };
 }
 
@@ -395,8 +464,9 @@ function stripHtmlCommentsOutsideCode(line, state, hasClosingRun) {
   return output;
 }
 
-function visibleMarkdown(text) {
+function visibleMarkdown(text, projectRawIndices = false) {
   const kept = [];
+  const rawIndices = [];
   let fence = null;
   let htmlBlockEnd = null;
   let paragraphOpen = false;
@@ -448,6 +518,7 @@ function visibleMarkdown(text) {
     if (!paragraphOpen && /^(?: {4}|\t)/.test(line)) continue;
     if (line.trim() === '') {
       kept.push(line);
+      rawIndices.push(lineIndex);
       paragraphOpen = false;
       continue;
     }
@@ -484,13 +555,14 @@ function visibleMarkdown(text) {
       continue;
     }
     kept.push(line);
+    rawIndices.push(lineIndex);
     paragraphOpen = !(
       /^ {0,3}#{1,6}(?:\s|$)/.test(line) ||
       /^ {0,3}(?:=+|-+)\s*$/.test(line) ||
       /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)
     );
   }
-  return kept.join('\n');
+  return projectRawIndices ? { lines: kept, rawIndices, sourceLines } : kept.join('\n');
 }
 
 function atxHeading(line) {
@@ -530,6 +602,41 @@ function isCanonicalDatedPass(content, gateName) {
   if (!match) return false;
   const date = new Date(`${match[1]}T00:00:00.000Z`);
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === match[1];
+}
+
+function canonicalRawPassEntries(text, sectionHeading, gateName) {
+  const projection = visibleMarkdown(text, true);
+  const sectionStart = projection.lines.findIndex((line) => {
+    const heading = atxHeading(line);
+    return heading?.level === 2 && heading.content === sectionHeading;
+  });
+  if (sectionStart === -1) return [];
+  let sectionEnd = projection.lines.length;
+  for (let index = sectionStart + 1; index < projection.lines.length; index += 1) {
+    const heading = atxHeading(projection.lines[index]);
+    if (heading && heading.level <= 2) {
+      sectionEnd = index;
+      break;
+    }
+  }
+  const entries = [];
+  for (let index = sectionStart + 1; index < sectionEnd; index += 1) {
+    const heading = atxHeading(projection.lines[index]);
+    if (heading?.level !== 3 || !isCanonicalDatedPass(heading.content, gateName)) continue;
+    let end = sectionEnd;
+    for (let cursor = index + 1; cursor < sectionEnd; cursor += 1) {
+      const next = atxHeading(projection.lines[cursor]);
+      if (next && next.level <= 3) {
+        end = cursor;
+        break;
+      }
+    }
+    const rawStart = projection.rawIndices[index] + 1;
+    const rawEnd =
+      end === projection.lines.length ? projection.sourceLines.length : projection.rawIndices[end];
+    entries.push(projection.sourceLines.slice(rawStart, rawEnd).join('\n'));
+  }
+  return entries;
 }
 
 function canonicalPassEntries(section, gateName) {
@@ -610,6 +717,8 @@ function gateImplementEntryResults(
     ancestorSha = null,
     expectedTaskItems = null,
     taskItemsError = null,
+    baseSpec = null,
+    checkpointPaths = null,
   } = {},
 ) {
   const evidence = markdownSection(spec, '## Evidence Log');
@@ -654,7 +763,8 @@ function gateImplementEntryResults(
       if (eligible) legacyCounts.set(key, legacyCounts.get(key) - 1);
       return {
         ok: eligible && completeLegacyGateImplementEntry(body, binding),
-        error: 'legacy-v0 GATE-IMPLEMENT entry is not ancestry-eligible before the v1 cutover',
+        error:
+          'legacy-v0 GATE-IMPLEMENT occurrence is not ancestry-eligible: no continuously surviving introduction ancestry before the v1 cutover',
         body,
       };
     }
@@ -705,6 +815,22 @@ function gateImplementEntryResults(
         body,
       };
     }
+    if (binding !== null && checkpointPaths !== null) {
+      const expectedWorktreePaths = [
+        `${TASK_PREFIX}${binding.basename}`,
+        `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`,
+        ...checkpointPaths.filter(
+          (entry) => entry.startsWith(LOOP_RUNS_PREFIX) && entry !== POST_MERGE_LEDGER,
+        ),
+      ].sort();
+      if (JSON.stringify(parsed.payload.worktreePaths) !== JSON.stringify(expectedWorktreePaths)) {
+        return {
+          ok: false,
+          error: `${formName}.worktreePaths do not bind the exact checkpoint inventory`,
+          body,
+        };
+      }
+    }
     if (formName === 'gateImplementContinuation') {
       const priorEntry = priorEntries === null ? entries[index - 1] : priorEntries.at(-1);
       if (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry)) {
@@ -715,21 +841,23 @@ function gateImplementEntryResults(
           body,
         };
       }
-      const artifacts = continuationArtifacts(parsedContract.contract, spec);
+      const artifacts = continuationArtifacts(parsedContract.contract, baseSpec ?? spec);
       if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
       if (
         JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
       ) {
         return {
           ok: false,
-          error: 'gateImplementContinuation.sequencedArtifacts do not bind the Decision line',
+          error:
+            'gateImplementContinuation.sequencedArtifacts do not bind the base parentSpec Decision line',
           body,
         };
       }
       if (priorEntries !== null && ancestorSha === null) {
         return {
           ok: false,
-          error: 'gateImplementContinuation.ancestorSha has no preceding merge commit to bind',
+          error:
+            'gateImplementContinuation.ancestorSha has no preceding merge commit that introduced the sequenced checkpoint',
           body,
         };
       }
@@ -740,7 +868,8 @@ function gateImplementEntryResults(
       ) {
         return {
           ok: false,
-          error: 'gateImplementContinuation.ancestorSha does not bind the preceding merge commit',
+          error:
+            'gateImplementContinuation.ancestorSha does not bind the preceding merge commit that introduced the sequenced checkpoint',
           body,
         };
       }
@@ -1104,29 +1233,23 @@ function stageOneScenarioPayload(scenario, outcome, contract) {
   };
 }
 
-function rawPassEntries(text, gateName) {
-  const source = String(text);
-  const escaped = gateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const headings = [
-    ...source.matchAll(
-      new RegExp(`^### \\[${escaped}\\] — ✅ PASS \\| \\d{4}-\\d{2}-\\d{2}\\s*$`, 'gm'),
-    ),
-  ];
-  return headings.map((heading) => {
-    const following = source.slice(heading.index + heading[0].length);
-    const nextHeading = /^#{1,3}\s+/m.exec(following);
-    const end =
-      nextHeading === null ? source.length : heading.index + heading[0].length + nextHeading.index;
-    return source.slice(heading.index, end);
-  });
-}
-
 function v1StageOneResult(task, scenarios, outcome, ruleText) {
   const declared = parseCheckpointEvidenceContract(ruleText);
   if (!declared.ok) return declared;
-  const entries = rawPassEntries(task, 'DONE-GATE-STAGE-1');
+  const form = declared.contract.forms.doneGateStageOne;
+  const entries = canonicalRawPassEntries(task, 'User Execution Test Scenarios', form.heading);
   if (entries.length !== 1) {
     return { ok: false, error: `DONE-GATE-STAGE-1 PASS count is ${entries.length}, expected 1` };
+  }
+  const expectedStatus = `**Status upgrade:** ${form.statusUpgrade}`;
+  const statusLines = entries[0]
+    .split('\n')
+    .filter((line) => /^\*\*Status upgrade:\*\*/.test(line.trim()));
+  if (statusLines.length !== 1 || statusLines[0].trim() !== expectedStatus) {
+    return {
+      ok: false,
+      error: `doneGateStageOne.statusUpgrade must be ${form.statusUpgrade}`,
+    };
   }
   const parsed = parseCheckpointEvidence(declared.contract, 'doneGateStageOne', entries[0]);
   if (!parsed.ok) return parsed;
@@ -1259,6 +1382,7 @@ function isCheckpointTransition({
   const currentOptions = {
     ...checkpointOptions,
     priorEntries: rawGateImplementPassEntries(parentSpec),
+    baseSpec: parentSpec,
     ...(selectedTaskItems.ok
       ? { expectedTaskItems: selectedTaskItems.items }
       : { taskItemsError: selectedTaskItems.error }),
@@ -1470,12 +1594,17 @@ function evaluatePlanTexts({
     })
   ) {
     const signal = exactPlanSignal(task);
+    const selectedTaskItems = taskItemsForCheckpoint(spec, task);
     const diagnostics =
       signal === null
         ? []
         : gateImplementEntryResults(spec, { basename, signal }, ruleText, {
             ...checkpointOptions,
             priorEntries: rawGateImplementPassEntries(parentSpec),
+            baseSpec: parentSpec,
+            ...(selectedTaskItems.ok
+              ? { expectedTaskItems: selectedTaskItems.items }
+              : { taskItemsError: selectedTaskItems.error }),
           })
             .filter((result) => !result.ok)
             .map((result) => result.error);
@@ -1830,7 +1959,7 @@ function validateCheckpointCommit(root, parent, commit, paths, basename) {
       task,
       spec,
       ruleText: gitText(root, commit, BACKLOG_RULE_PATH),
-      checkpointOptions: checkpointOptionsAt(root, commit, basename, parent),
+      checkpointOptions: checkpointOptionsAt(root, commit, basename, parent, paths),
     }),
   );
   const unexpected = allowedCheckpointPaths(root, parent, commit, paths, basename);
@@ -1998,7 +2127,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       entry.paths,
       textIn(entry.commit),
       textIn(entry.parent),
-      (basename) => checkpointOptionsAt(root, entry.commit, basename, entry.parent),
+      (basename) => checkpointOptionsAt(root, entry.commit, basename, entry.parent, entry.paths),
     );
     const malformed =
       transitions.length === 0
@@ -2152,7 +2281,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       textIn(entry.commit),
       textIn(entry.parent),
       (candidateBasename) =>
-        checkpointOptionsAt(root, entry.commit, candidateBasename, entry.parent),
+        checkpointOptionsAt(root, entry.commit, candidateBasename, entry.parent, entry.paths),
     )
       .map((transition) => transition.basename)
       .filter((candidateBasename) => candidateBasename !== basename);
@@ -2275,7 +2404,7 @@ function stagedCheckpoint(root, paths) {
         task,
         spec,
         ruleText: stagedText(BACKLOG_RULE_PATH),
-        checkpointOptions: checkpointOptionsAt(root, 'HEAD', basename),
+        checkpointOptions: checkpointOptionsAt(root, 'HEAD', basename, 'HEAD', paths),
       }),
     );
   }
@@ -2336,7 +2465,7 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (history.checkpoint) {
       // A same-basename re-transition is refused here too, as before: the checkpoint already exists.
       const secondary = checkpointTransitions(staged, stagedText, headText, (basename) =>
-        checkpointOptionsAt(root, 'HEAD', basename),
+        checkpointOptionsAt(root, 'HEAD', basename, 'HEAD', staged),
       ).map((transition) => transition.basename);
       return secondary.length === 0
         ? []

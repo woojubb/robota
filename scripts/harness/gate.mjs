@@ -166,6 +166,8 @@ import path from 'node:path';
 
 import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
 import {
+  checkpointCheckboxItems,
+  checkpointCompletionCriteria,
   formatCheckpointEvidence,
   parseCheckpointEvidenceContract,
   taskItemsForCheckpoint,
@@ -343,24 +345,7 @@ function sectionEnd(lines, startIndex) {
 
 /** Every `- [ ]` / `- [x]` item (any indent) in a run of lines, with its continuation joined. */
 export function checkboxItems(lines) {
-  const items = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const match = /^(\s*)[-*]\s+\[([ xX])\]\s*(.*)$/.exec(lines[i]);
-    if (!match) continue;
-    const indent = match[1].length;
-    const parts = [match[3]];
-    let next = i + 1;
-    for (; next < lines.length; next += 1) {
-      const line = lines[next];
-      if (line.trim() === '') break;
-      const lead = /^(\s*)/.exec(line)[1].length;
-      if (lead <= indent) break;
-      parts.push(line.trim());
-    }
-    items.push({ checked: match[2] !== ' ', text: parts.join(' ').trim(), line: i, indent });
-    i = next - 1;
-  }
-  return items;
+  return checkpointCheckboxItems(lines);
 }
 
 /** Pipe-table data rows (header and separator dropped) as arrays of trimmed cells. */
@@ -523,9 +508,7 @@ export function taskPathFromSpec(text) {
 }
 
 function completionCriteria(text) {
-  const section = sectionBody(text, /^Completion Criteria$/i);
-  if (!section) return null;
-  return checkboxItems(section.body).filter((item) => item.indent === 0);
+  return checkpointCompletionCriteria(text);
 }
 
 function tcIdOf(itemText) {
