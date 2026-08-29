@@ -2455,7 +2455,210 @@ describe('user-execution PLAN order — branch history', () => {
   });
 });
 
+const AGREEMENT_PARENT = 'AGREEMENT-004-parent';
+const AGREEMENT_CHILDREN = [
+  ['FLOW-008', 'FLOW-008-child'],
+  ['API-001', 'API-001-child'],
+];
+
+function stageAgreementPrelude(
+  root,
+  {
+    parentTaskTransform = (text) => text,
+    specTransform = (text) => text,
+    childTransform = (text) => text,
+  } = {},
+) {
+  const issue = 'https://github.com/woojubb/robota/issues/1987';
+  write(
+    root,
+    `.agents/tasks/${AGREEMENT_PARENT}.md`,
+    parentTaskTransform(
+      [
+        '---',
+        `issue: ${issue}`,
+        'status: todo',
+        'children: [FLOW-008, API-001]',
+        '---',
+        '',
+        '# AGREEMENT-004: parent',
+        '',
+        '## Children',
+        '',
+        '- [ ] FLOW-008 — todo — `.agents/tasks/FLOW-008-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+        '- [ ] API-001 — todo — `.agents/tasks/API-001-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+      ].join('\n'),
+    ),
+  );
+  write(
+    root,
+    `.agents/spec-docs/draft/${AGREEMENT_PARENT}.md`,
+    specTransform(
+      [
+        '---',
+        'status: draft',
+        'type: AGREEMENT',
+        'tags: [typescript]',
+        '---',
+        '',
+        '# AGREEMENT-004: parent',
+        '',
+        '## Tasks',
+        '',
+        '- [ ] FLOW-008 — todo — `.agents/tasks/FLOW-008-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+        '- [ ] API-001 — todo — `.agents/tasks/API-001-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+      ].join('\n'),
+    ),
+  );
+  for (const [id, basename] of AGREEMENT_CHILDREN) {
+    write(
+      root,
+      `.agents/tasks/${basename}.md`,
+      childTransform(
+        ['---', `issue: ${issue}`, 'status: todo', '---', '', `# ${basename}`].join('\n'),
+        id,
+      ),
+    );
+  }
+  git(root, ['add', '.agents/tasks', '.agents/spec-docs/draft']);
+}
+
 describe('user-execution PLAN order — staged transaction', () => {
+  it('accepts one newly staged AGREEMENT parent/spec plus its declared child Tasks', () => {
+    const { root, base } = repository();
+    stageAgreementPrelude(root);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('accepts the same atomic AGREEMENT manifest after the staged transaction is committed', () => {
+    const { root, base } = repository();
+    stageAgreementPrelude(root);
+    expect(findStagedFindings(root, base)).toEqual([]);
+
+    commit(root, 'convert issue into atomic agreement manifest');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('rejects an atomic AGREEMENT manifest without one concrete source Issue', () => {
+    const { root, base } = repository();
+    const removeIssue = (text) => text.replace(/^issue:.*\n/m, '');
+    stageAgreementPrelude(root, {
+      parentTaskTransform: removeIssue,
+      childTransform: removeIssue,
+    });
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/source issue/i);
+  });
+
+  it.each([
+    {
+      name: 'unrelated implementation path',
+      arrange(root) {
+        stageAgreementPrelude(root);
+        write(root, 'packages/example/unrelated.ts', 'implementation\n');
+        git(root, ['add', 'packages/example/unrelated.ts']);
+      },
+      expected: /unrelated path/i,
+    },
+    {
+      name: 'duplicate child declaration',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          parentTaskTransform: (text) =>
+            text.replace(
+              'children: [FLOW-008, API-001]',
+              'children: [FLOW-008, FLOW-008, API-001]',
+            ),
+        });
+      },
+      expected: /unique|project/i,
+    },
+    {
+      name: 'unresolved child declaration',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          parentTaskTransform: (text) =>
+            text.replace('children: [FLOW-008, API-001]', 'children: [FLOW-008, DATA-999]'),
+        });
+      },
+      expected: /DATA-999.*exactly one staged Task/i,
+    },
+    {
+      name: 'non-todo child',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          childTransform: (text, id) =>
+            id === 'FLOW-008' ? text.replace('status: todo', 'status: in-progress') : text,
+        });
+      },
+      expected: /FLOW-008.*status `todo`/i,
+    },
+    {
+      name: 'nested AGREEMENT child',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          childTransform: (text, id) =>
+            id === 'FLOW-008'
+              ? text.replace('status: todo', 'status: todo\nchildren: [DATA-999]')
+              : text,
+        });
+      },
+      expected: /nested AGREEMENT/i,
+    },
+    {
+      name: 'source Issue mismatch',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          childTransform: (text, id) =>
+            id === 'FLOW-008' ? text.replace('/issues/1987', '/issues/1988') : text,
+        });
+      },
+      expected: /parent source issue/i,
+    },
+    {
+      name: 'malformed projection',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          specTransform: (text) => text.replace('FLOW-008 — todo', 'FLOW-008 todo'),
+        });
+      },
+      expected: /Tasks.*malformed|Tasks.*project/i,
+    },
+  ])('rejects atomic AGREEMENT manifest: $name', ({ arrange, expected }) => {
+    const { root, base } = repository();
+    arrange(root);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(expected);
+  });
+
+  it('rejects rewriting a pre-existing child as part of an atomic AGREEMENT prelude', () => {
+    const root = makeTemp('robota-agreement-existing-child-');
+    git(root, ['init', '-b', 'develop']);
+    git(root, ['config', 'user.email', 'fixture@example.com']);
+    git(root, ['config', 'user.name', 'Fixture']);
+    write(root, 'README.md', 'base\n');
+    write(
+      root,
+      '.agents/tasks/FLOW-008-child.md',
+      [
+        '---',
+        'issue: https://github.com/woojubb/robota/issues/1987',
+        'status: todo',
+        '---',
+        '',
+        '# existing child',
+      ].join('\n'),
+    );
+    const base = commit(root, 'base (#1)');
+    git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(root, ['switch', '-c', 'feature']);
+    stageAgreementPrelude(root);
+
+    expect(messages(findStagedFindings(root, base))).toMatch(/FLOW-008.*newly added/i);
+  });
+
   it('rejects staged implementation before HEAD contains a checkpoint', () => {
     const { root, base } = repository();
     write(root, 'packages/example/src.ts', 'implementation\n');

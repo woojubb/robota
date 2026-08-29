@@ -33,7 +33,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import {
   continuationArtifacts,
@@ -1728,6 +1728,158 @@ function planningPreludeProblems(paths, basename, textForPath, parentTextForPath
   return problems;
 }
 
+function agreementProjection(text, heading) {
+  const section = markdownSection(text ?? '', `## ${heading}`);
+  if (section === null) return { missing: true, rows: [], malformed: [] };
+  const rows = [];
+  const malformed = [];
+  for (const line of section.split('\n')) {
+    if (!/^\s*[-*]\s+\[[ xX]\]/.test(line)) continue;
+    const match =
+      /^\s*[-*]\s+\[([ xX])\]\s+([A-Z][A-Z0-9]*-\d+)\s+—\s+(\S+)\s+—\s+`([^`]+)`\s*$/.exec(line);
+    if (match === null) malformed.push(line);
+    else
+      rows.push({
+        checked: match[1].toLowerCase() === 'x',
+        id: match[2],
+        status: match[3],
+        taskPath: match[4],
+      });
+  }
+  return { missing: false, rows, malformed };
+}
+
+function agreementPrelude(paths, textForPath, parentTextForPath) {
+  const taskPaths = paths.filter(
+    (file) => file.startsWith(TASK_PREFIX) && !file.slice(TASK_PREFIX.length).includes('/'),
+  );
+  const specPaths = paths.filter((file) => {
+    const basename = specBasename(file);
+    if (basename === null) return false;
+    const folder = file.slice(SPEC_PREFIX.length).split('/', 1)[0];
+    return PRE_CHECKPOINT_SPEC_STATUS.has(folder);
+  });
+  const parentTasks = taskPaths.filter((file) => {
+    const id = subjectId(taskBasename(file) ?? '');
+    return (
+      id?.startsWith('AGREEMENT-') &&
+      asList(frontmatterObject(textForPath(file) ?? '').children).length > 0
+    );
+  });
+  const agreementSpecs = specPaths.filter(
+    (file) => asScalar(frontmatterObject(textForPath(file) ?? '').type).trim() === 'AGREEMENT',
+  );
+  if (parentTasks.length === 0 && agreementSpecs.length === 0) return null;
+
+  const problems = [];
+  if (parentTasks.length !== 1 || agreementSpecs.length !== 1) {
+    problems.push(
+      `atomic AGREEMENT prelude requires exactly one parent Task and one AGREEMENT spec; found ${parentTasks.length} parent Task(s) and ${agreementSpecs.length} spec(s).`,
+    );
+    return { basename: null, problems };
+  }
+
+  const parentTaskPath = parentTasks[0];
+  const parentSpecPath = agreementSpecs[0];
+  const parentBasename = taskBasename(parentTaskPath);
+  if (parentBasename === null || specBasename(parentSpecPath) !== parentBasename) {
+    problems.push('atomic AGREEMENT parent Task and spec do not have the exact same basename.');
+    return { basename: null, problems };
+  }
+  const parentTask = textForPath(parentTaskPath);
+  const parentSpec = textForPath(parentSpecPath);
+  if (parentTextForPath(parentTaskPath) !== null || parentTextForPath(parentSpecPath) !== null) {
+    problems.push('atomic AGREEMENT parent Task/spec must both be newly added.');
+  }
+  if (frontmatterStatus(parentTask) !== 'todo') {
+    problems.push('atomic AGREEMENT parent Task must have status `todo`.');
+  }
+  const specFolder = parentSpecPath.slice(SPEC_PREFIX.length).split('/', 1)[0];
+  const expectedSpecStatus = PRE_CHECKPOINT_SPEC_STATUS.get(specFolder);
+  if (frontmatterStatus(parentSpec) !== expectedSpecStatus) {
+    problems.push(
+      `atomic AGREEMENT spec in ${specFolder}/ must have status \`${expectedSpecStatus}\`.`,
+    );
+  }
+
+  const parentFields = frontmatterObject(parentTask ?? '');
+  const parentIssue = asScalar(parentFields.issue).trim();
+  if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+$/.test(parentIssue)) {
+    problems.push('atomic AGREEMENT parent must cite one concrete GitHub source issue.');
+  }
+  const children = asList(parentFields.children)
+    .map((child) => child.trim())
+    .filter(Boolean);
+  if (new Set(children).size !== children.length) {
+    problems.push('atomic AGREEMENT children must be unique.');
+  }
+  const childRecords = [];
+  for (const childId of children) {
+    const matches = taskPaths.filter((file) => subjectId(taskBasename(file) ?? '') === childId);
+    if (matches.length !== 1) {
+      problems.push(
+        `atomic AGREEMENT child ${childId} must resolve to exactly one staged Task; found ${matches.length}.`,
+      );
+      continue;
+    }
+    const childPath = matches[0];
+    const childText = textForPath(childPath);
+    const childFields = frontmatterObject(childText ?? '');
+    if (parentTextForPath(childPath) !== null)
+      problems.push(`atomic AGREEMENT child ${childId} must be newly added.`);
+    if (frontmatterStatus(childText) !== 'todo')
+      problems.push(`atomic AGREEMENT child ${childId} must have status \`todo\`.`);
+    if (asScalar(childFields.issue).trim() !== parentIssue) {
+      problems.push(`atomic AGREEMENT child ${childId} must cite the parent source issue.`);
+    }
+    if (childId.startsWith('AGREEMENT-') || asList(childFields.children).length > 0) {
+      problems.push(`atomic AGREEMENT child ${childId} must not be a nested AGREEMENT.`);
+    }
+    childRecords.push({ id: childId, taskPath: childPath });
+  }
+
+  const expectedPaths = new Set([
+    parentTaskPath,
+    parentSpecPath,
+    ...childRecords.map((child) => child.taskPath),
+  ]);
+  for (const file of paths) {
+    if (expectedPaths.has(file)) continue;
+    if (
+      isLoopLedgerPath(file) &&
+      file !== POST_MERGE_LEDGER &&
+      validateLedgerAppend(
+        file,
+        parentTextForPath(file) ?? '',
+        textForPath(file) ?? '',
+        parentBasename,
+      )
+    ) {
+      continue;
+    }
+    problems.push(`atomic AGREEMENT prelude contains unrelated path \`${file}\`.`);
+  }
+
+  const expectedRows = childRecords
+    .map(({ id, taskPath }) => JSON.stringify({ checked: false, id, status: 'todo', taskPath }))
+    .sort();
+  for (const [text, heading] of [
+    [parentTask, 'Children'],
+    [parentSpec, 'Tasks'],
+  ]) {
+    const projection = agreementProjection(text, heading);
+    if (projection.missing) problems.push(`atomic AGREEMENT parent is missing ## ${heading}.`);
+    if (projection.malformed.length > 0) {
+      problems.push(`atomic AGREEMENT ## ${heading} has malformed row(s).`);
+    }
+    const actualRows = projection.rows.map((row) => JSON.stringify(row)).sort();
+    if (JSON.stringify(actualRows) !== JSON.stringify(expectedRows)) {
+      problems.push(`atomic AGREEMENT ## ${heading} must exactly project every declared child.`);
+    }
+  }
+  return { basename: parentBasename, problems };
+}
+
 function allowedCheckpointPaths(root, from, to, paths, basename) {
   const sourceSpec = `${SPEC_PREFIX}todo/${basename}`;
   const validSourceDeletion =
@@ -2031,6 +2183,24 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
             entry.commit,
           ),
         );
+        continue;
+      }
+      const agreement = agreementPrelude(entry.paths, textIn(entry.commit), textIn(entry.parent));
+      if (agreement !== null) {
+        if (
+          agreement.problems.length > 0 ||
+          (pendingBasename !== null && pendingBasename !== agreement.basename)
+        ) {
+          findings.push(
+            finding(
+              `implementation exists with no planning checkpoint: ${entry.paths.join(', ')}${agreement.problems.length > 0 ? ` (${agreement.problems.join(' ')})` : ''}.`,
+              entry.commit,
+            ),
+          );
+          continue;
+        }
+        planningStarted = true;
+        pendingBasename = agreement.basename;
         continue;
       }
       const basenames = planningBasenames(entry.paths);
@@ -2337,6 +2507,26 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const proposed = stagedCheckpoint(root, staged);
     const findings = proposed.problems.map((problem) => finding(problem));
     if (proposed.pairs.length === 0) {
+      const agreement = agreementPrelude(staged, stagedText, headText);
+      if (agreement !== null) {
+        findings.push(...agreement.problems.map((problem) => finding(problem)));
+        if (history.pendingBasename !== null) {
+          findings.push(
+            finding(
+              `atomic AGREEMENT prelude cannot replace pending planning unit \`${history.pendingBasename}\`.`,
+            ),
+          );
+        }
+        const residue = worktreePaths(root);
+        if (residue.length > 0) {
+          findings.push(
+            finding(
+              `unstaged or untracked path(s) exist during planning prelude: ${residue.join(', ')}.`,
+            ),
+          );
+        }
+        return findings;
+      }
       const basenames = planningBasenames(staged);
       const basename = basenames.length === 1 ? basenames[0] : null;
       const preludeProblems =
