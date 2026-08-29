@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -39,11 +39,15 @@ Inspect the three archived records and issue comments. Run `pnpm harness:scan` a
 
 Not applicable — backlog lifecycle only, with no new user-facing behavior.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+Plan is not applicable because this batch changes only backlog lifecycle documents and introduces no user-facing behavior or scenario.
 
 ## Tasks
 
-- [x] Archive TRANS-008 as completed.
-- [x] Archive DOCS-024 and HARNESS-124 as skipped handoffs.
+Paired Task: `.agents/tasks/DOCS-049-terminalize-trans008-docs024-harness124.md`
+
+- [x] Archive TRANS-008 as completed with commit `05c4f99c5` evidence.
+- [x] Archive DOCS-024 as skipped to issue #2049.
+- [x] Archive HARNESS-124 as skipped to issue #2237.
 
 ## Evidence Log
 
@@ -53,11 +57,24 @@ Not applicable — backlog lifecycle only, with no new user-facing behavior.
 
 **Class:** `BACKLOG-ZERO-MIGRATION`
 
+**Given:** 2026-08-29, this conversation; standing DOCS-029 delegation.
+
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
 
-Planning pair created; implementation is limited to backlog lifecycle documents.
+**Status upgrade:** approved → in-progress
+
+Checkpoint spec: `.agents/spec-docs/active/DOCS-049-terminalize-trans008-docs024-harness124.md`
+
+- GATE-IMPLEMENT — the paired Task exists at `.agents/tasks/DOCS-049-terminalize-trans008-docs024-harness124.md` and records `SCENARIO DRAFTED: not-applicable | 0`.
+- GATE-IMPLEMENT — the worktree inventory is limited to this exact spec/Task pair; this is a whole-worktree document-only change.
+
+<!-- checkpoint-evidence:v1:start -->
+```json
+{"version":1,"form":"gateImplementFirst","taskPath":".agents/tasks/DOCS-049-terminalize-trans008-docs024-harness124.md","specPath":".agents/spec-docs/todo/DOCS-049-terminalize-trans008-docs024-harness124.md","taskItems":[],"plan":{"outcome":"not-applicable","count":0},"worktreePaths":[".agents/spec-docs/todo/DOCS-049-terminalize-trans008-docs024-harness124.md",".agents/tasks/DOCS-049-terminalize-trans008-docs024-harness124.md"]}
+```
+<!-- checkpoint-evidence:v1:end -->
 
 ### [GATE-VERIFY] — ✅ PASS | 2026-08-29
 

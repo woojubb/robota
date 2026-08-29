@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-049: terminalize TRANS-008, DOCS-024, and HARNESS-124'
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: soon
@@ -19,6 +19,7 @@ verification. The diff must contain no package, app, API, policy, CI, or runtime
 
 Not applicable — internal backlog lifecycle only.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+Plan is not applicable because this batch changes only backlog lifecycle documents and introduces no user-facing behavior or scenario.
 
 ## Tasks
 
