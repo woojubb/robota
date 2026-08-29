@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 import {
@@ -31,6 +31,11 @@ const LIVE_BACKLOG_RULE = readFileSync(
 );
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
 const execFileAsync = promisify(execFile);
+
+// These integration fixtures create and inspect real temporary Git repositories. A focused run can
+// make an individual fixture exceed Vitest's 10-second unit-test default while Git is still making
+// progress, so keep a bounded file-level allowance for this integration suite.
+vi.setConfig({ testTimeout: 30_000 });
 
 function yieldToEventLoop() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -167,6 +172,13 @@ function taskText({
         ]
       : []),
   ].join('\n');
+}
+
+function conversionTaskText(baseOid) {
+  return `${taskText().replace(
+    'status: in-progress',
+    'status: in-progress\nissue: https://github.com/woojubb/robota/issues/900',
+  )}\n\nConversion evidence: issue=https://github.com/woojubb/robota/issues/900; task=HARNESS-900; marker=https://github.com/woojubb/robota/issues/900#issuecomment-1; marker-readback=2026-08-29T00:00:00Z; priority-removed=2026-08-29T00:00:01Z; base=develop; base-oid=${baseOid}\n\nCombined lifecycle eligibility: eligible; work-kind=enhancement; priority=P0; issue-state=OPEN; child-causes=0; security=none; data-correctness=none; user-decision=none; contract-change=none; owner-count=1\n`;
 }
 
 function v1AutomatableBrowserTask() {
@@ -309,10 +321,20 @@ function v1SequencedRepository({
   mutateParentSpec = (spec) => spec,
   mutatePayload = (payload) => payload,
   mutateContinuationSpec = (spec) => spec,
+  mutateContinuationTask = (task) => task,
   withUnrelatedMerge = false,
+  withConversionEvidence = false,
+  withNonAncestorConversionBase = false,
 } = {}) {
-  const { root } = repository({ withContract: true });
-  write(root, TASK_PATH, taskText());
+  const { root, base: repositoryBase } = repository({ withContract: true });
+  let conversionBase = repositoryBase;
+  if (withNonAncestorConversionBase) {
+    git(root, ['switch', '-q', '-c', 'conversion-base-sibling', repositoryBase]);
+    write(root, 'SIBLING.md', 'conversion base outside the checkpoint ancestry\n');
+    conversionBase = commit(root, 'non-ancestor conversion base');
+    git(root, ['switch', '-q', 'feature']);
+  }
+  write(root, TASK_PATH, withConversionEvidence ? conversionTaskText(conversionBase) : taskText());
   write(
     root,
     SPEC_PATH,
@@ -340,6 +362,9 @@ function v1SequencedRepository({
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(root, ['switch', '-q', '-c', 'feature-2']);
+
+  const parentTask = readFileSync(path.join(root, TASK_PATH), 'utf8');
+  write(root, TASK_PATH, mutateContinuationTask(parentTask, { base, conversionBase }));
 
   const priorSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
   const priorRaw = rawGateImplementPassEntries(priorSpec).at(-1);
@@ -370,7 +395,7 @@ function v1SequencedRepository({
     ),
   );
   commit(root, 'v1 continuation checkpoint');
-  return { root, base, sequencedMerge };
+  return { root, base, conversionBase, sequencedMerge };
 }
 
 function postMergeRecord(base, runId = 'r20260825000000') {
@@ -565,6 +590,42 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
       /ancestorSha.*preceding merge commit/,
     );
+  });
+
+  it('replays the immutable conversion base across a later continuation', () => {
+    const fixture = v1SequencedRepository({ withConversionEvidence: true });
+
+    expect(fixture.conversionBase).not.toBe(fixture.base);
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('refuses conversion receipt mutation during continuation', () => {
+    const changedTask = v1SequencedRepository({
+      withConversionEvidence: true,
+      mutateContinuationTask: (task) => `${task}\nchanged after the first checkpoint\n`,
+    });
+    expect(findHistoryFindings(changedTask.root, changedTask.base)).not.toEqual([]);
+
+    const changedBase = v1SequencedRepository({
+      withConversionEvidence: true,
+      mutateContinuationTask: (task, { base, conversionBase }) =>
+        task.replace(`base-oid=${conversionBase}`, `base-oid=${base}`),
+    });
+    expect(findHistoryFindings(changedBase.root, changedBase.base)).not.toEqual([]);
+
+    const nonAncestor = v1SequencedRepository({
+      withConversionEvidence: true,
+      withNonAncestorConversionBase: true,
+    });
+    expect(() =>
+      git(nonAncestor.root, [
+        'merge-base',
+        '--is-ancestor',
+        nonAncestor.conversionBase,
+        nonAncestor.base,
+      ]),
+    ).toThrow();
+    expect(findHistoryFindings(nonAncestor.root, nonAncestor.base)).not.toEqual([]);
   });
 
   it('preserves every parent PASS byte-identically in prefix order before one append', () => {
