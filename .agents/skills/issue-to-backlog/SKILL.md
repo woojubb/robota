@@ -35,8 +35,11 @@ root error" or "two skills, because they run at different times" has done part o
 
 Use this order:
 
-1. Keep the GitHub issue as the parent initiative when it states a broad outcome or coordinates several
-   causes. Do not implement directly from a broad parent issue.
+1. Keep the GitHub issue as the parent initiative while deciding how its causes divide. Do not implement
+   directly from a broad parent issue. Once the causes have been split into child Issues, the parent is
+   no longer an open work item: link every child, record the decomposition, and close the parent with
+   a comment naming the child Issues. This prevents an open parent from being selected and decomposed
+   repeatedly.
 2. Create a child issue when a cause needs separate external discussion, priority, ownership, security
    review, or terminal disposition.
 3. Create a Task when the cause can have one recommendation gate, one verification plan, and one
@@ -64,27 +67,23 @@ split.
 4. **Write the Task(s)** per the README schema. Cite the source issue in every Task. For several
    related children, add a parent `AGREEMENT` Task
    **and its paired spec-doc** — `task-archival` fails an AGREEMENT with no spec.
-5. For an `AGREEMENT` conversion, stage one complete atomic manifest before finalizing the Issue:
-   - one newly added exact-basename parent Task/pre-checkpoint `type: AGREEMENT` spec pair;
-   - every uniquely declared child as a newly added, non-AGREEMENT `todo` Task citing the same Issue;
-   - exact `## Children` and `## Tasks` rows for those child IDs, statuses, and paths; and
-   - no unrelated, pre-existing, nested-AGREEMENT, non-todo, or implementation path.
-     Run `node scripts/harness/scan-user-execution-plan-order.mjs --staged`, then commit this conversion
-     prelude as one planning unit. The children remain separate execution units after conversion.
-6. For a triaged P0/P1 Issue, use
+   If the judgement created child GitHub Issues, link every child to the parent and read those links
+   back before proceeding. Then close the parent with a decomposition comment listing each child; the
+   parent must not remain open as a second work item.
+5. For a triaged P0/P1 Issue, use
    [`github-issue-triage`](../github-issue-triage/SKILL.md) to dry-run and finalize the handoff. P0 maps
    to Task `urgency: now`; P1 maps to `urgency: soon`; P2 must be promoted first. Finalization writes
-   the exact Task ID/path back to the Issue and reads it before removing the P label. For several Task
-   citations, finalize only the committed `AGREEMENT` parent; audit requires that single exact marker
-   and validates its declared children rather than choosing by traversal order. Do not implement while
-   either operation is incomplete. A Task created without an Issue does not run this step.
-7. Record any finding the conversion itself produced; do not turn internal implementation steps into
+   the exact Task ID/path back to the Issue and reads it before removing the P label. Do not implement
+   while either operation is incomplete. A Task created without an Issue does not run this step.
+6. Record any finding the conversion itself produced; do not turn internal implementation steps into
    new issues unless they meet the child-issue test above.
-8. **Verify**: `task-lifecycle.mjs classify` returns `open` for each, and `pnpm harness:scan` is green.
+7. **Verify**: `task-lifecycle.mjs classify` returns `open` for each, and `pnpm harness:scan` is green.
 
 ## Do not
 
-- **Do not close the issue on conversion.** It closes when the work lands, not when it is filed.
+- **Do not close an unsplit issue on conversion.** It closes when the tracked work lands. A parent that
+  has been decomposed into child Issues is the exception: after all child links are readable, close the
+  parent immediately with the decomposition comment; the children carry the remaining work.
 - **Do not start the work in the same change.** The conversion is the gate; walking through it is the
   next step, not this one.
 - **Do not carry the issue's structure into the Task** if that structure is a list of deliverables

@@ -40,8 +40,11 @@ trust assumptions, failure policy, or verification, keep them as separate causes
 same transport.
 
 Every Task converted from an issue must cite its source issue. Conversion does not authorize
-implementation; the issue remains open until the tracked work lands or receives an explicit terminal
-disposition. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
+implementation; an unsplit issue remains open until the tracked work lands or receives an explicit
+terminal disposition. When an issue is decomposed into child Issues, the parent must be linked to every
+child and closed immediately with a comment naming those children; the children, not the parent, remain
+as the open work queue. This prevents repeated decomposition from growing the queue without reducing
+it. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
 
 ### GitHub Issue Intake and Conversion Queue
 
