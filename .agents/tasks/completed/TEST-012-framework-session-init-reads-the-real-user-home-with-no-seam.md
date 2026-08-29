@@ -1,12 +1,14 @@
 ---
 title: "TEST-012: framework session initialisation reads the real user home with no seam, so tests execute whatever the developer's machine has"
 issue: https://github.com/woojubb/robota/issues/2300
-status: todo
+status: skipped
 created: 2026-08-28
 priority: high
 urgency: soon
 area: packages/agent-framework, packages/agent-session, vitest setup
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2300#issuecomment-5460946131
 ---
 
 # TEST-012: framework session initialisation reads the real user home with no seam
@@ -94,3 +96,9 @@ enforcement policy for fire-and-forget SessionStart (issue #2075 / issue #2093).
 
 Not applicable — test infrastructure and framework seams; no product surface. To be re-judged by
 `user-execution-scenario-author` when the item is picked up.
+
+## Resolution
+
+This defect is already represented by the open canonical issue #2300, including the real-versus-empty
+HOME attribution evidence and the unresolved remedy choice. The local duplicate is archived as
+skipped and returned to that issue; no isolation fix is claimed here.

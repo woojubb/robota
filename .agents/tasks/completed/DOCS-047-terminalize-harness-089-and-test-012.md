@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-047: terminalize HARNESS-089 and TEST-012 duplicate records'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: soon
@@ -18,9 +19,9 @@ HARNESS-089 by architecture-contract issue #2049 and TEST-012 by host-state test
 
 ## Plan
 
-- [ ] Record exact handoff comments on #2049 and #2300.
-- [ ] Mark both local records skipped with terminal metadata and archive them.
-- [ ] Run lifecycle, citation, and CI-like verification scans.
+- [x] Record exact handoff comments on #2049 and #2300.
+- [x] Mark both local records skipped with terminal metadata and archive them.
+- [x] Run lifecycle, citation, and CI-like verification scans.
 
 ## Test Plan
 

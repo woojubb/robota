@@ -1,11 +1,13 @@
 ---
 title: 'HARNESS-089: the architecture-doc package-name guard only validates @robota-sdk-scoped tokens, and the dependency-direction rules ignore peerDependencies — the guards are blind to exactly the reference style and edge set they claim to cover'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: high
 urgency: soon
 area: scripts/harness/check-dependency-direction.mjs, .agents/harness.config.json
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2049#issuecomment-5460946050
 ---
 
 # HARNESS-089: dependency-direction guard blind spots
@@ -60,3 +62,9 @@ without this leaves the drift free to recur.
 ## User Execution Test Scenarios
 
 Not applicable — harness/guard change only; verification is the red-first fixtures in the Test Plan.
+
+## Resolution
+
+This guard/document-graph finding is explicitly covered by the open architecture-contract owner
+issue #2049. The implementation remains outstanding there; this local duplicate is archived as
+skipped with the exact handoff rather than claiming the guard is fixed.
