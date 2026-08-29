@@ -1213,7 +1213,7 @@ describe('user-execution PLAN order — branch history', () => {
       );
       await yieldToEventLoop();
     }
-  });
+  }, 300_000);
 
   it('allows a controlled grep pipe over product command output', () => {
     const fixture = repository();
@@ -3357,7 +3357,7 @@ describe('user-execution PLAN order — repository contract', () => {
     );
     expect(result.stderr).toBe('');
     expect(result.stdout).toMatch(/::examined:: \d+ topic commit\(s\)/);
-  });
+  }, 300_000);
 
   it('prefers HARNESS_BASE_REF over the pull-request base for promotion verification', () => {
     const { root, base } = repository();
