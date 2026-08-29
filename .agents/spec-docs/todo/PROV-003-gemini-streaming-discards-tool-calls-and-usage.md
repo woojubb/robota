@@ -35,6 +35,8 @@ contract.
   calls and usage metadata across provider chunks.
 - Sibling providers validate unsupported native web-tool requests at both chat entry points; Gemini follows
   that established capability-contract behavior.
+- No comparable external reference was found; the implementation follows the repository-owned provider
+  contract and adjacent provider implementations.
 
 ## Completion Criteria
 
