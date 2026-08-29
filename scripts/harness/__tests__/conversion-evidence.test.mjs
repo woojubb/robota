@@ -41,6 +41,20 @@ describe('parseConversionEvidence', () => {
     expect(parse(text({ priority })).kind).toBe('eligible');
   });
 
+  it('marker evidence is pure', () => {
+    const result = parse(text());
+    expect(result).toMatchObject({
+      kind: 'eligible',
+      conversion: {
+        issue: `https://github.com/woojubb/robota/issues/${issueNumber}`,
+        task: taskId,
+        marker: `https://github.com/woojubb/robota/issues/${issueNumber}#issuecomment-5462112669`,
+        'base-oid': baseOid,
+      },
+      eligibility: { eligible: 'eligible', priority: 'P0' },
+    });
+  });
+
   it('refuses each eligibility field', () => {
     for (const field of [
       'work-kind=bug',

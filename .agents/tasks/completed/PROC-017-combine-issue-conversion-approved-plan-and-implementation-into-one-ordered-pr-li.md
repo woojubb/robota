@@ -1,8 +1,9 @@
 ---
 title: 'PROC-017: combine issue conversion, approved PLAN, and implementation into one ordered PR lifecycle'
 issue: https://github.com/woojubb/robota/issues/2514
-status: in-progress
+status: done
 created: 2026-08-29
+completed: 2026-08-30
 priority: critical
 urgency: now
 area: repository workflow, harness scripts, backlog gates
@@ -29,17 +30,17 @@ reviewed again before implementation.
 
 ## Plan
 
-- [ ] Define the eligibility predicate and ordered, resumable lifecycle while preserving existing owner boundaries.
-- [ ] Add the conversion-evidence binding guard and focused failure-injection tests with RED proof.
-- [ ] Update the governing workflow skills/rules and command documentation with the new owner map.
-- [ ] Run affected harness scans, tests, and typecheck; this internal workflow change has no product CLI scenario.
-- [ ] Complete independent review, CI/review-thread resolution, merge verification, and issue writeback.
-- [ ] TC-01 — implement and run the missing-evidence parser test plus isolated RED proof.
-- [ ] TC-02 — implement and run the deterministic affected-path classification fixture and affected scans.
-- [ ] TC-03 — implement and run conversion/checkpoint refusal fixtures and preserve downstream guardians.
-- [ ] TC-04 — wire all four owner documents and both harness owners, then run exact path scans.
-- [ ] TC-05 — run pure parser and existing `finalizeIssueConversion` read-back failure tests plus issue #2514 read-back.
-- [ ] TC-06 — record/compare baseline and candidate lifecycle JSON evidence and verify both artifacts are tracked.
+- [x] Define the eligibility predicate and ordered, resumable lifecycle while preserving existing owner boundaries.
+- [x] Add the conversion-evidence binding guard and focused failure-injection tests with RED proof.
+- [x] Update the governing workflow skills/rules and command documentation with the new owner map.
+- [x] Run affected harness scans, tests, and typecheck; this internal workflow change has no product CLI scenario.
+- [x] Complete independent review, CI/review-thread resolution, merge verification, and issue writeback.
+- [x] TC-01 — implement and run the missing-evidence parser test plus isolated RED proof.
+- [x] TC-02 — implement and run the deterministic affected-path classification fixture and affected scans.
+- [x] TC-03 — implement and run conversion/checkpoint refusal fixtures and preserve downstream guardians.
+- [x] TC-04 — wire all four owner documents and both harness owners, then run exact path scans.
+- [x] TC-05 — run pure parser and existing `finalizeIssueConversion` read-back failure tests plus issue #2514 read-back.
+- [x] TC-06 — record/compare baseline and candidate lifecycle JSON evidence and verify both artifacts are tracked.
 
 ## Test Plan
 
@@ -90,3 +91,9 @@ covered in `## Test Plan`; an internal harness command is not a canonical produc
 Reason: not applicable because this work changes only repository-internal issue triage, planning gates,
 branch ancestry, and harness enforcement; it changes no runtime command, TUI/browser flow, public SDK,
 configuration contract, or product output.
+
+## Result
+
+- PR #2542 merged into `develop` as `026d7ac799706d9cd0c2d71b951304bdf8810727` after all required checks passed and the exact-head review reported `ACTIONABLE FINDINGS: 0`.
+- Candidate evidence records one lifecycle, zero conversion PRs, and zero conversion-PR open wait; comparison against merged PRs #2501/#2507 passes the required `2 → 1` contract.
+- Exact TC commands exposed and fixed the candidate-PR `jq` boolean bug, a missing pure-marker fixture, stale owner-document search terms, and focused Vitest timeout/test-selection failures.

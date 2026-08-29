@@ -32,9 +32,10 @@ const LIVE_BACKLOG_RULE = readFileSync(
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
 const execFileAsync = promisify(execFile);
 
-// These integration fixtures create and inspect real temporary Git repositories. A focused run can
-// make an individual fixture exceed Vitest's 10-second unit-test default while Git is still making
-// progress, so keep a bounded file-level allowance for this integration suite.
+// These integration fixtures create and inspect real temporary Git repositories. A focused `-t` run
+// can make an individual fixture exceed Vitest's 10-second unit-test default even though it is still
+// progressing; keep a bounded file-level allowance while the few whole-history subprocess cases retain
+// their explicit 300-second bounds below.
 vi.setConfig({ testTimeout: 30_000 });
 
 function yieldToEventLoop() {
@@ -3438,11 +3439,11 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
     checkpoint(root);
 
     expect(messages(findHistoryFindings(root, base))).toMatch(/post-merge ledger/);
-  });
+  }, 300_000);
 });
 
 describe('user-execution PLAN order — repository contract', () => {
-  it('passes on this branch and includes the real predecessor prelude plus checkpoint', async () => {
+  it('passes on this branch and includes the real predecessor prelude plus planning transition', async () => {
     const result = await execFileAsync(
       process.execPath,
       [
