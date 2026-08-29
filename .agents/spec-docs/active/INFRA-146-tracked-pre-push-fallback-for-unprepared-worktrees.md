@@ -1,8 +1,8 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [git-hooks, worktrees, fail-closed]
-lane: L1
+lane: L2
 ---
 
 # INFRA-146: keep the pre-push gate present in unprepared worktrees
@@ -46,6 +46,38 @@ run the focused harness tests.
 
 - [ ] `.agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md`
 - [ ] TC-01 and TC-02: implement and verify the two hook states.
+
+## Evidence Log
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md` exists and is bound above.
+- Subject-bound PLAN: `SCENARIO DRAFTED: not-applicable | 0`, because this is internal Git hook enforcement with no user-facing product surface.
+- Whole-worktree precondition: only the exact paired spec and Task changed at this checkpoint.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md",
+  "taskItems": [
+    { "kind": "tc-id", "value": "TC-01" },
+    { "kind": "tc-id", "value": "TC-02" }
+  ],
+  "plan": { "outcome": "not-applicable", "count": 0 },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md",
+    ".agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
 

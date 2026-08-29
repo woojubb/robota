@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-146: keep the pre-push gate present in unprepared worktrees'
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -28,6 +28,8 @@ have been installed.
 Reason: not applicable because this is internal Git hook enforcement with no user-facing product
 surface.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Recorded reason: not applicable because this is internal Git hook enforcement with no user-facing product surface.
 
 ## Test Plan
 
