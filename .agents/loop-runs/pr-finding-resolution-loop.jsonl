@@ -14,4 +14,4 @@
 {"runId":"r20260828225049","opened":"2026-08-28T22:50:49.688Z","closed":"2026-08-29T03:19:07.238Z","roundFindings":[1],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260829031907"}
 {"runId":"r20260829031907","opened":"2026-08-29T03:19:07.238Z","closed":"2026-08-29T04:25:18.486Z","roundFindings":[8,3,2,1,0],"extensions":{},"terminal":"converged","ref":"INFRA-140 exact HEAD fc9598892 ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260829060517","opened":"2026-08-29T06:05:17.251Z","closed":"2026-08-29T06:21:42.394Z","roundFindings":[2,1,0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260829092746","opened":"2026-08-29T09:27:46.395Z","closed":null,"roundFindings":[5],"extensions":{},"terminal":null,"ref":null}
+{"runId":"r20260829092746","opened":"2026-08-29T09:27:46.395Z","closed":null,"roundFindings":[5,2],"extensions":{},"terminal":null,"ref":null}

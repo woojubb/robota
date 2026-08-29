@@ -84,9 +84,10 @@ compatibility alias, loader catch-and-continue behavior, or user-facing degradat
 2. Use `yaml` document/AST parsing with duplicate-key detection and source coordinates. Reject aliases,
    merge keys, non-mapping roots, unsupported node shapes, malformed YAML, and missing closing
    delimiters. No opening delimiter is a valid empty-metadata document whose body equals the input.
-3. Close the `skill` vocabulary over runtime and repository-owned fields, let `bundle-skill` add only
-   `tags`, and close `agent` over its consumed fields plus checked-in `signal`. Reject skill `model`;
-   retain agent `model`; type skill `effort` with imported `TModelEffort`; accept only `context: fork`.
+3. Close the `skill` vocabulary over runtime and repository-owned fields including its contracted
+   `model`, let `bundle-skill` add only `tags`, and close `agent` over its consumed fields plus
+   checked-in `signal`. Retain both skill and agent `model`; type skill `effort` with imported
+   `TModelEffort`; accept only `context: fork`.
 4. Share strict boolean, non-empty string, list, scalar-metadata-map, effort, and positive-safe-integer
    primitives. Lists accept YAML string sequences or the explicitly supported comma/whitespace scalar
    notation, rejecting empty members and wrong shapes.
@@ -111,7 +112,8 @@ compatibility alias, loader catch-and-continue behavior, or user-facing degradat
 - [x] TC-01: `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts` proves minimal and complete success for all three profiles, typed values, both list forms, actual repository metadata fields, and exact LF/CRLF/no-header body preservation; the RED run fails before the decoder exists.
 - [x] TC-02: the same test file rejects every reviewed structural/schema class with exact diagnostic
       code/source/line/column/field assertions and proves `disable-model-invocation: treu` cannot become
-      `false`, invalid `maxTurns` cannot cross the boundary, skill `model` fails, and agent `model` succeeds.
+      `false`, invalid `maxTurns` cannot cross the boundary, skill and agent `model` succeed, inherited
+      prototype names fail as unknown fields, and metadata prototype names remain ordinary data keys.
 - [x] TC-03: the decoder output uses imported `TModelEffort`, every profile has a closed independently
       tested key set, and `git diff --exit-code origin/develop -- packages/agent-framework/src/commands/skill-source.ts packages/agent-framework/src/plugins/bundle-plugin-utils.ts packages/agent-framework/src/agents/agent-definition-loader.ts packages/agent-framework/src/index.ts` confirms no loader wiring or public export.
 - [x] TC-04: `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-framework typecheck && pnpm --filter @robota-sdk/agent-framework lint && pnpm --filter @robota-sdk/agent-framework build` exits 0.
@@ -122,7 +124,7 @@ compatibility alias, loader catch-and-continue behavior, or user-facing degradat
 | TC-ID | Test Type          | Tool / Approach                                   | Notes                                                                                                                                                     |
 | ----- | ------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TC-01 | Unit/TDD           | Focused Vitest file                               | RED before module exists; GREEN for all valid profiles and exact body behavior                                                                            |
-| TC-02 | Security/negative  | Table-driven focused Vitest file                  | Fail-closed structural and field diagnostics, including authority-widening typo proof                                                                     |
+| TC-02 | Security/negative  | Table-driven focused Vitest file                  | Fail-closed structural and field diagnostics, including authority-widening typo and prototype-key proofs                                                  |
 | TC-03 | Type/scope         | Type assertions plus exact `git diff --exit-code` | `TModelEffort` SSOT, closed profiles, no wiring/export scope creep                                                                                        |
 | TC-04 | Package regression | Package test/typecheck/lint/build                 | **Test skipped:** aggregate package verification is evidenced by the exact test, typecheck, lint, and build commands rather than a duplicate wrapper test |
 | TC-05 | Repository/design  | Affected harness scans and design-doc gate        | Governance and internal design conformance                                                                                                                |
@@ -329,3 +331,19 @@ design-doc completeness scan passed (1 design document(s) examined in 1 target p
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
 - GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`, which exists
 - GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md
+
+### [ROUND-A2-CORRECTION] — ✅ PASS | 2026-08-29
+
+The implementation review proved the earlier skill-`model` rejection premise false by tracing the
+existing `skill-source.ts` projection to `ICommand.model`. The final contract retains that field,
+rejects prototype-visible top-level keys, and preserves prototype-named extensible metadata as data.
+Historical 33-test/1,596-test gate outputs above remain the exact output observed at that gate; the
+current completion evidence superseding those counts is:
+
+- Focused decoder tests: `37/37` passed (100%).
+- Package regression: `197/197` files and `1,600/1,600` tests passed (100%).
+- Package build, typecheck, and lint: exit 0; lint reported zero errors.
+- Affected PR scan: `103/105` passed (98.1%), `1/105` conditionally skipped (1.0%), and `1/105`
+  historical advisory tolerated (1.0%); blocking failures `0/105` (0%), including
+  `lane-declaration` PASS with the spec and all commit trailers declaring `L1`.
+- Design-document and SPEC coverage scans: PASS; the frontmatter design backlink is bidirectional.

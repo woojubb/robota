@@ -62,13 +62,13 @@ diagnostic set; never return partial metadata. Preserve the exact body suffix an
 blocks, YAML structural errors, duplicate keys, aliases or merge keys, unknown top-level fields, wrong
 shapes, boolean typos, invalid context or effort values, and non-positive-safe-integer turn limits.
 
-The `skill` vocabulary includes the runtime and repository-owned keys `name`, `description`,
+The `skill` vocabulary includes the runtime and repository-owned keys `name`, `description`, `model`,
 `argument-hint`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `effort`, `context`,
 `agent`, `loop`, `invocable`, `license`, and bounded scalar `metadata`; `bundle-skill` additionally
 accepts `tags`. The `agent` vocabulary is `name`, `description`, `model`, `maxTurns`, `tools`,
-`disallowedTools`, and `signal`. Skill `model` is deliberately rejected because no current contract or
-consumer owns it; agent `model` remains because the agent contract consumes it. Skill `effort` imports
-the existing `TModelEffort` owner, and `context` accepts only the currently contracted `fork` value.
+`disallowedTools`, and `signal`. Both skill and agent `model` remain because their current command and
+agent contracts consume them. Skill `effort` imports the existing `TModelEffort` owner, and `context`
+accepts only the currently contracted `fork` value.
 Existing loaders remain untouched for [issue #2094](https://github.com/woojubb/robota/issues/2094)
 and [issue #2095](https://github.com/woojubb/robota/issues/2095).
 
@@ -86,6 +86,11 @@ already owns; [issue #2094](https://github.com/woojubb/robota/issues/2094) and
 vocabularies, insufficient YAML syntax, under-specified body/diagnostic semantics, and unowned skill
 `model`. The revised recommendation above resolved all four. Round 2 returned
 `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+
+**Implementation-review correction.** Round A traced `skill-source.ts` through `ICommand.model` and
+proved that the recommendation review's “unowned skill model” premise was false. The final profile
+therefore retains skill `model`; prototype-named top-level fields fail as unknown, and extensible
+metadata stores the same names as ordinary data without reaching object prototypes.
 
 **Approval.** The owner's standing instruction is: "나에게 제안할 때는 타당한 근거와 함께 추천안을
 제안해야 하며, 그 추천안이 타당할 경우 자동승인한다." The independent ENDORSE establishes that
@@ -113,6 +118,8 @@ the stated grounds are valid, so this exact recommendation is automatically appr
   exist.
 - Skill and agent variants have closed, independently tested key sets and share scalar/list/effort
   primitives rather than duplicating coercion logic.
+- Prototype-named top-level keys cannot reach inherited appliers, while the extensible metadata map
+  preserves them as ordinary scalar data keys.
 - The effort field consumes the `TModelEffort` SSOT, and no arbitrary string crosses the decoded
   boundary.
 - Existing skill/plugin and agent loaders are not migrated in this Task;
@@ -133,7 +140,7 @@ the stated grounds are valid, so this exact recommendation is automatically appr
 
 - Added one private, caller-profiled frontmatter decoder subsystem with fail-closed YAML parsing,
   typed profile output, structured coordinates, and no partial-result path.
-- Focused validation passed 33/33 tests (100%); package regression passed 1,596/1,596 tests (100%),
+- Focused validation passed 37/37 tests (100%); package regression passed 1,600/1,600 tests (100%),
   typecheck, lint with zero errors, and build.
 - Affected scans exited 0 with 103/105 checks passing (98.1%), one conditional skip (1.0%), and one
   historical advisory (1.0%); the design-document gate passed and every production file is below
