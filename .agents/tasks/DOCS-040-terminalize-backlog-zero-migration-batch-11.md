@@ -17,7 +17,7 @@ Move TRANS-003, TRANS-004, and HARNESS-087 to their canonical OPEN GitHub issue 
 
 ## Spec
 
-`.agents/spec-docs/draft/DOCS-040-terminalize-backlog-zero-migration-batch-11.md`
+`.agents/spec-docs/todo/DOCS-040-terminalize-backlog-zero-migration-batch-11.md`
 
 ## Plan
 
