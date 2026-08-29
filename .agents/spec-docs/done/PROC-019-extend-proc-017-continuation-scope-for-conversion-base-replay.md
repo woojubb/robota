@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: FLOW
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-019: Extend PROC-017 continuation scope for conversion-base replay
 
-Paired with `.agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md`.
+Paired with `.agents/tasks/completed/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md`.
 Arising from [issue #2514](https://github.com/woojubb/robota/issues/2514).
 
 ## Problem
@@ -81,20 +81,20 @@ seven-item parser result, unique declaration count, implementation diff scope, a
 
 ## Completion Criteria
 
-- [ ] TC-01: a Node assertion using `parseCheckpointEvidenceContract` and
+- [x] TC-01: a Node assertion using `parseCheckpointEvidenceContract` and
       `continuationArtifacts` exits 0 and returns the exact seven Decision artifacts in order.
-- [ ] TC-02: `rg -c '^\*\*Continuation artifacts:\*\* ' <PROC-017-active-spec>` prints `1`, and
+- [x] TC-02: `rg -c '^\*\*Continuation artifacts:\*\* ' <PROC-017-active-spec>` prints `1`, and
       the implementation range names only the PROC-017 active spec.
-- [ ] TC-03: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-03: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0 after the declaration change is committed.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                | Notes                                                                         |
-| ----- | ----------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| TC-01 | Contract    | Node assertion over `checkpoint-evidence-contract.mjs` exports                 | Test skipped: live exact-value assertion exercises the existing tested parser |
-| TC-02 | Static/diff | exact `rg -c` plus `git diff --name-only`                                      | Test skipped: the single-document scope is verified directly                  |
-| TC-03 | Suite       | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Repository regression gate                                                    |
+| TC-ID | Test Type   | Tool / Approach                                                                | Notes                                                                                   |
+| ----- | ----------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| TC-01 | Contract    | Node assertion over `checkpoint-evidence-contract.mjs` exports                 | Test skipped: live exact-value assertion exercises the existing tested parser           |
+| TC-02 | Static/diff | exact `rg -c` plus `git diff --name-only`                                      | Test skipped: the single-document scope is verified directly                            |
+| TC-03 | Suite       | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Test skipped: documentation-only instance is verified by the live affected-scan command |
 
 ## User Execution Test Scenarios
 
@@ -105,7 +105,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md` — todo
+- [x] `.agents/tasks/completed/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md` — done
 
 ## Evidence Log
 
@@ -204,3 +204,67 @@ Recorded as the rule's required choice rather than skipped.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `node --input-type=module -e <exact continuationArtifacts seven-item assertion>`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+[".agents/evidence/PROC-017-candidate.json",".agents/loop-runs/pr-finding-resolution-loop.jsonl",".agents/skills/backlog-execution-orchestrator/SKILL.md",".agents/skills/user-request-gate/SKILL.md","scripts/harness/scan-user-execution-plan-order.mjs","scripts/harness/__tests__/conversion-evidence.test.mjs","scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs"]
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `rg -c continuation-artifacts && git diff --name-only 5a2cb5fe3..db57412d2`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+declaration_count=1
+changed_path=.agents/spec-docs/active/PROC-017-combine-issue-conversion-approved-plan-and-implementation-into-one-ordered-pr-li.md
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 51 line(s))
+
+```
+✓ llms-txt
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification: 1 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 1 real violation(s) recorded, not cleared by editing history.
+
+36 scans passed, 1 skipped (27 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md,  M .agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md
+```
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 36 scans passed, 1 skipped (27 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md, M .agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` → exit 0 ( Duration 179ms (transform 24ms, setup 0ms, collect 28ms, tests 11ms, environment 0ms, prepare 28ms) ⏎ ⏎ 3:36:55 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-30; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/PROC-019-extend-proc-017-continuation-scope-for-conversion-base-replay.md
