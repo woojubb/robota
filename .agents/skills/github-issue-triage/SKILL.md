@@ -17,6 +17,10 @@ This skill owns procedure only. It does not redefine the queue or make Issues th
 
 ## Create an Issue (mandatory intake contract)
 
+Issue titles and bodies are repository artifacts and must be written in English by default. If an issue
+arrives in another language, translate it during intake while preserving the original meaning and any
+required evidence.
+
 Use one of the three repository Issue Forms for every new Issue:
 
 - **Bug report** → exactly `bug` + `status:needs-triage`

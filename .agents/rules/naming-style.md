@@ -13,6 +13,9 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - **Everything else defaults to English**, unless the user explicitly requests otherwise: code and comments,
   ALL repository documents (including `.design/`), commit messages (conventional-commits format), and any other
   written artifact.
+- **GitHub issue titles and bodies default to English** for consistent triage, search, automation, and
+  cross-session handoff. Translate an issue written in another language when discovered; preserve quoted
+  user text only when needed as evidence and provide an English summary.
 
 ### Korean Writing Style (only when Korean output is explicitly requested)
 
