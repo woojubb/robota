@@ -1,11 +1,12 @@
 ---
 title: 'DOCS-050: terminalize duplicate HARNESS-115 and HARNESS-125 records'
-status: in-progress
+status: done
 created: 2026-08-29
 priority: medium
 urgency: soon
 area: .agents/tasks, .agents/spec-docs
 depends_on: []
+completed: 2026-08-29
 ---
 
 # DOCS-050: terminalize duplicate HARNESS-115 and HARNESS-125 records

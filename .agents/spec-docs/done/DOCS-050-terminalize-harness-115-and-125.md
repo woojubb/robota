@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -84,3 +84,10 @@ Not applicable — internal backlog lifecycle only.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+The approved planning pair advanced to the active implementation checkpoint; the exact paired Task
+and spec are present and the worktree remains document-only.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+Both records carry terminal metadata and exact handoff URLs; the final diff is document-only.
