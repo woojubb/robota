@@ -102,7 +102,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active.md` — todo
+- [x] `.agents/tasks/completed/INFRA-139-gate-judges-reject-archived-tasks-as-active.md` — done
 
 ## Evidence Log
 
