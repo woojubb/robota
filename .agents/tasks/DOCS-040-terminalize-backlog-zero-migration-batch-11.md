@@ -1,7 +1,7 @@
 ---
 title: 'DOCS-040: Terminalize backlog-zero migration batch 11'
 issue: https://github.com/woojubb/robota/issues/2404
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -17,7 +17,7 @@ Move TRANS-003, TRANS-004, and HARNESS-087 to their canonical OPEN GitHub issue 
 
 ## Spec
 
-`.agents/spec-docs/todo/DOCS-040-terminalize-backlog-zero-migration-batch-11.md`
+`.agents/spec-docs/active/DOCS-040-terminalize-backlog-zero-migration-batch-11.md`
 
 ## Plan
 
