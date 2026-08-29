@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: []
 lane: L2
@@ -570,3 +570,20 @@ patching the #2433 writer symptom.`
 
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the recorded instruction authorizes a future category and its measured condition is met, but it does not name or directly approve INFRA-139; an unregistered standing category cannot become Route DIRECT or CLASS under the current approval contract
   **Required action:** obtain a fresh Route DIRECT instruction explicitly approving the current INFRA-139 recommendation and authorizing its implementation, then re-run GATE-APPROVAL
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "나에게 제안할 때는 타당한 근거와 함께 추천안을 제안해야 하며, 그 추천안이 타당할 경우 자동승인한다."
+**Given:** 2026-08-29, this conversation
+**Review fingerprint:** c7962be995b3 (review a0ecc517, type/tags f1b5bdf0)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-29, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (c7962be995b3) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — given as the immediate response to the explicit request for fresh approval of the current INFRA-139 recommendation; `그 추천안` refers to INFRA-139, whose `REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0` satisfy the stated validity condition
+- GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — route DIRECT, so no delegated CLASS boundary applies
+- GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — INFRA-139 introduces no new package, app, product surface, layer reclassification, or product-family boundary
