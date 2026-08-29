@@ -525,7 +525,15 @@ function gateImplementEntryResults(
   const evidence = markdownSection(spec, '## Evidence Log');
   const visibleEntries = canonicalPassEntries(evidence, 'GATE-IMPLEMENT');
   const rawEntries = rawGateImplementPassEntries(spec);
-  const entries = rawEntries.length === visibleEntries.length ? rawEntries : visibleEntries;
+  const entries = rawEntries;
+  if (rawEntries.length !== visibleEntries.length) {
+    return rawEntries.map((body) => ({
+      ok: false,
+      error:
+        'raw and canonical PASS populations must correspond exactly under real-calendar date semantics',
+      body,
+    }));
+  }
   if (
     priorEntries !== null &&
     (rawEntries.length !== priorEntries.length + 1 ||
@@ -560,7 +568,7 @@ function gateImplementEntryResults(
     const key = entry.trimEnd();
     legacyCounts.set(key, (legacyCounts.get(key) ?? 0) + 1);
   }
-  return entries.map((body, index) => {
+  const results = entries.map((body, index) => {
     const isCurrentIntroduction = priorEntries !== null && index === priorEntries.length;
     const entryForm = gateImplementEntryForm(body);
     const formName =
@@ -649,8 +657,11 @@ function gateImplementEntryResults(
       }
     }
     if (formName === 'gateImplementContinuation') {
-      const priorEntry = isCurrentIntroduction ? priorEntries.at(-1) : entries[index - 1];
-      if (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry)) {
+      const priorEntry = isCurrentIntroduction ? null : entries[index - 1];
+      if (
+        !isCurrentIntroduction &&
+        (priorEntry === undefined || parsed.payload.priorPass !== priorPassDigest(priorEntry))
+      ) {
         return {
           ok: false,
           error:
@@ -695,6 +706,34 @@ function gateImplementEntryResults(
     }
     return { ok: true, payload: parsed.payload, body };
   });
+  if (priorEntries === null) return results;
+
+  const currentIndex = priorEntries.length;
+  const priorResults = results.slice(0, currentIndex);
+  if (priorResults.some((result) => !result.ok)) {
+    results[currentIndex] = {
+      ok: false,
+      error: 'every prior canonical PASS must be complete and valid before a continuation',
+      body: entries[currentIndex],
+    };
+    return results;
+  }
+  const current = results[currentIndex];
+  const latestValidatedPredecessor = priorResults.findLast((result) => result.ok);
+  if (
+    current?.ok &&
+    current.payload.form === 'gateImplementContinuation' &&
+    (latestValidatedPredecessor === undefined ||
+      current.payload.priorPass !== priorPassDigest(latestValidatedPredecessor.body))
+  ) {
+    results[currentIndex] = {
+      ok: false,
+      error:
+        'gateImplementContinuation.priorPass does not hash the latest complete validated predecessor PASS entry',
+      body: current.body,
+    };
+  }
+  return results;
 }
 
 function normalizedScenarioLines(body) {

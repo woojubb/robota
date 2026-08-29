@@ -300,6 +300,7 @@ function continuation(root, options = {}) {
 }
 
 function v1SequencedRepository({
+  mutateParentSpec = (spec) => spec,
   mutatePayload = (payload) => payload,
   mutateContinuationSpec = (spec) => spec,
   withUnrelatedMerge = false,
@@ -309,12 +310,14 @@ function v1SequencedRepository({
   write(
     root,
     SPEC_PATH,
-    specText({
-      v1: true,
-      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
-    }).replace(
-      '## Evidence Log',
-      '## Architecture Review\n\n### Decision\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`\n\n## Evidence Log',
+    mutateParentSpec(
+      specText({
+        v1: true,
+        worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+      }).replace(
+        '## Evidence Log',
+        '## Architecture Review\n\n### Decision\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`\n\n## Evidence Log',
+      ),
     ),
   );
   commit(root, 'PR 1 v1 checkpoint');
@@ -334,20 +337,23 @@ function v1SequencedRepository({
 
   const priorSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
   const priorRaw = rawGateImplementPassEntries(priorSpec).at(-1);
-  const payload = mutatePayload({
-    version: 1,
-    form: 'gateImplementContinuation',
-    priorPass: priorPassDigest(priorRaw),
-    sequencedArtifacts: [
-      'scripts/harness/gate.mjs',
-      'scripts/harness/scan-user-execution-plan-order.mjs',
-    ],
-    ancestorSha: base,
-    taskPath: TASK_PATH,
-    specPath: SPEC_PATH,
-    plan: { outcome: 'not-applicable', count: 0 },
-    worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
-  });
+  const payload = mutatePayload(
+    {
+      version: 1,
+      form: 'gateImplementContinuation',
+      priorPass: priorPassDigest(priorRaw),
+      sequencedArtifacts: [
+        'scripts/harness/gate.mjs',
+        'scripts/harness/scan-user-execution-plan-order.mjs',
+      ],
+      ancestorSha: base,
+      taskPath: TASK_PATH,
+      specPath: SPEC_PATH,
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+    },
+    { priorSpec },
+  );
   const rendered = formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementContinuation', payload);
   if (!rendered.ok) throw new Error(rendered.error);
   write(
@@ -534,7 +540,7 @@ describe('user-execution PLAN order — branch history', () => {
       mutatePayload: (payload) => ({ ...payload, priorPass: `sha256:${'0'.repeat(64)}` }),
     });
     expect(messages(findHistoryFindings(badDigest.root, badDigest.base))).toMatch(
-      /priorPass.*latest prior raw PASS/,
+      /priorPass.*latest complete validated predecessor PASS/,
     );
 
     const badArtifacts = v1SequencedRepository({
@@ -579,6 +585,28 @@ describe('user-execution PLAN order — branch history', () => {
         expect(findings, name).not.toBe('');
       }
     }
+  });
+
+  it('rejects incomplete and invalid-date raw predecessors before a continuation', () => {
+    const incomplete = v1SequencedRepository({
+      mutateParentSpec: (spec) =>
+        `${spec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-28\n\n${CONTINUATION_STATUS_LINE}\n`,
+    });
+    expect(messages(findHistoryFindings(incomplete.root, incomplete.base))).toMatch(
+      /every prior canonical PASS.*complete and valid/i,
+    );
+
+    const invalidDate = v1SequencedRepository({
+      mutateParentSpec: (spec) =>
+        `${spec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-99-99\n\n${CONTINUATION_STATUS_LINE}\n`,
+      mutatePayload: (payload, { priorSpec }) => ({
+        ...payload,
+        priorPass: priorPassDigest(rawGateImplementPassEntries(priorSpec)[0]),
+      }),
+    });
+    expect(messages(findHistoryFindings(invalidDate.root, invalidDate.base))).toMatch(
+      /raw and canonical PASS populations must correspond exactly/i,
+    );
   });
 
   it('binds continuation Decision artifacts to the exact base parent spec', () => {
