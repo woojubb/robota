@@ -46,11 +46,48 @@ consume this decoder; this Task must not migrate their discovery roots or add co
 - Do not retain permissive aliases, forwarding parsers, or compatibility fallbacks; the affected API
   is prerelease.
 
+## Recommendation Gate
+
+**Accepted recommendation (2026-08-29).** Place one non-public decoder in
+`packages/agent-framework/src/frontmatter/` and make callers select an explicit closed `skill`,
+`bundle-skill`, or `agent` profile. Parse the delimited document with a direct `yaml` runtime
+dependency, then validate the resulting AST into a fully typed value or a structured non-empty
+diagnostic set; never return partial metadata. Preserve the exact body suffix and reject unterminated
+blocks, YAML structural errors, duplicate keys, aliases or merge keys, unknown top-level fields, wrong
+shapes, boolean typos, invalid context or effort values, and non-positive-safe-integer turn limits.
+
+The `skill` vocabulary includes the runtime and repository-owned keys `name`, `description`,
+`argument-hint`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `effort`, `context`,
+`agent`, `loop`, `invocable`, `license`, and bounded scalar `metadata`; `bundle-skill` additionally
+accepts `tags`. The `agent` vocabulary is `name`, `description`, `model`, `maxTurns`, `tools`,
+`disallowedTools`, and `signal`. Skill `model` is deliberately rejected because no current contract or
+consumer owns it; agent `model` remains because the agent contract consumes it. Skill `effort` imports
+the existing `TModelEffort` owner, and `context` accepts only the currently contracted `fork` value.
+Existing loaders remain untouched for issue #2094 and issue #2095.
+
+**Grounds.** The repository inventory contains `loop`, `invocable`, `license`, nested `metadata`,
+bundle `tags`, and agent `signal`/`tools`, so a narrower vocabulary would reject supported documents.
+All future consumers are internal to `agent-framework`, which is already allowed to depend on
+`agent-core`; therefore the private framework subsystem is the lowest owner without reversing a
+dependency. A validated YAML parser supports the formats already present without repeating the unsafe
+line parsers. Exact body preservation leaves consumer-specific trimming to the loader-migration
+issues. The depth review classified the shared strict decoder as the foundational cause that this Task
+already owns; #2094 and #2095 own only integration.
+
+**Independent review.** Round 1 returned `REVIEW VERDICT: REVISE` with four findings: missing real key
+vocabularies, insufficient YAML syntax, under-specified body/diagnostic semantics, and unowned skill
+`model`. The revised recommendation above resolved all four. Round 2 returned
+`REVIEW VERDICT: ENDORSE` and `ACTIONABLE FINDINGS: 0`.
+
+**Approval.** The owner's standing instruction is: "나에게 제안할 때는 타당한 근거와 함께 추천안을
+제안해야 하며, 그 추천안이 타당할 경우 자동승인한다." The independent ENDORSE establishes that
+the stated grounds are valid, so this exact recommendation is automatically approved.
+
 ## Plan
 
-- [ ] Survey the exact skill and agent key vocabularies and identify the lowest correct owner for the
+- [x] Survey the exact skill and agent key vocabularies and identify the lowest correct owner for the
       shared decoder and its typed output without reversing package dependencies.
-- [ ] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
+- [x] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
       keys, booleans, lists, positive integers, context values, model values, and effort values.
 - [ ] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
 - [ ] Prove every invalid class fails and every valid variant preserves its typed values.
@@ -84,6 +121,11 @@ consume this decoder; this Task must not migrate their discovery roots or add co
 
 ## User Execution Test Scenarios
 
-Not applicable for this leaf: it deliberately defines and tests the shared decoder without connecting
-any production loader. Issue #2094 and issue #2095 own the runnable skill/plugin and agent loading
-surfaces and must record user-execution evidence when they migrate those paths.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Not applicable for this leaf: it delivers only a private, directly tested decoder and deliberately
+does not connect any production loader. Current CLI, TUI, browser, and public SDK paths therefore do
+not invoke the new decoder. This is not an unreachable user-facing capability hidden behind an
+internal seam because this Task claims no runnable behavior; issue #2094 and issue #2095 own the
+skill/plugin and agent-loader integrations and their user-visible rejection behavior. A scenario run
+through today's product would exercise the existing permissive parsers rather than SECURITY-002.
