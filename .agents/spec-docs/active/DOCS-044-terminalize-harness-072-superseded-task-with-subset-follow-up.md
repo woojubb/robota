@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs]
 lane: L2
@@ -99,3 +99,50 @@ The superseded original issue, shipped subset evidence, new subset 3 issue, and 
 **Given:** 2026-08-29, this conversation; standing approval recorded in DOCS-029.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 **Evidence condition met:** HARNESS-072 subset 3 handoff to issue #2485 is recorded; no source/API/policy changes are included.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task carries 3 checkbox tasks for 3 criteria
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 164 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md",
+  "specPath": ".agents/spec-docs/todo/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md",
+  "taskItems": [
+    {
+      "kind": "checkbox",
+      "value": "Mark HARNESS-072 skipped with the exact issue-comment handoff."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Move the record to completed archive and record the resolution."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Run lifecycle, citation, and CI-like verification scans."
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md",
+    ".agents/tasks/DOCS-044-terminalize-harness-072-superseded-task-with-subset-follow-up.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
