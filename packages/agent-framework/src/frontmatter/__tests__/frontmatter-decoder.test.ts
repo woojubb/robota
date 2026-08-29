@@ -190,8 +190,8 @@ describe('decodeFrontmatter', () => {
     {
       name: 'an unknown field',
       profile: 'skill' as const,
-      line: 'model: claude',
-      expected: { code: 'unknown-field', line: 2, column: 1, field: 'model' },
+      line: 'unrecognized: value',
+      expected: { code: 'unknown-field', line: 2, column: 1, field: 'unrecognized' },
     },
     {
       name: 'a boolean typo',
@@ -269,6 +269,19 @@ describe('decodeFrontmatter', () => {
     });
   });
 
+  it('preserves __proto__ as an ordinary scalar metadata key', () => {
+    const result = decodeFrontmatter({
+      source: SOURCE,
+      profile: 'skill',
+      content: '---\nmetadata:\n  __proto__: retained\n---\n',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Object.hasOwn(result.metadata.metadata ?? {}, '__proto__')).toBe(true);
+    expect(result.metadata.metadata?.['__proto__']).toBe('retained');
+  });
+
   it('attributes a nested duplicate key to its top-level metadata field', () => {
     const diagnostics = decodeFailure(
       'skill',
@@ -320,21 +333,39 @@ describe('decodeFrontmatter', () => {
     });
   });
 
-  it('accepts agent model while rejecting the same field for skills', () => {
+  it('accepts the contracted model field for agent and skill profiles', () => {
     const agent = decodeFrontmatter({
       source: SOURCE,
       profile: 'agent',
       content: '---\nmodel: owned-agent-model\n---\n',
     });
-    const skillDiagnostics = decodeFailure('skill', '---\nmodel: unowned-skill-model\n---\n');
+    const skill = decodeFrontmatter({
+      source: SOURCE,
+      profile: 'skill',
+      content: '---\nmodel: owned-skill-model\n---\n',
+    });
 
     expect(agent).toEqual({
       ok: true,
       metadata: { model: 'owned-agent-model' },
       body: '',
     });
-    expect(skillDiagnostics[0]).toMatchObject({ code: 'unknown-field', field: 'model' });
+    expect(skill).toEqual({
+      ok: true,
+      metadata: { model: 'owned-skill-model' },
+      body: '',
+    });
   });
+
+  it.each(['toString', 'constructor', '__proto__'])(
+    'rejects the prototype-named top-level field %s as unknown',
+    (field) => {
+      const diagnostics = decodeFailure('skill', `---\n${field}: value\n---\n`);
+
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostics[0]).toMatchObject({ code: 'unknown-field', field });
+    },
+  );
 
   it('aggregates independent schema failures in source order', () => {
     const diagnostics = decodeFailure(

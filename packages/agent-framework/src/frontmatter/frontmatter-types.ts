@@ -28,6 +28,7 @@ export type TFrontmatterScalar = string | number | boolean;
 export interface ISkillFrontmatter {
   name?: string;
   description?: string;
+  model?: string;
   argumentHint?: string;
   disableModelInvocation?: boolean;
   userInvocable?: boolean;

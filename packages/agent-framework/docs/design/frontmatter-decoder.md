@@ -26,8 +26,11 @@ precedence, fallback, public exports, or user-visible error projection.
 - YAML is untrusted input. Duplicate keys, aliases, merge keys, invalid roots, unsupported shapes,
   malformed syntax, and unterminated delimiter blocks fail closed.
 - Profile top-level keys are closed. The skill `metadata` field is the only extensible map and accepts
-  only string keys with string, finite-number, or boolean scalar values.
-- Skill effort imports `TModelEffort` from `agent-core`; it does not define another effort union.
+  only string keys with string, finite-number, or boolean scalar values; prototype-named keys remain
+  ordinary data and cannot reach object prototypes.
+- Skill metadata retains the existing optional `model` field consumed by the command contract.
+- Skill effort imports `TModelEffort` from `agent-core`; the local runtime guard is contained under
+  `BEHAVIOR-009` until that owner exposes the runtime vocabulary alongside the type.
 - The decoder preserves LF/CRLF body bytes after the closing delimiter. Consumer-specific trimming
   remains a loader concern.
 - No compatibility parser or partial-value fallback is permitted for the prerelease formats.

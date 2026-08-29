@@ -59,7 +59,7 @@ function decodeProfileMap<M>(
       );
       continue;
     }
-    const apply = appliers[field];
+    const apply = Object.hasOwn(appliers, field) ? appliers[field] : undefined;
     if (apply === undefined) {
       diagnostics.push(unknownFieldDiagnostic(context, pair, field, allowedFields));
       continue;

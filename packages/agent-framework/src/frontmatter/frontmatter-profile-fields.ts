@@ -51,6 +51,9 @@ export const SKILL_FIELD_APPLIERS: Readonly<
   description: applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value) =>
     Object.assign(m, { description: value }),
   ),
+  model: applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value) =>
+    Object.assign(m, { model: value }),
+  ),
   'argument-hint': applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value) =>
     Object.assign(m, { argumentHint: value }),
   ),

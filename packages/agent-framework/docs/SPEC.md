@@ -962,6 +962,9 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 
 ### Feature Layout (Current Implementation State)
 
+Private component realization under `docs/design/` is documented in the
+[frontmatter decoder design](design/frontmatter-decoder.md).
+
 ```
 agent-core
 ├── src/permissions/          ← permission-gate, permission-mode, types
@@ -1007,6 +1010,7 @@ agent-framework (assembly layer — SDK-specific features only)
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
 │   └── system-command.ts       ← SDK core command factory; currently empty because user-visible built-ins are command modules
+├── src/frontmatter/            ← private strict metadata decoder; see [design](design/frontmatter-decoder.md)
 ├── src/assembly/               ← Session factory: createSession (internal). The default tool tier is loaded from @robota-sdk/agent-tool-defaults by dynamic import (ARCH-035)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt

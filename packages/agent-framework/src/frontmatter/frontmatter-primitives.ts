@@ -99,6 +99,7 @@ export function decodeStringList(
   return { ok: true, value: values };
 }
 
+// Contained — BEHAVIOR-009. TModelEffort is type-only until its owner exports a runtime vocabulary.
 function isModelEffort(value: string): value is TModelEffort {
   return (
     value === 'low' ||
@@ -156,7 +157,7 @@ export function decodeMetadataMap(
 ): TValueResult<Record<string, TFrontmatterScalar>> {
   if (!isMap(node)) return invalidType(context, node, field, 'a scalar metadata mapping');
 
-  const result: Record<string, TFrontmatterScalar> = {};
+  const result: Record<string, TFrontmatterScalar> = Object.create(null);
   for (const pair of node.items) {
     const key = scalarString(pair.key);
     if (key === undefined || key.length === 0) {
