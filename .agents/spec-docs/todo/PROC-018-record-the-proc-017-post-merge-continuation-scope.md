@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: FLOW
 tags: [workflow, harness]
 lane: L2
@@ -158,3 +158,19 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-WRITE — Tasks section has a placeholder: the paired PROC-018 Task path is listed as todo.
 - GATE-WRITE — Evidence Log was empty before this run: this is the first gate entry.
 - GATE-WRITE — Body has no Status or Classification sections: lifecycle metadata remains in frontmatter only.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "Gate: GATE-APPROVAL"
+**Given:** 2026-08-30, this conversation
+**Review fingerprint:** 777f084c03b6 (review e33c60f3, type/tags 6a90c223)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-30, this conversation
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the current instruction names `GATE-APPROVAL` and the exact PROC-018 document path.
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (777f084c03b6) equals the document's current fingerprint
+- GATE-APPROVAL — Independent architecture validation is satisfied: N/A because the Architecture Review explicitly introduces no new package, app, surface, layer, or product-family reclassification.
