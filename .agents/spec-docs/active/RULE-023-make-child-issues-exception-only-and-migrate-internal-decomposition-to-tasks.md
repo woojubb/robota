@@ -253,8 +253,9 @@ None
    evidence; Task priority or independent verification alone does not qualify. Every `ABSORB` row names a
    canonical parent and Task; ambiguity, missing Task ownership, active work/owner/assignee/PR, or
    security/data-correctness disposition becomes `OWNER_REVIEW`.
-3. Pilot the complete non-security subtree `{#2063, #2084, #2102, #2115}`. Create/read the #2063
-   AGREEMENT owner and three leaf Tasks first, then apply body/state changes, read everything back, and
+3. Pilot the complete non-security subtree `{issue #2063, issue #2084, issue #2102, issue #2115}`.
+   Create/read the issue #2063 AGREEMENT owner and three leaf Tasks first, then apply body/state changes,
+   read everything back, and
    run repository/live hierarchy audits. Parent maps are versioned current snapshots: update each affected
    parent exactly once per complete frozen batch snapshot, atomically with every row in that batch; a later
    disjoint batch may replace the snapshot after re-reading the whole parent group.
@@ -292,20 +293,20 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: focused policy regression tests prove the rule, `issue-to-backlog`, `github-issue-triage`,
+- [x] TC-01: focused policy regression tests prove the rule, `issue-to-backlog`, `github-issue-triage`,
       and Task README all declare one Issue → Tasks as the default, child Issues as exception-only, the
       body as current-map owner, comments as optional chronological evidence, an independent dated
       semantic `RETAIN` review, and the permanent active-owner `OWNER_REVIEW` closure guard.
-- [ ] TC-02: focused hierarchy-audit tests prove a root is ignored, a child with a non-empty independent
+- [x] TC-02: focused hierarchy-audit tests prove a root is ignored, a child with a non-empty independent
       lifecycle reason plus exactly one valid semantic `RETAIN` receipt passes; reason-only, receipt-only,
       duplicate/variant receipt, comments/code blocks, missing/blank reasons, and incomplete pagination
       fail closed; exact examined counters reset between runs. Semantic adequacy remains reviewer judgement.
-- [ ] TC-03: the ordinary live `audit` command always runs the native hierarchy pass, prints the exact
+- [x] TC-03: the ordinary live `audit` command always runs the native hierarchy pass, prints the exact
       current open-child denominator and full per-Issue disposition, exits non-zero with `--check` before
-      migration, and reports zero hierarchy failures after every remaining open child carries a readable
-      external-lifecycle reason and one valid receipt. Unrelated malformed intake remains separately reported and may still make
-      the aggregate `--check` exit non-zero; this work does not mutate unlisted non-child Issues.
-- [ ] TC-04: RULE-021 no longer claims issue #2490, its Task is archived as `superseded`, its spec is
+      migration, and reports retained versus missing evidence without guessing semantic adequacy. Unrelated
+      malformed intake remains separately reported and may still make the aggregate `--check` exit non-zero;
+      this work does not mutate unlisted non-child Issues.
+- [x] TC-04: RULE-021 no longer claims issue #2490, its Task is archived as `superseded`, its spec is
       archived as `rejected`, and the ordinary triage audit no longer treats issue #2490 as Task-linked.
 - [ ] TC-05: work unit A passes the targeted Vitest suite, `pnpm harness:scan`, and
       `pnpm harness:verify -- --base-ref origin/develop`, merges into `develop`, and merge read-back proves
@@ -316,7 +317,8 @@ None
       independent reviewer identity/date/`RETAIN` verdict, every `ABSORB` row has a canonical parent and
       Task owner, every parent state/map is decided once per
       complete group, and every uncertain/security/data-correctness/active-owner row is held for review.
-      The manifest fixes B1 to `{#2063, #2084, #2102, #2115}` and B4 holds #2514 for PROC-017 closeout.
+      The manifest fixes B1 to `{issue #2063, issue #2084, issue #2102, issue #2115}` and B4 holds issue
+      number 2514 for PROC-017 closeout.
 - [ ] TC-07: the pilot's captured before state, applied body/state/Task mapping, immediate GitHub read-back,
       and repository/live audits agree for all four frozen B1 rows; each affected parent map is written
       atomically once for that batch snapshot, and a failed write leaves or restores an open child with no lost history.
@@ -325,24 +327,26 @@ None
       disposition declares without orphaning an open PR, assignee, owner, Task marker, native dependency,
       security boundary, or historical Issue URL.
 - [ ] TC-09: final reconciliation re-fetches the full population, accounts for every manifest row, records
-      exact timestamp/query semantics and before/after counts, and leaves zero unreviewed migration rows.
+      exact timestamp/query semantics and before/after counts, leaves zero unreviewed migration rows, and
+      reports zero hierarchy failures after every remaining open child carries a readable external-lifecycle
+      reason and one valid semantic receipt.
 - [ ] TC-10: RULE-023 Task/spec reach their terminal folders with all criteria and generated evidence
       committed; the repository is clean and fresh `develop` contains every policy and migration record.
 
 ## Test Plan
 
-| TC-ID | Test Type           | Tool / Approach                                                                              | Notes                                                                                                                                                        |
-| ----- | ------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| TC-01 | RULE                | focused Vitest policy-owner assertions and pre-change mutation proof                         | Static consistency is deliberate: judgement remains in the rule; the test prevents contradictory defaults.                                                   |
-| TC-02 | RULE                | focused Vitest fixtures around hierarchy classification and paginated parent loading         | Every fail-closed/error/reset branch is exercised.                                                                                                           |
-| TC-03 | Live audit          | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota --check`           | The normal audit includes hierarchy; before/after exact examined and hierarchy-failure output are recorded, while unrelated intake failures remain distinct. |
-| TC-04 | Lifecycle/audit     | Task/spec placement scans plus ordinary live Issue audit                                     | Verify both repository records and GitHub issue #2490 classification.                                                                                        |
-| TC-05 | CI-equivalent       | targeted Vitest, `pnpm harness:scan`, and `pnpm harness:verify -- --base-ref origin/develop` | Merge-verifier confirms the landing before work unit B.                                                                                                      |
-| TC-06 | Manifest            | exact row/population comparison plus independent shard cross-review                          | No mutation is permitted from `/tmp` discovery files alone.                                                                                                  |
-| TC-07 | Live pilot          | captured before/after GitHub API objects, idempotent apply/read-back, and live audit         | Pilot excludes security/data-correctness and active-owner rows.                                                                                              |
-| TC-08 | Live migration      | B1–B4 gate/PR evidence plus bounded apply → immediate read-back → manifest reconciliation    | A row failure stops its batch before the next Issue.                                                                                                         |
-| TC-09 | Live reconciliation | fully paginated GraphQL/REST snapshot and exact manifest join                                | Visibility limitations and held exceptions are explicit.                                                                                                     |
-| TC-10 | Lifecycle/CI        | gate records, placement scans, final CI-equivalent verification, merge ancestry check        | Completion is proved from current GitHub and `origin/develop`, not intended manifest state.                                                                  |
+| TC-ID | Test Type           | Tool / Approach                                                                              | Notes                                                                                                                                              |
+| ----- | ------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | RULE                | focused Vitest policy-owner assertions and pre-change mutation proof                         | Static consistency is deliberate: judgement remains in the rule; the test prevents contradictory defaults.                                         |
+| TC-02 | RULE                | focused Vitest fixtures around hierarchy classification and paginated parent loading         | Every fail-closed/error/reset branch is exercised.                                                                                                 |
+| TC-03 | Live audit          | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota --check`           | The normal audit records the current exact examined denominator and per-Issue hierarchy failures while keeping unrelated intake failures distinct. |
+| TC-04 | Lifecycle/audit     | Task/spec placement scans plus ordinary live Issue audit                                     | Verify both repository records and GitHub issue #2490 classification.                                                                              |
+| TC-05 | CI-equivalent       | targeted Vitest, `pnpm harness:scan`, and `pnpm harness:verify -- --base-ref origin/develop` | Merge-verifier confirms the landing before work unit B.                                                                                            |
+| TC-06 | Manifest            | exact row/population comparison plus independent shard cross-review                          | No mutation is permitted from `/tmp` discovery files alone.                                                                                        |
+| TC-07 | Live pilot          | captured before/after GitHub API objects, idempotent apply/read-back, and live audit         | Pilot excludes security/data-correctness and active-owner rows.                                                                                    |
+| TC-08 | Live migration      | B1–B4 gate/PR evidence plus bounded apply → immediate read-back → manifest reconciliation    | A row failure stops its batch before the next Issue.                                                                                               |
+| TC-09 | Live reconciliation | fully paginated GraphQL/REST snapshot and exact manifest join                                | Final zero-hierarchy-failure output, visibility limitations, and held exceptions are explicit.                                                     |
+| TC-10 | Lifecycle/CI        | gate records, placement scans, final CI-equivalent verification, merge ancestry check        | Completion is proved from current GitHub and `origin/develop`, not intended manifest state.                                                        |
 
 ## User Execution Test Scenarios
 
@@ -352,7 +356,7 @@ observable evidence.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md` — todo
+- [ ] `.agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md` — in-progress
 
 ## Evidence Log
 
@@ -392,7 +396,7 @@ observable evidence.
 
 The independent reviewer endorsed the exception-only direction and A→B sequencing but required four
 execution-safety corrections: preserve PROC-017's single-cause combined lifecycle and hold active issue
-#2514; make the exact rendered reason plus single semantic receipt contract consistent in Solution/TCs;
+number 2514; make the exact rendered reason plus single semantic receipt contract consistent in Solution/TCs;
 distinguish a newly approved migration Task from a pre-existing active Task/identity transfer; and name a
 complete B1 set with an atomic versioned parent-map invariant. The revised Decision, Solution, scope, and
 TC-02/03/05/06/07 now carry those constraints.
@@ -501,3 +505,222 @@ The reviewer also re-read remote `origin/develop` at `026d7ac799706d9cd0c2d71b95
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 52 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 3ms
+
+ Test Files  1 passed (1)
+      Tests  43 passed (43)
+   Start at  03:35:05
+   Duration  122ms (transform 27ms, setup 0ms, collect 29ms, tests 12ms, environment 0ms, prepare 22ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 52 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 3ms
+
+ Test Files  1 passed (1)
+      Tests  43 passed (43)
+   Start at  03:35:05
+   Duration  122ms (transform 27ms, setup 0ms, collect 29ms, tests 12ms, environment 0ms, prepare 22ms)
+```
+
+### [GATE-COMPLETE: TC-03] — ❌ FAIL | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota --check`
+**Exit:** 126
+**Output:** (last 10 of 367 line(s))
+
+```
+  #2525 parent=https://github.com/woojubb/robota/issues/1985 [security] Bound MCP results and spill oversized output securely — missing or blank section
+  #2526 parent=https://github.com/woojubb/robota/issues/1985 [security] Add MCP OAuth authorization and credential lifecycle — missing or blank section
+  #2527 parent=https://github.com/woojubb/robota/issues/1985 [security] Add an opt-in dynamic authentication header helper — missing or blank section
+  #2528 parent=https://github.com/woojubb/robota/issues/1985 [enhancement] Project MCP tool schemas safely across providers — missing or blank section
+  #2530 parent=https://github.com/woojubb/robota/issues/1986 [enhancement] Export canonical session runtime tools through MCP — missing or blank section
+  #2531 parent=https://github.com/woojubb/robota/issues/1986 [enhancement] Ship robota mcp serve as a carrier-owning stdio product mode — missing or blank section
+  #2532 parent=https://github.com/woojubb/robota/issues/1986 [integration] Prove an MCP-served session can also consume MCP tools — missing or blank section
+  #2533 parent=https://github.com/woojubb/robota/issues/1986 [security] Add authenticated loopback Streamable HTTP MCP hosting — missing or blank section
+  #2534 parent=https://github.com/woojubb/robota/issues/1986 [security] Add remote MCP resource-server authorization and admission — missing or blank section
+::examined:: 78 open child issue(s)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 pnpm harness:scan`
+**Exit:** 0
+**Output:** (last 10 of 166 line(s))
+
+```
+
+⚑ 5 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2058/2862 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ legacy-typescript: legacy-typescript: 2 tracked path(s) are absent from disk (a deletion in this change, or a materialised tree) and were not examined.
+⚑ progress-report-quantification: progress-report quantification: 3 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 3 real violation(s) recorded, not cleared by editing history.
+
+148 scans passed, 1 skipped (99 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/loop-runs/backlog-execution-orchestrator.jsonl,  M .agents/loop-runs/user-request-gate.jsonl,  M .agents/rules/backlog-execution.md,  M .agents/skills/github-issue-triage/SKILL.md,  M .agents/skills/issue-to-backlog/SKILL.md,  M .agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md,  D .agents/spec-docs/todo/RULE-021-close-parent-on-decomposition.md,  M .agents/tasks/README.md,  D .agents/tasks/RULE-021-close-parent-on-decomposition.md,  M scripts/harness/__tests__/github-issue-triage.test.mjs,  M scripts/harness/github-issue-triage.mjs, ?? .agents/spec-docs/rejected/RULE-021-close-parent-on-decomposition.md, ?? .agents/tasks/completed/RULE-021-close-parent-on-decomposition.md
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota`
+**Exit:** 0
+**Output:** (last 10 of 367 line(s))
+
+```
+  #2525 parent=https://github.com/woojubb/robota/issues/1985 [security] Bound MCP results and spill oversized output securely — missing or blank section
+  #2526 parent=https://github.com/woojubb/robota/issues/1985 [security] Add MCP OAuth authorization and credential lifecycle — missing or blank section
+  #2527 parent=https://github.com/woojubb/robota/issues/1985 [security] Add an opt-in dynamic authentication header helper — missing or blank section
+  #2528 parent=https://github.com/woojubb/robota/issues/1985 [enhancement] Project MCP tool schemas safely across providers — missing or blank section
+  #2530 parent=https://github.com/woojubb/robota/issues/1986 [enhancement] Export canonical session runtime tools through MCP — missing or blank section
+  #2531 parent=https://github.com/woojubb/robota/issues/1986 [enhancement] Ship robota mcp serve as a carrier-owning stdio product mode — missing or blank section
+  #2532 parent=https://github.com/woojubb/robota/issues/1986 [integration] Prove an MCP-served session can also consume MCP tools — missing or blank section
+  #2533 parent=https://github.com/woojubb/robota/issues/1986 [security] Add authenticated loopback Streamable HTTP MCP hosting — missing or blank section
+  #2534 parent=https://github.com/woojubb/robota/issues/1986 [security] Add remote MCP resource-server authorization and admission — missing or blank section
+::examined:: 78 open child issue(s)
+```
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 57 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 3ms
+
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+   Start at  03:41:22
+   Duration  141ms (transform 30ms, setup 0ms, collect 34ms, tests 14ms, environment 0ms, prepare 26ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 57 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 3ms
+
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+   Start at  03:41:22
+   Duration  141ms (transform 30ms, setup 0ms, collect 34ms, tests 14ms, environment 0ms, prepare 26ms)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-30
+
+**Command:** `set -o pipefail; PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:$PATH volta run --node 22.14.0 node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota | rg '^  #2490 .* — one work kind plus intake marker$'`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+#2490 [enhancement] Add gates for package boundaries and shared-file reduction — one work kind plus intake marker
+```
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 64 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 2ms
+
+ Test Files  1 passed (1)
+      Tests  55 passed (55)
+   Start at  03:48:28
+   Duration  144ms (transform 27ms, setup 0ms, collect 33ms, tests 24ms, environment 0ms, prepare 24ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 64 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 1ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 2ms
+
+ Test Files  1 passed (1)
+      Tests  55 passed (55)
+   Start at  03:48:28
+   Duration  144ms (transform 27ms, setup 0ms, collect 33ms, tests 24ms, environment 0ms, prepare 24ms)
+```
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 65 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 2ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 2ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  03:50:32
+   Duration  144ms (transform 29ms, setup 0ms, collect 36ms, tests 25ms, environment 0ms, prepare 24ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gawk/libexec/gnubin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/jungyoun/.volta/bin:/Users/jungyoun/.codex/tmp/arg0/codex-arg0hHXDK4:/Users/jungyoun/.codex/packages/standalone/releases/0.151.0-aarch64-apple-darwin/codex-path:/Users/jungyoun/.bun/bin:/Users/jungyoun/.rd/bin:/Users/jungyoun/.local/bin:/Users/jungyoun/.opencode/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:/opt/homebrew/opt/ruby/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin:/Users/jungyoun/.lmstudio/bin:/Users/jungyoun/Documents/flutter/bin volta run --node 22.14.0 pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=verbose`
+**Exit:** 0
+**Output:** (last 10 of 65 line(s))
+
+```
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > does not remove priority when Task-marker write-back fails 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > Issue to Task conversion finalization > rejects a Task that cites the same Issue number in a different repository 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > pins the authority handoff and the commands that execute it 0ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > keeps internal decomposition in Tasks and makes child Issues exception-only 2ms
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs > the rule owns policy and the skill owns procedure > archives RULE-021 as superseded without claiming Issue #2490 2ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  03:50:32
+   Duration  144ms (transform 29ms, setup 0ms, collect 36ms, tests 25ms, environment 0ms, prepare 24ms)
+```

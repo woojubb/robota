@@ -17,11 +17,15 @@ document states only what must hold, wherever those run.
 
 ## GitHub Issue ↔ Task Boundary
 
-GitHub issues and Task files are complementary records, not duplicate work queues.
+GitHub issues and Task files are complementary records, not duplicate work queues. **Child Issues are
+exception-only.** One GitHub Issue remains the durable external problem record while internal cause
+decomposition belongs in Task/spec records.
 
 - A **GitHub issue** captures externally trackable intent or a problem: user value, constraints, scope,
-  non-goals, discussion, and links. A parent issue may represent an initiative; a child issue represents
-  an independently discussable cause or outcome.
+  non-goals, discussion, and links. The Issue body owns the current external problem, constraints, and
+  current Issue/Task map. Comments own discoveries, discussion, dated decisions, and chronological
+  evidence. Narrative comments are optional for a mechanical body/state update, but machine-readable
+  conversion receipts and exact Task-marker comments remain mandatory append-only structural records.
 - A **Task** records one executable unit of work: one problem cause, one recommendation gate, one
   verification plan, and one completion decision. A Task may span several packages or files when they are
   one coherent cause and one independently verifiable outcome.
@@ -29,9 +33,19 @@ GitHub issues and Task files are complementary records, not duplicate work queue
   criteria, affected files, and the test plan. It is neither a GitHub issue nor a substitute for a Task.
 
 Convert issue contents by **cause and independent verification**, not by the number of deliverables,
-packages, files, or test suites named. Keep one issue and make several Tasks when the decomposition is
-only internal implementation sequencing. Create separate child issues when the causes need separate
-external discussion, priority, ownership, security review, or independently tracked disposition.
+packages, files, or test suites named. Keep one Issue and make several Tasks whenever the decomposition
+is internal implementation work. A child Issue may be created or retained only when its body contains a
+non-empty `## Independent external lifecycle` section naming observable evidence of at least one distinct
+external lifecycle: a separate claimant/audience or stakeholder discussion/approval route, a separately
+accountable external owner, an actually enforced visibility/security boundary, an independent release or
+user-observable outcome, or an externally meaningful terminal disposition. A different package, file,
+test, implementation phase, Task priority, agent assignment, or independently verifiable Task outcome is
+insufficient by itself. Issue P labels order unconverted intake only and are never a retention reason.
+Before a child is created or retained, a reviewer other than the author or migration actor must judge that
+the written reason meets this semantic test and record a dated `RETAIN` verdict and reviewer identity in
+the lifecycle section using the exact receipt
+`Semantic review: @<github-login> on YYYY-MM-DD — RETAIN`. The audit enforces that receipt's structure and
+visibility but cannot replace or validate the underlying judgement.
 
 When one parent issue produces several related Tasks, create a parent `AGREEMENT` Task and its paired
 spec-doc to own the shared boundary and child relationship. Do not create an `AGREEMENT` merely because
@@ -39,12 +53,25 @@ the work touches several packages. When a feature and its authentication/securit
 trust assumptions, failure policy, or verification, keep them as separate causes even if they use the
 same transport.
 
-Every Task converted from an issue must cite its source issue. Conversion does not authorize
-implementation; an unsplit issue remains open until the tracked work lands or receives an explicit
-terminal disposition. When an issue is decomposed into child Issues, the parent must be linked to every
-child and closed immediately with a comment naming those children; the children, not the parent, remain
-as the open work queue. This prevents repeated decomposition from growing the queue without reducing
-it. The `issue-to-backlog` skill owns the conversion procedure; this rule owns the boundary.
+Every Task converted from an Issue must cite its source Issue. Conversion does not authorize
+implementation. Splitting one Issue into several Tasks does not close the Issue: the canonical Issue
+remains open until its external problem lands or receives an explicit terminal disposition. Parent state
+is decided once from the complete external problem group, never child-by-child. An internal child may be
+closed as `NOT_PLANNED` only after the canonical parent body and exact Task owner are readable; an already
+delivered child closes as `COMPLETED` only with delivery evidence. A valid external-lifecycle child remains
+open with its reason in the body. The `issue-to-backlog` skill owns the conversion procedure; this rule
+owns the boundary.
+
+Before an existing child is absorbed or closed, an assignee, open cited Task, linked open PR, or live
+linked branch/worktree independently forces `OWNER_REVIEW`. No body, relationship, label, state,
+Task-marker, or dependency mutation is allowed until the responsible owner records a dated approval of
+the exact canonical parent, Task mapping, and terminal disposition. The absence of an activity signal is
+not by itself authority to close the Issue. One narrow prerequisite exception applies: an approved frozen
+migration manifest may create a new canonical migration Task without that new Task's mere existence
+forcing `OWNER_REVIEW`, but only after the Task is readable on `develop`, cites the exact source Issue,
+and has no assignee, implementation branch/worktree, linked open PR, pre-existing Task marker, identity
+transfer, or active execution. Any pre-existing cited Task or marker, identity transfer, or active signal
+still forces `OWNER_REVIEW`.
 
 ### GitHub Issue Intake and Conversion Queue
 
@@ -68,7 +95,8 @@ labels remain declared but do not become required workflow axes merely by existi
   back and every Issue P label is removed. Any failed write-back or label removal prohibits
   implementation. Task-only work remains valid and bypasses this front stage.
 
-Assignee plus a linked branch or pull request is the active-work signal. Native Issue dependencies own
+For queue selection, assignee plus a linked branch or pull request is the active-work signal. The stricter
+child-absorption protection above treats each named signal independently. Native Issue dependencies own
 blocking; a status label does not duplicate that relation. No GitHub Project or Project priority field
 may mirror this queue. Introducing a Project later requires a deliberate single-owner migration.
 

@@ -35,15 +35,20 @@ root error" or "two skills, because they run at different times" has done part o
 
 Use this order:
 
-1. Keep the GitHub issue as the parent initiative while deciding how its causes divide. Do not implement
-   directly from a broad parent issue. Once the causes have been split into child Issues, the parent is
-   no longer an open work item: link every child, record the decomposition, and close the parent with
-   a comment naming the child Issues. This prevents an open parent from being selected and decomposed
-   repeatedly.
-2. Create a child issue when a cause needs separate external discussion, priority, ownership, security
-   review, or terminal disposition.
-3. Create a Task when the cause can have one recommendation gate, one verification plan, and one
-   independent completion decision. A Task may cross package boundaries.
+1. Keep the GitHub Issue as the canonical external problem while deciding how its causes divide. Do not
+   implement directly from a broad Issue; update its body with the current Issue/Task map instead.
+   The Issue body owns the current external problem and map; exact Task-marker comments remain mandatory
+   append-only conversion receipts even when no narrative comment is needed.
+2. Create Tasks for internal cause decomposition. Each Task has one recommendation gate, one verification
+   plan, and one independent completion decision, and may cross package boundaries. Several related Tasks
+   may use one parent `AGREEMENT` Task and paired spec without creating another Issue.
+3. Create or retain a child Issue only when the rule's independent-external-lifecycle test passes. Put
+   the observable reason in a non-empty `## Independent external lifecycle` body section and read the
+   native parent link and body back. Before creation or retention, obtain a semantic `RETAIN` review from
+   someone other than the author/conversion actor and record reviewer identity, date, and verdict in that
+   section as `Semantic review: @<github-login> on YYYY-MM-DD — RETAIN`. Package, file, test, phase, Task
+   priority, agent assignment, or Task verification differences
+   alone do not pass that test; a non-empty section or passing structural audit is not semantic approval.
 4. Keep package adapters, protocol frames, tests, and CLI wiring in the same Task when they are only
    implementation steps for that cause. Do not create one Task per package or deliverable.
 5. Split a Task only when the design reveals distinct causes or independently verifiable outcomes. If
@@ -61,15 +66,25 @@ split.
 2. **Survey what already exists** before writing. A skill, rule or scan the issue asks for may be
    present under another name, or its subject may already be filed. Record what you find in the Task;
    the next session should not re-derive it.
-3. **Classify the issue.** Decide whether it is a parent initiative, one child cause, or several causes.
-   Say how many Tasks the contents become and why. Dispatch
+3. **Classify the issue.** Decide whether it is one external problem with one or several internal causes,
+   or contains a cause with a genuinely independent external lifecycle. Say how many Tasks the contents
+   become and why. Dispatch
    `finding-depth-triager` if the grouping is not obvious.
-4. **Write the Task(s)** per the README schema. Cite the source issue in every Task. For several
+4. **Write the Task(s)** per the README schema. Cite the source Issue in every Task. For several
    related children, add a parent `AGREEMENT` Task
    **and its paired spec-doc** — `task-archival` fails an AGREEMENT with no spec.
-   If the judgement created child GitHub Issues, link every child to the parent and read those links
-   back before proceeding. Then close the parent with a decomposition comment listing each child; the
-   parent must not remain open as a second work item.
+   If the judgement created an exception-only child Issue, link it to the parent and read both the link
+   and its `## Independent external lifecycle` section back. Update the canonical parent body map.
+   Decide parent state from the complete external problem group; Task decomposition never closes it by
+   itself. Add a narrative comment only for a discovery or dated decision that benefits from chronology.
+   Before absorbing or closing an existing child, inspect assignee, every cited open Task, linked open PR,
+   and live linked branch/worktree. Any one forces `OWNER_REVIEW`; perform no mutation until the responsible
+   owner records dated approval of the exact parent, Task mapping, and terminal disposition. The sole
+   prerequisite exception is a new canonical migration Task created from an approved frozen manifest:
+   its mere existence does not force `OWNER_REVIEW` only after it is readable on `develop`, cites the exact
+   source Issue, and has no assignee, implementation branch/worktree, linked open PR, pre-existing Task
+   marker, identity transfer, or active execution. Any pre-existing Task or marker and every active signal
+   still force `OWNER_REVIEW`.
 5. For an `AGREEMENT` conversion, stage one complete atomic manifest before finalizing the Issue:
    - one newly added exact-basename parent Task/pre-checkpoint `type: AGREEMENT` spec pair;
    - every uniquely declared child as a newly added, non-AGREEMENT `todo` Task citing the same Issue;
@@ -88,9 +103,9 @@ split.
 
 ## Do not
 
-- **Do not close an unsplit issue on conversion.** It closes when the tracked work lands. A parent that
-  has been decomposed into child Issues is the exception: after all child links are readable, close the
-  parent immediately with the decomposition comment; the children carry the remaining work.
+- **Do not close an Issue merely because it was decomposed.** It closes when the tracked external problem
+  lands or receives a truthful terminal disposition. Internal decomposition stays in Tasks; a retained
+  child must pass the rule's external-lifecycle test.
 - **Do not start the work in the same change.** The conversion is the gate; walking through it is the
   next step, not this one.
 - **Do not carry the issue's structure into the Task** if that structure is a list of deliverables

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: RULE
 tags: [github, backlog]
 lane: L2
@@ -7,7 +7,16 @@ lane: L2
 
 # RULE-021: Close parent GitHub issue after decomposition
 
-Paired with `.agents/tasks/RULE-021-close-parent-on-decomposition.md`. Arising from [issue #2490](https://github.com/woojubb/robota/issues/2490).
+Paired with `.agents/tasks/completed/RULE-021-close-parent-on-decomposition.md`. The original record
+incorrectly arose from [issue #2490](https://github.com/woojubb/robota/issues/2490).
+
+## Supersession
+
+This policy was genuinely delivered by PR #2493 at merge commit
+`cbe0ec14992fd7390da9e7bd5279e112883b42c3`; the historical gates and delivery evidence below remain
+unchanged. The source link to Issue #2490 was unrelated to the policy. On 2026-08-30, the owner-approved
+RULE-023 amendment rejected this current policy in favor of one durable Issue with internal Tasks and
+exception-only child Issues. `rejected` therefore means superseded after delivery, not never implemented.
 
 ## Problem
 
@@ -93,7 +102,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [x] `.agents/tasks/RULE-021-close-parent-on-decomposition.md` — todo
+- [x] `.agents/tasks/completed/RULE-021-close-parent-on-decomposition.md` — superseded
 
 ## Evidence Log
 
@@ -180,8 +189,13 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (381c333db213) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
+  Historical GATE snapshot (the two Task paths below remain exactly as observed before archival):
+
+```text
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/RULE-021-close-parent-on-decomposition.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/RULE-021-close-parent-on-decomposition.md`, whose basename is the spec's
+```
+
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-29

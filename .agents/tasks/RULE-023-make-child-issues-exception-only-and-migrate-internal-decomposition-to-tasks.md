@@ -21,7 +21,7 @@ no-issue: Direct owner instruction on 2026-08-30 to complete
 `/tmp/robota-issue-child-consolidation-plan.md`; creating another queue item would contradict the
 requested queue-consolidation outcome.
 
-## Current evidence
+## Starting baseline evidence
 
 - The current `backlog-execution.md` first says internal decomposition remains one Issue with several
   Tasks, then requires a decomposed parent to produce child Issues, close, and leave those children as
@@ -37,14 +37,14 @@ requested queue-consolidation outcome.
 
 ## Plan
 
-- [ ] TC-01 — amend the rule, conversion/triage skills, and Task README so one Issue → Tasks is the
+- [x] TC-01 — amend the rule, conversion/triage skills, and Task README so one Issue → Tasks is the
       default, child Issues are independently reviewed external-lifecycle exceptions,
       body/comment/marker ownership is exact, and active-owner children cannot be silently absorbed.
-- [ ] TC-02 — add TDD coverage for roots, retained children, missing/blank exception reasons, full native
+- [x] TC-02 — add TDD coverage for roots, retained children, missing/blank exception reasons, full native
       hierarchy pagination, fail-closed API errors, and per-run counter reset.
-- [ ] TC-03 — make the ordinary live `audit --check` path always run the hierarchy check and report its
+- [x] TC-03 — make the ordinary live `audit --check` path always run the hierarchy check and report its
       exact examined denominator and dispositions.
-- [ ] TC-04 — reconcile `RULE-021`/`#2490` while preserving the delivered history and rejecting only the
+- [x] TC-04 — reconcile `RULE-021`/`#2490` while preserving the delivered history and rejecting only the
       superseded policy/current source link.
 - [ ] TC-05 — verify, review, merge, and read back work unit A on fresh `origin/develop` before any live
       historical Issue mutation.
@@ -55,9 +55,19 @@ requested queue-consolidation outcome.
 - [ ] TC-08 — run fixed serial batches B2–B4 with their own recommendation/depth gates and evidence PRs,
       preserving external lifecycles, owners, Tasks, PRs, labels, dependency edges, and all history.
 - [ ] TC-09 — re-fetch and reconcile the full population with exact timestamp/query semantics, counts,
-      terminal state reasons, retained exceptions, and zero unreviewed migration rows.
+      terminal state reasons, retained exceptions, zero unreviewed migration rows, and zero hierarchy
+      failures after every remaining open child has readable independently reviewed lifecycle evidence.
 - [ ] TC-10 — terminalize RULE-023 Task/spec only after every criterion and generated evidence is merged,
       the worktree is clean, and fresh `develop` contains the entire policy and migration record.
+
+## Progress
+
+- 2026-08-30 — Work unit A implementation is locally complete through TC-04. The focused triage suite
+  passed 56/56 tests; the full harness suite passed 5,479/5,479 tests under the repository's Node 22.14.0
+  and GNU tool environment; all 148 applicable scans passed. A fresh read-only GitHub audit examined 281
+  open Issues and 78 open child Issues, rejected all 78 as missing the new exception receipt, and classified
+  issue #2490 as ordinary intake rather than as RULE-021-linked malformed state. TC-05 remains open until
+  independent review, PR merge, and fresh `origin/develop` ancestry read-back complete.
 
 ## Test Plan
 

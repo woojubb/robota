@@ -46,6 +46,18 @@ An agent filing a defect discovered during other work must route through
 [`find-to-issue`](../find-to-issue/SKILL.md), which owns the evidence and scope boundary, then return to
 this contract for the labels. Filing an Issue never authorizes implementation or Task creation.
 
+Child Issues are exception-only under the rule. When a child is genuinely required, add a non-empty
+`## Independent external lifecycle` body section with its observable reason and read both the body and
+native parent relationship back. A reviewer other than the author or migration actor must judge the
+reason against the rule and record
+`Semantic review: @<github-login> on YYYY-MM-DD — RETAIN` in that section. The
+structural audit deliberately does not supply this semantic approval. Internal decomposition belongs in
+Tasks.
+
+Task decomposition never closes a parent by itself. The canonical Issue body owns the current external
+problem and Issue/Task map; exact machine-readable Task-marker comments remain mandatory append-only
+receipts even when no narrative comment is useful.
+
 ## Audit Intake
 
 Run the read-only audit before a triage session:
@@ -55,14 +67,26 @@ node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota
 ```
 
 The output assigns every open Issue to exactly one reported category: intake awaiting triage,
-unconverted priority candidate, converted/open-Task linked, or malformed/unclassified. Audit mode never
-edits an Issue and never guesses a kind or priority. Use `--check` only when malformed count zero is a
-required gate; historical cleanup runs normally use the report without that flag.
+unconverted priority candidate, converted/open-Task linked, or malformed/unclassified. The same ordinary
+command also audits native child relationships: every open child is reported exactly once and must carry
+a non-empty `## Independent external lifecycle` reason and the exact structured semantic-review receipt.
+Pagination or visibility failure fails closed.
+Audit mode never edits an Issue and never guesses a kind, priority, or semantic adequacy. Use `--check`
+when both malformed intake count and missing child-lifecycle evidence must be zero; historical cleanup
+runs normally use the report without that flag.
 
 ## Triage One Issue
 
 1. Read the Issue body, discussion, duplicates, and native dependency edges.
 2. Decide whether it is actionable or should receive a documented terminal disposition under the rule.
+   For a child, verify its independent semantic `RETAIN` review record. Before absorbing or closing it,
+   inspect assignee, cited open Tasks, linked open PRs, and live linked branches/worktrees; any one makes
+   the row `OWNER_REVIEW` until the responsible owner records dated approval of the exact parent, Task
+   mapping, and terminal disposition. Do not mutate an `OWNER_REVIEW` row. A new canonical migration Task
+   from an approved frozen manifest is the only prerequisite exception: its mere existence does not force
+   `OWNER_REVIEW` after it is readable on `develop`, cites the exact source Issue, and has no assignee,
+   implementation branch/worktree, linked open PR, pre-existing Task marker, identity transfer, or active
+   execution. Any pre-existing Task or marker and every active signal still force `OWNER_REVIEW`.
 3. For actionable unconverted work, leave exactly one of `bug`, `enhancement`, or `documentation`.
 4. Remove `status:needs-triage` and leave exactly one of `priority:P0`, `priority:P1`, or `priority:P2`.
 5. Do not add a status axis for activity or blocking. Use assignee plus linked branch/PR for activity and
@@ -112,4 +136,6 @@ protected-consumer changes must pass `node scripts/harness/scan-github-label-reg
 - A P2 Issue has not been promoted.
 - Task urgency does not match P0→`now` or P1→`soon`.
 - Task-marker write/read-back or P-label removal is incomplete.
+- An open child Issue lacks readable `## Independent external lifecycle` evidence, or native hierarchy
+  pagination/visibility is incomplete.
 - A requested label rename/delete affects a protected consumer or historical label.

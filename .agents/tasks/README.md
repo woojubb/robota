@@ -27,14 +27,21 @@ with no direction chosen yet. And `backlog` was simultaneously a _lifecycle fold
 
 ## GitHub Issue Relationship
 
-A GitHub issue is the externally tracked capture of intent or a problem. A Task is the executable unit
-that can pass its own recommendation, verification, and completion gates. One issue may produce one or
+A GitHub Issue is the externally tracked capture of intent or a problem. A Task is the executable unit
+that can pass its own recommendation, verification, and completion gates. One Issue may produce one or
 several Tasks; one Task may span several packages when those changes solve one cause and have one
 independent completion outcome.
 
 Split by cause and independent verification, not by package, file, deliverable, or test count. Keep
-implementation-only decomposition inside the Task. Use separate child issues only when the causes need
-separate external discussion, priority, ownership, security review, or terminal disposition.
+implementation-only decomposition inside Tasks. **Child Issues are exception-only** and require the
+rule-owned external-lifecycle evidence in a non-empty `## Independent external lifecycle` body section;
+an independent reviewer must add `Semantic review: @<github-login> on YYYY-MM-DD — RETAIN` there. Task priority
+or independent verification alone is insufficient.
+
+The Issue body owns the current external problem, constraints, and current Issue/Task map. Comments own
+discoveries, discussion, dated decisions, and chronological evidence. Narrative comments are optional
+for mechanical body/state updates; required machine-readable conversion receipts and exact Task-marker
+comments remain append-only structural records.
 
 When a Task is converted from a GitHub issue, cite the issue URL in its frontmatter or body. When one
 parent issue produces several related Tasks, the parent `AGREEMENT` Task and paired spec-doc own the

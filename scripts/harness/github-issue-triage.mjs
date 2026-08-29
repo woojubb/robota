@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { marked } from 'marked';
 
 import { asList, frontmatterObject } from './frontmatter.mjs';
 
@@ -18,6 +19,22 @@ const PRIORITIES = new Set(['priority:P0', 'priority:P1', 'priority:P2']);
 const INTAKE = 'status:needs-triage';
 let examinedLiveLabels = 0;
 let examinedOpenIssues = 0;
+let examinedOpenChildIssues = 0;
+
+const INDEPENDENT_LIFECYCLE_HEADING = '## Independent external lifecycle';
+const SEMANTIC_REVIEW_RECEIPT =
+  /^Semantic review:\s+@([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\s+on\s+(\d{4})-(\d{2})-(\d{2})\s+—\s+RETAIN\s*$/;
+
+function beginsIndentedMarkdownCode(line) {
+  let column = 0;
+  for (const character of line) {
+    if (character === ' ') column += 1;
+    else if (character === '\t') column += 4 - (column % 4);
+    else break;
+    if (column >= 4) return true;
+  }
+  return false;
+}
 
 function comparableLabel(label) {
   return {
@@ -143,6 +160,249 @@ export function readExaminedOpenIssueCount() {
   return examinedOpenIssues;
 }
 
+function markdownLinesOutsideCode(body) {
+  const withoutHtmlCode = String(body ?? '').replace(
+    /<(pre|code)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi,
+    '',
+  );
+  const uncommented = withoutHtmlCode.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  const visible = [];
+  let fence = null;
+  for (const line of uncommented.split(/\r?\n/)) {
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1] ?? null;
+    if (fence !== null) {
+      const trimmed = line.trim();
+      if (
+        trimmed.length >= fence.length &&
+        [...trimmed].every((character) => character === fence.character)
+      ) {
+        fence = null;
+      }
+      visible.push('');
+      continue;
+    }
+    if (marker !== null) {
+      fence = { character: marker[0], length: marker.length };
+      visible.push('');
+      continue;
+    }
+    visible.push(beginsIndentedMarkdownCode(line) ? '' : line);
+  }
+  return visible;
+}
+
+function validSemanticReviewReceipt(line) {
+  const match = SEMANTIC_REVIEW_RECEIPT.exec(line.trim());
+  if (match === null) return null;
+  const [, reviewer, yearText, monthText, dayText] = match;
+  if (reviewer.length > 39) return null;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (year === 0) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return line.trim();
+}
+
+function isSemanticReviewReceiptCandidate(line) {
+  return /\bSemantic review\b/i.test(line);
+}
+
+function isMarkdownThematicBreak(line) {
+  return /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line);
+}
+
+function stripHtmlTags(html) {
+  let text = '';
+  let inTag = false;
+  let quote = null;
+  for (const character of html) {
+    if (!inTag) {
+      if (character === '<') inTag = true;
+      else text += character;
+      continue;
+    }
+    if (quote !== null) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === '>') inTag = false;
+  }
+  return text;
+}
+
+function decodeInvisibleHtmlEntities(text) {
+  const decodedNumeric = text.replace(
+    /&#(?:x([0-9a-f]+)|([0-9]+));/gi,
+    (entity, hexadecimal, decimal) => {
+      const codePoint = Number.parseInt(
+        hexadecimal ?? decimal,
+        hexadecimal === undefined ? 10 : 16,
+      );
+      if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return entity;
+      return String.fromCodePoint(codePoint);
+    },
+  );
+  return decodedNumeric.replace(
+    /&(?:Tab|NewLine|nbsp|NonBreakingSpace|ensp|emsp|emsp13|emsp14|numsp|puncsp|thinsp|ThinSpace|hairsp|VeryThinSpace|MediumSpace|ThickSpace|ZeroWidthSpace|NegativeMediumSpace|NegativeThickSpace|NegativeThinSpace|NegativeVeryThinSpace|NoBreak|zwnj|zwj|lrm|rlm|shy|ApplyFunction|InvisibleTimes|InvisibleComma|af|it|ic);/gi,
+    ' ',
+  );
+}
+
+function renderedMarkdownText(markdown) {
+  const html = marked
+    .parse(markdown)
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
+    .replace(/<(pre|code|script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+  return decodeInvisibleHtmlEntities(stripHtmlTags(html))
+    .replace(/[\p{White_Space}\p{Cc}\p{Default_Ignorable_Code_Point}]+/gu, ' ')
+    .trim();
+}
+
+function independentLifecycleEvidence(body) {
+  const lines = markdownLinesOutsideCode(body);
+  const headings = lines.flatMap((line, index) =>
+    line.trim() === INDEPENDENT_LIFECYCLE_HEADING ? [index] : [],
+  );
+  if (headings.length !== 1) return { reason: null, semanticReview: null };
+  const [heading] = headings;
+  const section = [];
+  for (let index = heading + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^#{1,2}\s+/.test(line.trim())) break;
+    if (line.trim() !== '' && /^(?:=+|-+)\s*$/.test((lines[index + 1] ?? '').trim())) {
+      break;
+    }
+    section.push(line);
+  }
+  const receiptCandidates = section.filter((line) => isSemanticReviewReceiptCandidate(line));
+  const receipts = receiptCandidates
+    .map((line) => validSemanticReviewReceipt(line))
+    .filter((receipt) => receipt !== null);
+  const reasonMarkdown = section
+    .filter((line) => !isSemanticReviewReceiptCandidate(line) && !isMarkdownThematicBreak(line))
+    .join('\n');
+  const reason = renderedMarkdownText(reasonMarkdown);
+  return {
+    reason: reason === '' ? null : reason,
+    semanticReview: receiptCandidates.length === 1 && receipts.length === 1 ? receipts[0] : null,
+  };
+}
+
+export function classifyOpenIssueHierarchy(nodes) {
+  const result = { retained: [], missing: [], examined: 0 };
+  for (const issue of nodes) {
+    if (issue.parent === null) continue;
+    result.examined += 1;
+    const parentNumber = issue.parent.number;
+    const parentUrl = issue.parent.url;
+    const evidence = independentLifecycleEvidence(issue.body);
+    const reason = evidence.reason;
+    if (reason === null) {
+      result.missing.push({
+        issue,
+        parentNumber,
+        parentUrl,
+        reason: 'missing or blank section',
+      });
+    } else if (evidence.semanticReview === null) {
+      result.missing.push({
+        issue,
+        parentNumber,
+        parentUrl,
+        reason: 'missing semantic RETAIN review receipt',
+      });
+    } else {
+      result.retained.push({
+        issue,
+        parentNumber,
+        parentUrl,
+        reason,
+        semanticReview: evidence.semanticReview,
+      });
+    }
+  }
+  return result;
+}
+
+export function scanOpenIssueHierarchy(nodes) {
+  const result = classifyOpenIssueHierarchy(nodes);
+  examinedOpenChildIssues = result.examined;
+  return result;
+}
+
+export function readExaminedOpenChildIssueCount() {
+  return examinedOpenChildIssues;
+}
+
+export async function fetchOpenIssueHierarchy({ owner, name, runPage }) {
+  const nodes = [];
+  const cursors = new Set();
+  let after = null;
+  while (true) {
+    const page = await runPage({ owner, name, after });
+    if (!Array.isArray(page?.nodes) || typeof page?.pageInfo?.hasNextPage !== 'boolean') {
+      throw new Error('native hierarchy page is incomplete');
+    }
+    for (const node of page.nodes) {
+      if (!Object.hasOwn(node, 'parent')) {
+        throw new Error(`native hierarchy node #${node?.number ?? '?'} has no parent field`);
+      }
+      if (
+        node.parent !== null &&
+        (!Number.isInteger(node.parent?.number) ||
+          node.parent.number < 1 ||
+          typeof node.parent?.url !== 'string' ||
+          node.parent.url === '')
+      ) {
+        throw new Error(
+          `native hierarchy node #${node?.number ?? '?'} has an invalid parent field`,
+        );
+      }
+    }
+    nodes.push(...page.nodes);
+    if (!page.pageInfo.hasNextPage) return nodes;
+    if (typeof page.pageInfo.endCursor !== 'string' || page.pageInfo.endCursor === '') {
+      throw new Error('native hierarchy pagination has no end cursor');
+    }
+    if (cursors.has(page.pageInfo.endCursor)) {
+      throw new Error(`native hierarchy pagination repeated cursor ${page.pageInfo.endCursor}`);
+    }
+    cursors.add(page.pageInfo.endCursor);
+    after = page.pageInfo.endCursor;
+  }
+}
+
+export function assertOpenIssueHierarchyPopulation(restIssues, graphqlNodes) {
+  const restNumbers = restIssues.map(({ number }) => number);
+  const graphqlNumbers = graphqlNodes.map(({ number }) => number);
+  if (new Set(restNumbers).size !== restNumbers.length) {
+    throw new Error('REST open-Issue population contains duplicate numbers');
+  }
+  if (new Set(graphqlNumbers).size !== graphqlNumbers.length) {
+    throw new Error('GraphQL open-Issue population contains duplicate numbers');
+  }
+  const rest = new Set(restNumbers);
+  const graphql = new Set(graphqlNumbers);
+  const restOnly = [...rest].filter((number) => !graphql.has(number)).sort((a, b) => a - b);
+  const graphqlOnly = [...graphql].filter((number) => !rest.has(number)).sort((a, b) => a - b);
+  if (restOnly.length !== 0 || graphqlOnly.length !== 0) {
+    const format = (numbers) =>
+      numbers.length === 0 ? '(none)' : numbers.map((n) => `#${n}`).join(',');
+    throw new Error(
+      `native hierarchy visibility mismatch: REST-only=${format(restOnly)} GraphQL-only=${format(graphqlOnly)}`,
+    );
+  }
+}
+
 function taskIdentity(taskPath) {
   if (!taskPath.startsWith('.agents/tasks/') || taskPath.includes('/../')) {
     throw new Error(`Task path must be under .agents/tasks/: ${taskPath}`);
@@ -209,6 +469,15 @@ export function resolveOpenTaskLinks(issues, taskCandidates) {
 export function auditOpenIssues(issues, taskCandidates) {
   const resolved = resolveOpenTaskLinks(issues, taskCandidates);
   return classifyOpenIssues(issues, resolved.links, resolved.problems);
+}
+
+export function auditOpenIssueState({ issues, taskCandidates, hierarchyNodes }) {
+  assertOpenIssueHierarchyPopulation(issues, hierarchyNodes);
+  const resolved = resolveOpenTaskLinks(issues, taskCandidates);
+  return {
+    issues: scanOpenIssues(issues, resolved.links, resolved.problems),
+    hierarchy: scanOpenIssueHierarchy(hierarchyNodes),
+  };
 }
 
 function validateConversionState({ repo, issueNumber, taskPath, taskText, issue }) {
@@ -278,6 +547,45 @@ function runGh(args) {
 
 function runGhJson(args) {
   return JSON.parse(runGh(args));
+}
+
+const OPEN_ISSUE_HIERARCHY_QUERY = `
+query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(first: 100, states: OPEN, after: $after) {
+      nodes {
+        number
+        title
+        url
+        body
+        parent { number url }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+async function runLiveHierarchyPage({ owner, name, after }) {
+  const args = [
+    'api',
+    'graphql',
+    '-f',
+    `query=${OPEN_ISSUE_HIERARCHY_QUERY}`,
+    '-F',
+    `owner=${owner}`,
+    '-F',
+    `name=${name}`,
+  ];
+  if (after !== null) args.push('-F', `after=${after}`);
+  const response = runGhJson(args);
+  if (Array.isArray(response.errors) && response.errors.length !== 0) {
+    throw new Error(`native hierarchy GraphQL error: ${JSON.stringify(response.errors)}`);
+  }
+  const connection = response.data?.repository?.issues;
+  if (connection === null || connection === undefined) {
+    throw new Error('native hierarchy GraphQL response has no open-Issue connection');
+  }
+  return connection;
 }
 
 function option(args, name) {
@@ -365,29 +673,70 @@ async function labelsCommand({ args, repo, root }) {
   }
 }
 
-function auditCommand({ args, repo, root }) {
-  const issues = runGhJson([
-    'issue',
-    'list',
-    '--repo',
-    repo,
-    '--state',
-    'open',
-    '--limit',
-    '10000',
-    '--json',
-    'number,title,url,labels,comments',
-  ]);
-  const resolved = resolveOpenTaskLinks(issues, collectOpenTaskCandidates(root));
-  const result = scanOpenIssues(issues, resolved.links, resolved.problems);
+export async function auditCommand({
+  args,
+  repo,
+  root,
+  listIssues = async () =>
+    runGhJson([
+      'issue',
+      'list',
+      '--repo',
+      repo,
+      '--state',
+      'open',
+      '--limit',
+      '10000',
+      '--json',
+      'number,title,url,labels,comments',
+    ]),
+  taskCandidates,
+  runHierarchyPage = runLiveHierarchyPage,
+  write = (line) => console.log(line),
+  markFailure = () => {
+    process.exitCode = 1;
+  },
+}) {
+  const parts = repo.split('/');
+  if (parts.length !== 2 || parts.some((part) => part === '')) {
+    throw new Error('--repo must use OWNER/REPO');
+  }
+  const [owner, name] = parts;
+  const issues = await listIssues();
+  const hierarchyNodes = await fetchOpenIssueHierarchy({
+    owner,
+    name,
+    runPage: runHierarchyPage,
+  });
+  const result = auditOpenIssueState({
+    issues,
+    taskCandidates: taskCandidates ?? collectOpenTaskCandidates(root),
+    hierarchyNodes,
+  });
   for (const category of ['intake', 'candidates', 'converted', 'malformed']) {
-    console.log(`${category}: ${result[category].length}`);
-    for (const item of result[category]) {
-      console.log(`  #${item.issue.number} ${item.issue.title} — ${item.reason}`);
+    write(`${category}: ${result.issues[category].length}`);
+    for (const item of result.issues[category]) {
+      write(`  #${item.issue.number} ${item.issue.title} — ${item.reason}`);
     }
   }
-  console.log(`::examined:: ${result.examined} open issue(s)`);
-  if (args.includes('--check') && result.malformed.length !== 0) process.exitCode = 1;
+  write(`::examined:: ${result.issues.examined} open issue(s)`);
+  for (const category of ['retained', 'missing']) {
+    write(`native-child-${category}: ${result.hierarchy[category].length}`);
+    for (const item of result.hierarchy[category]) {
+      const detail =
+        item.semanticReview === undefined ? item.reason : `${item.reason} | ${item.semanticReview}`;
+      write(
+        `  #${item.issue.number} parent=${item.parentUrl} ${item.issue.title} — ${detail.replace(/\s+/g, ' ')}`,
+      );
+    }
+  }
+  write(`::examined:: ${result.hierarchy.examined} open child issue(s)`);
+  if (
+    args.includes('--check') &&
+    (result.issues.malformed.length !== 0 || result.hierarchy.missing.length !== 0)
+  ) {
+    markFailure();
+  }
 }
 
 async function convertCommand({ args, repo, root }) {
@@ -443,7 +792,7 @@ async function main() {
   const repo = requireOption(args, '--repo');
   const root = path.resolve(import.meta.dirname, '../..');
   if (command === 'labels') await labelsCommand({ args, repo, root });
-  else if (command === 'audit') auditCommand({ args, repo, root });
+  else if (command === 'audit') await auditCommand({ args, repo, root });
   else await convertCommand({ args, repo, root });
 }
 
