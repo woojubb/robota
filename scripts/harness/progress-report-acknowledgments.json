@@ -297,6 +297,18 @@
       "ratio": "1/29",
       "kind": "false-positive",
       "reason": "Not a violation, the same retraction eighteen seconds later: \"제 첫 시도(1/29)는 버렸습니다\" — \"my first attempt (1/29) was discarded\". The ratio is the discarded value, quoted in parentheses as the thing thrown away, not a status over a work set. Same reading error as the entry above; recorded with it so the pair reads as one event."
+    },
+    {
+      "transcript": "3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c.jsonl",
+      "timestamp": "2026-08-27T16:51:00.832Z",
+      "ratio": "147/148",
+      "reason": "Contained — INFRA-144. A real violation: a mid-work scan update reported 147 of 148 without its percentage (99.3%). The transcript is append-only, so the exact finding is acknowledged rather than rewritten while the pre-emission root remains open."
+    },
+    {
+      "transcript": "3e0c1f6e-bce9-4f8c-8a71-199fe78fc73c.jsonl",
+      "timestamp": "2026-08-28T00:15:56.907Z",
+      "ratio": "147/148",
+      "reason": "Contained — INFRA-144. The same real violation recurred in a later status message: 147 of 148 was reported without its percentage (99.3%). Recorded separately because the repeat is evidence that post-hoc intent is not a pre-emission mechanism."
     }
   ]
 }

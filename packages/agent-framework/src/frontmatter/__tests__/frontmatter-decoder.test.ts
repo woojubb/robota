@@ -357,15 +357,26 @@ describe('decodeFrontmatter', () => {
     });
   });
 
-  it.each(['toString', 'constructor', '__proto__'])(
-    'rejects the prototype-named top-level field %s as unknown',
-    (field) => {
-      const diagnostics = decodeFailure('skill', `---\n${field}: value\n---\n`);
+  // Contained — HARNESS-132. Literal titles keep the enforcing red-proof gate honest until it
+  // recognizes multiline table-driven cases and their runtime-expanded titles.
+  function expectPrototypeFieldRejected(field: string): void {
+    const diagnostics = decodeFailure('skill', `---\n${field}: value\n---\n`);
 
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0]).toMatchObject({ code: 'unknown-field', field });
-    },
-  );
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({ code: 'unknown-field', field });
+  }
+
+  it('rejects the prototype-named top-level field toString as unknown', () => {
+    expectPrototypeFieldRejected('toString');
+  });
+
+  it('rejects the prototype-named top-level field constructor as unknown', () => {
+    expectPrototypeFieldRejected('constructor');
+  });
+
+  it('rejects the prototype-named top-level field __proto__ as unknown', () => {
+    expectPrototypeFieldRejected('__proto__');
+  });
 
   it('aggregates independent schema failures in source order', () => {
     const diagnostics = decodeFailure(
