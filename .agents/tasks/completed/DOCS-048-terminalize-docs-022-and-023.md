@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-048: terminalize duplicate DOCS-022 and DOCS-023 architecture-document records'
-status: in-progress
+status: done
 created: 2026-08-29
 priority: high
 urgency: soon

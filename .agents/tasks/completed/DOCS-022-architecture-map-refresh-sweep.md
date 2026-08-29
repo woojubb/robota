@@ -1,14 +1,24 @@
 ---
 title: 'DOCS-022: architecture-map tree systematically describes a repo that no longer exists — dissolved apps, phantom packages, false edges, and a missing product-assembly tier'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: high
 urgency: soon
 area: .agents/specs/architecture-map, .agents/specs/ARCHITECTURE-MAP.md, .agents/specs/orchestration-map.md
 depends_on: []
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2049#issuecomment-5461013004
 ---
 
 # DOCS-022: architecture-map refresh sweep (agent-* scope)
+
+## Resolution — terminalized as canonical issue handoff
+
+The documented drift remains valid, but issue #2049 is the canonical owner for the bundled/source
+graph and architecture-contract refresh and explicitly tracks DOCS-022/023/024. This legacy queue
+record is therefore skipped rather than marked complete; a fresh Task must be recreated from the
+canonical issue when implementation starts. No package source, API, policy, or runtime change is
+included in this disposition.
 
 ## Problem
 
