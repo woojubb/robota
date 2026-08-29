@@ -58,6 +58,11 @@ Problem, decision, affected scope, criteria, and verification plan are recorded.
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
 
+**Approval route:** `CLASS`
+**Class:** `LANE-L0-L1`
+**Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
+**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` exits 0 and declares this work unit L1.
+
 Approved for implementation as a high-priority provider behavior fix.
 
 ### [GATE-PLAN] — ✅ PASS | 2026-08-29
