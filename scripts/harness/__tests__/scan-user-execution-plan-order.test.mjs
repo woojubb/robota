@@ -324,8 +324,16 @@ function v1SequencedRepository({
   mutateContinuationTask = (task) => task,
   withUnrelatedMerge = false,
   withConversionEvidence = false,
+  withNonAncestorConversionBase = false,
 } = {}) {
-  const { root, base: conversionBase } = repository({ withContract: true });
+  const { root, base: repositoryBase } = repository({ withContract: true });
+  let conversionBase = repositoryBase;
+  if (withNonAncestorConversionBase) {
+    git(root, ['switch', '-q', '-c', 'conversion-base-sibling', repositoryBase]);
+    write(root, 'SIBLING.md', 'conversion base outside the checkpoint ancestry\n');
+    conversionBase = commit(root, 'non-ancestor conversion base');
+    git(root, ['switch', '-q', 'feature']);
+  }
   write(root, TASK_PATH, withConversionEvidence ? conversionTaskText(conversionBase) : taskText());
   write(
     root,
@@ -607,9 +615,16 @@ describe('user-execution PLAN order — branch history', () => {
 
     const nonAncestor = v1SequencedRepository({
       withConversionEvidence: true,
-      mutateContinuationTask: (task, { conversionBase }) =>
-        task.replace(`base-oid=${conversionBase}`, `base-oid=${'f'.repeat(40)}`),
+      withNonAncestorConversionBase: true,
     });
+    expect(() =>
+      git(nonAncestor.root, [
+        'merge-base',
+        '--is-ancestor',
+        nonAncestor.conversionBase,
+        nonAncestor.base,
+      ]),
+    ).toThrow();
     expect(findHistoryFindings(nonAncestor.root, nonAncestor.base)).not.toEqual([]);
   });
 
