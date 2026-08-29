@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-050: terminalize duplicate HARNESS-115 and HARNESS-125 records'
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -19,7 +19,7 @@ verification. The diff must contain no package, app, API, policy, CI, or runtime
 
 Not applicable — internal backlog lifecycle only.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
-No user-execution scenario applies because this work only archives backlog documents and records existing GitHub handoffs.
+This is not applicable to user execution because this work only archives backlog documents and records existing GitHub handoffs; no user-facing surface changes.
 
 ## Tasks
 

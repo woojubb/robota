@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -28,6 +28,8 @@ runtime changes are included.
 ## Completion Criteria
 
 - [x] HARNESS-115 and HARNESS-125 carry skipped metadata and exact handoff URLs.
+
+Paired Task: `.agents/tasks/DOCS-050-terminalize-harness-115-and-125.md`
 - [x] Canonical issues record returned ownership.
 - [x] Archive placement and document-only scope are verified.
 
@@ -43,8 +45,9 @@ Not applicable — internal backlog lifecycle only.
 
 ## Tasks
 
-- [x] Archive HARNESS-115 to issue #2322.
-- [x] Archive HARNESS-125 to issue #2308.
+- Paired Task: `.agents/tasks/DOCS-050-terminalize-harness-115-and-125.md`
+- [ ] Archive HARNESS-115 as skipped to issue #2322.
+- [ ] Archive HARNESS-125 as skipped to issue #2308.
 
 ## Evidence Log
 
@@ -53,3 +56,31 @@ Not applicable — internal backlog lifecycle only.
 **Approval route:** `CLASS`
 
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/DOCS-050-terminalize-harness-115-and-125.md` — exists and is bound in this spec.
+- Spec: `.agents/spec-docs/todo/DOCS-050-terminalize-harness-115-and-125.md`.
+- Subject-bound user-execution PLAN: `SCENARIO DRAFTED: not-applicable | 0`, because this batch only archives backlog documents and records existing GitHub handoffs; no user-facing execution surface changes.
+- **whole-worktree** check: only the exact Task/spec pair changes before this checkpoint.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/DOCS-050-terminalize-harness-115-and-125.md",
+  "specPath": ".agents/spec-docs/todo/DOCS-050-terminalize-harness-115-and-125.md",
+  "taskItems": [],
+  "plan": {"outcome": "not-applicable", "count": 0},
+  "worktreePaths": [
+    ".agents/spec-docs/todo/DOCS-050-terminalize-harness-115-and-125.md",
+    ".agents/tasks/DOCS-050-terminalize-harness-115-and-125.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
