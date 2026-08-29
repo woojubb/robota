@@ -526,6 +526,8 @@ Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
 ### A published findings verdict freezes the pull request — it does not authorize more work
 
+<!-- enforcement declaration -->
+
 Enforced by: `.claude/hooks/pre-push-check.sh` and `.claude/hooks/merge-gate.sh`.
 
 **Any published findings verdict obliges exactly one thing: STOP EDITING.** This includes both
