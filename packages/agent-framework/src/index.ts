@@ -101,6 +101,18 @@ export {
   createDefaultRemoteCommandPolicy,
   DuplicateSystemCommandSemanticRoleError,
 } from './commands/index.js';
+export { decodeSkillAgentFrontmatter } from './metadata/frontmatter-decoder.js';
+export type {
+  IDecodedAgentFrontmatter,
+  IDecodedSkillFrontmatter,
+  IFrontmatterDecodeOptions,
+  IFrontmatterDiagnostic,
+  TDecodedFrontmatter,
+  TFrontmatterContext,
+  TFrontmatterDecodeResult,
+  TFrontmatterDiagnosticCode,
+  TFrontmatterKind,
+} from '@robota-sdk/agent-interface-command';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
 export {

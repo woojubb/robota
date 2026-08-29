@@ -49,16 +49,19 @@ keep it.
 
 ## Type Ownership
 
-| Type                                                            | Location                      | Purpose                                       |
-| --------------------------------------------------------------- | ----------------------------- | --------------------------------------------- |
-| `ICommand`, `ICommandSource`                                    | `src/command-contracts.ts`    | what a command is and where it came from      |
-| `ICommandResult`, `TCommandResultDataValue`                     | `src/command-contracts.ts`    | what running one produces                     |
-| `ICommandListEntry`, `TCommandInvocationSource`                 | `src/command-contracts.ts`    | listing and invocation provenance             |
-| `TCommandHostAction`, `TCommandUiIntent`                        | `src/command-contracts.ts`    | what a command asks of its host and of the UI |
-| `ICommandPluginAdapter` and the four plugin record types        | `src/command-contracts.ts`    | the plugin surface a command host exposes     |
-| `ISkillExecutionPort`, `ISkillResolutionResult`                 | `src/command-contracts.ts`    | resolving a skill command to its prompt       |
-| `IStatusLineCommandSettings`, `TStatusLineCommandSettingsPatch` | `src/command-contracts.ts`    | the status-line command's settings shape      |
-| `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety` | `src/capability-contracts.ts` | what a command declares about its own effects |
+| Type                                                            | Location                       | Purpose                                                                |
+| --------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `ICommand`, `ICommandSource`                                    | `src/command-contracts.ts`     | what a command is and where it came from                               |
+| `ICommandResult`, `TCommandResultDataValue`                     | `src/command-contracts.ts`     | what running one produces                                              |
+| `ICommandListEntry`, `TCommandInvocationSource`                 | `src/command-contracts.ts`     | listing and invocation provenance                                      |
+| `TCommandHostAction`, `TCommandUiIntent`                        | `src/command-contracts.ts`     | what a command asks of its host and of the UI                          |
+| `ICommandPluginAdapter` and the four plugin record types        | `src/command-contracts.ts`     | the plugin surface a command host exposes                              |
+| `ISkillExecutionPort`, `ISkillResolutionResult`                 | `src/command-contracts.ts`     | resolving a skill command to its prompt                                |
+| `IFrontmatterDecodeOptions`, `IFrontmatterDiagnostic`           | `src/frontmatter-contracts.ts` | explicit skill/agent dialect input and located strict-decoder failures |
+| `IDecodedSkillFrontmatter`, `IDecodedAgentFrontmatter`          | `src/frontmatter-contracts.ts` | closed typed metadata variants for skill and agent frontmatter         |
+| `TFrontmatterDecodeResult`, `TFrontmatterDiagnosticCode`        | `src/frontmatter-contracts.ts` | discriminated decode outcome and stable diagnostic vocabulary          |
+| `IStatusLineCommandSettings`, `TStatusLineCommandSettingsPatch` | `src/command-contracts.ts`     | the status-line command's settings shape                               |
+| `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety` | `src/capability-contracts.ts`  | what a command declares about its own effects                          |
 
 21 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
 

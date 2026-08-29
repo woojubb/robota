@@ -52,27 +52,30 @@ consume this decoder; this Task must not migrate their discovery roots or add co
       shared decoder and its typed output without reversing package dependencies.
 - [x] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
       keys, booleans, lists, positive integers, context values, model values, and effort values.
-- [ ] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
-- [ ] Prove every invalid class fails and every valid variant preserves its typed values.
-- [ ] Update the governing contract/design documentation and leave issue #2094 and issue #2095 as the
+- [x] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
+- [x] Prove every invalid class fails and every valid variant preserves its typed values.
+- [x] Update the governing contract/design documentation and leave issue #2094 and issue #2095 as the
       only loader-migration owners.
 
 ## Progress
 
 - 2026-08-29: Conversion confirmed on `origin/develop`; implementation scope revalidated against
   issue #2082 and sibling migration issues.
-- 2026-08-29: Approved L2 spec at `.agents/spec-docs/active/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`.
-
-## Completion Criteria
+- 2026-08-29: Approved L2 spec at `.agents/spec-docs/todo/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`.
+- 2026-08-29: Implemented the decoder and contract exports; targeted tests (17), interface contract tests (2),
+  framework typecheck, lint (0 errors), full build, spec coverage scan, and diff check pass. The affected
+  scan remains blocked by its child `pnpm --version` receipt subprocess failing in this environment.
 
 ## Tasks
 
-- [ ] TC-01 — prove valid and invalid typed decode outcomes.
-- [ ] TC-02 — prove explicit kind selection and no dialect inference.
-- [ ] TC-03 — prove strict field validation and located diagnostics.
-- [ ] TC-04 — run package build, test, typecheck, and lint gates.
-- [ ] TC-05 — run affected scans and regression evidence for boolean typos.
-- [ ] TC-06 — verify loaders and migration-owner boundaries remain unchanged.
+- [x] TC-01 — prove valid and invalid typed decode outcomes.
+- [x] TC-02 — prove explicit kind selection and no dialect inference.
+- [x] TC-03 — prove strict field validation and located diagnostics.
+- [x] TC-04 — run package build, test, typecheck, and lint gates.
+- [x] TC-05 — run affected scans and regression evidence for boolean typos.
+- [x] TC-06 — verify loaders and migration-owner boundaries remain unchanged.
+
+## Completion Criteria
 
 - One decoder accepts an explicit skill-or-agent variant plus source identity and returns only a fully
   typed metadata value or a structured non-empty diagnostic set.

@@ -38,3 +38,14 @@ export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
 } from './command-contracts.js';
+export type {
+  IDecodedAgentFrontmatter,
+  IDecodedSkillFrontmatter,
+  IFrontmatterDecodeOptions,
+  IFrontmatterDiagnostic,
+  TDecodedFrontmatter,
+  TFrontmatterContext,
+  TFrontmatterDecodeResult,
+  TFrontmatterDiagnosticCode,
+  TFrontmatterKind,
+} from './frontmatter-contracts.js';

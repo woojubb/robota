@@ -6,6 +6,9 @@ import type {
   ICommandListEntry,
   ICommandPluginAdapter,
   ICommandResult,
+  IDecodedAgentFrontmatter,
+  IDecodedSkillFrontmatter,
+  IFrontmatterDiagnostic,
   TCommandHostAction,
 } from '../index.js';
 
@@ -28,5 +31,8 @@ describe('command contract surface', () => {
     expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
     expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
     expectTypeOf<TCommandHostAction>().not.toBeNever();
+    expectTypeOf<IDecodedSkillFrontmatter>().toHaveProperty('kind');
+    expectTypeOf<IDecodedAgentFrontmatter>().toHaveProperty('maxTurns');
+    expectTypeOf<IFrontmatterDiagnostic>().toHaveProperty('source');
   });
 });
