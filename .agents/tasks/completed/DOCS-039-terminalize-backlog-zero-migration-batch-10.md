@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-039: terminalize backlog-zero migration batch 10'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -20,7 +21,7 @@ product documentation. The batch is a documentation-only application of the regi
 
 ## Spec
 
-`.agents/spec-docs/active/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
+`.agents/spec-docs/done/DOCS-039-terminalize-backlog-zero-migration-batch-10.md`
 
 ## Plan
 
@@ -28,9 +29,9 @@ product documentation. The batch is a documentation-only application of the regi
       comments, four package documentation carrier links, and excluded-scope boundary.
 - [x] TC-02 — mark ARCH-047, ARCH-048, and ARCH-049 skipped with exact `returned_to_issue` links,
       preserving each body and moving each Task atomically to `completed/`.
-- [ ] TC-03 — pass lifecycle, citation, manifest, delegation, carrier, and no-growth path scans
+- [x] TC-03 — pass lifecycle, citation, manifest, delegation, carrier, and no-growth path scans
       with no package source or policy files changed.
-- [ ] TC-04 — run focused scans and the full harness verification mirror successfully.
+- [x] TC-04 — run focused scans and the full harness verification mirror successfully.
 
 ## Test Plan
 
