@@ -1,16 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, cpSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { makeTemp } from './make-temp.mjs';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 const script = join(root, 'scripts/harness/restore-tracked-husky-hooks.mjs');
 
 describe('restore-tracked-husky-hooks', () => {
   it('restores the tracked fallback contents and executable mode', () => {
-    const fixture = mkdtempSync(join(tmpdir(), 'robota-husky-'));
+    const fixture = makeTemp('robota-husky-');
     const target = join(fixture, '.husky/_/pre-push');
     const fallback = join(fixture, '.husky/_/pre-push.fallback');
     cpSync(join(root, '.husky/_/pre-push.fallback'), fallback);
