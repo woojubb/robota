@@ -30,6 +30,7 @@ runtime changes are included.
 - [x] HARNESS-115 and HARNESS-125 carry skipped metadata and exact handoff URLs.
 
 Paired Task: `.agents/tasks/DOCS-050-terminalize-harness-115-and-125.md`
+
 - [x] Canonical issues record returned ownership.
 - [x] Archive placement and document-only scope are verified.
 
@@ -75,7 +76,7 @@ Not applicable — internal backlog lifecycle only.
   "taskPath": ".agents/tasks/DOCS-050-terminalize-harness-115-and-125.md",
   "specPath": ".agents/spec-docs/todo/DOCS-050-terminalize-harness-115-and-125.md",
   "taskItems": [],
-  "plan": {"outcome": "not-applicable", "count": 0},
+  "plan": { "outcome": "not-applicable", "count": 0 },
   "worktreePaths": [
     ".agents/spec-docs/todo/DOCS-050-terminalize-harness-115-and-125.md",
     ".agents/tasks/DOCS-050-terminalize-harness-115-and-125.md"
