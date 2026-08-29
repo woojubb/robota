@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-139: Gate judges reject archived Tasks as active'
 issue: https://github.com/woojubb/robota/issues/2467
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: high
 urgency: now
@@ -33,3 +33,7 @@ must fail instead of being accepted by existence alone.
 ## User Execution Test Scenarios
 
 Not applicable — internal harness gate correctness; no user-facing runtime flow changes.
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Reason: not applicable because this is an internal harness-only gate correction with no user-facing execution path.
