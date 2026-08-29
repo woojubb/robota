@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [docs]
 lane: L2
