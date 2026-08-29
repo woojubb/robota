@@ -100,7 +100,14 @@ export async function* executeDirectStream(
 
   emitGeminiNativeRawPayload(options, providerName, 'request', request);
   const stream = await client.models.generateContentStream(request);
+  yield* streamResponseChunks(stream, options, providerName);
+}
 
+async function* streamResponseChunks(
+  stream: AsyncIterable<GenerateContentResponse>,
+  options: IChatOptions | undefined,
+  providerName: string,
+): AsyncIterable<TUniversalMessage> {
   let sequence = 0;
   for await (const chunk of stream) {
     emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
