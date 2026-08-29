@@ -6,6 +6,8 @@ priority: medium
 urgency: soon
 area: packages/agent-tools
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/1999
 ---
 
 # TOOL-007: `cwd` has three contradictory meanings

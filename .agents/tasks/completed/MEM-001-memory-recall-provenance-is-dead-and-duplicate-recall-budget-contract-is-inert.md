@@ -6,6 +6,8 @@ priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-command, packages/agent-cli
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/2055
 ---
 
 # MEM-001: recall provenance and a duplicate recall-budget contract
