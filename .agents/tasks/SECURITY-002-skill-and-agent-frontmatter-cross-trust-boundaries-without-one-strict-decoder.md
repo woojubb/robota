@@ -1,7 +1,7 @@
 ---
 title: 'SECURITY-002: Skill and agent frontmatter cross trust boundaries without one strict decoder'
 issue: https://github.com/woojubb/robota/issues/2082
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -61,9 +61,18 @@ consume this decoder; this Task must not migrate their discovery roots or add co
 
 - 2026-08-29: Conversion confirmed on `origin/develop`; implementation scope revalidated against
   issue #2082 and sibling migration issues.
-- 2026-08-29: Approved L2 spec at `.agents/spec-docs/todo/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`.
+- 2026-08-29: Approved L2 spec at `.agents/spec-docs/active/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`.
 
 ## Completion Criteria
+
+## Tasks
+
+- [ ] TC-01 — prove valid and invalid typed decode outcomes.
+- [ ] TC-02 — prove explicit kind selection and no dialect inference.
+- [ ] TC-03 — prove strict field validation and located diagnostics.
+- [ ] TC-04 — run package build, test, typecheck, and lint gates.
+- [ ] TC-05 — run affected scans and regression evidence for boolean typos.
+- [ ] TC-06 — verify loaders and migration-owner boundaries remain unchanged.
 
 - One decoder accepts an explicit skill-or-agent variant plus source identity and returns only a fully
   typed metadata value or a structured non-empty diagnostic set.
