@@ -369,6 +369,12 @@ verification done; every changed file committed so the working tree is clean bef
 PR opened and merged into `develop` (or the initiative base branch). Only after the merge may the next
 backlog begin.
 
+**Merge is the terminal outcome, not an optional handoff.** A pending or failed check is a work state,
+not permission to stop and report partial delivery. The owning session must continue the bounded
+observe→diagnose→fix→recheck loop until the PR is confirmed `MERGED` and the merge commit is an
+ancestor of `origin/develop`. A final report must include that confirmation; otherwise the work is
+`in-progress`, never complete.
+
 **Violations:**
 
 - Starting a new backlog while the current backlog's PR is open or unmerged → stop, merge first.
