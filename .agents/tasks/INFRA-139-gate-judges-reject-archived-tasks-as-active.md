@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-139: Gate judges reject archived Tasks as active'
 issue: https://github.com/woojubb/robota/issues/2467
-status: in-progress
+status: done
 created: 2026-08-29
 priority: high
 urgency: now
@@ -19,10 +19,10 @@ must fail instead of being accepted by existence alone.
 
 ## Plan
 
-- [ ] Add a regression fixture proving an archived Task path is rejected by both active-task gates.
-- [ ] Add the equivalent root-path fixture proving valid active Tasks remain accepted.
-- [ ] Implement canonical root-path validation in `scripts/harness/gate.mjs`.
-- [ ] Run focused tests, harness scans, and CI-equivalent verification; archive this Task on completion.
+- [x] Add a regression fixture proving an archived Task path is rejected by both active-task gates.
+- [x] Add the equivalent root-path fixture proving valid active Tasks remain accepted.
+- [x] Implement canonical root-path validation in `scripts/harness/gate.mjs`.
+- [x] Run focused tests, harness scans, and CI-equivalent verification; archive this Task on completion.
 
 ## Test Plan
 

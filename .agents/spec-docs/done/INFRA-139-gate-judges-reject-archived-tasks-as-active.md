@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, gate]
 lane: L2
@@ -81,10 +81,10 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` has a RED archived-path
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` has a RED archived-path
       regression before the fix and exits 0 after it.
-- [ ] TC-02: `pnpm harness:scan` exits 0.
-- [ ] TC-03: `pnpm harness:verify-like-ci` exits 0.
+- [x] TC-02: `pnpm harness:scan` exits 0.
+- [x] TC-03: `pnpm harness:verify-like-ci` exits 0.
 
 ## Test Plan
 
@@ -174,3 +174,100 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 - GATE-IMPLEMENT — checkpoint binding: `.agents/spec-docs/todo/INFRA-139-gate-judges-reject-archived-tasks-as-active.md`
 - GATE-IMPLEMENT — checkpoint PLAN outcome: `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+11:32:08 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /home/ubunutu/dev/robota-5
+
+······································································
+
+ Test Files  1 passed (1)
+      Tests  70 passed (70)
+   Start at  11:32:08
+   Duration  3.85s (transform 139ms, setup 0ms, collect 192ms, tests 3.47s, environment 0ms, prepare 45ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:scan`
+**Exit:** 0
+**Output:** (last 10 of 165 line(s))
+
+```
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2054/2858 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /home/ubunutu/.claude/projects/-home-ubunutu-dev-robota-5; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+⚑ dist: @robota-sdk/agent-core: dist/ may be STALE — src/permissions/argument-matchers.ts is 23m 16s newer than dist/node/verdict-decoder-BR3DLEQ3.js.map
+⚑ dist: @robota-sdk/agent-framework: dist/ may be STALE — src/tools/tool-permission-profiles.ts is 22m 15s newer than dist/node/index-Bz8hkgV3.d.ts.map
+⚑ dist: @robota-sdk/agent-tools: dist/ may be STALE — src/tool-permission-profiles.ts is 22m 59s newer than dist/node/index.d.ts
+⚑ dist: 3 package(s) have a dist/ older than their src/. A cross-package type error seen only in a whole-workspace typecheck should be re-checked after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before it is treated as a branch defect.
+
+146 scans passed, 2 skipped (98 declared what they examined)
+scan receipt written: an unchanged tree will not be re-scanned.
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 496 line(s))
+
+```
+  - chat-basic: functional test not found: tests/chat-basic.functional.test.ts
+
+Every framework capability needs a kit-based functional test (see .agents/rules/testing-layering.md).
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+(node:3659287) ExperimentalWarning: globSync is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+===== scan-suite-dist-free =====
+mirrors: ci.yml → scans → Harness scan suite (dist-independent)
+```
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-08-29
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no supplied --verify-cmd contains `build`, `harness:scan` or `run-all-scans` (supplied: `pnpm harness:verify-like-ci` → exit 0 (new-rule-declares-enforcement scan FAILED — cannot read the diff against `does/not/exist`. Fetch the base ref (a shallow clone has no merge base), or pass --base-ref explicitly. ⏎ (node:3697208) ExperimentalWarning: globSync is an experimental feature and might change at any time ⏎ (Use `node --trace-warnings ...` to show where the warning was created)); `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exit 0 ( Duration 3.97s (transform 142ms, setup 0ms, collect 193ms, tests 3.59s, environment 0ms, prepare 43ms) ⏎ ⏎ 11:41:02 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.))
+  **Required action:** pass a build command via --verify-cmd
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 4/4 tasks `[x]` in .agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm build` → exit 0 ([33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../agent-builtin-providers/dist/node/index.js is dynamically imported by ../dag-nodes-default/dist/node/index.js but also statically imported by src/eval/eval-command.ts, src/product/robota-subagent-composition.ts, src/startup/command-setup.ts, src/startup/diagnose-command.ts, src/startup/provider-startup.ts, dynamic import will not move module into another chunk. ⏎ ⏎ [33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../dag-nodes-default/dist/node/index.js is dynamically imported by ../dag-framework/dist/node/index.js but also statically imported by ../agent-command-workflows/dist/node/index.js, dynamic import will not move module into another chunk.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exit 0 ( Duration 3.89s (transform 126ms, setup 0ms, collect 182ms, tests 3.52s, environment 0ms, prepare 45ms) ⏎ ⏎ 11:42:57 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-29
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-29; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active.md
