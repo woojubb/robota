@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [typescript]
 lane: L1
@@ -117,18 +117,18 @@ separate work units.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       exits 0 with a valid newly added AGREEMENT parent/spec + declared child manifest, and the new
       positive case fails when the implementation is reverted.
-- [ ] TC-02: the planning-order test file rejects unrelated Task paths, existing child rewrites,
+- [x] TC-02: the planning-order test file rejects unrelated Task paths, existing child rewrites,
       duplicate/unresolved or non-todo children, nested AGREEMENTs, source-issue mismatch and malformed
       projections with a named reason.
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs` exits 0 and
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs` exits 0 and
       proves a unique valid parent marker wins over child citations; missing/conflicting/child markers
       are malformed; a single Task remains converted without a marker.
-- [ ] TC-04: the preserved issue #1987 manifest passes the staged scanner in an isolated Git fixture
+- [x] TC-04: the preserved issue #1987 manifest passes the staged scanner in an isolated Git fixture
       and audits to `AGREEMENT-004`, while no issue #1987 file is committed in the INFRA-141 PR.
-- [ ] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0 and `pnpm harness:scan` has zero failures.
 
 ## Test Plan
@@ -149,7 +149,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md` — todo
+- [x] `.agents/tasks/completed/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md` — done
 
 ## Evidence Log
 
@@ -242,3 +242,131 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 35 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > keeps a multiline code span across an inline HTML soft continuation  382ms
+   ✓ user-execution PLAN order — branch history > rejects stale single-path active, completed, and done documents as planning preludes  343ms
+   ✓ PROC-016 — the L1 lane checkpoint and loop-run ledger appends > leaves the L2 rule untouched: a GATE-PLAN entry on an L2 spec is not a checkpoint (TC-d)  490ms
+   ✓ PROC-016 — the L1 lane checkpoint and loop-run ledger appends > allows a pure append to the user-request-gate ledger before an L2 checkpoint (TC-e)  375ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  437ms
+
+ Test Files  1 passed (1)
+      Tests  131 passed (131)
+   Start at  14:58:07
+   Duration  34.89s (transform 133ms, setup 0ms, collect 167ms, tests 34.45s, environment 0ms, prepare 60ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 35 line(s))
+
+```
+   ✓ user-execution PLAN order — branch history > keeps a multiline code span across an inline HTML soft continuation  382ms
+   ✓ user-execution PLAN order — branch history > rejects stale single-path active, completed, and done documents as planning preludes  343ms
+   ✓ PROC-016 — the L1 lane checkpoint and loop-run ledger appends > leaves the L2 rule untouched: a GATE-PLAN entry on an L2 spec is not a checkpoint (TC-d)  490ms
+   ✓ PROC-016 — the L1 lane checkpoint and loop-run ledger appends > allows a pure append to the user-request-gate ledger before an L2 checkpoint (TC-e)  375ms
+   ✓ user-execution PLAN order — repository contract > passes on this branch and includes the real predecessor prelude plus checkpoint  437ms
+
+ Test Files  1 passed (1)
+      Tests  131 passed (131)
+   Start at  14:58:07
+   Duration  34.89s (transform 133ms, setup 0ms, collect 167ms, tests 34.45s, environment 0ms, prepare 60ms)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+RUN  v3.2.6 /home/ubunutu/dev/robota-2
+
+ ✓ scripts/harness/__tests__/github-issue-triage.test.mjs (13 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  14:58:50
+   Duration  247ms (transform 38ms, setup 0ms, collect 44ms, tests 10ms, environment 0ms, prepare 45ms)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'newly staged AGREEMENT' && node --input-type=module -e '<issue #1987 stash manifest + live marker audit>'`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+{
+  "candidateCount": 5,
+  "link": ".agents/tasks/AGREEMENT-004-coordinate-model-effort-control-semantics-across-session-overrides-providers-and.md",
+  "problem": null
+}
+{
+  "stagedManifestFindings": []
+}
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 89 line(s))
+
+```
+✓ doc-folder-status
+
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2054/2858 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification: 19 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 19 real violation(s) recorded, not cleared by editing history.
+⚑ progress-report-quantification: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+59 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (44 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm harness:test && node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && pnpm harness:scan`
+**Exit:** 0
+**Output:** (last 10 of 175 line(s))
+
+```
+⚑ dist: @robota-sdk/agent-framework: dist/ may be STALE — src/tools/tool-permission-profiles.ts is 39h 39m newer than dist/node/index-DPf2t4Fo.d.ts.map
+⚑ dist: @robota-sdk/agent-interface-analytics: dist/ may be STALE — src/usage-contracts.ts is 28h 6m newer than dist/node/index.d.ts
+⚑ dist: @robota-sdk/agent-session-analytics: dist/ may be STALE — src/types.ts is 28h 6m newer than dist/node/index.d.ts
+⚑ dist: @robota-sdk/agent-subagent-runner: dist/ may be STALE — src/worker-composition.ts is 28h 5m newer than dist/node/index.d.ts
+⚑ dist: @robota-sdk/agent-tools: dist/ may be STALE — src/tool-permission-profiles.ts is 39h 40m newer than dist/node/index.d.ts
+⚑ dist: @robota-sdk/agent-transport: dist/ may be STALE — src/programmatic/createProgrammaticAgent.ts is 28h 5m newer than dist/node/programmatic-Bv6U8o0v.js.map
+⚑ dist: 9 package(s) have a dist/ older than their src/. A cross-package type error seen only in a whole-workspace typecheck should be re-checked after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before it is treated as a branch defect.
+
+148 scans passed, 1 skipped (99 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M scripts/harness/progress-report-acknowledgments.json
+```
+
+### [GATE-DONE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 59 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (44 declared what they examined) ⏎ scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md

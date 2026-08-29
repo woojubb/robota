@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-141: make multi-task AGREEMENT conversion atomic across commit ordering and issue handoff'
 issue: https://github.com/woojubb/robota/issues/2484
-status: in-progress
+status: done
 created: 2026-08-29
+completed: 2026-08-29
 priority: critical
 urgency: now
 area: issue-to-backlog, user-execution plan order, GitHub issue triage
@@ -28,16 +29,26 @@ records and exact projections, and the parent marker as canonical issue authorit
 
 ## Plan
 
-- [ ] Specify the admissible AGREEMENT conversion manifest and reject undeclared, pre-existing,
+- [x] Specify the admissible AGREEMENT conversion manifest and reject undeclared, pre-existing,
       nested-AGREEMENT, non-todo, or implementation paths.
-- [ ] Add RED fixtures proving the current staged scanner rejects the valid atomic conversion and the
+- [x] Add RED fixtures proving the current staged scanner rejects the valid atomic conversion and the
       current triage audit selects a child instead of the marker-owned parent.
-- [ ] Update planning-order classification to accept only the validated parent/spec + declared child
+- [x] Update planning-order classification to accept only the validated parent/spec + declared child
       creation shape while preserving single-work-unit and clean-worktree enforcement.
-- [ ] Update issue handoff discovery to prefer the read-back marker's canonical Task and report
+- [x] Update issue handoff discovery to prefer the read-back marker's canonical Task and report
       ambiguous/mismatched source citations rather than choosing by traversal order.
-- [ ] Verify the real stashed issue #1987 conversion can commit and audit as `AGREEMENT-004`, then
+- [x] Verify the real stashed issue #1987 conversion can commit and audit as `AGREEMENT-004`, then
       restore issue #1987's handoff authority.
+
+## Result
+
+- The staged guard accepts only one newly added exact-basename AGREEMENT parent/spec and its exact
+  newly added todo child projection; named negative fixtures cover every rejected manifest class.
+- GitHub audit collects every Task citation and resolves a unique exact AGREEMENT parent marker;
+  missing, conflicting, child, nested, or child-set-mismatched markers fail as malformed.
+- The preserved issue #1987 manifest produced zero staged findings and its five live candidates
+  resolved to `AGREEMENT-004` with no audit problem, without adding issue #1987 files to this branch.
+- Targeted tests, the full 6,584-test harness suite, affected scans, and full scans passed.
 
 ## Constraints
 
