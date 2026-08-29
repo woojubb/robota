@@ -1,8 +1,9 @@
 ---
 title: 'SECURITY-002: Skill and agent frontmatter cross trust boundaries without one strict decoder'
 issue: https://github.com/woojubb/robota/issues/2082
-status: todo
+status: done
 created: 2026-08-29
+completed: 2026-08-29
 priority: medium
 urgency: soon
 area: agent-core, agent-interface-command, agent-framework
@@ -18,9 +19,12 @@ loader is migrated. The decoder must turn untrusted metadata into explicit typed
 structured diagnostic; it must never cast a partial record, coerce a typo to a wider permission, or
 silently ignore a malformed or unknown field.
 
-This is one independently mergeable leaf of tracking issue #2066. Issue #2094 owns migration of skill
-and plugin discovery, and issue #2095 owns migration of agent-definition loading. Those siblings must
-consume this decoder; this Task must not migrate their discovery roots or add compatibility shims.
+This is one independently mergeable leaf of tracking
+[issue #2066](https://github.com/woojubb/robota/issues/2066).
+[Issue #2094](https://github.com/woojubb/robota/issues/2094) owns migration of skill and plugin
+discovery, and [issue #2095](https://github.com/woojubb/robota/issues/2095) owns migration of
+agent-definition loading. Those siblings must consume this decoder; this Task must not migrate their
+discovery roots or add compatibility shims.
 
 ## Existing Evidence
 
@@ -42,7 +46,9 @@ consume this decoder; this Task must not migrate their discovery roots or add co
 - Reuse the existing `TModelEffort` owner rather than defining a sibling effort vocabulary.
 - Decide and test one explicit unknown-key policy. Silent acceptance is forbidden.
 - Keep decoder definition and direct tests in this Task. Keep every loader migration, discovery-root
-  traversal, precedence rule, and user-facing loader error projection in issue #2094 or issue #2095.
+  traversal, precedence rule, and user-facing loader error projection in
+  [issue #2094](https://github.com/woojubb/robota/issues/2094) or
+  [issue #2095](https://github.com/woojubb/robota/issues/2095).
 - Do not retain permissive aliases, forwarding parsers, or compatibility fallbacks; the affected API
   is prerelease.
 
@@ -63,7 +69,8 @@ accepts `tags`. The `agent` vocabulary is `name`, `description`, `model`, `maxTu
 `disallowedTools`, and `signal`. Skill `model` is deliberately rejected because no current contract or
 consumer owns it; agent `model` remains because the agent contract consumes it. Skill `effort` imports
 the existing `TModelEffort` owner, and `context` accepts only the currently contracted `fork` value.
-Existing loaders remain untouched for issue #2094 and issue #2095.
+Existing loaders remain untouched for [issue #2094](https://github.com/woojubb/robota/issues/2094)
+and [issue #2095](https://github.com/woojubb/robota/issues/2095).
 
 **Grounds.** The repository inventory contains `loop`, `invocable`, `license`, nested `metadata`,
 bundle `tags`, and agent `signal`/`tools`, so a narrower vocabulary would reject supported documents.
@@ -72,7 +79,8 @@ All future consumers are internal to `agent-framework`, which is already allowed
 dependency. A validated YAML parser supports the formats already present without repeating the unsafe
 line parsers. Exact body preservation leaves consumer-specific trimming to the loader-migration
 issues. The depth review classified the shared strict decoder as the foundational cause that this Task
-already owns; #2094 and #2095 own only integration.
+already owns; [issue #2094](https://github.com/woojubb/robota/issues/2094) and
+[issue #2095](https://github.com/woojubb/robota/issues/2095) own only integration.
 
 **Independent review.** Round 1 returned `REVIEW VERDICT: REVISE` with four findings: missing real key
 vocabularies, insufficient YAML syntax, under-specified body/diagnostic semantics, and unowned skill
@@ -89,10 +97,11 @@ the stated grounds are valid, so this exact recommendation is automatically appr
       shared decoder and its typed output without reversing package dependencies.
 - [x] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
       keys, booleans, lists, positive integers, context values, model values, and effort values.
-- [ ] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
-- [ ] Prove every invalid class fails and every valid variant preserves its typed values.
-- [ ] Update the governing contract/design documentation and leave issue #2094 and issue #2095 as the
-      only loader-migration owners.
+- [x] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
+- [x] Prove every invalid class fails and every valid variant preserves its typed values.
+- [x] Update the governing contract/design documentation and leave
+      [issue #2094](https://github.com/woojubb/robota/issues/2094) and
+      [issue #2095](https://github.com/woojubb/robota/issues/2095) as the only loader-migration owners.
 
 ## Completion Criteria
 
@@ -106,8 +115,9 @@ the stated grounds are valid, so this exact recommendation is automatically appr
   primitives rather than duplicating coercion logic.
 - The effort field consumes the `TModelEffort` SSOT, and no arbitrary string crosses the decoded
   boundary.
-- Existing skill/plugin and agent loaders are not migrated in this Task; issue #2094 and issue #2095
-  remain the respective migration owners.
+- Existing skill/plugin and agent loaders are not migrated in this Task;
+  [issue #2094](https://github.com/woojubb/robota/issues/2094) and
+  [issue #2095](https://github.com/woojubb/robota/issues/2095) remain the respective migration owners.
 - No compatibility parser, silent fallback, partial-record cast, or forwarding alias is added.
 
 ## Test Plan
@@ -119,6 +129,18 @@ the stated grounds are valid, so this exact recommendation is automatically appr
 - Run the affected package build, tests, lint/type checks, package contract verification, repository
   scans, and CI-equivalent verification before merge.
 
+## Result
+
+- Added one private, caller-profiled frontmatter decoder subsystem with fail-closed YAML parsing,
+  typed profile output, structured coordinates, and no partial-result path.
+- Focused validation passed 33/33 tests (100%); package regression passed 1,596/1,596 tests (100%),
+  typecheck, lint with zero errors, and build.
+- Affected scans exited 0 with 103/105 checks passing (98.1%), one conditional skip (1.0%), and one
+  historical advisory (1.0%); the design-document gate passed and every production file is below
+  the 300-line limit.
+- Exact scope diff confirmed that the three existing loaders and the public package entry point remain
+  unchanged; loader integration remains with the linked follow-up issues.
+
 ## User Execution Test Scenarios
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
@@ -126,6 +148,8 @@ the stated grounds are valid, so this exact recommendation is automatically appr
 Not applicable for this leaf: it delivers only a private, directly tested decoder and deliberately
 does not connect any production loader. Current CLI, TUI, browser, and public SDK paths therefore do
 not invoke the new decoder. This is not an unreachable user-facing capability hidden behind an
-internal seam because this Task claims no runnable behavior; issue #2094 and issue #2095 own the
-skill/plugin and agent-loader integrations and their user-visible rejection behavior. A scenario run
+internal seam because this Task claims no runnable behavior;
+[issue #2094](https://github.com/woojubb/robota/issues/2094) and
+[issue #2095](https://github.com/woojubb/robota/issues/2095) own the skill/plugin and agent-loader
+integrations and their user-visible rejection behavior. A scenario run
 through today's product would exercise the existing permissive parsers rather than SECURITY-002.

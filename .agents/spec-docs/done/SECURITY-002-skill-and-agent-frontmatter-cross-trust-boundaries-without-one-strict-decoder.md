@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: SECURITY
 tags: [security]
 lane: L1
@@ -7,7 +7,7 @@ lane: L1
 
 # SECURITY-002: Skill and agent frontmatter cross trust boundaries without one strict decoder
 
-Paired with `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`. Arising from [issue #2082](https://github.com/woojubb/robota/issues/2082).
+Paired with `.agents/tasks/completed/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`. Arising from [issue #2082](https://github.com/woojubb/robota/issues/2082).
 
 ## Problem
 
@@ -98,7 +98,8 @@ compatibility alias, loader catch-and-continue behavior, or user-facing degradat
 
 ## Affected Files
 
-- `packages/agent-framework/src/frontmatter/frontmatter-decoder.ts` — new private decoder and types.
+- `packages/agent-framework/src/frontmatter/*.ts` — private facade, document boundary, primitives,
+  profile schemas, and owned types.
 - `packages/agent-framework/src/frontmatter/__tests__/frontmatter-decoder.test.ts` — direct contract tests.
 - `packages/agent-framework/docs/design/frontmatter-decoder.md` — internal design and ownership record.
 - `packages/agent-framework/package.json` — direct `yaml` dependency.
@@ -107,24 +108,24 @@ compatibility alias, loader catch-and-continue behavior, or user-facing degradat
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts` proves minimal and complete success for all three profiles, typed values, both list forms, actual repository metadata fields, and exact LF/CRLF/no-header body preservation; the RED run fails before the decoder exists.
-- [ ] TC-02: the same test file rejects every reviewed structural/schema class with exact diagnostic
+- [x] TC-01: `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts` proves minimal and complete success for all three profiles, typed values, both list forms, actual repository metadata fields, and exact LF/CRLF/no-header body preservation; the RED run fails before the decoder exists.
+- [x] TC-02: the same test file rejects every reviewed structural/schema class with exact diagnostic
       code/source/line/column/field assertions and proves `disable-model-invocation: treu` cannot become
       `false`, invalid `maxTurns` cannot cross the boundary, skill `model` fails, and agent `model` succeeds.
-- [ ] TC-03: the decoder output uses imported `TModelEffort`, every profile has a closed independently
+- [x] TC-03: the decoder output uses imported `TModelEffort`, every profile has a closed independently
       tested key set, and `git diff --exit-code origin/develop -- packages/agent-framework/src/commands/skill-source.ts packages/agent-framework/src/plugins/bundle-plugin-utils.ts packages/agent-framework/src/agents/agent-definition-loader.ts packages/agent-framework/src/index.ts` confirms no loader wiring or public export.
-- [ ] TC-04: `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-framework typecheck && pnpm --filter @robota-sdk/agent-framework lint && pnpm --filter @robota-sdk/agent-framework build` exits 0.
-- [ ] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0 and the design-document scan accepts the internal design doc.
+- [x] TC-04: `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-framework typecheck && pnpm --filter @robota-sdk/agent-framework lint && pnpm --filter @robota-sdk/agent-framework build` exits 0.
+- [x] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0 and the design-document scan accepts the internal design doc.
 
 ## Test Plan
 
-| TC-ID | Test Type          | Tool / Approach                                   | Notes                                                                                 |
-| ----- | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| TC-01 | Unit/TDD           | Focused Vitest file                               | RED before module exists; GREEN for all valid profiles and exact body behavior        |
-| TC-02 | Security/negative  | Table-driven focused Vitest file                  | Fail-closed structural and field diagnostics, including authority-widening typo proof |
-| TC-03 | Type/scope         | Type assertions plus exact `git diff --exit-code` | `TModelEffort` SSOT, closed profiles, no wiring/export scope creep                    |
-| TC-04 | Package regression | Package test/typecheck/lint/build                 | Full affected package health on final tree                                            |
-| TC-05 | Repository/design  | Affected harness scans and design-doc gate        | Governance and internal design conformance                                            |
+| TC-ID | Test Type          | Tool / Approach                                   | Notes                                                                                                                                                     |
+| ----- | ------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit/TDD           | Focused Vitest file                               | RED before module exists; GREEN for all valid profiles and exact body behavior                                                                            |
+| TC-02 | Security/negative  | Table-driven focused Vitest file                  | Fail-closed structural and field diagnostics, including authority-widening typo proof                                                                     |
+| TC-03 | Type/scope         | Type assertions plus exact `git diff --exit-code` | `TModelEffort` SSOT, closed profiles, no wiring/export scope creep                                                                                        |
+| TC-04 | Package regression | Package test/typecheck/lint/build                 | **Test skipped:** aggregate package verification is evidenced by the exact test, typecheck, lint, and build commands rather than a duplicate wrapper test |
+| TC-05 | Repository/design  | Affected harness scans and design-doc gate        | Governance and internal design conformance                                                                                                                |
 
 ## User Execution Test Scenarios
 
@@ -134,7 +135,7 @@ not this change. Issue #2094 and issue #2095 own the runnable integrations and t
 
 ## Tasks
 
-- [ ] `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md` — todo
+- [x] `.agents/tasks/completed/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md` — done
 
 ## Evidence Log
 
@@ -199,3 +200,132 @@ not this change. Issue #2094 and issue #2095 own the runnable integrations and t
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:23:22 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /home/ubunutu/dev/robota-2/packages/agent-framework
+
+ ✓ src/frontmatter/__tests__/frontmatter-decoder.test.ts (33 tests) 24ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  18:23:22
+   Duration  286ms (transform 56ms, setup 0ms, collect 85ms, tests 24ms, environment 0ms, prepare 50ms)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:23:22 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /home/ubunutu/dev/robota-2/packages/agent-framework
+
+ ✓ src/frontmatter/__tests__/frontmatter-decoder.test.ts (33 tests) 24ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  18:23:22
+   Duration  286ms (transform 56ms, setup 0ms, collect 85ms, tests 24ms, environment 0ms, prepare 50ms)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/frontmatter/__tests__/frontmatter-decoder.test.ts && git diff --exit-code origin/develop -- packages/agent-framework/src/commands/skill-source.ts packages/agent-framework/src/plugins/bundle-plugin-utils.ts packages/agent-framework/src/agents/agent-definition-loader.ts packages/agent-framework/src/index.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:23:28 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /home/ubunutu/dev/robota-2/packages/agent-framework
+
+ ✓ src/frontmatter/__tests__/frontmatter-decoder.test.ts (33 tests) 23ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  18:23:28
+   Duration  287ms (transform 55ms, setup 0ms, collect 86ms, tests 23ms, environment 0ms, prepare 55ms)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-29
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-framework typecheck && pnpm --filter @robota-sdk/agent-framework lint && pnpm --filter @robota-sdk/agent-framework build`
+**Exit:** 0
+**Output:** (last 10 of 591 line(s))
+
+```
+ℹ  [ESM] 12 files, total: 2.01 MB
+✔  Build complete in 2205ms
+ℹ  [CJS] dist/node/index-Bz8hkgV3.d.ts.map   30.53 kB │ gzip:  8.94 kB
+ℹ  [CJS] dist/node/index.d.ts.map            10.83 kB │ gzip:  3.51 kB
+ℹ  [CJS] dist/node/testing/index.d.ts.map     1.22 kB │ gzip:  0.56 kB
+ℹ  [CJS] dist/node/index.d.ts                95.88 kB │ gzip: 26.12 kB
+ℹ  [CJS] dist/node/testing/index.d.ts        10.93 kB │ gzip:  4.30 kB
+ℹ  [CJS] dist/node/index-Bz8hkgV3.d.ts      217.62 kB │ gzip: 58.99 kB
+ℹ  [CJS] 6 files, total: 367.00 kB
+✔  Build complete in 2208ms
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-29
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && node scripts/harness/check-design-doc-completeness.mjs packages/agent-framework/docs/design/frontmatter-decoder.md`
+**Exit:** 0
+**Output:** (last 10 of 135 line(s))
+
+```
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2054/2858 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification: 19 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 19 real violation(s) recorded, not cleared by editing history.
+⚑ progress-report-quantification: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+103 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) (62 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (progress-report-quantification), and a receipt must not certify them.
+- [warn] packages/agent-framework/docs/SPEC.md: owns a docs/design/ document but does not link to it — link is one-way
+design-doc completeness scan passed (1 design document(s) examined in 1 target path).
+```
+
+### [GATE-DONE] — ❌ FAIL | 2026-08-29
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+### [GATE-DONE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: [GATE-PLAN] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm --filter @robota-sdk/agent-framework build` → exit 0 (ℹ [ESM] dist/node/index-DDb3KPQ1.d.ts 217.63 kB │ gzip: 59.01 kB ⏎ ℹ [ESM] 12 files, total: 2.01 MB ⏎ ✔ Build complete in 2224ms); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm --filter @robota-sdk/agent-framework test` → exit 0 (Refusing to remove a plugin directory outside the plugin root: "/tmp/sec-018-registry-6G0x2S/plugins/marketplaces/other-market" resolves to "/tmp/sec-018-registry-6G0x2S/plugins/marketplaces/other-market", which is not inside "/tmp/sec-018-registry-6G0x2S/plugins/cache". ⏎ stderr | src/**tests**/provider-configuration.test.ts > provider configuration writes > writes only the requested settings path ⏎ API key stored as plain text in settings. Use --api-key-env for better security.); all 2 supplied commands exit 0
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md
