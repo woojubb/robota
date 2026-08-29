@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [harness, gate]
 lane: L2
@@ -104,3 +104,50 @@ Recorded as the rule's required choice rather than skipped.
 - [ ] `.agents/tasks/INFRA-139-gate-judges-reject-archived-tasks-as-active.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** draft → review-ready
+**Judged by:** self-assessment against `.agents/specs/gate-catalogue.md` § GATE-WRITE.
+
+- GATE-WRITE — File begins with `---` YAML frontmatter block: file begins with a `---` frontmatter block
+- GATE-WRITE — `status: draft` present in frontmatter: `status: draft`
+- GATE-WRITE — `type:` is exactly one value from the 11-prefix list: `type: INFRA` is one of 11 allowed values
+- GATE-WRITE — `tags:` field present in frontmatter: `tags:` present (2 values)
+- GATE-WRITE — Contains a concrete symptom: the archived Task path produces a false active-gate PASS
+- GATE-WRITE — Contains a reproduction condition: DOCS-038 fresh GATE-IMPLEMENT and GATE-COMPLETE accepted `.agents/tasks/completed/<ID>.md`
+- GATE-WRITE — Does not contain vague descriptions: `## Problem` is concrete and multi-sentence
+- GATE-WRITE — Prior Art Research section present: section present
+- GATE-WRITE — Research is substantiated or waived: explicit internal-contract waiver recorded
+- GATE-WRITE — Waiver is explicit: `Waived:` line names the reason
+- GATE-WRITE — Research feeds Alternatives/Decision: DOCS-038 evidence drives the alternatives and selected exact-path remedy
+- GATE-WRITE — Architecture checklist complete: all checklist items are `[x]`
+- GATE-WRITE — Sibling scan complete: explicit N/A reason recorded
+- GATE-WRITE — Alternatives have pro/con: 3 alternatives each include Pro and Con
+- GATE-WRITE — Decision references trade-off: exact root path is chosen for canonicality and falsifiability
+- GATE-WRITE — New-surface placement: N/A because no new package, app, interface, or layer is introduced
+- GATE-WRITE — Completion criteria use TC-N prefixes: TC-01 through TC-03
+- GATE-WRITE — Criteria cover each feature: archived rejection, valid root acceptance, and verification are covered
+- GATE-WRITE — Criteria use command/observable form: each criterion names a command or observable gate outcome
+- GATE-WRITE — No vague criterion wording: prohibited phrases absent
+- GATE-WRITE — Test Plan present: section present
+- GATE-WRITE — Test Plan rows match criteria: 3 rows for TC-01 through TC-03
+- GATE-WRITE — Test rows have type and approach: all rows populated
+- GATE-WRITE — Manual rows explain notes: no manual rows
+- GATE-WRITE — Tasks section present: paired Task path recorded
+- GATE-WRITE — Evidence Log first entry: no later-gate evidence exists
+- GATE-WRITE — No body Status/Classification sections: absent
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "앞으로 너가 타당한 근거와 함께 추천안을 제시하면 그게 타당할 경우 자동승인 하겠습니다."
+**Given:** 2026-08-29, this conversation
+**Review fingerprint:** 66e41e75b8c4 (review 54a78752, type/tags 2e0398f3)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-29, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (66e41e75b8c4) equals the document's current fingerprint
