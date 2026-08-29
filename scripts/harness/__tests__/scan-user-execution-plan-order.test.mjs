@@ -169,6 +169,13 @@ function taskText({
   ].join('\n');
 }
 
+function conversionTaskText(baseOid) {
+  return `${taskText().replace(
+    'status: in-progress',
+    'status: in-progress\nissue: https://github.com/woojubb/robota/issues/900',
+  )}\n\nConversion evidence: issue=https://github.com/woojubb/robota/issues/900; task=HARNESS-900; marker=https://github.com/woojubb/robota/issues/900#issuecomment-1; marker-readback=2026-08-29T00:00:00Z; priority-removed=2026-08-29T00:00:01Z; base=develop; base-oid=${baseOid}\n\nCombined lifecycle eligibility: eligible; work-kind=enhancement; priority=P0; issue-state=OPEN; child-causes=0; security=none; data-correctness=none; user-decision=none; contract-change=none; owner-count=1\n`;
+}
+
 function v1AutomatableBrowserTask() {
   const invocation = 'open Robota browser UI and activate the fixture control';
   const observable = 'visible=fixture control active in browser UI';
@@ -309,10 +316,12 @@ function v1SequencedRepository({
   mutateParentSpec = (spec) => spec,
   mutatePayload = (payload) => payload,
   mutateContinuationSpec = (spec) => spec,
+  mutateContinuationTask = (task) => task,
   withUnrelatedMerge = false,
+  withConversionEvidence = false,
 } = {}) {
-  const { root } = repository({ withContract: true });
-  write(root, TASK_PATH, taskText());
+  const { root, base: conversionBase } = repository({ withContract: true });
+  write(root, TASK_PATH, withConversionEvidence ? conversionTaskText(conversionBase) : taskText());
   write(
     root,
     SPEC_PATH,
@@ -340,6 +349,9 @@ function v1SequencedRepository({
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(root, ['switch', '-q', '-c', 'feature-2']);
+
+  const parentTask = readFileSync(path.join(root, TASK_PATH), 'utf8');
+  write(root, TASK_PATH, mutateContinuationTask(parentTask, { base, conversionBase }));
 
   const priorSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
   const priorRaw = rawGateImplementPassEntries(priorSpec).at(-1);
@@ -370,7 +382,7 @@ function v1SequencedRepository({
     ),
   );
   commit(root, 'v1 continuation checkpoint');
-  return { root, base, sequencedMerge };
+  return { root, base, conversionBase, sequencedMerge };
 }
 
 function postMergeRecord(base, runId = 'r20260825000000') {
@@ -565,6 +577,35 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
       /ancestorSha.*preceding merge commit/,
     );
+  });
+
+  it('replays the immutable conversion base across a later continuation', () => {
+    const fixture = v1SequencedRepository({ withConversionEvidence: true });
+
+    expect(fixture.conversionBase).not.toBe(fixture.base);
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('refuses conversion receipt mutation during continuation', () => {
+    const changedTask = v1SequencedRepository({
+      withConversionEvidence: true,
+      mutateContinuationTask: (task) => `${task}\nchanged after the first checkpoint\n`,
+    });
+    expect(findHistoryFindings(changedTask.root, changedTask.base)).not.toEqual([]);
+
+    const changedBase = v1SequencedRepository({
+      withConversionEvidence: true,
+      mutateContinuationTask: (task, { base, conversionBase }) =>
+        task.replace(`base-oid=${conversionBase}`, `base-oid=${base}`),
+    });
+    expect(findHistoryFindings(changedBase.root, changedBase.base)).not.toEqual([]);
+
+    const nonAncestor = v1SequencedRepository({
+      withConversionEvidence: true,
+      mutateContinuationTask: (task, { conversionBase }) =>
+        task.replace(`base-oid=${conversionBase}`, `base-oid=${'f'.repeat(40)}`),
+    });
+    expect(findHistoryFindings(nonAncestor.root, nonAncestor.base)).not.toEqual([]);
   });
 
   it('preserves every parent PASS byte-identically in prefix order before one append', () => {

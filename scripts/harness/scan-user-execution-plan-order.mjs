@@ -220,11 +220,30 @@ function checkpointOptionsAt(
   let baseOid = null;
   const taskText = gitText(root, revision, `${TASK_PREFIX}${basename}`);
   if (String(taskText ?? '').includes('Conversion evidence:')) {
-    try {
-      baseOid = resolveTopicMergeBase(root, 'origin/develop');
-    } catch {
-      // Scratch repositories used by the scanner tests may intentionally have no origin ref.
-      // Conversion evidence is still rejected there unless a real base identity is available.
+    const parentTask = gitText(root, parentRevision, `${TASK_PREFIX}${basename}`);
+    const parentSpec = gitText(root, parentRevision, `${SPEC_PREFIX}active/${basename}`);
+    const continuationParent =
+      frontmatterStatus(parentTask) === 'in-progress' &&
+      frontmatterStatus(parentSpec) === 'in-progress';
+    if (continuationParent && taskText === parentTask) {
+      const recorded = [
+        ...String(taskText).matchAll(/^Conversion evidence: .*; base-oid=([0-9a-f]{40})\s*$/gim),
+      ];
+      const candidate = recorded.length === 1 ? recorded[0][1].toLowerCase() : null;
+      if (
+        candidate !== null &&
+        runGit(root, ['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`]).code === 0 &&
+        runGit(root, ['merge-base', '--is-ancestor', candidate, parentRevision]).code === 0
+      ) {
+        baseOid = candidate;
+      }
+    } else {
+      try {
+        baseOid = resolveTopicMergeBase(root, 'origin/develop');
+      } catch {
+        // Scratch repositories used by the scanner tests may intentionally have no origin ref.
+        // Conversion evidence is still rejected there unless a real base identity is available.
+      }
     }
   }
   return {
@@ -1299,6 +1318,7 @@ function isCheckpointTransition({
   // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
   // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
   return (
+    task === parentTask &&
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
     gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
