@@ -1,6 +1,8 @@
 ---
 title: 'HARNESS-072: nothing detects a contradiction between two rules, only forbidden phrases inside one'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2485#issuecomment-5460595217
 issue: https://github.com/woojubb/robota/issues/1617
 created: 2026-08-03
 priority: high
@@ -10,6 +12,10 @@ depends_on: []
 ---
 
 # HARNESS-072: the conflict scan reads words, not claims
+
+## Resolution
+
+Subsets 1–2 are already shipped; the remaining subset 3 is now canonicalized in [GitHub issue #2485](https://github.com/woojubb/robota/issues/2485). This Task is skipped and archived without claiming implementation completion. Recreate a fresh Task from issue #2485 when selected.
 
 ## Progress (2026-08-09)
 
@@ -38,7 +44,7 @@ searches harness prose for forbidden PHRASES (`fallback to`, `temporary workarou
 cannot see the case where document A states a normative claim and document B states its negation,
 because both are written in permitted words.
 
-That gap is not theoretical. PR #1615 produced **five** instances in one change, every one found by a
+That gap is not theoretical. [PR #1615](https://github.com/woojubb/robota/pull/1615) produced **five** instances in one change, every one found by a
 review round and none by a machine:
 
 | Round     | Contradiction                                                   | Between                                                                                                |
@@ -69,7 +75,7 @@ one that did was caught by a human reading two documents side by side. The map's
 "mechanically kept current"; `scan-orchestration-map.mjs` checks only that every agent file appears in
 it, so the LOOP-BACK column has never been compared to anything.
 
-### The same class, measured again on #1640 — three sites, one change
+### The same class, measured again on [issue #1640](https://github.com/woojubb/robota/issues/1640) — three sites, one change
 
 A single pull request flipped one flag, `REGRESSION_RED_PROOF_ENFORCE=1`, and left THREE separate
 documents asserting the property that flag removed:
@@ -106,7 +112,7 @@ a well-founded universal principle appears nowhere in it, so by the letter, citi
 always a valid refutation of a review finding. That is the same defect one level up: the rule set
 treating itself as terminal.
 
-Fixed in #1615 at the authority level — `agent-conduct.md` § "A local rule is an encoding" (with the narrow exceptions: rules encoding a repo-specific fact or an owner decision),
+Fixed in [issue #1615](https://github.com/woojubb/robota/issues/1615) at the authority level — `agent-conduct.md` § "A local rule is an encoding" (with the narrow exceptions: rules encoding a repo-specific fact or an owner decision),
 `rules/index.md` § "This rule set is not the end of the argument", and the judging step of
 `automated-review-convergence`. What remains for this item is the MECHANISM, because the failure is
 silent by nature:
@@ -207,7 +213,7 @@ of the Direction now holds them together, which is what the coupling was waiting
 
 **FOUNDATIONAL.** Every rule in the tree is weakened by the possibility that another rule says the
 opposite, and the harness's whole premise is that a rule read is a rule in force. It is filed rather
-than fixed inside #1615 because its subject is three unrelated cleanup items; that PR fixed its own
+than fixed inside [issue #1615](https://github.com/woojubb/robota/issues/1615) because its subject is three unrelated cleanup items; that PR fixed its own
 five instances and this item exists so the sixth is caught by a machine.
 
 Related and NOT duplicated: [HARNESS-071](completed/HARNESS-071-loops-with-no-progress-escape.md) is about loops
