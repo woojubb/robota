@@ -6,6 +6,7 @@ priority: medium
 urgency: soon
 area: TODO
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/2490
 ---
 
 # RULE-021: close-parent-on-decomposition
