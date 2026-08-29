@@ -1,7 +1,9 @@
 ---
 title: 'CLI-083: the org policy loader has no caller, so four enforcement sites are unreachable in the shipped product'
 issue: https://github.com/woojubb/robota/issues/2287
-status: blocked
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2295#issuecomment-5460534959
 created: 2026-08-24
 priority: medium
 urgency: soon
@@ -69,6 +71,13 @@ enforcement in `cli.ts` (`git grep allowedProviders -- 'packages/agent-cli/src/*
 **At the moment CLI-026 closed the record was accurate.** It became false two days later and nothing
 re-checked it. A completion record is a claim about a moment, and nothing re-derives one after a
 refactor lands on the same code. That is filed separately; it is not this item.
+
+## Resolution
+
+This blocked residual is terminalized as a duplicate of the canonical projection follow-up in the
+[GitHub issue](https://github.com/woojubb/robota/issues/2295). Existing implementation claims are preserved
+in the record; no new implementation is claimed here. Recreate a fresh Task from the issue when it
+is selected.
 
 ## Plan
 

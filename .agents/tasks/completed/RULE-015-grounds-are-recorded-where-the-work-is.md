@@ -1,7 +1,9 @@
 ---
 title: 'RULE-015: a ground is recorded where the work is, and an incident closes on demonstrated prevention'
 issue: https://github.com/woojubb/robota/issues/2384
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2391#issuecomment-5460534894
 created: 2026-08-27
 priority: high
 urgency: now
@@ -53,6 +55,12 @@ Source: https://github.com/woojubb/robota/issues/2384
 - For principle 2: an incident record with a cause and a prevention but no demonstration must fail; one
   carrying the demonstration and its control must pass.
 - Both directions in every case. A fixture set containing only compliant cases tests nothing.
+
+## Resolution
+
+This backlog record is terminalized as a duplicate of the canonical unresolved follow-up in the
+[GitHub issue](https://github.com/woojubb/robota/issues/2391). No implementation or policy completion is
+claimed; recreate a fresh Task from the issue when it is selected.
 
 ## Notes
 
