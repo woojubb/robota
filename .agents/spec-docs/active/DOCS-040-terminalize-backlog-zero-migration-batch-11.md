@@ -39,7 +39,7 @@ Waived: the registered `BACKLOG-ZERO-MIGRATION` class and completed batches 01�
 
 ### Decision
 
-Choose alternative 3. Current develop blobs equal the fixed population; #2164 is OPEN/unassigned and explicitly covers TRANS-003/004, while #2325 is OPEN/unassigned for HARNESS-087. Independent audits found no competing PR, branch, worktree, or assignee. The batch is three units and six final paths, within the delegated class ceiling.
+Choose alternative 3. Current develop blobs equal the fixed population; issue #2164 is OPEN/unassigned and explicitly covers TRANS-003/004, while issue #2325 is OPEN/unassigned for HARNESS-087. Independent audits found no competing PR, branch, worktree, or assignee. The batch is three units and six final paths, within the delegated class ceiling.
 
 ### Architecture Review Checklist
 
@@ -55,7 +55,7 @@ None.
 
 ## Solution
 
-1. Append canonical handoff comments to issues #2164 (twice) and #2325.
+1. Append canonical handoff comments to issue #2164 (twice) and issue #2325.
 2. Mark each Task `status: skipped`, add exact `completed: 2026-08-29` and `returned_to_issue` URL, and move it atomically to `.agents/tasks/completed/` without changing its body.
 3. Mark criteria complete only after focused scans, `pnpm harness:scan`, and `pnpm harness:verify-like-ci` pass.
 
@@ -70,10 +70,10 @@ None.
 
 ## Completion Criteria
 
-- [ ] TC-01: fixed manifest has exactly three units, six final paths, current blobs, and exact issue handoff URLs.
-- [ ] TC-02: all three Tasks are body-preserving `skipped` records archived atomically with exact `returned_to_issue` links.
-- [ ] TC-03: lifecycle, citation, delegation, reference-kind, and no-growth scans pass with no excluded path changed.
-- [ ] TC-04: `pnpm harness:scan`, `pnpm test`, and `pnpm harness:verify-like-ci` exit 0.
+- [x] TC-01: fixed manifest has exactly three units, six final paths, current blobs, and exact issue handoff URLs.
+- [x] TC-02: all three Tasks are body-preserving `skipped` records archived atomically with exact `returned_to_issue` links.
+- [x] TC-03: lifecycle, citation, delegation, reference-kind, and no-growth scans pass with no excluded path changed.
+- [x] TC-04: `pnpm harness:scan`, `pnpm test`, and `pnpm harness:verify-like-ci` exit 0.
 
 ## Test Plan
 
@@ -103,8 +103,8 @@ Not applicable: this is an internal Task lifecycle handoff with no user-facing r
 ### [RECOMMENDATION REVIEW ROUND 1] — ✅ ENDORSE | 2026-08-29
 
 - TRANS-003 blob `5741e7233e2f154f64ab49acc6b83f6dbc904963`, TRANS-004 blob `9b628fce88dbed13ee1a291b05d147025bd16cc5`, and HARNESS-087 blob `371c77e9d5c53ddedacee401d710d718f029dd6e` equal fixed population and current develop.
-- Exact Task paths are `.agents/tasks/TRANS-003-usage-report-wire-pair-is-dead-while-selfhost-004-claims-it-proven.md`, `.agents/tasks/TRANS-004-ws-command-wire-pair-is-server-implemented-and-client-dead.md`, and `.agents/tasks/HARNESS-087-most-declared-sizes-are-checked-by-nothing.md`.
-- Issues #2164 and #2325 are OPEN/unassigned; corrected handoff comments are recorded at https://github.com/woojubb/robota/issues/2164#issuecomment-5459592489 and https://github.com/woojubb/robota/issues/2325#issuecomment-5459592574.
+- Exact Task paths are `.agents/tasks/completed/TRANS-003-usage-report-wire-pair-is-dead-while-selfhost-004-claims-it-proven.md`, `.agents/tasks/completed/TRANS-004-ws-command-wire-pair-is-server-implemented-and-client-dead.md`, and `.agents/tasks/completed/HARNESS-087-most-declared-sizes-are-checked-by-nothing.md`.
+- GitHub issue #2164 and GitHub issue #2325 are OPEN/unassigned; corrected handoff comments are recorded at https://github.com/woojubb/robota/issues/2164#issuecomment-5459592489 and https://github.com/woojubb/robota/issues/2325#issuecomment-5459592574.
 - Independent review found no competing PR, branch, worktree, or loop. `ACTIONABLE FINDINGS: 0`; `REVIEW VERDICT: ENDORSE`.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-29

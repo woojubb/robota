@@ -21,10 +21,10 @@ Move TRANS-003, TRANS-004, and HARNESS-087 to their canonical OPEN GitHub issue 
 
 ## Plan
 
-- [ ] TC-01 — preserve the exact three-unit/six-path manifest, blobs, issue comments, and excluded scope.
-- [ ] TC-02 — mark all three Tasks skipped with exact handoff URLs and move them atomically to `completed/`.
-- [ ] TC-03 — pass lifecycle, citation, delegation, reference-kind, and no-growth scans.
-- [ ] TC-04 — run `pnpm harness:scan`, `pnpm test`, and `pnpm harness:verify-like-ci` successfully.
+- [x] TC-01 — preserve the exact three-unit/six-path manifest, blobs, issue comments, and excluded scope.
+- [x] TC-02 — mark all three Tasks skipped with exact handoff URLs and move them atomically to `completed/`.
+- [x] TC-03 — pass lifecycle, citation, delegation, reference-kind, and no-growth scans.
+- [x] TC-04 — run `pnpm harness:scan`, `pnpm test`, and `pnpm harness:verify-like-ci` successfully.
 
 ## Test Plan
 

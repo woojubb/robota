@@ -1,7 +1,9 @@
 ---
 title: 'HARNESS-087: most declared sizes are checked by nothing'
 issue: https://github.com/woojubb/robota/issues/2325
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2325#issuecomment-5459592574
 created: 2026-08-11
 priority: medium
 urgency: soon
