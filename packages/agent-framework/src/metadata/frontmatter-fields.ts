@@ -79,7 +79,7 @@ export function listField(
 ): string[] | undefined {
   const value = fields[key];
   if (value === undefined) return undefined;
-  if (/[[\]{}]/.test(value)) {
+  if (hasStructuredMarker(value)) {
     diagnostics.push(
       makeDiagnostic(
         options,
@@ -163,13 +163,17 @@ function scalarValue(
   options: IFrontmatterDecodeOptions,
   diagnostics: IFrontmatterDiagnostic[],
 ): string | undefined {
-  if (/[[\]{}]/.test(value)) {
+  if (hasStructuredMarker(value)) {
     diagnostics.push(
       makeDiagnostic(options, 'wrong-value-shape', `${key} must be a scalar string`, line, key),
     );
     return undefined;
   }
   return value;
+}
+
+function hasStructuredMarker(value: string): boolean {
+  return value.includes('[') || value.includes(']') || value.includes('{') || value.includes('}');
 }
 
 export function makeDiagnostic(

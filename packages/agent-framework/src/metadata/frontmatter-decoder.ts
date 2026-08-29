@@ -90,8 +90,9 @@ export function decodeSkillAgentFrontmatter(
       );
       continue;
     }
-    const match = line.match(/^([a-zA-Z][a-zA-Z0-9-]*):\s*(.*)$/);
-    if (!match) {
+    const separator = line.indexOf(':');
+    const keyCandidate = separator < 1 ? '' : line.slice(0, separator);
+    if (separator < 1 || !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(keyCandidate)) {
       diagnostics.push(
         makeDiagnostic(
           options,
@@ -102,8 +103,8 @@ export function decodeSkillAgentFrontmatter(
       );
       continue;
     }
-    const key = match[1]!;
-    const rawValue = match[2]!.trim();
+    const key = keyCandidate;
+    const rawValue = line.slice(separator + 1).trim();
     if (!allowed.has(key)) {
       diagnostics.push(
         makeDiagnostic(
