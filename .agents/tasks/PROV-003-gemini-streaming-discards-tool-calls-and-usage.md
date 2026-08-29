@@ -53,6 +53,12 @@ GeminiProvider's `chat`/`chatStream`. Red-first with a tool-calling stream fixtu
 
 ## User Execution Test Scenarios
 
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+
+The provider behavior is observable through the CLI's interactive streaming mode. The scenario
+below exercises a built CLI against Gemini with a configured API key; its expected output is the
+tool call being executed and usage being retained in the completed turn.
+
 **Applies** (Gemini is a selectable provider in the CLI).
 
 - Prerequisites: built CLI + a Gemini API key; a prompt that requires a tool call (e.g. read a file).
@@ -63,3 +69,12 @@ GeminiProvider's `chat`/`chatStream`. Red-first with a tool-calling stream fixtu
   had no tools, and usage is unattributed.
 - Cleanup: none.
 - Evidence (fill in after implementation): TUI transcript showing the Gemini tool call executing.
+
+## Planning Gate
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-29
+
+The user-execution scenario is executable after building the CLI and configuring a Gemini API key.
+The exact interaction is: select Gemini in the interactive CLI, ask for an answer requiring a tool
+call, and observe the transcript. Expected observables are a Gemini function call execution and a
+completed turn retaining the tool result; cleanup is not required.
