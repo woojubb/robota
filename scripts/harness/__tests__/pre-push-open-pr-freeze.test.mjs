@@ -89,7 +89,7 @@ function stubGh({
   };
   if (approved) {
     payload.comments.push({
-      author: { login: 'owner' },
+      author: { login: 'woojubb' },
       body: `POST_FINDINGS_ACTION_REQUEST\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: finding\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @owner`,
       createdAt: '2020-01-03T00:00:00Z',
     });

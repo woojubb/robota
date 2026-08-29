@@ -528,7 +528,7 @@ Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
 <!-- enforcement declaration -->
 
-Enforced by: `.claude/hooks/pre-push-check.sh` and `.claude/hooks/merge-gate.sh`.
+Enforced mechanically for pushes by `.claude/hooks/pre-push-check.sh`; merge/rebase actions must use the same published request as an operator gate.
 
 **Any published findings verdict obliges exactly one thing: STOP EDITING.** This includes both
 `ACTIONABLE FINDINGS: 0` and a non-zero count. It is not a signal to merge, not a deadline, and not a
