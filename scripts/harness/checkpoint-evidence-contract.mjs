@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { visibleMarkdown } from './markdown-visibility.mjs';
+
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
 
@@ -535,62 +537,6 @@ export function parseCheckpointEvidence(contract, formName, body) {
   return error ? failure(error) : { ok: true, payload };
 }
 
-function markdownProjection(text) {
-  const source = String(text);
-  const sourceLines = source.split('\n');
-  const lineStarts = [];
-  let offset = 0;
-  for (const line of sourceLines) {
-    lineStarts.push(offset);
-    offset += line.length + 1;
-  }
-  const visibleLines = [];
-  const rawIndices = [];
-  let fence = null;
-  let comment = false;
-  for (let index = 0; index < sourceLines.length; index += 1) {
-    const raw = sourceLines[index];
-    if (fence !== null) {
-      const closing = /^ {0,3}(`+|~+)\s*$/.exec(raw)?.[1] ?? null;
-      if (closing && closing[0] === fence[0] && closing.length >= fence.length) fence = null;
-      continue;
-    }
-    const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(raw);
-    if (!comment && opening && !(opening[1][0] === '`' && opening[2].includes('`'))) {
-      fence = opening[1];
-      continue;
-    }
-    let line = raw;
-    let cursor = 0;
-    let visible = '';
-    while (cursor < line.length) {
-      if (comment) {
-        const close = line.indexOf('-->', cursor);
-        if (close === -1) {
-          cursor = line.length;
-          continue;
-        }
-        comment = false;
-        cursor = close + 3;
-        continue;
-      }
-      const open = line.indexOf('<!--', cursor);
-      if (open === -1) {
-        visible += line.slice(cursor);
-        break;
-      }
-      visible += line.slice(cursor, open);
-      comment = true;
-      cursor = open + 4;
-    }
-    line = visible;
-    if (/^(?: {4}|\t)/.test(line)) continue;
-    visibleLines.push(line);
-    rawIndices.push(index);
-  }
-  return { source, sourceLines, lineStarts, visibleLines, rawIndices };
-}
-
 function projectedHeading(line) {
   const match = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/.exec(line);
   if (!match) return null;
@@ -601,14 +547,14 @@ function projectedHeading(line) {
 }
 
 function projectedSection(projection, level, title) {
-  const start = projection.visibleLines.findIndex((line) => {
+  const start = projection.lines.findIndex((line) => {
     const heading = projectedHeading(line);
     return heading?.level === level && heading.content === title;
   });
   if (start === -1) return null;
-  let end = projection.visibleLines.length;
-  for (let index = start + 1; index < projection.visibleLines.length; index += 1) {
-    const heading = projectedHeading(projection.visibleLines[index]);
+  let end = projection.lines.length;
+  for (let index = start + 1; index < projection.lines.length; index += 1) {
+    const heading = projectedHeading(projection.lines[index]);
     if (heading && heading.level <= level) {
       end = index;
       break;
@@ -618,12 +564,12 @@ function projectedSection(projection, level, title) {
 }
 
 export function rawGateImplementPassEntries(specText) {
-  const projection = markdownProjection(specText);
+  const projection = visibleMarkdown(specText, true);
   const section = projectedSection(projection, 2, 'Evidence Log');
   if (section === null) return [];
   const entries = [];
   for (let index = section.start + 1; index < section.end; index += 1) {
-    const heading = projectedHeading(projection.visibleLines[index]);
+    const heading = projectedHeading(projection.lines[index]);
     if (
       heading?.level !== 3 ||
       !/^\[GATE-IMPLEMENT\] — ✅ PASS \| \d{4}-\d{2}-\d{2}$/.test(heading.content)
@@ -632,7 +578,7 @@ export function rawGateImplementPassEntries(specText) {
     }
     let end = section.end;
     for (let cursor = index + 1; cursor < section.end; cursor += 1) {
-      const next = projectedHeading(projection.visibleLines[cursor]);
+      const next = projectedHeading(projection.lines[cursor]);
       if (next && next.level <= 3) {
         end = cursor;
         break;
@@ -640,7 +586,7 @@ export function rawGateImplementPassEntries(specText) {
     }
     const rawStart = projection.lineStarts[projection.rawIndices[index]];
     const rawEnd =
-      end === projection.visibleLines.length
+      end === projection.lines.length
         ? projection.source.length
         : projection.lineStarts[projection.rawIndices[end]];
     entries.push(projection.source.slice(rawStart, rawEnd));
@@ -654,10 +600,10 @@ export function priorPassDigest(rawEntry) {
 
 export function continuationArtifacts(contract, specText) {
   const [parentTitle, childTitle] = contract.decisionArtifacts.section.split('/');
-  const projection = markdownProjection(specText);
+  const projection = visibleMarkdown(specText, true);
   const parent = projectedSection(projection, 2, parentTitle);
   if (parent === null) return failure(`missing ${contract.decisionArtifacts.section} section`);
-  const childStart = projection.visibleLines.findIndex((line, index) => {
+  const childStart = projection.lines.findIndex((line, index) => {
     if (index <= parent.start || index >= parent.end) return false;
     const heading = projectedHeading(line);
     return heading?.level === 3 && heading.content === childTitle;
@@ -665,14 +611,14 @@ export function continuationArtifacts(contract, specText) {
   if (childStart === -1) return failure(`missing ${contract.decisionArtifacts.section} section`);
   let childEnd = parent.end;
   for (let index = childStart + 1; index < parent.end; index += 1) {
-    const heading = projectedHeading(projection.visibleLines[index]);
+    const heading = projectedHeading(projection.lines[index]);
     if (heading && heading.level <= 3) {
       childEnd = index;
       break;
     }
   }
   const prefix = contract.decisionArtifacts.linePrefix;
-  const lines = projection.visibleLines
+  const lines = projection.lines
     .slice(childStart + 1, childEnd)
     .filter((line) => line.startsWith(prefix));
   if (lines.length !== 1) {

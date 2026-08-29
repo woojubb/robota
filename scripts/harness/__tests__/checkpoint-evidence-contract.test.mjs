@@ -314,6 +314,58 @@ describe('checkpoint evidence contract', () => {
     });
   });
 
+  it('shares scanner visibility for raw HTML blocks and literal comment markers in code spans', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const { contract } = parseCheckpointEvidenceContract(rule);
+    const spec = [
+      '<pre>',
+      '## Evidence Log',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-01',
+      'pre fake gate',
+      '## Architecture Review',
+      '### Decision',
+      '**Continuation artifacts:** `scripts/harness/shared.mjs`',
+      '</pre>',
+      '',
+      '<fixture-block>',
+      '## Evidence Log',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-02',
+      'type-seven fake gate',
+      '## Architecture Review',
+      '### Decision',
+      '**Continuation artifacts:** `scripts/harness/shared.mjs`',
+      '</fixture-block>',
+      '',
+      '`<!--` is a literal code-span marker, not an HTML comment opener.',
+      '',
+      '## Evidence Log',
+      '',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29',
+      '',
+      '**Status upgrade:** approved → in-progress',
+      'real evidence with trailing spaces  ',
+      '',
+      '## Architecture Review',
+      '',
+      '### Decision',
+      '',
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+      '',
+      '## After',
+    ].join('\n');
+    const actualStart = spec.lastIndexOf('### [GATE-IMPLEMENT]');
+    const actualEnd = spec.indexOf('## Architecture Review', actualStart);
+
+    expect(rawGateImplementPassEntries(spec)).toEqual([spec.slice(actualStart, actualEnd)]);
+    expect(continuationArtifacts(contract, spec)).toEqual({
+      ok: true,
+      artifacts: ['scripts/harness/gate.mjs'],
+    });
+  });
+
   it('enforces the Stage-1 closed fields and manual-TUI action mapping (TC-05)', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),

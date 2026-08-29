@@ -354,7 +354,7 @@ function v1SequencedRepository({
     root,
     SPEC_PATH,
     mutateContinuationSpec(
-      `${priorSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
+      `${priorSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
     ),
   );
   commit(root, 'v1 continuation checkpoint');
@@ -555,6 +555,32 @@ describe('user-execution PLAN order — branch history', () => {
     );
   });
 
+  it('preserves every parent PASS byte-identically in prefix order before one append', () => {
+    const mutations = {
+      replacement: (spec) =>
+        spec.replace(
+          '**Status upgrade:** approved → in-progress',
+          '**Status upgrade:** approved → in-progress ',
+        ),
+      deletion: (spec) => spec.replace(rawGateImplementPassEntries(spec)[0], ''),
+      reorder: (spec) => {
+        const entries = rawGateImplementPassEntries(spec);
+        return spec.replace(entries.join(''), [entries[1], entries[0]].join(''));
+      },
+    };
+
+    for (const [name, mutateContinuationSpec] of Object.entries(mutations)) {
+      const fixture = v1SequencedRepository({ mutateContinuationSpec });
+      const findings = messages(findHistoryFindings(fixture.root, fixture.base));
+
+      if (name === 'replacement') {
+        expect(findings, name).toMatch(/parent raw PASS entries.*exact prefix order.*exactly one/i);
+      } else {
+        expect(findings, name).not.toBe('');
+      }
+    }
+  });
+
   it('binds continuation Decision artifacts to the exact base parent spec', () => {
     const changedAtCheckpoint = v1SequencedRepository({
       mutatePayload: (payload) => ({
@@ -619,7 +645,7 @@ describe('user-execution PLAN order — branch history', () => {
     write(
       sequence.root,
       SPEC_PATH,
-      `${parentSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${CONTINUATION_STATUS_LINE}\n\n${payload.text}\n`,
+      `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${CONTINUATION_STATUS_LINE}\n\n${payload.text}\n`,
     );
     commit(sequence.root, 'PR 3 continuation checkpoint with its own inventory');
 
@@ -673,7 +699,7 @@ describe('user-execution PLAN order — branch history', () => {
     write(
       sequenced.root,
       SPEC_PATH,
-      `${parentSpec}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${continuationPayload.text}\n`,
+      `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29\n\n${CONTINUATION_STATUS_LINE}\n\n${continuationPayload.text}\n`,
     );
     commit(sequenced.root, 'v1 continuation after legacy founding checkpoint');
     expect(findHistoryFindings(sequenced.root, sequencedBase)).toEqual([]);
