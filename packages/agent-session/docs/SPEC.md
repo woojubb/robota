@@ -430,7 +430,7 @@ any component fails closed; replacing a pathname after its component is open can
 descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
 without returning bytes.
 
-> **Contained — [ARCH-049](../../../.agents/tasks/ARCH-049-cross-platform-stable-external-payload-replay.md).**
+> **Contained — [ARCH-049](../../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).**
 > The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
 > payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
 > supported host; this containment must not be replaced with pathname validation followed by pathname I/O.

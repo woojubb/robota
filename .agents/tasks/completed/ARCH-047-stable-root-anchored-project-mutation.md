@@ -1,7 +1,9 @@
 ---
 title: 'ARCH-047: Stable root-anchored project mutation'
-status: todo
+status: skipped
 created: 2026-08-22
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2151#issuecomment-5459345438
 priority: critical
 urgency: now
 area: packages/agent-framework workspace-trust mutation boundary

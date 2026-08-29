@@ -1,7 +1,9 @@
 ---
 title: 'ARCH-049: Cross-platform stable external-payload replay'
-status: todo
+status: skipped
 created: 2026-08-23
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2153#issuecomment-5459345619
 priority: high
 urgency: now
 area: packages/agent-session Node session-log filesystem authority boundary
