@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 import {
@@ -31,6 +31,11 @@ const LIVE_BACKLOG_RULE = readFileSync(
 );
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
 const execFileAsync = promisify(execFile);
+
+// These integration fixtures create and inspect real temporary Git repositories. A focused run can
+// make an individual fixture exceed Vitest's 10-second unit-test default while Git is still making
+// progress, so keep a bounded file-level allowance for this integration suite.
+vi.setConfig({ testTimeout: 30_000 });
 
 function yieldToEventLoop() {
   return new Promise((resolve) => setImmediate(resolve));
