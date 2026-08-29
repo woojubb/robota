@@ -211,32 +211,75 @@ function validSemanticReviewReceipt(line) {
   return line.trim();
 }
 
-function isSemanticReviewReceiptCandidate(line) {
-  return (
-    /\bSemantic review\b/i.test(line) || /\bSemantic review\b/i.test(renderedMarkdownText(line))
-  );
-}
-
-function isMarkdownThematicBreak(line) {
-  return /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line);
-}
+const HTML_TEXT_BOUNDARY_TAGS = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'br',
+  'dd',
+  'details',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'legend',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'section',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+]);
 
 function stripHtmlTags(html) {
   let text = '';
   let inTag = false;
   let quote = null;
+  let tag = '';
   for (const character of html) {
     if (!inTag) {
-      if (character === '<') inTag = true;
-      else text += character;
+      if (character === '<') {
+        inTag = true;
+        tag = '';
+      } else text += character;
       continue;
     }
     if (quote !== null) {
       if (character === quote) quote = null;
+      tag += character;
       continue;
     }
-    if (character === '"' || character === "'") quote = character;
-    else if (character === '>') inTag = false;
+    if (character === '"' || character === "'") {
+      quote = character;
+      tag += character;
+    } else if (character === '>') {
+      const tagName = /^\s*\/?\s*([A-Za-z][\w:-]*)/.exec(tag)?.[1]?.toLowerCase() ?? null;
+      if (tagName !== null && HTML_TEXT_BOUNDARY_TAGS.has(tagName)) text += ' ';
+      inTag = false;
+    } else {
+      tag += character;
+    }
   }
   return text;
 }
@@ -285,17 +328,17 @@ function independentLifecycleEvidence(body) {
     }
     section.push(line);
   }
-  const receiptCandidates = section.filter((line) => isSemanticReviewReceiptCandidate(line));
-  const receipts = receiptCandidates
-    .map((line) => validSemanticReviewReceipt(line))
-    .filter((receipt) => receipt !== null);
-  const reasonMarkdown = section
-    .filter((line) => !isSemanticReviewReceiptCandidate(line) && !isMarkdownThematicBreak(line))
-    .join('\n');
-  const reason = renderedMarkdownText(reasonMarkdown);
+  const receipts = section.flatMap((line, index) => {
+    const receipt = validSemanticReviewReceipt(line);
+    return receipt === null ? [] : [{ index, receipt }];
+  });
+  const receiptIndexes = new Set(receipts.map(({ index }) => index));
+  const evidenceMarkdown = section.filter((_, index) => !receiptIndexes.has(index)).join('\n');
+  const reason = renderedMarkdownText(evidenceMarkdown);
+  const hasReceiptVariant = /\bSemantic review\b/i.test(reason);
   return {
     reason: reason === '' ? null : reason,
-    semanticReview: receiptCandidates.length === 1 && receipts.length === 1 ? receipts[0] : null,
+    semanticReview: receipts.length === 1 && !hasReceiptVariant ? receipts[0].receipt : null,
   };
 }
 
