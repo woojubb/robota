@@ -32,7 +32,7 @@ clean back-merge before the checkpoint is refused as implementation.
 Measured on `develop` `58c7ca4b9` (2026-08-28) by `proposal-reviewer` while reviewing HARNESS-129,
 with the test file's own fixture helpers against a scratch copy of the scan:
 
-<!-- evidence-superseded: transient fixture removed after measurement; committed scan tests and issue #2410 preserve the finding. -->
+<!-- evidence-superseded: transient fixture removed after measurement. -->
 - Evil merge (adds `scripts/harness/evil.mjs`, in neither parent, before the checkpoint): unpatched
   scan refuses it only by accident (alongside a false positive on `README.md`); with `--no-merges`
   → `findings=0`.
