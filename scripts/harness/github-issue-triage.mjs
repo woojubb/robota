@@ -10,7 +10,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { decodeHTML } from 'entities';
 import { marked } from 'marked';
 
 import { asList, frontmatterObject } from './frontmatter.mjs';
@@ -285,12 +284,144 @@ function stripHtmlTags(html) {
   return text;
 }
 
+const AUDIT_TEXT_NAMED_REFERENCES = new Map([
+  ['AMP', '&'],
+  ['ApplyFunction', '\u2061'],
+  ['GT', '>'],
+  ['InvisibleComma', '\u2063'],
+  ['InvisibleTimes', '\u2062'],
+  ['LT', '<'],
+  ['MediumSpace', '\u205F'],
+  ['NegativeMediumSpace', '\u200B'],
+  ['NegativeThickSpace', '\u200B'],
+  ['NegativeThinSpace', '\u200B'],
+  ['NegativeVeryThinSpace', '\u200B'],
+  ['NewLine', '\n'],
+  ['NoBreak', '\u2060'],
+  ['NonBreakingSpace', '\u00A0'],
+  ['QUOT', '"'],
+  ['Tab', '\t'],
+  ['ThickSpace', '\u205F\u200A'],
+  ['ThinSpace', '\u2009'],
+  ['VeryThinSpace', '\u200A'],
+  ['ZeroWidthSpace', '\u200B'],
+  ['af', '\u2061'],
+  ['amp', '&'],
+  ['apos', "'"],
+  ['colon', ':'],
+  ['emsp', '\u2003'],
+  ['emsp13', '\u2004'],
+  ['emsp14', '\u2005'],
+  ['ensp', '\u2002'],
+  ['gt', '>'],
+  ['hairsp', '\u200A'],
+  ['ic', '\u2063'],
+  ['it', '\u2062'],
+  ['lrm', '\u200E'],
+  ['lt', '<'],
+  ['nbsp', '\u00A0'],
+  ['numsp', '\u2007'],
+  ['puncsp', '\u2008'],
+  ['quot', '"'],
+  ['rlm', '\u200F'],
+  ['shy', '\u00AD'],
+  ['thinsp', '\u2009'],
+  ['zwj', '\u200D'],
+  ['zwnj', '\u200C'],
+]);
+
+// HTML permits a small legacy set without a trailing semicolon. Only the members this audit
+// decodes are needed here; unknown references deliberately remain visible, so they cannot turn a
+// non-empty lifecycle reason into whitespace or conceal another review receipt.
+const AUDIT_TEXT_LEGACY_REFERENCES = ['nbsp', 'quot', 'shy', 'amp', 'lt', 'gt', 'AMP', 'LT', 'GT'];
+
+const WINDOWS_1252_NUMERIC_REFERENCES = new Map([
+  [0x80, 0x20ac],
+  [0x82, 0x201a],
+  [0x83, 0x0192],
+  [0x84, 0x201e],
+  [0x85, 0x2026],
+  [0x86, 0x2020],
+  [0x87, 0x2021],
+  [0x88, 0x02c6],
+  [0x89, 0x2030],
+  [0x8a, 0x0160],
+  [0x8b, 0x2039],
+  [0x8c, 0x0152],
+  [0x8e, 0x017d],
+  [0x91, 0x2018],
+  [0x92, 0x2019],
+  [0x93, 0x201c],
+  [0x94, 0x201d],
+  [0x95, 0x2022],
+  [0x96, 0x2013],
+  [0x97, 0x2014],
+  [0x98, 0x02dc],
+  [0x99, 0x2122],
+  [0x9a, 0x0161],
+  [0x9b, 0x203a],
+  [0x9c, 0x0153],
+  [0x9e, 0x017e],
+  [0x9f, 0x0178],
+]);
+
+function decodeNumericAuditReference(digits, radix) {
+  const parsed = Number.parseInt(digits, radix);
+  const codePoint = WINDOWS_1252_NUMERIC_REFERENCES.get(parsed) ?? parsed;
+  if (codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+    return '\uFFFD';
+  }
+  return String.fromCodePoint(codePoint);
+}
+
+function decodeAuditTextEntities(text) {
+  let decoded = '';
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] !== '&') {
+      decoded += text[index];
+      continue;
+    }
+
+    const numeric = /^&#(?:x([0-9A-Fa-f]+)|([0-9]+));?/.exec(text.slice(index));
+    if (numeric !== null) {
+      decoded += decodeNumericAuditReference(
+        numeric[1] ?? numeric[2],
+        numeric[1] === undefined ? 10 : 16,
+      );
+      index += numeric[0].length - 1;
+      continue;
+    }
+
+    const semicolon = text.indexOf(';', index + 1);
+    if (semicolon !== -1) {
+      const name = text.slice(index + 1, semicolon);
+      if (/^[A-Za-z0-9]+$/.test(name) && AUDIT_TEXT_NAMED_REFERENCES.has(name)) {
+        decoded += AUDIT_TEXT_NAMED_REFERENCES.get(name);
+        index = semicolon;
+        continue;
+      }
+    }
+
+    const legacyName = AUDIT_TEXT_LEGACY_REFERENCES.find((name) =>
+      text.startsWith(`&${name}`, index),
+    );
+    if (legacyName !== undefined) {
+      decoded += AUDIT_TEXT_NAMED_REFERENCES.get(legacyName);
+      index += legacyName.length;
+      continue;
+    }
+
+    decoded += '&';
+  }
+  return decoded;
+}
+
 function renderedMarkdownText(markdown) {
   const html = marked
     .parse(markdown)
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
     .replace(/<(pre|code|script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
-  return decodeHTML(stripHtmlTags(html))
+  return decodeAuditTextEntities(stripHtmlTags(html))
     .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
     .replace(/\p{White_Space}+/gu, ' ')
     .replace(/\p{Cc}+/gu, '')

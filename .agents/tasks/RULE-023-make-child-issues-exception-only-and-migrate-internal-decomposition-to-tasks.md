@@ -63,7 +63,7 @@ requested queue-consolidation outcome.
 ## Progress
 
 - 2026-08-30 — Work unit A implementation is locally complete through TC-04. After rebasing onto fresh
-  `origin/develop`, the focused triage and PROC-017 compatibility suites passed 209/209 tests and all
+  `origin/develop`, the focused triage and PROC-017 compatibility suites passed 211/211 tests and all
   148 applicable scans passed. Three final `harness:verify` runs each passed all 268 test files and
   5,505/5,505 tests, then exited non-zero on the same Vitest worker `onTaskUpdate` RPC timeout; TC-05
   therefore remains open for a normally terminating required CI run rather than treating passed test
@@ -71,6 +71,12 @@ requested queue-consolidation outcome.
   open Issues and 78 open child Issues, rejected all 78 as missing the new exception receipt, and classified
   issue #2490 as ordinary intake rather than as RULE-021-linked malformed state. TC-05 remains open until
   independent review, PR merge, and fresh `origin/develop` ancestry read-back complete.
+- 2026-08-30 — Removed the temporary root `entities` dependency after the root-manifest change expanded
+  pre-push scope to all 92 workspaces and exposed unrelated host-only failures. The audit now performs a
+  one-pass, fail-closed decode of numeric references and the whitespace/default-ignorable named references
+  relevant to lifecycle evidence, including legacy semicolonless `nbsp` and `shy`, without double-decoding.
+  The dependency-free implementation passed the focused 71-test suite, the full 211-test TC-01/TC-02
+  compatibility bundle, and 148 scans with one declared skip.
 
 ## Test Plan
 

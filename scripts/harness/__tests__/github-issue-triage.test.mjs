@@ -580,6 +580,14 @@ describe('read-only native child-Issue audit', () => {
       name: 'one valid receipt plus a raw-HTML legacy named entity without a semicolon',
       body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Semantic&nbsp review: @other on 2026-08-30 — RETAIN</div>',
     },
+    {
+      name: 'one valid receipt plus a semicolonless numeric zero-width token variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Sem&#8204antic review: @other on 2026-08-30 — RETAIN</div>',
+    },
+    {
+      name: 'one valid receipt plus a semicolonless legacy soft-hyphen token variant',
+      body: 'Separate external release.\nSemantic review: @reviewer on 2026-08-30 — RETAIN\n<div>Sem&shyantic review: @other on 2026-08-30 — RETAIN</div>',
+    },
   ])('rejects $name', ({ body, completeBody = false }) => {
     const child = {
       number: 6,
