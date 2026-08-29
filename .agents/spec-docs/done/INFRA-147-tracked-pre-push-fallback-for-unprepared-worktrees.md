@@ -5,7 +5,7 @@ tags: [git-hooks, worktrees, fail-closed]
 lane: L2
 ---
 
-# INFRA-146: keep the pre-push gate present in unprepared worktrees
+# INFRA-147: keep the pre-push gate present in unprepared worktrees
 
 Paired with `.agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md`.
 

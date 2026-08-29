@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-146: keep the pre-push gate present in unprepared worktrees'
+title: 'INFRA-147: keep the pre-push gate present in unprepared worktrees'
 status: done
 completed: 2026-08-30
 created: 2026-08-29
@@ -10,7 +10,7 @@ depends_on: []
 no-issue: direct user request to mechanically prevent hook bypass
 ---
 
-# INFRA-146: keep the pre-push gate present in unprepared worktrees
+# INFRA-147: keep the pre-push gate present in unprepared worktrees
 
 ## Objective
 
