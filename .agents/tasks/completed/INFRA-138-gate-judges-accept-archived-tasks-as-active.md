@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-138: Gate judges accept archived Tasks as active'
 issue: https://github.com/woojubb/robota/issues/2467
-status: todo
+status: superseded
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -33,6 +34,12 @@ Registered as GitHub issue #2467. DOCS-038 is an immutable documentation-only mi
 changing the gate reader, tests, catalogue, or policy inline would cross its approved source/policy
 boundary. The batch can restore its own promised lifecycle sequence, but that does not prevent the
 same false PASS in future work.
+
+## Resolution
+
+Superseded by `INFRA-139-gate-judges-reject-archived-tasks-as-active`, completed in PR #2474 and
+merged to `develop` as `beab5d3b85c6e81ad7a4f6a00b9d0061918165a5`. The canonical gate now rejects
+archived and nested Task paths, so this original implementation Task no longer remains actionable.
 
 ## Plan
 

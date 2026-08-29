@@ -53,7 +53,7 @@ const PNPM_INSTALL_MARKER = path.join('node_modules', '.modules.yaml');
 
 /** Where the written contract lives, quoted in every message so the answer has one address. */
 export const CONTRACT_DOC =
-  '.agents/tasks/HARNESS-058-verify-like-ci-cannot-go-green-in-a-worktree.md';
+  '.agents/tasks/completed/HARNESS-058-verify-like-ci-cannot-go-green-in-a-worktree.md';
 
 // ---------------------------------------------------------------------------
 // detection

@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-041: Terminalize stale resolved backlog batch 12'
 issue: https://github.com/woojubb/robota/issues/2404
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: high
 urgency: now
@@ -19,9 +20,9 @@ entries without changing source, API, policy, workflow, or product documentation
 
 ## Plan
 
-- [ ] Archive INFRA-138 as superseded by completed INFRA-139.
-- [ ] Archive HARNESS-058 and HARNESS-118 as done using their merged implementation and issue records.
-- [ ] Run lifecycle, citation, delegation, and full harness verification scans.
+- [x] Archive INFRA-138 as superseded by completed INFRA-139.
+- [x] Archive HARNESS-058 and HARNESS-118 as done using their merged implementation and issue records.
+- [x] Run lifecycle, citation, delegation, and full harness verification scans.
 
 ## Test Plan
 

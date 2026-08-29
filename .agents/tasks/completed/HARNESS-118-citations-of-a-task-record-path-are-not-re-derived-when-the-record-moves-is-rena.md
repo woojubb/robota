@@ -1,13 +1,20 @@
 ---
 title: 'HARNESS-118: citations of a task record path are not re-derived when the record moves, is renamed, or its ID is reused'
 issue: https://github.com/woojubb/robota/issues/2248
-status: todo
+status: done
+completed: 2026-08-29
 created: 2026-08-23
 priority: medium
 urgency: soon
 area: harness
 depends_on: []
 ---
+
+## Resolution
+
+The citation resolver and lifecycle-aware scan were implemented and merged in PR #2274. Issue #2248
+records the completion and separates remaining exceptions into their own follow-up issues. This Task
+is terminalized as done by the DOCS-041 migration.
 
 # HARNESS-118: citations of a task record path are not re-derived when the record moves, is renamed, or its ID is reused
 
@@ -61,28 +68,28 @@ link is not.** That asymmetry is why `conflict` exists as an outcome and is neve
 
 ## Plan
 
-- [ ] TC-01 — the scan resolves by ID **and** slug and reports four distinct outcomes: `moved`
+- [x] TC-01 — the scan resolves by ID **and** slug and reports four distinct outcomes: `moved`
       (both match, folder differs), `renamed` (ID matches, slug extends), `conflict` (ID and slug
       resolve to different records, or one resolves and the other does not), `dangling` (neither).
-- [ ] TC-02 — `conflict` fires on `DIST-002-release-artifact-verification.md`, asserted by name.
-- [ ] TC-03 — `conflict` fires on the `CORE-014` example, asserted by name.
-- [ ] TC-04 — history is excluded as a citation SOURCE and INCLUDED as a resolution TARGET. Asserted
+- [x] TC-02 — `conflict` fires on `DIST-002-release-artifact-verification.md`, asserted by name.
+- [x] TC-03 — `conflict` fires on the `CORE-014` example, asserted by name.
+- [x] TC-04 — history is excluded as a citation SOURCE and INCLUDED as a resolution TARGET. Asserted
       on `SELFHOST-008-P6`, which exists only in `.agents/archive/` and `spec-docs/done/`: excluding
       it from resolution reports `dangling`, which is the wrong answer and the more alarming one.
-- [ ] TC-05 — a fenced format example is not read as a citation; `CHILD-001-description.md` in
+- [x] TC-05 — a fenced format example is not read as a citation; `CHILD-001-description.md` in
       `.agents/tasks/README.md` stays silent.
-- [ ] TC-06 — the 12 mechanical `moved` repairs are applied and the scan then reports zero `moved`.
-- [ ] TC-07 — the `CORE-014` example is made unresolvable rather than repointed, and a rule is
+- [x] TC-06 — the 12 mechanical `moved` repairs are applied and the scan then reports zero `moved`.
+- [x] TC-07 — the `CORE-014` example is made unresolvable rather than repointed, and a rule is
       stated: an example must not use a live ID.
-- [ ] TC-08 — MUTANT: collapsing the `conflict` branch into `moved` must go RED. This is the one
+- [x] TC-08 — MUTANT: collapsing the `conflict` branch into `moved` must go RED. This is the one
       that matters — such a scan is green on the whole tree while doing the exact damage the scan
       exists to prevent, and deleting the resolver does not catch it.
-- [ ] TC-09 — MUTANT: deleting the resolver must go RED on every one of the 20 known cases, not
+- [x] TC-09 — MUTANT: deleting the resolver must go RED on every one of the 20 known cases, not
       merely on the tree as a whole.
-- [ ] TC-10 — MUTANT: replacing the live-surface directory list with an empty corpus must go RED. A
+- [x] TC-10 — MUTANT: replacing the live-surface directory list with an empty corpus must go RED. A
       scan whose corpus silently excludes its subject passes identically to one that works.
-- [ ] TC-11 — `run-all-scans` green; the new scan declares what it examined.
-- [ ] TC-12 — `pnpm lint` checked by EXIT CODE, not by the summary line (issue #1984 / PR #2246).
+- [x] TC-11 — `run-all-scans` green; the new scan declares what it examined.
+- [x] TC-12 — `pnpm lint` checked by EXIT CODE, not by the summary line (issue #1984 / PR #2246).
 
 ## Not in scope
 
