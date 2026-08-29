@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-042: Terminalize handed-off backlog batch 13'
-status: in-progress
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -17,9 +18,9 @@ preventing duplicate actionable backlog entries.
 
 ## Plan
 
-- [ ] Mark REL-024, TRANS-002, and TRANS-010 skipped with exact returned-to-issue links.
-- [ ] Move the three records to completed archive and record resolutions.
-- [ ] Run lifecycle, citation, and CI-like verification scans.
+- [x] Mark REL-024, TRANS-002, and TRANS-010 skipped with exact returned-to-issue links.
+- [x] Move the three records to completed archive and record resolutions.
+- [x] Run lifecycle, citation, and CI-like verification scans.
 
 ## Test Plan
 

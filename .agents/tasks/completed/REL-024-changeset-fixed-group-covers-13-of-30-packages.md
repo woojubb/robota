@@ -1,6 +1,8 @@
 ---
 title: 'REL-024: the changesets `fixed` group holds 13 packages while the version rule says every `@robota-sdk/*` package is in it — the next major bump splits the workspace into two version lines'
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2475#issuecomment-5460392409
 created: 2026-08-16
 priority: high
 urgency: before-next-publish
@@ -9,6 +11,12 @@ depends_on: []
 ---
 
 # REL-024: the fixed group and the version rule disagree
+
+## Resolution
+
+Returned to owner-decision issue #2475 on 2026-08-29. The scope remains valid, but selecting the
+authoritative release policy requires an owner decision; no source, configuration, or policy change
+is made in this document-only migration.
 
 ## Problem
 

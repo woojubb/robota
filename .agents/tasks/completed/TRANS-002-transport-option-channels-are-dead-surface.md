@@ -1,6 +1,8 @@
 ---
 title: "TRANS-002: transport option channels are declared everywhere and applied nowhere — the registry never delivers persisted options to a transport, and agent-transport-http's basePath is never read"
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2480#issuecomment-5460392479
 created: 2026-08-13
 priority: medium
 urgency: soon
@@ -9,6 +11,11 @@ depends_on: []
 ---
 
 # TRANS-002: settings-backed transport options never reach a transport
+
+## Resolution
+
+Returned to implementation follow-up issue #2480 on 2026-08-29. The defect is still valid and
+requires source/API work; this document-only migration makes no implementation change.
 
 ## Problem
 

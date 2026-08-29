@@ -1,7 +1,9 @@
 ---
 title: 'TRANS-010: the transport settings view carries the framework settings I/O the registry shed'
 issue: https://github.com/woojubb/robota/issues/2050
-status: todo
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2480#issuecomment-5460392479
 created: 2026-08-25
 priority: medium
 urgency: later
@@ -10,6 +12,12 @@ depends_on: [TRANS-009]
 ---
 
 # TRANS-010: the registry's filesystem dependency moved one file over
+
+## Resolution
+
+Returned to implementation follow-up issue #2480 on 2026-08-29. The dependency-injection seam is
+still unresolved and requires source/API work; this document-only migration makes no implementation
+change.
 
 ## Problem
 

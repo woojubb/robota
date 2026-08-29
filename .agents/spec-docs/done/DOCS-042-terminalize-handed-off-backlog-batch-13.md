@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [docs]
 lane: L2
@@ -84,9 +84,9 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: all three Tasks have terminal metadata, exact issue-comment links, and archive destinations
-- [ ] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing
-- [ ] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes
+- [x] TC-01: all three Tasks have terminal metadata, exact issue-comment links, and archive destinations
+- [x] TC-02: `pnpm harness:scan` exits 0 with lifecycle and citation scans passing
+- [x] TC-03: `pnpm harness:verify-like-ci` exits 0 without source/API/policy changes
 
 ## Test Plan
 
@@ -102,7 +102,7 @@ Not applicable — internal backlog lifecycle documentation only; no user-facing
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-042-terminalize-handed-off-backlog-batch-13.md` — in progress
+- [x] `.agents/tasks/completed/DOCS-042-terminalize-handed-off-backlog-batch-13.md` — done
 
 ## Evidence Log
 
