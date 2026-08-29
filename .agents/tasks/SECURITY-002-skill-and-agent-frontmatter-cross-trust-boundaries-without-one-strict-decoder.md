@@ -32,8 +32,8 @@ consume this decoder; this Task must not migrate their discovery roots or add co
   record.
 - Both current loaders read workspace or plugin-contributed files. A malformed disabling flag can
   therefore widen model invocation instead of failing at the trust boundary.
-- No shared strict skill/agent metadata decoder or converted Task for issue #2082 exists on current
-  `develop` at commit `1fe34532f41bca54bec4f817268bbf3993d7a38c`.
+- The Task conversion landed in PR #2501; the strict decoder implementation remains absent on the
+  current `origin/develop` baseline.
 
 ## Scope Boundary
 
@@ -48,14 +48,20 @@ consume this decoder; this Task must not migrate their discovery roots or add co
 
 ## Plan
 
-- [ ] Survey the exact skill and agent key vocabularies and identify the lowest correct owner for the
+- [x] Survey the exact skill and agent key vocabularies and identify the lowest correct owner for the
       shared decoder and its typed output without reversing package dependencies.
-- [ ] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
+- [x] Specify strict parsing and diagnostic semantics for missing delimiters, malformed lines, unknown
       keys, booleans, lists, positive integers, context values, model values, and effort values.
 - [ ] Implement one discriminated skill/agent decoder with file-, line-, and field-bound failures.
 - [ ] Prove every invalid class fails and every valid variant preserves its typed values.
 - [ ] Update the governing contract/design documentation and leave issue #2094 and issue #2095 as the
       only loader-migration owners.
+
+## Progress
+
+- 2026-08-29: Conversion confirmed on `origin/develop`; implementation scope revalidated against
+  issue #2082 and sibling migration issues.
+- 2026-08-29: Approved L2 spec at `.agents/spec-docs/todo/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md`.
 
 ## Completion Criteria
 
@@ -83,6 +89,8 @@ consume this decoder; this Task must not migrate their discovery roots or add co
   scans, and CI-equivalent verification before merge.
 
 ## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 Not applicable for this leaf: it deliberately defines and tests the shared decoder without connecting
 any production loader. Issue #2094 and issue #2095 own the runnable skill/plugin and agent loading

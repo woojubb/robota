@@ -18,3 +18,5 @@
 {"runId":"r20260829011316","opened":"2026-08-29T01:13:16.530Z","closed":"2026-08-29T01:15:15.405Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"INFRA-140 issue #2433 converted as one root-cause Task"}
 {"runId":"r20260829053616","opened":"2026-08-29T05:36:16.987Z","closed":"2026-08-29T05:38:47.250Z","roundFindings":[1,1,0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/draft/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md"}
 {"runId":"r20260829080821","opened":"2026-08-29T08:08:21.274Z","closed":"2026-08-29T08:09:40.683Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/tasks/SECURITY-002-skill-and-agent-frontmatter-cross-trust-boundaries-without-one-strict-decoder.md"}
+{"runId":"r20260829091516","opened":"2026-08-29T09:15:16.566Z","closed":"2026-08-29T09:18:49.567Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":null}
+{"runId":"r20260829092635","opened":"2026-08-29T09:26:35.395Z","closed":"2026-08-29T09:26:38.561Z","roundFindings":[1],"extensions":{},"terminal":"halted-for-user","ref":null}
