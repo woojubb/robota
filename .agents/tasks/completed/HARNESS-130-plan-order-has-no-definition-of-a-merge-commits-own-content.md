@@ -1,15 +1,21 @@
 ---
 title: "HARNESS-130: plan-order has no definition of a merge commit's own content, so an evil merge before the checkpoint is judged by nothing and the staged path refuses honest back-merges"
 issue: https://github.com/woojubb/robota/issues/2410
-status: todo
+status: skipped
 created: 2026-08-28
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/2410
 ---
 
 # HARNESS-130: plan-order has no definition of a merge commit's own content
+
+## Terminal disposition
+
+Skipped as a duplicate of canonical open issue #2410, which owns this plan-order merge-content scope.
 
 ## Problem
 
@@ -26,7 +32,7 @@ clean back-merge before the checkpoint is refused as implementation.
 Measured on `develop` `58c7ca4b9` (2026-08-28) by `proposal-reviewer` while reviewing HARNESS-129,
 with the test file's own fixture helpers against a scratch copy of the scan:
 
-- Evil merge (adds `scripts/harness/evil.mjs`, in neither parent, before the checkpoint): unpatched
+- Evil merge (adds `scripts/harness/evil.mjs` <!-- evidence-superseded: transient fixture removed. -->, in neither parent, before the checkpoint): unpatched
   scan refuses it only by accident (alongside a false positive on `README.md`); with `--no-merges`
   → `findings=0`.
 - Staged path: an honest clean back-merge of the base before the checkpoint → "staged

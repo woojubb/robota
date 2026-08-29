@@ -1,14 +1,21 @@
 ---
 title: "TOOL-006: agent-tool-mcp tools implement the narrow ITool, but the agent runtime's tool intake requires IToolWithEventService — the package's own purpose (register MCP tools as agent tools) is unreachable"
-status: todo
+status: done
 created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-tool-mcp, packages/agent-core
 depends_on: []
+completed: 2026-08-29
 ---
 
 # TOOL-006: MCP tools cannot be registered as agent tools
+
+## Terminal disposition
+
+Completed by merged PR #2040 (`a432cd380`). The implementation is already present on develop; this
+backlog record is archived as the stale actionable copy. Broader MCP reachability issue #1985 remains
+separate and open.
 
 ## Problem
 
