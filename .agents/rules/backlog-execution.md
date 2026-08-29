@@ -371,9 +371,10 @@ backlog begin.
 
 **Merge is the terminal outcome, not an optional handoff.** A pending or failed check is a work state,
 not permission to stop and report partial delivery. The owning session must continue the bounded
-observe→diagnose→fix→recheck loop until the PR is confirmed `MERGED` and the merge commit is an
-ancestor of `origin/develop`. A final report must include that confirmation; otherwise the work is
-`in-progress`, never complete.
+observe→diagnose→fix→recheck loop, using the no-progress escape in
+[`enforcement-architecture.md`](enforcement-architecture.md) when the same failure recurs unchanged,
+until the PR is confirmed `MERGED` and the merge commit is an ancestor of `origin/develop`. A final
+report must include that confirmation; otherwise the work is `in-progress`, never complete.
 
 **Violations:**
 
