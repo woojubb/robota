@@ -1,5 +1,6 @@
 ---
-status: approved
+status: rejected
+returned_to_issue: https://github.com/woojubb/robota/issues/2198#issuecomment-5458301707
 type: INFRA
 tags: [architecture]
 ---
@@ -7,7 +8,7 @@ tags: [architecture]
 # STRUCT-011: name the aggregator apart from what it aggregates
 
 Paired with
-`.agents/tasks/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md`.
+`.agents/tasks/completed/STRUCT-011-provider-aggregator-carries-the-prefix-of-what-it-aggregates.md`.
 Arising from [issue #2198](https://github.com/woojubb/robota/issues/2198).
 
 ## Problem

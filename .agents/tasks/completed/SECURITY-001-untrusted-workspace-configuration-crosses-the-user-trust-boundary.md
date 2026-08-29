@@ -1,6 +1,8 @@
 ---
 title: 'SECURITY-001: untrusted workspace configuration crosses the user trust boundary'
-status: blocked
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2465#issuecomment-5458301582
 created: 2026-08-22
 priority: critical
 urgency: now

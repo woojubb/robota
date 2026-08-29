@@ -1,6 +1,8 @@
 ---
 title: 'SEC-016: per-event fail-closed and advisory hook policy'
-status: in-progress
+status: skipped
+completed: 2026-08-29
+returned_to_issue: https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445
 created: 2026-08-23
 priority: critical
 urgency: now
