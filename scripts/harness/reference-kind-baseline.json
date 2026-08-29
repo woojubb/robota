@@ -78,6 +78,7 @@
   ".agents/spec-docs/done/DATA-003-instant-node-provider-ssot-and-round-trip.md": 3,
   ".agents/spec-docs/done/DIST-002-bun-binary-release-workflow.md": 1,
   ".agents/spec-docs/done/DIST-003-nodeless-install-scripts.md": 4,
+  ".agents/spec-docs/done/DOCS-046-terminalize-harness-070-and-gui-008.md": 6,
   ".agents/spec-docs/done/GUI-002-agent-gui-electron-sidecar-foundation.md": 4,
   ".agents/spec-docs/done/GUI-003-agent-app-packaging-bundled-runtime.md": 7,
   ".agents/spec-docs/done/GUI-005-gui-presentation-taxonomy.md": 4,
