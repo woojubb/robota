@@ -1,7 +1,7 @@
 ---
 title: 'PROC-018: Record the PROC-017 post-merge continuation scope'
 issue: https://github.com/woojubb/robota/issues/2514
-status: todo
+status: in-progress
 created: 2026-08-30
 priority: medium
 urgency: soon
@@ -20,10 +20,12 @@ continuation checkpoint, without weakening the branch-local planning guard.
 
 ## Plan
 
-- [ ] Add one exact `Continuation artifacts` declaration to PROC-017's Decision for the evidence,
-      workflow-document, loop-ledger, and regression-test paths that the closeout PR must land.
-- [ ] Verify the declaration is uniquely parseable by the existing checkpoint evidence contract and
-      that the affected repository scans remain green.
+- [ ] TC-01: Add one exact `Continuation artifacts` declaration to PROC-017's Decision for the
+      evidence, workflow-document, loop-ledger, and regression-test paths that the closeout PR must
+      land, then verify its exact parsed order.
+- [ ] TC-02: Verify the declaration occurs exactly once and the implementation commit changes only
+      PROC-017's active spec.
+- [ ] TC-03: Run the affected repository scan after committing the declaration.
 
 ## Test Plan
 

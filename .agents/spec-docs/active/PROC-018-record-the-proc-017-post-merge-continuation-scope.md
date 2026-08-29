@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [workflow, harness]
 lane: L2
@@ -113,7 +113,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md` — todo
+- [ ] `.agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md` — in-progress
 
 ## Evidence Log
 
@@ -174,3 +174,50 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (777f084c03b6) equals the document's current fingerprint
 - GATE-APPROVAL — Independent architecture validation is satisfied: N/A because the Architecture Review explicitly introduces no new package, app, surface, layer, or product-family reclassification.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-30; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (3)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 326 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md",
+  "specPath": ".agents/spec-docs/todo/PROC-018-record-the-proc-017-post-merge-continuation-scope.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/PROC-018-record-the-proc-017-post-merge-continuation-scope.md",
+    ".agents/tasks/PROC-018-record-the-proc-017-post-merge-continuation-scope.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
