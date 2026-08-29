@@ -24,5 +24,5 @@ This is not applicable to user execution because this work only archives backlog
 
 ## Tasks
 
-- [ ] Archive HARNESS-115 as skipped to issue #2322.
-- [ ] Archive HARNESS-125 as skipped to issue #2308.
+- [x] Archive HARNESS-115 as skipped to issue #2322.
+- [x] Archive HARNESS-125 as skipped to issue #2308.
