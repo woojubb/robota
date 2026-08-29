@@ -187,13 +187,15 @@ function legacyEntriesBeforeCutover(root, cutover, revision, basename) {
   });
 }
 
-function precedingSequencedMerge(root, revision, basename) {
+function precedingSequencedIntegrationCommit(root, revision, basename) {
   const specPath = `${SPEC_PREFIX}active/${basename}`;
   const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);
   if (priorEntry === undefined) return null;
-  const result = runGit(root, ['rev-list', '--first-parent', '--merges', revision]);
+  const result = runGit(root, ['rev-list', '--first-parent', revision]);
   if (result.code !== 0) {
-    throw new Error(`cannot inspect preceding merge ancestry: ${result.stderr || '(no stderr)'}`);
+    throw new Error(
+      `cannot inspect preceding integration ancestry: ${result.stderr || '(no stderr)'}`,
+    );
   }
   for (const merge of lines(result.stdout)) {
     const parent = runGit(root, ['rev-parse', `${merge}^1`]);
@@ -250,7 +252,7 @@ function checkpointOptionsAt(
     ...(cutovers.length === 1
       ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
       : {}),
-    ancestorSha: precedingSequencedMerge(root, parentRevision, basename),
+    ancestorSha: precedingSequencedIntegrationCommit(root, parentRevision, basename),
     ...(baseOid === null ? {} : { baseOid }),
     ...(checkpointPaths === null ? {} : { checkpointPaths }),
   };
@@ -737,7 +739,7 @@ function gateImplementEntryResults(
         return {
           ok: false,
           error:
-            'gateImplementContinuation.ancestorSha has no preceding merge commit that introduced the sequenced checkpoint',
+            'gateImplementContinuation.ancestorSha has no preceding integration commit that introduced the sequenced checkpoint',
           body,
         };
       }
@@ -749,7 +751,7 @@ function gateImplementEntryResults(
         return {
           ok: false,
           error:
-            'gateImplementContinuation.ancestorSha does not bind the preceding merge commit that introduced the sequenced checkpoint',
+            'gateImplementContinuation.ancestorSha does not bind the preceding integration commit that introduced the sequenced checkpoint',
           body,
         };
       }
