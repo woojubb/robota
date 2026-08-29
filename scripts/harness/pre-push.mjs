@@ -129,6 +129,40 @@ function runGitQuiet(args) {
 }
 
 /**
+ * Run the same post-verdict guard used by Claude's Bash hook before the ordinary Git pre-push
+ * verification. Git's hook is the boundary used by shells and subagents, so checking only the
+ * Claude PreToolUse hook leaves an enforceable rule with an unenforced execution path.
+ *
+ * Any non-zero result is treated as a refusal (fail closed): the shell guard uses exit 2 for an
+ * explicit block, while an unexpected exit is also unsafe to interpret as approval.
+ */
+export function runPostVerdictGuard({
+  cwd = WORKSPACE_ROOT,
+  spawn = spawnSync,
+  script = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh'),
+} = {}) {
+  const payload = JSON.stringify({
+    tool_name: 'Bash',
+    cwd,
+    tool_input: { command: 'git push' },
+  });
+  const result = spawn('bash', [script], {
+    cwd,
+    input: payload,
+    encoding: 'utf8',
+    stdio: ['pipe', 'inherit', 'inherit'],
+    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd },
+  });
+  if (result.status !== 0) {
+    process.stderr.write(
+      '[pre-push] Blocked: post-verdict action-request guard did not approve this push.\n',
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
  * Worktrees are ALLOWED (they power parallel sub-agent work — see git-branch.md § Git Worktree). This is the
  * non-blocking hygiene safeguard that replaces the old ban: prune administrative junk, then WARN about
  * locked/stale extra worktrees so left-behind ones surface — it never blocks the push.
@@ -469,5 +503,6 @@ export function createPrePushSteps() {
 
 // Guarded so a test can import `runPrePushGate` without running the gate against its own checkout.
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  if (!runPostVerdictGuard()) process.exit(2);
   runPrePushGate(createPrePushSteps());
 }

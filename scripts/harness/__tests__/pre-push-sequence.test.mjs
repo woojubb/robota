@@ -17,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { prerequisitesFor, runPrePushGate } from '../pre-push.mjs';
+import { prerequisitesFor, runPostVerdictGuard, runPrePushGate } from '../pre-push.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
@@ -208,5 +208,30 @@ describe('the prerequisites a push owes follow the change classification (PROC-0
   it('an unclassifiable change owes everything — fail closed', () => {
     expect(prerequisitesFor(undefined)).toEqual(['install', 'build-output']);
     expect(prerequisitesFor({})).toEqual(['install', 'build-output']);
+  });
+});
+
+describe('post-verdict guard reaches the real Git pre-push boundary', () => {
+  it('refuses when the shared agent guard returns a non-zero status', () => {
+    const result = runPostVerdictGuard({
+      cwd: '/tmp/fixture-repo',
+      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
+      spawn(_command, _args, options) {
+        expect(JSON.parse(options.input)).toMatchObject({
+          tool_name: 'Bash',
+          tool_input: { command: 'git push' },
+        });
+        return { status: 2 };
+      },
+    });
+    expect(result).toBe(false);
+  });
+
+  it('allows only an explicit zero exit from the shared guard', () => {
+    expect(
+      runPostVerdictGuard({
+        spawn: () => ({ status: 0 }),
+      }),
+    ).toBe(true);
   });
 });
