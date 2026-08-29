@@ -6,7 +6,7 @@ tags: [harness, templates]
 
 # HARNESS-125: the record skeleton omits the section the rule requires
 
-Paired with `.agents/tasks/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md`.
+Paired with `.agents/tasks/completed/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md`.
 Arising from [issue #2308](https://github.com/woojubb/robota/issues/2308).
 
 ## Problem
@@ -141,7 +141,7 @@ this is the "not applicable, with the reason" branch of it.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md` — todo
+- [ ] `.agents/tasks/completed/HARNESS-125-the-record-skeleton-omits-the-section-the-rule-requires.md` — done
 
 ## Evidence Log
 
