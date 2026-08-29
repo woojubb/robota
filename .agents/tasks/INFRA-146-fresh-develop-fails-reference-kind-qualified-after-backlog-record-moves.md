@@ -85,8 +85,9 @@ Independent proposal review converged after one correction round:
 
 ## User Execution Test Scenarios
 
-Not applicable. This Task corrects repository-document reference syntax only; it does not change a
-product command, API, output, or runtime behavior that a user can execute. The individual and full
-harness scans above are engineering verification and are not presented as user-execution evidence.
+Independent scenario-author reason: this Task changes only two repository-document reference tokens.
+It delivers no product command, API, UI, SDK, output, or runtime behavior that a user can execute. The
+individual and full harness scans above are engineering verification and are not presented as
+user-execution evidence.
 
-**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+**Author verdict (2026-08-29):** `SCENARIO DRAFTED: not-applicable | 0`
