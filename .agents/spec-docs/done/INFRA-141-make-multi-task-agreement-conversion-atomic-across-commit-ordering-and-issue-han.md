@@ -36,8 +36,10 @@ Waived: internal fix with no contract change; the remedy is the repository's own
 ### Affected Scope
 
 - `.agents/skills/issue-to-backlog/SKILL.md` — declares the atomic parent/child conversion procedure.
-- `scripts/harness/scan-user-execution-plan-order.mjs` — staged prelude classification.
-- `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — valid/invalid Git fixtures.
+- `scripts/harness/scan-user-execution-plan-order.mjs` — shared staged and post-commit history
+  prelude classification.
+- `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — valid/invalid staged Git
+  fixtures and stage→commit history replay.
 - `scripts/harness/github-issue-triage.mjs` — source-citation collection and marker-owned authority.
 - `scripts/harness/__tests__/github-issue-triage.test.mjs` — marker, ambiguity and compatibility cases.
 
@@ -60,8 +62,9 @@ Waived: internal fix with no contract change; the remedy is the repository's own
 ### Decision
 
 **Alternative 2.** Treat conversion as one strict manifest, not as several implementation units. The
-staged scanner admits exactly one newly added AGREEMENT Task/spec pair plus exactly its declared newly
-added `todo` child Task records, with the same source issue and exact `## Children` / `## Tasks`
+planning-order scanner applies one shared validator both to the proposed index and to post-commit
+history replay. It admits exactly one newly added AGREEMENT Task/spec pair plus exactly its declared
+newly added `todo` child Task records, with the same source issue and exact `## Children` / `## Tasks`
 projections. It rejects unrelated paths, existing-child rewrites, nested AGREEMENTs, non-todo children,
 and mismatches. The issue audit collects all Task citations; one Task remains backward-compatible, while
 multiple citations require one exact readable `robota-task` marker that names and validates the local
@@ -92,9 +95,11 @@ None
 
 ## Solution
 
-Add one pure staged-manifest validator to the planning-order scanner. It derives the single parent from
-the newly added `type: AGREEMENT` exact-basename pair, reads the parent `children`, resolves those IDs
-only against newly staged Task files, validates shared issue/status/projections, and permits no other
+Add one pure revision-agnostic manifest validator to the planning-order scanner. The staged path supplies
+index/HEAD readers and the history path supplies commit/parent readers, so both validate the identical
+transaction. The validator derives the single parent from the newly added `type: AGREEMENT`
+exact-basename pair, reads the parent `children`, resolves those IDs only against Task files newly added
+relative to the supplied parent, validates shared issue/status/projections, and permits no other
 non-ledger path. Its result is a planning prelude for the parent basename; it is not a checkpoint and
 does not authorize child implementation.
 
@@ -118,8 +123,9 @@ separate work units.
 ## Completion Criteria
 
 - [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
-      exits 0 with a valid newly added AGREEMENT parent/spec + declared child manifest, and the new
-      positive case fails when the implementation is reverted.
+      exits 0 with a valid newly added AGREEMENT parent/spec + declared child manifest both while
+      staged and after commit/history replay, and the stage→commit positive case fails when the shared
+      history validation is reverted.
 - [x] TC-02: the planning-order test file rejects unrelated Task paths, existing child rewrites,
       duplicate/unresolved or non-todo children, nested AGREEMENTs, source-issue mismatch and malformed
       projections with a named reason.
@@ -135,7 +141,7 @@ separate work units.
 
 | TC-ID | Test Type            | Tool / Approach                                                | Notes                                               |
 | ----- | -------------------- | -------------------------------------------------------------- | --------------------------------------------------- |
-| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`                      | Positive RED→GREEN fixture                          |
+| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`                      | Positive staged + stage→commit RED→GREEN fixture    |
 | TC-02 | Unit/Git integration | invalid-manifest table in the same test file                   | Every rejected class names its reason               |
 | TC-03 | Unit                 | `github-issue-triage.test.mjs`                                 | Parent marker, ambiguity and one-Task compatibility |
 | TC-04 | Integration          | isolated temporary Git fixture restored from `stash@{0}` paths | Evidence only; no cross-Task commit                 |

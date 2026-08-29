@@ -42,13 +42,16 @@ records and exact projections, and the parent marker as canonical issue authorit
 
 ## Result
 
-- The staged guard accepts only one newly added exact-basename AGREEMENT parent/spec and its exact
-  newly added todo child projection; named negative fixtures cover every rejected manifest class.
+- The shared staged/history guard accepts only one newly added exact-basename AGREEMENT parent/spec
+  and its exact newly added todo child projection, both in the proposed index and after the same
+  transaction becomes a commit; named negative fixtures cover every rejected manifest class.
 - GitHub audit collects every Task citation and resolves a unique exact AGREEMENT parent marker;
   missing, conflicting, child, nested, or child-set-mismatched markers fail as malformed.
 - The preserved issue #1987 manifest produced zero staged findings and its five live candidates
   resolved to `AGREEMENT-004` with no audit problem, without adding issue #1987 files to this branch.
-- Targeted tests, the full 6,584-test harness suite, affected scans, and full scans passed.
+- A stage→commit fixture proves the same atomic manifest passes staged validation and post-commit
+  history replay; targeted tests, the full 6,584-test harness suite, affected scans, and full scans
+  passed.
 
 ## Constraints
 
@@ -61,10 +64,12 @@ records and exact projections, and the parent marker as canonical issue authorit
 
 ## Test Plan
 
-- Unit fixtures for valid and invalid staged AGREEMENT conversion manifests.
+- Unit/Git fixtures for valid and invalid staged AGREEMENT conversion manifests plus post-commit
+  history replay of the same valid transaction.
 - Triage audit fixtures for canonical parent marker, child citations, missing marker, conflicting marker,
   and single-Task conversions.
-- RED proof against the pre-fix implementation, then GREEN after restoration.
+- RED proof that the pre-fix history path rejects a staged-valid committed manifest, then GREEN after
+  both paths share the strict validator.
 - `pnpm harness:scan`, affected harness tests, and CI-equivalent verification before merge.
 
 ## User Execution Test Scenarios
