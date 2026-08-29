@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -44,6 +44,8 @@ issue ownership; it changes no user-facing execution surface.
 - [ ] `.agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md`
 - [ ] TC-01: archive the two stale records with their evidence.
 
+## Evidence Log
+
 ### [GATE-APPROVAL] — ✅ PASS | 2026-08-29
 
 **Approval route:** `CLASS`
@@ -51,3 +53,30 @@ issue ownership; it changes no user-facing execution surface.
 **Given:** 2026-08-29, this conversation
 **Evidence condition met:** current PR/issue state was revalidated before selecting this batch.
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- Task record: `.agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md`.
+- Subject-bound PLAN: `SCENARIO DRAFTED: not-applicable | 0` because this is document-only lifecycle work.
+- Whole-worktree precondition: only the paired spec and Task changed at this checkpoint.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md",
+  "specPath": ".agents/spec-docs/todo/DOCS-053-terminalize-stale-completed-backlog.md",
+  "taskItems": [{ "kind": "tc-id", "value": "TC-01" }],
+  "plan": { "outcome": "not-applicable", "count": 0 },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/DOCS-053-terminalize-stale-completed-backlog.md",
+    ".agents/tasks/DOCS-053-terminalize-stale-completed-backlog.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
