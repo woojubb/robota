@@ -1,7 +1,7 @@
 ---
 title: 'DOCS-043: Terminalize canonical issue handoff backlog batch 14'
 issue: https://github.com/woojubb/robota/issues/2404
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: medium
 urgency: soon

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [docs]
 lane: L2
@@ -124,3 +124,58 @@ The concrete duplicate-root symptom, canonical open issue links, and archive alt
 **Class:** `BACKLOG-ZERO-MIGRATION`
 **Instruction (verbatim):** "DOCS-029 승인함. BACKLOG-ZERO-MIGRATION 클래스를 등록하고, 2026-08-28 기준 기존 backlog를 GitHub issue로 이관하거나 이미 전달된 기록을 종결하는 문서 전용 배치를 자동 승인하도록 위임함. 패키지 소스/API/정책 변경은 제외."
 **Evidence condition:** RULE-015 and CLI-083 handoff comments are recorded above; no implementation changes are included.
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-29
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 1 path(s) outside the paired spec/Task: .agents/spec-docs/active/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md
+  **Required action:** commit, stash, or remove them before this gate
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-29
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-29; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task carries 3 checkbox tasks for 3 criteria
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 200 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md",
+  "specPath": ".agents/spec-docs/todo/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md",
+  "taskItems": [
+    {
+      "kind": "checkbox",
+      "value": "Mark both Tasks skipped with exact returned-to-issue links."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Move both records to completed archive and record resolutions."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Run lifecycle, citation, and CI-like verification scans."
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md",
+    ".agents/tasks/DOCS-043-terminalize-canonical-issue-handoff-backlog-batch-14.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
