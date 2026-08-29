@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [backlog-zero-migration]
 lane: L2
@@ -27,7 +27,7 @@ runtime changes are included.
 
 ## Completion Criteria
 
-- [ ] TC-01: all three records are terminal, with exact merge or issue evidence and no root todo copy.
+- [x] TC-01: all three records are terminal, with exact merge or issue evidence and no root todo copy.
 
 ## Test Plan
 
@@ -44,8 +44,8 @@ Recorded reason: not applicable because this document-only batch changes no user
 
 ## Tasks
 
-- [ ] `.agents/tasks/DOCS-051-terminalize-delivered-and-duplicated-backlog.md`
-- [ ] TC-01: archive the three stale records with their evidence.
+- [x] `.agents/tasks/completed/DOCS-051-terminalize-delivered-and-duplicated-backlog.md`
+- [x] TC-01: archive the three stale records with their evidence.
 
 ## Evidence Log
 
@@ -81,3 +81,8 @@ Recorded reason: not applicable because this document-only batch changes no user
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-29
+
+The three stale records are archived with exact delivery or issue evidence; no implementation paths
+changed.

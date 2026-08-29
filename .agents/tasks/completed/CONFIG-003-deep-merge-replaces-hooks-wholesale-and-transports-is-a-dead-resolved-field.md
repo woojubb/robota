@@ -1,14 +1,20 @@
 ---
 title: 'CONFIG-003: the config loader documents "deep merge" but replaces hooks/taskContext/transports wholesale (a project hook silently deletes user-global guard hooks), and IResolvedConfig.transports is a schema-validated field the loader never populates while the live consumer reads only the user-global file'
-status: todo
+status: skipped
 created: 2026-08-13
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-cli
 depends_on: []
+completed: 2026-08-29
+handoff: https://github.com/woojubb/robota/issues/2024
 ---
 
 # CONFIG-003: merge semantics and a dead resolved field
+
+## Terminal disposition
+
+Skipped as a duplicate of canonical issue #2024; the issue is closed and owns the narrower hooks scope.
 
 ## Problem
 

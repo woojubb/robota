@@ -1,12 +1,13 @@
 ---
 title: 'DOCS-051: terminalize delivered and duplicated backlog records'
-status: in-progress
+status: done
 created: 2026-08-29
 priority: high
 urgency: now
 area: .agents/tasks, .agents/spec-docs
 depends_on: []
 no-issue: document batch authorized by DOCS-029; records existing PR and issue ownership
+completed: 2026-08-29
 ---
 
 # DOCS-051: terminalize delivered and duplicated backlog records
@@ -18,7 +19,7 @@ merged pull requests, and canonical issue ownership.
 
 ## Plan
 
-- [ ] TC-01: archive the three records with exact delivery or issue evidence.
+- [x] TC-01: archive the three records with exact delivery or issue evidence.
 
 ## User Execution Test Scenarios
 
@@ -35,4 +36,4 @@ verification. The diff must contain no package, app, API, policy, CI, or runtime
 
 ## Tasks
 
-- [ ] TC-01: archive CONFIG-003, PROV-003, and TOOL-005 with evidence.
+- [x] TC-01: archive CONFIG-003, PROV-003, and TOOL-005 with evidence.
