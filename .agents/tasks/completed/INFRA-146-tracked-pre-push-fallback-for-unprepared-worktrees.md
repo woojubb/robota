@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-146: keep the pre-push gate present in unprepared worktrees'
-status: in-progress
+status: done
 created: 2026-08-29
 priority: high
 urgency: now
@@ -19,9 +19,9 @@ have been installed.
 
 ## Plan
 
-- [ ] TC-01: provide a tracked, executable fail-closed pre-push bootstrap and keep Husky v9 hooks
+- [x] TC-01: provide a tracked, executable fail-closed pre-push bootstrap and keep Husky v9 hooks
       compatible with it.
-- [ ] TC-02: verify the bootstrap both with and without Husky's generated dispatcher.
+- [x] TC-02: verify the bootstrap both with and without Husky's generated dispatcher.
 
 ## User Execution Test Scenarios
 
@@ -39,5 +39,11 @@ missing generated path as success.
 
 ## Tasks
 
-- [ ] TC-01: add and restore the tracked pre-push bootstrap.
-- [ ] TC-02: test prepared and unprepared worktrees.
+- [x] TC-01: add and restore the tracked pre-push bootstrap.
+- [x] TC-02: test prepared and unprepared worktrees.
+
+## Completion evidence
+
+- Focused harness tests: 104 passed (`harness-scripts.test.mjs`, `pre-push-sequence.test.mjs`).
+- Manual fail-closed check: removing `.husky/_/h` still invokes the tracked bootstrap and blocks
+  the push instead of silently succeeding.

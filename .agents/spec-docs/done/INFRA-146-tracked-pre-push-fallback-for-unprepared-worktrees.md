@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [git-hooks, worktrees, fail-closed]
 lane: L2
@@ -28,8 +28,8 @@ behavior is changed.
 
 ## Completion Criteria
 
-- [ ] TC-01: an unprepared worktree executes a tracked pre-push path and fails closed.
-- [ ] TC-02: a prepared worktree still reaches the same harness gate.
+- [x] TC-01: an unprepared worktree executes a tracked pre-push path and fails closed.
+- [x] TC-02: a prepared worktree still reaches the same harness gate.
 
 ## User Execution Test Scenarios
 
@@ -44,8 +44,14 @@ run the focused harness tests.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md`
-- [ ] TC-01 and TC-02: implement and verify the two hook states.
+- [x] `.agents/tasks/completed/INFRA-146-tracked-pre-push-fallback-for-unprepared-worktrees.md`
+- [x] TC-01 and TC-02: implement and verify the two hook states.
+
+## Completion evidence
+
+- Focused harness tests: 104 passed (`harness-scripts.test.mjs`, `pre-push-sequence.test.mjs`).
+- Manual fail-closed check: removing `.husky/_/h` still invokes the tracked bootstrap and blocks
+  the push instead of silently succeeding.
 
 ## Evidence Log
 
