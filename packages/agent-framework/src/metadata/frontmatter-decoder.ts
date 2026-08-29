@@ -1,11 +1,21 @@
-import type { TModelEffort } from '@robota-sdk/agent-core';
+import {
+  booleanField,
+  effortField,
+  enumField,
+  listField,
+  makeDiagnostic,
+  required,
+  scalarField,
+  type TFieldLines,
+  type TFieldMap,
+} from './frontmatter-fields.js';
+
 import type {
   IDecodedAgentFrontmatter,
   IDecodedSkillFrontmatter,
   IFrontmatterDecodeOptions,
   IFrontmatterDiagnostic,
   TFrontmatterDecodeResult,
-  TFrontmatterDiagnosticCode,
 } from '@robota-sdk/agent-interface-command';
 
 const SKILL_KEYS = new Set([
@@ -28,10 +38,6 @@ const AGENT_KEYS = new Set([
   'tools',
   'disallowedTools',
 ]);
-const EFFORTS = new Set<TModelEffort>(['low', 'medium', 'high', 'xhigh', 'max']);
-
-type TFieldMap = Record<string, string>;
-type TFieldLines = Record<string, number>;
 type TMutable<T> = { -readonly [K in keyof T]: T[K] };
 
 export function decodeSkillAgentFrontmatter(
@@ -47,7 +53,7 @@ export function decodeSkillAgentFrontmatter(
 
   if (lines[0]?.trim() !== '---') {
     diagnostics.push(
-      diagnostic(options, 'missing-opening-marker', 'Frontmatter must begin with ---'),
+      makeDiagnostic(options, 'missing-opening-marker', 'Frontmatter must begin with ---'),
     );
     return invalid(diagnostics);
   }
@@ -61,7 +67,7 @@ export function decodeSkillAgentFrontmatter(
   }
   if (closingLine === -1) {
     diagnostics.push(
-      diagnostic(
+      makeDiagnostic(
         options,
         'missing-closing-marker',
         'Frontmatter is missing its closing ---',
@@ -75,7 +81,7 @@ export function decodeSkillAgentFrontmatter(
     const line = lines[index] ?? '';
     if (line.trim().length === 0) {
       diagnostics.push(
-        diagnostic(
+        makeDiagnostic(
           options,
           'malformed-line',
           'Frontmatter lines must contain key: value',
@@ -87,7 +93,7 @@ export function decodeSkillAgentFrontmatter(
     const match = line.match(/^([a-zA-Z][a-zA-Z0-9-]*):\s*(.*)$/);
     if (!match) {
       diagnostics.push(
-        diagnostic(
+        makeDiagnostic(
           options,
           'malformed-line',
           'Frontmatter line must contain key: value',
@@ -100,7 +106,7 @@ export function decodeSkillAgentFrontmatter(
     const rawValue = match[2]!.trim();
     if (!allowed.has(key)) {
       diagnostics.push(
-        diagnostic(
+        makeDiagnostic(
           options,
           'unknown-key',
           `Unknown ${options.kind} frontmatter key: ${key}`,
@@ -112,7 +118,13 @@ export function decodeSkillAgentFrontmatter(
     }
     if (seen.has(key)) {
       diagnostics.push(
-        diagnostic(options, 'duplicate-key', `Duplicate frontmatter key: ${key}`, index + 1, key),
+        makeDiagnostic(
+          options,
+          'duplicate-key',
+          `Duplicate frontmatter key: ${key}`,
+          index + 1,
+          key,
+        ),
       );
       continue;
     }
@@ -121,13 +133,21 @@ export function decodeSkillAgentFrontmatter(
     fieldLines[key] = index + 1;
     if (rawValue.length === 0) {
       diagnostics.push(
-        diagnostic(options, 'empty-value', `Frontmatter value is empty: ${key}`, index + 1, key),
+        makeDiagnostic(
+          options,
+          'empty-value',
+          `Frontmatter value is empty: ${key}`,
+          index + 1,
+          key,
+        ),
       );
     }
   }
 
   if (closingLine === 1) {
-    diagnostics.push(diagnostic(options, 'empty-block', 'Frontmatter block must not be empty', 2));
+    diagnostics.push(
+      makeDiagnostic(options, 'empty-block', 'Frontmatter block must not be empty', 2),
+    );
     return invalid(diagnostics);
   }
   const value =
@@ -204,7 +224,7 @@ function decodeAgent(
   if (maxTurns !== undefined) {
     if (!/^[1-9]\d*$/.test(maxTurns) || !Number.isSafeInteger(Number(maxTurns))) {
       diagnostics.push(
-        diagnostic(
+        makeDiagnostic(
           options,
           'invalid-positive-integer',
           'maxTurns must be a safe positive integer',
@@ -219,185 +239,6 @@ function decodeAgent(
   const disallowedTools = listField(fields, fieldLines, 'disallowedTools', options, diagnostics);
   if (disallowedTools) result.disallowedTools = disallowedTools;
   return diagnostics.length === 0 ? result : undefined;
-}
-
-function required(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  key: string,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): string | undefined {
-  const value = fields[key];
-  if (value === undefined || value.length === 0) {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'missing-required-field',
-        `Required frontmatter field is missing: ${key}`,
-        fieldLines[key],
-        key,
-      ),
-    );
-    return undefined;
-  }
-  if (/[[\]{}]/.test(value)) {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'wrong-value-shape',
-        `${key} must be a scalar string`,
-        fieldLines[key],
-        key,
-      ),
-    );
-    return undefined;
-  }
-  return value;
-}
-
-function scalarField(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  key: string,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): string | undefined {
-  const value = fields[key];
-  if (value === undefined) return undefined;
-  if (/[[\]{}]/.test(value)) {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'wrong-value-shape',
-        `${key} must be a scalar string`,
-        fieldLines[key],
-        key,
-      ),
-    );
-    return undefined;
-  }
-  return value;
-}
-
-function booleanField(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  key: string,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): boolean | undefined {
-  const value = fields[key];
-  if (value === undefined) return undefined;
-  if (value !== 'true' && value !== 'false') {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'invalid-boolean',
-        `${key} must be exactly true or false`,
-        fieldLines[key],
-        key,
-      ),
-    );
-    return undefined;
-  }
-  return value === 'true';
-}
-
-function listField(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  key: string,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): string[] | undefined {
-  const value = fields[key];
-  if (value === undefined) return undefined;
-  if (/[[\]{}]/.test(value)) {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'wrong-value-shape',
-        `${key} must be a comma- or whitespace-separated list`,
-        fieldLines[key],
-        key,
-      ),
-    );
-    return undefined;
-  }
-  const values = (value.includes(',') ? value.split(',') : value.split(/\s+/))
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (values.length === 0)
-    diagnostics.push(
-      diagnostic(
-        options,
-        'invalid-list',
-        `${key} must contain at least one item`,
-        fieldLines[key],
-        key,
-      ),
-    );
-  return values.length > 0 ? values : undefined;
-}
-
-function effortField(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): TModelEffort | undefined {
-  const value = fields['effort'];
-  if (value === undefined) return undefined;
-  if (!EFFORTS.has(value as TModelEffort)) {
-    diagnostics.push(
-      diagnostic(
-        options,
-        'invalid-effort',
-        'effort must be one of low, medium, high, xhigh, max',
-        fieldLines.effort,
-        'effort',
-      ),
-    );
-    return undefined;
-  }
-  return value as TModelEffort;
-}
-
-function enumField<T extends string>(
-  fields: TFieldMap,
-  fieldLines: TFieldLines,
-  key: string,
-  values: readonly T[],
-  code: TFrontmatterDiagnosticCode,
-  options: IFrontmatterDecodeOptions,
-  diagnostics: IFrontmatterDiagnostic[],
-): T | undefined {
-  const value = fields[key];
-  if (value === undefined) return undefined;
-  if (!values.includes(value as T)) {
-    diagnostics.push(
-      diagnostic(options, code, `${key} must be one of ${values.join(', ')}`, fieldLines[key], key),
-    );
-    return undefined;
-  }
-  return value as T;
-}
-
-function diagnostic(
-  options: IFrontmatterDecodeOptions,
-  code: TFrontmatterDiagnosticCode,
-  message: string,
-  line?: number,
-  field?: string,
-): IFrontmatterDiagnostic {
-  return {
-    code,
-    source: options.source,
-    ...(line === undefined ? {} : { line }),
-    ...(field === undefined ? {} : { field }),
-    message,
-  };
 }
 
 function invalid(diagnostics: readonly IFrontmatterDiagnostic[]): TFrontmatterDecodeResult {

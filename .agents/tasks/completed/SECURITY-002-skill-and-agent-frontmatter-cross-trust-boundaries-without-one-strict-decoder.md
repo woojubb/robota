@@ -1,7 +1,8 @@
 ---
 title: 'SECURITY-002: Skill and agent frontmatter cross trust boundaries without one strict decoder'
 issue: https://github.com/woojubb/robota/issues/2082
-status: complete
+status: done
+completed: 2026-08-29
 created: 2026-08-29
 priority: medium
 urgency: soon
