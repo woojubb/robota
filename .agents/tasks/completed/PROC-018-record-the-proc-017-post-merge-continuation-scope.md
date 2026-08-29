@@ -1,8 +1,9 @@
 ---
 title: 'PROC-018: Record the PROC-017 post-merge continuation scope'
 issue: https://github.com/woojubb/robota/issues/2514
-status: in-progress
+status: done
 created: 2026-08-30
+completed: 2026-08-30
 priority: medium
 urgency: soon
 area: workflow harness documentation
@@ -20,12 +21,12 @@ continuation checkpoint, without weakening the branch-local planning guard.
 
 ## Plan
 
-- [ ] TC-01: Add one exact `Continuation artifacts` declaration to PROC-017's Decision for the
+- [x] TC-01: Add one exact `Continuation artifacts` declaration to PROC-017's Decision for the
       evidence, workflow-document, loop-ledger, and regression-test paths that the closeout PR must
       land, then verify its exact parsed order.
-- [ ] TC-02: Verify the declaration occurs exactly once and the implementation commit changes only
+- [x] TC-02: Verify the declaration occurs exactly once and the implementation commit changes only
       PROC-017's active spec.
-- [ ] TC-03: Run the affected repository scan after committing the declaration.
+- [x] TC-03: Run the affected repository scan after committing the declaration.
 
 ## Test Plan
 
@@ -40,3 +41,11 @@ continuation checkpoint, without weakening the branch-local planning guard.
 
 Not applicable because this work changes repository-internal planning metadata only. It exposes no
 Robota CLI, TUI, browser, or public SDK behavior that a user can execute.
+
+## Result
+
+- PROC-017 now declares the exact six non-pair closeout artifacts required by its later continuation
+  checkpoint.
+- `continuationArtifacts` returned the exact ordered list, the declaration count was one, and the
+  implementation range changed only PROC-017's active spec.
+- The affected repository scan passed 36 scans with one expected skip and no failing scan.
