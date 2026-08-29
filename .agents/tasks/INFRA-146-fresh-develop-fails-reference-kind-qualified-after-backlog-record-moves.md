@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-146: fresh develop fails reference-kind-qualified after backlog record moves'
 issue: https://github.com/woojubb/robota/issues/2536
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -45,11 +45,17 @@ That instruction approves this grounded P0 interruption: preserve the unfinished
 resolve its native base blocker issue #2536 first, and then resume issue #2091. It does not approve
 any broader scan, baseline, or product change.
 
+The user later narrowed close-out: once the current repair is merged, stop and leave a handoff summary
+instead of resuming issue #2091 in this session.
+
 Independent proposal review converged after one correction round:
 
 `ACTIONABLE FINDINGS: 0`
 
 `REVIEW VERDICT: ENDORSE`
+
+The final L2 scope and post-merge session boundary were independently re-reviewed on 2026-08-29:
+`ACTIONABLE FINDINGS: 0`; `REVIEW VERDICT: ENDORSE`.
 
 ## Scope Boundary
 
@@ -57,7 +63,10 @@ Independent proposal review converged after one correction round:
   verification.
 - Out of scope: scan implementation, baseline/freeze data, other historical references, product
   source, APIs, runtime behavior, and issue #2091 implementation.
-- Lane: L0 — documentation-only correction with no source or L2-controlled path change.
+- Lane: L2 — DOCS-049 is a governed spec record whose existing frontmatter declares L2; the branch
+  must use the same declaration even though the textual edit itself is documentation-only.
+- Issue #2539 separately records the missing L0 staged-order expression discovered during the first
+  landing attempt; changing that guard remains out of scope.
 
 ## Plan
 
@@ -65,14 +74,16 @@ Independent proposal review converged after one correction round:
 - [ ] Change bare `#2258` to `issue #2258` in the HARNESS-123 completed Task record.
 - [ ] Rerun `reference-kind-qualified` and confirm zero findings.
 - [ ] Run the relevant Task checks and the full harness scan.
-- [ ] Record completion evidence, merge the repair, close issue #2536, and resume issue #2091.
+- [ ] Record completion evidence, prepare the closing PR, and leave issue #2091 preserved with a
+      handoff summary after merge.
 
 ## Completion Criteria
 
 - [ ] The two known references carry their verified GitHub kinds.
 - [ ] `node scripts/harness/scan-reference-kind-qualified.mjs` exits zero on the repaired branch.
 - [ ] The full required harness scan passes without changing scan policy or baseline data.
-- [ ] Issue #2536 is closed by the merged repair and issue #2091 can resume from a green base.
+- [ ] The repair is ready for a closing PR, and the post-merge session boundary below names every
+      read-back required before this session may terminate.
 
 ## Test Plan
 
@@ -85,9 +96,18 @@ Independent proposal review converged after one correction round:
 
 ## User Execution Test Scenarios
 
-Independent scenario-author reason: this Task changes only two repository-document reference tokens.
-It delivers no product command, API, UI, SDK, output, or runtime behavior that a user can execute. The
-individual and full harness scans above are engineering verification and are not presented as
-user-execution evidence.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Author verdict (2026-08-29):** `SCENARIO DRAFTED: not-applicable | 0`
+Not applicable — this Task changes only two repository-document reference tokens. It delivers no
+product command, API, UI, SDK, output, or runtime behavior that a user can execute. The individual and
+full harness scans above are engineering verification and are not presented as user-execution evidence.
+
+Independent scenario-author verdict date: 2026-08-29.
+
+## Post-merge Session Boundary
+
+Repository `done` means the implementation and its gates are ready to land; it does not authorize an
+early session stop. This session may terminate only after the PR is read back as `MERGED`, issue #2536
+is read back as `CLOSED`, issue #2091's branch/commit/stash are confirmed preserved, and the user
+receives a next-session handoff summary. These are close-out checks outside the pre-merge Task DONE
+gate.
