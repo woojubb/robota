@@ -1645,6 +1645,21 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     expect(result.status).toBe(1);
     expect(readFileSync(doc, 'utf8')).toContain(`names \`${TASK_REL}\`, which does not exist`);
   });
+
+  it('fails when the Task named in ## Tasks exists only under the archived completed directory', () => {
+    const archivedRel = `.agents/tasks/completed/${SPEC_ID}.md`;
+    const { root, doc } = approvedWorkspace();
+    const spec = readFileSync(doc, 'utf8').replace(TASK_REL, archivedRel);
+    writeFileSync(doc, spec);
+    mkdirSync(path.dirname(path.join(root, archivedRel)), { recursive: true });
+    writeFileSync(path.join(root, archivedRel), TASK + '\n');
+    gitInit(root);
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+    expect(result.status).toBe(1);
+    expect(readFileSync(doc, 'utf8')).toContain(
+      `names \`${archivedRel}\`, which is not an active root Task path`,
+    );
+  });
 });
 
 describe('the review fingerprint reads the VALUES of type: and tags: (PR #2419 review)', () => {
