@@ -1,6 +1,7 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
@@ -29,6 +30,11 @@ const LIVE_BACKLOG_RULE = readFileSync(
   'utf8',
 );
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
+const execFileAsync = promisify(execFile);
+
+function yieldToEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -1092,7 +1098,7 @@ describe('user-execution PLAN order — branch history', () => {
     }
   });
 
-  it('rejects engineering-only commands as user-execution product surfaces', () => {
+  it('rejects engineering-only commands as user-execution product surfaces', async () => {
     for (const command of [
       'pnpm test',
       'pnpm build',
@@ -1126,6 +1132,7 @@ describe('user-execution PLAN order — branch history', () => {
       expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
         /scenario|checkpoint|planning/i,
       );
+      await yieldToEventLoop();
     }
 
     const fakeSurface = repository();
@@ -1178,6 +1185,7 @@ describe('user-execution PLAN order — branch history', () => {
       expect(messages(findHistoryFindings(sdkChain.root, sdkChain.base))).toMatch(
         /scenario|checkpoint|planning/i,
       );
+      await yieldToEventLoop();
     }
 
     for (const observable of [
@@ -1203,6 +1211,7 @@ describe('user-execution PLAN order — branch history', () => {
       expect(messages(findHistoryFindings(testObservable.root, testObservable.base))).toMatch(
         /scenario|checkpoint|planning/i,
       );
+      await yieldToEventLoop();
     }
   });
 
@@ -3337,8 +3346,17 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
 });
 
 describe('user-execution PLAN order — repository contract', () => {
-  it('passes on this branch and includes the real predecessor prelude plus checkpoint', () => {
-    expect(findHistoryFindings()).toEqual([]);
+  it('passes on this branch and includes the real predecessor prelude plus checkpoint', async () => {
+    const result = await execFileAsync(
+      process.execPath,
+      [
+        path.join(WORKSPACE_ROOT, 'scripts/harness/scan-user-execution-plan-order.mjs'),
+        '--history',
+      ],
+      { cwd: WORKSPACE_ROOT },
+    );
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toMatch(/::examined:: \d+ topic commit\(s\)/);
   });
 
   it('prefers HARNESS_BASE_REF over the pull-request base for promotion verification', () => {

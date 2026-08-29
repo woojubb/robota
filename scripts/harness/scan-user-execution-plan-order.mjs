@@ -65,6 +65,7 @@ const LOOP_TERMINALS = new Set([
   'halted-for-user',
   'abandoned',
 ]);
+const gitTextCache = new Map();
 
 function finding(problem, commit = null) {
   return { commit, problem };
@@ -90,8 +91,12 @@ function nulPaths(text) {
 }
 
 function gitText(root, revision, file) {
+  const key = `${root}\0${revision}\0${file}`;
+  if (gitTextCache.has(key)) return gitTextCache.get(key);
   const result = runGit(root, ['show', `${revision}:${file}`]);
-  return result.code === 0 ? result.stdout : null;
+  const text = result.code === 0 ? result.stdout : null;
+  gitTextCache.set(key, text);
+  return text;
 }
 
 function hasValidCheckpointContract(root, revision) {
