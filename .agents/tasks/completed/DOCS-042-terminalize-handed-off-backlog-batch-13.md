@@ -1,5 +1,6 @@
 ---
 title: 'DOCS-042: Terminalize handed-off backlog batch 13'
+issue: https://github.com/woojubb/robota/issues/2404
 status: done
 completed: 2026-08-29
 created: 2026-08-29
