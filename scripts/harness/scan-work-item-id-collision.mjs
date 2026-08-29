@@ -69,9 +69,9 @@ export const HISTORICAL_COLLISIONS = new Map([
 /**
  * The ID a record claims, or null when the path claims none.
  *
- * `.agents/tasks/CONFIG-003-deep-merge-replaces-hooks-wholesale-and-transports-is-a-dead-resolved-field.md` claims `CONFIG-003`. The example is
- * a LIVE record on purpose: `named-artifact-resolves` does not index `completed/`, since an archive
- * names a tree that has moved on, so a citation into it resolves to nothing.
+ * A historical CONFIG-003 citation is frozen in the backlog archive; the example is a LIVE record
+ * on purpose: `named-artifact-resolves` does not index `completed/`, since an archive names a tree
+ * that has moved on, so a citation into it resolves to nothing.
  */
 export function workItemIdOf(relativePath) {
   if (!relativePath.startsWith(TASKS_PREFIX) || !relativePath.endsWith('.md')) return null;

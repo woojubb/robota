@@ -1,11 +1,13 @@
 ---
 title: "PROV-003: GeminiProvider's streaming-assembly path silently discards tool calls and usage while advertising functionCalling support — in the framework's normal interactive mode a Gemini function call is dropped and the turn completes as plain text"
-status: todo
+status: done
 created: 2026-08-13
 priority: high
 urgency: soon
 area: packages/agent-provider-gemini, packages/agent-core
 depends_on: []
+completed: 2026-08-29
+completion: PR #2497 (11cfca22b)
 ---
 
 # PROV-003: Gemini loses tool calls in streaming mode
