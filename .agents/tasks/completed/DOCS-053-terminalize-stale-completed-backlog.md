@@ -19,7 +19,7 @@ open GitHub issue.
 
 ## Plan
 
-- [ ] TC-01: archive TOOL-006 with merged PR evidence and HARNESS-130 with issue #2410 handoff.
+- [x] TC-01: archive TOOL-006 with merged PR evidence and HARNESS-130 with issue #2410 handoff.
 
 ## User Execution Test Scenarios
 
