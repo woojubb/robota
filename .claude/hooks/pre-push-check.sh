@@ -797,7 +797,7 @@ esac
 # pull request is clean, stop editing it". One switch must not disarm two unrelated rules, and the
 # override's own message never claimed to excuse this one.
 frozen_diff_refusal() {
-  local branch="$1" open_pr latest_count
+  local branch="$1" open_pr latest_count latest_body
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
   # shape, so a branch named `42` would be answered with pull request #42's state.
@@ -808,42 +808,35 @@ frozen_diff_refusal() {
   # input its own subject can write is not a gate, and jq's regex does not anchor at line
   # boundaries. Unknown is NOT zero — a refusal on a failed measurement blocks correct work on no
   # evidence, so an unreadable count returns 1 and the push proceeds to the checks below.
-  latest_count=$( (cd "$PROJECT_DIR" &&
+  latest_body=$( (cd "$PROJECT_DIR" &&
     bounded_gh pr view "$open_pr" --json comments,reviews \
-      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) |
-    sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1 || echo "")
-  [[ "$latest_count" == "0" ]] || return 1
-  # A RED REQUIRED CHECK IS THE SECOND OF THE RULE'S THREE GROUNDS, and this guard used to be blind
-  # to it — measured three times in one day across two sessions (issue #2338). A push that resolves a
-  # failing check is not new work on a merge-ready pull request; the pull request is not merge-ready,
-  # and `merge-gate.sh` would refuse it one step later on `mergeStateStatus`. Two hooks disagreeing
-  # about the same pull request at the same instant is what made the refusal unfollowable: its remedy
-  # ("let it land first") named something the blocked push was the precondition for.
-  #
-  # `--json bucket` and not `conclusion`: `gh pr checks` reports a bucket per check and `fail` is the
-  # one that matters here. Unknown is NOT zero, for the same reason as the count above — an
-  # unreadable answer must not manufacture a refusal, so a failed read leaves `failing` empty and the
-  # guard proceeds to block as before rather than silently allowing.
-  local failing
-  failing=$( (cd "$PROJECT_DIR" &&
-    bounded_gh pr checks "$open_pr" --json bucket --jq '[.[] | select(.bucket == "fail")] | length' 2>/dev/null) || echo "")
-  if [[ "$failing" =~ ^[1-9][0-9]*$ ]]; then
+      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) || echo "")
+  latest_count=$(printf '%s\n' "$latest_body" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1)
+  [[ "$latest_count" =~ ^[0-9]+$ ]] || return 1
+  # The latest findings verdict governs the next action. A push is permitted only when a maintainer
+  # has approved a request bound to that exact verdict count and current remote head.
+  local remote_head actual_remote_head approved
+  remote_head=$(printf '%s\n' "$latest_body" | sed -nE 's/.*REVIEWED HEAD:[[:space:]]*([0-9a-fA-F]{40}).*/\1/p' | tail -1)
+  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+    echo "[pre-push-check] Blocked: latest findings verdict has no parseable REVIEWED HEAD; re-read the review before pushing." >&2
+    return 0
+  fi
+  actual_remote_head=$(cd "$PROJECT_DIR" && git ls-remote origin "refs/heads/$branch" | awk 'NR==1 {print $1}' || echo "")
+  if [[ -n "$actual_remote_head" && "$actual_remote_head" != "$remote_head" ]]; then
+    echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
+    return 0
+  fi
+  approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
+    --jq "[.comments[]? | select((.author.login // \"\") == \"woojubb\") | .body // \"\"] | map(select(test(\"POST_FINDINGS_ACTION_REQUEST\"))) | map(select(test(\"HEAD:[[:space:]]*$remote_head\"))) | map(select(test(\"VERDICT:[[:space:]]*$latest_count([[:space:]]|$)\"))) | map(select(test(\"ACTION:[[:space:]]*(push|rebase)\"; \"i\"))) | map(select(test(\"GROUND:[[:space:]]*(finding|red-check|rebase)\"; \"i\"))) | map(select(test(\"EVIDENCE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"SCOPE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"APPROVED:[[:space:]]*yes\"; \"i\"))) | map(select(test(\"APPROVED-BY:[[:space:]]*@[^[:space:]]\"))) | length" 2>/dev/null || echo "")
+  if [[ "$approved" =~ ^[1-9][0-9]*$ ]]; then
+    echo "[pre-push-check] Approved post-verdict change request found for PR #$open_pr at head $remote_head." >&2
     return 1
   fi
-  # What this guard OBSERVED, not what it inferred. The previous wording asserted a diagnosis — "this
-  # is new work on a merge-ready PR" — that the guard never established, and it was wrong in every
-  # measured instance including the one where the refusal itself was correct.
-  echo "[pre-push-check] Blocked: PR #$open_pr's latest review reports ACTIONABLE FINDINGS: 0 and no" >&2
-  echo "[pre-push-check] required check is failing, so this push has no published finding and no red" >&2
-  echo "[pre-push-check] check to resolve." >&2
-  echo "[pre-push-check] git-branch.md: a push into an open PR needs a NAMED GROUND — a published" >&2
-  echo "[pre-push-check] finding, a red required check, or a rebase. The first two are read above." >&2
-  echo "[pre-push-check] If your ground is a REBASE, or a finding this hook cannot see, say which:" >&2
-  echo "[pre-push-check] PRE_PUSH_ALLOW_FROZEN_DIFF=1 inline." >&2
-  echo "[pre-push-check] If it is none of the three, the push does not happen — let #$open_pr land." >&2
-  echo "[pre-push-check] Recording a local review does NOT excuse this, and neither does" >&2
-  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED — that one says the diff is unreviewed, which is" >&2
-  echo "[pre-push-check] a different claim." >&2
+  echo "[pre-push-check] Blocked: PR #$open_pr has a published ACTIONABLE FINDINGS verdict ($latest_count)." >&2
+  echo "[pre-push-check] Stop and publish an approved POST_FINDINGS_ACTION_REQUEST for the latest verdict first." >&2
+  echo "[pre-push-check] It must name HEAD $remote_head, VERDICT $latest_count, ACTION push|rebase, GROUND finding|red-check|rebase, EVIDENCE, SCOPE," >&2
+  echo "[pre-push-check] APPROVED: yes, and APPROVED-BY: @<maintainer> in a PR comment." >&2
+  echo "[pre-push-check] Local review records and override tokens do not satisfy this requirement." >&2
   return 0
 }
 
@@ -857,7 +850,9 @@ ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || tru
 # override: it excuses the push it prefixes, not the shell it was typed in.
 FROZEN_ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_FROZEN_DIFF=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 FROZEN_ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$FROZEN_ACK_RE" | grep -c . || true)
-if [[ "$FROZEN_ACK_COUNT" -lt "$PUSH_COUNT" ]] && frozen_diff_refusal "$CUR_BRANCH"; then
+# A published findings verdict is a hard freeze. Neither the old frozen-diff override nor the
+# unreviewed override can authorize a post-verdict push; only the PR's approved request can.
+if frozen_diff_refusal "$CUR_BRANCH"; then
   exit 2
 fi
 

@@ -125,6 +125,12 @@ Report it per finding, not in aggregate. Silence from automation you never waite
 Three rounds, and the loop was allowed to stop only at round 3 — because round 3 is the first run that
 observed the round-2 push and returned nothing.
 
+**Latest-verdict action gate.** Before each edit, push, rebase, or merge, read the latest
+`ACTIONABLE FINDINGS: N` verdict and publish the head- and verdict-bound
+`POST_FINDINGS_ACTION_REQUEST` comment from `git-branch.md`, with maintainer approval. A zero or
+non-zero count, a local review record, or an internal judgement never substitutes for that current
+decision record; a new verdict or head requires a new comment.
+
 ## What This Skill Does NOT Do
 
 | Not this skill's job                       | Owner                                                                |
