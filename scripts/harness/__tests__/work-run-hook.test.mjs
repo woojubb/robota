@@ -168,6 +168,34 @@ function verifyExcludedReceiptClosureHook() {
   expect(git(root, 'log', '-1', '--format=%B')).toBe(message);
 }
 
+function verifyIncludedReceiptClosureHook() {
+  const root = receiptClosureFixture({ claimOnCheckout: true });
+  workRun(
+    root,
+    'bind',
+    '--work-id',
+    'OBSERVABILITY-002',
+    '--lane',
+    'L2',
+    '--kind',
+    'observability',
+  );
+  workRun(root, 'start');
+  workRun(root, 'phase-start', '--phase', 'implementation');
+  writeFileSync(join(root, 'README.md'), 'measured change\n');
+  git(root, 'add', 'README.md');
+  git(root, 'commit', '-m', 'test: measured implementation');
+  workRun(root, 'phase-complete', '--phase', 'implementation');
+  const ready = workRun(root, 'ready', '--base', 'origin/develop');
+  stagedReceiptPath(root, ready.receiptPath);
+
+  git(root, 'commit', '-m', 'chore: close included work run');
+
+  const message = git(root, 'log', '-1', '--format=%B');
+  expect(message).toContain(`Work-Run: ${ready.receipt.runId}`);
+  expect(message).toContain('Work-Receipt: g0-r0');
+}
+
 function verifyPendingTerminalReceiptWinsOverNewActiveRun() {
   const root = receiptClosureFixture({ claimOnCheckout: true });
   const excluded = workRun(
@@ -292,6 +320,10 @@ describe('tracked work-run Git hooks', () => {
   registerDispatcherTests('post-checkout');
   registerDispatcherTests('prepare-commit-msg');
   it('claims on topic checkout and applies trailers through a real commit', verifyCommitHooks);
+  it(
+    'correlates an included receipt-only closure through the real hook',
+    verifyIncludedReceiptClosureHook,
+  );
   it(
     'correlates an excluded receipt-only closure through the real hook',
     verifyExcludedReceiptClosureHook,

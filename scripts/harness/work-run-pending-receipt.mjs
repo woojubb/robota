@@ -65,7 +65,7 @@ export function pendingTerminalReceiptCorrelation(root, options = {}) {
   const verdict = validateWorkRunReceipt(receipt, { receiptPath: file });
   const terminalDisposition =
     verdict.ok &&
-    (verdict.receipt.disposition === 'excluded' ||
+    (['included', 'excluded'].includes(verdict.receipt.disposition) ||
       (verdict.receipt.disposition === 'invalid' && verdict.receipt.reason === 'state-lost'));
   if (!terminalDisposition) {
     throw new Error(
