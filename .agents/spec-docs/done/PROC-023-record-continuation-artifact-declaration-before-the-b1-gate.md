@@ -267,9 +267,12 @@ Approval does not authorize any GitHub Issue mutation or product/runtime change.
 
 ### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
 
-**Command:** `node --input-type=module -e '<parse continuationArtifacts; assert exact six paths; compare base/current raw GATE-IMPLEMENT PASS SHA-256>'`
-**Exit:** 0
-**Output:** (last 1 of 1 line(s))
+**Command:** `node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; import {parseCheckpointEvidenceContract,continuationArtifacts,rawGateImplementPassEntries,priorPassDigest} from "./scripts/harness/checkpoint-evidence-contract.mjs"; const path=".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"; const parsed=parseCheckpointEvidenceContract(fs.readFileSync(".agents/rules/backlog-execution.md","utf8")); assert.equal(parsed.ok,true); const current=fs.readFileSync(path,"utf8"); const base=execFileSync("git",["show","06f4f0bd4671366bd4212b7a3e6102986d4ba635:"+path],{encoding:"utf8"}); const actual=continuationArtifacts(parsed.contract,current); const expected=[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"]; assert.equal(actual.ok,true); assert.deepEqual(actual.artifacts,expected); const before=priorPassDigest(rawGateImplementPassEntries(base)[0]); const after=priorPassDigest(rawGateImplementPassEntries(current)[0]); assert.equal(before,"sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0"); assert.equal(after,before); console.log(JSON.stringify({artifactCount:actual.artifacts.length,artifacts:actual.artifacts,before,after}))'`
+
+> **Contained — HARNESS-133.** This record now shows the concrete command that was run, while the
+> repository-wide gate still validates field presence rather than binding the command to its captured output.
+> **Exit:** 0
+> **Output:** (last 1 of 1 line(s))
 
 ```
 {"artifactCount":6,"artifacts":[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"],"before":"sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0","after":"sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0"}
@@ -291,9 +294,12 @@ c462d4817 docs(proc-023): bind b1 continuation artifacts
 
 ### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
 
-**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && node --input-type=module -e '<assert changed paths exclude packages/apps/src>'`
-**Exit:** 0
-**Output:** (last 10 of 52 line(s))
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && node --input-type=module -e 'import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; const paths=execFileSync("git",["diff","--name-only","origin/develop...HEAD"],{encoding:"utf8"}).trim().split("\n").filter(Boolean); assert.ok(paths.length>0); assert.equal(paths.some((path)=>/^(packages|apps|src)\//.test(path)),false); console.log(JSON.stringify({changedPathCount:paths.length,changedPaths:paths,noPackageAppSource:true}))'`
+
+> **Contained — HARNESS-133.** This record now shows the concrete command that was run, while the
+> repository-wide gate still validates field presence rather than binding the command to its captured output.
+> **Exit:** 0
+> **Output:** (last 10 of 52 line(s))
 
 ```
 ✓ rule-statement-floor
