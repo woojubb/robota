@@ -234,7 +234,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
 
-**Command:** `zsh -c 'set -e; proc024_stage_root=$(mktemp -d /tmp/proc024-stage.XXXXXX); proc024_stage_tree="$proc024_stage_root/tree"; trap '\''git worktree remove --force "$proc024_stage_tree" >/dev/null 2>&1 || true; rmdir "$proc024_stage_root" >/dev/null 2>&1 || true'\'' EXIT; git worktree add --detach "$proc024_stage_tree" 6d1a954e5; git show --format= --binary df5d02079 | git -C "$proc024_stage_tree" apply --cached; cd "$proc024_stage_tree"; node scripts/harness/scan-user-execution-plan-order.mjs --staged; cd /Users/jungyoun/Documents/dev/robota-2; node scripts/harness/scan-user-execution-plan-order.mjs'`
+**Command:** `zsh -c 'set -e; proc024_repo=$(pwd); proc024_stage_root=$(mktemp -d /tmp/proc024-stage.XXXXXX); proc024_stage_tree="$proc024_stage_root/tree"; trap '\''git worktree remove --force "$proc024_stage_tree" >/dev/null 2>&1 || true; rmdir "$proc024_stage_root" >/dev/null 2>&1 || true'\'' EXIT; git worktree add --detach "$proc024_stage_tree" 6d1a954e5; git show --format= --binary df5d02079 | git -C "$proc024_stage_tree" apply --cached; cd "$proc024_stage_tree"; node scripts/harness/scan-user-execution-plan-order.mjs --staged; cd "$proc024_repo"; node scripts/harness/scan-user-execution-plan-order.mjs'`
 
 > **Contained — HARNESS-133.** The concrete command above reconstructs the exact declaration transition
 > in an isolated temporary worktree, then checks the current topic history; the existing follow-up owns
@@ -246,7 +246,7 @@ Recorded as the rule's required choice rather than skipped.
 Preparing worktree (detached HEAD 6d1a954e5)
 HEAD is now at 6d1a954e5 docs(proc-024): approve B2 continuation declaration
 ::examined:: 1 staged path(s)
-::examined:: 4 topic commit(s)
+::examined:: 5 topic commit(s)
 ```
 
 ### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
