@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, readdirSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { createBoundedGitRefExists } from './git-base-ref-resolution.mjs';
+
 export const WORKSPACE_ROOT = process.cwd();
 const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
 
@@ -97,20 +99,11 @@ function parseGitDiffFiles(output) {
     .filter(Boolean);
 }
 
-function gitRefExists(ref) {
-  const result = spawnSync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
-    cwd: WORKSPACE_ROOT,
-    stdio: 'ignore',
-    encoding: 'utf8',
-  });
-  return result.status === 0;
-}
-
-export function resolveGitBaseRef(explicitBaseRef = null, env = process.env) {
+export function resolveGitBaseRef(explicitBaseRef = null, env = process.env, options = {}) {
   return resolveBaseRef({
     explicitBaseRef,
     env,
-    refExists: gitRefExists,
+    refExists: options.refExists ?? createBoundedGitRefExists({ cwd: WORKSPACE_ROOT, ...options }),
   });
 }
 

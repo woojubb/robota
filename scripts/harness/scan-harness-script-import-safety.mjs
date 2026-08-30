@@ -5,8 +5,8 @@
  *
  * WHY THIS EXISTS, measured (HARNESS-065). The 126 scripts under `scripts/harness/` were written in
  * two idioms for direct-execution detection and two for exiting, and the fork was exactly the line
- * between testable and untestable. Counting the idioms was how the problem was FOUND; importing every
- * script and watching what happened is how it was measured, and the two answers differed:
+ * between testable and untestable. Counting idioms FOUND the problem; importing every script
+ * measured it, and the two answers differed:
  *
  * - **A source heuristic said zero scripts ran work at import.** Importing them all found **ten**.
  * - One of them, `lessons-digest.mjs`, **wrote files** — the digest was regenerated merely by
@@ -24,8 +24,7 @@
  * exited **0**. `main()` never ran, and a check that did not execute is indistinguishable from a
  * check that passed. `path.resolve` comparison has no such failure; the same probe ran.
  *
- * WHAT IT CHECKS, in two rules, because one of the two hazards is invisible to the other:
- *
+ * WHAT IT CHECKS, in three rules, because each hazard is invisible to the others:
  *   1. IMPORT. Every `.mjs` under `scripts/harness/` is imported in its own child process, and must
  *      produce no output, exit 0, and finish quickly. A script that self-executes fails this
  *      whichever idiom it used, and a script that cannot be imported fails it too.
@@ -34,14 +33,14 @@
  *      path, silently green on one with a space — so rule 1 passes it on this machine, verified by
  *      reinstating the form and watching the scan stay green. A hazard that depends on where the
  *      repository is checked out can only be caught in the source.
+ *   3. TEST OWNERSHIP. A coverage declaration names one existing top-level harness module exactly
+ *      once and the declaring test must reach it through static imports. A comment cannot turn an
+ *      unreferenced module into a tested one.
  *
  * WHAT IT CANNOT DO: it does not check that a script's `main()` is CORRECT, only that importing does
  * not run it. Nor does it verify a script is tested — that is a separate axis, and one this scan is a
  * precondition for rather than a substitute.
- *
- * FAIL-CLOSED: the script directory must exist and contain scripts. A run that examined nothing says
- * so rather than passing.
- *
+ * FAIL-CLOSED: the script directory must exist and contain scripts. Examining nothing cannot pass.
  * Exit code 0 = every script imports silently, 1 = one did work, printed, threw, or hung.
  */
 import { spawnSync } from 'node:child_process';
@@ -49,6 +48,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { declaredHarnessCoverage } from './harness-coverage-declarations.mjs';
 import { harnessScripts } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -78,6 +78,34 @@ export function importOutcome(file) {
   }
   if (output !== '') return { ok: false, reason: `wrote output on import: ${firstLine(output)}` };
   return { ok: true };
+}
+
+function appendUntestedBaselineFinding(findings, root, untested) {
+  const frozen = loadUntestedBaseline(root);
+  if (frozen === undefined) {
+    findings.push({
+      rule: 'untested-scripts',
+      script: SCRIPT_DIR,
+      reason: `${untested.length} script(s) have no test and no frozen count — run --write-baseline`,
+    });
+    return;
+  }
+  if (untested.length > frozen.length) {
+    const added = untested.filter((name) => !frozen.includes(name));
+    findings.push({
+      rule: 'untested-scripts',
+      script: SCRIPT_DIR,
+      reason: `${untested.length} script(s) have no test, up from a frozen ${frozen.length} (new: ${added.join(', ')}). An untested check is the leading candidate for one that cannot fail.`,
+    });
+    return;
+  }
+  if (untested.length < frozen.length) {
+    findings.push({
+      rule: 'untested-scripts',
+      script: SCRIPT_DIR,
+      reason: `the untested count FELL (${frozen.length} → ${untested.length}). Re-freeze it in the SAME change — \`node scripts/harness/scan-harness-script-import-safety.mjs --write-baseline\` — or the gain is a licence to grow back.`,
+    });
+  }
 }
 
 function firstLine(text) {
@@ -111,28 +139,10 @@ export function findImportSafetyFindings(root = WORKSPACE_ROOT) {
     const weak = weakGuardReason(readFileSync(file, 'utf8'));
     if (weak !== undefined) findings.push({ rule: 'weak-guard', script: name, reason: weak });
   }
-  const untested = untestedScripts(dir, files);
-  const frozen = loadUntestedBaseline(root);
-  if (frozen === undefined) {
-    findings.push({
-      rule: 'untested-scripts',
-      script: SCRIPT_DIR,
-      reason: `${untested.length} script(s) have no test and no frozen count — run --write-baseline`,
-    });
-  } else if (untested.length > frozen.length) {
-    const added = untested.filter((name) => !frozen.includes(name));
-    findings.push({
-      rule: 'untested-scripts',
-      script: SCRIPT_DIR,
-      reason: `${untested.length} script(s) have no test, up from a frozen ${frozen.length} (new: ${added.join(', ')}). An untested check is the leading candidate for one that cannot fail.`,
-    });
-  } else if (untested.length < frozen.length) {
-    findings.push({
-      rule: 'untested-scripts',
-      script: SCRIPT_DIR,
-      reason: `the untested count FELL (${frozen.length} → ${untested.length}). Re-freeze it in the SAME change — \`node scripts/harness/scan-harness-script-import-safety.mjs --write-baseline\` — or the gain is a licence to grow back.`,
-    });
-  }
+  const coverage = inspectUntestedScripts(dir, files);
+  const untested = coverage.untested;
+  if (coverage.finding !== null) findings.push(coverage.finding);
+  appendUntestedBaselineFinding(findings, root, untested);
 
   return { findings, examined: files.length, untested };
 }
@@ -141,10 +151,26 @@ export function untestedScripts(dir, files) {
   const testDir = path.join(dir, '__tests__');
   if (!existsSync(testDir)) return [...files];
   const tests = readdirSync(testDir);
+  const declared = declaredHarnessCoverage(testDir, tests);
   return files.filter((name) => {
     const base = path.basename(name).replace(/\.mjs$/, '');
-    return !tests.some((test) => test.startsWith(`${base}.`));
+    return !declared.has(name) && !tests.some((test) => test.startsWith(`${base}.`));
   });
+}
+
+function inspectUntestedScripts(dir, files) {
+  try {
+    return { untested: untestedScripts(dir, files), finding: null };
+  } catch (error) {
+    return {
+      untested: [...files],
+      finding: {
+        rule: 'invalid-coverage-declaration',
+        script: path.relative(WORKSPACE_ROOT, path.join(dir, '__tests__')),
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
 }
 
 function loadUntestedBaseline(root) {
@@ -189,23 +215,25 @@ export function weakGuardReason(rawSource) {
 function main() {
   const { findings, examined, untested } = findImportSafetyFindings();
   if (findings.length > 0) {
-    console.error(`harness-script-import-safety scan failed: ${findings.length} finding(s):`);
+    process.stderr.write(
+      `harness-script-import-safety scan failed: ${findings.length} finding(s):\n`,
+    );
     for (const finding of findings) {
-      console.error(`- [${finding.rule}] ${finding.script}: ${finding.reason}`);
+      process.stderr.write(`- [${finding.rule}] ${finding.script}: ${finding.reason}\n`);
     }
-    console.error(
+    process.stderr.write(
       'Guard direct execution with ' +
         "`if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) { main(); }` " +
         'and set `process.exitCode` rather than calling `process.exit()`. A module that works when ' +
-        'imported cannot be imported and tested.',
+        'imported cannot be imported and tested.\n',
     );
     process.exitCode = 1;
     return;
   }
-  console.log(
+  process.stdout.write(
     `::examined:: ${examined} harness scripts\n` +
       `harness-script-import-safety scan passed (${examined} script(s) imported, ` +
-      `${untested.length} without a test at baseline).`,
+      `${untested.length} without a test at baseline).\n`,
   );
 }
 
@@ -215,7 +243,7 @@ function writeBaseline() {
     path.join(WORKSPACE_ROOT, UNTESTED_BASELINE),
     `${JSON.stringify(untested.sort(), null, 2)}\n`,
   );
-  console.log(`untested-script baseline frozen: ${untested.length} script(s).`);
+  process.stdout.write(`untested-script baseline frozen: ${untested.length} script(s).\n`);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

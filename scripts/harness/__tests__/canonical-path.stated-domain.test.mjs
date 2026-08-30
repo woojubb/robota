@@ -20,12 +20,12 @@
  * point of a fixture. The per-line form would put the same sentence on nine lines.
  *
  * The strongest case here is the DIFFERENTIAL one. A hand-written table of shapes is exactly what
- * failed three times; agreeing with `realpath -m` over a generated corpus is a claim about the whole
- * input class rather than about the shapes someone thought of.
+ * failed three times; agreeing with the host's independent realpath implementation over a generated
+ * corpus is a claim about the whole input class rather than about the shapes someone thought of.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -36,6 +36,9 @@ import { makeTemp } from './make-temp.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const LIB = path.join(WORKSPACE_ROOT, '.claude/hooks/lib/canonical-path.sh');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/bulk-edit-guard.sh');
+const HAS_GNU_REALPATH =
+  spawnSync('realpath', ['-m', '/'], { encoding: 'utf8', timeout: 60_000 }).status === 0;
+const PYTHON_REALPATH = 'import os, sys; print(os.path.realpath(sys.argv[1]))';
 
 const scratch = [];
 afterAll(() => {
@@ -50,7 +53,7 @@ afterAll(() => {
  */
 let sandbox;
 beforeAll(() => {
-  sandbox = makeTemp('infra110-');
+  sandbox = realpathSync(makeTemp('infra110-'));
   scratch.push(sandbox);
   mkdirSync(path.join(sandbox, 'node_modules/pkg/src'), { recursive: true });
   mkdirSync(path.join(sandbox, 'app'), { recursive: true });
@@ -82,9 +85,11 @@ function resolveFrom(base, input, env = {}) {
  * — every one of them the TEST being wrong, not the function. Settled against the kernel rather than
  * by argument: `echo hello > app/vendored/../probe.ts` creates `node_modules/probe.ts`.
  */
-function realpathM(base, input) {
+function referenceRealpath(base, input) {
   const absolute = input.startsWith('/') ? input : `${base}/${input}`;
-  return execFileSync('realpath', ['-m', absolute], { encoding: 'utf8' }).trim();
+  const command = HAS_GNU_REALPATH ? 'realpath' : 'python3';
+  const args = HAS_GNU_REALPATH ? ['-m', absolute] : ['-c', PYTHON_REALPATH, absolute];
+  return execFileSync(command, args, { encoding: 'utf8' }).trim();
 }
 
 describe('every row of the measured table resolves where it lands', () => {
@@ -101,12 +106,12 @@ describe('every row of the measured table resolves where it lands', () => {
   ])('%s', (_label, input) => {
     const { status, value } = resolveFrom(sandbox, input);
     expect(status).toBe(0);
-    expect(value).toBe(realpathM(sandbox, input));
+    expect(value).toBe(referenceRealpath(sandbox, input));
   });
 
   it('an absolute input is resolved without consulting the base', () => {
     const absolute = `${sandbox}/app/vendored/src/a`;
-    expect(resolveFrom('/nowhere', absolute).value).toBe(realpathM(sandbox, absolute));
+    expect(resolveFrom('/nowhere', absolute).value).toBe(referenceRealpath(sandbox, absolute));
   });
 });
 
@@ -131,7 +136,7 @@ describe('it agrees with realpath over a GENERATED corpus, not a chosen one', ()
     const disagreements = [];
     for (const input of corpus) {
       const { status, value } = resolveFrom(sandbox, input);
-      const expected = realpathM(sandbox, input);
+      const expected = referenceRealpath(sandbox, input);
       if (status !== 0 || value !== expected) {
         disagreements.push(
           `${input}: got ${status === 0 ? value : `exit ${status}`}, want ${expected}`,

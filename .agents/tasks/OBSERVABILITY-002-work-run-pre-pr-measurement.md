@@ -26,6 +26,22 @@ receipt before it is pushed.
 - [ ] TC-05: Add bounded first-PR metrics and separate post-PR rework generations.
 - [ ] TC-06: Wire metric/eval/harness registries, rule, mandatory workflow skills, and commands.
 - [ ] TC-07: Record command-level and RED→GREEN proof, then pass focused/full verification.
+- [ ] TC-08: Remove the measured local harness bottlenecks that obscured this run's pre-PR timing.
+
+## Progress
+
+- 2026-08-30: The first full contract run exceeded 20 minutes. Measurement isolated a global
+  `--fileParallelism=false` regression, a duplicate hermetic tier, and repeated shell/Git/grep
+  fixture setup. Restored bounded two-file concurrency, removed 73 duplicate test-file executions,
+  and replaced repeated fixture processes with isolated seeds, batches, or in-process traversal.
+- 2026-08-30: Reviewed `/tmp/robota-large-suite-gating-handoff.md`. This branch changes the harness
+  control plane, so it still owes the full repository-contract gate or an exact reusable receipt;
+  the optimization keeps that coverage while removing duplicate/serial execution. Moving full-suite
+  ownership out of docs/governance-only pre-push is a separate policy change and is not applied here.
+- 2026-08-31: Added TC-08 after GATE-IMPLEMENT because this run's own measurement exposed a blocking
+  harness-performance regression. The independent before/after sample fell from 96.72 seconds for 136
+  tests to 46.02 seconds for 140 tests (52.4% lower wall time), while 73 duplicate hermetic test-file
+  executions were removed. Final full-suite evidence remains required before completion.
 
 ## User Execution Test Scenarios
 

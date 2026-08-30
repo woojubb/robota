@@ -32,6 +32,8 @@ the rule's one-item-at-a-time constraint is not a preference.
 1. Exactly one target item or named work unit is identified.
 2. No previous item from this session is unmerged (a Stop Condition in the rule).
 3. The working tree is clean of anything unrelated to this item.
+4. The topic branch has an active work-run claim; open or reuse it through
+   [track-work-run](../track-work-run/SKILL.md).
 
 If any precondition fails → **terminate** and report which one.
 
@@ -105,6 +107,9 @@ pair as the branch's first commit — the continuation checkpoint. Then Phase 3.
 
 Route the actual work to the owner skills (table below). This pipeline sequences; it does not implement,
 and it does not absorb what an owner skill defines.
+
+Bind/start the work run on entry, bracket implementation and verification phases, and leave waits as
+pause/resume events. The work-run rule owns those transitions; this pipeline only fixes when they occur.
 
 | Outcome                                                              | Route                                                                                                                 |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |

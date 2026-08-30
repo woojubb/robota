@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+exec node "$ROOT/scripts/harness/work-run.mjs" claim

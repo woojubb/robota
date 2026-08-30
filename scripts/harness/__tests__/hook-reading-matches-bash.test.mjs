@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
@@ -80,6 +80,112 @@ function sandbox() {
 // oracle; paying it twice would be the cost of not caching.
 const ranCache = new Map();
 const seenCache = new Map();
+
+function recorderFor(log) {
+  return [
+    '#!/bin/sh',
+    'while [ $# -gt 0 ]; do',
+    '  case "$1" in',
+    '    -C|-c|--git-dir|--work-tree|--namespace|--exec-path) shift 2 ;;',
+    '    -*) shift ;;',
+    `    *) printf '%s\\n' "$1" >> ${JSON.stringify(log)}; exit 0 ;;`,
+    '  esac',
+    'done',
+    'exit 0',
+    '',
+  ].join('\n');
+}
+
+/**
+ * Run the corpus once and retain every git subcommand each shape actually invoked. Previously the
+ * same shape started a fresh bash for push, commit, and merge independently. A subshell and a
+ * distinct directory/recorder per shape preserve the old process and filesystem isolation while
+ * a bounded set of parent shells amortises parsing and startup across the corpus.
+ */
+function runBashBatch(commands, root) {
+  return new Promise((resolve, reject) => {
+    const batch = [
+      'exec 3<"$1"',
+      "while IFS= read -r -d '' index <&3 && IFS= read -r -d '' command <&3; do",
+      '  case_dir="$2/$index"',
+      '  (',
+      '    cd "$case_dir" || exit 1',
+      '    PATH="$case_dir/bin:$3"',
+      '    export PATH',
+      '    eval "$command"',
+      '  ) >/dev/null 2>&1',
+      'done',
+    ].join('\n');
+    const child = spawn('bash', ['-c', batch, '_', commands, root, process.env.PATH], {
+      timeout: 30_000,
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', reject);
+    child.on('close', (code, signal) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `bash oracle batch failed (${signal ?? code}): ${stderr.trim() || 'no diagnostic'}`,
+          ),
+        );
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+async function primeBashCorpus() {
+  const root = makeTemp('reading-batch-');
+  scratch.push(root);
+
+  for (const [index] of CORPUS.entries()) {
+    const dir = path.join(root, String(index));
+    const bin = path.join(dir, 'bin');
+    mkdirSync(bin, { recursive: true });
+    const git = path.join(bin, 'git');
+    writeFileSync(git, recorderFor(path.join(dir, 'calls.log')));
+    chmodSync(git, 0o755);
+  }
+
+  const workerCount = Math.min(8, CORPUS.length);
+  const shards = Array.from({ length: workerCount }, () => []);
+  for (const [index, command] of CORPUS.entries()) {
+    shards[index % workerCount].push({ index, command });
+  }
+  await Promise.all(
+    shards.map((shard, shardIndex) => {
+      const commands = path.join(root, `commands-${shardIndex}.bin`);
+      writeFileSync(
+        commands,
+        `${shard.map(({ index, command }) => `${index}\0${command}`).join('\0')}\0`,
+      );
+      return runBashBatch(commands, root);
+    }),
+  );
+
+  for (const [index, command] of CORPUS.entries()) {
+    const log = path.join(root, String(index), 'calls.log');
+    const invoked = new Set(
+      existsSync(log)
+        ? readFileSync(log, 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [],
+    );
+    for (const verb of GUARDED_VERBS) {
+      ranCache.set(JSON.stringify([verb, command]), invoked.has(verb));
+    }
+  }
+}
+
+beforeAll(async () => {
+  await primeBashCorpus();
+}, 45_000);
 
 /** Did bash actually invoke `git <verb>`? The oracle — real shell semantics, no parser involved. */
 function bashRuns(command, verb) {
@@ -238,6 +344,7 @@ const GUARDED_VERBS = ['push', 'commit', 'merge'];
 describe('the guards VERDICT on the same corpus matches what bash does with it', () => {
   const hooks = hooksOutsideAWorktree();
   const repo = makeTemp('verdict-corpus-');
+  const guardCache = new Map();
   scratch.push(repo);
   for (const args of [
     ['init', '-q', '--initial-branch=main'],
@@ -248,7 +355,87 @@ describe('the guards VERDICT on the same corpus matches what bash does with it',
     spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
   }
 
+  function runGuardBatch(hook, payloads) {
+    return new Promise((resolve, reject) => {
+      const worker = [
+        'exec 3<"$2"',
+        "while IFS= read -r -d '' payload <&3; do",
+        '  if ( source "$1" <<< "$payload" ) >/dev/null 2>&1; then',
+        "    printf '0\\n'",
+        '  else',
+        '    printf \'%s\\n\' "$?"',
+        '  fi',
+        'done',
+      ].join('\n');
+      const child = spawn('bash', ['-c', worker, '_', hook, payloads], {
+        encoding: 'utf8',
+        env: { PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_PROJECT_DIR: repo },
+        timeout: 60_000,
+      });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk;
+      });
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk;
+      });
+      child.on('error', reject);
+      child.on('close', (code, signal) => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `guard batch failed (${signal ?? code}): ${stderr.trim() || 'no diagnostic'}`,
+            ),
+          );
+          return;
+        }
+        resolve(stdout.split('\n').filter(Boolean).map(Number));
+      });
+    });
+  }
+
+  async function primeGuardCorpus() {
+    const workerCount = Math.min(8, CORPUS.length);
+    const shards = Array.from({ length: workerCount }, () => []);
+    for (const [index, command] of CORPUS.entries()) {
+      shards[index % workerCount].push({ index, command });
+    }
+
+    const results = await Promise.all(
+      shards.map(async (shard, shardIndex) => {
+        const payloads = path.join(repo, `guard-payloads-${shardIndex}.bin`);
+        writeFileSync(
+          payloads,
+          `${shard
+            .map(({ command }) =>
+              JSON.stringify({ tool_name: 'Bash', cwd: repo, tool_input: { command } }),
+            )
+            .join('\0')}\0`,
+        );
+        const statuses = await runGuardBatch(path.join(hooks, 'branch-guard.sh'), payloads);
+        expect(statuses, `guard worker ${shardIndex} lost a corpus verdict`).toHaveLength(
+          shard.length,
+        );
+        return shard.map(({ index, command }, resultIndex) => ({
+          index,
+          command,
+          refused: statuses[resultIndex] === 2,
+        }));
+      }),
+    );
+
+    for (const { command, refused } of results.flat().sort((a, b) => a.index - b.index)) {
+      guardCache.set(command, refused);
+    }
+  }
+
+  beforeAll(async () => {
+    await primeGuardCorpus();
+  }, 60_000);
+
   function guardRefuses(command) {
+    if (guardCache.has(command)) return guardCache.get(command);
     const result = spawnSync('bash', [path.join(hooks, 'branch-guard.sh')], {
       input: JSON.stringify({ tool_name: 'Bash', cwd: repo, tool_input: { command } }),
       encoding: 'utf8',

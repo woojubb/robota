@@ -1,7 +1,12 @@
 import fsSync, { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 
+import {
+  groupFindingsByType,
+  printCleanupFindings,
+  writeCleanupReport,
+} from './cleanup-drift-output.mjs';
+import { buildSourceIndex } from './cleanup-drift-source-index.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import * as ts from './lib/ts-ast.mjs';
 import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
@@ -18,10 +23,7 @@ const FORBIDDEN_AGENT_TERMS = [
   /\bparent-agent\b/i,
   /\bchild-agent\b/i,
 ];
-
-function relativePath(targetPath) {
-  return path.relative(WORKSPACE_ROOT, targetPath);
-}
+const FORBIDDEN_AGENT_PREFILTER = /main agent|sub-agent|parent-agent|child-agent/;
 
 function extractSections(content) {
   return [...content.matchAll(/^#{1,4}\s+(.+)$/gm)].map((match) => match[1].trim());
@@ -141,65 +143,24 @@ async function checkUnregisteredSkills(findings) {
   }
 }
 
-async function checkForbiddenTerms(findings) {
-  const scopes = await listWorkspaceScopes();
-
-  for (const scope of scopes) {
-    const srcDir = path.join(WORKSPACE_ROOT, scope.relativeDir, 'src');
-    if (!(await pathExists(srcDir))) {
-      continue;
-    }
-
-    const files = grepLines(
-      ['-rl', '-E', 'main agent|sub-agent|parent-agent|child-agent', '--include=*.ts', srcDir],
-      `forbidden agent terms under ${scope.relativeDir}/src`,
-    );
-
-    for (const file of files) {
-      const content = await readText(file);
-      for (const term of FORBIDDEN_AGENT_TERMS) {
-        if (term.test(content)) {
-          findings.push({
-            file: relativePath(file),
-            type: 'forbidden-agent-term',
-            detail: `Contains forbidden agent hierarchy term matching: ${term.source}`,
-          });
-          break;
-        }
+async function checkForbiddenTerms(findings, sourceIndex) {
+  for (const file of sourceIndex) {
+    if (!file.inWorkspaceSource) continue;
+    const content = await file.read();
+    // Preserve the old grep prefilter exactly: it was intentionally case-sensitive, while the
+    // final word-boundary judge below is case-insensitive.
+    if (!FORBIDDEN_AGENT_PREFILTER.test(content)) continue;
+    for (const term of FORBIDDEN_AGENT_TERMS) {
+      if (term.test(content)) {
+        findings.push({
+          file: file.relative,
+          type: 'forbidden-agent-term',
+          detail: `Contains forbidden agent hierarchy term matching: ${term.source}`,
+        });
+        break;
       }
     }
   }
-}
-
-/**
- * `grep`, with a FAILED measurement told apart from a clean one.
- *
- * Review found the hole: every call site read `result.status !== 0` as "no matches" and moved on,
- * discarding `result.stderr` and `result.error` with it. grep's contract has three outcomes, not two
- * — 0 matched, 1 did not match, **2 or more means grep itself failed**. Conflating the third with the
- * second turns an unreadable directory, a bad regex or a missing binary into a clean bill of health.
- *
- * That is worse here than an ordinary swallowed error, because of what this script now does with the
- * number. Demonstrated with a `grep` stub exiting 2: findings fell 71 → 32 with nothing printed about
- * the failure, and the ratchet reported `drift FELL` and told the operator to re-freeze — so obeying
- * the instruction would have baked zeros into the baseline and permanently disabled three of its four
- * rows. A measurement that failed must never be published as progress.
- */
-function grepLines(args, what) {
-  const result = spawnSync('grep', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
-  if (result.error !== undefined) {
-    throw new Error(
-      `cleanup-drift: could not run \`grep\` while measuring ${what}: ${result.error}`,
-    );
-  }
-  if (result.status !== 0 && result.status !== 1) {
-    throw new Error(
-      `cleanup-drift: \`grep\` exited ${result.status} while measuring ${what} — the measurement ` +
-        `FAILED, so no drift figure can be reported from it.\n${result.stderr ?? ''}`,
-    );
-  }
-  const output = result.stdout.trim();
-  return result.status === 1 || output === '' ? [] : output.split(/\r?\n/);
 }
 
 /**
@@ -243,7 +204,32 @@ export function hasBlindAssertion(sourceText, fileName, kind) {
   return found;
 }
 
-async function checkBoundaryValidation(findings) {
+const BOUNDARY_ASSERTION_PATTERNS = [
+  {
+    prefilter: /\bas any\b/,
+    kind: 'any',
+    type: 'blind-assertion-any',
+    detail: 'Blind `as any` assertion in production code.',
+  },
+  {
+    prefilter: /\bas unknown as\b/,
+    kind: 'unknown',
+    type: 'blind-assertion-unknown',
+    detail: 'Blind `as unknown as T` assertion in production code.',
+  },
+];
+function isBoundaryProductionFile(file) {
+  return (
+    file.underPackages &&
+    !file.excludedFromBoundary &&
+    !file.relative.includes('.test.') &&
+    !file.relative.includes('.spec.') &&
+    !file.relative.includes('__tests__') &&
+    !file.relative.includes('node_modules')
+  );
+}
+
+async function checkBoundaryValidation(findings, sourceIndex) {
   // Scan for blind type assertions in production code (not tests).
   //
   // Word-anchored (issue #1803). Unanchored, `as any` matched INSIDE ordinary words — `w[as any]thing`,
@@ -256,53 +242,17 @@ async function checkBoundaryValidation(findings) {
   // #1803 also covers a second false-positive class this does not fix: a REAL `as any` written inside a
   // comment (quoting the pattern to explain it) still counts. That needs comment-stripping, not a
   // boundary, so it stays open.
-  const patterns = [
-    {
-      // develop tightened the prefilter to word boundaries; this change adds the AST `kind`.
-      // Both are kept: the regex is the cheap prefilter, `kind` selects the judge that runs on it.
-      regex: '\\bas any\\b',
-      kind: 'any',
-      type: 'blind-assertion-any',
-      detail: 'Blind `as any` assertion in production code.',
-    },
-    {
-      regex: '\\bas unknown as\\b',
-      kind: 'unknown',
-      type: 'blind-assertion-unknown',
-      detail: 'Blind `as unknown as T` assertion in production code.',
-    },
-  ];
+  for (const { prefilter, type, detail, kind } of BOUNDARY_ASSERTION_PATTERNS) {
+    for (const file of sourceIndex) {
+      if (!isBoundaryProductionFile(file)) continue;
 
-  for (const { regex, type, detail, kind } of patterns) {
-    const files = grepLines(
-      [
-        '-rn',
-        '--include=*.ts',
-        '--exclude-dir=node_modules',
-        '--exclude-dir=dist',
-        '-l',
-        regex,
-        'packages/',
-      ],
-      `\`${regex}\` under packages/`,
-    );
-
-    for (const file of files) {
-      if (
-        file.includes('.test.') ||
-        file.includes('.spec.') ||
-        file.includes('__tests__') ||
-        file.includes('node_modules')
-      ) {
-        continue;
-      }
-
-      // `grep` is the cheap prefilter; the AST is the judge. A file whose only match is in a
+      const content = await file.read();
+      // The text search is the cheap prefilter; the AST is the judge. A file whose only match is in a
       // comment or a string literal has no assertion to report.
-      if (!hasBlindAssertion(await readText(file), file, kind)) continue;
+      if (!prefilter.test(content) || !hasBlindAssertion(content, file.relative, kind)) continue;
 
       findings.push({
-        file,
+        file: file.relative,
         type,
         detail,
       });
@@ -316,22 +266,37 @@ async function checkBoundaryValidation(findings) {
   // `scan-no-fallback.mjs` (HARNESS-028) owns that rule with a real gate behind it.
 }
 
-async function checkDynamicImports(findings) {
-  const lines = grepLines(
-    ['-rn', '--include=*.ts', '-E', 'await import\\(|= import\\(', 'packages/'],
-    'dynamic imports under packages/',
-  );
-
-  for (const line of lines) {
-    if (line.includes('.test.') || line.includes('.spec.') || line.includes('__tests__')) {
+async function checkDynamicImports(findings, sourceIndex) {
+  for (const file of sourceIndex) {
+    if (
+      !file.underPackages ||
+      file.relative.includes('.test.') ||
+      file.relative.includes('.spec.') ||
+      file.relative.includes('__tests__')
+    ) {
       continue;
     }
 
-    findings.push({
-      file: line.split(':')[0],
-      type: 'dynamic-import',
-      detail: `Dynamic import detected. Verify this is for an optional module with explicit error handling.`,
-    });
+    const content = await file.read();
+    for (const [index, line] of content.split(/\r?\n/).entries()) {
+      if (!/await import\(|= import\(/.test(line)) continue;
+      // The old grep output was `<file>:<line>:<content>`, and its exclusions were applied to that
+      // whole string. Keep that behavior, including the unusual case where source text itself names
+      // one of the excluded markers.
+      const matchedLine = `${file.relative}:${index + 1}:${line}`;
+      if (
+        matchedLine.includes('.test.') ||
+        matchedLine.includes('.spec.') ||
+        matchedLine.includes('__tests__')
+      ) {
+        continue;
+      }
+      findings.push({
+        file: file.relative,
+        type: 'dynamic-import',
+        detail: `Dynamic import detected. Verify this is for an optional module with explicit error handling.`,
+      });
+    }
   }
 }
 
@@ -382,90 +347,40 @@ function parseCleanupArgs(argv) {
   return options;
 }
 
-async function main() {
-  const options = parseCleanupArgs(process.argv.slice(2));
+async function collectCleanupFindings() {
   // The shared helper, not a local one. A same-named copy here would break the property that module
   // is FOR: `requireGovernedTree` greps to "which scans have been through the HARNESS-052 sweep", and
   // a private twin makes that answer wrong — the one-owner violation HARNESS-068 is about, in the
   // same change.
   requireGovernedTree(WORKSPACE_ROOT, 'packages', {
     scan: 'cleanup-drift',
-    why: 'Three of the four ratchet rows are counted by grepping packages/, so without it every pattern matches nothing and the verdict reads "drift FELL".',
+    why: 'Three of the four ratchet rows are counted from packages/, so without it every pattern matches nothing and the verdict reads "drift FELL".',
   });
   const findings = [];
+  const sourceIndex = await buildSourceIndex(WORKSPACE_ROOT);
 
   await Promise.all([
     checkStaleDesignDocs(findings),
     checkSpecQuality(findings),
     checkUnregisteredSkills(findings),
-    checkForbiddenTerms(findings),
-    checkBoundaryValidation(findings),
-    checkDynamicImports(findings),
+    checkForbiddenTerms(findings, sourceIndex),
+    checkBoundaryValidation(findings, sourceIndex),
+    checkDynamicImports(findings, sourceIndex),
   ]);
-
   findings.sort((a, b) => a.type.localeCompare(b.type) || a.file.localeCompare(b.file));
+  return findings;
+}
 
-  const driftCount = findings.length;
-  const typeGroups = new Map();
-  for (const finding of findings) {
-    const count = typeGroups.get(finding.type) ?? 0;
-    typeGroups.set(finding.type, count + 1);
-  }
-
-  process.stdout.write(`harness cleanup drift scan: ${driftCount} finding(s)\n`);
+async function main() {
+  const options = parseCleanupArgs(process.argv.slice(2));
+  const findings = await collectCleanupFindings();
+  const typeGroups = groupFindingsByType(findings);
   // Under --write-baseline there IS no verdict: the run exists to record what it measured, not to
   // judge it against what was recorded before. Saying `passed: true` there would publish a pass
   // nothing checked.
   const verdict = options.writeBaseline ? undefined : publishVerdict(typeGroups);
-
-  if (driftCount === 0) {
-    // The count and the VERDICT are different questions, and a run can answer them differently: zero
-    // findings today still fails the ratchet when a frozen count fell without a re-freeze. Printing
-    // "no drift detected" there put a clean sentence on stdout while stderr failed the run — one run,
-    // two answers, and the reassuring one is the one a reader skims.
-    process.stdout.write(
-      verdict === undefined || verdict.ok
-        ? 'no drift detected.\n'
-        : 'no drift found in this run — but the verdict FAILED against the frozen baseline (see above).\n',
-    );
-  } else {
-    process.stdout.write('\nsummary:\n');
-    for (const [type, count] of typeGroups) {
-      process.stdout.write(`  ${type}: ${count}\n`);
-    }
-
-    process.stdout.write('\ndetails:\n');
-    for (const finding of findings) {
-      process.stdout.write(`- [${finding.type}] ${finding.file}: ${finding.detail}\n`);
-    }
-  }
-
-  if (options.reportFile) {
-    const reportPayload = {
-      type: 'cleanup',
-      timestamp: new Date().toISOString(),
-      findingCount: driftCount,
-      findings: findings.map((finding) => ({
-        file: finding.file,
-        type: finding.type,
-        detail: finding.detail,
-      })),
-      // ONE verdict per run. This field used to read `driftCount === 0` while the exit code read the
-      // ratchet, so a run at baseline wrote `passed: false` into a report and exited 0 — two answers
-      // to one question, from the same run, disagreeing. A freeze run has no verdict to report and
-      // says so, rather than claiming a pass it never measured.
-      ...(verdict === undefined ? { verdict: 'baseline-frozen' } : { passed: verdict.ok }),
-    };
-
-    const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    await fs.writeFile(targetPath, `${JSON.stringify(reportPayload, null, 2)}\n`, 'utf8');
-
-    const relativePath = path.relative(WORKSPACE_ROOT, targetPath);
-    process.stdout.write(
-      `\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`,
-    );
-  }
+  printCleanupFindings(findings, typeGroups, verdict);
+  await writeCleanupReport(WORKSPACE_ROOT, options.reportFile, findings, verdict);
 
   // Last, so whoever freezes a baseline has just seen the details and the report they are freezing.
   if (options.writeBaseline) writeDriftBaseline(typeGroups);

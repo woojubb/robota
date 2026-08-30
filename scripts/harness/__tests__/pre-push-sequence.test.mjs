@@ -17,7 +17,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { prerequisitesFor, runPostVerdictGuard, runPrePushGate } from '../pre-push.mjs';
+// harness-coverage: pre-push-verification-execution.mjs
+
+import {
+  createWorkRunMeasurementInput,
+  prerequisitesFor,
+  runPostVerdictGuard,
+  runPrePushGate,
+} from '../pre-push.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
@@ -37,6 +44,7 @@ function recordingSteps(decision) {
       assertLockfileConsistency: record('lockfile-consistency'),
       reportBaseResolution: record('report-base-resolution'),
       decideVerification: record('decide-verification', decision),
+      validateWorkRunMeasurement: record('validate-work-run-measurement', { ok: true }),
       findReusableReceipt: record('find-reusable-receipt', { reusable: false }),
       reportReceiptReused: record('report-receipt-reused'),
       reportSkipped: record('report-skipped'),
@@ -60,6 +68,7 @@ describe('runPrePushGate step order', () => {
       'lockfile-consistency',
       'report-base-resolution',
       'decide-verification',
+      'validate-work-run-measurement',
       'find-reusable-receipt',
       'tree-prerequisites',
       'run-verification',
@@ -127,6 +136,7 @@ describe('runPrePushGate step order', () => {
       'lockfile-consistency',
       'report-base-resolution',
       'decide-verification',
+      'validate-work-run-measurement',
       'find-reusable-receipt',
       'report-receipt-reused',
     ]);
@@ -144,6 +154,52 @@ describe('runPrePushGate step order', () => {
     };
     runPrePushGate(steps);
     expect(order.filter((step) => step === 'report-base-resolution')).toHaveLength(1);
+  });
+
+  it('refuses missing measurement before verification-receipt reuse', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    steps.validateWorkRunMeasurement = () => {
+      order.push('validate-work-run-measurement');
+      return { ok: false, reason: 'missing-measurement' };
+    };
+    expect(() => runPrePushGate(steps)).toThrow(/missing-measurement/);
+    expect(order).not.toContain('find-reusable-receipt');
+  });
+});
+
+describe('pre-push work-run subject', () => {
+  it('passes already-resolved push identity into the shared range validator', () => {
+    expect(
+      createWorkRunMeasurementInput({
+        root: '/repo',
+        baseRef: 'origin/develop',
+        pushSubject: {
+          localObjectId: 'a'.repeat(40),
+          localRef: 'refs/heads/codex/work',
+          branch: 'codex/work',
+        },
+      }),
+    ).toEqual({
+      root: '/repo',
+      baseRef: 'origin/develop',
+      subjectRef: 'a'.repeat(40),
+      subjectBranch: 'codex/work',
+      prObservation: 'pre-push',
+    });
+  });
+
+  it('refuses a branch label that does not match the resolved local ref', () => {
+    expect(() =>
+      createWorkRunMeasurementInput({
+        root: '/repo',
+        baseRef: 'origin/develop',
+        pushSubject: {
+          localObjectId: 'a'.repeat(40),
+          localRef: 'refs/heads/codex/work',
+          branch: 'codex/other',
+        },
+      }),
+    ).toThrow(/local ref.*branch/i);
   });
 });
 

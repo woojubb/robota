@@ -138,14 +138,23 @@ Implement alternative 4 with the following exact contract.
    cutover-containing base and cannot self-declare exclusion. A genuinely post-cutover branch may not
    claim it. Fixtures cover introduction, registered old PR before/after rebase and object expiry,
    unregistered old branch, and true post-cutover branch.
-8. The PR body carries `Work-Run: <id>`. Reporting joins only a unique repository + PR number/body marker
-   - PR head OID whose commit range contains the same run trailer. Zero/multiple/mismatched/query-failed
-     results are distinct unavailable reasons; branch name is a lookup hint, never identity. GitHub
-     `createdAt` remains the only first-PR timestamp.
+8. After the g0 closure is first pushed and before the PR exists, `harness:work-run:attest` creates an
+   idempotent GitHub commit comment binding its run ID and closure OID to an unedited server timestamp.
+   Exactly one valid, immutable opening comment may exist; duplicate matching comments fail closed.
+   Attestation fails if any open, closed, or merged PR has already existed for the branch. PR validation
+   fails closed unless the comment timestamp is strictly earlier than PR `createdAt`; the command itself
+   confirms a later GitHub server timestamp tick before returning, so the PR may then be created. This
+   prevents a PR opened at A from gaining a forged g0 at B. The PR body carries `Work-Run: <id>`. Reporting joins only
+   a unique repository + PR number/body marker + PR head OID whose commit range contains the same run
+   trailer. Zero/multiple/mismatched/query-failed results are distinct unavailable reasons; branch name
+   is a lookup hint, never identity. GitHub `createdAt` remains the only first-PR timestamp.
 9. Post-PR generation creation consumes one shared projection extracted from the existing
    `POST_FINDINGS_ACTION_REQUEST` owner. It requires the approved request identity and binds PR number,
    reviewed remote head, verdict/check/base evidence, action, named ground, evidence, scope, and approver;
    the existing pre-push guard and work-run validator consume the same projection, never parallel rules.
+   A rebase generation binds every GraphQL `beforeCommit`/`afterCommit` edge to one retained proof;
+   the suffix after the proven rebased head is limited to one tree-identical correlated bind commit
+   plus its exact receipt-only closure, so a rebase approval cannot authorize additional file changes.
 10. Reports state the observable denominator as validated receipts, with included, superseded, excluded,
     invalid, and unavailable counts/reasons. They compute wall, active, paused, phase, p50, and p90 values
     without averaging percentiles or ranking individuals. The final pre-PR receipt revision owns
@@ -203,6 +212,7 @@ explicit terminal event visible to local reports.
 | `scripts/harness/work-run-contract.mjs`                                                                                                                              | Pure event union, reducer, receipt decoder, projections                            |
 | `scripts/harness/work-run-store.mjs`, `scripts/harness/work-run.mjs`                                                                                                 | Locked persistence and CLI shell                                                   |
 | `scripts/harness/work-run-validation.mjs`, `scripts/harness/scan-work-run-measurement.mjs`                                                                           | Shared Git verdict and CI scan                                                     |
+| `scripts/harness/work-run-attest-opening-head.mjs`, `scripts/harness/work-run-pr-evidence.mjs`                                                                       | Pre-PR server-timestamp seal and bounded PR-history proof                          |
 | `.agents/evals/work-runs/cutover-v1.json`                                                                                                                            | Adoption boundary and immutable open-PR migration registry                         |
 | `scripts/harness/work-run-report.mjs`                                                                                                                                | Bounded receipt aggregation, p50/p90, exact GitHub join                            |
 | `scripts/harness/scan-user-execution-plan-order.mjs`                                                                                                                 | Export the canonical planning-range predicate                                      |
@@ -240,7 +250,8 @@ explicit terminal event visible to local reports.
       reusable-verification returns in local and required-CI paths.
 - [ ] TC-05: Reporting states bounded included/superseded/excluded/invalid/unavailable populations and
       exact p50/p90 wall/active/paused/phase values; first-PR time appears only for a unique repository,
-      PR-body run marker, head-OID, and commit-trailer match using GitHub `createdAt`, while finding/
+      pre-PR server-timestamped g0 seal, PR-body run marker, head-OID, and commit-trailer match using
+      GitHub `createdAt`, while finding/
       red-check/rebase generations report separate post-PR rework, pre-PR revisions remain one root
       interval, and neither moves that boundary; nonterminal state survives age-based cleanup, abandonment
       is locally reportable, and state-loss recovery emits a tracked invalid receipt with unavailable
@@ -252,18 +263,22 @@ explicit terminal event visible to local reports.
       branch plus cutover-plan/seal and state-lost-permitted-invalid fixtures, while the pre-fix/missing-
       measurement fixture is RED and the final
       focused tests, skill validation, `pnpm harness:scan`, and CI-equivalent verification are GREEN.
+- [ ] TC-08: The repository-contract harness executes each test file once with bounded two-worker
+      concurrency, and the measured slow hook/guard/cleanup fixtures reuse isolated seeds, batched shell
+      probes, or in-process traversal without weakening fail-closed behavior or sharing mutable temp state.
 
 ## Test Plan
 
-| TC-ID | Test Type        | Tool / Approach                                                                                            | Notes                                                  |
-| ----- | ---------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| TC-01 | Unit/concurrency | Vitest injected clock + post-checkout topic/docs/settings/Git fixtures + concurrent worktrees              | Applicability, reducer, hash/sequence, lock behavior   |
-| TC-02 | Unit/integration | Failure-injected store, receipt revisions, authorized finding/red/rebase generations                       | Atomic retry/reconcile, identity, authorization parity |
-| TC-03 | Integration      | Tracked-only temporary Git repositories with real `git commit` modes                                       | Hook reachability and refusal matrix                   |
-| TC-04 | Regression       | Shared validator, marker registry/rebased object-expiry, state-lost disposition, pre-push/CI/auth fixtures | RED missing receipt; all early-return paths            |
-| TC-05 | Unit/contract    | Revision/generation/PR, retention/abandon/state-loss fixtures and bounded fake GitHub adapter              | Exact percentile, first-PR, rework, timeout/exclusion  |
-| TC-06 | Static           | Skill validator, registry scans, rule/owner assertions                                                     | One owner and complete routing                         |
-| TC-07 | E2E/suite        | Spawn root commands, focused Vitest, scan, CI-equivalent gate                                              | Real entrypoints and full repository evidence          |
+| TC-ID | Test Type              | Tool / Approach                                                                                         | Notes                                                  |
+| ----- | ---------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| TC-01 | Unit/concurrency       | `work-run-contract.test.mjs`, `work-run-store.test.mjs`, `work-run-hook.test.mjs`                       | Applicability, reducer, hash/sequence, lock behavior   |
+| TC-02 | Unit/integration       | `work-run-validation.test.mjs`, `verification-receipt.test.mjs`                                         | Atomic retry/reconcile, identity, authorization parity |
+| TC-03 | Integration            | `work-run-hook.test.mjs`, `hook-reading-matches-bash.test.mjs`                                          | Hook reachability and refusal matrix                   |
+| TC-04 | Regression             | `scan-work-run-measurement.test.mjs`, `pre-push-base-ref.test.mjs`, `pre-push-sequence.test.mjs`        | Exact pushed subject; all early-return paths           |
+| TC-05 | Unit/contract          | `work-run-report.test.mjs`, `work-run-pr-evidence.test.mjs`, `work-run-attest-opening-head.test.mjs`    | First-PR seal, percentile, rework, bounded failure     |
+| TC-06 | Static                 | `node scripts/harness/scan-skill-registration.mjs`, `harness:scan:commands`, `harness:scan:consistency` | One owner and complete routing                         |
+| TC-07 | E2E/suite              | `work-run-lifecycle.test.mjs`, `harness:scan`, `harness:verify-like-ci`                                 | Real entrypoints and full repository evidence          |
+| TC-08 | Performance/regression | `harness-test-tiers.test.mjs`, `scan-user-execution-plan-order.test.mjs`, hook/guard/cleanup fixtures   | No duplicate tier; bounded two-worker semantics        |
 
 ## User Execution Test Scenarios
 
@@ -282,6 +297,7 @@ which belong to the engineering test plan.
 - [ ] TC-05 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: aggregate first-PR and post-PR generation reports.
 - [ ] TC-06 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: wire rule, skill, and docs.
 - [ ] TC-07 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: prove and verify the system.
+- [ ] TC-08 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: remove measured harness bottlenecks without reducing coverage.
 
 ## Evidence Log
 
@@ -515,3 +531,14 @@ which belong to the engineering test plan.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [SCOPE-AMENDMENT] — TC-08 | 2026-08-31
+
+- GATE-IMPLEMENT approved TC-01 through TC-07 before implementation began. During the measured run,
+  the first full contract execution exposed a global serial-execution regression, a duplicate hermetic
+  tier, and repeated process-heavy fixtures. TC-08 records the user-authorized request to remove that
+  observed bottleneck without reducing coverage; it does not add a product or public-API surface.
+- Independent before/after focused samples measured 136 tests in 96.72 seconds and 140 tests in 46.02
+  seconds, a 52.4% wall-time reduction despite four additional tests. Tier inventory measurement also
+  removed 73 duplicate hermetic test-file executions. The final repository-contract and CI-equivalent
+  results will be recorded separately before TC-08 is closed.

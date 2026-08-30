@@ -19,6 +19,10 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
 - `pnpm harness:cleanup`
+- `pnpm harness:work-run -- <claim|bind|start|phase-start|phase-complete|pause|resume|ready|reopen|exclude|abandon|recover|trailers|cutover-plan|cutover-seal>`
+- `pnpm harness:work-run:attest`
+- `pnpm harness:work-run:report`
+- `pnpm harness:scan:work-run -- --base <git-ref>`
 
 ## Ownership Rules
 
@@ -92,6 +96,21 @@ These scripts are the executable layer of the Robota harness.
 - supports `HARNESS_PRE_PUSH_MODE=full` when dependent scope typechecks should run locally before publishing
 - leaves `pnpm harness:verify:release` available as an explicit diagnostic; for promotions,
   protected main-PR CI is the sole automatic release-grade verification owner
+- validates work-run measurement before an exact verification receipt can short-circuit the gate
+
+### `work-run.mjs`
+
+- records hash-chained claim/bind/start/phase/pause/ready lifecycle events under a bounded local store
+- writes immutable generation/revision receipts with exact Git identity and commit correlation trailers
+- captures the complete paginated open-PR registry for the versioned cutover marker
+- keeps pre-PR receipt revisions distinct from authorized post-PR rework generations
+- seals the pushed g0 closure with an idempotent server-timestamped commit comment before PR creation
+
+### `scan-work-run-measurement.mjs`
+
+- always runs for a PR range and consumes the same validator as local pre-push
+- accepts the one introduction cutover, exact included/exclusion receipts, and identity-bound state loss
+- rejects missing, mixed, malformed, stale, or unregistered pre-cutover measurement
 
 ### `promote.mjs`
 

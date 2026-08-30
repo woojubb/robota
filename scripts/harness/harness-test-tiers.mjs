@@ -156,7 +156,6 @@ export function vitestInvocation(root, files, cwd = root, config = undefined) {
     ...(config ? ['--config', config] : []),
     '--pool=threads',
     '--maxWorkers=2',
-    '--fileParallelism=false',
     '--testTimeout=30000',
     '--reporter=dot',
   ];

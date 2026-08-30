@@ -1,7 +1,10 @@
+// harness-coverage: cleanup-drift-output.mjs
+// harness-coverage: cleanup-drift-source-index.mjs
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
   chmodSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -12,6 +15,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { hasBlindAssertion } from '../cleanup-drift.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -302,67 +306,19 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
   });
 });
 
-/**
- * A FAILED measurement must not be published as progress.
- *
- * Review found every grep call site reading `status !== 0` as "no matches". grep has three outcomes:
- * 0 matched, 1 did not match, **2+ grep itself failed**. Conflating the third with the second turned
- * an unreadable tree or a broken binary into a clean bill of health — and worse, into `drift FELL`,
- * whose printed instruction is to re-freeze, which would have baked zeros into the baseline and
- * permanently disabled three of its four rows.
- */
-describe('a measurement that failed is an error, not a clean result (HARNESS-069)', () => {
-  /** A `grep` earlier on PATH that fails the way a real one does when it cannot read a tree. */
-  function brokenGrepDir(exitCode) {
-    const dir = makeTemp('cleanup-drift-grep-');
+describe('source cleanup searches stay in-process', () => {
+  it('(RED) searches source in-process without spawning grep', () => {
+    const dir = makeTemp('cleanup-drift-no-grep-');
     dirs.push(dir);
+    const marker = path.join(dir, 'grep-invoked');
     const stub = path.join(dir, 'grep');
-    writeFileSync(
-      stub,
-      `#!/bin/sh\necho "grep: packages/: Permission denied" >&2\nexit ${exitCode}\n`,
-    );
-    chmodSync(stub, 0o755);
-    return dir;
-  }
-
-  it('(RED) grep exiting 2 fails the run instead of reporting less drift', () => {
-    const result = run({ pathPrefix: brokenGrepDir(2) });
-    // Against the defect: exit 0, 32 findings instead of 71, and `drift FELL` telling the operator to
-    // freeze the loss.
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/grep` exited 2/);
-    expect(result.stderr).not.toMatch(/drift FELL/);
-  });
-
-  it('(RED) EVERY call site is covered — including the forbidden-terms one', () => {
-    // Review round 2 found the fourth grep site still reading `status === 0` after the other three
-    // were converted, and reproduced the original defect on the fixed tree: with a grep that fails
-    // only for `<package>/src`, every forbidden-term measurement failed, nothing was printed, and the
-    // script exited 0. A stub that breaks ALL greps could not have caught it — the first thrown error
-    // would have come from one of the converted sites.
-    const dir = makeTemp('cleanup-drift-grep-src-');
-    dirs.push(dir);
-    const realGrep = spawnSync('sh', ['-c', 'command -v grep'], { encoding: 'utf8' }).stdout.trim();
-    const stub = path.join(dir, 'grep');
-    writeFileSync(
-      stub,
-      `#!/bin/sh\nfor a in "$@"; do case "$a" in */src) echo "grep: $a: Permission denied" >&2; exit 2;; esac; done\nexec ${realGrep} "$@"\n`,
-    );
+    writeFileSync(stub, `#!/bin/sh\ntouch "${marker}"\nexit 2\n`);
     chmodSync(stub, 0o755);
 
     const result = run({ pathPrefix: dir });
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/grep` exited 2 while measuring forbidden agent terms/);
-  });
 
-  it('grep exiting 1 still means "no matches", not an error', () => {
-    // The other direction. A rule that treated 1 as a failure would fail every clean repository.
-    const dir = brokenGrepDir(1);
-    const result = run({ pathPrefix: dir });
-    // No drift can be counted under packages/, so this is the FELL branch — a verdict, reached
-    // deliberately, rather than the hard measurement error above.
-    expect(result.stderr).toMatch(/drift FELL/);
-    expect(result.stderr).not.toMatch(/grep` exited/);
+    expect(existsSync(marker)).toBe(false);
+    expect(result.stderr).not.toMatch(/could not run `grep`|`grep` exited/);
   });
 });
 
@@ -485,9 +441,7 @@ describe('a docblock explaining the rule is not a violation of it (#1803)', () =
 
   const source = (body) => body;
 
-  it('does NOT flag prose that merely names the assertion', async () => {
-    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
-
+  it('does NOT flag prose that merely names the assertion', () => {
     const prose = source(
       [
         '/**',
@@ -500,34 +454,27 @@ describe('a docblock explaining the rule is not a violation of it (#1803)', () =
     expect(hasBlindAssertion(prose, 'double.ts', 'unknown')).toBe(false);
   });
 
-  it('does NOT flag `as any` inside a comment or a string', async () => {
-    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
-
+  it('does NOT flag `as any` inside a comment or a string', () => {
     expect(hasBlindAssertion('// never write `as any` here\nconst a = 1;', 'f.ts', 'any')).toBe(
       false,
     );
     expect(hasBlindAssertion('const msg = "as any is banned";', 'f.ts', 'any')).toBe(false);
   });
 
-  it('DOES flag a real assertion, so the narrowing did not disarm the check', async () => {
-    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
-
+  it('DOES flag a real assertion, so the narrowing did not disarm the check', () => {
     // Red proof for the fix itself: if the AST walk were wrong in the permissive direction, every
     // assertion in the repository would stop being reported and the floor would silently vanish.
     expect(hasBlindAssertion('const a = x as unknown as Foo;', 'f.ts', 'unknown')).toBe(true);
     expect(hasBlindAssertion('const b = y as any;', 'f.ts', 'any')).toBe(true);
   });
 
-  it('reads `as unknown as T` as the outer node, not as a bare `unknown` cast', async () => {
-    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
-
+  it('reads `as unknown as T` as the outer node, not as a bare `unknown` cast', () => {
     // `as unknown as T` parses as AsExpression(AsExpression(expr, unknown), T). A lone `as unknown`
     // is not the banned double assertion and must not be counted as one.
     expect(hasBlindAssertion('const a = x as unknown;', 'f.ts', 'unknown')).toBe(false);
   });
 
-  it('holds on the real doubles the issue named', async () => {
-    const { hasBlindAssertion } = await import('../cleanup-drift.mjs');
+  it('holds on the real doubles the issue named', () => {
     const file = path.join(
       WORKSPACE_ROOT,
       'packages/agent-framework/src/testing/agent-job-host-double.ts',

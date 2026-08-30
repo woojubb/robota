@@ -910,7 +910,7 @@ function tokenizeCanonicalShell(value) {
 }
 
 function canonicalExamplePath(candidate) {
-  if (!candidate || path.posix.isAbsolute(candidate) || /[$*?\[\]{}~]/.test(candidate)) return null;
+  if (!candidate || path.posix.isAbsolute(candidate) || /[$*?[\]{}~]/.test(candidate)) return null;
   const segments = candidate.replace(/^\.\//, '').split('/');
   if (segments.includes('..') || !['examples', 'scratch'].includes(segments[0])) return null;
   const normalized = path.posix.normalize(segments.join('/'));
@@ -936,7 +936,7 @@ function canonicalProductStatePath(candidate) {
   if (
     !candidate ||
     path.posix.isAbsolute(candidate) ||
-    /[$*?\[\]{}~\\]/.test(candidate) ||
+    /[$*?[\]{}~\\]/.test(candidate) ||
     candidate.split('/').includes('..')
   ) {
     return null;
@@ -972,7 +972,7 @@ function productSurfaceInvocation(surface, command, uiSteps, browserSteps) {
       shell.tokens[3] === 'run' &&
       Boolean(shell.tokens[4]) &&
       !shell.tokens[4].startsWith('-') &&
-      !/[$*?\[\]{}~]/.test(shell.tokens[4]);
+      !/[$*?[\]{}~]/.test(shell.tokens[4]);
     const workingDirectory = hasPnpmDirectoryShape ? shell.tokens[2] : null;
     return canonicalExamplePath(direct ?? workingDirectory) !== null ? invocation : null;
   }
@@ -1451,7 +1451,7 @@ function evaluateL1PlanTexts({ basename, parentSpecs, task, spec }) {
   return problems;
 }
 
-function evaluatePlanTexts({
+export function evaluatePlanTexts({
   basename,
   parentTask = null,
   parentSpec = null,
@@ -1719,7 +1719,7 @@ function onlyLedgerAppends(paths, textForPath, parentTextForPath) {
   );
 }
 
-function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
+export function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
   const problems = [];
   const ledgerAppend = (file) =>
     isLoopLedgerPath(file) &&
@@ -2676,18 +2676,17 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   const result = scanUserExecutionPlanOrder();
   for (const item of result.findings) {
     const where = item.commit ? ` (${item.commit.slice(0, 9)})` : '';
-    console.error(`✗ user-execution-plan-order${where}: ${item.problem}`);
+    process.stderr.write(`✗ user-execution-plan-order${where}: ${item.problem}\n`);
   }
   if (result.examined === 0) {
-    console.log(
-      result.staged
-        ? '::examined:: 0 staged path(s) ::expected-empty:: the proposed commit index is empty'
-        : '::examined:: 0 topic commit(s) ::expected-empty:: no non-merge commits beyond the integration merge base (merges are excluded from the enumeration)',
-    );
+    const message = result.staged
+      ? '::examined:: 0 staged path(s) ::expected-empty:: the proposed commit index is empty'
+      : '::examined:: 0 topic commit(s) ::expected-empty:: no non-merge commits beyond the integration merge base (merges are excluded from the enumeration)';
+    process.stdout.write(`${message}\n`);
   } else {
-    console.log(
-      `::examined:: ${result.examined} ${result.staged ? 'staged path(s)' : 'topic commit(s)'}`,
+    process.stdout.write(
+      `::examined:: ${result.examined} ${result.staged ? 'staged path(s)' : 'topic commit(s)'}\n`,
     );
   }
-  process.exit(result.findings.length > 0 ? 1 : 0);
+  process.exitCode = result.findings.length > 0 ? 1 : 0;
 }

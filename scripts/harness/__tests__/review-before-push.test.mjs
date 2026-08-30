@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -27,14 +27,18 @@ const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-finding-resolution-lo
  * unreviewed push, and the skill still says where the round belongs.
  */
 const scratch = [];
+const seedRepos = new Map();
+const initialHeadShas = new Map();
 
 afterAll(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
 
-function scratchRepo(branch) {
-  const dir = makeTemp('review-gate-');
-  scratch.push(dir);
+function seedRepo(branch) {
+  const cached = seedRepos.get(branch);
+  if (cached) return cached;
+
+  const dir = makeTemp('review-gate-seed-');
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);
   git('config', 'user.email', 'harness@example.test');
@@ -42,11 +46,24 @@ function scratchRepo(branch) {
   writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   git('add', '-A');
   git('commit', '--quiet', '-m', 'chore: root');
+  const seed = { dir, headSha: git('rev-parse', 'HEAD').stdout.trim() };
+  seedRepos.set(branch, seed);
+  return seed;
+}
+
+function scratchRepo(branch) {
+  const seed = seedRepo(branch);
+  const dir = makeTemp('review-gate-');
+  scratch.push(dir);
+  cpSync(seed.dir, dir, { recursive: true });
+  initialHeadShas.set(dir, seed.headSha);
   return dir;
 }
 
-function headSha(dir) {
-  return spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+function initialHeadSha(dir) {
+  const sha = initialHeadShas.get(dir);
+  if (!sha) throw new Error(`No cached initial HEAD for fixture: ${dir}`);
+  return sha;
 }
 
 function record(dir, branch, sha, findings = 0) {
@@ -125,7 +142,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
 
   it('allows the push once the review at this commit is recorded', () => {
     const dir = scratchRepo('feat/probe');
-    record(dir, 'feat/probe', headSha(dir));
+    record(dir, 'feat/probe', initialHeadSha(dir));
 
     expect(push(dir).status).toBe(0);
   });
@@ -134,7 +151,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
     // Keyed on the HEAD sha deliberately: a new commit is a new diff, and the previous round's review no
     // longer describes what would be sent. That property is the entire point.
     const dir = scratchRepo('feat/probe');
-    record(dir, 'feat/probe', headSha(dir));
+    record(dir, 'feat/probe', initialHeadSha(dir));
     writeFileSync(path.join(dir, 'more'), 'x\n');
     spawnSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
     spawnSync('git', ['-C', dir, 'commit', '--quiet', '-m', 'feat: more'], { encoding: 'utf8' });
@@ -150,7 +167,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
     // that function, so the duplicated logic had drifted from its own spec, and no test covered the
     // combination. Exactly the accidental-green gap: every existing case passed either way.
     const dir = scratchRepo('feat/probe');
-    record(dir, 'feat/probe', headSha(dir), 3);
+    record(dir, 'feat/probe', initialHeadSha(dir), 3);
 
     const verdict = push(dir);
     expect(verdict.status, 'a record with open findings satisfied the gate').toBe(2);
@@ -162,7 +179,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
     const dir = scratchRepo('feat/probe');
     const file = recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews'));
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ branch: 'feat/probe', headSha: headSha(dir) }));
+    writeFileSync(file, JSON.stringify({ branch: 'feat/probe', headSha: initialHeadSha(dir) }));
 
     expect(push(dir).status, 'a record with no findings field passed as clean').toBe(2);
   });
@@ -172,7 +189,7 @@ describe('a feature-branch push carries a reviewed diff', () => {
     // every detached push would satisfy for every other. The hygiene check above exempts the empty
     // case because it has nothing to compare; this one has something to protect and no key for it.
     const dir = scratchRepo('feat/probe');
-    record(dir, 'feat/probe', headSha(dir));
+    record(dir, 'feat/probe', initialHeadSha(dir));
     spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
 
     const verdict = push(dir, 'git push origin HEAD:refs/heads/feat/probe');

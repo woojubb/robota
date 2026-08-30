@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { rmSync, writeFileSync } from 'node:fs';
+import { cpSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
@@ -24,6 +24,70 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
 const BRANCH = 'feat/probe';
 const scratch = [];
+let repoTemplate;
+let stubBin;
+
+beforeAll(() => {
+  repoTemplate = makeTemp('openpr-template-');
+  stubBin = makeTemp('openpr-bin-');
+  scratch.push(repoTemplate, stubBin);
+
+  const git = (...args) => spawnSync('git', ['-C', repoTemplate, ...args], { encoding: 'utf8' });
+  git('init', '--quiet', `--initial-branch=${BRANCH}`);
+  writeFileSync(path.join(repoTemplate, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  git('add', '-A');
+  git(
+    '-c',
+    'user.email=harness@example.test',
+    '-c',
+    'user.name=Harness',
+    'commit',
+    '--quiet',
+    '-m',
+    'chore: root',
+  );
+
+  writeFileSync(
+    path.join(stubBin, 'gh'),
+    [
+      '#!/bin/bash',
+      "# Run the caller's own --jq over the per-case fixture payload, the way gh does.",
+      'if [[ "$*" == *"pr checks"* ]]; then',
+      '  printf \'%s\\n\' "$STUB_FAILING_CHECKS"',
+      '  exit 0',
+      'fi',
+      'if [[ "$*" == *"headRefOid"* ]]; then',
+      '  printf \'%s\\n\' "$STUB_REMOTE_HEAD"',
+      '  exit 0',
+      'fi',
+      'if [[ "$*" == *"repo view"* ]]; then',
+      "  printf '%s\\n' 'owner'",
+      '  exit 0',
+      'fi',
+      'if [[ "$*" == *"comments"* ]]; then',
+      '  jqexpr=""',
+      '  while [ $# -gt 0 ]; do',
+      '    if [ "$1" = "--jq" ]; then jqexpr="$2"; fi',
+      '    shift',
+      '  done',
+      '  jq -r "$jqexpr" "$STUB_GH_PAYLOAD"',
+      '  exit $?',
+      'fi',
+      'for arg in "$@"; do',
+      '  if [ "$arg" = "--head" ]; then',
+      '    printf \'%s\\n\' "$STUB_PR_NUMBER"',
+      '    exit 0',
+      '  fi',
+      'done',
+      'printf "OPEN\\n"',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+
+  // This suite exercises the open-PR freeze. Re-running a real workspace install for every case
+  // spends almost all of the fixture time on an unrelated lockfile-sync precondition.
+  writeFileSync(path.join(stubBin, 'pnpm'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+});
 
 afterAll(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
@@ -33,13 +97,9 @@ afterAll(() => {
 function scratchRepo() {
   const dir = makeTemp('openpr-freeze-');
   scratch.push(dir);
-  const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
-  git('init', '--quiet', `--initial-branch=${BRANCH}`);
-  git('config', 'user.email', 'harness@example.test');
-  git('config', 'user.name', 'Harness');
-  writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
-  git('add', '-A');
-  git('commit', '--quiet', '-m', 'chore: root');
+  for (const entry of readdirSync(repoTemplate)) {
+    cpSync(path.join(repoTemplate, entry), path.join(dir, entry), { recursive: true });
+  }
   return dir;
 }
 
@@ -50,16 +110,17 @@ function scratchRepo() {
  * while the hook stopped working.
  */
 function stubGh({
+  fixtureDir,
   prNumber,
   findings,
   author = 'github-actions[bot]',
   failingChecks = 0,
   approved = false,
+  approvalAuthor = 'woojubb',
+  approvalAssociation = 'OWNER',
+  approvedBy = approvalAuthor,
   remoteHead = 'a'.repeat(40),
 }) {
-  const dir = makeTemp('openpr-gh-');
-  scratch.push(dir);
-
   // The payload real `gh` would have fetched, in the shape the hook's `--json comments,reviews` asks
   // for. The stub does NOT pre-compute an answer from it: it runs the hook's OWN `--jq` expression
   // over this with real jq, so the filter, the marker pattern and the `sort_by(.at)` ordering are all
@@ -89,49 +150,22 @@ function stubGh({
   };
   if (approved) {
     payload.comments.push({
-      author: { login: 'woojubb' },
-      body: `POST_FINDINGS_ACTION_REQUEST\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: finding\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @owner`,
+      id: 9001,
+      url: `https://github.com/example/repo/pull/${prNumber}#issuecomment-9001`,
+      author: { login: approvalAuthor },
+      authorAssociation: approvalAssociation,
+      body: `POST_FINDINGS_ACTION_REQUEST\nPR: ${prNumber}\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: finding\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @${approvedBy}`,
       createdAt: '2020-01-03T00:00:00Z',
     });
   }
-  writeFileSync(path.join(dir, 'payload.json'), JSON.stringify(payload));
-
-  writeFileSync(
-    path.join(dir, 'gh'),
-    [
-      '#!/bin/bash',
-      "# Run the caller's own --jq over the fixture payload, the way gh does.",
-      '# The check question is answered from the fixture.',
-      '# from the fixture like the others, so the guard reads a real number and not a stub decision.',
-      'if [[ "$*" == *"pr checks"* ]]; then',
-      `  printf '%s\\n' '${failingChecks}'`,
-      '  exit 0',
-      'fi',
-      'if [[ "$*" == *"headRefOid"* ]]; then',
-      `  printf '%s\\n' '${remoteHead}'`,
-      '  exit 0',
-      'fi',
-      'if [[ "$*" == *"repo view"* ]]; then',
-      "  printf '%s\\n' 'owner'",
-      '  exit 0',
-      'fi',
-      'if [[ "$*" == *"comments"* ]]; then',
-      '  jqexpr=""',
-      '  while [ $# -gt 0 ]; do',
-      '    if [ "$1" = "--jq" ]; then jqexpr="$2"; fi',
-      '    shift',
-      '  done',
-      `  jq -r "$jqexpr" ${JSON.stringify(path.join(dir, 'payload.json'))}`,
-      '  exit $?',
-      'fi',
-      'for arg in "$@"; do',
-      `  if [ "$arg" = "--head" ]; then printf '%s\\n' '${prNumber}'; exit 0; fi`,
-      'done',
-      'printf "OPEN\\n"',
-    ].join('\n'),
-    { mode: 0o755 },
-  );
-  return dir;
+  const payloadPath = path.join(fixtureDir, '.git', 'stub-gh-payload.json');
+  writeFileSync(payloadPath, JSON.stringify(payload));
+  return {
+    STUB_FAILING_CHECKS: String(failingChecks),
+    STUB_GH_PAYLOAD: payloadPath,
+    STUB_PR_NUMBER: String(prNumber),
+    STUB_REMOTE_HEAD: remoteHead,
+  };
 }
 
 function push({
@@ -141,9 +175,24 @@ function push({
   prefix = '',
   failingChecks = 0,
   approved = false,
+  approvalAuthor,
+  approvalAssociation,
+  approvedBy,
   remoteHead,
 }) {
   const dir = scratchRepo();
+  const stubEnv = stubGh({
+    fixtureDir: dir,
+    prNumber,
+    findings,
+    author,
+    failingChecks,
+    approved,
+    approvalAuthor,
+    approvalAssociation,
+    approvedBy,
+    remoteHead,
+  });
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       tool_name: 'Bash',
@@ -154,8 +203,9 @@ function push({
     timeout: 120_000,
     env: {
       ...process.env,
+      ...stubEnv,
       CLAUDE_PROJECT_DIR: dir,
-      PATH: `${stubGh({ prNumber, findings, author, failingChecks, approved, remoteHead })}${path.delimiter}${process.env.PATH}`,
+      PATH: `${stubBin}${path.delimiter}${process.env.PATH}`,
     },
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
@@ -233,6 +283,18 @@ describe('pre-push open-PR freeze — GREEN direction', () => {
     const res = push({ findings: 2, approved: true, remoteHead: 'a'.repeat(40) });
     expect(res.status).toBe(0);
     expect(res.output).toMatch(/Approved post-verdict change request/);
+  });
+
+  it('rejects an approval whose APPROVED-BY does not match the actual author', () => {
+    const res = push({ findings: 2, approved: true, approvedBy: 'someone-else' });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/POST_FINDINGS_ACTION_REQUEST/);
+  });
+
+  it('rejects an approval from an untrusted author association', () => {
+    const res = push({ findings: 2, approved: true, approvalAssociation: 'CONTRIBUTOR' });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/POST_FINDINGS_ACTION_REQUEST/);
   });
 
   it('requires approval when findings remain', () => {
