@@ -220,21 +220,27 @@ function execute(input, now) {
   });
   const at = now();
   const subject = resolveWorkRunSubject({ argv, currentBranch: context.branch });
-  const claimIdentity = currentClaimIdentity(context.root, subject.branch, subject.headRef);
   if (command === 'claim') {
     return PROTECTED_BRANCHES.has(subject.branch)
       ? { status: 'outside-protected', branch: subject.branch }
-      : store.claim({ branch: subject.branch, identity: claimIdentity, at });
+      : store.claim({
+          branch: subject.branch,
+          identity: currentClaimIdentity(context.root, subject.branch, subject.headRef),
+          at,
+        });
   }
   const cutover = handleCutover(command, argv, context);
   if (cutover !== null) return cutover;
   if (command === 'recover' && argv.includes('--state-lost')) {
     return recoverStateLost(argv, context, store, subject);
   }
-  const run = store.active({ branch: subject.branch, identity: claimIdentity });
-  if (!run && PROTECTED_BRANCHES.has(subject.branch)) {
+  if (PROTECTED_BRANCHES.has(subject.branch)) {
     return { status: 'outside-protected', branch: subject.branch };
   }
+  const run = store.active({
+    branch: subject.branch,
+    identity: currentClaimIdentity(context.root, subject.branch, subject.headRef),
+  });
   if (!run) throw new Error('no active work run; run work-run claim before this command');
   return handleBoundCommand(command, argv, {
     context,
