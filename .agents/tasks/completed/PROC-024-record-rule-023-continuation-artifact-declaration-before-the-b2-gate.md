@@ -46,5 +46,6 @@ surface or GitHub Issue state.
   its later B2 continuation branch.
 - The prior raw GATE-IMPLEMENT PASS digest remains
   `sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51`.
-- The checkpoint contract suite passed 17/17, history plan-order passed, and affected verification passed
-  36 scans with one declared skip; no package/app/source or GitHub Issue state changed.
+- The checkpoint contract suite passed 17/17; an isolated reconstruction passed the exact one-path staged
+  transition and the four-commit history scan; affected verification passed 36 scans with one declared
+  skip. No package/app/source or GitHub Issue state changed.
