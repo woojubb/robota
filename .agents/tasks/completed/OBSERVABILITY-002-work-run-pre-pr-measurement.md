@@ -7,7 +7,7 @@ priority: high
 urgency: now
 area: .agents, scripts/harness, .husky
 depends_on: []
-no-issue: directly requested repository workflow instrumentation; no GitHub issue exists
+issue: https://github.com/woojubb/robota/issues/2558
 ---
 
 # OBSERVABILITY-002: measure work runs before pull-request creation
