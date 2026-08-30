@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { release } from 'node:os';
 import path from 'node:path';
 
@@ -122,16 +122,24 @@ function runBounded(budget, command, args, root) {
   return runVerificationCommand(command, args, root, { timeoutMs });
 }
 
-function executableFingerprint(executable) {
-  const canonicalPath = realpathSync(executable);
-  const stat = statSync(canonicalPath);
-  if (!stat.isFile() || stat.size > MAX_TOOL_BYTES) {
-    throw new Error(`verification identity tool is not a bounded regular file: ${canonicalPath}`);
+export function executableFingerprint(
+  executable,
+  io = { closeSync, fstatSync, openSync, readFileSync, realpathSync },
+) {
+  const canonicalPath = io.realpathSync(executable);
+  const descriptor = io.openSync(canonicalPath, 'r');
+  try {
+    const stat = io.fstatSync(descriptor);
+    if (!stat.isFile() || stat.size > MAX_TOOL_BYTES) {
+      throw new Error(`verification identity tool is not a bounded regular file: ${canonicalPath}`);
+    }
+    return {
+      path: canonicalPath,
+      sha256: createHash('sha256').update(io.readFileSync(descriptor)).digest('hex'),
+    };
+  } finally {
+    io.closeSync(descriptor);
   }
-  return {
-    path: canonicalPath,
-    sha256: createHash('sha256').update(readFileSync(canonicalPath)).digest('hex'),
-  };
 }
 
 function resolveExecutable(budget, command, root) {

@@ -110,13 +110,13 @@ function runBashBatch(commands, root) {
       '  case_dir="$2/$index"',
       '  (',
       '    cd "$case_dir" || exit 1',
-      '    PATH="$case_dir/bin:$3"',
+      '    PATH="$case_dir/bin:/usr/bin:/bin"',
       '    export PATH',
       '    eval "$command"',
       '  ) >/dev/null 2>&1',
       'done',
     ].join('\n');
-    const child = spawn('bash', ['-c', batch, '_', commands, root, process.env.PATH], {
+    const child = spawn('/bin/bash', ['-c', batch, '_', commands, root], {
       // This is a dead-child bound, not a performance budget. The file runs in its own contract-test
       // process so normal suite contention cannot consume the bound, while slower CI hosts retain a
       // finite failure mode.

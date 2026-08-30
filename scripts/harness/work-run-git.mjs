@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import path from 'node:path';
 
 import { git, gitBytes, sharedGitOptions } from './work-run-git-command.mjs';
@@ -222,7 +222,11 @@ function branchEpoch(root, branch, options) {
     ['rev-parse', '--path-format=absolute', '--git-path', `logs/refs/heads/${branch}`],
     options,
   );
-  if (!existsSync(logPath)) {
+  let descriptor;
+  try {
+    descriptor = openSync(logPath, 'r');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
     try {
       git(root, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], options);
     } catch (error) {
@@ -233,16 +237,15 @@ function branchEpoch(root, branch, options) {
     }
     return { value: null, status: 'expired' };
   }
-  const descriptor = openSync(logPath, 'r');
   try {
     const buffer = Buffer.alloc(MAX_REFLOG_ENTRY_BYTES + 1);
     const bytesRead = readSync(descriptor, buffer, 0, buffer.length, 0);
     if (bytesRead === 0) return { value: null, status: 'expired' };
     const newline = buffer.subarray(0, bytesRead).indexOf(10);
-    if (newline <= 0 || (newline === -1 && bytesRead === buffer.length)) {
+    if (newline <= 0) {
       throw new Error('work-run branch reflog identity is missing or oversized');
     }
-    const entry = buffer.subarray(0, newline === -1 ? bytesRead : newline);
+    const entry = buffer.subarray(0, newline);
     const oldOid = /^([0-9a-f]{40}|[0-9a-f]{64}) /.exec(entry.toString('utf8'))?.[1];
     if (!oldOid) throw new Error('work-run branch reflog identity is malformed');
     return {

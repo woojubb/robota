@@ -36,12 +36,6 @@ import {
 } from '../work-run-contract.mjs';
 import { makeTemp } from './make-temp.mjs';
 
-const observabilityCohort = {
-  key: 'L2/observability',
-  lane: 'L2',
-  workKind: 'observability',
-};
-
 const receiptIdentity = {
   repository: 'woojubb/robota',
   branch: 'codex/work',

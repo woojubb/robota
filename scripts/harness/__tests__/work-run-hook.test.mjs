@@ -19,9 +19,27 @@ import { makeTemp } from './make-temp.mjs';
 const sourceRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const EXECUTABLE_MODE = 0o755; // eslint-disable-line no-magic-numbers -- POSIX executable file mode
 const workRunCli = join(sourceRoot, 'scripts/harness/work-run.mjs');
+const OUTER_SUBJECT_ENVIRONMENT = [
+  'GITHUB_ACTIONS',
+  'GITHUB_EVENT_NAME',
+  'GITHUB_EVENT_PATH',
+  'GITHUB_HEAD_REF',
+  'GITHUB_PR_HEAD_SHA',
+  'PR_HEAD_SHA',
+];
+
+function isolatedEnvironment(overrides = {}) {
+  const env = { ...process.env };
+  for (const name of OUTER_SUBJECT_ENVIRONMENT) delete env[name];
+  return { ...env, ...overrides };
+}
 
 function git(root, ...args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    env: isolatedEnvironment(),
+  }).trim();
 }
 
 function dispatcherFixture(name, target) {
@@ -41,7 +59,7 @@ function runDispatcher(root, name, args = []) {
   return spawnSync(join(root, `.husky/_/${name}`), args, {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, HOME: root, XDG_CONFIG_HOME: join(root, '.config') },
+    env: isolatedEnvironment({ HOME: root, XDG_CONFIG_HOME: join(root, '.config') }),
   });
 }
 
@@ -114,6 +132,7 @@ function workRun(root, ...args) {
     execFileSync(process.execPath, [workRunCli, ...args, '--root', root], {
       cwd: root,
       encoding: 'utf8',
+      env: isolatedEnvironment(),
     }),
   );
 }
@@ -256,6 +275,7 @@ function verifyAmbiguousReceiptClosureFailsClosed() {
   const result = spawnSync('git', ['commit', '-m', 'chore: ambiguous closure'], {
     cwd: root,
     encoding: 'utf8',
+    env: isolatedEnvironment(),
   });
 
   expect(result.status).not.toBe(0);
@@ -284,6 +304,7 @@ function verifyMalformedReceiptClosureFailsClosed() {
   const result = spawnSync('git', ['commit', '-m', 'chore: forged closure'], {
     cwd: root,
     encoding: 'utf8',
+    env: isolatedEnvironment(),
   });
 
   expect(result.status).not.toBe(0);
@@ -308,6 +329,7 @@ function verifyDetachedCheckoutSkipsClaim() {
   const result = spawnSync(join(root, '.husky/post-checkout'), [], {
     cwd: root,
     encoding: 'utf8',
+    env: isolatedEnvironment(),
   });
 
   expect(result.status).toBe(0);

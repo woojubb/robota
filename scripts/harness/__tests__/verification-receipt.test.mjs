@@ -4,6 +4,7 @@
 // harness-coverage: verification-receipt-work-run-closure.mjs
 // harness-coverage: bounded-git-status.mjs
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -26,6 +27,7 @@ import {
   writeVerificationReceipt,
 } from '../verification-receipt.mjs';
 import { runVerificationCommand } from '../verification-receipt-command.mjs';
+import { executableFingerprint } from '../verification-receipt-identity.mjs';
 import { boundedGitStatus } from '../bounded-git-status.mjs';
 import {
   appendWorkRunEvent,
@@ -143,6 +145,45 @@ describe('exact verification receipts', () => {
     } finally {
       process.env.PATH = originalPath;
     }
+  });
+
+  it('fingerprints one opened descriptor instead of checking and rereading a path', () => {
+    const descriptor = 17;
+    const contents = Buffer.from('stable executable bytes');
+    const io = {
+      realpathSync: vi.fn(() => '/resolved/tool'),
+      openSync: vi.fn(() => descriptor),
+      fstatSync: vi.fn(() => ({ isFile: () => true, size: contents.length })),
+      readFileSync: vi.fn(() => contents),
+      closeSync: vi.fn(),
+    };
+
+    expect(executableFingerprint('/path/tool', io)).toEqual({
+      path: '/resolved/tool',
+      sha256: createHash('sha256').update(contents).digest('hex'),
+    });
+    expect(io.openSync).toHaveBeenCalledWith('/resolved/tool', 'r');
+    expect(io.fstatSync).toHaveBeenCalledWith(descriptor);
+    expect(io.readFileSync).toHaveBeenCalledWith(descriptor);
+    expect(io.closeSync).toHaveBeenCalledWith(descriptor);
+  });
+
+  it('closes the descriptor and fails closed when the opened executable becomes unreadable', () => {
+    const failure = Object.assign(new Error('executable disappeared'), { code: 'ENOENT' });
+    const closeSync = vi.fn();
+
+    expect(() =>
+      executableFingerprint('/path/tool', {
+        realpathSync: () => '/resolved/tool',
+        openSync: () => 23,
+        fstatSync: () => ({ isFile: () => true, size: 12 }),
+        readFileSync: () => {
+          throw failure;
+        },
+        closeSync,
+      }),
+    ).toThrow(failure);
+    expect(closeSync).toHaveBeenCalledWith(23);
   });
 
   it('writes evidence only for a complete clean successful stage set', () => {

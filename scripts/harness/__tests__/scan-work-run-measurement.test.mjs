@@ -109,6 +109,7 @@ describe('scan-work-run-measurement', () => {
             baseRef: 'origin/develop',
             subjectRef: 'HEAD',
             subjectBranch,
+            env: {},
           },
           { inspectCutoverRange, validateMeasurement },
         ),
