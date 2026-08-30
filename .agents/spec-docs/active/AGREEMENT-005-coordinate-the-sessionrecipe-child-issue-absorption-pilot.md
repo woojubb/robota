@@ -487,3 +487,60 @@ measured evidence; all stated conditions hold.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: three prior complete canonical GATE-IMPLEMENT PASS entries
+  exist; the exact Task/spec pair remains `in-progress`, the spec remains under
+  `.agents/spec-docs/active/`, and `git log 96c7b5f30d2d11e3ba76460214eb6ef3dbb37e07..22a676bed17185fc642f5043c21d40b6e285d0b3 -- <active AGREEMENT-005 spec>` is empty.
+- GATE-IMPLEMENT (continuation) — § Decision sequences delivery and declares the exact six continuation
+  artifacts: base `96c7b5f30d2d11e3ba76460214eb6ef3dbb37e07` contains the single machine-readable
+  `Continuation artifacts` line; every declared path exists in both that base tree and pre-gate HEAD
+  `22a676bed17185fc642f5043c21d40b6e285d0b3`, with no byte difference across the six paths.
+- GATE-IMPLEMENT (continuation) — preceding checkpoint ancestry: merge
+  `a4c38ef4f23ffe45332974b7c2c84250da3a0710` introduced the latest prior AGREEMENT-005 continuation
+  PASS (three raw PASS entries versus two at its first parent), is an ancestor of branch base
+  `96c7b5f30d2d11e3ba76460214eb6ef3dbb37e07`, and that exact `origin/develop` base is an ancestor of
+  pre-gate HEAD `22a676bed17185fc642f5043c21d40b6e285d0b3`.
+- GATE-IMPLEMENT (continuation) — Task and PLAN preservation: the paired Task is byte-identical between
+  base and pre-gate HEAD (`sha256:02097b7505cfc070a03464800f3ab8245999f6cafffa19a030fd648be31fe879`), remains
+  `status: in-progress`, and still records `SCENARIO DRAFTED: not-applicable | 0` with its concrete
+  governance-only reason; latest prior raw PASS digest is
+  `sha256:060b87adba839e3edaaaa1b000de7606f1182bf329b15cc660cedede4b46df31`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only
+  gate write is this active AGREEMENT-005 spec, and no TC-06 implementation has begun. The sole topic
+  commit before this gate, `22a676bed17185fc642f5043c21d40b6e285d0b3`, changes only the permitted
+  append-only closed `.agents/loop-runs/post-merge-cycle.jsonl` record for PR #2556.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:060b87adba839e3edaaaa1b000de7606f1182bf329b15cc660cedede4b46df31",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+    ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+    ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
+  ],
+  "ancestorSha": "a4c38ef4f23ffe45332974b7c2c84250da3a0710",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
