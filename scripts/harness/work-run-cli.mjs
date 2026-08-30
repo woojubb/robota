@@ -15,9 +15,10 @@ import {
   createRebaseProof,
   currentClaimIdentity,
   currentIdentity,
-  openPullRequestNumber,
+  pullRequestHistory,
   repoContext,
 } from './work-run-git.mjs';
+import { pendingTerminalReceiptCorrelation } from './work-run-pending-receipt.mjs';
 import { WorkRunStore } from './work-run-store.mjs';
 
 const PROTECTED_BRANCHES = new Set(['develop', 'main', 'master']);
@@ -82,17 +83,16 @@ function appendSimple(command, argv, store, runId, at) {
   return store.append(runId, { type, at, data });
 }
 
-function handleTrailers(argv, store, run, state) {
+function handleTrailers(argv, correlation) {
   const messageFile = option(argv, '--message-file') ?? argv[1];
   const source = option(argv, '--source', argv[2] ?? 'message');
-  const receipt = `g${state.generation}-r${state.revision}`;
   const updated = applyWorkRunTrailers(readFileSync(messageFile, 'utf8'), {
-    runId: run.runId,
-    receipt,
+    runId: correlation.runId,
+    receipt: correlation.receipt,
     source,
   });
   writeFileSync(messageFile, updated, 'utf8');
-  return { status: 'trailed', runId: run.runId, receipt };
+  return { status: 'trailed', ...correlation };
 }
 
 function handleTerminal(command, argv, context, store, run, subject, at) {
@@ -146,7 +146,7 @@ function reopenArguments(argv, context, subject, state, run, at) {
     verdict: option(argv, '--verdict') ?? undefined,
     action: option(argv, '--action') ?? undefined,
     currentPrContext:
-      ground === 'local-fix' ? openPullRequestNumber(context.root, subject.branch) : null,
+      ground === 'local-fix' ? pullRequestHistory(context.root, subject.branch) : null,
     rebaseProof: opensRebase
       ? createRebaseProof(
           context.root,
@@ -177,7 +177,12 @@ function handleReady(argv, context, store, run, state, subject, at) {
 
 function handleBoundCommand(command, argv, runtime) {
   const { context, store, run, state, subject, at } = runtime;
-  if (command === 'trailers') return handleTrailers(argv, store, run, state);
+  if (command === 'trailers') {
+    return handleTrailers(argv, {
+      runId: run.runId,
+      receipt: `g${state.generation}-r${state.revision}`,
+    });
+  }
   if (command === 'bind') {
     return store.append(run.runId, {
       type: 'work.bound',
@@ -249,6 +254,10 @@ function execute(input, now) {
       }),
     }),
   );
+  if (transaction === null && command === 'trailers') {
+    const correlation = pendingTerminalReceiptCorrelation(context.root);
+    if (correlation) return handleTrailers(argv, correlation);
+  }
   if (transaction === null) {
     throw new Error('no active work run; run work-run claim before this command');
   }

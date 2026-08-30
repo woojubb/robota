@@ -113,9 +113,9 @@ export function resolveWorkRunSubject({
 function prepareLocalFix({ state, runId, at, extraArguments, currentPrContext }) {
   if (state.generation !== 0) throw new Error('local-fix is permitted only before the first PR');
   if (currentPrContext?.status === 'unavailable') {
-    throw new Error('local-fix cannot prove that no open PR exists');
+    throw new Error('local-fix cannot prove that no PR has ever existed');
   }
-  if (currentPrContext?.status === 'open') {
+  if (currentPrContext?.status === 'exists' || currentPrContext?.status === 'open') {
     throw new Error(`local-fix is forbidden after PR #${currentPrContext.number} exists`);
   }
   if (extraArguments.some((value) => value !== undefined)) {
@@ -187,7 +187,7 @@ function preparePostPr(request) {
 export function prepareReopenRequest(request) {
   if (request.ground !== 'local-fix') return preparePostPr(request);
   const legacyContext = Number.isInteger(request.currentPrNumber)
-    ? { status: 'open', number: request.currentPrNumber }
+    ? { status: 'exists', number: request.currentPrNumber }
     : { status: 'none' };
   return prepareLocalFix({
     ...request,

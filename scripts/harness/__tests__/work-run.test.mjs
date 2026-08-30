@@ -416,7 +416,7 @@ APPROVED-BY: @maintainer`;
         ground: 'local-fix',
         currentPrContext: { status: 'unavailable', reason: 'network' },
       }),
-    ).toThrow(/cannot prove that no open PR exists/i);
+    ).toThrow(/cannot prove that no PR has ever existed/i);
   });
 
   it('requires the exact next generation and complete structured authorization after PR', () => {

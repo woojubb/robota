@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 
 import { writeImmutableWorkRunReceipt } from '../work-run-domain.mjs';
 import { readJson } from '../work-run-json-store.mjs';
+import { validateWorkRunReceipt } from '../work-run-receipt-validation.mjs';
 import {
   projectLocalTerminalWorkRun,
   WORK_RUN_LOCAL_DIR,
@@ -592,6 +593,27 @@ describe('work-run store', () => {
         reason: 'pure-planning-range',
       }),
     ).toThrow('immutable work-run receipt conflict');
+  });
+
+  it('writes a valid null-cohort receipt when claimed work is excluded before binding', () => {
+    const root = makeTemp('work-run-unbound-excluded-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const run = store.claim({ branch: identity.branch, at: '2026-08-30T00:00:00.000Z' });
+
+    const excluded = store.exclude({
+      runId: run.runId,
+      identity,
+      reason: 'pure-planning-range',
+      at: '2026-08-30T00:00:01.000Z',
+    });
+    const receiptPath = `.agents/evals/work-runs/${run.runId}/g0-r0.json`;
+
+    expect(excluded.receipt.cohort).toBeNull();
+    expect(validateWorkRunReceipt(excluded.receipt, { receiptPath })).toMatchObject({
+      ok: true,
+      receipt: { disposition: 'excluded', cohort: null },
+    });
   });
 
   it('keeps abandonment local and creates no push-satisfying receipt', () => {

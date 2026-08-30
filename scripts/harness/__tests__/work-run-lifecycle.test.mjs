@@ -283,7 +283,11 @@ else if (args.includes('/compare/')) output = fixture.compare;
 else if (args.includes('/git/trees/')) output = fixture.trees?.[args.match(/\\/git\\/trees\\/([^?]+)/)?.[1]];
 else if (args.includes('/issues/comments/')) output = fixture.comments?.[args.split('/').at(-1)];
 else if (args.includes('/timeline?')) output = fixture.timeline ?? [];
-else if (args.includes('head=') && args.includes('/pulls')) output = fixture.branchPullRequests ?? [];
+else if (args.includes('head=') && args.includes('/pulls')) {
+  if (fixture.branchPullRequestQueryFails) process.exit(2);
+  const pulls = fixture.branchPullRequests ?? [];
+  output = args.includes('state=open') ? pulls.filter((pull) => pull.state === 'open') : pulls;
+}
 else if (args.includes('/pulls/')) output = fixture.pullRequest;
 else if (args.includes('pulls?state=open')) output = [fixture.openPullRequests ?? []];
 else { process.stderr.write('unexpected gh arguments: ' + args); process.exit(2); }
@@ -471,6 +475,44 @@ describe('work-run command lifecycle', () => {
     expect(readFileSync(recovered.receiptPath, 'utf8')).toBe(
       `${JSON.stringify(recovered.receipt, null, 2)}\n`,
     );
+  });
+
+  it('forbids generation-zero local-fix after a closed PR and fails closed on history errors', async () => {
+    const { root } = fixture();
+    const claimed = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    await workAt(
+      root,
+      '2000-01-01T00:00:01.000Z',
+      'bind',
+      '--work-id',
+      'OBSERVABILITY-002',
+      '--lane',
+      'L2',
+      '--kind',
+      'observability',
+    );
+    await workAt(root, '2000-01-01T00:00:02.000Z', 'start');
+    write(root, 'src/local-fix.txt', 'ready for local fix\n');
+    commit(root, 'test: prepare local-fix history check', {
+      paths: ['src/local-fix.txt'],
+      runId: claimed.runId,
+      receipt: 'g0-r0',
+    });
+    await workAt(root, '2000-01-01T00:00:03.000Z', 'ready', '--base', baseRef);
+    const reopenArgs = ['reopen', '--ground', 'local-fix', '--root', root, ...subjectArgs(root)];
+
+    await expect(
+      runNode(workRunCli, reopenArgs, {
+        root,
+        github: { branchPullRequests: [{ number: 77, state: 'closed' }] },
+      }),
+    ).rejects.toThrow(/after PR #77/i);
+    await expect(
+      runNode(workRunCli, reopenArgs, {
+        root,
+        github: { branchPullRequestQueryFails: true },
+      }),
+    ).rejects.toThrow(/cannot prove.*PR/i);
   });
 
   it('runs pause/resume, receipt closure, validation, PR join, finding, rebase, and report', async () => {

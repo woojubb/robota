@@ -18,6 +18,11 @@ function receiptCohort(state) {
   };
 }
 
+function exclusionCohort(state) {
+  if (state.lane === null && state.workKind === null) return null;
+  return receiptCohort(state);
+}
+
 export function projectLocalTerminalWorkRun(run) {
   const state = reduceWorkRun(run?.events);
   if (state.status !== 'abandoned') return null;
@@ -82,7 +87,7 @@ export function exclusionReceipt(run, state, identity) {
     generation: state.generation,
     revision: state.revision,
     identity: structuredClone(identity),
-    cohort: receiptCohort(state),
+    cohort: exclusionCohort(state),
     events: run.events,
     durations: projectWorkRunDurations(run.events),
     timestamps: { claimedAt: run.events[0].at, excludedAt: excluded.at },

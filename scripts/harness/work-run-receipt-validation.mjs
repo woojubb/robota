@@ -71,7 +71,10 @@ function validateCoordinates(receipt, receiptPath) {
 function validateProjection(receipt, state) {
   try {
     const durations = projectWorkRunDurations(receipt.events);
-    const cohort = { key: cohortKey(state), lane: state.lane, workKind: state.workKind };
+    const cohort =
+      state.status === 'excluded' && state.lane === null && state.workKind === null
+        ? null
+        : { key: cohortKey(state), lane: state.lane, workKind: state.workKind };
     return same(receipt.durations, durations) && same(receipt.cohort, cohort);
   } catch {
     return false;
