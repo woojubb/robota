@@ -106,10 +106,15 @@ export class WorkRunStore {
     });
   }
 
+  withActiveRun({ branch, identity }, action) {
+    return this.withLock(`branch-${branchKey(branch)}`, () => {
+      const run = this.reusableRun(this.pointerPath(branch), branch, identity);
+      return run === null ? null : action(run);
+    });
+  }
+
   active({ branch, identity }) {
-    return this.withLock(`branch-${branchKey(branch)}`, () =>
-      this.reusableRun(this.pointerPath(branch), branch, identity),
-    );
+    return this.withActiveRun({ branch, identity }, (run) => run);
   }
 
   claim({ branch, identity, at = this.now() }) {

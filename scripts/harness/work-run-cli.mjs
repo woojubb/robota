@@ -237,19 +237,24 @@ function execute(input, now) {
   if (PROTECTED_BRANCHES.has(subject.branch)) {
     return { status: 'outside-protected', branch: subject.branch };
   }
-  const run = store.active({
-    branch: subject.branch,
-    identity: currentClaimIdentity(context.root, subject.branch, subject.headRef),
-  });
-  if (!run) throw new Error('no active work run; run work-run claim before this command');
-  return handleBoundCommand(command, argv, {
-    context,
-    store,
-    run,
-    state: reduceWorkRun(run.events),
-    subject,
-    at,
-  });
+  const claimIdentity = currentClaimIdentity(context.root, subject.branch, subject.headRef);
+  const transaction = store.withActiveRun(
+    { branch: subject.branch, identity: claimIdentity },
+    (run) => ({
+      result: handleBoundCommand(command, argv, {
+        context,
+        store,
+        run,
+        state: reduceWorkRun(run.events),
+        subject,
+        at,
+      }),
+    }),
+  );
+  if (transaction === null) {
+    throw new Error('no active work run; run work-run claim before this command');
+  }
+  return transaction.result;
 }
 
 export function main(input = process.argv.slice(2)) {

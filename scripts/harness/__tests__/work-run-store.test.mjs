@@ -313,6 +313,66 @@ describe('work-run store', () => {
     expect(new Set(results.map(({ stdout }) => stdout)).size).toBe(1);
   });
 
+  it('holds the branch lock through an active lifecycle mutation before allowing rotation', async () => {
+    const root = makeTemp('work-run-concurrent-rotation-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const run = store.claim({ branch: identity.branch, at: '2026-08-30T00:00:00.000Z' });
+    const startPath = join(root, 'start-rotation');
+    const attemptPath = join(root, 'rotation-attempted');
+    const moduleUrl = new URL('../work-run-store.mjs', import.meta.url).href;
+    const rotatingIdentity = { ...claimIdentity, branchEpoch: 'f'.repeat(64) };
+    const script = `
+      import { existsSync, writeFileSync } from 'node:fs';
+      import { WorkRunStore } from ${JSON.stringify(moduleUrl)};
+      while (!existsSync(${JSON.stringify(startPath)})) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+      }
+      writeFileSync(${JSON.stringify(attemptPath)}, 'attempted');
+      const store = new WorkRunStore({
+        root: ${JSON.stringify(root)},
+        gitCommonDir: ${JSON.stringify(join(root, '.git'))},
+        isAncestor: () => true,
+      });
+      process.stdout.write(store.claim({
+        branch: ${JSON.stringify(identity.branch)},
+        identity: ${JSON.stringify(rotatingIdentity)},
+      }).runId);
+    `;
+    const rotation = execFileAsync(process.execPath, ['--input-type=module', '--eval', script], {
+      timeout: 5_000,
+    });
+
+    const mutatedRunId = store.withActiveRun(
+      { branch: identity.branch, identity: claimIdentity },
+      (activeRun) => {
+        writeFileSync(startPath, 'start');
+        const deadline = Date.now() + 2_000;
+        while (!existsSync(attemptPath) && Date.now() < deadline) {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+        }
+        expect(existsSync(attemptPath)).toBe(true);
+        store.append(activeRun.runId, {
+          type: 'work.bound',
+          at: '2026-08-30T00:00:01.000Z',
+          data: { workId: 'OBSERVABILITY-002', lane: 'L2', workKind: 'observability' },
+        });
+        expect(JSON.parse(readFileSync(store.pointerPath(identity.branch), 'utf8')).runId).toBe(
+          activeRun.runId,
+        );
+        return activeRun.runId;
+      },
+    );
+    const rotated = await rotation;
+
+    expect(mutatedRunId).toBe(run.runId);
+    expect(rotated.stdout).not.toBe(run.runId);
+    expect(JSON.parse(readFileSync(store.pointerPath(identity.branch), 'utf8')).runId).toBe(
+      rotated.stdout,
+    );
+    expect(store.read(run.runId).events.at(-1)?.type).toBe('work.bound');
+  });
+
   it('claims collision-resistant runs and serializes atomic transitions', () => {
     const root = makeTemp('work-run-store-');
     mkdirSync(join(root, '.git'), { recursive: true });
