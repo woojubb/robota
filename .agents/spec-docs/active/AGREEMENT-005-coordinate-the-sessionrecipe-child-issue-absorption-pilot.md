@@ -144,16 +144,25 @@ None
       unexplained population or pagination drift.
 - [x] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
       B3, or B4 Issue is mutated by this batch.
+- [ ] TC-06: AGREEMENT-005 remains `in-progress` until ARCH-113, ARCH-114, and ARCH-115 each have
+      `status: done`, a `completed:` date, and their exact file under `.agents/tasks/completed/`, with the
+      former active path absent. Then GitHub issue #2079's `Related execution records` rows for source
+      issues #2084, #2102, and #2115 are updated and read back as exact mappings to ARCH-113, ARCH-114,
+      and ARCH-115, respectively. Each mapped path is derived without ambiguity by moving that Task's
+      exact current basename under `.agents/tasks/completed/`; each row has a resolvable full 40-hex
+      commit-SHA blob link whose target is that same derived path. Only after those assertions pass may
+      the AGREEMENT-005 Task/spec advance to `done`.
 
 ## Test Plan
 
-| TC-ID | Test Type     | Tool / Approach                                                            | Notes                                                  |
-| ----- | ------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
-| TC-01 | Manifest      | JSON parse, exact-set and SHA-256 assertions                               | Fails closed on denominator, duplicate, or missing row |
-| TC-02 | Repository    | fresh ancestry plus exact Task-path/read-back checks                       | Must pass before GitHub mutation                       |
-| TC-03 | Live mutation | `gh` write plus conversion finalizer and exact GraphQL/REST read-back      | Marker before P-label removal; stop on first mismatch  |
-| TC-04 | Live audit    | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota` | Reconciled denominator 77 before / 73 after            |
-| TC-05 | Harness       | affected scan, task/spec lifecycle scans, CI                               | Documentation/governance scope only                    |
+| TC-ID | Test Type     | Tool / Approach                                                                                                                                                                                                          | Notes                                                                                                                                       |
+| ----- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Manifest      | JSON parse, exact-set and SHA-256 assertions                                                                                                                                                                             | Fails closed on denominator, duplicate, or missing row                                                                                      |
+| TC-02 | Repository    | fresh ancestry plus exact Task-path/read-back checks                                                                                                                                                                     | Must pass before GitHub mutation                                                                                                            |
+| TC-03 | Live mutation | `gh` write plus conversion finalizer and exact GraphQL/REST read-back                                                                                                                                                    | Marker before P-label removal; stop on first mismatch                                                                                       |
+| TC-04 | Live audit    | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota`                                                                                                                                               | Reconciled denominator 77 before / 73 after                                                                                                 |
+| TC-05 | Harness       | affected scan, task/spec lifecycle scans, CI                                                                                                                                                                             | Documentation/governance scope only                                                                                                         |
+| TC-06 | Lifecycle     | assert the three completed Task paths/frontmatters and absent active paths; fetch `gh issue view 2079 --repo woojubb/robota --json body`, parse its execution-record table, and resolve each mapped full-SHA blob target | Exact required rows are the three source-Issue→completed-path mappings named in TC-06; fail closed before parent completion on any mismatch |
 
 ## User Execution Test Scenarios
 
