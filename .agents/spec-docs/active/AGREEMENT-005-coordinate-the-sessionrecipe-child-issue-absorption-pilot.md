@@ -92,17 +92,29 @@ None
 
 1. Merge the frozen 78-row prerequisite manifest plus AGREEMENT-005/ARCH-113/114/115 Task records to `develop` without
    changing GitHub.
-2. Re-fetch the four B1 Issues. Stop if any body hash, state, parent, assignee, marker, linked PR, branch,
-   or dependency state differs from the manifest.
+2. Re-fetch the four B1 Issues and the complete open-child population. Stop if any B1 body hash, state,
+   parent, assignee, marker, linked open PR, issue-named branch/worktree, or dependency state differs from
+   the manifest, or if a
+   population delta cannot be reconciled to an exact Issue and terminal reason. The fresh B1 snapshot
+   reconciles the sole prerequisite delta: issue #2514 closed `COMPLETED`, so the pre-mutation denominator
+   is 77 rather than 78. Closed prerequisite cross-references to PR #2551 and PR #2553 are expected historical
+   evidence and are not active-work signals.
 3. Update issue #2079 once with the complete 55-descendant current Issue/Task map, changing only the four
    B1 entries from Issue-owned execution to their exact Tasks. Update each B1 child body with canonical
    issue #2079 and its exact Task owner; preserve the original body below the migration notice.
-4. Close all four as `NOT_PLANNED`, because execution continues under the Task graph and is not delivered.
-   Add no mechanical narrative comment.
-5. Read every body/state/parent relationship back immediately. Stop on the first mismatch; restore the
-   complete issue #2079 body snapshot and every earlier changed B1 child from its manifest before-state, then
-   reopen any prematurely closed child.
-6. Run the live hierarchy audit, record exact before/after counts and URLs in RULE-023, and land one B1
+4. In reverse dependency order (`#2115`, `#2102`, `#2084`, `#2063`), run the repository conversion
+   finalizer for each exact Task. It must write and read back the append-only machine-readable Task marker
+   before removing `priority:P1`. Add no narrative migration comment; the structural Task marker remains
+   mandatory.
+5. In the same reverse dependency order, close all four as `NOT_PLANNED`, because execution continues under
+   the Task graph and is not delivered. Read every body, marker, label, state, parent relationship, and
+   dependency edge back immediately.
+6. Stop on the first mismatch. Before any Task marker is written, restore the complete issue #2079 body
+   snapshot and every earlier changed B1 child from its manifest before-state. After a Task marker is written,
+   preserve that append-only receipt, reopen any prematurely closed child, restore its P label when conversion
+   did not finalize, and either idempotently roll forward the same conversion or return the row to
+   `OWNER_REVIEW`; never claim a byte-for-byte rollback of comment history.
+7. Run the live hierarchy audit, record exact before/after counts and URLs in RULE-023, and land one B1
    evidence PR before B2 starts.
 
 ## Affected Files
@@ -118,16 +130,18 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the durable prerequisite manifest records exactly 281 open Issues and 78 unique open native
+- [x] TC-01: the durable prerequisite manifest records exactly 281 open Issues and 78 unique open native
       children, includes full before-state bodies/hashes plus all four canonical-parent snapshots and
       complete group maps, keeps all rows at `OWNER_REVIEW`, and freezes B1 candidates to exactly four
       named Issue IDs and Tasks without authorizing mutation.
-- [ ] TC-02: fresh `origin/develop` contains all four exact Task paths before any GitHub write, with
+- [x] TC-02: fresh `origin/develop` contains all four exact Task paths before any GitHub write, with
       AGREEMENT-005 declaring unique children and leaf `depends_on` order matching native dependencies.
-- [ ] TC-03: issue #2079's current map and all four child bodies resolve to their exact Task paths; the four
-      children read back `CLOSED/NOT_PLANNED` with no history, label, or dependency loss.
-- [ ] TC-04: the post-pilot audit reports 74 open native children, accounts for all original 78 rows, and
-      reports no unexpected population or pagination drift.
+- [x] TC-03: issue #2079's current map and all four child bodies resolve to their exact Task paths; each exact
+      Task marker is read back before its `priority:P1` label is removed; the four children then read back
+      `CLOSED/NOT_PLANNED` with work-kind labels, native history, parent links, and dependency edges preserved.
+- [x] TC-04: the pre-pilot audit reports 77 open native children after accounting for original issue #2514 as
+      `CLOSED/COMPLETED`; the post-pilot audit reports 73, accounts for all original 78 rows, and reports no
+      unexplained population or pagination drift.
 - [ ] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
       B3, or B4 Issue is mutated by this batch.
 
@@ -137,8 +151,8 @@ None
 | ----- | ------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
 | TC-01 | Manifest      | JSON parse, exact-set and SHA-256 assertions                               | Fails closed on denominator, duplicate, or missing row |
 | TC-02 | Repository    | fresh ancestry plus exact Task-path/read-back checks                       | Must pass before GitHub mutation                       |
-| TC-03 | Live mutation | `gh` write followed by exact GraphQL/REST read-back                        | Stop on first mismatch                                 |
-| TC-04 | Live audit    | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota` | Expected child denominator 74                          |
+| TC-03 | Live mutation | `gh` write plus conversion finalizer and exact GraphQL/REST read-back      | Marker before P-label removal; stop on first mismatch  |
+| TC-04 | Live audit    | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota` | Reconciled denominator 77 before / 73 after            |
 | TC-05 | Harness       | affected scan, task/spec lifecycle scans, CI                               | Documentation/governance scope only                    |
 
 ## User Execution Test Scenarios
@@ -178,13 +192,17 @@ measured evidence; all stated conditions hold.
 
 ## Evidence Log
 
-| Claim                      | Evidence                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| Policy prerequisite landed | PR #2548; merge `ce6f3589ad4690016a215be4582d991eee0dfe6f`                             |
-| Fresh complete denominator | manifest query `2026-08-29T22:49:02.141Z`; 281 open / 78 child / 78 unique             |
-| Frozen manifest identity   | SHA-256 `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`             |
-| B1 approval review         | independent review APPROVE; ACTIONABLE FINDINGS: 0; DEPTH: LOCAL (0 foundational of 1) |
-| Exact migration owners     | AGREEMENT-005, ARCH-113, ARCH-114, ARCH-115 paths named above                          |
+| Claim                       | Evidence                                                                                                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Policy prerequisite landed  | PR #2548; merge `ce6f3589ad4690016a215be4582d991eee0dfe6f`                                                                                                                                               |
+| Fresh complete denominator  | manifest query `2026-08-29T22:49:02.141Z`; 281 open / 78 child / 78 unique                                                                                                                               |
+| Fresh B1 pre-mutation audit | 281 open / 77 child; issue #2514 alone closed `COMPLETED`; expected B1 result 73 child                                                                                                                   |
+| Fresh B1 body snapshot      | exact SHA-256: issue #2079 `986bbbdf`; issue #2063 `f3d869ef`; issue #2084 `6146e760`; issue #2102 `9d459a73`; issue #2115 `d89ee42a`; complete values and live fields are in `batchReviews.B1.snapshot` |
+| Conversion dry-runs         | AGREEMENT-005 and ARCH-113/114/115 exact paths accepted; each names `priority:P1` removal after marker read-back                                                                                         |
+| Frozen manifest identity    | SHA-256 `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`                                                                                                                               |
+| B1 approval review          | independent review APPROVE; ACTIONABLE FINDINGS: 0; DEPTH: LOCAL (0 foundational of 1)                                                                                                                   |
+| Exact migration owners      | AGREEMENT-005, ARCH-113, ARCH-114, ARCH-115 paths named above                                                                                                                                            |
+| B1 applied result           | authorization `0c4d1cb6c`; parent map 55 rows; four exact markers; four `CLOSED/NOT_PLANNED`; audit 277 open / 73 child; rollback not triggered                                                          |
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-30
 
@@ -348,3 +366,56 @@ measured evidence; all stated conditions hold.
   **Required action:** land the exact `**Continuation artifacts:**` declaration on `develop` in a
   planning-only correction PR, cut a fresh continuation branch from that merge, and re-run
   GATE-IMPLEMENT (continuation) before any implementation or GitHub Issue mutation.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: a prior `[GATE-IMPLEMENT] — ✅ PASS` exists and the exact
+  Task/spec pair is `in-progress`: one prior canonical PASS is present; the Task is `status: in-progress`
+  and the spec is `status: in-progress` under `.agents/spec-docs/active/`.
+- GATE-IMPLEMENT (continuation) — § Decision sequences delivery and names the artifacts this PR lands:
+  base `af0e4f747bad3b42337848ff0da21518a8c54c81` contains exactly six `Continuation artifacts`, and all
+  six paths exist in both that base tree and the current tree.
+- GATE-IMPLEMENT (continuation) — the preceding integration merge is an ancestor of the branch base:
+  `06f4f0bd4671366bd4212b7a3e6102986d4ba635` introduced the prior checkpoint and is an ancestor of
+  base `af0e4f747bad3b42337848ff0da21518a8c54c81`; correction merge `af0e4f747bad3b42337848ff0da21518a8c54c81`
+  is the exact current `origin/develop` base.
+- GATE-IMPLEMENT (continuation) — the exact Task and PLAN outcome are unchanged: the paired Task is
+  byte-identical to base and still records `SCENARIO DRAFTED: not-applicable | 0` with its concrete
+  governance-only reason; prior raw PASS digest is
+  `sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only
+  gate write is this paired active spec. The sole earlier topic commit `3bf052f6806d9d651197019c78491b2ec338960c`
+  changes only the allowed append-only closed `post-merge-cycle.jsonl` record and no implementation path.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+    ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+    ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
+  ],
+  "ancestorSha": "06f4f0bd4671366bd4212b7a3e6102986d4ba635",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->

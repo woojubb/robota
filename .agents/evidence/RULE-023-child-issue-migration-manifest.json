@@ -11,16 +11,344 @@
     "openNativeChildren": 78
   },
   "frozenBatch": {
-    "name": "B1 prerequisite candidates",
+    "name": "B1 approved migration batch",
     "issueIds": [2063, 2084, 2102, 2115],
-    "mutationAuthorized": false
+    "mutationAuthorized": true
   },
   "counts": {
-    "OWNER_REVIEW": 78,
+    "OWNER_REVIEW": 74,
+    "ABSORB": 4,
     "B3": 17,
     "B2": 51,
     "B1": 4,
     "B4": 6
+  },
+  "batchReviews": {
+    "B1": {
+      "capturedFrom": "2026-08-30T05:27:29Z",
+      "capturedThrough": "2026-08-30T05:27:42Z",
+      "base": "af0e4f747bad3b42337848ff0da21518a8c54c81",
+      "reviewStatus": "APPROVED",
+      "mutationAuthorized": true,
+      "ownerApproval": {
+        "date": "2026-08-30",
+        "instruction": "너가 타당한 근거와 함께 추천안을 제안하면 그게 타당할 경우 승인한다.",
+        "appliedRecommendation": "Proceed with only B1 after reconciling #2514 to a 77→73 denominator and adding mandatory Task-marker read-back plus P-label removal; the measured conditions hold."
+      },
+      "independentReview": {
+        "date": "2026-08-30",
+        "reviewer": "review_b1_task_mapping",
+        "verdict": "APPROVE",
+        "actionableFindings": 0
+      },
+      "preMutationPopulation": {
+        "openIssues": 281,
+        "openNativeChildren": 77
+      },
+      "populationDeltaFromPrerequisite": {
+        "closed": [
+          {
+            "issue": 2514,
+            "state": "CLOSED",
+            "stateReason": "COMPLETED",
+            "closedAt": "2026-08-29T23:07:25Z",
+            "url": "https://github.com/woojubb/robota/issues/2514"
+          }
+        ],
+        "addedNativeChildren": [],
+        "explanation": "Issue #2514 is the sole native-child denominator delta. New non-child issue #2552 offsets the total open-Issue count, which remains 281."
+      },
+      "expectedPostMutationPopulation": {
+        "openIssues": 277,
+        "openNativeChildren": 73
+      },
+      "historicalPrerequisitePullRequestCrossReferences": [
+        {
+          "pullRequest": 2551,
+          "state": "MERGED",
+          "mergeCommit": "06f4f0bd4671366bd4212b7a3e6102986d4ba635",
+          "activeWorkSignal": false
+        },
+        {
+          "pullRequest": 2553,
+          "state": "MERGED",
+          "mergeCommit": "af0e4f747bad3b42337848ff0da21518a8c54c81",
+          "activeWorkSignal": false
+        }
+      ],
+      "snapshot": {
+        "bodySource": "Unchanged bodies are stored in parentSnapshots[number=2079].body and rows[issue.number in 2063,2084,2102,2115].before.body; bodySha256 is SHA-256 over the exact UTF-8 body bytes.",
+        "liveFields": [
+          "state",
+          "stateReason",
+          "updatedAt",
+          "labels",
+          "assignees",
+          "bodySha256",
+          "commentCount",
+          "nativeParent",
+          "blockedBy",
+          "blocking",
+          "taskMarkerComments",
+          "openPullRequests",
+          "issueNamedBranches",
+          "issueNamedWorktrees"
+        ],
+        "issues": [
+          {
+            "issue": 2079,
+            "state": "OPEN",
+            "stateReason": null,
+            "updatedAt": "2026-08-29T04:05:14Z",
+            "labels": ["enhancement", "priority:P1"],
+            "assignees": [],
+            "bodySha256": "986bbbdf43519214f959a7dc2b69c93e259b02acb0eb5bcc07a60cc687ffc491",
+            "commentCount": 1,
+            "nativeParent": null,
+            "blockedBy": [],
+            "blocking": [],
+            "taskMarkerComments": [],
+            "openPullRequests": [],
+            "issueNamedBranches": [],
+            "issueNamedWorktrees": []
+          },
+          {
+            "issue": 2063,
+            "state": "OPEN",
+            "stateReason": null,
+            "updatedAt": "2026-08-30T05:20:16Z",
+            "labels": ["enhancement", "priority:P1"],
+            "assignees": [],
+            "bodySha256": "f3d869ef7cf0ec07e2742dd85c9864eb18c0a3f74316bae01479d09bc42c4124",
+            "commentCount": 1,
+            "nativeParent": 2079,
+            "blockedBy": [],
+            "blocking": [],
+            "taskMarkerComments": [],
+            "openPullRequests": [],
+            "issueNamedBranches": [],
+            "issueNamedWorktrees": [],
+            "commentDelta": {
+              "url": "https://github.com/woojubb/robota/issues/2063#issuecomment-5466889752",
+              "createdAt": "2026-08-30T05:20:16Z",
+              "reason": "PR #2553 prerequisite completion receipt; no body, relationship, label, dependency, assignee, or state mutation"
+            }
+          },
+          {
+            "issue": 2084,
+            "state": "OPEN",
+            "stateReason": null,
+            "updatedAt": "2026-08-29T04:01:29Z",
+            "labels": ["enhancement", "priority:P1"],
+            "assignees": [],
+            "bodySha256": "6146e760d6afe5049b52696da75db6a3a294c5e73b76bff7fecea99f3e2e22b5",
+            "commentCount": 1,
+            "nativeParent": 2063,
+            "blockedBy": [],
+            "blocking": [2102, 2115],
+            "taskMarkerComments": [],
+            "openPullRequests": [],
+            "issueNamedBranches": [],
+            "issueNamedWorktrees": []
+          },
+          {
+            "issue": 2102,
+            "state": "OPEN",
+            "stateReason": null,
+            "updatedAt": "2026-08-29T04:00:59Z",
+            "labels": ["enhancement", "priority:P1"],
+            "assignees": [],
+            "bodySha256": "9d459a730d44f901554e6289e8f9cf0e003902eca3efccc0544f8116470517d6",
+            "commentCount": 0,
+            "nativeParent": 2063,
+            "blockedBy": [2084],
+            "blocking": [2115],
+            "taskMarkerComments": [],
+            "openPullRequests": [],
+            "issueNamedBranches": [],
+            "issueNamedWorktrees": []
+          },
+          {
+            "issue": 2115,
+            "state": "OPEN",
+            "stateReason": null,
+            "updatedAt": "2026-08-29T04:00:42Z",
+            "labels": ["enhancement", "priority:P1"],
+            "assignees": [],
+            "bodySha256": "d89ee42a5bb7cc021c4dc059a4cc2a9526e4ade80815a3d5052f107ea512f839",
+            "commentCount": 0,
+            "nativeParent": 2063,
+            "blockedBy": [2084, 2102],
+            "blocking": [],
+            "taskMarkerComments": [],
+            "openPullRequests": [],
+            "issueNamedBranches": [],
+            "issueNamedWorktrees": []
+          }
+        ]
+      },
+      "hierarchy": {
+        "parent": 2079,
+        "tracker": 2063,
+        "leaves": [2084, 2102, 2115],
+        "reverseDependencyMutationOrder": [2115, 2102, 2084, 2063]
+      },
+      "rows": [
+        {
+          "issue": 2063,
+          "disposition": "ABSORB",
+          "candidateDisposition": "ABSORB",
+          "taskId": "AGREEMENT-005",
+          "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: AGREEMENT-005 -->\nConverted to Task `AGREEMENT-005`: `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2084,
+          "disposition": "ABSORB",
+          "candidateDisposition": "ABSORB",
+          "taskId": "ARCH-113",
+          "taskPath": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: ARCH-113 -->\nConverted to Task `ARCH-113`: `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2102,
+          "disposition": "ABSORB",
+          "candidateDisposition": "ABSORB",
+          "taskId": "ARCH-114",
+          "taskPath": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: ARCH-114 -->\nConverted to Task `ARCH-114`: `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2115,
+          "disposition": "ABSORB",
+          "candidateDisposition": "ABSORB",
+          "taskId": "ARCH-115",
+          "taskPath": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: ARCH-115 -->\nConverted to Task `ARCH-115`: `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        }
+      ],
+      "stopAndRecovery": {
+        "beforeFirstMarker": "Restore #2079 and every changed B1 body from the prerequisite snapshots.",
+        "afterAnyMarker": "Preserve append-only markers; reopen premature closures, restore a P label only when finalization did not complete, then idempotently roll forward or return the row to OWNER_REVIEW."
+      }
+    }
+  },
+  "batchResults": {
+    "B1": {
+      "result": "PASS",
+      "completedAt": "2026-08-30T05:43:01Z",
+      "authorizationCommit": "0c4d1cb6c4e50f14d53dae7abb71a3b178882bf5",
+      "rollbackTriggered": false,
+      "independentPostwriteVerification": {
+        "verdict": "PASS",
+        "verifiedThrough": "2026-08-30T05:46:04Z",
+        "verifier": "snapshot_b1_issues",
+        "parentMapRows": 55,
+        "parentMapUniqueIssueIds": 55,
+        "exactTaskOwnerRows": [2063, 2084, 2102, 2115],
+        "originalBodiesPreserved": true,
+        "exactTaskMarkers": true,
+        "labelsParentsAndDependenciesPreserved": true,
+        "outOfBatch": {
+          "B2": "51/51 exact",
+          "B3": "17/17 exact",
+          "B4": "5/5 exact excluding reconciled #2514",
+          "unexplainedMutations": 0
+        }
+      },
+      "mutationOrder": {
+        "bodies": [2079, 2063, 2084, 2102, 2115],
+        "conversionFinalization": [2115, 2102, 2084, 2063],
+        "closure": [2115, 2102, 2084, 2063]
+      },
+      "population": {
+        "before": {
+          "openIssues": 281,
+          "openNativeChildren": 77
+        },
+        "after": {
+          "openIssues": 277,
+          "openNativeChildren": 73
+        },
+        "auditCommand": "node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota",
+        "auditExitCode": 0,
+        "examinedOpenIssues": 277,
+        "examinedOpenNativeChildren": 73
+      },
+      "canonicalParent": {
+        "issue": 2079,
+        "state": "OPEN",
+        "updatedAt": "2026-08-30T05:42:09Z",
+        "bodySha256": "d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",
+        "mapRows": 55
+      },
+      "rows": [
+        {
+          "issue": 2063,
+          "taskId": "AGREEMENT-005",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:43:01Z",
+          "updatedAt": "2026-08-30T05:43:01Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "f3d869ef7cf0ec07e2742dd85c9864eb18c0a3f74316bae01479d09bc42c4124",
+          "bodySha256": "4c24ed33c9c1bf1278783ff918fa97c4e17e96cd3ea37e0eb1ac56c9980c23db",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2063#issuecomment-5466974581",
+            "createdAt": "2026-08-30T05:42:45Z"
+          }
+        },
+        {
+          "issue": 2084,
+          "taskId": "ARCH-113",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:58Z",
+          "updatedAt": "2026-08-30T05:42:58Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "6146e760d6afe5049b52696da75db6a3a294c5e73b76bff7fecea99f3e2e22b5",
+          "bodySha256": "98f7c1dfe24bfd7302c34d7059dde278660cb82fd4257b1bb6973f0adaadff36",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2084#issuecomment-5466974104",
+            "createdAt": "2026-08-30T05:42:38Z"
+          }
+        },
+        {
+          "issue": 2102,
+          "taskId": "ARCH-114",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:55Z",
+          "updatedAt": "2026-08-30T05:42:55Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "9d459a730d44f901554e6289e8f9cf0e003902eca3efccc0544f8116470517d6",
+          "bodySha256": "efd94651d7a3636d4edbffd2e90658bdb7e7813acd02348242b1b1613866c03b",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2102#issuecomment-5466973510",
+            "createdAt": "2026-08-30T05:42:30Z"
+          }
+        },
+        {
+          "issue": 2115,
+          "taskId": "ARCH-115",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:51Z",
+          "updatedAt": "2026-08-30T05:42:51Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "d89ee42a5bb7cc021c4dc059a4cc2a9526e4ade80815a3d5052f107ea512f839",
+          "bodySha256": "891fb9140b8247e4a579db8506e1a28c1bacd17a49880b25abb91a299bfd1bad",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2115#issuecomment-5466972941",
+            "createdAt": "2026-08-30T05:42:22Z"
+          }
+        }
+      ]
+    }
   },
   "parentSnapshots": [
     {
@@ -170,9 +498,9 @@
             "url": "https://github.com/woojubb/robota/issues/2063",
             "title": "[TRACKING] P1 architecture: route every InteractiveSession construction through one recipe kernel"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2063",
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
         },
         {
@@ -335,9 +663,9 @@
             "url": "https://github.com/woojubb/robota/issues/2084",
             "title": "P1 runtime leaf: introduce the sole SessionRecipe construction kernel"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2084",
+          "currentExecutionOwner": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md"
         },
         {
@@ -511,9 +839,9 @@
             "url": "https://github.com/woojubb/robota/issues/2102",
             "title": "P1 runtime leaf: route query and AgentRuntime factories through SessionRecipe"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2102",
+          "currentExecutionOwner": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md"
         },
         {
@@ -588,9 +916,9 @@
             "url": "https://github.com/woojubb/robota/issues/2115",
             "title": "P1 runtime leaf: route interactive runtime through SessionRecipe and remove the public test escape hatch"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2115",
+          "currentExecutionOwner": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
         },
         {
@@ -1308,7 +1636,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -1316,8 +1644,8 @@
         "path": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task AGREEMENT-005, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2096,7 +2424,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -2104,8 +2432,8 @@
         "path": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-113, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3106,7 +3434,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -3114,8 +3442,8 @@
         "path": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-114, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3501,7 +3829,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -3509,8 +3837,8 @@
         "path": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-115, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,

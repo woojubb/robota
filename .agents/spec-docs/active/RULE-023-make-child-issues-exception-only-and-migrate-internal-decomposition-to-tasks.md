@@ -308,18 +308,18 @@ None
       this work does not mutate unlisted non-child Issues.
 - [x] TC-04: RULE-021 no longer claims issue #2490, its Task is archived as `superseded`, its spec is
       archived as `rejected`, and the ordinary triage audit no longer treats issue #2490 as Task-linked.
-- [ ] TC-05: work unit A passes the targeted Vitest suite, `pnpm harness:scan`, and
+- [x] TC-05: work unit A passes the targeted Vitest suite, `pnpm harness:scan`, and
       `pnpm harness:verify -- --base-ref origin/develop`, merges into `develop`, and merge read-back proves
       the policy commit is an ancestor of fresh `origin/develop` before any historical Issue mutation;
       PROC-017 conversion-evidence and plan-order suites remain green.
-- [ ] TC-06: the durable work-unit-B manifest covers 100% of the fresh open-child population exactly once;
+- [x] TC-06: the durable work-unit-B manifest covers 100% of the fresh open-child population exactly once;
       every `RETAIN` row has observable external-lifecycle evidence beyond Task priority/verification,
       independent reviewer identity/date/`RETAIN` verdict, every `ABSORB` row has a canonical parent and
       Task owner, every parent state/map is decided once per
       complete group, and every uncertain/security/data-correctness/active-owner row is held for review.
       The manifest fixes B1 to `{issue #2063, issue #2084, issue #2102, issue #2115}` and B4 holds issue
       number 2514 for PROC-017 closeout.
-- [ ] TC-07: the pilot's captured before state, applied body/state/Task mapping, immediate GitHub read-back,
+- [x] TC-07: the pilot's captured before state, applied body/state/Task mapping, immediate GitHub read-back,
       and repository/live audits agree for all four frozen B1 rows; each affected parent map is written
       atomically once for that batch snapshot, and a failed write leaves or restores an open child with no lost history.
 - [ ] TC-08: named batches B1–B4 each pass their own recommendation/depth gate and repository evidence PR;

@@ -46,11 +46,11 @@ requested queue-consolidation outcome.
       exact examined denominator and dispositions.
 - [x] TC-04 — reconcile `RULE-021`/`#2490` while preserving the delivered history and rejecting only the
       superseded policy/current source link.
-- [ ] TC-05 — verify, review, merge, and read back work unit A on fresh `origin/develop` before any live
+- [x] TC-05 — verify, review, merge, and read back work unit A on fresh `origin/develop` before any live
       historical Issue mutation.
-- [ ] TC-06 — freeze and independently cross-review a durable work-unit-B manifest covering every fresh
+- [x] TC-06 — freeze and independently cross-review a durable work-unit-B manifest covering every fresh
       open native child exactly once under the approved disposition rubric.
-- [ ] TC-07 — run the B1 non-security pilot with captured before state, parent/Task-first mutation,
+- [x] TC-07 — run the B1 non-security pilot with captured before state, parent/Task-first mutation,
       immediate GitHub read-back, and repository/live audit agreement.
 - [ ] TC-08 — run fixed serial batches B2–B4 with their own recommendation/depth gates and evidence PRs,
       preserving external lifecycles, owners, Tasks, PRs, labels, dependency edges, and all history.
@@ -61,6 +61,14 @@ requested queue-consolidation outcome.
       the worktree is clean, and fresh `develop` contains the entire policy and migration record.
 
 ## Progress
+
+- 2026-08-30 — Work unit A merged as PR #2548 and the prerequisite/continuation corrections merged as
+  PRs #2551 and #2553 before live mutation. The durable 78-row manifest received an independently
+  reviewed B1 authorization at `0c4d1cb6c`. B1 updated issue #2079's complete 55-row current map, finalized
+  exact Task markers for issue #2063, issue #2084, issue #2102, and issue #2115, removed their P labels, and closed all four
+  `NOT_PLANNED` in reverse dependency order. Immediate read-back preserved bodies/history, work-kind
+  labels, parents, and dependency edges; the official audit moved from 281/77 to 277/73 and exited 0.
+  No rollback was triggered. B2–B4 remain held for their own reviews and evidence PRs.
 
 - 2026-08-30 — Work unit A implementation is locally complete through TC-04. After rebasing onto fresh
   `origin/develop`, the focused triage and PROC-017 compatibility suites passed 211/211 tests and all
