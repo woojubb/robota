@@ -606,6 +606,10 @@ export function classifyPackageManifestChange({ before, after }) {
 
 const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set(['lint:fix', 'lint:fix:staged']);
 
+function isDeveloperQualityScript(name) {
+  return DEVELOPER_QUALITY_SCRIPT_NAMES.has(name) || name.startsWith('harness:');
+}
+
 export function classifyRootManifestChange({ before, after }) {
   const changedKeys = changedManifestKeys(before, after);
   const changedScriptKeys =
@@ -613,8 +617,7 @@ export function classifyRootManifestChange({ before, after }) {
       ? changedManifestKeys(before?.scripts ?? {}, after?.scripts ?? {})
       : [];
   const developerQualityOnly =
-    changedScriptKeys.length > 0 &&
-    changedScriptKeys.every((key) => DEVELOPER_QUALITY_SCRIPT_NAMES.has(key));
+    changedScriptKeys.length > 0 && changedScriptKeys.every((key) => isDeveloperQualityScript(key));
 
   return {
     kind: developerQualityOnly ? 'developer-quality-only' : 'workspace-wide',

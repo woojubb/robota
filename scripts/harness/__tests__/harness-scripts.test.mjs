@@ -734,6 +734,27 @@ describe('classifyRootManifestChange', () => {
     });
   });
 
+  it('recognizes root harness command changes as developer-quality-only', () => {
+    const after = structuredClone(before);
+    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
+    after.scripts['harness:test'] = 'node scripts/harness/harness-test-tiers.mjs --tier contracts';
+
+    expect(classifyRootManifestChange({ before, after })).toEqual({
+      kind: 'developer-quality-only',
+      changedKeys: ['scripts'],
+      changedScriptKeys: ['harness:work-run', 'harness:test'],
+      workspaceWide: false,
+    });
+  });
+
+  it('fails closed when a product test command changes beside harness commands', () => {
+    const after = structuredClone(before);
+    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
+    after.scripts.test = 'pnpm -r test --changed';
+
+    expect(classifyRootManifestChange({ before, after }).workspaceWide).toBe(true);
+  });
+
   it('fails closed when a build script changes beside a fixer command', () => {
     const after = structuredClone(before);
     after.scripts['lint:fix'] = 'prettier --write .';
