@@ -11,12 +11,13 @@
     "openNativeChildren": 78
   },
   "frozenBatch": {
-    "name": "B1 prerequisite candidates",
+    "name": "B1 approved migration batch",
     "issueIds": [2063, 2084, 2102, 2115],
-    "mutationAuthorized": false
+    "mutationAuthorized": true
   },
   "counts": {
-    "OWNER_REVIEW": 78,
+    "OWNER_REVIEW": 74,
+    "ABSORB": 4,
     "B3": 17,
     "B2": 51,
     "B1": 4,
@@ -27,8 +28,19 @@
       "capturedFrom": "2026-08-30T05:27:29Z",
       "capturedThrough": "2026-08-30T05:27:42Z",
       "base": "af0e4f747bad3b42337848ff0da21518a8c54c81",
-      "reviewStatus": "REQUIRES_REVIEW_AFTER_CORRECTION",
-      "mutationAuthorized": false,
+      "reviewStatus": "APPROVED",
+      "mutationAuthorized": true,
+      "ownerApproval": {
+        "date": "2026-08-30",
+        "instruction": "너가 타당한 근거와 함께 추천안을 제안하면 그게 타당할 경우 승인한다.",
+        "appliedRecommendation": "Proceed with only B1 after reconciling #2514 to a 77→73 denominator and adding mandatory Task-marker read-back plus P-label removal; the measured conditions hold."
+      },
+      "independentReview": {
+        "date": "2026-08-30",
+        "reviewer": "review_b1_task_mapping",
+        "verdict": "APPROVE",
+        "actionableFindings": 0
+      },
       "preMutationPopulation": {
         "openIssues": 281,
         "openNativeChildren": 77
@@ -184,7 +196,7 @@
       "rows": [
         {
           "issue": 2063,
-          "disposition": "OWNER_REVIEW",
+          "disposition": "ABSORB",
           "candidateDisposition": "ABSORB",
           "taskId": "AGREEMENT-005",
           "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
@@ -193,7 +205,7 @@
         },
         {
           "issue": 2084,
-          "disposition": "OWNER_REVIEW",
+          "disposition": "ABSORB",
           "candidateDisposition": "ABSORB",
           "taskId": "ARCH-113",
           "taskPath": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
@@ -202,7 +214,7 @@
         },
         {
           "issue": 2102,
-          "disposition": "OWNER_REVIEW",
+          "disposition": "ABSORB",
           "candidateDisposition": "ABSORB",
           "taskId": "ARCH-114",
           "taskPath": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
@@ -211,7 +223,7 @@
         },
         {
           "issue": 2115,
-          "disposition": "OWNER_REVIEW",
+          "disposition": "ABSORB",
           "candidateDisposition": "ABSORB",
           "taskId": "ARCH-115",
           "taskPath": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
@@ -1511,7 +1523,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -1519,8 +1531,8 @@
         "path": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task AGREEMENT-005, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2299,7 +2311,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -2307,8 +2319,8 @@
         "path": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-113, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3309,7 +3321,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -3317,8 +3329,8 @@
         "path": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-114, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3704,7 +3716,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -3712,8 +3724,8 @@
         "path": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "OWNER_REVIEW until the candidate Task is readable on develop; then fresh B1 review may approve ABSORB",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-08-30 — exact canonical parent #2079, Task ARCH-115, and terminal disposition CLOSED/NOT_PLANNED independently reviewed; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
