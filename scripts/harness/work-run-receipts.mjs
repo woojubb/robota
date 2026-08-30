@@ -25,6 +25,9 @@ function exclusionCohort(state) {
 
 export function projectLocalTerminalWorkRun(run) {
   const state = reduceWorkRun(run?.events);
+  if (run?.runId !== state.runId) {
+    throw new Error('local work-run state run ID does not match its event stream');
+  }
   if (state.status !== 'abandoned') return null;
   const terminal = run.events.at(-1);
   if (terminal?.type !== 'work.abandoned') {
@@ -91,6 +94,19 @@ export function exclusionReceipt(run, state, identity) {
     events: run.events,
     durations: projectWorkRunDurations(run.events),
     timestamps: { claimedAt: run.events[0].at, excludedAt: excluded.at },
+  };
+}
+
+export function stateLostReceipt(runId, identity) {
+  return {
+    schemaVersion: 1,
+    disposition: 'invalid',
+    reason: 'state-lost',
+    runId,
+    generation: 0,
+    revision: 0,
+    identity: structuredClone(identity),
+    timestamps: { claimedAt: null, readyAt: null },
   };
 }
 

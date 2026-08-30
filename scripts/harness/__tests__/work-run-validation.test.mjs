@@ -39,11 +39,11 @@ const identity = {
   repository: 'woojubb/robota',
   branch: 'codex/work',
   baseCommit: 'b'.repeat(40),
-  headCommit: 'h'.repeat(40),
-  headTree: 't'.repeat(40),
-  commitOids: ['h'.repeat(40)],
+  headCommit: 'c'.repeat(40),
+  headTree: 'e'.repeat(40),
+  commitOids: ['c'.repeat(40)],
   trailerDigest: 'd'.repeat(64),
-  ownerFingerprint: 'o'.repeat(64),
+  ownerFingerprint: 'f'.repeat(64),
 };
 const fixtureRoots = [];
 const topicSeeds = new Map();
@@ -608,6 +608,31 @@ describe('work-run validation', () => {
       reason: 'malformed-receipt',
     });
     expect(validateWorkRunReceipt({ ...validStateLost, cohort: { key: 'L2/harness' } })).toEqual({
+      ok: false,
+      reason: 'malformed-receipt',
+    });
+    expect(validateWorkRunReceipt({ ...validStateLost, identity: null })).toEqual({
+      ok: false,
+      reason: 'malformed-receipt',
+    });
+  });
+
+  it('rejects unowned report-derived fields from raw included receipts', () => {
+    const events = receiptEvents({});
+    const receipt = {
+      schemaVersion: 1,
+      disposition: 'included',
+      runId: 'run-1',
+      generation: 0,
+      revision: 0,
+      identity,
+      events,
+      ...receiptProjection(events),
+      timestamps: { claimedAt: events[0].at, readyAt: events.at(-1).at },
+      timeToFirstPrMs: 1,
+    };
+
+    expect(validateWorkRunReceipt(receipt)).toEqual({
       ok: false,
       reason: 'malformed-receipt',
     });

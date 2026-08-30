@@ -6,6 +6,7 @@ import { createBranchPointer, readReusableBranchRun } from './work-run-branch-po
 import { appendWorkRunEvent, createInitialWorkRun, reduceWorkRun } from './work-run-contract.mjs';
 import { atomicJson, immutableJson, readJson, sameJson } from './work-run-json-store.mjs';
 import {
+  assertCanonicalRunId,
   assertSafeOwnedParent,
   ensureOwnedDirectory,
   workRunLockPath,
@@ -17,6 +18,7 @@ import {
   readyReceipt,
   reconcileExclusionReceipt,
   reconcileReceipt,
+  stateLostReceipt,
 } from './work-run-receipts.mjs';
 
 export { projectLocalTerminalWorkRun } from './work-run-receipts.mjs';
@@ -100,7 +102,8 @@ export class WorkRunStore {
 
   withActiveRun({ branch, identity }, action) {
     return this.withLock(`branch-${branchKey(branch)}`, () => {
-      const run = this.reusableRun(this.pointerPath(branch), branch, identity);
+      const currentIdentity = typeof identity === 'function' ? identity() : identity;
+      const run = this.reusableRun(this.pointerPath(branch), branch, currentIdentity);
       return run === null ? null : action(run);
     });
   }
@@ -264,6 +267,7 @@ export class WorkRunStore {
           if (typeof pointer.runId !== 'string' || pointer.runId.length === 0) {
             throw new Error(`work-run branch pointer is invalid for ${branch}`);
           }
+          assertCanonicalRunId(pointer.runId);
           if (existsSync(this.statePath(pointer.runId))) {
             let pointedRun;
             try {
@@ -275,18 +279,14 @@ export class WorkRunStore {
               throw new Error(`branch points to an active work run: ${pointer.runId}`);
             }
           }
+          if (pointer.runId !== runId) {
+            throw new Error(
+              `state-lost recovery run ID does not match branch pointer: ${pointer.runId}`,
+            );
+          }
         }
 
-        const receipt = {
-          schemaVersion: 1,
-          disposition: 'invalid',
-          reason: 'state-lost',
-          runId,
-          generation: 0,
-          revision: 0,
-          identity: structuredClone(identity),
-          timestamps: { claimedAt: null, readyAt: null },
-        };
+        const receipt = stateLostReceipt(runId, identity);
         const receiptPath = this.receiptPath(runId, 0, 0);
         immutableJson(receiptPath, receipt, this.root);
         return { receiptPath, receipt };

@@ -10,6 +10,7 @@ import {
 import path from 'node:path';
 
 import { projectLocalTerminalWorkRun, WORK_RUN_LOCAL_DIR } from './work-run-store.mjs';
+import { assertCanonicalRunId } from './work-run-paths.mjs';
 import { validateWorkRunReceipt } from './work-run-validation.mjs';
 import { normalizeWorkRunReceipt } from './work-run-report-metrics.mjs';
 
@@ -116,7 +117,10 @@ function readDescriptorText(file, state, options, reasons, sourcePath) {
   let descriptor;
   let result;
   try {
-    descriptor = options.openFile(file, noFollowFlags(constants.O_RDONLY));
+    descriptor = options.openFile(
+      file,
+      noFollowFlags(constants.O_RDONLY | (constants.O_NONBLOCK ?? 0)),
+    );
     const initial = options.fstatFile(descriptor);
     const remainingTotalBytes = options.maxTotalBytes - state.totalBytes;
     if (!initial.isFile()) {
@@ -129,7 +133,7 @@ function readDescriptorText(file, state, options, reasons, sourcePath) {
     } else {
       options.afterInitialStat?.(file, descriptor);
       const maxReadBytes = Math.min(options.maxBytes, remainingTotalBytes);
-      const content = Buffer.allocUnsafe(maxReadBytes + 1);
+      const content = Buffer.allocUnsafe(Math.min(maxReadBytes + 1, initial.size + 1));
       let offset = 0;
       while (offset < content.byteLength) {
         const bytesRead = options.readChunk(
@@ -150,7 +154,7 @@ function readDescriptorText(file, state, options, reasons, sourcePath) {
       } else if (offset > remainingTotalBytes || final.size > remainingTotalBytes) {
         state.totalLimitExceeded = true;
         result = reportIssue('unavailable', reasons.totalBytes);
-      } else if (final.size !== offset) {
+      } else if (final.size !== initial.size || final.size !== offset) {
         result = reportIssue('unavailable', reasons.unreadable, sourcePath);
       } else {
         state.totalBytes += offset;
@@ -257,7 +261,17 @@ export function readWorkRunReceipts(root, options = {}) {
 
 export function readLocalWorkRunTerminals(root, options = {}) {
   const directory = path.join(root, WORK_RUN_LOCAL_DIR);
-  return readBoundedJson(directory, root, readOptions(options), LOCAL_REASONS, (value) =>
-    projectLocalTerminalWorkRun(value),
+  return readBoundedJson(
+    directory,
+    root,
+    readOptions(options),
+    LOCAL_REASONS,
+    (value, sourcePath) => {
+      const runId = assertCanonicalRunId(value?.runId);
+      if (sourcePath !== path.join(WORK_RUN_LOCAL_DIR, `${runId}.json`)) {
+        throw new Error('local work-run state path does not match its run ID');
+      }
+      return projectLocalTerminalWorkRun(value);
+    },
   ).filter(Boolean);
 }

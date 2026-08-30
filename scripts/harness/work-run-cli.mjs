@@ -264,9 +264,11 @@ function execute(input, now) {
   if (PROTECTED_BRANCHES.has(subject.branch)) {
     return { status: 'outside-protected', branch: subject.branch };
   }
-  const claimIdentity = currentClaimIdentity(context.root, subject.branch, subject.headRef);
   const transaction = store.withActiveRun(
-    { branch: subject.branch, identity: claimIdentity },
+    {
+      branch: subject.branch,
+      identity: () => currentClaimIdentity(context.root, subject.branch, subject.headRef),
+    },
     (run) => ({
       result: handleBoundCommand(command, argv, {
         context,

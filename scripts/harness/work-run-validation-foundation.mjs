@@ -57,6 +57,25 @@ export function identitiesMatch(actual, expected) {
   return IDENTITY_FIELDS.every((field) => same(actual[field], expected[field]));
 }
 
+export function validateWorkRunIdentity(identity) {
+  return (
+    exactKeys(identity, IDENTITY_FIELDS) &&
+    typeof identity.repository === 'string' &&
+    identity.repository.length > 0 &&
+    !identity.repository.includes('\0') &&
+    typeof identity.branch === 'string' &&
+    identity.branch.length > 0 &&
+    !identity.branch.includes('\0') &&
+    OID_PATTERN.test(identity.baseCommit) &&
+    OID_PATTERN.test(identity.headCommit) &&
+    OID_PATTERN.test(identity.headTree) &&
+    Array.isArray(identity.commitOids) &&
+    identity.commitOids.every((oid) => OID_PATTERN.test(oid)) &&
+    /^[0-9a-f]{64}$/.test(identity.trailerDigest) &&
+    /^[0-9a-f]{64}$/.test(identity.ownerFingerprint)
+  );
+}
+
 export function validatePostPrAuthorizationProjection(authorization) {
   if (!exactKeys(authorization, AUTHORIZATION_KEYS)) return false;
   return (

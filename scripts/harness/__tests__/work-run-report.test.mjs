@@ -5,6 +5,7 @@
 // harness-coverage: work-run-report-metrics.mjs
 import {
   appendFileSync,
+  constants,
   mkdirSync,
   openSync,
   readFileSync,
@@ -290,6 +291,32 @@ describe('work-run report', () => {
     expect(readChunk).not.toHaveBeenCalled();
   });
 
+  it('opens report inputs nonblocking and sizes each read buffer from the inspected file', () => {
+    const root = makeTemp('work-run-report-bounded-allocation-');
+    const directory = path.join(root, '.agents/evals/work-runs/run-1');
+    mkdirSync(directory, { recursive: true });
+    const text = `${JSON.stringify(includedReceipt())}\n`;
+    writeFileSync(path.join(directory, 'g0-r0.json'), text);
+    const openedFlags = [];
+    const readChunk = vi.fn(readSync);
+
+    expect(
+      readWorkRunReceipts(root, {
+        maxBytes: 1024 * 1024,
+        openFile: (file, flags) => {
+          openedFlags.push(flags);
+          return openSync(file, flags);
+        },
+        readChunk,
+      }),
+    ).toEqual([expect.objectContaining({ disposition: 'included', runId: 'run-1' })]);
+    expect(openedFlags).toHaveLength(1);
+    expect(openedFlags[0] & constants.O_NONBLOCK).toBe(constants.O_NONBLOCK);
+    expect(Math.max(...readChunk.mock.calls.map((call) => call[3]))).toBeLessThanOrEqual(
+      Buffer.byteLength(text) + 1,
+    );
+  });
+
   it('stops before reading when the aggregate receipt byte budget is exhausted', () => {
     const root = makeTemp('work-run-report-total-budget-');
     const directory = path.join(root, '.agents/evals/work-runs/run-1');
@@ -460,6 +487,41 @@ describe('work-run report', () => {
     expect(readWorkRunReceipts(root).some((receipt) => receipt.disposition === 'abandoned')).toBe(
       false,
     );
+  });
+
+  it('rejects copied, nested, and event-mismatched local terminal states', () => {
+    const root = makeTemp('work-run-report-local-correlation-');
+    const directory = path.join(root, '.agents/evals/local-metrics/work-runs');
+    mkdirSync(path.join(directory, 'nested'), { recursive: true });
+    let run = createInitialWorkRun({
+      runId: 'abandoned-run',
+      branch: 'codex/work',
+      at: '2026-08-30T00:00:00.000Z',
+    });
+    run = appendWorkRunEvent(run, {
+      type: 'work.abandoned',
+      at: '2026-08-30T00:00:01.000Z',
+      data: { reason: 'superseded' },
+    });
+    const text = `${JSON.stringify(run)}\n`;
+    writeFileSync(path.join(directory, 'abandoned-run.json'), text);
+    writeFileSync(path.join(directory, 'copied-run.json'), text);
+    writeFileSync(path.join(directory, 'nested', 'abandoned-run.json'), text);
+    writeFileSync(
+      path.join(directory, 'forged-run.json'),
+      `${JSON.stringify({ ...run, runId: 'forged-run' })}\n`,
+    );
+
+    const terminals = readLocalWorkRunTerminals(root);
+
+    expect(terminals.filter((entry) => entry.disposition === 'abandoned')).toEqual([
+      expect.objectContaining({ runId: 'abandoned-run' }),
+    ]);
+    expect(
+      terminals.filter(
+        (entry) => entry.disposition === 'invalid' && entry.reason === 'malformed-local-state',
+      ),
+    ).toHaveLength(3);
   });
 
   it('computes exact nearest-rank p50/p90 and explicit populations', () => {
@@ -634,10 +696,32 @@ describe('work-run report', () => {
   });
 
   it('keeps post-PR rework separate from the first-PR boundary', () => {
-    const report = reportWorkRuns([
-      { ...includedReceipt({ runId: 'a', wallMs: 10 }), firstPrAt: '2026-08-30T01:00:00Z' },
-      postPrReceipt({ runId: 'a', wallMs: 5 }),
-    ]);
+    const report = reportWorkRuns(
+      [includedReceipt({ runId: 'a', wallMs: 10 }), postPrReceipt({ runId: 'a', wallMs: 5 })],
+      {
+        queryPullRequest: () => ({
+          ok: true,
+          repository: 'woojubb/robota',
+          prNumber: 9,
+          pullRequests: [
+            {
+              repository: 'woojubb/robota',
+              number: 9,
+              body: 'Work-Run: a',
+              headOid: 'closure',
+              createdAt: '2026-08-30T01:00:00Z',
+              headRange: {
+                startOid: 'ready',
+                endOid: 'closure',
+                startIsAncestor: true,
+                commitRunIds: ['a'],
+              },
+              openingHeadEvidence: { ok: true, headOid: 'closure' },
+            },
+          ],
+        }),
+      },
+    );
     expect(report.firstPrRuns).toHaveLength(1);
     expect(report.reworkByGround).toEqual({ 'red-check': { count: 1, wallMs: 5 } });
   });

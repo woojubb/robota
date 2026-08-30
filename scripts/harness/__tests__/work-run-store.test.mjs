@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -374,6 +375,40 @@ describe('work-run store', () => {
     expect(store.read(run.runId).events.at(-1)?.type).toBe('work.bound');
   });
 
+  it('resolves the active-run identity only after acquiring the branch lock', () => {
+    const root = makeTemp('work-run-identity-lock-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    let insideBranchLock = false;
+    class ObservedStore extends WorkRunStore {
+      withLock(key, action) {
+        if (!key.startsWith('branch-')) return super.withLock(key, action);
+        return super.withLock(key, () => {
+          insideBranchLock = true;
+          try {
+            return action();
+          } finally {
+            insideBranchLock = false;
+          }
+        });
+      }
+    }
+    const store = new ObservedStore({ root, gitCommonDir: join(root, '.git') });
+    const run = store.claim({ branch: identity.branch });
+
+    expect(
+      store.withActiveRun(
+        {
+          branch: identity.branch,
+          identity: () => {
+            expect(insideBranchLock).toBe(true);
+            return claimIdentity;
+          },
+        },
+        (activeRun) => activeRun.runId,
+      ),
+    ).toBe(run.runId);
+  });
+
   it('claims collision-resistant runs and serializes atomic transitions', () => {
     const root = makeTemp('work-run-store-');
     mkdirSync(join(root, '.git'), { recursive: true });
@@ -707,5 +742,18 @@ describe('work-run store', () => {
       /branch points to an active work run/i,
     );
     expect(existsSync(store.receiptPath('lost-run', 0, 0))).toBe(false);
+  });
+
+  it('binds state-lost recovery to the branch pointer run ID', () => {
+    const root = makeTemp('work-run-recover-pointer-correlation-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const pointed = store.claim({ branch: identity.branch });
+    rmSync(store.statePath(pointed.runId));
+
+    expect(() => store.recoverStateLost({ runId: 'attacker-run', identity })).toThrow(
+      /does not match branch pointer/i,
+    );
+    expect(existsSync(store.receiptPath('attacker-run', 0, 0))).toBe(false);
   });
 });

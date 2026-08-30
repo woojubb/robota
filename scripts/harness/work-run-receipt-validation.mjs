@@ -10,7 +10,23 @@ import {
   receiptPathCoordinates,
   same,
   validatePostPrAuthorizationProjection,
+  validateWorkRunIdentity,
 } from './work-run-validation-foundation.mjs';
+
+const INCLUDED_RECEIPT_KEYS = Object.freeze([
+  'schemaVersion',
+  'disposition',
+  'runId',
+  'generation',
+  'revision',
+  'identity',
+  'cohort',
+  'events',
+  'durations',
+  'timestamps',
+]);
+const POST_PR_RECEIPT_KEYS = Object.freeze([...INCLUDED_RECEIPT_KEYS, 'ground', 'authorization']);
+const EXCLUDED_RECEIPT_KEYS = Object.freeze([...INCLUDED_RECEIPT_KEYS, 'reason']);
 
 const STATE_LOST_RECEIPT_KEYS = Object.freeze([
   'schemaVersion',
@@ -22,6 +38,10 @@ const STATE_LOST_RECEIPT_KEYS = Object.freeze([
   'identity',
   'timestamps',
 ]);
+
+function hasOnlyKeys(value, keys) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
 
 function decodeReceipt(receiptValue) {
   try {
@@ -42,6 +62,7 @@ function decodeReceipt(receiptValue) {
       !exactKeys(receipt, STATE_LOST_RECEIPT_KEYS) ||
       receipt.generation !== 0 ||
       receipt.revision !== 0 ||
+      !validateWorkRunIdentity(receipt.identity) ||
       !timestampsValid
     ) {
       throw new Error();
@@ -129,6 +150,15 @@ export function validateWorkRunReceipt(receiptValue, { receiptPath = null } = {}
   if (receipt.disposition === 'invalid') return { ok: true, receipt, state };
   if (!['included', 'excluded'].includes(receipt.disposition)) {
     return { ok: false, reason: 'unsupported-disposition' };
+  }
+  const expectedKeys =
+    receipt.disposition === 'excluded'
+      ? EXCLUDED_RECEIPT_KEYS
+      : receipt.generation === 0
+        ? INCLUDED_RECEIPT_KEYS
+        : POST_PR_RECEIPT_KEYS;
+  if (!hasOnlyKeys(receipt, expectedKeys)) {
+    return { ok: false, reason: 'malformed-receipt' };
   }
   if (!validateProjection(receipt, state) || !validateTerminal(receipt, state)) {
     return { ok: false, reason: 'malformed-receipt' };
