@@ -145,10 +145,15 @@ describe('repository-check ownership', () => {
   it('assigns harness self-tests to exactly one owner in each aggregate execution graph', () => {
     const localGate = readFileSync('scripts/harness/verify-like-ci.mjs', 'utf8');
     const prePushGate = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const prePushVerification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
     expect(localGate).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate).toContain("'--skip-typecheck'");
-    expect(prePushGate).toContain("'--skip-repository-check',\n        'harness-tests'");
+    expect(prePushGate).toContain('runPrePushVerification');
+    expect(prePushVerification).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
     expect(prePushGate).toContain("['pnpm', ['harness:test:contracts']]");
     expect(prePushGate).toContain("['pnpm', ['harness:test:hermetic']]");
@@ -460,7 +465,10 @@ describe('pre-push hook', () => {
   });
 
   it('keeps dependent scope expansion opt-in for pre-push', () => {
-    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const content = [
+      readFileSync('scripts/harness/pre-push.mjs', 'utf8'),
+      readFileSync('scripts/harness/pre-push-verification-execution.mjs', 'utf8'),
+    ].join('\n');
 
     expect(content).toContain('HARNESS_PRE_PUSH_MODE');
     expect(content).toContain('--skip-dependent-scopes');
@@ -475,11 +483,14 @@ describe('pre-push hook', () => {
   });
 
   it('threads the one resolved base plan through every pre-push consumer', () => {
-    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const content = [
+      readFileSync('scripts/harness/pre-push.mjs', 'utf8'),
+      readFileSync('scripts/harness/pre-push-verification-execution.mjs', 'utf8'),
+    ].join('\n');
 
-    expect(content).toContain('baseRef: basePlan.classificationBaseRef');
-    expect(content).toContain('baseRef: basePlan.decisionBaseRef');
-    expect(content).toContain('baseRef: basePlan.receiptBaseRef');
+    expect(content).toContain('basePlan.classificationBaseRef');
+    expect(content).toContain('basePlan.decisionBaseRef');
+    expect(content).toContain('basePlan.receiptBaseRef');
     expect(content).toContain('const baseArgs = basePlan.baseArgs');
   });
 
