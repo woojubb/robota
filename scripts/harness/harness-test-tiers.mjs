@@ -82,7 +82,6 @@ export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/scan-conflict-markers.test.mjs',
   'scripts/harness/__tests__/scan-deprecated-markers.test.mjs',
   'scripts/harness/__tests__/scan-dist-freshness.test.mjs',
-  'scripts/harness/__tests__/scan-file-size.test.mjs',
   'scripts/harness/__tests__/scan-helper-limits.test.mjs',
   'scripts/harness/__tests__/scan-interface-runtime.test.mjs',
   'scripts/harness/__tests__/scan-legacy-typescript.test.mjs',
@@ -99,7 +98,6 @@ export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/scan-vitest-resource-ceiling.test.mjs',
   'scripts/harness/__tests__/task-lifecycle.test.mjs',
   'scripts/harness/__tests__/tree-prerequisites.test.mjs',
-  'scripts/harness/__tests__/verification-receipt.test.mjs',
   'scripts/harness/__tests__/workspace-check-batches.test.mjs',
   'scripts/harness/__tests__/worktree-gate.test.mjs',
 ]);
