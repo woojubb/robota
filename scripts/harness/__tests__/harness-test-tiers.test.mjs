@@ -223,6 +223,31 @@ describe('harness test tiers', () => {
     }
   });
 
+  it('isolates process-heavy contract tests without duplicate or missing execution', () => {
+    const { ISOLATED_CONTRACT_TEST_FILES, classifyHarnessTestFiles, testInvocationsForTier } =
+      tierOwner;
+    const tiers = classifyHarnessTestFiles(REPO_ROOT);
+    const invocations = testInvocationsForTier(tiers, 'contracts');
+    const executed = invocations.flat();
+
+    expect(ISOLATED_CONTRACT_TEST_FILES).toEqual([
+      'scripts/harness/__tests__/hook-reading-matches-bash.test.mjs',
+    ]);
+    expect(invocations.slice(1)).toEqual(ISOLATED_CONTRACT_TEST_FILES.map((file) => [file]));
+    expect(invocations[0]).not.toEqual(expect.arrayContaining(ISOLATED_CONTRACT_TEST_FILES));
+    expect(executed).toHaveLength(new Set(executed).size);
+    expect(executed.sort()).toEqual(tiers.contract);
+  });
+
+  it('keeps the complete tier exact when isolated tests are scheduled separately', () => {
+    const { classifyHarnessTestFiles, testInvocationsForTier } = tierOwner;
+    const tiers = classifyHarnessTestFiles(REPO_ROOT);
+    const executed = testInvocationsForTier(tiers, 'all').flat();
+
+    expect(executed).toHaveLength(new Set(executed).size);
+    expect(executed.sort()).toEqual(tiers.all);
+  });
+
   it('declares only files that exist', async () => {
     const { HERMETIC_TEST_FILES } = tierOwner;
     for (const file of HERMETIC_TEST_FILES) {

@@ -117,7 +117,10 @@ function runBashBatch(commands, root) {
       'done',
     ].join('\n');
     const child = spawn('bash', ['-c', batch, '_', commands, root, process.env.PATH], {
-      timeout: 30_000,
+      // This is a dead-child bound, not a performance budget. The file runs in its own contract-test
+      // process so normal suite contention cannot consume the bound, while slower CI hosts retain a
+      // finite failure mode.
+      timeout: 60_000,
     });
     let stderr = '';
     child.stderr.on('data', (chunk) => {
@@ -185,7 +188,7 @@ async function primeBashCorpus() {
 
 beforeAll(async () => {
   await primeBashCorpus();
-}, 45_000);
+}, 90_000);
 
 /** Did bash actually invoke `git <verb>`? The oracle — real shell semantics, no parser involved. */
 function bashRuns(command, verb) {
