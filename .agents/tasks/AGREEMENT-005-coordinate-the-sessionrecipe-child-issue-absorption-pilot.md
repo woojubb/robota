@@ -32,6 +32,7 @@ delivered.
 - [x] TC-03 — Apply and immediately read back the four-row B1 Issue/body/state migration only after a fresh review.
 - [x] TC-04 — Reconcile the live hierarchy from 77 to 73 open children and account for all original 78 rows, including issue #2514 as already `CLOSED/COMPLETED`.
 - [x] TC-05 — Land the B1 repository evidence while keeping B2/B3/B4 Issue state unchanged.
+- [ ] TC-06 — Keep AGREEMENT-005 `in-progress` until ARCH-113, ARCH-114, and ARCH-115 each have `status: done`, a `completed:` date, and their exact record under `.agents/tasks/completed/`; then update and read back GitHub issue #2079's rows for GitHub issue #2084, GitHub issue #2102, and GitHub issue #2115 so each names its exact completed Task path through a resolvable full-SHA blob link before completing this AGREEMENT.
 
 After the migration pilot, deliver ARCH-113 as the sole normalized construction kernel, ARCH-114 after
 ARCH-113, and ARCH-115 after both predecessors. Close this AGREEMENT only when all three child Tasks are
@@ -61,6 +62,11 @@ done and issue #2079's current execution map reflects their terminal evidence.
 
 - Verify each child independently under its own package tests and affected-scope build.
 - Verify the repository constructor guard permits exactly the intended kernel production site.
+- Assert each child has `status: done`, a `completed:` date, and its exact file under `.agents/tasks/completed/`, with the former active path absent.
+- Fetch GitHub issue #2079's body, parse the `Related execution records` table, and assert these exact mappings plus a resolvable full 40-hex commit-SHA blob link to the same path in each row:
+  - GitHub issue #2084 → ARCH-113's exact current basename moved under `.agents/tasks/completed/`
+  - GitHub issue #2102 → ARCH-114's exact current basename moved under `.agents/tasks/completed/`
+  - GitHub issue #2115 → ARCH-115's exact current basename moved under `.agents/tasks/completed/`
 - Run `pnpm harness:scan` and affected verification before each delivery PR merges.
 
 ## User Execution Test Scenarios
