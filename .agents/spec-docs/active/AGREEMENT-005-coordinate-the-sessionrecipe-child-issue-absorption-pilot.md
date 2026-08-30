@@ -142,7 +142,7 @@ None
 - [x] TC-04: the pre-pilot audit reports 77 open native children after accounting for original issue #2514 as
       `CLOSED/COMPLETED`; the post-pilot audit reports 73, accounts for all original 78 rows, and reports no
       unexplained population or pagination drift.
-- [ ] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
+- [x] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
       B3, or B4 Issue is mutated by this batch.
 
 ## Test Plan
@@ -170,6 +170,21 @@ Paired execution record:
 - [ ] ARCH-113 — todo — `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`
 - [ ] ARCH-114 — todo — `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`
 - [ ] ARCH-115 — todo — `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`
+
+## B1 Evidence Landing
+
+- Evidence PR #2554 retained exact reviewed base
+  `af0e4f747bad3b42337848ff0da21518a8c54c81` and head
+  `f82f90d83ec5ac775b894fa1629d1530b691b7ce`, received `ACTIONABLE FINDINGS: 0`, had zero review
+  threads, and passed all 11 required checks after its RULE-016 body correction.
+- PR #2554 merged as `cc20654da1aad9f48c8cc57ee210275e58fc0a7d`. Fresh `origin/develop` pointed
+  to that exact merge; every one of the six merged paths and the complete reviewed tree matched the
+  reviewed head byte-for-byte.
+- The post-merge live audit exited 0 at 277 open Issues and 73 open native children. The expected live
+  child set matched exactly: B2 51/51, B3 17/17, and B4 5/5, with no unexpected row and no B2–B4
+  mutation. The closed post-merge cycle is recorded as `r20260830064155`.
+- AGREEMENT-005 remains `in-progress`: this evidence completes only the migration pilot criteria;
+  ARCH-113, ARCH-114, and ARCH-115 remain `todo` and retain their declared dependency order.
 
 ## Approval Recommendation
 
