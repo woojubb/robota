@@ -2,6 +2,7 @@ import {
   exactWorkRunReceiptTrailers,
   workRunReceiptTrailers,
 } from './work-run-commit-trailers.mjs';
+import { generationZeroReceiptRevision } from './work-run-validation-foundation.mjs';
 
 const PAGE_SIZE = 100;
 
@@ -23,10 +24,16 @@ function queryArgs(repository, startOid, page) {
 function containsOpeningReceipt(commits, expectedRunId) {
   return commits.some((commit) => {
     const message = commit?.commit?.message ?? '';
-    if (!workRunReceiptTrailers(message).receiptIds.includes('g0-r0')) return false;
+    if (
+      !workRunReceiptTrailers(message).receiptIds.some(
+        (receiptId) => generationZeroReceiptRevision(receiptId) !== null,
+      )
+    )
+      return false;
     const trailers = exactWorkRunReceiptTrailers(message);
     return (
-      trailers.receiptId === 'g0-r0' && (expectedRunId === null || trailers.runId === expectedRunId)
+      generationZeroReceiptRevision(trailers.receiptId) !== null &&
+      (expectedRunId === null || trailers.runId === expectedRunId)
     );
   });
 }

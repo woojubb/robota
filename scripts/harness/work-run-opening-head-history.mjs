@@ -2,7 +2,10 @@ import {
   exactWorkRunReceiptTrailers,
   workRunReceiptTrailers,
 } from './work-run-commit-trailers.mjs';
-import { MAX_RANGE_COMMITS } from './work-run-validation-foundation.mjs';
+import {
+  generationZeroReceiptRevision,
+  MAX_RANGE_COMMITS,
+} from './work-run-validation-foundation.mjs';
 
 const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
@@ -59,9 +62,10 @@ function initialReceiptHeads(commits, expectedRunId) {
   const matches = [];
   for (const commit of commits.values()) {
     const trailers = workRunReceiptTrailers(commit.message);
-    if (!trailers.receiptIds.includes('g0-r0')) continue;
+    if (!trailers.receiptIds.some((receiptId) => generationZeroReceiptRevision(receiptId) !== null))
+      continue;
     const exact = exactWorkRunReceiptTrailers(commit.message);
-    if (exact.receiptId !== 'g0-r0') continue;
+    if (generationZeroReceiptRevision(exact.receiptId) === null) continue;
     if (expectedRunId !== null && exact.runId !== expectedRunId) continue;
     matches.push({ headOid: commit.sha, runId: exact.runId });
   }
@@ -69,7 +73,9 @@ function initialReceiptHeads(commits, expectedRunId) {
 }
 
 function hasGenerationZeroTrailer(commit) {
-  return workRunReceiptTrailers(commit.message).receiptIds.includes('g0-r0');
+  return workRunReceiptTrailers(commit.message).receiptIds.some(
+    (receiptId) => generationZeroReceiptRevision(receiptId) !== null,
+  );
 }
 
 function hydrateMissingCommit(oid, commits, loadCommit, loadCommits, remaining) {

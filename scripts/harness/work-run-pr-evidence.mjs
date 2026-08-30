@@ -10,7 +10,10 @@ import { attestedOpeningHead } from './work-run-opening-head-evidence.mjs';
 import { pullRequestTimeline } from './work-run-pr-timeline.mjs';
 import { loadPullRequestCommitAncestry } from './work-run-pr-ancestry.mjs';
 import { terminalPullRequestWorkRunId } from './work-run-pr-body.mjs';
-import { validateRemoteOpeningClosure } from './work-run-remote-closure-evidence.mjs';
+import {
+  openingReceiptCoordinates,
+  validateRemoteOpeningClosure,
+} from './work-run-remote-closure-evidence.mjs';
 import { takeWorkRunVerificationQuery } from './work-run-verification-runtime.mjs';
 
 const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -49,13 +52,17 @@ function encodedPath(value) {
 }
 
 function verifyRemoteOpeningHead(root, repository, initial, run, budget) {
-  const receiptPath = `.agents/evals/work-runs/${initial.runId}/g0-r0.json`;
   const commit = runGitHubJson(
     ['api', `/repos/${repository}/commits/${initial.headOid}`],
     run,
     root,
     budget,
   );
+  const { receiptPath } = openingReceiptCoordinates({
+    commit,
+    headOid: initial.headOid,
+    runId: initial.runId,
+  });
   const content = runGitHubJson(
     ['api', `/repos/${repository}/contents/${encodedPath(receiptPath)}?ref=${initial.headOid}`],
     run,

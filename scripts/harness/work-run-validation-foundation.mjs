@@ -117,3 +117,10 @@ export function receiptPathCoordinates(receiptPath) {
   if (!match) return null;
   return { runId: match[1], generation: Number(match[2]), revision: Number(match[3]) };
 }
+
+export function generationZeroReceiptRevision(receiptId) {
+  const match = /^g0-r(0|[1-9]\d*)$/u.exec(receiptId ?? '');
+  if (!match) return null;
+  const revision = Number(match[1]);
+  return Number.isSafeInteger(revision) ? revision : null;
+}

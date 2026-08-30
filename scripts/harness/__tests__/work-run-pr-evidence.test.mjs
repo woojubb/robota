@@ -19,6 +19,7 @@ import {
   createOpeningHeadComment,
 } from '../work-run-opening-head-evidence.mjs';
 import { pullRequestTimeline } from '../work-run-pr-timeline.mjs';
+import { resolveAttestedOpeningHeadFromHistory } from '../work-run-opening-head-history.mjs';
 import {
   appendWorkRunEvent,
   cohortKey,
@@ -53,7 +54,7 @@ function openingIdentity() {
   };
 }
 
-function openingReceipt() {
+function openingReceipt(revision = 0) {
   let run = createInitialWorkRun({
     runId: 'run-1',
     at: '2026-08-29T23:59:40Z',
@@ -70,13 +71,25 @@ function openingReceipt() {
     at: '2026-08-29T23:59:43Z',
     data: { generation: 0, revision: 0 },
   });
+  for (let current = 1; current <= revision; current += 1) {
+    run = appendWorkRunEvent(run, {
+      type: 'work.reopened',
+      at: `2026-08-29T23:59:${43 + current * 2}Z`,
+      data: { ground: 'local-fix', generation: 0, revision: current },
+    });
+    run = appendWorkRunEvent(run, {
+      type: 'work.ready',
+      at: `2026-08-29T23:59:${44 + current * 2}Z`,
+      data: { generation: 0, revision: current },
+    });
+  }
   const state = reduceWorkRun(run.events);
   return {
     schemaVersion: 1,
     disposition: 'included',
     runId: 'run-1',
     generation: 0,
-    revision: 0,
+    revision,
     identity: openingIdentity(),
     events: run.events,
     durations: projectWorkRunDurations(run.events),
@@ -118,17 +131,19 @@ function excludedOpeningReceipt() {
 }
 
 function remoteOpeningClosure(receipt) {
+  const receiptId = `g0-r${receipt.revision}`;
+  const receiptPath = `.agents/evals/work-runs/run-1/${receiptId}.json`;
   const bytes = Buffer.from(`${JSON.stringify(receipt)}\n`);
   return validateRemoteOpeningClosure({
     headOid: INITIAL_HEAD,
     runId: 'run-1',
     commit: {
       sha: INITIAL_HEAD,
-      commit: { message: g0Message() },
+      commit: { message: g0Message('initial', receiptId) },
       parents: [{ sha: OPENING_PARENT }],
       files: [
         {
-          filename: '.agents/evals/work-runs/run-1/g0-r0.json',
+          filename: receiptPath,
           status: 'added',
           sha: RECEIPT_BLOB,
         },
@@ -136,7 +151,7 @@ function remoteOpeningClosure(receipt) {
     },
     content: {
       type: 'file',
-      path: '.agents/evals/work-runs/run-1/g0-r0.json',
+      path: receiptPath,
       sha: RECEIPT_BLOB,
       encoding: 'base64',
       content: bytes.toString('base64'),
@@ -151,8 +166,8 @@ function committed(sha, message, parents = []) {
   return { event: 'committed', sha, message, parents: parents.map((parent) => ({ sha: parent })) };
 }
 
-function g0Message(label = 'initial') {
-  return `${label}\n\nWork-Run: run-1\nWork-Receipt: g0-r0`;
+function g0Message(label = 'initial', receiptId = 'g0-r0') {
+  return `${label}\n\nWork-Run: run-1\nWork-Receipt: ${receiptId}`;
 }
 
 function repository() {
@@ -271,6 +286,22 @@ function successfulRunner(command, args) {
 }
 
 describe('pull-request head evidence', () => {
+  it('discovers and validates a revisioned generation-zero opening closure', () => {
+    const message = g0Message('revised opening', 'g0-r2');
+    expect(
+      resolveAttestedOpeningHeadFromHistory({
+        timeline: [committed(INITIAL_HEAD, message, [OPENING_PARENT])],
+        loadCommit: () => {
+          throw new Error('must not hydrate an already visible opening closure');
+        },
+        isAttested: () => true,
+      }),
+    ).toEqual({ headOid: INITIAL_HEAD, runId: 'run-1' });
+    expect(remoteOpeningClosure(openingReceipt(2))).toMatchObject({
+      receiptPath: '.agents/evals/work-runs/run-1/g0-r2.json',
+    });
+  });
+
   it.each([
     ['missing', 'Summary only'],
     ['mismatched', 'Work-Run: another-run'],

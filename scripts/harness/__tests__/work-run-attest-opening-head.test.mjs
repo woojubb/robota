@@ -11,7 +11,10 @@ import { pullRequestHistory } from '../work-run-git.mjs';
 import { createOpeningHeadComment } from '../work-run-opening-head-evidence.mjs';
 import { makeTemp } from './make-temp.mjs';
 
-function repository(message = 'close run\n\nWork-Run: run-1\nWork-Receipt: g0-r0') {
+function repository(
+  message = 'close run\n\nWork-Run: run-1\nWork-Receipt: g0-r0',
+  receiptId = 'g0-r0',
+) {
   const root = makeTemp('work-run-attest-');
   execFileSync('git', ['init', '-q', '-b', 'codex/measured'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Harness'], { cwd: root });
@@ -20,10 +23,10 @@ function repository(message = 'close run\n\nWork-Run: run-1\nWork-Receipt: g0-r0
     cwd: root,
   });
   execFileSync('git', ['commit', '--allow-empty', '-m', 'base'], { cwd: root });
-  const receipt = path.join(root, '.agents/evals/work-runs/run-1/g0-r0.json');
+  const receipt = path.join(root, `.agents/evals/work-runs/run-1/${receiptId}.json`);
   mkdirSync(path.dirname(receipt), { recursive: true });
   writeFileSync(receipt, '{}\n', 'utf8');
-  execFileSync('git', ['add', '.agents/evals/work-runs/run-1/g0-r0.json'], { cwd: root });
+  execFileSync('git', ['add', `.agents/evals/work-runs/run-1/${receiptId}.json`], { cwd: root });
   execFileSync('git', ['commit', '-m', message], {
     cwd: root,
   });
@@ -77,6 +80,19 @@ describe('opening-head attestation command', () => {
     });
     expect(timestampQueries).toBe(2);
     expect(calls.some((args) => args.includes(`body=${body}`))).toBe(true);
+  });
+
+  it('accepts a revisioned generation-zero closure before querying GitHub', () => {
+    const root = repository('close run\n\nWork-Run: run-1\nWork-Receipt: g0-r2', 'g0-r2');
+
+    expect(() =>
+      attestCurrentOpeningHead(root, {
+        resolvePr: () => ({ status: 'none' }),
+        run: () => {
+          throw new Error('revisioned closure reached GitHub attestation');
+        },
+      }),
+    ).toThrow('revisioned closure reached GitHub attestation');
   });
 
   it.each(['open', 'closed', 'merged'])(

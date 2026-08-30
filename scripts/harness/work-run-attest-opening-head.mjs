@@ -6,6 +6,7 @@ import { exactWorkRunReceiptTrailers } from './work-run-commit-trailers.mjs';
 import { git, pullRequestHistory, repoContext, repositoryNameFromGit } from './work-run-git.mjs';
 import { exactReceiptClosure } from './work-run-git-adapter.mjs';
 import { createOpeningHeadComment } from './work-run-opening-head-evidence.mjs';
+import { generationZeroReceiptRevision } from './work-run-validation-foundation.mjs';
 
 export function attestCurrentOpeningHead(
   root = process.cwd(),
@@ -26,10 +27,10 @@ export function attestCurrentOpeningHead(
   if (!closure) throw new Error('opening-head attestation requires a receipt-only closure commit');
   const message = git(context.root, ['show', '-s', '--format=%B', headOid]);
   const { runId, receiptId } = exactWorkRunReceiptTrailers(message);
-  if (receiptId !== 'g0-r0') {
-    throw new Error('opening-head attestation requires the g0-r0 closure commit');
+  if (generationZeroReceiptRevision(receiptId) === null) {
+    throw new Error('opening-head attestation requires a generation-zero closure commit');
   }
-  if (closure.receiptPath !== `.agents/evals/work-runs/${runId}/g0-r0.json`) {
+  if (closure.receiptPath !== `.agents/evals/work-runs/${runId}/${receiptId}.json`) {
     throw new Error('opening-head attestation receipt path does not match its trailers');
   }
   return createOpeningHeadComment(

@@ -70,7 +70,13 @@ function generationZeroClosure({
   receipt,
   runtime,
 }) {
-  const receiptPath = `.agents/evals/work-runs/${receipt.runId}/g0-r0.json`;
+  const openingReady = receipt.events?.findLast(
+    (event) => event.type === 'work.ready' && event.data?.generation === 0,
+  );
+  const openingRevision =
+    receipt.generation === 0 ? receipt.revision : openingReady?.data?.revision;
+  if (!Number.isInteger(openingRevision) || openingRevision < 0) return null;
+  const receiptPath = `.agents/evals/work-runs/${receipt.runId}/g0-r${openingRevision}.json`;
   if (!receiptPaths.includes(receiptPath)) return null;
   const oid =
     receipt.generation === 0

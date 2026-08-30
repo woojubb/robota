@@ -17,7 +17,7 @@ the rule and `work-run-contract.mjs` own its vocabulary.
 4. After final local verification and a clean tree, run
    `pnpm harness:work-run -- ready --base <base-ref>`. Commit only the emitted receipt next; the
    prepare-commit-msg hook adds the exact correlation pair.
-5. Push the g0 receipt closure, then before creating the PR run
+5. Push the latest pre-PR `g0-rN` receipt closure, then before creating the PR run
    `pnpm harness:work-run:attest`. This creates an idempotent GitHub commit comment whose server
    timestamp seals the opening head and returns only after GitHub's server timestamp has advanced to
    a later tick. Put `Work-Run: <run-id>` in the PR body. Do not use local `readyAt` as first-PR time,

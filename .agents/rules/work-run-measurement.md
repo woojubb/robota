@@ -20,7 +20,7 @@ This rule owns the lifecycle and denominator vocabulary; skills only route comma
   pairs are refused. Amend, merge, and squash sources preserve an exact pair and never invent one.
 - Ready binds repository, branch, base/head commit, head tree, correlated commits/trailer digest, schema,
   and owner fingerprint. Only one receipt-only closure commit may follow the bound ready head.
-- The pushed g0 closure is sealed before PR creation by one unedited GitHub commit comment binding its
+- The latest pre-PR `g0-rN` closure is sealed before PR creation by one unedited GitHub commit comment binding its
   run ID and head OID to a server timestamp. Attestation refuses any prior open, closed, or merged PR
   for the branch and returns only after confirming a later GitHub server timestamp tick. The PR body
   carries `Work-Run: <id>`. First-PR time comes only from GitHub `createdAt` after that pre-PR seal and
