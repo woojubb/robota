@@ -22,3 +22,4 @@
 {"runId":"r20260829125058","opened":"2026-08-29T12:50:58.849Z","closed":"2026-08-29T12:55:13.091Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":"INFRA-146"}
 {"runId":"r20260829132537","opened":"2026-08-29T13:25:37.353Z","closed":"2026-08-29T13:27:54.729Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"INFRA-146-L2"}
 {"runId":"r20260829173712","opened":"2026-08-29T17:37:12.626Z","closed":"2026-08-29T17:39:16.893Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"RULE-023 clean recovery draft passed GATE-WRITE and advanced review-ready"}
+{"runId":"r20260830042254","opened":"2026-08-30T04:22:54.956Z","closed":"2026-08-30T04:38:17.066Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"PROC-023 approved after document-specific user authorization; planning correction only"}
