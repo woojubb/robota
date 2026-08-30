@@ -237,8 +237,8 @@ Recorded as the rule's required choice rather than skipped.
 **Command:** `zsh -c 'set -e; proc024_repo=$(pwd); proc024_replay_root=$(mktemp -d /tmp/proc024-replay.XXXXXX); proc024_stage_tree="$proc024_replay_root/staged"; proc024_history_tree="$proc024_replay_root/history"; trap '\''git worktree remove --force "$proc024_stage_tree" >/dev/null 2>&1 || true; git worktree remove --force "$proc024_history_tree" >/dev/null 2>&1 || true; rmdir "$proc024_replay_root" >/dev/null 2>&1 || true'\'' EXIT; git worktree add --detach "$proc024_stage_tree" 6d1a954e5; git show --format= --binary df5d02079 | git -C "$proc024_stage_tree" apply --cached; cd "$proc024_stage_tree"; node scripts/harness/scan-user-execution-plan-order.mjs --staged; cd "$proc024_repo"; git worktree add --detach "$proc024_history_tree" 40d4fd52d; cd "$proc024_history_tree"; node scripts/harness/scan-user-execution-plan-order.mjs'`
 
 > **Contained — HARNESS-133.** The concrete command above reconstructs the exact declaration transition
-> in an isolated temporary worktree, then checks the current topic history; the existing follow-up owns
-> repository-wide command/output binding enforcement.
+> in an isolated temporary worktree, then checks the topic history pinned at completed head `40d4fd52d`;
+> the existing follow-up owns repository-wide command/output binding enforcement.
 > **Exit:** 0
 > **Output:** (last 6 of 6 line(s))
 
