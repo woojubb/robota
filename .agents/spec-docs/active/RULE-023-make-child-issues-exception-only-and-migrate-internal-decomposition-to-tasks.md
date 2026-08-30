@@ -157,6 +157,8 @@ for that combined route. Work unit A must preserve PROC-017 conversion evidence 
 Delivery is deliberately sequenced into two named work units because historical mutation before the
 new policy lands would let the old policy recreate the shape during migration:
 
+**Continuation artifacts:** `.agents/evidence/RULE-023-child-issue-migration-manifest.json`, `.agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md`, `.agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md`
+
 1. **Work unit A — policy and enforcement.** Land the consistent rule/skills, a read-only native-parent
    audit that refuses an open child with no non-empty `## Independent external lifecycle` body section,
    and the RULE-021 reconciliation for issue #2490. The audit reports an exact examined denominator and never
