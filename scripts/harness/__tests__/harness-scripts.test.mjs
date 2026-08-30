@@ -465,14 +465,15 @@ describe('pre-push hook', () => {
   });
 
   it('keeps dependent scope expansion opt-in for pre-push', () => {
-    const content = [
-      readFileSync('scripts/harness/pre-push.mjs', 'utf8'),
-      readFileSync('scripts/harness/pre-push-verification-execution.mjs', 'utf8'),
-    ].join('\n');
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const verification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
     expect(content).toContain('HARNESS_PRE_PUSH_MODE');
     expect(content).toContain('--skip-dependent-scopes');
-    expect(content).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
+    expect(verification).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
   });
 
   it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
@@ -483,14 +484,16 @@ describe('pre-push hook', () => {
   });
 
   it('threads the one resolved base plan through every pre-push consumer', () => {
-    const content = [
-      readFileSync('scripts/harness/pre-push.mjs', 'utf8'),
-      readFileSync('scripts/harness/pre-push-verification-execution.mjs', 'utf8'),
-    ].join('\n');
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const verification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
-    expect(content).toContain('basePlan.classificationBaseRef');
-    expect(content).toContain('basePlan.decisionBaseRef');
-    expect(content).toContain('basePlan.receiptBaseRef');
+    expect(content).toContain('baseRef: basePlan.classificationBaseRef');
+    expect(verification).toContain('baseRef: runtime.basePlan.classificationBaseRef ?? null');
+    expect(content).toContain('baseRef: runtime.basePlan.decisionBaseRef');
+    expect(content).toContain('baseRef: runtime.basePlan.receiptBaseRef');
     expect(content).toContain('const baseArgs = basePlan.baseArgs');
   });
 
