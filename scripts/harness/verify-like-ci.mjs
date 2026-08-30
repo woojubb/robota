@@ -600,7 +600,7 @@ export async function resolveRunContext(baseRef) {
   });
   const missingDist = findMissingDist(listBuildablePackageDirs());
   const distRequired = planRequiresPackageDist(plan);
-  const changeClassification = classifyFiles(changedFiles);
+  const changeClassification = classifyFiles(changedFiles, { rootManifestChange });
   const codeChanged = changeClassification.code;
   const productChanged = changeClassification.product;
   const tuiChanged = changeClassification.tui;

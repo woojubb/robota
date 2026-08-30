@@ -45,6 +45,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { appendFileSync } from 'node:fs';
 
+import { classifyRootManifestChange } from './shared.mjs';
+
 /**
  * Paths that are pure documentation. Workflow callers consume this classifier; they do not own a
  * second path list.
@@ -95,7 +97,7 @@ export function isHarnessOwnerPath(file) {
  * @param {string[]} files repository-relative paths changed by the PR
  * @returns {{code: boolean, reason: string}}
  */
-export function classifyFiles(files) {
+export function classifyFiles(files, { rootManifestChange = null } = {}) {
   const changed = (files ?? []).map((file) => String(file).trim()).filter(Boolean);
   if (changed.length === 0) {
     return failClosedCapabilities(
@@ -115,7 +117,11 @@ export function classifyFiles(files) {
     };
   }
 
-  const product = codeFiles.some((file) => !INFRASTRUCTURE_ONLY_PATTERN.test(file));
+  const product = codeFiles.some((file) => {
+    if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
+    if (file === 'package.json' && rootManifestChange?.workspaceWide === false) return false;
+    return true;
+  });
   return {
     code: true,
     product,
@@ -135,6 +141,27 @@ function git(args, { cwd } = {}) {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   };
+}
+
+function classifyRootManifestFromGit({ files, bases, head, cwd, runGit }) {
+  if (!files.includes('package.json')) return null;
+  const headManifest = runGit(['show', `${head}:package.json`], { cwd });
+  if (!headManifest.ok) return null;
+  try {
+    const after = JSON.parse(headManifest.stdout);
+    for (const base of bases) {
+      const baseManifest = runGit(['show', `${base}:package.json`], { cwd });
+      if (!baseManifest.ok) return null;
+      const classification = classifyRootManifestChange({
+        before: JSON.parse(baseManifest.stdout),
+        after,
+      });
+      if (classification.workspaceWide !== false) return classification;
+    }
+    return { kind: 'developer-quality-only', workspaceWide: false };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -182,7 +209,14 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
   }
 
   const sorted = [...files].sort();
-  return { ...classifyFiles(sorted), bases, files: sorted };
+  const rootManifestChange = classifyRootManifestFromGit({
+    files: sorted,
+    bases,
+    head,
+    cwd,
+    runGit,
+  });
+  return { ...classifyFiles(sorted, { rootManifestChange }), bases, files: sorted };
 }
 
 function argValue(argv, flag) {
