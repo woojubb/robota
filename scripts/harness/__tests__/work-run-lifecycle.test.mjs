@@ -336,6 +336,24 @@ describe('work-run command lifecycle', () => {
     expect(readFileSync(messageFile, 'utf8')).toBe('feat: unmeasured\n');
   });
 
+  it('rotates the run after the same branch name is deleted and recreated from newer base history', async () => {
+    const { root } = fixture();
+    const first = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    git(root, 'switch', '--quiet', 'develop');
+    write(root, 'base/recreated.txt', 'newer base for recreated branch\n');
+    commit(root, 'chore: advance base before recreating branch', {
+      paths: ['base/recreated.txt'],
+    });
+    git(root, 'branch', '-D', branch);
+    git(root, 'branch', branch, 'HEAD');
+    git(root, 'switch', '--quiet', branch);
+
+    const recreated = await workAt(root, '2000-01-01T00:00:01.000Z', 'claim');
+
+    expect(recreated.runId).not.toBe(first.runId);
+    expect(recreated.events[0].at).toBe('2000-01-01T00:00:01.000Z');
+  });
+
   it.each([
     { command: 'ready', reason: null },
     { command: 'exclude', reason: 'pure-planning-range' },

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
+import { createBranchPointer, readReusableBranchRun } from './work-run-branch-pointer.mjs';
 import { appendWorkRunEvent, createInitialWorkRun, reduceWorkRun } from './work-run-contract.mjs';
 import { atomicJson, immutableJson, readJson, sameJson } from './work-run-json-store.mjs';
 import {
@@ -26,16 +27,21 @@ const MAX_EVENTS = 10_000;
 const LOCK_TIMEOUT_MS = 2_000;
 const LOCK_WAIT_MS = 20;
 
-function branchKey(branch) {
-  return createHash('sha256').update(branch).digest('hex');
-}
+const branchKey = (branch) => createHash('sha256').update(branch).digest('hex');
 
 export class WorkRunStore {
-  constructor({ root, gitCommonDir, now = () => new Date().toISOString(), persistenceHooks = {} }) {
+  constructor({
+    root,
+    gitCommonDir,
+    now = () => new Date().toISOString(),
+    persistenceHooks = {},
+    isAncestor = null,
+  }) {
     this.root = root;
     this.gitCommonDir = gitCommonDir;
     this.now = now;
     this.persistenceHooks = persistenceHooks;
+    this.isAncestor = isAncestor;
     this.stateDir = path.join(root, WORK_RUN_LOCAL_DIR);
     this.receiptDir = path.join(root, WORK_RUN_RECEIPT_DIR);
     this.lockDir = path.join(gitCommonDir, 'robota-work-runs', 'locks');
@@ -88,20 +94,33 @@ export class WorkRunStore {
     }
   }
 
-  claim({ branch, at = this.now() }) {
+  reusableRun(pointerPath, branch, identity) {
+    return readReusableBranchRun({
+      pointerPath,
+      pointerOwner: this.gitCommonDir,
+      branch,
+      identity,
+      isAncestor: this.isAncestor,
+      statePath: (runId) => this.statePath(runId),
+      readRun: (runId) => this.read(runId),
+    });
+  }
+
+  active({ branch, identity }) {
+    return this.withLock(`branch-${branchKey(branch)}`, () =>
+      this.reusableRun(this.pointerPath(branch), branch, identity),
+    );
+  }
+
+  claim({ branch, identity, at = this.now() }) {
     return this.withLock(`branch-${branchKey(branch)}`, () => {
       const pointer = this.pointerPath(branch);
-      if (existsSync(pointer)) {
-        const existing = readJson(pointer, this.gitCommonDir);
-        if (existsSync(this.statePath(existing.runId))) {
-          const run = this.read(existing.runId);
-          if (!['abandoned', 'excluded'].includes(reduceWorkRun(run.events).status)) return run;
-        }
-      }
+      const existing = this.reusableRun(pointer, branch, identity);
+      if (existing) return existing;
       const runId = randomUUID();
       const run = createInitialWorkRun({ runId, at, branch });
       atomicJson(this.statePath(runId), run, this.root);
-      atomicJson(pointer, { branch, runId }, this.gitCommonDir);
+      atomicJson(pointer, createBranchPointer(branch, runId, identity), this.gitCommonDir);
       return run;
     });
   }

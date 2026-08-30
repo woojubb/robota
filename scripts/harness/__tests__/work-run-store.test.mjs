@@ -1,3 +1,4 @@
+// harness-coverage: work-run-branch-pointer.mjs
 // harness-coverage: work-run-json-store.mjs
 // harness-coverage: work-run-paths.mjs
 // harness-coverage: work-run-receipts.mjs
@@ -21,7 +22,7 @@ import {
   projectLocalTerminalWorkRun,
   WORK_RUN_LOCAL_DIR,
   WORK_RUN_RECEIPT_DIR,
-  WorkRunStore,
+  WorkRunStore as ProductionWorkRunStore,
 } from '../work-run-store.mjs';
 import { makeTemp } from './make-temp.mjs';
 
@@ -35,7 +36,22 @@ const identity = {
   trailerDigest: 'd'.repeat(64),
   ownerFingerprint: 'o'.repeat(64),
 };
+const claimIdentity = {
+  repository: identity.repository,
+  branchEpoch: 'e'.repeat(64),
+  headCommit: 'c'.repeat(40),
+};
 const execFileAsync = promisify(execFile);
+
+class WorkRunStore extends ProductionWorkRunStore {
+  constructor(options) {
+    super({ isAncestor: () => true, ...options });
+  }
+
+  claim(request) {
+    return super.claim({ identity: claimIdentity, ...request });
+  }
+}
 
 describe('work-run store', () => {
   it('rejects an oversized existing JSON file before returning parsed state', () => {
@@ -44,6 +60,15 @@ describe('work-run store', () => {
     writeFileSync(file, JSON.stringify({ padding: 'x'.repeat(1_048_576) }));
 
     expect(() => readJson(file, root)).toThrow(/work-run state exceeds 1 MiB/i);
+  });
+
+  it('rejects a missing claim identity before persisting any local state', () => {
+    const root = makeTemp('work-run-missing-claim-identity-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new ProductionWorkRunStore({ root, gitCommonDir: join(root, '.git') });
+
+    expect(() => store.claim({ branch: identity.branch })).toThrow(/claim requires.*identity/i);
+    expect(existsSync(join(root, WORK_RUN_LOCAL_DIR))).toBe(false);
   });
 
   it.each([
@@ -197,6 +222,67 @@ describe('work-run store', () => {
     ]);
   });
 
+  it('rotates a stale active pointer when the recreated branch is outside the initial ancestry', () => {
+    const root = makeTemp('work-run-recreated-branch-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({
+      root,
+      gitCommonDir: join(root, '.git'),
+      isAncestor: () => false,
+    });
+    const first = store.claim({
+      branch: identity.branch,
+      identity: claimIdentity,
+      at: '2026-08-30T00:00:00.000Z',
+    });
+
+    const recreated = store.claim({
+      branch: identity.branch,
+      identity: { ...claimIdentity, headCommit: 'd'.repeat(40) },
+      at: '2026-08-30T00:00:01.000Z',
+    });
+
+    expect(recreated.runId).not.toBe(first.runId);
+    expect(recreated.events[0].at).toBe('2026-08-30T00:00:01.000Z');
+  });
+
+  it('rotates an active pointer copied from a different repository', () => {
+    const root = makeTemp('work-run-repository-mismatch-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const first = store.claim({ branch: identity.branch });
+
+    const replacement = store.claim({
+      branch: identity.branch,
+      identity: { ...claimIdentity, repository: 'fork/robota' },
+    });
+
+    expect(replacement.runId).not.toBe(first.runId);
+  });
+
+  it('migrates one legacy active pointer without interrupting the current run', () => {
+    const root = makeTemp('work-run-legacy-pointer-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const run = store.claim({ branch: identity.branch });
+    writeFileSync(
+      store.pointerPath(identity.branch),
+      `${JSON.stringify({ branch: identity.branch, runId: run.runId })}\n`,
+    );
+
+    expect(store.active({ branch: identity.branch, identity: claimIdentity })?.runId).toBe(
+      run.runId,
+    );
+    expect(JSON.parse(readFileSync(store.pointerPath(identity.branch), 'utf8'))).toEqual({
+      schemaVersion: 1,
+      branch: identity.branch,
+      runId: run.runId,
+      repository: claimIdentity.repository,
+      branchEpoch: claimIdentity.branchEpoch,
+      initialHead: claimIdentity.headCommit,
+    });
+  });
+
   it('returns one active run when separate processes claim the same branch concurrently', async () => {
     const root = makeTemp('work-run-concurrent-claim-');
     mkdirSync(join(root, '.git'), { recursive: true });
@@ -207,9 +293,13 @@ describe('work-run store', () => {
       const store = new WorkRunStore({
         root: ${JSON.stringify(root)},
         gitCommonDir: ${JSON.stringify(join(root, '.git'))},
+        isAncestor: () => true,
       });
       while (Date.now() < ${startAt}) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
-      process.stdout.write(store.claim({ branch: ${JSON.stringify(identity.branch)} }).runId);
+      process.stdout.write(store.claim({
+        branch: ${JSON.stringify(identity.branch)},
+        identity: ${JSON.stringify(claimIdentity)},
+      }).runId);
     `;
 
     const results = await Promise.all(

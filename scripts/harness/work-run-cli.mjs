@@ -13,7 +13,9 @@ import {
 } from './work-run-domain.mjs';
 import {
   createRebaseProof,
+  currentClaimIdentity,
   currentIdentity,
+  isCommitAncestor,
   openPullRequestNumber,
   repoContext,
 } from './work-run-git.mjs';
@@ -34,15 +36,6 @@ function assertProductionClock(argv) {
 export function option(argv, name, fallback = null) {
   const index = argv.indexOf(name);
   return index === -1 ? fallback : (argv[index + 1] ?? fallback);
-}
-
-function pointer(store, branch) {
-  try {
-    const value = JSON.parse(readFileSync(store.pointerPath(branch), 'utf8'));
-    return store.read(value.runId);
-  } catch {
-    return null;
-  }
 }
 
 function handleCutover(command, argv, context) {
@@ -219,20 +212,26 @@ function execute(input, now) {
       'usage: work-run <claim|bind|start|phase-start|phase-complete|pause|resume|ready|reopen|exclude|abandon|recover|trailers|cutover-plan|cutover-seal>',
     );
   const context = repoContext(option(argv, '--root', process.cwd()));
-  const store = new WorkRunStore({ root: context.root, gitCommonDir: context.commonDir, now });
+  const store = new WorkRunStore({
+    root: context.root,
+    gitCommonDir: context.commonDir,
+    now,
+    isAncestor: (ancestor, descendant) => isCommitAncestor(context.root, ancestor, descendant),
+  });
   const at = now();
   const subject = resolveWorkRunSubject({ argv, currentBranch: context.branch });
+  const claimIdentity = currentClaimIdentity(context.root, subject.branch, subject.headRef);
   if (command === 'claim') {
     return PROTECTED_BRANCHES.has(subject.branch)
       ? { status: 'outside-protected', branch: subject.branch }
-      : store.claim({ branch: subject.branch, at });
+      : store.claim({ branch: subject.branch, identity: claimIdentity, at });
   }
   const cutover = handleCutover(command, argv, context);
   if (cutover !== null) return cutover;
   if (command === 'recover' && argv.includes('--state-lost')) {
     return recoverStateLost(argv, context, store, subject);
   }
-  let run = pointer(store, subject.branch);
+  const run = store.active({ branch: subject.branch, identity: claimIdentity });
   if (!run && PROTECTED_BRANCHES.has(subject.branch)) {
     return { status: 'outside-protected', branch: subject.branch };
   }

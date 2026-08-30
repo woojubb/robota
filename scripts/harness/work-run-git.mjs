@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import path from 'node:path';
 
 import { git, gitBytes, sharedGitOptions } from './work-run-git-command.mjs';
@@ -10,6 +10,7 @@ export { repoContext, repositoryNameFromGit } from './work-run-git-context.mjs';
 export { openPullRequestNumber, pullRequestHistory } from './work-run-github-pr-lookup.mjs';
 
 const MAX_CUTOVER_COMPARE_FILES = 299;
+const MAX_REFLOG_ENTRY_BYTES = 4 * 1024;
 const OBJECT_OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function digestCanonicalChanges(records) {
@@ -207,4 +208,49 @@ export function currentIdentity(root, branch, baseRef, headRef = 'HEAD', options
       .update(readFileSync(path.join(root, 'scripts/harness/work-run-contract.mjs')))
       .digest('hex'),
   };
+}
+
+function branchEpoch(root, branch, options) {
+  git(root, ['check-ref-format', `refs/heads/${branch}`], options);
+  const logPath = git(
+    root,
+    ['rev-parse', '--path-format=absolute', '--git-path', `logs/refs/heads/${branch}`],
+    options,
+  );
+  const descriptor = openSync(logPath, 'r');
+  try {
+    const buffer = Buffer.alloc(MAX_REFLOG_ENTRY_BYTES + 1);
+    const bytesRead = readSync(descriptor, buffer, 0, buffer.length, 0);
+    const newline = buffer.subarray(0, bytesRead).indexOf(10);
+    if (newline <= 0 || (newline === -1 && bytesRead === buffer.length)) {
+      throw new Error('work-run branch reflog identity is missing or oversized');
+    }
+    const entry = buffer.subarray(0, newline === -1 ? bytesRead : newline);
+    return createHash('sha256').update(entry).digest('hex');
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+export function currentClaimIdentity(root, branch, headRef = 'HEAD', options = {}) {
+  const gitOptions = sharedGitOptions(options);
+  return {
+    repository: repositoryNameFromGit(root, gitOptions),
+    branchEpoch: branchEpoch(root, branch, gitOptions),
+    headCommit: git(root, ['rev-parse', `${headRef}^{commit}`], gitOptions),
+  };
+}
+
+export function isCommitAncestor(root, ancestor, descendant, options = {}) {
+  try {
+    git(
+      root,
+      ['merge-base', '--is-ancestor', `${ancestor}^{commit}`, `${descendant}^{commit}`],
+      sharedGitOptions(options),
+    );
+    return true;
+  } catch (error) {
+    if (error?.status === 1 || error?.cause?.status === 1) return false;
+    throw new Error('work-run branch ancestry could not be verified', { cause: error });
+  }
 }
