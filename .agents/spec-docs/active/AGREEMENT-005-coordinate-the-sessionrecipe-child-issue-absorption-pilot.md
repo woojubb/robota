@@ -1,0 +1,333 @@
+---
+status: in-progress
+type: AGREEMENT
+tags: [agreement]
+lane: L2
+---
+
+# AGREEMENT-005: Coordinate the SessionRecipe child-issue absorption pilot
+
+Paired with `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`.
+Arising from [issue #2063](https://github.com/woojubb/robota/issues/2063) under canonical external
+problem [issue #2079](https://github.com/woojubb/robota/issues/2079).
+
+## Problem
+
+Replace issue #2063's GitHub-only implementation tree with one governed relationship owner while
+preserving the external problem under canonical issue #2079. The three executable causes remain
+independently verifiable Tasks; this migration does not implement them or claim their outcomes are
+delivered. The live hierarchy audit at `2026-08-29T22:49:02Z` reproduced the duplicate representation:
+all four Issues are open native children with missing external-lifecycle evidence even though their
+contents are internal implementation decomposition.
+
+## Prior Art Research
+
+Waived: this spec applies the already researched, approved, and merged RULE-023 migration mechanism to
+the fixed B1 pilot set. It introduces no new product behavior or architectural decision beyond preserving
+the four Issue bodies as one AGREEMENT relationship and three executable Tasks.
+
+## Architecture Review
+
+### Affected Scope
+
+- `.agents/evidence/RULE-023-child-issue-migration-manifest.json` — complete 78-row before-state and
+  disposition control plane.
+- The paired AGREEMENT-005 Task and three child Tasks ARCH-113 through ARCH-115.
+- GitHub issue #2079's current related-record map and issue #2063/#2084/#2102/#2115 bodies/states after
+  the prerequisite records merge to `develop`.
+
+No package/app source or runtime behavior changes in the migration prerequisite or pilot evidence PRs.
+
+### Alternatives Considered
+
+1. Retain all four Issues as an executable GitHub hierarchy.
+   - Pro: no migration writes.
+   - Con: violates merged RULE-023 because none names a distinct external lifecycle, and keeps GitHub
+     and Tasks as duplicate execution graphs.
+2. Flatten all four directly into unrelated Tasks under issue #2079.
+   - Pro: smallest relationship model.
+   - Con: loses issue #2063's shared completion boundary and dependency order.
+3. Preserve issue #2063 as AGREEMENT-005 and map its three leaves to ARCH-113/114/115.
+   - Pro: retains one shared boundary and exact dependency order while removing redundant Issue queue
+     entries.
+   - Con: requires a prerequisite merge before safe GitHub mutation and two read-back checkpoints.
+
+### Decision
+
+Choose alternative 3. Canonical issue #2079 remains open as the external problem. AGREEMENT-005 owns the
+issue #2063 relationship and ARCH-113/114/115 own the exact leaf outcomes. The prerequisite manifest keeps
+all 78 rows at `OWNER_REVIEW`, names B1's four exact candidate Tasks, and authorizes no GitHub
+mutation. After those Tasks are readable on fresh `develop`, a fresh B1 snapshot and review may change
+only `{2063,2084,2102,2115}` to `ABSORB`; all other open children remain immutable.
+
+Validated recommendation:
+
+- Reachability: each historical child URL maps to one exact Task path, and issue #2079's body will expose
+  the current map.
+- Capability preservation: full child before bodies, comments, labels, dependency edges, hashes, URLs,
+  and complete canonical-parent snapshots/maps for issues #2079, #1985, #1986, and #2512 are retained; no
+  implementation claim or delivery state is invented.
+- Adversarial pass: a missing Task on fresh `develop`, body-hash drift, parent-map write failure, state
+  mismatch, or unexpected owner signal stops the batch before the next write.
+
+### Architecture Review Checklist
+
+- [x] 영향 패키지/레이어 목록 작성 완료
+- [x] Sibling scan 완료 — the complete 78-child population and all four B1 rows were read; no B1 assignee,
+      pre-existing Task marker, linked open PR, or Issue-linked implementation branch/worktree was found.
+      The current controlled migration worktree is itself the prerequisite authoring path, and no row
+      leaves `OWNER_REVIEW` until its Task records land on `develop`.
+- [x] 대안 최소 2개 검토 완료
+- [x] 결정 근거 문서화 완료
+- [x] New-surface placement: **N/A** — no new package, app, presentation or interface surface, and
+      no layer or product-family reclassification.
+
+## Fallback & Degradation Declaration
+
+None
+
+## Solution
+
+1. Merge the frozen 78-row prerequisite manifest plus AGREEMENT-005/ARCH-113/114/115 Task records to `develop` without
+   changing GitHub.
+2. Re-fetch the four B1 Issues. Stop if any body hash, state, parent, assignee, marker, linked PR, branch,
+   or dependency state differs from the manifest.
+3. Update issue #2079 once with the complete 55-descendant current Issue/Task map, changing only the four
+   B1 entries from Issue-owned execution to their exact Tasks. Update each B1 child body with canonical
+   issue #2079 and its exact Task owner; preserve the original body below the migration notice.
+4. Close all four as `NOT_PLANNED`, because execution continues under the Task graph and is not delivered.
+   Add no mechanical narrative comment.
+5. Read every body/state/parent relationship back immediately. Stop on the first mismatch; restore the
+   complete issue #2079 body snapshot and every earlier changed B1 child from its manifest before-state, then
+   reopen any prematurely closed child.
+6. Run the live hierarchy audit, record exact before/after counts and URLs in RULE-023, and land one B1
+   evidence PR before B2 starts.
+
+## Affected Files
+
+- `.agents/evidence/RULE-023-child-issue-migration-manifest.json`
+- `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`
+- `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`
+- `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`
+- `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`
+- This AGREEMENT-005 spec through its approval lifecycle.
+- RULE-023 Task/spec only in the later B1 evidence PR.
+- Live GitHub issues #2079, #2063, #2084, #2102, and #2115; no other Issue may be mutated.
+
+## Completion Criteria
+
+- [ ] TC-01: the durable prerequisite manifest records exactly 281 open Issues and 78 unique open native
+      children, includes full before-state bodies/hashes plus all four canonical-parent snapshots and
+      complete group maps, keeps all rows at `OWNER_REVIEW`, and freezes B1 candidates to exactly four
+      named Issue IDs and Tasks without authorizing mutation.
+- [ ] TC-02: fresh `origin/develop` contains all four exact Task paths before any GitHub write, with
+      AGREEMENT-005 declaring unique children and leaf `depends_on` order matching native dependencies.
+- [ ] TC-03: issue #2079's current map and all four child bodies resolve to their exact Task paths; the four
+      children read back `CLOSED/NOT_PLANNED` with no history, label, or dependency loss.
+- [ ] TC-04: the post-pilot audit reports 74 open native children, accounts for all original 78 rows, and
+      reports no unexpected population or pagination drift.
+- [ ] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
+      B3, or B4 Issue is mutated by this batch.
+
+## Test Plan
+
+| TC-ID | Test Type     | Tool / Approach                                                            | Notes                                                  |
+| ----- | ------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
+| TC-01 | Manifest      | JSON parse, exact-set and SHA-256 assertions                               | Fails closed on denominator, duplicate, or missing row |
+| TC-02 | Repository    | fresh ancestry plus exact Task-path/read-back checks                       | Must pass before GitHub mutation                       |
+| TC-03 | Live mutation | `gh` write followed by exact GraphQL/REST read-back                        | Stop on first mismatch                                 |
+| TC-04 | Live audit    | `node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota` | Expected child denominator 74                          |
+| TC-05 | Harness       | affected scan, task/spec lifecycle scans, CI                               | Documentation/governance scope only                    |
+
+## User Execution Test Scenarios
+
+Not applicable — this batch migrates governance records and GitHub state without changing runnable
+user-facing behavior. The later ARCH Tasks own their runtime scenarios.
+
+Recorded as the rule's required choice rather than skipped.
+
+## Tasks
+
+Paired execution record:
+`.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`.
+
+- [ ] ARCH-113 — todo — `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`
+- [ ] ARCH-114 — todo — `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`
+- [ ] ARCH-115 — todo — `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`
+
+## Approval Recommendation
+
+Approve only the prerequisite repository records in this spec: the 78-row read-only manifest,
+AGREEMENT-005, and ARCH-113/114/115. This approval does **not** authorize any GitHub Issue mutation.
+The recommendation is warranted because:
+
+1. every live row remains `OWNER_REVIEW` and the manifest records `mutationAuthorized: false`;
+2. the four candidate Tasks must first become readable on `develop` before RULE-023 permits a fresh B1
+   review to consider `ABSORB`;
+3. the complete 78/78 population, four canonical-parent recovery snapshots, complete group maps,
+   dependency order, and rollback procedure were independently reviewed with
+   `ACTIONABLE FINDINGS: 0` and `DEPTH: LOCAL`;
+4. the prerequisite is reversible repository documentation with no package/runtime or external-state
+   mutation, while refusing it makes the approved RULE-023 migration impossible to execute safely.
+
+Owner authorization received after the earlier failed approval: “너가 타당한 근거와 함께 추천안을
+제안하면 그게 타당할 경우 승인한다.” The recommendation above states the exact bounded item and its
+measured evidence; all stated conditions hold.
+
+## Evidence Log
+
+| Claim                      | Evidence                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| Policy prerequisite landed | PR #2548; merge `ce6f3589ad4690016a215be4582d991eee0dfe6f`                             |
+| Fresh complete denominator | manifest query `2026-08-29T22:49:02.141Z`; 281 open / 78 child / 78 unique             |
+| Frozen manifest identity   | SHA-256 `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`             |
+| B1 approval review         | independent review APPROVE; ACTIONABLE FINDINGS: 0; DEPTH: LOCAL (0 foundational of 1) |
+| Exact migration owners     | AGREEMENT-005, ARCH-113, ARCH-114, ARCH-115 paths named above                          |
+
+### [GATE-WRITE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** draft → review-ready
+
+- GATE-WRITE — Contains a concrete symptom: the Problem records the measured duplicate representation—all
+  four B1 records remain open native child Issues without independent external-lifecycle evidence even
+  though they are internal implementation decomposition.
+- GATE-WRITE — Contains a reproduction condition: the authenticated live hierarchy audit at
+  `2026-08-29T22:49:02Z` against the current native tree for issue #2079 and issue #2063 reproduces the four
+  open-child state.
+- GATE-WRITE — Research findings feed Alternatives Considered and Decision: the explicit waiver applies
+  merged RULE-023's researched exception-only mechanism; its external-lifecycle test rejects retention,
+  while its Task-ownership and preservation requirements drive alternative 3 and the prerequisite/read-back
+  controls.
+- GATE-WRITE — Decision references the trade-off that drove the choice: preserving issue #2063's shared
+  completion boundary and dependency order is preferred over flattening, while removing the duplicate
+  executable Issue graph requires a prerequisite merge and recoverable GitHub writes.
+- GATE-WRITE — New-surface placement conditional: N/A — no package, app, presentation/interface surface,
+  layer, or product-family boundary is introduced; this is a bounded application of the existing RULE-023
+  governance mechanism.
+- GATE-WRITE — At least one criterion exists per distinct feature or sub-item: TC-01 covers the frozen
+  manifest and parent snapshots, TC-02 Task reachability and dependency order, TC-03 mutation/read-back,
+  TC-04 population reconciliation, and TC-05 repository gates plus batch isolation.
+- GATE-WRITE — Each criterion uses Command or Observable behavior form: TC-01/02 assert exact repository
+  and manifest state, TC-03 asserts exact GitHub body/state/history results, TC-04 asserts the exact live
+  denominator, and TC-05 asserts scan/lifecycle results and absence of out-of-batch mutation.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "/tmp/robota-issue-child-consolidation-plan.md 를 완벽하게 완료할 때까지 반복해서 처리해 주세요."
+**Given:** 2026-08-30, this conversation
+**Review fingerprint:** f1bfec1f69e0 (review 835fbe69, type/tags 007edc99)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-30, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f1bfec1f69e0) equals the document's current fingerprint
+
+### [GATE-APPROVAL] — ❌ FAIL | 2026-08-30
+
+**Status remains:** review-ready
+**Failed criteria:**
+
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the
+  recorded instruction authorizes repeated completion of
+  `/tmp/robota-issue-child-consolidation-plan.md`; it does not name or approve AGREEMENT-005, and its
+  "until complete" form is standing authorization. `backlog-execution.md` explicitly states that
+  standing authorization to keep working is not approval of a particular spec.
+  **Required action:** obtain direct, unambiguous user approval naming this AGREEMENT-005 recommendation,
+  or use a registered delegated class whose scope and measured evidence condition cover this L2 item.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "너가 타당한 근거와 함께 추천안을 제안하면 그게 타당할 경우 승인한다."
+**Given:** 2026-08-30, this conversation
+**Review fingerprint:** f1bfec1f69e0 (review 835fbe69, type/tags 007edc99)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-08-30, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f1bfec1f69e0) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: after the
+  earlier item-specific FAIL, the current conversation supplied the quoted conditional authorization for
+  the bounded `## Approval Recommendation`; its conditions are met by the frozen manifest SHA-256
+  `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`, 78/78 `OWNER_REVIEW` rows,
+  `mutationAuthorized: false`, four recovery snapshots, complete 55/12/5/6 parent maps, and the recorded
+  independent zero-finding review.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: N/A — route `DIRECT`; no
+  delegated class is invoked.
+- GATE-APPROVAL — Independent architecture validation conditional: N/A — this prerequisite introduces
+  no package, app, surface, layer, or product-family reclassification; the independent APPROVE review is
+  retained as additional evidence.
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-30
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`, whose basename is not the spec's (AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md)
+  **Required action:** pair the Task and the spec by basename
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 0/5 TC ids and carries 4 checkbox task(s)
+  **Required action:** one task per TC-N
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` carries no `**Author verdict:** `SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>`` line (0 found, exactly 1 required)
+  **Required action:** record the author verdict in the Task
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 4 path(s) outside the paired spec/Task: .agents/evidence/RULE-023-child-issue-migration-manifest.json, .agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md, .agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md, .agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md
+  **Required action:** commit, stash, or remove them before this gate
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-08-30; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 266 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementFirst",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
