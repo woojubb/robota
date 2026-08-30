@@ -2,7 +2,6 @@
   "_comment": "HARNESS-113. Loop-driving skills that were authored, registered and routed BEFORE this floor existed, and therefore carry no recorded run. Frozen as a SET, not a count: a skill may LEAVE this list by gaining a closed run in .agents/loop-runs/, and may never enter it. A new loop-driving skill must be proven or must declare `proof: none — <reason>` instead.",
   "_frozenAt": "2026-08-19",
   "exempt": [
-    "delegated-refactor-green-gate",
     "documentation-refresh",
     "npm-otp-publish",
     "release-orchestration",
