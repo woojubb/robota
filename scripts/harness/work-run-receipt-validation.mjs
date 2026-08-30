@@ -39,10 +39,6 @@ const STATE_LOST_RECEIPT_KEYS = Object.freeze([
   'timestamps',
 ]);
 
-function hasOnlyKeys(value, keys) {
-  return Object.keys(value).every((key) => keys.includes(key));
-}
-
 function decodeReceipt(receiptValue) {
   try {
     const receipt = decodeWorkRunReceipt(receiptValue);
@@ -157,7 +153,7 @@ export function validateWorkRunReceipt(receiptValue, { receiptPath = null } = {}
       : receipt.generation === 0
         ? INCLUDED_RECEIPT_KEYS
         : POST_PR_RECEIPT_KEYS;
-  if (!hasOnlyKeys(receipt, expectedKeys)) {
+  if (!exactKeys(receipt, expectedKeys) || !validateWorkRunIdentity(receipt.identity)) {
     return { ok: false, reason: 'malformed-receipt' };
   }
   if (!validateProjection(receipt, state) || !validateTerminal(receipt, state)) {

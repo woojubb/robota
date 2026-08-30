@@ -6,7 +6,12 @@ import { git, gitBytes, sharedGitOptions } from './work-run-git-command.mjs';
 import { repositoryNameFromGit } from './work-run-git-context.mjs';
 
 export { createGitCommandRuntime, git, gitBytes } from './work-run-git-command.mjs';
-export { repoContext, repositoryNameFromGit } from './work-run-git-context.mjs';
+export {
+  assertLocalBranchSubject,
+  lockLocalBranchSubject,
+  repoContext,
+  repositoryNameFromGit,
+} from './work-run-git-context.mjs';
 export { openPullRequestNumber, pullRequestHistory } from './work-run-github-pr-lookup.mjs';
 
 const MAX_CUTOVER_COMPARE_FILES = 299;

@@ -2,7 +2,9 @@
 // harness-coverage: work-run-cutover.mjs
 // harness-coverage: work-run-domain.mjs
 // harness-coverage: work-run-git.mjs
-import { readFileSync } from 'node:fs';
+// harness-coverage: work-run-subject-guard.mjs
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -23,7 +25,7 @@ import {
   topicChangeDigestFromCompareFiles,
   writeImmutableWorkRunReceipt,
 } from '../work-run.mjs';
-import { repoContext } from '../work-run-git.mjs';
+import { assertLocalBranchSubject, lockLocalBranchSubject, repoContext } from '../work-run-git.mjs';
 
 describe('work-run command helpers', () => {
   it('bounds every repository-context git command under one 15 second deadline', () => {
@@ -67,6 +69,32 @@ describe('work-run command helpers', () => {
         },
       }),
     ).toThrow(/git command timed out during rev-parse/i);
+  });
+
+  it('binds a local mutation to an immutable branch head and rejects checkout races', () => {
+    const root = makeTemp('work-run-subject-race-');
+    const git = (...args) =>
+      execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_AUTHOR_NAME: 'Test User',
+          GIT_AUTHOR_EMAIL: 'test@example.com',
+          GIT_COMMITTER_NAME: 'Test User',
+          GIT_COMMITTER_EMAIL: 'test@example.com',
+        },
+      }).trim();
+    git('init', '--quiet', '-b', 'codex/work');
+    writeFileSync(path.join(root, 'measured.txt'), 'measured\n');
+    git('add', 'measured.txt');
+    git('-c', 'commit.gpgSign=false', 'commit', '--quiet', '-m', 'measured');
+    const subject = lockLocalBranchSubject(root, 'codex/work');
+
+    expect(subject).toEqual({ branch: 'codex/work', headRef: git('rev-parse', 'HEAD') });
+    git('switch', '--quiet', '-c', 'other');
+    expect(() => assertLocalBranchSubject(root, subject)).toThrow(/changed during mutation/i);
   });
 
   it('adds one exact correlation pair and no-ops on the same pair', () => {

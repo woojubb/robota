@@ -95,7 +95,19 @@ export function readReusableBranchRun({
   if (!decision.reusable) return null;
   return run;
 }
+
+export function claimBranchRun(store, { branch, identity, at }) {
+  const pointerPath = store.pointerPath(branch);
+  const existing = store.reusableRun(pointerPath, branch, identity);
+  if (existing) return existing;
+  const runId = randomUUID();
+  const run = createInitialWorkRun({ runId, at, branch });
+  atomicJson(store.statePath(runId), run, store.root);
+  atomicJson(pointerPath, createBranchPointer(branch, runId, identity), store.gitCommonDir);
+  return run;
+}
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
-import { reduceWorkRun } from './work-run-contract.mjs';
-import { readJson } from './work-run-json-store.mjs';
+import { createInitialWorkRun, reduceWorkRun } from './work-run-contract.mjs';
+import { atomicJson, readJson } from './work-run-json-store.mjs';

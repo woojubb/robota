@@ -40,6 +40,19 @@ const ATTESTED_AT = '2026-08-29T23:59:55Z';
 const OPENING_PARENT = '9'.repeat(40);
 const RECEIPT_BLOB = 'a'.repeat(40);
 
+function openingIdentity() {
+  return {
+    repository: 'woojubb/robota',
+    branch: 'codex/work',
+    baseCommit: '8'.repeat(40),
+    headCommit: OPENING_PARENT,
+    headTree: '7'.repeat(40),
+    commitOids: [OPENING_PARENT],
+    trailerDigest: '6'.repeat(64),
+    ownerFingerprint: '5'.repeat(64),
+  };
+}
+
 function openingReceipt() {
   let run = createInitialWorkRun({
     runId: 'run-1',
@@ -64,7 +77,7 @@ function openingReceipt() {
     runId: 'run-1',
     generation: 0,
     revision: 0,
-    identity: { headCommit: OPENING_PARENT },
+    identity: openingIdentity(),
     events: run.events,
     durations: projectWorkRunDurations(run.events),
     cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
@@ -96,7 +109,7 @@ function excludedOpeningReceipt() {
     runId: 'run-1',
     generation: 0,
     revision: 0,
-    identity: { headCommit: OPENING_PARENT },
+    identity: openingIdentity(),
     events: run.events,
     durations: projectWorkRunDurations(run.events),
     cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
@@ -294,16 +307,7 @@ describe('pull-request head evidence', () => {
         runId: 'run-1',
         generation: 0,
         revision: 0,
-        identity: {
-          repository: 'woojubb/robota',
-          branch: 'codex/work',
-          baseCommit: '8'.repeat(40),
-          headCommit: OPENING_PARENT,
-          headTree: '7'.repeat(40),
-          commitOids: [OPENING_PARENT],
-          trailerDigest: '6'.repeat(64),
-          ownerFingerprint: '5'.repeat(64),
-        },
+        identity: openingIdentity(),
         timestamps: { claimedAt: null, readyAt: null },
       }),
     ).toMatchObject({ receiptPath: '.agents/evals/work-runs/run-1/g0-r0.json' });

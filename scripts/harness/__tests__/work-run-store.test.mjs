@@ -32,11 +32,11 @@ const identity = {
   repository: 'woojubb/robota',
   branch: 'codex/work',
   baseCommit: 'b'.repeat(40),
-  headCommit: 'h'.repeat(40),
-  headTree: 't'.repeat(40),
-  commitOids: ['h'.repeat(40)],
+  headCommit: 'c'.repeat(40),
+  headTree: 'e'.repeat(40),
+  commitOids: ['c'.repeat(40)],
   trailerDigest: 'd'.repeat(64),
-  ownerFingerprint: 'o'.repeat(64),
+  ownerFingerprint: 'f'.repeat(64),
 };
 const claimIdentity = {
   repository: identity.repository,

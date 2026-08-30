@@ -42,12 +42,23 @@ const observabilityCohort = {
   workKind: 'observability',
 };
 
+const receiptIdentity = {
+  repository: 'woojubb/robota',
+  branch: 'codex/work',
+  baseCommit: 'b'.repeat(40),
+  headCommit: 'a'.repeat(40),
+  headTree: 'c'.repeat(40),
+  commitOids: ['a'.repeat(40)],
+  trailerDigest: 'd'.repeat(64),
+  ownerFingerprint: 'e'.repeat(64),
+};
+
 function includedReceipt({
   runId = 'run-1',
   wallMs = 10,
   lane = 'L2',
   workKind = 'observability',
-  identity = { repository: 'woojubb/robota', headCommit: 'ready' },
+  identity = receiptIdentity,
 } = {}) {
   let run = createInitialWorkRun({
     runId,
@@ -108,7 +119,7 @@ function excludedReceipt({ runId = 'excluded', reason = 'pure-planning-range' } 
     runId,
     generation: 0,
     revision: 0,
-    identity: { repository: 'woojubb/robota', headCommit: 'ready' },
+    identity: receiptIdentity,
     cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
     events: run.events,
     durations: projectWorkRunDurations(run.events),
@@ -137,7 +148,7 @@ function unboundExcludedReceipt({
     runId,
     generation: 0,
     revision: 0,
-    identity: { repository: 'woojubb/robota', headCommit: 'ready' },
+    identity: receiptIdentity,
     cohort: null,
     events: run.events,
     durations: projectWorkRunDurations(run.events),
@@ -153,7 +164,7 @@ function stateLostReceipt(runId = 'state-lost') {
     runId,
     generation: 0,
     revision: 0,
-    identity: { repository: 'woojubb/robota', headCommit: 'ready' },
+    identity: receiptIdentity,
     timestamps: { claimedAt: null, readyAt: null },
   };
 }
@@ -210,7 +221,7 @@ function postPrReceipt({ runId = 'rework', wallMs = 5, ground = 'red-check' } = 
     runId,
     generation: 1,
     revision: 0,
-    identity: { repository: 'woojubb/robota', headCommit: 'ready' },
+    identity: receiptIdentity,
     cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
     events: run.events,
     durations: projectWorkRunDurations(run.events),
@@ -679,7 +690,7 @@ describe('work-run report', () => {
               headOid: 'closure',
               createdAt: '2026-08-30T01:00:00Z',
               headRange: {
-                startOid: 'ready',
+                startOid: receiptIdentity.headCommit,
                 endOid: 'closure',
                 startIsAncestor: true,
                 commitRunIds: ['run-1'],
@@ -711,7 +722,7 @@ describe('work-run report', () => {
               headOid: 'closure',
               createdAt: '2026-08-30T01:00:00Z',
               headRange: {
-                startOid: 'ready',
+                startOid: receiptIdentity.headCommit,
                 endOid: 'closure',
                 startIsAncestor: true,
                 commitRunIds: ['a'],
@@ -1180,7 +1191,7 @@ describe('work-run report', () => {
       includedReceipt({
         runId: `run-${index}`,
         wallMs: 3,
-        identity: { repository: 'woojubb/robota', headCommit: `ready-${index}` },
+        identity: { ...receiptIdentity, headCommit: String(index + 1).repeat(40) },
       }),
     );
     const observedBudgets = [];
@@ -1248,17 +1259,17 @@ describe('work-run report', () => {
       includedReceipt({
         runId: 'joined',
         wallMs: 10,
-        identity: { repository: 'woojubb/robota', headCommit: 'ready-1' },
+        identity: { ...receiptIdentity, headCommit: '1'.repeat(40) },
       }),
       includedReceipt({
         runId: 'failed',
         wallMs: 20,
-        identity: { repository: 'woojubb/robota', headCommit: 'ready-2' },
+        identity: { ...receiptIdentity, headCommit: '2'.repeat(40) },
       }),
       includedReceipt({
         runId: 'mismatched',
         wallMs: 30,
-        identity: { repository: 'woojubb/robota', headCommit: 'ready-3' },
+        identity: { ...receiptIdentity, headCommit: '3'.repeat(40) },
       }),
     ];
     const before = structuredClone(receipts);
@@ -1278,7 +1289,7 @@ describe('work-run report', () => {
                   headOid: 'closure',
                   createdAt: '2026-08-30T01:00:00Z',
                   headRange: {
-                    startOid: receipt.runId === 'joined' ? 'ready-1' : 'wrong-ready',
+                    startOid: receipt.runId === 'joined' ? '1'.repeat(40) : 'wrong-ready',
                     endOid: 'closure',
                     startIsAncestor: true,
                     commitRunIds: [receipt.runId],

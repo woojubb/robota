@@ -1,9 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
-import { createBranchPointer, readReusableBranchRun } from './work-run-branch-pointer.mjs';
-import { appendWorkRunEvent, createInitialWorkRun, reduceWorkRun } from './work-run-contract.mjs';
+import { claimBranchRun, readReusableBranchRun } from './work-run-branch-pointer.mjs';
+import { appendWorkRunEvent, reduceWorkRun } from './work-run-contract.mjs';
 import { atomicJson, immutableJson, readJson, sameJson } from './work-run-json-store.mjs';
 import {
   assertCanonicalRunId,
@@ -100,11 +100,14 @@ export class WorkRunStore {
     });
   }
 
-  withActiveRun({ branch, identity }, action) {
+  withActiveRun({ branch, identity, validate }, action) {
     return this.withLock(`branch-${branchKey(branch)}`, () => {
       const currentIdentity = typeof identity === 'function' ? identity() : identity;
       const run = this.reusableRun(this.pointerPath(branch), branch, currentIdentity);
-      return run === null ? null : action(run);
+      if (run === null) return null;
+      const result = action(run);
+      validate?.();
+      return result;
     });
   }
 
@@ -112,15 +115,11 @@ export class WorkRunStore {
     return this.withActiveRun({ branch, identity }, (run) => run);
   }
 
-  claim({ branch, identity, at = this.now() }) {
+  claim({ branch, identity, validate, at = this.now() }) {
     return this.withLock(`branch-${branchKey(branch)}`, () => {
-      const pointer = this.pointerPath(branch);
-      const existing = this.reusableRun(pointer, branch, identity);
-      if (existing) return existing;
-      const runId = randomUUID();
-      const run = createInitialWorkRun({ runId, at, branch });
-      atomicJson(this.statePath(runId), run, this.root);
-      atomicJson(pointer, createBranchPointer(branch, runId, identity), this.gitCommonDir);
+      const currentIdentity = typeof identity === 'function' ? identity() : identity;
+      const run = claimBranchRun(this, { branch, identity: currentIdentity, at });
+      validate?.();
       return run;
     });
   }

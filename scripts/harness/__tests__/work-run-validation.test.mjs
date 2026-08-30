@@ -586,7 +586,7 @@ describe('work-run validation', () => {
         protectedBranch: false,
         changedPaths: ['docs/a.md'],
         identity,
-        receipts: [{ ...included, identity: { ...identity, headCommit: 'x'.repeat(40) } }],
+        receipts: [{ ...included, identity: { ...identity, headCommit: '1'.repeat(40) } }],
       }).reason,
     ).toBe('identity-mismatch');
   });
@@ -633,6 +633,16 @@ describe('work-run validation', () => {
     };
 
     expect(validateWorkRunReceipt(receipt)).toEqual({
+      ok: false,
+      reason: 'malformed-receipt',
+    });
+    const { timeToFirstPrMs: _derived, ...withoutDerived } = receipt;
+    const { identity: _identity, ...withoutIdentity } = withoutDerived;
+    expect(validateWorkRunReceipt(withoutIdentity)).toEqual({
+      ok: false,
+      reason: 'malformed-receipt',
+    });
+    expect(validateWorkRunReceipt({ ...withoutDerived, identity: { headCommit: 'a' } })).toEqual({
       ok: false,
       reason: 'malformed-receipt',
     });
@@ -1070,6 +1080,7 @@ describe('work-run validation', () => {
         runId: 'run-1',
         generation: 1,
         revision: 0,
+        identity,
         ground: mismatched.ground,
         authorization: mismatched,
         events,
@@ -1312,6 +1323,7 @@ describe('work-run validation', () => {
       runId: 'run-1',
       generation: 0,
       revision: 0,
+      identity,
       events: includedEvents,
       ...receiptProjection(includedEvents),
       timestamps: {
@@ -1335,6 +1347,7 @@ describe('work-run validation', () => {
       runId: 'run-1',
       generation: 0,
       revision: 0,
+      identity,
       events: excludedEvents,
       ...receiptProjection(excludedEvents),
       timestamps: {
@@ -1364,6 +1377,7 @@ describe('work-run validation', () => {
       runId: 'run-1',
       generation: 0,
       revision: 0,
+      identity,
       events,
       ...projection,
       timestamps: { claimedAt: events[0].at, readyAt: events.at(-1).at },

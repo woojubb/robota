@@ -22,6 +22,7 @@ import {
 import { pendingTerminalReceiptCorrelation } from './work-run-pending-receipt.mjs';
 import { assertCanonicalRunId } from './work-run-paths.mjs';
 import { WorkRunStore } from './work-run-store.mjs';
+import { claimWorkRunSubject, createWorkRunSubjectGuard } from './work-run-subject-guard.mjs';
 
 const PROTECTED_BRANCHES = new Set(['develop', 'main', 'master']);
 
@@ -248,13 +249,10 @@ function execute(input, now) {
   }
   const subject = resolveWorkRunSubject({ argv, currentBranch: context.branch });
   if (command === 'claim') {
-    return PROTECTED_BRANCHES.has(subject.branch)
-      ? { status: 'outside-protected', branch: subject.branch }
-      : store.claim({
-          branch: subject.branch,
-          identity: currentClaimIdentity(context.root, subject.branch, subject.headRef),
-          at,
-        });
+    if (PROTECTED_BRANCHES.has(subject.branch)) {
+      return { status: 'outside-protected', branch: subject.branch };
+    }
+    return claimWorkRunSubject({ store, root: context.root, subject, at });
   }
   const cutover = handleCutover(command, argv, context);
   if (cutover !== null) return cutover;
@@ -264,10 +262,15 @@ function execute(input, now) {
   if (PROTECTED_BRANCHES.has(subject.branch)) {
     return { status: 'outside-protected', branch: subject.branch };
   }
+  const subjectGuard = createWorkRunSubjectGuard(context.root, subject);
   const transaction = store.withActiveRun(
     {
       branch: subject.branch,
-      identity: () => currentClaimIdentity(context.root, subject.branch, subject.headRef),
+      identity: () => {
+        const lockedSubject = subjectGuard.lock();
+        return currentClaimIdentity(context.root, lockedSubject.branch, lockedSubject.headRef);
+      },
+      validate: () => subjectGuard.validate(),
     },
     (run) => ({
       result: handleBoundCommand(command, argv, {
@@ -275,7 +278,7 @@ function execute(input, now) {
         store,
         run,
         state: reduceWorkRun(run.events),
-        subject,
+        subject: subjectGuard.current(),
         at,
       }),
     }),
