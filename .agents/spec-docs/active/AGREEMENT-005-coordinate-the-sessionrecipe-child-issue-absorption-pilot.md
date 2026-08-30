@@ -142,7 +142,7 @@ None
 - [x] TC-04: the pre-pilot audit reports 77 open native children after accounting for original issue #2514 as
       `CLOSED/COMPLETED`; the post-pilot audit reports 73, accounts for all original 78 rows, and reports no
       unexplained population or pagination drift.
-- [ ] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
+- [x] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
       B3, or B4 Issue is mutated by this batch.
 
 ## Test Plan
@@ -170,6 +170,21 @@ Paired execution record:
 - [ ] ARCH-113 — todo — `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`
 - [ ] ARCH-114 — todo — `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`
 - [ ] ARCH-115 — todo — `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`
+
+## B1 Evidence Landing
+
+- Evidence PR #2554 retained exact reviewed base
+  `af0e4f747bad3b42337848ff0da21518a8c54c81` and head
+  `f82f90d83ec5ac775b894fa1629d1530b691b7ce`, received `ACTIONABLE FINDINGS: 0`, had zero review
+  threads, and passed all 11 required checks after its RULE-016 body correction.
+- PR #2554 merged as `cc20654da1aad9f48c8cc57ee210275e58fc0a7d`. Fresh `origin/develop` pointed
+  to that exact merge; every one of the six merged paths and the complete reviewed tree matched the
+  reviewed head byte-for-byte.
+- The post-merge live audit exited 0 at 277 open Issues and 73 open native children. The expected live
+  child set matched exactly: B2 51/51, B3 17/17, and B4 5/5, with no unexpected row and no B2–B4
+  mutation. The closed post-merge cycle is recorded as `r20260830064155`.
+- AGREEMENT-005 remains `in-progress`: this evidence completes only the migration pilot criteria;
+  ARCH-113, ARCH-114, and ARCH-115 remain `todo` and retain their declared dependency order.
 
 ## Approval Recommendation
 
@@ -405,6 +420,59 @@ measured evidence; all stated conditions hold.
     ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
   ],
   "ancestorSha": "06f4f0bd4671366bd4212b7a3e6102986d4ba635",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: two prior complete canonical GATE-IMPLEMENT PASS entries
+  exist; the exact Task/spec pair remains `in-progress`, and the spec remains under
+  `.agents/spec-docs/active/`.
+- GATE-IMPLEMENT (continuation) — § Decision sequences delivery and names this PR's artifacts: base
+  `cc20654da1aad9f48c8cc57ee210275e58fc0a7d` contains exactly six `Continuation artifacts`, and every
+  exact path exists in both the base and current trees.
+- GATE-IMPLEMENT (continuation) — preceding integration ancestry: PR #2554 merge
+  `cc20654da1aad9f48c8cc57ee210275e58fc0a7d` introduced the latest prior continuation checkpoint and is
+  the exact current `origin/develop` base and an ancestor of HEAD.
+- GATE-IMPLEMENT (continuation) — Task and PLAN preservation: the paired Task is byte-identical to base
+  and still records `SCENARIO DRAFTED: not-applicable | 0` with its concrete governance-only reason;
+  latest prior raw PASS digest is
+  `sha256:3cb78d64bbf219ffe33ff974cd5d13930784bb7684da507b97d34d85f13f098f`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only gate
+  write is this paired active spec. The sole earlier topic commit
+  `bd6ea206ad56ae9a902cddae3ddaa2cf021bb114` changes only the allowed append-only closed
+  `post-merge-cycle.jsonl` record for PR #2554 and no implementation path.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:3cb78d64bbf219ffe33ff974cd5d13930784bb7684da507b97d34d85f13f098f",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+    ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+    ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
+  ],
+  "ancestorSha": "cc20654da1aad9f48c8cc57ee210275e58fc0a7d",
   "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
   "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
   "plan": {

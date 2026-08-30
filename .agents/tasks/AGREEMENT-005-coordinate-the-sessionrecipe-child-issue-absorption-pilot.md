@@ -31,7 +31,7 @@ delivered.
 - [x] TC-02 — Land AGREEMENT-005 and ARCH-113/114/115 on `develop` with the declared dependency order.
 - [x] TC-03 — Apply and immediately read back the four-row B1 Issue/body/state migration only after a fresh review.
 - [x] TC-04 — Reconcile the live hierarchy from 77 to 73 open children and account for all original 78 rows, including issue #2514 as already `CLOSED/COMPLETED`.
-- [ ] TC-05 — Land the B1 repository evidence while keeping B2/B3/B4 Issue state unchanged.
+- [x] TC-05 — Land the B1 repository evidence while keeping B2/B3/B4 Issue state unchanged.
 
 After the migration pilot, deliver ARCH-113 as the sole normalized construction kernel, ARCH-114 after
 ARCH-113, and ARCH-115 after both predecessors. Close this AGREEMENT only when all three child Tasks are
@@ -46,6 +46,10 @@ done and issue #2079's current execution map reflects their terminal evidence.
 - All four exact Task markers were read back before `priority:P1` removal. Every B1 row then read back
   `CLOSED/NOT_PLANNED` with the `enhancement` label, native parent, and dependency edges intact.
 - The official audit exited 0 with 277 open Issues and 73 open native children. No rollback was triggered.
+- Evidence PR #2554 passed all 11 required checks and merged as
+  `cc20654da1aad9f48c8cc57ee210275e58fc0a7d`. Independent post-merge verification found its complete
+  tree byte-identical to reviewed head `f82f90d83ec5ac775b894fa1629d1530b691b7ce`; a fresh audit remained
+  at 277/73 with B2 51/51, B3 17/17, and B4 5/5 unchanged.
 
 ## Constraints
 
