@@ -1,8 +1,9 @@
 ---
 title: 'PROC-024: record RULE-023 continuation artifact declaration before the B2 gate'
 issue: https://github.com/woojubb/robota/issues/2063
-status: in-progress
+status: done
 created: 2026-08-30
+completed: 2026-08-30
 priority: medium
 urgency: now
 area: workflow governance
@@ -19,11 +20,11 @@ Decision before a later branch attempts GATE-IMPLEMENT continuation.
 
 ## Plan
 
-- [ ] TC-01 — add the exact three-artifact `Continuation artifacts` declaration to RULE-023 without
+- [x] TC-01 — add the exact three-artifact `Continuation artifacts` declaration to RULE-023 without
       changing any prior GATE-IMPLEMENT PASS bytes.
-- [ ] TC-02 — prove this correction has its own approved checkpoint before the active RULE-023 spec
+- [x] TC-02 — prove this correction has its own approved checkpoint before the active RULE-023 spec
       changes and that staged/history plan-order scans pass.
-- [ ] TC-03 — run affected harness scans and verify that no package/runtime or GitHub Issue state changes.
+- [x] TC-03 — run affected harness scans and verify that no package/runtime or GitHub Issue state changes.
 
 ## Test Plan
 
@@ -38,3 +39,12 @@ Decision before a later branch attempts GATE-IMPLEMENT continuation.
 
 Not applicable because this corrects repository-internal planning order and changes no runnable product
 surface or GitHub Issue state.
+
+## Result
+
+- RULE-023 now declares exactly the durable manifest, active RULE-023 spec, and active RULE-023 Task for
+  its later B2 continuation branch.
+- The prior raw GATE-IMPLEMENT PASS digest remains
+  `sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51`.
+- The checkpoint contract suite passed 17/17, history plan-order passed, and affected verification passed
+  36 scans with one declared skip; no package/app/source or GitHub Issue state changed.

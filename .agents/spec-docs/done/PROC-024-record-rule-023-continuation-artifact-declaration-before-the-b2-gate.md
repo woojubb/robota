@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-024: Record RULE-023 continuation artifact declaration before the B2 gate
 
-Paired with `.agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md`. Arising from [issue #2063](https://github.com/woojubb/robota/issues/2063).
+Paired with `.agents/tasks/completed/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md`. Arising from [issue #2063](https://github.com/woojubb/robota/issues/2063).
 
 ## Problem
 
@@ -94,12 +94,12 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs`
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs`
       exits 0, the parser reads exactly three ordered RULE-023 continuation artifacts, and the latest
       prior raw GATE-IMPLEMENT PASS digest is unchanged from base `a4c38ef4f...`.
-- [ ] TC-02: staged and history `scan-user-execution-plan-order.mjs` runs exit 0 with PROC-024's planning
+- [x] TC-02: staged and history `scan-user-execution-plan-order.mjs` runs exit 0 with PROC-024's planning
       checkpoint preceding the RULE-023 declaration.
-- [ ] TC-03: affected scans exit 0, the branch changes no package/app/source path, and no GitHub Issue
+- [x] TC-03: affected scans exit 0, the branch changes no package/app/source path, and no GitHub Issue
       body, comment, relationship, label, assignee, dependency, or state is mutated.
 
 ## Test Plan
@@ -118,7 +118,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md` — todo
+- [x] `.agents/tasks/completed/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md` — done
 
 ## Evidence Log
 
@@ -218,3 +218,74 @@ Recorded as the rule's required choice rather than skipped.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; import {parseCheckpointEvidenceContract,continuationArtifacts,rawGateImplementPassEntries,priorPassDigest} from "./scripts/harness/checkpoint-evidence-contract.mjs"; const path=".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md"; const parsed=parseCheckpointEvidenceContract(fs.readFileSync(".agents/rules/backlog-execution.md","utf8")); assert.equal(parsed.ok,true); const current=fs.readFileSync(path,"utf8"); const base=execFileSync("git",["show","origin/develop:"+path],{encoding:"utf8"}); const actual=continuationArtifacts(parsed.contract,current); const expected=[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",".agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md"]; assert.equal(actual.ok,true); assert.deepEqual(actual.artifacts,expected); const before=priorPassDigest(rawGateImplementPassEntries(base)[0]); const after=priorPassDigest(rawGateImplementPassEntries(current)[0]); assert.equal(before,"sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51"); assert.equal(after,before); console.log(JSON.stringify({artifactCount:actual.artifacts.length,artifacts:actual.artifacts,before,after}))'`
+
+> **Contained — HARNESS-133.** The concrete command above is the command that produced this captured
+> output; the existing follow-up owns repository-wide command/output binding enforcement.
+> **Exit:** 0
+> **Output:** (last 1 of 1 line(s))
+
+```
+{"artifactCount":3,"artifacts":[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",".agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md"],"before":"sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51","after":"sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51"}
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/scan-user-execution-plan-order.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+::examined:: 3 topic commit(s)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && node --input-type=module -e 'import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; const paths=execFileSync("git",["diff","--name-only","origin/develop...HEAD"],{encoding:"utf8"}).trim().split("\n").filter(Boolean); assert.ok(paths.length>0); assert.equal(paths.some((path)=>/^(packages|apps|src)\//.test(path)),false); console.log(JSON.stringify({changedPathCount:paths.length,changedPaths:paths,noPackageAppSource:true}))'`
+
+> **Contained — HARNESS-133.** The concrete command above is the command that produced this captured
+> output; the existing follow-up owns repository-wide command/output binding enforcement.
+> **Exit:** 0
+> **Output:** (last 12 of 52 line(s))
+
+```
+✓ backlog-placement
+✓ llms-txt
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification: 3 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 3 real violation(s) recorded, not cleared by editing history.
+
+36 scans passed, 1 skipped (27 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md,  M .agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md
+{"changedPathCount":5,"changedPaths":[".agents/loop-runs/post-merge-cycle.jsonl",".agents/loop-runs/user-request-gate.jsonl",".agents/spec-docs/active/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md",".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",".agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md"],"noPackageAppSource":true}
+```
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 36 scans passed, 1 skipped (27 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md, M .agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` → exit 0 ( Duration 176ms (transform 24ms, setup 0ms, collect 30ms, tests 12ms, environment 0ms, prepare 29ms) ⏎ ⏎ 4:56:32 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-30; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/PROC-024-record-rule-023-continuation-artifact-declaration-before-the-b2-gate.md
