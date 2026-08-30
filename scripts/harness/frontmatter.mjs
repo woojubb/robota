@@ -24,6 +24,24 @@
  * A dedicated single-responsibility module also gives the anti-fork floor a one-file allowlist.
  */
 
+const FRONTMATTER_ENTRY_LINE_PATTERN = /^([A-Za-z_][A-Za-z0-9_-]*):(.*)$/u;
+const GIT_TRAILER_LINE_PATTERN = /^([A-Za-z0-9][A-Za-z0-9-]*):[ \t]*(.*)$/u;
+
+function parseKeyValueLine(line, pattern) {
+  const match = pattern.exec(line);
+  return match ? { key: match[1], value: match[2] } : undefined;
+}
+
+/** Parse one top-level YAML frontmatter entry without resolving continuation lines. */
+export function parseFrontmatterEntryLine(line) {
+  return parseKeyValueLine(line, FRONTMATTER_ENTRY_LINE_PATTERN);
+}
+
+/** Parse one Git trailer line using Git's token grammar. */
+export function parseGitTrailerLine(line) {
+  return parseKeyValueLine(line, GIT_TRAILER_LINE_PATTERN);
+}
+
 /**
  * Strip ONE layer of surrounding quotes: `"draft"` → `draft`.
  *
@@ -109,8 +127,8 @@ export function parseFrontmatterBlock(text) {
   const lines = located.block.split('\n');
   const entries = new Map();
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^([A-Za-z_][A-Za-z0-9_-]*):(.*)$/);
-    if (!match) continue;
+    const entry = parseFrontmatterEntryLine(lines[i]);
+    if (!entry) continue;
 
     // Everything indented below the key belongs to this key's value.
     const continuation = [];
@@ -119,7 +137,7 @@ export function parseFrontmatterBlock(text) {
       if (lines[next].trim() !== '' && !/^\s/.test(lines[next])) break;
       continuation.push(lines[next]);
     }
-    entries.set(match[1], resolveValue(match[2].trim(), continuation));
+    entries.set(entry.key, resolveValue(entry.value.trim(), continuation));
     i = next - 1;
   }
   return entries;

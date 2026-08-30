@@ -129,6 +129,14 @@ describe('work-run command helpers', () => {
     ).toThrow(/terminal Git trailer block/i);
   });
 
+  it('preserves Git trailer token grammar when identifying the terminal block', () => {
+    expect(
+      exactWorkRunReceiptTrailers(
+        'feat: measured\n\n1-Key: value\nWork-Run: run-1\nWork-Receipt: g0-r0\n',
+      ),
+    ).toEqual({ runId: 'run-1', receiptId: 'g0-r0' });
+  });
+
   it('builds a complete deterministic cutover registry', () => {
     expect(
       buildCutoverMarker({

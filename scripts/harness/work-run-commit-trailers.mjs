@@ -1,5 +1,6 @@
-const TRAILER_LINE_PATTERN = /^([A-Za-z0-9][A-Za-z0-9-]*):[ \t]*(.*)$/u;
-const WORK_TRAILER_LINE_PATTERN = /^Work-(Run|Receipt):[ \t]*(.*?)[ \t]*$/u;
+import { parseGitTrailerLine } from './frontmatter.mjs';
+
+const WORK_TRAILER_TOKENS = new Set(['Work-Run', 'Work-Receipt']);
 
 function normalizedLines(message) {
   const lines = message.replace(/\r\n?/gu, '\n').split('\n');
@@ -13,9 +14,9 @@ function terminalTrailerEntries(lines) {
   while (start > 0 && !/^\s*$/u.test(lines[start - 1])) start -= 1;
   const entries = [];
   for (let index = start; index < lines.length; index += 1) {
-    const match = TRAILER_LINE_PATTERN.exec(lines[index]);
-    if (match) {
-      entries.push({ token: match[1], value: match[2].trim(), line: index });
+    const entry = parseGitTrailerLine(lines[index]);
+    if (entry) {
+      entries.push({ token: entry.key, value: entry.value.trim(), line: index });
       continue;
     }
     if (/^[ \t]+\S/u.test(lines[index]) && entries.length > 0) {
@@ -30,8 +31,10 @@ function terminalTrailerEntries(lines) {
 function allWorkTrailerLines(lines) {
   const entries = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const match = WORK_TRAILER_LINE_PATTERN.exec(lines[index]);
-    if (match) entries.push({ token: `Work-${match[1]}`, value: match[2].trim(), line: index });
+    const entry = parseGitTrailerLine(lines[index]);
+    if (entry && WORK_TRAILER_TOKENS.has(entry.key)) {
+      entries.push({ token: entry.key, value: entry.value.trim(), line: index });
+    }
   }
   return entries;
 }
@@ -42,7 +45,7 @@ export function workRunReceiptTrailers(message) {
   }
   const lines = normalizedLines(message);
   const terminal = terminalTrailerEntries(lines).filter(({ token }) =>
-    ['Work-Run', 'Work-Receipt'].includes(token),
+    WORK_TRAILER_TOKENS.has(token),
   );
   const terminalLines = new Set(terminal.map(({ line }) => line));
   const misplaced = allWorkTrailerLines(lines).some(({ line }) => !terminalLines.has(line));
