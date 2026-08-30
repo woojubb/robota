@@ -59,7 +59,7 @@ function run(hook, input, env = {}) {
   };
 }
 
-describe('a hook that judges refuses what it cannot read', () => {
+describe('fail-closed hook matrix', () => {
   it('finds hooks of both kinds', () => {
     // Fail closed: if the classifier stops matching, both lists empty and every case below passes
     // over nothing — the shape this whole file exists to keep out of the shell layer.
@@ -67,23 +67,6 @@ describe('a hook that judges refuses what it cannot read', () => {
     expect(ADVISORY.length).toBeGreaterThan(0);
   });
 
-  for (const hook of JUDGING) {
-    for (const { label, input } of UNREADABLE) {
-      it(`${hook.name} refuses ${label}`, () => {
-        const verdict = run(hook.name, input);
-
-        expect(
-          verdict.status,
-          `it passed an input it could not read. Absent is not zero, and unreadable is not clean: ` +
-            'a gate that treats "I do not know" as "fine" is a gate with a hole exactly the size of ' +
-            'whatever broke its input.',
-        ).not.toBe(0);
-      });
-    }
-  }
-});
-
-describe('no hook crashes instead of deciding', () => {
   // A crash is not a refusal even when the exit code happens to be non-zero: it leaves the operator
   // with a shell diagnostic instead of the reason, and the considered `exit 2` never runs. Two hooks
   // shipped this way inside one week, both from a bare variable under `set -u`.
@@ -97,8 +80,8 @@ describe('no hook crashes instead of deciding', () => {
   ];
 
   for (const hook of SHELL_HOOKS) {
-    it(`${hook.name} survives a degraded environment`, () => {
-      for (const scenario of DEGRADED) {
+    for (const scenario of DEGRADED) {
+      it(`${hook.name} handles ${scenario.label}`, () => {
         const env = scenario.unsetProjectDir
           ? Object.fromEntries(
               Object.entries(process.env).filter(([k]) => k !== 'CLAUDE_PROJECT_DIR'),
@@ -113,15 +96,26 @@ describe('no hook crashes instead of deciding', () => {
               timeout: 60_000,
             })
           : null;
-        const output = verdict
-          ? `${verdict.stdout ?? ''}${verdict.stderr ?? ''}`
-          : run(hook.name, scenario.input).output;
+        const result = verdict
+          ? {
+              status: verdict.status ?? 1,
+              output: `${verdict.stdout ?? ''}${verdict.stderr ?? ''}`,
+            }
+          : run(hook.name, scenario.input);
 
-        expect(output, `${hook.name} crashed on ${scenario.label}`).not.toMatch(
+        expect(result.output, `${hook.name} crashed on ${scenario.label}`).not.toMatch(
           /unbound variable|바인딩 해제|syntax error|command not found/,
         );
-      }
-    });
+        if (JUDGING.includes(hook) && UNREADABLE.includes(scenario)) {
+          expect(
+            result.status,
+            `it passed an input it could not read. Absent is not zero, and unreadable is not clean: ` +
+              'a gate that treats "I do not know" as "fine" is a gate with a hole exactly the size of ' +
+              'whatever broke its input.',
+          ).not.toBe(0);
+        }
+      });
+    }
   }
 
   it('branch-guard refuses when the statement split itself cannot run', () => {
@@ -280,9 +274,14 @@ describe('a guard that asks GitHub bounds how long it waits', () => {
   // not ask" both come back empty, and reporting the first when the second happened costs the reader
   // the whole debugging trail: they fix what the message named, re-run, and get the same refusal.
 
-  function ghThatNeverAnswers() {
+  function ghThatNeverAnswers({ immediateDeadline = false } = {}) {
     const dir = makeTemp('slow-gh-');
-    writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nsleep 60\n', { mode: 0o755 });
+    writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nwhile :; do :; done\n', { mode: 0o755 });
+    if (immediateDeadline) {
+      // `bounded_gh` deliberately implements its own portable watchdog. Replacing only its sleep
+      // keeps every process/marker/kill/refusal branch real while removing three repeated waits.
+      writeFileSync(path.join(dir, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    }
     return `${dir}:${process.env.PATH}`;
   }
 
@@ -308,27 +307,45 @@ describe('a guard that asks GitHub bounds how long it waits', () => {
   for (const { hook, command } of ASKS_GITHUB) {
     it(`${hook} stops at its deadline instead of waiting on a silent GitHub`, () => {
       const dir = repo('feat/probe');
-      const started = Date.now();
       const { status, output } = run(
         hook,
         JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
         {
-          PATH: ghThatNeverAnswers(),
+          PATH: ghThatNeverAnswers({ immediateDeadline: true }),
           CLAUDE_PROJECT_DIR: dir,
           HOOK_GH_DEADLINE_SECONDS: '3',
         },
       );
-      const elapsed = (Date.now() - started) / 1000;
 
-      // Generous against the stub's 60s so a loaded machine cannot make this flaky, and still far
-      // enough below it that only a real bound can pass.
-      expect(elapsed, `it waited ${elapsed}s on a GitHub that never answers`).toBeLessThan(30);
       expect(status, `it let the command through: ${output}`).toBe(2);
       expect(output, 'the deadline was not named, so the refusal states the wrong reason').toMatch(
         /did not answer within 3s/,
       );
     });
   }
+
+  it('enforces one real short watchdog deadline', () => {
+    const dir = repo('feat/probe');
+    const started = Date.now();
+    const { status, output } = run(
+      'pre-push-check.sh',
+      JSON.stringify({
+        tool_name: 'Bash',
+        cwd: dir,
+        tool_input: { command: 'git push origin feat/probe' },
+      }),
+      {
+        PATH: ghThatNeverAnswers(),
+        CLAUDE_PROJECT_DIR: dir,
+        HOOK_GH_DEADLINE_SECONDS: '0.1',
+      },
+    );
+    const elapsed = (Date.now() - started) / 1000;
+
+    expect(elapsed, `the real watchdog took ${elapsed}s`).toBeLessThan(2);
+    expect(status, `it let the command through: ${output}`).toBe(2);
+    expect(output).toMatch(/did not answer within 0\.1s/);
+  });
 
   it('says nothing about a deadline when GitHub simply has no such pull request', () => {
     // The other half. A guard that announced a timeout on every ordinary empty answer would train

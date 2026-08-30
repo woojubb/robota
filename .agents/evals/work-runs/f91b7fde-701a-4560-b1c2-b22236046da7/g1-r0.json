@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+  "generation": 1,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "codex/observability-002-work-run-measurement",
+    "baseCommit": "3faf26ad80046058647b2a61efbe56b4174e0906",
+    "headCommit": "0296f90d61fd518a7d312a6badcae2ef7100e68d",
+    "headTree": "207cce129a4540136c643d7d8e4a448f7afde543",
+    "commitOids": [
+      "8515311af9a27a3e70c40e73d27c5e409b022de2",
+      "aba87cb28cd2fcf5aadf7314b0bfccab219ef2e1",
+      "2c6d067bafc3f5cee563315473b56517d9a24ef4",
+      "2f93427780982bad2b6692b39ee3cecbeb24f522",
+      "1f610e955ef9501660482d78147b2fc6ffd1efa0",
+      "af1d0e165482fe541cf4b286e9a7b87b543e2895",
+      "eb68eea62d7c97a26370aa7e50d1ed169eb56790",
+      "08effa0fe51c91565ea316d48a5bff6001a13502",
+      "bfa0da1401641b0e3bbd122f06fe4d1505315705",
+      "b5f517c7fc64bbea4f14862ad049581bb37a5bd7",
+      "eab9c8233db0d7233a6e5d9f1a1d57ab5b92ad67",
+      "427373d0ec96f0f215c674aff2909db6eaa0e299",
+      "63d9eaec00b611c9dc98d507c3b224f7cd700811",
+      "c47e288001d036191bccbcf6623cee04b7f4e139",
+      "e89567c51601ec3780a03f6710c1504c0171d17d",
+      "2460856134d01fc5a6a72438721084aea150d0eb",
+      "2944cc0964dda2d615478597aabfeb4037c66897",
+      "d7d74ebcca1603d5824d1aca6be192c9b3099c15",
+      "f75b108b32c81ddc60797dee33d0e23c3a38d21c",
+      "4144e5c188da5ada852ae27891acb234c31cd3e0",
+      "4bc76c41426ee2265fb0ec4fff81d8d4ce3e3053",
+      "40b34e1b3795d08c266f96e561e8ac4d0744d892",
+      "a5b83e0ca6f257560049751be4cee3ccb4699b74",
+      "77a5cde4831ab9d6d92cfbd52669e40ff1d75ad3",
+      "5bc04c082969209e1c42c07dd834b13d28e0a340",
+      "00adc48a8af51eb0e17a429c2361530d0a7b97af",
+      "0768a55189f54e51b0417e395f35e553cc6e2d7b",
+      "f532a33158c83672e75d09ac7d9d75ff4a8b24fb",
+      "5549f8d8cd752eba346f7f96eca60f6d543341de",
+      "3ab3ccede90ab7a6757f14dd883340e4423d780f",
+      "63e4de49a906dcd1002fb21369bd25807d37af05",
+      "9cb64fb8864e14a9aea6b82a3f6364be7717d41f",
+      "bc3b10a7d724d7b0f852299753b33e543a852569",
+      "d3d0ea2f03511d5f18f267b721b05cf813307d9b",
+      "0296f90d61fd518a7d312a6badcae2ef7100e68d"
+    ],
+    "trailerDigest": "84938c83dd9f0a0a26de87695a6b88193b765de804cffc207d5f99bd6ea9b57a",
+    "ownerFingerprint": "4c824ff52aee83bf22bdbfb828acb9ff6dd052e9527cf3b379c5d8fdb074fda4"
+  },
+  "cohort": {
+    "key": "L2/observability",
+    "lane": "L2",
+    "workKind": "observability"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-08-30T09:55:25.756Z",
+      "data": {
+        "branch": "codex/observability-002-work-run-measurement"
+      },
+      "hash": "129b808d1ebf3e8f3fecca2bd010de62d0759babaa576ca1bc112a43bd1bb032"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 2,
+      "previousHash": "129b808d1ebf3e8f3fecca2bd010de62d0759babaa576ca1bc112a43bd1bb032",
+      "type": "work.bound",
+      "at": "2026-08-30T10:52:22.000Z",
+      "data": {
+        "workId": "OBSERVABILITY-002",
+        "lane": "L2",
+        "workKind": "observability"
+      },
+      "hash": "530a3c67b8246ecdf355121112ddf0d53fb525bcf8febae78db2d8c2193b047f"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 3,
+      "previousHash": "530a3c67b8246ecdf355121112ddf0d53fb525bcf8febae78db2d8c2193b047f",
+      "type": "work.started",
+      "at": "2026-08-30T10:52:23.000Z",
+      "data": {},
+      "hash": "4f93d7ac3a1b8b195bcbae3a33cee23b85bd6daca9eb6b752117e930f27cbb02"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 4,
+      "previousHash": "4f93d7ac3a1b8b195bcbae3a33cee23b85bd6daca9eb6b752117e930f27cbb02",
+      "type": "phase.started",
+      "at": "2026-08-30T10:52:24.000Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "a2e23539046185178667c2a1bdc11b4694f377f3e4ef443a6e8b38b28693b0d3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 5,
+      "previousHash": "a2e23539046185178667c2a1bdc11b4694f377f3e4ef443a6e8b38b28693b0d3",
+      "type": "phase.completed",
+      "at": "2026-08-30T13:13:32.891Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "8799c7cc5f08ef722a8539a66a2e6e9a6020d75c40df071735dd1934ca6fa9c9"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 6,
+      "previousHash": "8799c7cc5f08ef722a8539a66a2e6e9a6020d75c40df071735dd1934ca6fa9c9",
+      "type": "phase.started",
+      "at": "2026-08-30T13:13:33.233Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "045b2b5a693db4d19a8d86d989681d769da41e4d91729d758830020e017cd019"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 7,
+      "previousHash": "045b2b5a693db4d19a8d86d989681d769da41e4d91729d758830020e017cd019",
+      "type": "phase.completed",
+      "at": "2026-08-30T19:46:59.590Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "2518fc11b6f39e54f4a0aa093533e04308d83303995ca14200b671709e014569"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 8,
+      "previousHash": "2518fc11b6f39e54f4a0aa093533e04308d83303995ca14200b671709e014569",
+      "type": "work.ready",
+      "at": "2026-08-30T19:47:00.093Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "681aa048a21dfc338f23950c1edf6e896171165db75c503c859a437b439fb85c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 9,
+      "previousHash": "681aa048a21dfc338f23950c1edf6e896171165db75c503c859a437b439fb85c",
+      "type": "work.reopened",
+      "at": "2026-08-30T19:49:13.405Z",
+      "data": {
+        "ground": "local-fix",
+        "generation": 0,
+        "revision": 1
+      },
+      "hash": "dfe3d6f0cb5075393c8e829ec277042d798a6406f8267b99c4a035c929ca6a1c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 10,
+      "previousHash": "dfe3d6f0cb5075393c8e829ec277042d798a6406f8267b99c4a035c929ca6a1c",
+      "type": "work.ready",
+      "at": "2026-08-30T19:57:11.868Z",
+      "data": {
+        "generation": 0,
+        "revision": 1
+      },
+      "hash": "76c1db795c1c27b216c941fd449d440e1833f3b81390ecf6ea2d44e02e8ba8d5"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 11,
+      "previousHash": "76c1db795c1c27b216c941fd449d440e1833f3b81390ecf6ea2d44e02e8ba8d5",
+      "type": "work.reopened",
+      "at": "2026-08-30T19:59:48.261Z",
+      "data": {
+        "ground": "local-fix",
+        "generation": 0,
+        "revision": 2
+      },
+      "hash": "6eecbe25175f8179de1d63ca4fa80ff3faf18005a2a66ed5a555b572f7421d71"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 12,
+      "previousHash": "6eecbe25175f8179de1d63ca4fa80ff3faf18005a2a66ed5a555b572f7421d71",
+      "type": "work.ready",
+      "at": "2026-08-30T20:19:05.244Z",
+      "data": {
+        "generation": 0,
+        "revision": 2
+      },
+      "hash": "e67adfdbf980f65ef31a1bfd92dd9b14f87e22d87deeb8704c0d39399bb784d8"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 13,
+      "previousHash": "e67adfdbf980f65ef31a1bfd92dd9b14f87e22d87deeb8704c0d39399bb784d8",
+      "type": "work.reopened",
+      "at": "2026-08-30T20:57:00.122Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 1,
+        "revision": 0,
+        "authorization": {
+          "prNumber": 2559,
+          "head": "d3d0ea2f03511d5f18f267b721b05cf813307d9b",
+          "verdict": 0,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/runs/99320004587 and https://github.com/woojubb/robota/pull/2559#issuecomment-5471199954",
+          "scope": "Resolve the CodeQL/review-gate findings in verification-receipt identity, work-run Git identity, command/test boundaries, and their focused regression tests.",
+          "approvedBy": "@woojubb",
+          "commentId": 5471209406,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2559#issuecomment-5471209406",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "d2e723f72956de8daddc76a4c5b80a7e85522538bdc8b40fcc7d4ed78191e158"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 14,
+      "previousHash": "d2e723f72956de8daddc76a4c5b80a7e85522538bdc8b40fcc7d4ed78191e158",
+      "type": "work.ready",
+      "at": "2026-08-30T21:10:31.939Z",
+      "data": {
+        "generation": 1,
+        "revision": 0
+      },
+      "hash": "77b13418736ecf30e63147d5d541efe2681bbc6f7874669531629c32feca0c62"
+    }
+  ],
+  "durations": {
+    "wallMs": 811817,
+    "activeMs": 811817,
+    "pausedMs": 0,
+    "phases": {}
+  },
+  "timestamps": {
+    "claimedAt": "2026-08-30T09:55:25.756Z",
+    "readyAt": "2026-08-30T21:10:31.939Z"
+  },
+  "ground": "red-check",
+  "authorization": {
+    "prNumber": 2559,
+    "head": "d3d0ea2f03511d5f18f267b721b05cf813307d9b",
+    "verdict": 0,
+    "action": "push",
+    "ground": "red-check",
+    "evidence": "https://github.com/woojubb/robota/runs/99320004587 and https://github.com/woojubb/robota/pull/2559#issuecomment-5471199954",
+    "scope": "Resolve the CodeQL/review-gate findings in verification-receipt identity, work-run Git identity, command/test boundaries, and their focused regression tests.",
+    "approvedBy": "@woojubb",
+    "commentId": 5471209406,
+    "commentUrl": "https://github.com/woojubb/robota/pull/2559#issuecomment-5471209406",
+    "commentAuthor": "woojubb",
+    "commentAuthorAssociation": "OWNER"
+  }
+}

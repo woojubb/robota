@@ -45,7 +45,9 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     const script = packageJson.scripts?.['harness:test'];
 
     expect(script).toBeTypeOf('string');
-    expect(script).toContain('harness-test-tiers.mjs --tier all');
+    expect(script).toContain('harness-test-tiers.mjs --tier contracts');
+    expect(script).toContain('harness-test-tiers.mjs --verify-hermetic-stripped');
+    expect(script).not.toContain('harness-test-tiers.mjs --tier all');
     expect(script).not.toMatch(/\.test\.mjs/);
     const owner = read('scripts/harness/harness-test-tiers.mjs');
     expect(owner).toContain(`const TEST_DIR = '${HARNESS_TESTS_DIR}'`);

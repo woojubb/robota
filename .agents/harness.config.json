@@ -440,6 +440,22 @@
       }
     ]
   },
+  "fileSizeAdditionalScope": {
+    "$comment": "OBSERVABILITY-002 adopts every top-level harness production module into the 300-line anti-monolith ratchet. Existing oversized debt is frozen in file-size-baseline.json; every new module is strict and no changed helper can fall outside the mechanism.",
+    "exactFiles": [
+      "scripts/harness/work-run.mjs",
+      "scripts/harness/scan-work-run-measurement.mjs",
+      "scripts/harness/post-findings-authorization.mjs",
+      "scripts/harness/verification-receipt.mjs",
+      "scripts/harness/scan-file-size.mjs",
+      "scripts/harness/cleanup-drift.mjs",
+      "scripts/harness/pre-push.mjs",
+      "scripts/harness/run-all-scans.mjs",
+      "scripts/harness/scan-user-execution-plan-order.mjs",
+      "scripts/harness/verify-like-ci.mjs"
+    ],
+    "patterns": ["scripts/harness/*.mjs"]
+  },
   "barrelParameterTypes": {
     "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header. Scope: EVERY package barrel in the workspace. It was 2 of 55 until #1851 widened it, because a floor scoped to 4% of the tree reports the same passed a fully-scoped one does — the scope IS the check. The 16 findings that widening exposed were each verified against the source before being fixed (a scan finding is a claim, not a proof), and in every case the type was already exported from its own module and merely absent from the barrel.",
     "barrels": [

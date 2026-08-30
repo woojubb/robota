@@ -267,12 +267,17 @@ describe('workspace-wide build tooling (INFRA-060 D4)', () => {
     const plan = createVerificationPlan({
       scopes,
       changedFiles: ['package.json'],
-      rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+      rootManifestChange: {
+        kind: 'developer-quality-only',
+        changedScriptKeys: ['harness:work-run'],
+        workspaceWide: false,
+      },
     });
 
     expect(plan.scopes).toEqual([]);
     expect(plan.workspaceWideTriggers).toEqual([]);
     expect(plan.rootManifestClassification).toBe('developer-quality-only');
+    expect(plan.repositoryChecks).toEqual(['harness-tests', 'harness-consistency']);
     expect(renderPlanSummary(plan)).toContain('Root manifest: developer-quality-only');
   });
 

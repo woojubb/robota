@@ -82,7 +82,6 @@ export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/scan-conflict-markers.test.mjs',
   'scripts/harness/__tests__/scan-deprecated-markers.test.mjs',
   'scripts/harness/__tests__/scan-dist-freshness.test.mjs',
-  'scripts/harness/__tests__/scan-file-size.test.mjs',
   'scripts/harness/__tests__/scan-helper-limits.test.mjs',
   'scripts/harness/__tests__/scan-interface-runtime.test.mjs',
   'scripts/harness/__tests__/scan-legacy-typescript.test.mjs',
@@ -99,9 +98,17 @@ export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/scan-vitest-resource-ceiling.test.mjs',
   'scripts/harness/__tests__/task-lifecycle.test.mjs',
   'scripts/harness/__tests__/tree-prerequisites.test.mjs',
-  'scripts/harness/__tests__/verification-receipt.test.mjs',
   'scripts/harness/__tests__/workspace-check-batches.test.mjs',
   'scripts/harness/__tests__/worktree-gate.test.mjs',
+]);
+
+/**
+ * Repository-contract tests whose own bounded subprocess fan-out must not compete with another
+ * Vitest file. They remain members of the contract tier; this list changes only the execution
+ * schedule, not coverage or ownership.
+ */
+export const ISOLATED_CONTRACT_TEST_FILES = Object.freeze([
+  'scripts/harness/__tests__/hook-reading-matches-bash.test.mjs',
 ]);
 
 function listTestFiles(root) {
@@ -123,20 +130,47 @@ function listTestFiles(root) {
 /** Return the fail-closed, complete partition of the harness self-test suite. */
 export function classifyHarnessTestFiles(root = DEFAULT_ROOT) {
   const all = listTestFiles(root);
-  const declared = new Set(HERMETIC_TEST_FILES);
-  if (declared.size !== HERMETIC_TEST_FILES.length) {
+  const hermeticDeclared = new Set(HERMETIC_TEST_FILES);
+  const isolatedDeclared = new Set(ISOLATED_CONTRACT_TEST_FILES);
+  if (hermeticDeclared.size !== HERMETIC_TEST_FILES.length) {
     throw new Error('the hermetic harness-test allowlist contains duplicate entries');
   }
-  const missing = HERMETIC_TEST_FILES.filter((file) => !all.includes(file));
-  if (missing.length > 0) {
-    throw new Error(`declared hermetic harness test(s) do not exist: ${missing.join(', ')}`);
+  if (isolatedDeclared.size !== ISOLATED_CONTRACT_TEST_FILES.length) {
+    throw new Error('the isolated contract-test allowlist contains duplicate entries');
   }
-  const hermetic = all.filter((file) => declared.has(file));
-  const contract = all.filter((file) => !declared.has(file));
+  const missing = [...HERMETIC_TEST_FILES, ...ISOLATED_CONTRACT_TEST_FILES].filter(
+    (file) => !all.includes(file),
+  );
+  if (missing.length > 0) {
+    throw new Error(`declared harness test(s) do not exist: ${missing.join(', ')}`);
+  }
+  const overlap = ISOLATED_CONTRACT_TEST_FILES.filter((file) => hermeticDeclared.has(file));
+  if (overlap.length > 0) {
+    throw new Error(`isolated contract test(s) cannot be hermetic: ${overlap.join(', ')}`);
+  }
+  const hermetic = all.filter((file) => hermeticDeclared.has(file));
+  const contract = all.filter((file) => !hermeticDeclared.has(file));
+  const isolatedContract = contract.filter((file) => isolatedDeclared.has(file));
+  const concurrentContract = contract.filter((file) => !isolatedDeclared.has(file));
   if (hermetic.length === 0 || contract.length === 0) {
     throw new Error('both harness-test tiers must contain at least one test');
   }
-  return { all, contract, hermetic };
+  if (isolatedContract.length !== ISOLATED_CONTRACT_TEST_FILES.length) {
+    throw new Error('every isolated harness test must belong to the repository-contract tier');
+  }
+  return { all, concurrentContract, contract, hermetic, isolatedContract };
+}
+
+/** Build a complete, non-overlapping execution schedule for one logical tier. */
+export function testInvocationsForTier(tiers, tier) {
+  const isolated = tiers.isolatedContract.map((file) => [file]);
+  if (tier === 'contracts') return [tiers.concurrentContract, ...isolated];
+  if (tier === 'hermetic') return [tiers.hermetic];
+  if (tier === 'all') {
+    const concurrent = tiers.all.filter((file) => !tiers.isolatedContract.includes(file));
+    return [concurrent, ...isolated];
+  }
+  throw new Error(`unknown harness test tier: ${tier}`);
 }
 
 export function vitestInvocation(root, files, cwd = root, config = undefined) {
@@ -156,7 +190,6 @@ export function vitestInvocation(root, files, cwd = root, config = undefined) {
     ...(config ? ['--config', config] : []),
     '--pool=threads',
     '--maxWorkers=2',
-    '--fileParallelism=false',
     '--testTimeout=30000',
     '--reporter=dot',
   ];
@@ -243,12 +276,14 @@ export function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
     process.exitCode = 1;
     return undefined;
   }
-  const files =
-    tier === 'contracts' ? tiers.contract : tier === 'hermetic' ? tiers.hermetic : tiers.all;
-  const result = vitestInvocation(root, files);
-  process.stdout.write(result.stdout ?? '');
-  process.stderr.write(result.stderr ?? '');
-  process.exitCode = result.status ?? 1;
+  let result;
+  for (const files of testInvocationsForTier(tiers, tier)) {
+    result = vitestInvocation(root, files);
+    process.stdout.write(result.stdout ?? '');
+    process.stderr.write(result.stderr ?? '');
+    process.exitCode = result.status ?? 1;
+    if (process.exitCode !== 0) return result;
+  }
   return result;
 }
 

@@ -42,15 +42,26 @@
   리뷰 라운드 38회, 그중 24회가 블로킹, 라운드당 CI 6-10분. 그 측정이 local-review 기록과 pre-push 거부를
   낳았다. 즉 이 숫자는 실제로 결정을 바꾼다. 그런데 다시 측정할 방법이 없었다.
 
+### 5. Work-run claim-to-ready and time-to-first-PR
+
+- **정의**: repository work가 claim된 시점부터 validated ready receipt까지의 wall/active/paused/
+  phase 시간. GitHub와 정확히 결합될 때만 server `createdAt`까지를 `time-to-first-pr`로 보고한다.
+- **측정**: `pnpm harness:work-run:report`; durable receipts는 `.agents/evals/work-runs/`, raw local
+  events는 `.agents/evals/local-metrics/work-runs/`에 있다.
+- **분모**: `included`, `superseded`, `excluded`, `invalid`, `unavailable`을 항상 함께 보고한다.
+- **집계**: cohort는 lane/work-kind이며 p50/p90만 계산한다. 개인 순위나 percentile 평균은 만들지 않는다.
+- **경계**: pre-PR revision은 같은 root interval이고, PR 이후 finding/red-check/rebase generation은
+  별도 rework다. 이 지표는 DORA change lead time이 아니다.
+
 ## Secondary Metrics
 
-### 5. Spec Conformance
+### 6. Spec Conformance
 
 - **정의**: 변경된 패키지의 SPEC.md가 코드와 일치하는 비율
 - **목표**: 100%
 - **측정**: spec-code-conformance 스킬 실행 결과
 
-### 6. Build Verification Rate
+### 7. Build Verification Rate
 
 - **정의**: 커밋 전 빌드/테스트를 실행한 비율
 - **목표**: 100%

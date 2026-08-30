@@ -24,6 +24,7 @@ INPUT=$(cat)
 source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 # shellcheck source=lib/bounded-gh.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
+AUTH_PARSER=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/harness/post-findings-authorization.mjs
 
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
 # under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
@@ -826,9 +827,14 @@ frozen_diff_refusal() {
     echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
     return 0
   fi
+  # `gh pr view --json comments` exposes `id` as a GraphQL node id (`IC_...`), while the
+  # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
+  # number from the same canonical URL the parser independently validates.
   approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
-    --jq "[.comments[]? | select((.author.login // \"\") == \"woojubb\") | .body // \"\"] | map(select(test(\"POST_FINDINGS_ACTION_REQUEST\"))) | map(select(test(\"HEAD:[[:space:]]*$remote_head\"))) | map(select(test(\"VERDICT:[[:space:]]*$latest_count([[:space:]]|$)\"))) | map(select(test(\"ACTION:[[:space:]]*(push|rebase)\"; \"i\"))) | map(select(test(\"GROUND:[[:space:]]*(finding|red-check|rebase)\"; \"i\"))) | map(select(test(\"EVIDENCE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"SCOPE:[[:space:]]*[^[:space:]]\"))) | map(select(test(\"APPROVED:[[:space:]]*yes\"; \"i\"))) | map(select(test(\"APPROVED-BY:[[:space:]]*@[^[:space:]]\"))) | length" 2>/dev/null || echo "")
-  if [[ "$approved" =~ ^[1-9][0-9]*$ ]]; then
+    --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
+    | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
+      --verdict "$latest_count" --actions push,rebase 2>/dev/null || echo "")
+  if [[ "$approved" == "1" ]]; then
     echo "[pre-push-check] Approved post-verdict change request found for PR #$open_pr at head $remote_head." >&2
     return 1
   fi

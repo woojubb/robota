@@ -121,6 +121,40 @@ describe('classifyFiles', () => {
     });
   });
 
+  it('treats a semantically proven harness-only root manifest as infrastructure', () => {
+    expect(
+      classifyFiles(['package.json'], {
+        rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+      }),
+    ).toMatchObject({
+      code: true,
+      product: false,
+      tui: false,
+      examples: false,
+      harness: true,
+    });
+  });
+
+  it('keeps root manifest classification fail-closed without proof or with product files', () => {
+    const developerQualityOnly = {
+      rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+    };
+
+    expect(classifyFiles(['package.json']).product).toBe(true);
+    expect(classifyFiles(['package.json', 'pnpm-lock.yaml'], developerQualityOnly).product).toBe(
+      true,
+    );
+    expect(
+      classifyFiles(['package.json', 'packages/agent-core/src/index.ts'], developerQualityOnly)
+        .product,
+    ).toBe(true);
+    expect(
+      classifyFiles(['package.json'], {
+        rootManifestChange: { kind: 'workspace-wide', workspaceWide: true },
+      }).product,
+    ).toBe(true);
+  });
+
   // "Nothing classified" must run the checks, not skip them.
   it('FAIL-CLOSED: an empty file list is CODE', () => {
     expect(classifyFiles([])).toMatchObject({
@@ -182,6 +216,47 @@ describe('classifyRange (fail-closed on git)', () => {
     const result = classifyRange({ baseRef: 'origin/develop', runGit });
     expect(calls[1]).toEqual(['diff', '--name-only', '--diff-filter=ACMRD', 'base1', 'HEAD']);
     expect(result).toMatchObject({ harness: true, files: ['scripts/harness/deleted.mjs'] });
+  });
+
+  it('classifies a harness-only root manifest from immutable Git objects', () => {
+    const before = JSON.stringify({ scripts: { build: 'pnpm -r build' } });
+    const after = JSON.stringify({
+      scripts: {
+        build: 'pnpm -r build',
+        'harness:work-run': 'node scripts/harness/work-run.mjs',
+      },
+    });
+    const runGit = (args) => {
+      if (args[0] === 'merge-base') return ok('base1\n');
+      if (args[0] === 'diff') return ok('package.json\n');
+      if (args[0] === 'show') return ok(args[1] === 'base1:package.json' ? before : after);
+      return fail();
+    };
+
+    expect(classifyRange({ baseRef: 'origin/develop', runGit })).toMatchObject({
+      code: true,
+      product: false,
+      tui: false,
+      examples: false,
+      harness: true,
+    });
+  });
+
+  it('fails closed when root manifest Git content is malformed or unreadable', () => {
+    const run = (headResult) => (args) => {
+      if (args[0] === 'merge-base') return ok('base1\n');
+      if (args[0] === 'diff') return ok('package.json\n');
+      if (args[0] === 'show' && args[1] === 'base1:package.json') {
+        return ok('{"scripts":{"build":"pnpm -r build"}}');
+      }
+      if (args[0] === 'show') return headResult;
+      return fail();
+    };
+
+    expect(classifyRange({ baseRef: 'origin/develop', runGit: run(ok('{bad')) }).product).toBe(
+      true,
+    );
+    expect(classifyRange({ baseRef: 'origin/develop', runGit: run(fail()) }).product).toBe(true);
   });
 });
 

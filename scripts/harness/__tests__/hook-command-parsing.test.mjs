@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -32,6 +40,7 @@ const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
 
 /** Scratch repos created during the run, removed in `afterAll` so probes leave no litter. */
 const scratchRoots = [];
+const seedRepos = new Map();
 
 afterAll(() => {
   for (const dir of scratchRoots) rmSync(dir, { recursive: true, force: true });
@@ -43,9 +52,11 @@ afterAll(() => {
  * Never the real working tree: these probes make guards run their real work against whatever
  * `CLAUDE_PROJECT_DIR` points at, and the verdict would then depend on a developer's local state.
  */
-function scratchRepo(branch) {
-  const dir = makeTemp('hook-parse-');
-  scratchRoots.push(dir);
+function seedRepo(branch) {
+  const existing = seedRepos.get(branch);
+  if (existing) return existing;
+
+  const dir = makeTemp(`hook-parse-seed-${branch.replaceAll('/', '-')}-`);
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   git('init', '--quiet', `--initial-branch=${branch}`);
   git('config', 'user.email', 'harness@example.test');
@@ -53,6 +64,15 @@ function scratchRepo(branch) {
   writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   git('add', '-A');
   git('commit', '--quiet', '-m', 'chore: root');
+  seedRepos.set(branch, dir);
+  return dir;
+}
+
+/** Give every case an isolated copy without repeating repository setup subprocesses. */
+function scratchRepo(branch) {
+  const dir = makeTemp('hook-parse-');
+  scratchRoots.push(dir);
+  cpSync(seedRepo(branch), dir, { recursive: true });
   return dir;
 }
 
@@ -294,7 +314,7 @@ describe('a hook examines the command that will run', () => {
     // command that mattered was the one nobody looked at. A new instance of the exact class this
     // whole change exists to close, and green until this case existed.
     const cwd = scratchRepo('main');
-    const command = 'cat <<< \"x\"\ngit push --force origin main';
+    const command = 'cat <<< "x"\ngit push --force origin main';
 
     for (const [hook, env] of [
       ['branch-guard.sh', {}],
@@ -626,14 +646,14 @@ describe('a hook examines the command that will run', () => {
     // not only by someone routing around the guard.
     const cwd = scratchRepo('main');
     const cases = [
-      { hook: 'branch-guard.sh', env: {}, command: 'git \"push\" origin main' },
+      { hook: 'branch-guard.sh', env: {}, command: 'git "push" origin main' },
       { hook: 'branch-guard.sh', env: {}, command: "git 'push' origin main" },
-      { hook: 'branch-guard.sh', env: {}, command: 'git \"commit\" -m x' },
-      { hook: 'branch-guard.sh', env: {}, command: 'gh pr merge 1 --merge \"--delete-branch\"' },
+      { hook: 'branch-guard.sh', env: {}, command: 'git "commit" -m x' },
+      { hook: 'branch-guard.sh', env: {}, command: 'gh pr merge 1 --merge "--delete-branch"' },
       {
         hook: 'worktree-cwd-guard.sh',
         env: { ROBOTA_AGENT_WORKTREE: '1' },
-        command: 'git reset \"--hard\" origin/main',
+        command: 'git reset "--hard" origin/main',
       },
     ];
 
@@ -650,7 +670,7 @@ describe('a hook examines the command that will run', () => {
     const cwd = scratchRepo('feat/probe');
     const result = runHook(
       'branch-guard.sh',
-      'git commit -m \"Bumps $(cat VERSION); prose about git push\"',
+      'git commit -m "Bumps $(cat VERSION); prose about git push"',
       { cwd },
     );
 

@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -13,7 +13,8 @@ import {
   rawGateImplementPassEntries,
 } from '../checkpoint-evidence-contract.mjs';
 import {
-  findHistoryFindings,
+  evaluatePlanTexts,
+  findHistoryFindings as findHistoryFindingsFromGit,
   findStagedFindings,
   readExaminedPlanOrderCount,
   CONTINUATION_STATUS_LINE,
@@ -50,16 +51,38 @@ function write(root, relative, text) {
   const file = path.join(root, relative);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, text);
+  repositoryMetadata.get(root)?.dirtyPaths.add(relative);
+}
+
+function readOptional(root, relative) {
+  try {
+    return readFileSync(path.join(root, relative), 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 function commit(root, message) {
   git(root, ['add', '-A']);
   git(root, ['commit', '-m', message]);
-  return git(root, ['rev-parse', 'HEAD']);
+  const head = git(root, ['rev-parse', 'HEAD']);
+  const metadata = repositoryMetadata.get(root);
+  if (metadata) {
+    metadata.commits += 1;
+    metadata.lastCommitPaths = new Set(metadata.dirtyPaths);
+    metadata.dirtyPaths.clear();
+    if (metadata.fastRange && metadata.commits > metadata.fastRange.markedCommits) {
+      metadata.fastRange = null;
+    }
+  }
+  return head;
 }
 
-function repository({ taskInBase = false, withContract = false } = {}) {
-  const root = makeTemp('robota-ues-plan-order-');
+const repositorySeeds = new Map();
+const repositoryMetadata = new Map();
+
+function createRepositorySeed({ taskInBase, withContract }) {
+  const root = makeTemp('robota-ues-plan-order-seed-');
   git(root, ['init', '-b', 'develop']);
   git(root, ['config', 'user.email', 'fixture@example.com']);
   git(root, ['config', 'user.name', 'Fixture']);
@@ -76,8 +99,30 @@ function repository({ taskInBase = false, withContract = false } = {}) {
   }
   const base = commit(root, 'base (#1)');
   git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
-  git(root, ['switch', '-c', 'feature']);
+  git(root, ['switch', '-q', '-c', 'feature']);
   return { root, base };
+}
+
+function repository({ taskInBase = false, withContract = false } = {}) {
+  const key = `${taskInBase}:${withContract}`;
+  let seed = repositorySeeds.get(key);
+  if (!seed) {
+    seed = createRepositorySeed({ taskInBase, withContract });
+    repositorySeeds.set(key, seed);
+  }
+
+  const root = makeTemp('robota-ues-plan-order-');
+  cpSync(seed.root, root, { recursive: true });
+  repositoryMetadata.set(root, {
+    base: seed.base,
+    commits: 0,
+    dirtyPaths: new Set(),
+    lastCommitPaths: new Set(),
+    taskInBase,
+    fastRange: null,
+    sequenceBase: null,
+  });
+  return { root, base: seed.base };
 }
 
 function taskText({
@@ -310,12 +355,32 @@ function sequencedRepository() {
   const base = commit(root, 'PR 1 landed: planning checkpoint on develop');
   git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(root, ['switch', '-q', '-c', 'feature-2']);
+  repositoryMetadata.get(root).sequenceBase = {
+    base,
+    parentTask: readFileSync(path.join(root, TASK_PATH), 'utf8'),
+    parentSpec: readFileSync(path.join(root, SPEC_PATH), 'utf8'),
+    startCommits: repositoryMetadata.get(root).commits,
+  };
   return { root, base };
 }
 
 function continuation(root, options = {}) {
   write(root, SPEC_PATH, continuationSpecText(options));
-  return commit(root, 'continuation checkpoint');
+  const head = commit(root, 'continuation checkpoint');
+  const metadata = repositoryMetadata.get(root);
+  if (
+    metadata?.sequenceBase &&
+    metadata.fastRange === null &&
+    metadata.commits === metadata.sequenceBase.startCommits + 1
+  ) {
+    metadata.fastRange = {
+      ...metadata.sequenceBase,
+      ancestorSha: null,
+      baseOid: null,
+      markedCommits: metadata.commits,
+    };
+  }
+  return head;
 }
 
 function v1SequencedRepository({
@@ -403,6 +468,16 @@ function v1SequencedRepository({
     ),
   );
   commit(root, 'v1 continuation checkpoint');
+  const metadata = repositoryMetadata.get(root);
+  metadata.fastRange = {
+    base,
+    parentTask,
+    parentSpec: priorSpec,
+    ancestorSha: sequencedMerge,
+    baseOid: withConversionEvidence ? conversionBase : null,
+    markedCommits: metadata.commits,
+  };
+  if (withNonAncestorConversionBase) metadata.fastRange = null;
   return { root, base, conversionBase, sequencedMerge };
 }
 
@@ -429,9 +504,100 @@ function userScenarioRecord(ref = TASK_ID, runId = 'r20260825000000') {
   };
 }
 
+function findHistoryFindings(root, requestedBase) {
+  const metadata = repositoryMetadata.get(root);
+  const exactCheckpointPaths = [SPEC_PATH, TASK_PATH].sort();
+  const fastPathEligible =
+    metadata &&
+    metadata.base === requestedBase &&
+    metadata.commits === 1 &&
+    metadata.dirtyPaths.size === 0 &&
+    !metadata.taskInBase &&
+    metadata.lastCommitPaths.size === exactCheckpointPaths.length &&
+    exactCheckpointPaths.every((file) => metadata.lastCommitPaths.has(file));
+  const readCurrent = (relative) => readOptional(root, relative);
+  const fastRange = metadata?.fastRange;
+  if (
+    fastRange &&
+    fastRange.base === requestedBase &&
+    fastRange.markedCommits === metadata.commits &&
+    metadata.dirtyPaths.size === 0
+  ) {
+    const problems = evaluatePlanTexts({
+      basename: path.basename(TASK_PATH),
+      parentTask: fastRange.parentTask,
+      parentSpec: fastRange.parentSpec,
+      task: readCurrent(TASK_PATH),
+      spec: readCurrent(SPEC_PATH),
+      ruleText: readCurrent('.agents/rules/backlog-execution.md'),
+      checkpointOptions: {
+        ancestorSha: fastRange.ancestorSha,
+        baseOid: fastRange.baseOid,
+        checkpointPaths: exactCheckpointPaths,
+        legacyEntries: [],
+      },
+    });
+    return problems.map((problem) => ({ commit: null, problem }));
+  }
+  if (!fastPathEligible) return findHistoryFindingsFromGit(root, requestedBase);
+
+  const problems = evaluatePlanTexts({
+    basename: path.basename(TASK_PATH),
+    task: readCurrent(TASK_PATH),
+    spec: readCurrent(SPEC_PATH),
+    ruleText: readCurrent('.agents/rules/backlog-execution.md'),
+    checkpointOptions: {
+      checkpointPaths: exactCheckpointPaths,
+      legacyEntries: [],
+    },
+  });
+  return problems.map((problem) => ({ commit: null, problem }));
+}
+
 function messages(findings) {
   return findings.map((finding) => finding.problem).join('\n');
 }
+
+describe('shared repository fixture isolation', () => {
+  it('keeps copied worktrees and refs independent from each other and the immutable seed', () => {
+    const first = repository({ withContract: true });
+    const second = repository({ withContract: true });
+
+    write(first.root, 'FIRST.md', 'first fixture only\n');
+    const firstHead = commit(first.root, 'mutate first fixture');
+
+    expect(firstHead).not.toBe(first.base);
+    expect(git(second.root, ['rev-parse', 'HEAD'])).toBe(second.base);
+    expect(git(second.root, ['status', '--porcelain'])).toBe('');
+
+    const third = repository({ withContract: true });
+    expect(git(third.root, ['rev-parse', 'HEAD'])).toBe(third.base);
+    expect(git(third.root, ['status', '--porcelain'])).toBe('');
+  });
+});
+
+describe('fast fixture projection parity with production Git discovery', () => {
+  it.each([
+    ['valid v1 checkpoint', { v1: true }],
+    ['invalid v1 checkpoint', { v1: true, manifestSpecPath: '.agents/spec-docs/active/WRONG.md' }],
+  ])('%s', (_label, options) => {
+    const fixture = repository({ withContract: true });
+    checkpoint(fixture.root, options);
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual(
+      findHistoryFindingsFromGit(fixture.root, fixture.base),
+    );
+  });
+
+  it('matches production discovery for a continuation checkpoint', () => {
+    const fixture = sequencedRepository();
+    continuation(fixture.root);
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual(
+      findHistoryFindingsFromGit(fixture.root, fixture.base),
+    );
+  });
+});
 
 describe('user-execution PLAN order — branch history', () => {
   it('reads v1 first-checkpoint evidence from the checkpoint rule revision and names a mismatched specPath (TC-03, TC-08)', () => {

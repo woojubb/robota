@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+  "generation": 0,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "codex/observability-002-work-run-measurement",
+    "baseCommit": "3faf26ad80046058647b2a61efbe56b4174e0906",
+    "headCommit": "0768a55189f54e51b0417e395f35e553cc6e2d7b",
+    "headTree": "3919eead09acd7feb5d3b482db33c24da4ba3ab3",
+    "commitOids": [
+      "8515311af9a27a3e70c40e73d27c5e409b022de2",
+      "aba87cb28cd2fcf5aadf7314b0bfccab219ef2e1",
+      "2c6d067bafc3f5cee563315473b56517d9a24ef4",
+      "2f93427780982bad2b6692b39ee3cecbeb24f522",
+      "1f610e955ef9501660482d78147b2fc6ffd1efa0",
+      "af1d0e165482fe541cf4b286e9a7b87b543e2895",
+      "eb68eea62d7c97a26370aa7e50d1ed169eb56790",
+      "08effa0fe51c91565ea316d48a5bff6001a13502",
+      "bfa0da1401641b0e3bbd122f06fe4d1505315705",
+      "b5f517c7fc64bbea4f14862ad049581bb37a5bd7",
+      "eab9c8233db0d7233a6e5d9f1a1d57ab5b92ad67",
+      "427373d0ec96f0f215c674aff2909db6eaa0e299",
+      "63d9eaec00b611c9dc98d507c3b224f7cd700811",
+      "c47e288001d036191bccbcf6623cee04b7f4e139",
+      "e89567c51601ec3780a03f6710c1504c0171d17d",
+      "2460856134d01fc5a6a72438721084aea150d0eb",
+      "2944cc0964dda2d615478597aabfeb4037c66897",
+      "d7d74ebcca1603d5824d1aca6be192c9b3099c15",
+      "f75b108b32c81ddc60797dee33d0e23c3a38d21c",
+      "4144e5c188da5ada852ae27891acb234c31cd3e0",
+      "4bc76c41426ee2265fb0ec4fff81d8d4ce3e3053",
+      "40b34e1b3795d08c266f96e561e8ac4d0744d892",
+      "a5b83e0ca6f257560049751be4cee3ccb4699b74",
+      "77a5cde4831ab9d6d92cfbd52669e40ff1d75ad3",
+      "5bc04c082969209e1c42c07dd834b13d28e0a340",
+      "00adc48a8af51eb0e17a429c2361530d0a7b97af",
+      "0768a55189f54e51b0417e395f35e553cc6e2d7b"
+    ],
+    "trailerDigest": "37845b2cf7fac97fd3e422531efce49cdec8921fec07896797b15c8920ab8df4",
+    "ownerFingerprint": "4c824ff52aee83bf22bdbfb828acb9ff6dd052e9527cf3b379c5d8fdb074fda4"
+  },
+  "cohort": {
+    "key": "L2/observability",
+    "lane": "L2",
+    "workKind": "observability"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-08-30T09:55:25.756Z",
+      "data": {
+        "branch": "codex/observability-002-work-run-measurement"
+      },
+      "hash": "129b808d1ebf3e8f3fecca2bd010de62d0759babaa576ca1bc112a43bd1bb032"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 2,
+      "previousHash": "129b808d1ebf3e8f3fecca2bd010de62d0759babaa576ca1bc112a43bd1bb032",
+      "type": "work.bound",
+      "at": "2026-08-30T10:52:22.000Z",
+      "data": {
+        "workId": "OBSERVABILITY-002",
+        "lane": "L2",
+        "workKind": "observability"
+      },
+      "hash": "530a3c67b8246ecdf355121112ddf0d53fb525bcf8febae78db2d8c2193b047f"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 3,
+      "previousHash": "530a3c67b8246ecdf355121112ddf0d53fb525bcf8febae78db2d8c2193b047f",
+      "type": "work.started",
+      "at": "2026-08-30T10:52:23.000Z",
+      "data": {},
+      "hash": "4f93d7ac3a1b8b195bcbae3a33cee23b85bd6daca9eb6b752117e930f27cbb02"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 4,
+      "previousHash": "4f93d7ac3a1b8b195bcbae3a33cee23b85bd6daca9eb6b752117e930f27cbb02",
+      "type": "phase.started",
+      "at": "2026-08-30T10:52:24.000Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "a2e23539046185178667c2a1bdc11b4694f377f3e4ef443a6e8b38b28693b0d3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 5,
+      "previousHash": "a2e23539046185178667c2a1bdc11b4694f377f3e4ef443a6e8b38b28693b0d3",
+      "type": "phase.completed",
+      "at": "2026-08-30T13:13:32.891Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "8799c7cc5f08ef722a8539a66a2e6e9a6020d75c40df071735dd1934ca6fa9c9"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 6,
+      "previousHash": "8799c7cc5f08ef722a8539a66a2e6e9a6020d75c40df071735dd1934ca6fa9c9",
+      "type": "phase.started",
+      "at": "2026-08-30T13:13:33.233Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "045b2b5a693db4d19a8d86d989681d769da41e4d91729d758830020e017cd019"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 7,
+      "previousHash": "045b2b5a693db4d19a8d86d989681d769da41e4d91729d758830020e017cd019",
+      "type": "phase.completed",
+      "at": "2026-08-30T19:46:59.590Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "2518fc11b6f39e54f4a0aa093533e04308d83303995ca14200b671709e014569"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "f91b7fde-701a-4560-b1c2-b22236046da7",
+      "sequence": 8,
+      "previousHash": "2518fc11b6f39e54f4a0aa093533e04308d83303995ca14200b671709e014569",
+      "type": "work.ready",
+      "at": "2026-08-30T19:47:00.093Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "681aa048a21dfc338f23950c1edf6e896171165db75c503c859a437b439fb85c"
+    }
+  ],
+  "durations": {
+    "wallMs": 35494337,
+    "activeMs": 35494337,
+    "pausedMs": 0,
+    "phases": {
+      "implementation": 8468891,
+      "verification": 23606357
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-08-30T09:55:25.756Z",
+    "readyAt": "2026-08-30T19:47:00.093Z"
+  }
+}

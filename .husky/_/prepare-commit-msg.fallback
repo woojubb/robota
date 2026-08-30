@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -e
+
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TARGET="$HOOK_DIR/../prepare-commit-msg"
+if [ ! -x "$TARGET" ]; then
+	echo "[prepare-commit-msg] Blocked: tracked hook target is missing or not executable: $TARGET" >&2
+	exit 1
+fi
+if [ -f "$HOOK_DIR/h" ]; then
+	. "$HOOK_DIR/h"
+fi
+exec "$TARGET" "$@"

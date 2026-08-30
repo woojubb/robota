@@ -24,6 +24,10 @@ Invoke this skill for **every** user message that requests:
 
 Do NOT invoke for: read-only explorations, spec/doc writing requests, settings changes, git operations alone.
 
+Before the first recommendation or exploration round on a non-protected topic branch, run
+`pnpm harness:work-run -- claim`. Reuse the run opened by post-checkout when present; this explicit
+entrypoint is earlier when the request arrives before branch setup. See [track-work-run](../track-work-run/SKILL.md).
+
 ## Phase 1: Read-Only Exploration (always allowed immediately)
 
 Before any code writing, explore freely:
@@ -119,6 +123,8 @@ After GATE-APPROVAL:
 2. Update the governing `packages/<name>/docs/SPEC.md` (if package behavior changes)
 3. Follow [`tdd-red-green-refactor`](../tdd-red-green-refactor/SKILL.md)
 4. Follow [`repo-change-loop`](../repo-change-loop/SKILL.md)
+5. Bind and start the work run before the first implementation edit, then bracket implementation and
+   verification phases as [track-work-run](../track-work-run/SKILL.md) defines.
 
 ## Fast Track (there is no waiver)
 

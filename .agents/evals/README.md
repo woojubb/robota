@@ -13,6 +13,7 @@ evals/
 │   ├── blocks.jsonl        # Hook block events
 │   ├── corrections.jsonl   # User correction prompt signals
 │   └── reverts.jsonl       # Rework/revert signals
+├── work-runs/          # Durable work-run receipts + versioned cutover marker
 ├── lessons/            # Generated lesson candidates for human review
 │   ├── weekly-digest.md
 │   └── auto-lessons.md
@@ -26,12 +27,13 @@ evals/
 
 See [metrics.md](metrics.md) for full definitions. Key targets:
 
-| Metric                  | Target |
-| ----------------------- | ------ |
-| One-Shot CI Pass Rate   | ≥ 80%  |
-| Human Intervention Rate | < 20%  |
-| Tool Diversity Score    | ≥ 50%  |
-| Build Verification Rate | 100%   |
+| Metric                  | Target                   |
+| ----------------------- | ------------------------ |
+| One-Shot CI Pass Rate   | ≥ 80%                    |
+| Human Intervention Rate | < 20%                    |
+| Tool Diversity Score    | ≥ 50%                    |
+| Build Verification Rate | 100%                     |
+| Work-run claim-to-ready | p50/p90 (baseline first) |
 
 ## Local Metrics
 

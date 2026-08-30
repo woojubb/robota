@@ -1,3 +1,4 @@
+// harness-coverage: dist-free-subject-identity.mjs
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -6,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { describeCiSource } from '../ci-mirror-map.mjs';
+import { resolveDistFreeSubject, runWithDistFreeSubject } from '../dist-free-subject-identity.mjs';
 import {
   advanceBuildState,
   annotateNotMirrored,
@@ -111,6 +113,54 @@ describe('parseGitFileList', () => {
 
   it('returns an empty list for no output', () => {
     expect(parseGitFileList(undefined)).toEqual([]);
+  });
+});
+
+describe('resolveDistFreeSubject', () => {
+  it('uses CI-provided PR identity without consulting symbolic-ref on detached HEAD', () => {
+    const calls = [];
+    const subject = resolveDistFreeSubject(
+      {
+        PR_HEAD_SHA: '0123456789abcdef0123456789abcdef01234567',
+        GITHUB_HEAD_REF: 'codex/detached-pr',
+      },
+      (args) => {
+        calls.push(args);
+        throw new Error('detached HEAD has no symbolic ref');
+      },
+    );
+
+    expect(subject).toEqual({
+      subjectSha: '0123456789abcdef0123456789abcdef01234567',
+      subjectBranch: 'codex/detached-pr',
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it('injects the original subject into the detached scan process', async () => {
+    const calls = [];
+    const code = await runWithDistFreeSubject(
+      (...args) => {
+        calls.push(args);
+        return Promise.resolve(0);
+      },
+      ['scan.mjs'],
+      '/detached/tree',
+      { PR_HEAD_SHA: 'subject-sha', GITHUB_HEAD_REF: 'codex/subject' },
+      () => {
+        throw new Error('provided identity must not query git');
+      },
+    );
+
+    expect(code).toBe(0);
+    expect(calls).toEqual([
+      [
+        'node',
+        ['scan.mjs'],
+        '/detached/tree',
+        { env: { PR_HEAD_SHA: 'subject-sha', GITHUB_HEAD_REF: 'codex/subject' } },
+      ],
+    ]);
   });
 });
 
@@ -400,6 +450,11 @@ describe('CI_STAGES', () => {
     expect(describeCiSource(distFree)).toMatch(/scans/);
     expect(describeCiSource(distFree)).toMatch(/dist/);
     expect(describeCiSource(built)).not.toEqual(describeCiSource(distFree));
+  });
+
+  it('passes the original branch and head identity into detached dist-free scans', () => {
+    const source = readFileSync(path.resolve(import.meta.dirname, '../verify-like-ci.mjs'), 'utf8');
+    expect(source).toContain('runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow)');
   });
 
   it('names the real definition each stage mirrors, or says out loud that it mirrors none', () => {

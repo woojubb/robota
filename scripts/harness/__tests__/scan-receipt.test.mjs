@@ -115,7 +115,11 @@ describe('a requested side effect is never swallowed by the cache', () => {
 
 describe('scans whose inputs are not in the tree', () => {
   it('names them, so adding one later is a visible change', () => {
-    expect([...TREE_EXTERNAL_SCANS].sort()).toEqual(['build-contracts', 'dist']);
+    expect([...TREE_EXTERNAL_SCANS].sort()).toEqual([
+      'build-contracts',
+      'dist',
+      'work-run-measurement',
+    ]);
   });
 
   it('keeps them out of what a receipt asserts, so one receipt serves both call sites', () => {
@@ -129,7 +133,7 @@ describe('scans whose inputs are not in the tree', () => {
   });
 
   it('re-runs them on a hit instead of blocking the hit', () => {
-    const scans = ['consistency', 'file-size', 'dist'];
+    const scans = ['consistency', 'file-size', 'dist', 'work-run-measurement'];
     const identity = { ...IDENTITY, scans: receiptCoveredScans(scans) };
     const decision = decideScanReuse({
       scanNames: scans,
@@ -139,7 +143,8 @@ describe('scans whose inputs are not in the tree', () => {
     });
 
     expect(decision.reuse).toBe(true);
-    expect(scansThatAlwaysRun(scans)).toEqual(['dist']);
+    expect(receiptCoveredScans(scans)).toEqual(['consistency', 'file-size']);
+    expect(scansThatAlwaysRun(scans)).toEqual(['dist', 'work-run-measurement']);
   });
 
   it('does not claim a saving when the set is nothing but those scans', () => {

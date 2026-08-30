@@ -32,8 +32,11 @@ skill/rule linked below.
    [delegated-refactor-green-gate](../delegated-refactor-green-gate/SKILL.md)).
 4. **README.** Update each modified package's `README.md` to match the SPEC changes (create it for
    new packages).
-5. **Commit + PR.** Commit SPEC + README + code; keep one coherent work-unit in ONE multi-commit PR
-   per the PR Batching policy and ship per [git-branch.md](../../rules/git-branch.md).
+5. **Commit + PR.** After the verified implementation tree is clean, finalize the work-run receipt and
+   make its one receipt-only closure commit; push and seal it with the server-timestamped opening-head
+   attestation before putting `Work-Run: <run-id>` in the PR body via
+   [track-work-run](../track-work-run/SKILL.md). Keep one coherent work-unit in ONE multi-commit PR per
+   the PR Batching policy and ship per [git-branch.md](../../rules/git-branch.md).
 6. **npm publish (if public packages changed)** → [version-management](../version-management/SKILL.md)
    (changesets, prerelease mode, `pnpm publish:beta` only — never `pnpm publish --filter` /
    `npm publish` / `pnpm changeset publish`).

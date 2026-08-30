@@ -74,7 +74,6 @@
  * Exit code 0 = every stage passed; 1 = at least one stage failed (no stage is skipped on an
  * earlier failure — a real new failure must never hide behind a known one).
  */
-
 import { spawn, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
@@ -93,6 +92,7 @@ import path from 'node:path';
 import { createVerificationPlan, planRequiresPackageDist } from './check-plan.mjs';
 import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
 import { classifyFiles } from './classify-changed-paths.mjs';
+import { runWithDistFreeSubject } from './dist-free-subject-identity.mjs';
 import {
   collectPackageManifestChanges,
   collectRootManifestChange,
@@ -319,9 +319,9 @@ export function parseArgs(argv) {
 // execution
 // ---------------------------------------------------------------------------
 
-function run(command, args, cwd = WORKSPACE_ROOT) {
+function run(command, args, cwd = WORKSPACE_ROOT, options) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: false });
+    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: false, ...options });
     child.on('close', (code) => resolve(code ?? 1));
     child.on('error', (error) => {
       process.stderr.write(`${error?.message ?? error}\n`);
@@ -462,7 +462,7 @@ async function runDistFreeScanSuite() {
       'scripts/harness/run-all-scans.mjs',
       ...skips.flatMap((skip) => ['--skip', skip]),
     ];
-    const code = await run('node', args, treeDir);
+    const code = await runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow);
     if (code !== 0)
       process.stderr.write(
         `\n[scan-suite-dist-free] These scans ran on a build-output-FREE copy of this branch — the\n` +
@@ -600,7 +600,7 @@ export async function resolveRunContext(baseRef) {
   });
   const missingDist = findMissingDist(listBuildablePackageDirs());
   const distRequired = planRequiresPackageDist(plan);
-  const changeClassification = classifyFiles(changedFiles);
+  const changeClassification = classifyFiles(changedFiles, { rootManifestChange });
   const codeChanged = changeClassification.code;
   const productChanged = changeClassification.product;
   const tuiChanged = changeClassification.tui;

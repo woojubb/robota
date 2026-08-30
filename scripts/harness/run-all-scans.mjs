@@ -20,9 +20,9 @@ import path from 'node:path';
 import { classifyRange } from './classify-changed-paths.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 import { resolveBaseRef } from './shared.mjs';
+import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
  *
@@ -44,7 +44,6 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * advisory output currently thrown away (e.g. `scan-file-size`'s ratchet-tighten notices).
  */
 export const ADVISORY_MARKER = '::advisory::';
-
 /**
  * SGR colour sequences, stripped so a scan's own colouring does not leak into the summary.
  *
@@ -53,7 +52,8 @@ export const ADVISORY_MARKER = '::advisory::';
  * advisory whose text happened to mention `[12m` would have had it silently deleted. A sanitiser
  * that corrupts the message it is sanitising is worse than none. Both properties are pinned below.
  */
-const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
+const ANSI_ESCAPE = '\u001b';
+const ANSI_SGR_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, 'g');
 
 /**
  * Advisory texts a scan emitted, in the order printed. Pure, so the rule is testable without
@@ -74,7 +74,6 @@ export function extractAdvisories(output) {
   }
   return advisories;
 }
-
 /**
  * HOW MUCH DID YOU LOOK AT? — the one question three recurring defects all answer wrongly.
  *
@@ -693,6 +692,7 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
     always: true,
   },
+  createWorkRunMeasurementScan('scripts/harness/scan-work-run-measurement.mjs'),
   // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
   // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
   // 43 and 52 — not a counting bug, but three private definitions of a term the rule never defined.

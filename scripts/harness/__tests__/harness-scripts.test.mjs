@@ -145,10 +145,15 @@ describe('repository-check ownership', () => {
   it('assigns harness self-tests to exactly one owner in each aggregate execution graph', () => {
     const localGate = readFileSync('scripts/harness/verify-like-ci.mjs', 'utf8');
     const prePushGate = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const prePushVerification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
     expect(localGate).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate).toContain("'--skip-typecheck'");
-    expect(prePushGate).toContain("'--skip-repository-check',\n        'harness-tests'");
+    expect(prePushGate).toContain('runPrePushVerification');
+    expect(prePushVerification).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
     expect(prePushGate).toContain("['pnpm', ['harness:test:contracts']]");
     expect(prePushGate).toContain("['pnpm', ['harness:test:hermetic']]");
@@ -461,10 +466,14 @@ describe('pre-push hook', () => {
 
   it('keeps dependent scope expansion opt-in for pre-push', () => {
     const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const verification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
     expect(content).toContain('HARNESS_PRE_PUSH_MODE');
     expect(content).toContain('--skip-dependent-scopes');
-    expect(content).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
+    expect(verification).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
   });
 
   it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
@@ -476,10 +485,15 @@ describe('pre-push hook', () => {
 
   it('threads the one resolved base plan through every pre-push consumer', () => {
     const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const verification = readFileSync(
+      'scripts/harness/pre-push-verification-execution.mjs',
+      'utf8',
+    );
 
     expect(content).toContain('baseRef: basePlan.classificationBaseRef');
-    expect(content).toContain('baseRef: basePlan.decisionBaseRef');
-    expect(content).toContain('baseRef: basePlan.receiptBaseRef');
+    expect(verification).toContain('baseRef: runtime.basePlan.classificationBaseRef ?? null');
+    expect(content).toContain('baseRef: runtime.basePlan.decisionBaseRef');
+    expect(content).toContain('baseRef: runtime.basePlan.receiptBaseRef');
     expect(content).toContain('const baseArgs = basePlan.baseArgs');
   });
 
@@ -718,6 +732,27 @@ describe('classifyRootManifestChange', () => {
       changedScriptKeys: ['lint:fix'],
       workspaceWide: false,
     });
+  });
+
+  it('recognizes root harness command changes as developer-quality-only', () => {
+    const after = structuredClone(before);
+    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
+    after.scripts['harness:test'] = 'node scripts/harness/harness-test-tiers.mjs --tier contracts';
+
+    expect(classifyRootManifestChange({ before, after })).toEqual({
+      kind: 'developer-quality-only',
+      changedKeys: ['scripts'],
+      changedScriptKeys: ['harness:work-run', 'harness:test'],
+      workspaceWide: false,
+    });
+  });
+
+  it('fails closed when a product test command changes beside harness commands', () => {
+    const after = structuredClone(before);
+    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
+    after.scripts.test = 'pnpm -r test --changed';
+
+    expect(classifyRootManifestChange({ before, after }).workspaceWide).toBe(true);
   });
 
   it('fails closed when a build script changes beside a fixer command', () => {

@@ -93,9 +93,13 @@ attributed_option() {
 #   $1 command text
 #   $2 rows, `command<TAB>short<TAB>long<TAB>...` per line, as `hazard_rows` prints them
 attributed_options() {
-  hook_statement_segments "$1" | awk -v ROWS="$2" "$HOOK_ATTRIBUTION_AWK"'
+  # BSD awk rejects a raw newline inside a `-v name=value` argument. Environment values preserve
+  # the already-validated table verbatim on both BSD and GNU awk.
+  local HOOK_ATTRIBUTION_ROWS="$2"
+  export HOOK_ATTRIBUTION_ROWS
+  hook_statement_segments "$1" | awk "$HOOK_ATTRIBUTION_AWK"'
     BEGIN {
-      nr = split(ROWS, lines, "\n")
+      nr = split(ENVIRON["HOOK_ATTRIBUTION_ROWS"], lines, "\n")
       for (i = 1; i <= nr; i++) {
         if (lines[i] == "") { continue }
         split(lines[i], f, "\t")

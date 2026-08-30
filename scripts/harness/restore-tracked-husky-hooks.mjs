@@ -11,15 +11,15 @@ import { chmodSync, copyFileSync, existsSync } from 'node:fs';
 import path, { resolve } from 'node:path';
 
 export function restoreTrackedHuskyHooks(root) {
-  const source = resolve(root, '.husky/_/pre-push.fallback');
-  const target = resolve(root, '.husky/_/pre-push');
-
-  if (!existsSync(source)) {
-    throw new Error(`tracked Husky fallback is missing: ${source}`);
+  for (const name of ['post-checkout', 'prepare-commit-msg', 'pre-push']) {
+    const source = resolve(root, `.husky/_/${name}.fallback`);
+    const target = resolve(root, `.husky/_/${name}`);
+    if (!existsSync(source)) {
+      throw new Error(`tracked Husky fallback is missing: ${source}`);
+    }
+    copyFileSync(source, target);
+    chmodSync(target, 0o755);
   }
-
-  copyFileSync(source, target);
-  chmodSync(target, 0o755);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

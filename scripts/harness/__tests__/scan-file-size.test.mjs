@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
+import { loadHarnessConfig } from '../harness-config.mjs';
 import {
   baselineDriftFindings,
   evaluateFileSizes,
   isPureReexportBarrel,
+  matchesConfiguredHarnessScope,
 } from '../scan-file-size.mjs';
 
 /**
@@ -43,6 +46,10 @@ describe('scan-file-size ratchet (HARNESS-DIET-003)', () => {
     );
     expect(findings).toHaveLength(0);
   });
+});
+
+describe('scan-file-size baseline ratchet transitions', () => {
+  const MAX = 300;
 
   it('a baselined file that GREW past its frozen count fails', () => {
     const { findings } = evaluateFileSizes(
@@ -77,6 +84,85 @@ describe('scan-file-size ratchet (HARNESS-DIET-003)', () => {
   it('a deleted baselined file is reported stale', () => {
     const { stale } = evaluateFileSizes([], { 'packages/x/src/gone.ts': 500 }, MAX);
     expect(stale).toEqual(['packages/x/src/gone.ts']);
+  });
+});
+
+describe('config-driven harness scope', () => {
+  const MAX = 300;
+  const scope = loadHarnessConfig().fileSizeAdditionalScope;
+  const baseline = JSON.parse(
+    readFileSync(new URL('../file-size-baseline.json', import.meta.url), 'utf8'),
+  );
+
+  it('adopts an oversized work-run production module into the enforcing scope', () => {
+    const files = [
+      { relPath: 'scripts/harness/work-run-validation.mjs', lineCount: 301 },
+      { relPath: 'scripts/harness/gate.mjs', lineCount: 900 },
+    ].filter(({ relPath }) => matchesConfiguredHarnessScope(relPath, scope));
+
+    expect(evaluateFileSizes(files, {}, MAX).findings).toEqual([
+      expect.objectContaining({
+        file: 'scripts/harness/work-run-validation.mjs',
+        type: 'file-too-large',
+      }),
+      expect.objectContaining({
+        file: 'scripts/harness/gate.mjs',
+        type: 'file-too-large',
+      }),
+    ]);
+  });
+
+  it('adopts every top-level harness production module while excluding tests', () => {
+    expect(
+      matchesConfiguredHarnessScope('scripts/harness/scan-work-run-measurement.mjs', scope),
+    ).toBe(true);
+    expect(matchesConfiguredHarnessScope('scripts/harness/gate.mjs', scope)).toBe(true);
+    expect(
+      matchesConfiguredHarnessScope(
+        'scripts/harness/__tests__/work-run-validation.test.mjs',
+        scope,
+      ),
+    ).toBe(false);
+  });
+
+  it('adopts the findings authorization module through the live exact scope', () => {
+    expect(scope.exactFiles).toContain('scripts/harness/post-findings-authorization.mjs');
+    expect(
+      matchesConfiguredHarnessScope('scripts/harness/post-findings-authorization.mjs', scope),
+    ).toBe(true);
+  });
+
+  it('ratchets the changed non-work-run harness production files', () => {
+    const scanner = 'scripts/harness/scan-file-size.mjs';
+    const receipt = 'scripts/harness/verification-receipt.mjs';
+    expect(scope.exactFiles).toEqual(expect.arrayContaining([scanner, receipt]));
+    expect(matchesConfiguredHarnessScope(scanner, scope)).toBe(true);
+    expect(matchesConfiguredHarnessScope(receipt, scope)).toBe(true);
+    expect(baseline[scanner]).toBeUndefined();
+    expect(baseline[receipt]).toBeUndefined();
+  });
+});
+
+describe('configured harness debt policy', () => {
+  const MAX = 300;
+  const scope = loadHarnessConfig().fileSizeAdditionalScope;
+  const baseline = JSON.parse(
+    readFileSync(new URL('../file-size-baseline.json', import.meta.url), 'utf8'),
+  );
+
+  it('keeps every newly adopted harness module strict', () => {
+    const files = [
+      {
+        relPath: 'scripts/harness/verification-receipt.mjs',
+        lineCount: 301,
+      },
+      { relPath: 'scripts/harness/work-run-new-module.mjs', lineCount: 301 },
+    ].filter(({ relPath }) => matchesConfiguredHarnessScope(relPath, scope));
+
+    expect(evaluateFileSizes(files, baseline, MAX).findings).toEqual([
+      expect.objectContaining({ type: 'file-too-large' }),
+      expect.objectContaining({ type: 'file-too-large' }),
+    ]);
   });
 });
 

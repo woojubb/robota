@@ -1,3 +1,4 @@
+// harness-coverage: harness-coverage-declarations.mjs
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -148,6 +149,107 @@ describe('scan-harness-script-import-safety', () => {
       mkdirSync(path.join(dir, '__tests__'), { recursive: true });
       writeFileSync(path.join(dir, '__tests__/covered.test.mjs'), '');
       expect(untestedScripts(dir, ['covered.mjs'])).toEqual([]);
+    });
+
+    it('(RED) does not credit a coverage comment without a static module reference', () => {
+      const root = scriptDir({ 'work-run-cli.mjs': 'export const x = 1;' });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/facade.test.mjs'),
+        '// harness-coverage: work-run-cli.mjs\nit("covers the CLI through its facade", () => {});\n',
+      );
+      expect(() => untestedScripts(dir, ['work-run-cli.mjs'])).toThrow(/static import path/i);
+    });
+
+    it('(RED) credits a declaration reached through the test static import graph', () => {
+      const root = scriptDir({
+        'facade.mjs': "export { x } from './work-run-cli.mjs';",
+        'work-run-cli.mjs': 'export const x = 1;',
+      });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/facade.test.mjs'),
+        [
+          '// harness-coverage: work-run-cli.mjs',
+          "import { x } from '../facade.mjs';",
+          'it("covers the CLI through its facade", () => x);',
+        ].join('\n'),
+      );
+      expect(untestedScripts(dir, ['facade.mjs', 'work-run-cli.mjs'])).toEqual([]);
+    });
+
+    it('(RED) rejects unknown and non-top-level declaration targets', () => {
+      const root = scriptDir({ 'known.mjs': 'export const x = 1;' });
+      const dir = path.join(root, 'scripts/harness');
+      const testDir = path.join(dir, '__tests__');
+      mkdirSync(path.join(dir, 'lib'), { recursive: true });
+      mkdirSync(testDir, { recursive: true });
+      writeFileSync(path.join(dir, 'lib/nested.mjs'), 'export const nested = 1;');
+
+      writeFileSync(
+        path.join(testDir, 'unknown.test.mjs'),
+        "// harness-coverage: missing.mjs\nimport '../known.mjs';\n",
+      );
+      expect(() => untestedScripts(dir, ['known.mjs'])).toThrow(/does not exist/i);
+
+      rmSync(path.join(testDir, 'unknown.test.mjs'));
+      writeFileSync(
+        path.join(testDir, 'nested.test.mjs'),
+        "// harness-coverage: lib/nested.mjs\nimport '../lib/nested.mjs';\n",
+      );
+      expect(() => untestedScripts(dir, ['known.mjs', 'lib/nested.mjs'])).toThrow(/top-level/i);
+    });
+
+    it('(RED) rejects duplicate declarations within or across tests', () => {
+      const root = scriptDir({ 'shared.mjs': 'export const x = 1;' });
+      const dir = path.join(root, 'scripts/harness');
+      const testDir = path.join(dir, '__tests__');
+      mkdirSync(testDir, { recursive: true });
+      writeFileSync(
+        path.join(testDir, 'one.test.mjs'),
+        [
+          '// harness-coverage: shared.mjs',
+          '// harness-coverage: shared.mjs',
+          "import '../shared.mjs';",
+        ].join('\n'),
+      );
+      expect(() => untestedScripts(dir, ['shared.mjs'])).toThrow(/duplicate/i);
+
+      writeFileSync(
+        path.join(testDir, 'one.test.mjs'),
+        "// harness-coverage: shared.mjs\nimport '../shared.mjs';\n",
+      );
+      writeFileSync(
+        path.join(testDir, 'two.test.mjs'),
+        "// harness-coverage: shared.mjs\nimport '../shared.mjs';\n",
+      );
+      expect(() => untestedScripts(dir, ['shared.mjs'])).toThrow(/duplicate/i);
+    });
+
+    it('(RED) rejects malformed coverage declarations', () => {
+      const root = scriptDir({ 'known.mjs': 'export const x = 1;' });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/known.test.mjs'),
+        "// harness-coverage:known.mjs\nimport '../known.mjs';\n",
+      );
+      expect(() => untestedScripts(dir, ['known.mjs'])).toThrow(/malformed/i);
+    });
+
+    it('(RED) reports an invalid declaration as a scan finding', () => {
+      const root = scriptDir({ 'known.mjs': 'export const x = 1;' });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/known.test.mjs'),
+        "// harness-coverage:missing.mjs\nimport '../known.mjs';\n",
+      );
+      expect(findImportSafetyFindings(root).findings).toContainEqual(
+        expect.objectContaining({ rule: 'invalid-coverage-declaration' }),
+      );
     });
 
     it('does not credit a test whose name merely STARTS with the script name', () => {

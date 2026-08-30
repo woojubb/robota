@@ -6,11 +6,18 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
+// harness-coverage: git-base-ref-resolution.mjs
+
 import {
   createPrePushBasePlan,
   resolvePrePushBaseRef,
   selectPushBoundBranch,
 } from '../pre-push-base-ref.mjs';
+import {
+  isPrePushHookInvocation,
+  isPrePushInputWellFormed,
+  resolvePrePushHookContext,
+} from '../pre-push-work-run.mjs';
 import { classifyRange } from '../classify-changed-paths.mjs';
 import { resolveGitBaseRef } from '../shared.mjs';
 
@@ -29,8 +36,10 @@ function update({
 
 function commandRunner({ candidates = [], objectExists = true, fetchedOid = BASE } = {}) {
   const calls = [];
-  const runCommand = vi.fn((command, args) => {
+  const executionOptions = [];
+  const runCommand = vi.fn((command, args, options) => {
     calls.push([command, args]);
+    executionOptions.push(options);
     if (command === 'gh') return { status: 0, stdout: JSON.stringify(candidates), stderr: '' };
     if (args[0] === 'check-ref-format') return { status: 0, stdout: '', stderr: '' };
     if (args[0] === 'cat-file') return { status: objectExists ? 0 : 1, stdout: '', stderr: '' };
@@ -38,7 +47,7 @@ function commandRunner({ candidates = [], objectExists = true, fetchedOid = BASE
     if (args[0] === 'rev-parse') return { status: 0, stdout: `${fetchedOid}\n`, stderr: '' };
     throw new Error(`unexpected command: ${command} ${args.join(' ')}`);
   });
-  return { calls, runCommand };
+  return { calls, executionOptions, runCommand };
 }
 
 function candidate(overrides = {}) {
@@ -61,7 +70,13 @@ describe('selectPushBoundBranch (INFRA-099)', () => {
         currentBranch: 'feature',
         headOid: HEAD,
       }),
-    ).toEqual({ ok: true, branch: 'feature' });
+    ).toEqual({
+      ok: true,
+      branch: 'feature',
+      localRef: 'refs/heads/feature',
+      localObjectId: HEAD,
+      source: 'push-update',
+    });
     expect(
       selectPushBoundBranch({
         updates: [],
@@ -69,7 +84,13 @@ describe('selectPushBoundBranch (INFRA-099)', () => {
         currentBranch: 'feature',
         headOid: HEAD,
       }),
-    ).toEqual({ ok: true, branch: 'feature' });
+    ).toEqual({
+      ok: true,
+      branch: 'feature',
+      localRef: 'refs/heads/feature',
+      localObjectId: HEAD,
+      source: 'checkout',
+    });
   });
 
   it.each([
@@ -78,16 +99,60 @@ describe('selectPushBoundBranch (INFRA-099)', () => {
     ['multiple refs', [update(), update()], 'feature', HEAD],
     ['detached HEAD', [update()], '', HEAD],
     ['a different local object', [update({ localObjectId: OTHER })], 'feature', HEAD],
-    [
-      'a deleted ref',
-      [update({ localRef: '(delete)', localObjectId: '0'.repeat(40) })],
-      'feature',
-      HEAD,
-    ],
   ])('rejects %s', (_label, updates, currentBranch, headOid) => {
     expect(
       selectPushBoundBranch({ updates, hookInputProvided: true, currentBranch, headOid }).ok,
     ).toBe(false);
+  });
+
+  it('preserves delete-only pushes without inventing a checkout subject', () => {
+    expect(
+      selectPushBoundBranch({
+        updates: [update({ localRef: '(delete)', localObjectId: '0'.repeat(40) })],
+        hookInputProvided: true,
+        currentBranch: 'feature',
+        headOid: HEAD,
+      }),
+    ).toEqual({ ok: true, deleteOnly: true, source: 'push-update' });
+  });
+});
+
+describe('pre-push hook input syntax', () => {
+  it('accepts only complete four-field hook lines', () => {
+    expect(
+      isPrePushInputWellFormed(`refs/heads/feature ${HEAD} refs/heads/feature ${OTHER}\n`),
+    ).toBe(true);
+    expect(isPrePushInputWellFormed(`refs/heads/feature ${HEAD} refs/heads/feature\n`)).toBe(false);
+    expect(
+      isPrePushInputWellFormed(
+        `refs/heads/feature ${HEAD} refs/heads/feature ${OTHER} unexpected\n`,
+      ),
+    ).toBe(false);
+    expect(
+      isPrePushInputWellFormed(`refs/heads/feature not-an-oid refs/heads/feature ${OTHER}\n`),
+    ).toBe(false);
+  });
+
+  it('recognizes the Git hook from its remote arguments even when stdin is empty', () => {
+    expect(
+      isPrePushHookInvocation({
+        inputProvided: false,
+        remoteName: 'origin',
+        remoteUrl: 'git@github.com:woojubb/robota.git',
+      }),
+    ).toBe(true);
+    expect(
+      isPrePushHookInvocation({ inputProvided: false, remoteName: null, remoteUrl: null }),
+    ).toBe(false);
+    expect(() =>
+      resolvePrePushHookContext({
+        prePushInput: { input: '', provided: false },
+        updates: [],
+        currentBranch: 'feature',
+        headOid: HEAD,
+        env: { HARNESS_PRE_PUSH_REMOTE_NAME: 'origin' },
+      }),
+    ).toThrow(/malformed/i);
   });
 });
 
@@ -180,9 +245,39 @@ describe('resolvePrePushBaseRef (INFRA-099)', () => {
       runCommand,
       resolveFallback: vi.fn(() => 'origin/develop'),
     });
-    expect(result.source).toBe('fallback');
-    expect(result.fallbackReason).toMatch(/renames/i);
+    expect(result.source).toBe('refused');
+    expect(result.refusalReason).toMatch(/renames/i);
     expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['multiple refs', [update(), update()], true],
+    ['a foreign branch', [update({ localRef: 'refs/heads/other' })], true],
+    ['a foreign object', [update({ localObjectId: OTHER })], true],
+    ['malformed hook input', [update()], false],
+  ])('refuses %s instead of falling back to current HEAD/base', (_label, updates, inputValid) => {
+    const fallback = vi.fn(() => 'origin/develop');
+    const result = resolvePrePushBaseRef({
+      ...common,
+      updates,
+      hookInputWellFormed: inputValid,
+      runCommand: vi.fn(),
+      resolveFallback: fallback,
+    });
+    expect(result.source).toBe('refused');
+    expect(result.baseRef).toBeNull();
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('does not let an explicit base bypass an invalid push subject', () => {
+    const result = resolvePrePushBaseRef({
+      ...common,
+      updates: [update(), update()],
+      explicitBaseRef: 'origin/develop',
+      runCommand: vi.fn(),
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+    expect(result.source).toBe('refused');
   });
 
   it.each([
@@ -196,8 +291,8 @@ describe('resolvePrePushBaseRef (INFRA-099)', () => {
       runCommand,
       resolveFallback: vi.fn(() => 'origin/develop'),
     });
-    expect(result.source).toBe('fallback');
-    expect(result.fallbackReason).toMatch(/remote/i);
+    expect(result.source).toBe('refused');
+    expect(result.refusalReason).toMatch(/remote/i);
     expect(runCommand).not.toHaveBeenCalled();
   });
 
@@ -212,6 +307,142 @@ describe('resolvePrePushBaseRef (INFRA-099)', () => {
       resolveFallback: vi.fn(() => 'origin/develop'),
     });
     expect(result.source).toBe('fallback');
+    expect(result.baseRef).toBe('origin/develop');
+  });
+
+  it('passes a per-command timeout to every spawned gh and git command', () => {
+    const { executionOptions, runCommand } = commandRunner({
+      candidates: [candidate()],
+      objectExists: false,
+    });
+    const result = resolvePrePushBaseRef({
+      ...common,
+      commandTimeoutMs: 1_234,
+      totalCommandTimeoutMs: 10_000,
+      runCommand,
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(result.source).toBe('pull-request');
+    expect(executionOptions).toHaveLength(5);
+    expect(executionOptions).toEqual(
+      expect.arrayContaining(Array.from({ length: 5 }, () => ({ timeout: 1_234 }))),
+    );
+  });
+
+  it('fails closed with a distinct reason when one command times out', () => {
+    const result = resolvePrePushBaseRef({
+      ...common,
+      runCommand: vi.fn(() => ({
+        status: 1,
+        stdout: '',
+        stderr: '',
+        error: Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }),
+      })),
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(result).toEqual({
+      baseRef: 'origin/develop',
+      source: 'fallback',
+      fallbackReason: 'pull request lookup timed out',
+    });
+  });
+
+  it('shares one command-count budget across gh and git commands', () => {
+    const { runCommand } = commandRunner({ candidates: [candidate()] });
+    const result = resolvePrePushBaseRef({
+      ...common,
+      commandBudget: 2,
+      runCommand,
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(result.fallbackReason).toBe(
+      'pre-push base command budget exhausted before pull request base object lookup',
+    );
+  });
+
+  it('shares one wall-clock deadline across gh and git commands', () => {
+    const { runCommand } = commandRunner({ candidates: [candidate()] });
+    const now = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValueOnce(11);
+    const result = resolvePrePushBaseRef({
+      ...common,
+      totalCommandTimeoutMs: 10,
+      now,
+      runCommand,
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(result.fallbackReason).toBe(
+      'pre-push base command deadline exceeded before pull request base ref validation',
+    );
+  });
+
+  it('caps each command timeout at the remaining shared deadline', () => {
+    const { executionOptions, runCommand } = commandRunner({ candidates: [] });
+    const now = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(400);
+    resolvePrePushBaseRef({
+      ...common,
+      commandTimeoutMs: 1_000,
+      totalCommandTimeoutMs: 500,
+      now,
+      runCommand,
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(executionOptions).toEqual([{ timeout: 100 }]);
+  });
+
+  it('keeps fallback rev-parse checks inside the PR lookup command budget', () => {
+    const { executionOptions, runCommand } = commandRunner({ candidates: [] });
+    const result = resolvePrePushBaseRef({
+      ...common,
+      commandBudget: 1,
+      runCommand,
+    });
+
+    expect(runCommand).toHaveBeenCalledOnce();
+    expect(executionOptions).toEqual([{ timeout: 10_000 }]);
+    expect(result).toEqual({
+      baseRef: null,
+      source: 'refused',
+      fallbackReason: 'no open pull request matched the pushed branch',
+      refusalReason: 'pre-push base command budget exhausted before fallback base ref lookup',
+    });
+  });
+
+  it('keeps fallback rev-parse checks inside the PR lookup wall-clock deadline', () => {
+    const { runCommand } = commandRunner({ candidates: [] });
+    const now = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValueOnce(16);
+    const result = resolvePrePushBaseRef({
+      ...common,
+      totalCommandTimeoutMs: 15,
+      now,
+      runCommand,
+    });
+
+    expect(runCommand).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      baseRef: null,
+      source: 'refused',
+      fallbackReason: 'no open pull request matched the pushed branch',
+      refusalReason: 'pre-push base command deadline exceeded before fallback base ref lookup',
+    });
+  });
+
+  it('fails closed distinctly when an injected command runner throws', () => {
+    const result = resolvePrePushBaseRef({
+      ...common,
+      runCommand: vi.fn(() => {
+        throw new Error('spawn failed');
+      }),
+      resolveFallback: vi.fn(() => 'origin/develop'),
+    });
+
+    expect(result.fallbackReason).toBe('pull request lookup could not execute');
     expect(result.baseRef).toBe('origin/develop');
   });
 
@@ -274,6 +505,43 @@ describe('resolveGitBaseRef environment seam (INFRA-099)', () => {
   it('uses the injected GitHub base instead of the process environment', () => {
     expect(resolveGitBaseRef(null, { GITHUB_BASE_REF: 'main' })).toBe('origin/main');
   });
+
+  it('bounds every fallback rev-parse under one resolver deadline', () => {
+    const timeouts = [];
+    const runCommand = vi.fn((_command, _args, options) => {
+      timeouts.push(options.timeout);
+      return { status: 1, stdout: '', stderr: '' };
+    });
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(14_900)
+      .mockReturnValueOnce(15_001);
+
+    expect(() =>
+      resolveGitBaseRef(null, {}, { runCommand, now, totalCommandTimeoutMs: 15_000 }),
+    ).toThrow(/git base ref command deadline exceeded before origin\/main lookup/i);
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(timeouts).toEqual([10_000, 100]);
+  });
+
+  it('distinguishes a fallback rev-parse timeout from an absent ref', () => {
+    expect(() =>
+      resolveGitBaseRef(
+        null,
+        {},
+        {
+          runCommand: () => ({
+            status: 1,
+            stdout: '',
+            stderr: '',
+            error: Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }),
+          }),
+        },
+      ),
+    ).toThrow(/git base ref lookup timed out for origin\/develop/i);
+  });
 });
 
 describe('createPrePushBasePlan (INFRA-099)', () => {
@@ -292,6 +560,17 @@ describe('createPrePushBasePlan (INFRA-099)', () => {
       source: 'pull-request',
       fallbackReason: null,
     });
+  });
+
+  it('refuses to create a plan from an unresolved push subject', () => {
+    expect(() =>
+      createPrePushBasePlan({
+        baseRef: null,
+        source: 'refused',
+        fallbackReason: null,
+        refusalReason: 'multiple updates',
+      }),
+    ).toThrow(/multiple updates/i);
   });
 });
 
