@@ -827,8 +827,11 @@ frozen_diff_refusal() {
     echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
     return 0
   fi
+  # `gh pr view --json comments` exposes `id` as a GraphQL node id (`IC_...`), while the
+  # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
+  # number from the same canonical URL the parser independently validates.
   approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
-    --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id, url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
+    --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
     | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
       --verdict "$latest_count" --actions push,rebase 2>/dev/null || echo "")
   if [[ "$approved" == "1" ]]; then

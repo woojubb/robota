@@ -150,7 +150,9 @@ function stubGh({
   };
   if (approved) {
     payload.comments.push({
-      id: 9001,
+      // `gh pr view --json comments` exposes the GraphQL node id here, not the REST database id.
+      // The canonical numeric identity remains in the issue-comment URL.
+      id: 'IC_kwDOExample9001',
       url: `https://github.com/example/repo/pull/${prNumber}#issuecomment-9001`,
       author: { login: approvalAuthor },
       authorAssociation: approvalAssociation,
