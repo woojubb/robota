@@ -16,6 +16,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 import { writeImmutableWorkRunReceipt } from '../work-run-domain.mjs';
+import { readJson } from '../work-run-json-store.mjs';
 import {
   projectLocalTerminalWorkRun,
   WORK_RUN_LOCAL_DIR,
@@ -37,6 +38,14 @@ const identity = {
 const execFileAsync = promisify(execFile);
 
 describe('work-run store', () => {
+  it('rejects an oversized existing JSON file before returning parsed state', () => {
+    const root = makeTemp('work-run-oversized-json-');
+    const file = join(root, 'state.json');
+    writeFileSync(file, JSON.stringify({ padding: 'x'.repeat(1_048_576) }));
+
+    expect(() => readJson(file, root)).toThrow(/work-run state exceeds 1 MiB/i);
+  });
+
   it.each([
     '../outside',
     '/tmp/outside',

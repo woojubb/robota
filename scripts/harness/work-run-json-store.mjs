@@ -20,9 +20,13 @@ import { assertSafeOwnedParent } from './work-run-paths.mjs';
 const MAX_BYTES = 1_048_576;
 const PRIVATE_FILE_MODE = 0o600;
 
+function assertWithinSizeLimit(bytes) {
+  if (bytes > MAX_BYTES) throw new Error('work-run state exceeds 1 MiB');
+}
+
 function jsonText(value) {
   const text = `${JSON.stringify(value, null, 2)}\n`;
-  if (Buffer.byteLength(text) > MAX_BYTES) throw new Error('work-run state exceeds 1 MiB');
+  assertWithinSizeLimit(Buffer.byteLength(text));
   return text;
 }
 
@@ -36,17 +40,19 @@ function assertDescriptorMatchesPath(descriptor, file) {
   if (!opened.isFile() || opened.dev !== current.dev || opened.ino !== current.ino) {
     throw new Error(`work-run file changed during access: ${file}`);
   }
+  return opened;
 }
 
 function safeReadText(file, ownerDirectory) {
   assertSafeOwnedParent(ownerDirectory, file);
   const descriptor = openSync(file, noFollowFlags(constants.O_RDONLY));
   try {
-    assertDescriptorMatchesPath(descriptor, file);
+    assertWithinSizeLimit(assertDescriptorMatchesPath(descriptor, file).size);
     assertSafeOwnedParent(ownerDirectory, file);
-    const text = readFileSync(descriptor, 'utf8');
-    assertDescriptorMatchesPath(descriptor, file);
-    return text;
+    const content = readFileSync(descriptor);
+    assertWithinSizeLimit(content.byteLength);
+    assertWithinSizeLimit(assertDescriptorMatchesPath(descriptor, file).size);
+    return content.toString('utf8');
   } finally {
     closeSync(descriptor);
   }
