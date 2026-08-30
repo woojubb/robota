@@ -60,6 +60,8 @@ all 78 rows at `OWNER_REVIEW`, names B1's four exact candidate Tasks, and author
 mutation. After those Tasks are readable on fresh `develop`, a fresh B1 snapshot and review may change
 only `{2063,2084,2102,2115}` to `ABSORB`; all other open children remain immutable.
 
+**Continuation artifacts:** `.agents/evidence/RULE-023-child-issue-migration-manifest.json`, `.agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`, `.agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md`, `.agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md`, `.agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md`, `.agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md`
+
 Validated recommendation:
 
 - Reachability: each historical child URL maps to one exact Task path, and issue #2079's body will expose
@@ -331,3 +333,18 @@ measured evidence; all stated conditions hold.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-30
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-IMPLEMENT (continuation) — § Decision sequences the delivery and names the artifacts this PR lands:
+  merge commit `06f4f0bd4671366bd4212b7a3e6102986d4ba635`, the branch base that introduced the
+  preceding GATE-IMPLEMENT checkpoint, contains no machine-readable `**Continuation artifacts:**`
+  declaration. The declaration exists only as a current uncommitted edit. The checkpoint contract binds
+  `gateImplementContinuation.sequencedArtifacts` to the base parent spec, so adding the declaration in
+  the continuation checkpoint itself cannot satisfy the ordered checkpoint.
+  **Required action:** land the exact `**Continuation artifacts:**` declaration on `develop` in a
+  planning-only correction PR, cut a fresh continuation branch from that merge, and re-run
+  GATE-IMPLEMENT (continuation) before any implementation or GitHub Issue mutation.
