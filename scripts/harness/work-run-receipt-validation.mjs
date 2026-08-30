@@ -89,6 +89,7 @@ function validateTerminal(receipt, state) {
     terminal.type === expectedEvent &&
     state.generation === receipt.generation &&
     state.revision === receipt.revision &&
+    (included || receipt.reason === terminal.data?.reason) &&
     exactKeys(receipt.timestamps, ['claimedAt', terminalTimestamp]) &&
     receipt.timestamps.claimedAt === receipt.events[0].at &&
     receipt.timestamps[terminalTimestamp] === terminal.at

@@ -103,7 +103,7 @@ export function projectWorkRunDurations(events) {
   let pauseStart = null;
   let pausedMs = 0;
   const phaseStarts = new Map();
-  const phases = {};
+  const phases = new Map();
   for (const event of scopedEvents) {
     const at = instant(event.at);
     if (event.type === 'work.paused') pauseStart = at;
@@ -113,14 +113,16 @@ export function projectWorkRunDurations(events) {
     }
     if (event.type === 'phase.started') phaseStarts.set(event.data.phase, at);
     if (event.type === 'phase.completed' && phaseStarts.has(event.data.phase)) {
-      phases[event.data.phase] =
-        (phases[event.data.phase] ?? 0) + at - phaseStarts.get(event.data.phase);
+      phases.set(
+        event.data.phase,
+        (phases.get(event.data.phase) ?? 0) + at - phaseStarts.get(event.data.phase),
+      );
       phaseStarts.delete(event.data.phase);
     }
   }
   if (pauseStart !== null) pausedMs += last - pauseStart;
   const wallMs = last - first;
-  return { wallMs, activeMs: wallMs - pausedMs, pausedMs, phases };
+  return { wallMs, activeMs: wallMs - pausedMs, pausedMs, phases: Object.fromEntries(phases) };
 }
 
 export function cohortKey(state) {

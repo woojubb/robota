@@ -385,6 +385,7 @@ function repositoryFixture({
       identity: receiptIdentity,
       events,
       ...receiptProjection(events),
+      ...(disposition === 'excluded' ? { reason: events.at(-1).data.reason } : {}),
       ...(generation > 0
         ? {
             ground: effectiveAuthorization?.ground ?? 'finding',
@@ -1287,6 +1288,7 @@ describe('work-run validation', () => {
     const excluded = {
       schemaVersion: 1,
       disposition: 'excluded',
+      reason: excludedEvents.at(-1).data.reason,
       runId: 'run-1',
       generation: 0,
       revision: 0,
@@ -1298,6 +1300,10 @@ describe('work-run validation', () => {
       },
     };
     expect(validateWorkRunReceipt(excluded).ok).toBe(true);
+    expect(validateWorkRunReceipt({ ...excluded, reason: 'forged' })).toEqual({
+      ok: false,
+      reason: 'malformed-receipt',
+    });
     expect(
       validateWorkRunReceipt({
         ...excluded,

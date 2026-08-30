@@ -92,6 +92,9 @@ function transitionLifecycle(state, event, data) {
     if (!data.workId || !data.lane || !data.workKind) {
       throw new Error('binding needs workId, lane and workKind');
     }
+    if (!['L0', 'L1', 'L2'].includes(data.lane)) {
+      throw new Error('binding lane must be one of L0, L1, or L2');
+    }
     Object.assign(state, {
       status: 'bound',
       workId: data.workId,

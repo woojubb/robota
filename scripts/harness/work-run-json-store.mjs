@@ -8,7 +8,7 @@ import {
   linkSync,
   lstatSync,
   openSync,
-  readFileSync,
+  readSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -43,16 +43,24 @@ function assertDescriptorMatchesPath(descriptor, file) {
   return opened;
 }
 
-function safeReadText(file, ownerDirectory) {
+function safeReadText(file, ownerDirectory, operations = {}) {
   assertSafeOwnedParent(ownerDirectory, file);
   const descriptor = openSync(file, noFollowFlags(constants.O_RDONLY));
   try {
     assertWithinSizeLimit(assertDescriptorMatchesPath(descriptor, file).size);
+    operations.afterInitialStat?.();
     assertSafeOwnedParent(ownerDirectory, file);
-    const content = readFileSync(descriptor);
-    assertWithinSizeLimit(content.byteLength);
+    const content = Buffer.allocUnsafe(MAX_BYTES + 1);
+    const read = operations.read ?? readSync;
+    let offset = 0;
+    while (offset < content.byteLength) {
+      const bytesRead = read(descriptor, content, offset, content.byteLength - offset, null);
+      if (bytesRead === 0) break;
+      offset += bytesRead;
+    }
+    assertWithinSizeLimit(offset);
     assertWithinSizeLimit(assertDescriptorMatchesPath(descriptor, file).size);
-    return content.toString('utf8');
+    return content.subarray(0, offset).toString('utf8');
   } finally {
     closeSync(descriptor);
   }
@@ -116,8 +124,8 @@ export function immutableJson(file, value, ownerDirectory = path.dirname(file)) 
   safeReadText(file, ownerDirectory);
 }
 
-export function readJson(file, ownerDirectory = path.dirname(file)) {
-  return JSON.parse(safeReadText(file, ownerDirectory));
+export function readJson(file, ownerDirectory = path.dirname(file), operations = {}) {
+  return JSON.parse(safeReadText(file, ownerDirectory, operations));
 }
 
 export function sameJson(value, other) {

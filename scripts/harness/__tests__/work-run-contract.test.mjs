@@ -157,6 +157,40 @@ describe('work-run contract', () => {
     expect(cohortKey(reduceWorkRun(run.events))).toBe('L2/observability');
   });
 
+  it('treats prototype property names as ordinary phase names', () => {
+    let run = createInitialWorkRun({ runId: 'prototype-phases', at: at(0) });
+    for (const [type, second, data] of [
+      ['work.bound', 1, { workId: 'OBSERVABILITY-002', lane: 'L2', workKind: 'observability' }],
+      ['work.started', 2, {}],
+      ['phase.started', 3, { phase: 'constructor' }],
+      ['phase.completed', 4, { phase: 'constructor' }],
+      ['phase.started', 5, { phase: '__proto__' }],
+      ['phase.completed', 6, { phase: '__proto__' }],
+      ['work.ready', 7, { revision: 0, generation: 0 }],
+    ]) {
+      run = appendWorkRunEvent(run, { type, at: at(second), data });
+    }
+
+    expect(projectWorkRunDurations(run.events).phases).toEqual(
+      Object.fromEntries([
+        ['constructor', 1_000],
+        ['__proto__', 1_000],
+      ]),
+    );
+  });
+
+  it('rejects lanes outside the declared L0, L1, and L2 vocabulary', () => {
+    const claimed = createInitialWorkRun({ runId: 'invalid-lane', at: at(0) });
+
+    expect(() =>
+      appendWorkRunEvent(claimed, {
+        type: 'work.bound',
+        at: at(1),
+        data: { workId: 'OBSERVABILITY-002', lane: 'L3', workKind: 'observability' },
+      }),
+    ).toThrow(/lane.*L0.*L1.*L2/i);
+  });
+
   it('projects generation rework from its revision-zero reopen', () => {
     let run = legalRun();
     for (const [type, second, data] of [
