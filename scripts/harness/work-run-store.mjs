@@ -30,18 +30,11 @@ const LOCK_WAIT_MS = 20;
 const branchKey = (branch) => createHash('sha256').update(branch).digest('hex');
 
 export class WorkRunStore {
-  constructor({
-    root,
-    gitCommonDir,
-    now = () => new Date().toISOString(),
-    persistenceHooks = {},
-    isAncestor = null,
-  }) {
+  constructor({ root, gitCommonDir, now = () => new Date().toISOString(), persistenceHooks = {} }) {
     this.root = root;
     this.gitCommonDir = gitCommonDir;
     this.now = now;
     this.persistenceHooks = persistenceHooks;
-    this.isAncestor = isAncestor;
     this.stateDir = path.join(root, WORK_RUN_LOCAL_DIR);
     this.receiptDir = path.join(root, WORK_RUN_RECEIPT_DIR);
     this.lockDir = path.join(gitCommonDir, 'robota-work-runs', 'locks');
@@ -100,7 +93,6 @@ export class WorkRunStore {
       pointerOwner: this.gitCommonDir,
       branch,
       identity,
-      isAncestor: this.isAncestor,
       statePath: (runId) => this.statePath(runId),
       readRun: (runId) => this.read(runId),
     });

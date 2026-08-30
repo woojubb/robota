@@ -45,7 +45,7 @@ const execFileAsync = promisify(execFile);
 
 class WorkRunStore extends ProductionWorkRunStore {
   constructor(options) {
-    super({ isAncestor: () => true, ...options });
+    super(options);
   }
 
   claim(request) {
@@ -222,28 +222,24 @@ describe('work-run store', () => {
     ]);
   });
 
-  it('rotates a stale active pointer when the recreated branch is outside the initial ancestry', () => {
-    const root = makeTemp('work-run-recreated-branch-');
+  it('reuses an active pointer after a history rewrite on the same branch incarnation', () => {
+    const root = makeTemp('work-run-rewritten-branch-');
     mkdirSync(join(root, '.git'), { recursive: true });
-    const store = new WorkRunStore({
-      root,
-      gitCommonDir: join(root, '.git'),
-      isAncestor: () => false,
-    });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
     const first = store.claim({
       branch: identity.branch,
       identity: claimIdentity,
       at: '2026-08-30T00:00:00.000Z',
     });
 
-    const recreated = store.claim({
+    const rewritten = store.claim({
       branch: identity.branch,
       identity: { ...claimIdentity, headCommit: 'd'.repeat(40) },
       at: '2026-08-30T00:00:01.000Z',
     });
 
-    expect(recreated.runId).not.toBe(first.runId);
-    expect(recreated.events[0].at).toBe('2026-08-30T00:00:01.000Z');
+    expect(rewritten.runId).toBe(first.runId);
+    expect(rewritten.events[0].at).toBe('2026-08-30T00:00:00.000Z');
   });
 
   it('rotates an active pointer copied from a different repository', () => {
@@ -260,7 +256,7 @@ describe('work-run store', () => {
     expect(replacement.runId).not.toBe(first.runId);
   });
 
-  it('migrates one legacy active pointer without interrupting the current run', () => {
+  it('rotates a legacy active pointer whose branch continuity cannot be verified', () => {
     const root = makeTemp('work-run-legacy-pointer-');
     mkdirSync(join(root, '.git'), { recursive: true });
     const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
@@ -270,13 +266,18 @@ describe('work-run store', () => {
       `${JSON.stringify({ branch: identity.branch, runId: run.runId })}\n`,
     );
 
-    expect(store.active({ branch: identity.branch, identity: claimIdentity })?.runId).toBe(
-      run.runId,
-    );
+    const replacement = store.claim({
+      branch: identity.branch,
+      identity: claimIdentity,
+      at: '2026-08-30T00:00:01.000Z',
+    });
+
+    expect(replacement.runId).not.toBe(run.runId);
+    expect(replacement.events[0].at).toBe('2026-08-30T00:00:01.000Z');
     expect(JSON.parse(readFileSync(store.pointerPath(identity.branch), 'utf8'))).toEqual({
       schemaVersion: 1,
       branch: identity.branch,
-      runId: run.runId,
+      runId: replacement.runId,
       repository: claimIdentity.repository,
       branchEpoch: claimIdentity.branchEpoch,
       initialHead: claimIdentity.headCommit,
@@ -293,7 +294,6 @@ describe('work-run store', () => {
       const store = new WorkRunStore({
         root: ${JSON.stringify(root)},
         gitCommonDir: ${JSON.stringify(join(root, '.git'))},
-        isAncestor: () => true,
       });
       while (Date.now() < ${startAt}) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
       process.stdout.write(store.claim({

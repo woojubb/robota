@@ -15,7 +15,6 @@ import {
   createRebaseProof,
   currentClaimIdentity,
   currentIdentity,
-  isCommitAncestor,
   openPullRequestNumber,
   repoContext,
 } from './work-run-git.mjs';
@@ -216,7 +215,6 @@ function execute(input, now) {
     root: context.root,
     gitCommonDir: context.commonDir,
     now,
-    isAncestor: (ancestor, descendant) => isCommitAncestor(context.root, ancestor, descendant),
   });
   const at = now();
   const subject = resolveWorkRunSubject({ argv, currentBranch: context.branch });

@@ -336,16 +336,77 @@ describe('work-run command lifecycle', () => {
     expect(readFileSync(messageFile, 'utf8')).toBe('feat: unmeasured\n');
   });
 
-  it('rotates the run after the same branch name is deleted and recreated from newer base history', async () => {
+  it('uses an existing run for a detached explicit subject without a local branch reflog', async () => {
+    const { root } = fixture();
+    const claimed = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    const subjectHead = git(root, 'rev-parse', 'HEAD');
+    git(root, 'switch', '--quiet', '--detach', subjectHead);
+    git(root, 'branch', '-D', branch);
+
+    const bound = runWorkRun([
+      'bind',
+      '--root',
+      root,
+      '--work-id',
+      'OBSERVABILITY-002',
+      '--lane',
+      'L2',
+      '--kind',
+      'observability',
+      '--subject-sha',
+      subjectHead,
+      '--subject-branch',
+      branch,
+    ]);
+
+    expect(bound.runId).toBe(claimed.runId);
+    expect(bound.events.at(-1)?.type).toBe('work.bound');
+  });
+
+  it('fails explicitly instead of resetting claimedAt when the creation witness expires', async () => {
+    const { root } = fixture();
+    const claimed = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    git(root, 'reflog', 'expire', '--expire=now', '--all');
+    write(root, 'src/after-reflog-expiry.txt', 'same branch incarnation\n');
+    commit(root, 'test: advance the same branch after reflog expiry', {
+      paths: ['src/after-reflog-expiry.txt'],
+    });
+
+    await expect(workAt(root, '2000-01-01T00:00:01.000Z', 'claim')).rejects.toThrow(
+      /branch creation witness.*expired/i,
+    );
+    const context = repoContext(root);
+    const store = new WorkRunStore({ root, gitCommonDir: context.commonDir });
+    expect(JSON.parse(readFileSync(store.pointerPath(branch), 'utf8')).runId).toBe(claimed.runId);
+  });
+
+  it('preserves the run when the same branch incarnation rewrites away its initial head', async () => {
+    const { root } = fixture();
+    write(root, 'src/original-history.txt', 'original history\n');
+    const originalHead = commit(root, 'test: create original topic history', {
+      paths: ['src/original-history.txt'],
+    });
+    const claimed = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    git(root, 'reset', '--hard', baseRef);
+    write(root, 'src/rewritten-history.txt', 'rewritten history\n');
+    const rewrittenHead = commit(root, 'test: replace topic history', {
+      paths: ['src/rewritten-history.txt'],
+    });
+    expect(() => git(root, 'merge-base', '--is-ancestor', originalHead, rewrittenHead)).toThrow();
+
+    const rewritten = await workAt(root, '2000-01-01T00:00:01.000Z', 'claim');
+
+    expect(rewritten.runId).toBe(claimed.runId);
+    expect(rewritten.events[0].at).toBe('2000-01-01T00:00:00.000Z');
+  });
+
+  it('rotates the run when the same branch name is recreated at the same commit', async () => {
     const { root } = fixture();
     const first = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
+    const originalHead = git(root, 'rev-parse', 'HEAD');
     git(root, 'switch', '--quiet', 'develop');
-    write(root, 'base/recreated.txt', 'newer base for recreated branch\n');
-    commit(root, 'chore: advance base before recreating branch', {
-      paths: ['base/recreated.txt'],
-    });
     git(root, 'branch', '-D', branch);
-    git(root, 'branch', branch, 'HEAD');
+    git(root, 'branch', branch, originalHead);
     git(root, 'switch', '--quiet', branch);
 
     const recreated = await workAt(root, '2000-01-01T00:00:01.000Z', 'claim');

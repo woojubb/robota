@@ -15,13 +15,16 @@ function hasExactKeys(value, expected) {
 }
 
 export function assertBranchClaimIdentity(identity) {
+  const epochStatus =
+    identity?.branchEpochStatus ?? (identity?.branchEpoch === null ? 'unavailable' : 'present');
   const valid =
     identity &&
     typeof identity.repository === 'string' &&
     identity.repository.length > 0 &&
     !identity.repository.includes('\0') &&
-    typeof identity.branchEpoch === 'string' &&
-    /^[0-9a-f]{64}$/.test(identity.branchEpoch) &&
+    (identity.branchEpoch === null ||
+      (typeof identity.branchEpoch === 'string' && /^[0-9a-f]{64}$/.test(identity.branchEpoch))) &&
+    ['present', 'expired', 'unavailable'].includes(epochStatus) &&
     typeof identity.headCommit === 'string' &&
     OBJECT_OID_PATTERN.test(identity.headCommit);
   if (!valid) {
@@ -31,6 +34,9 @@ export function assertBranchClaimIdentity(identity) {
 
 export function createBranchPointer(branch, runId, identity) {
   assertBranchClaimIdentity(identity);
+  if ((identity.branchEpochStatus ?? 'present') !== 'present' || identity.branchEpoch === null) {
+    throw new Error('work-run claim requires a local branch creation witness');
+  }
   return {
     schemaVersion: 1,
     branch,
@@ -41,10 +47,10 @@ export function createBranchPointer(branch, runId, identity) {
   };
 }
 
-export function branchPointerReuse(pointer, branch, identity, isAncestor) {
+export function branchPointerReuse(pointer, branch, identity) {
   assertBranchClaimIdentity(identity);
   if (hasExactKeys(pointer, LEGACY_KEYS)) {
-    return { reusable: pointer.branch === branch, migrate: pointer.branch === branch };
+    return { reusable: false, migrate: false };
   }
   const current =
     hasExactKeys(pointer, CURRENT_KEYS) &&
@@ -52,15 +58,18 @@ export function branchPointerReuse(pointer, branch, identity, isAncestor) {
     pointer.branch === branch &&
     typeof pointer.runId === 'string' &&
     pointer.repository === identity.repository &&
-    pointer.branchEpoch === identity.branchEpoch &&
+    typeof pointer.branchEpoch === 'string' &&
+    /^[0-9a-f]{64}$/.test(pointer.branchEpoch) &&
     typeof pointer.initialHead === 'string' &&
     OBJECT_OID_PATTERN.test(pointer.initialHead);
   if (!current) return { reusable: false, migrate: false };
-  if (typeof isAncestor !== 'function') {
-    throw new Error('work-run branch pointer reuse requires an ancestry verifier');
+  const epochStatus =
+    identity.branchEpochStatus ?? (identity.branchEpoch === null ? 'unavailable' : 'present');
+  if (epochStatus === 'expired') {
+    throw new Error('work-run branch creation witness expired; branch continuity is unverifiable');
   }
   return {
-    reusable: isAncestor(pointer.initialHead, identity.headCommit),
+    reusable: epochStatus === 'unavailable' || pointer.branchEpoch === identity.branchEpoch,
     migrate: false,
   };
 }
@@ -70,7 +79,6 @@ export function readReusableBranchRun({
   pointerOwner,
   branch,
   identity,
-  isAncestor,
   statePath,
   readRun,
 }) {
@@ -80,15 +88,11 @@ export function readReusableBranchRun({
   if (!existsSync(statePath(pointer.runId))) return null;
   const run = readRun(pointer.runId);
   if (['abandoned', 'excluded'].includes(reduceWorkRun(run.events).status)) return null;
-  const decision = branchPointerReuse(pointer, branch, identity, isAncestor);
+  const decision = branchPointerReuse(pointer, branch, identity);
   if (!decision.reusable) return null;
-  // Only the exact pre-identity shape gets this one-way compatibility migration.
-  if (decision.migrate) {
-    atomicJson(pointerPath, createBranchPointer(branch, pointer.runId, identity), pointerOwner);
-  }
   return run;
 }
 import { existsSync } from 'node:fs';
 
 import { reduceWorkRun } from './work-run-contract.mjs';
-import { atomicJson, readJson } from './work-run-json-store.mjs';
+import { readJson } from './work-run-json-store.mjs';
