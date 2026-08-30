@@ -98,8 +98,37 @@ function verifyCommitHooks() {
   expect(readFileSync(join(root, 'README.md'), 'utf8')).toBe('changed\n');
 }
 
+function verifyDetachedCheckoutSkipsClaim() {
+  const root = makeTemp('work-run-detached-hook-');
+  git(root, 'init', '-b', 'develop');
+  git(root, 'config', 'user.name', 'Fixture');
+  git(root, 'config', 'user.email', 'fixture@example.test');
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  cpSync(join(sourceRoot, 'scripts/harness'), join(root, 'scripts/harness'), { recursive: true });
+  mkdirSync(join(root, '.husky'), { recursive: true });
+  cpSync(join(sourceRoot, '.husky/post-checkout'), join(root, '.husky/post-checkout'));
+  writeFileSync(join(root, 'README.md'), 'base\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'chore: base');
+  git(root, 'checkout', '--detach', 'HEAD');
+
+  const result = spawnSync(join(root, '.husky/post-checkout'), [], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toBe('');
+  expect(result.stderr).toBe('');
+  expect(existsSync(join(root, '.git/robota-work-runs/branches'))).toBe(false);
+}
+
 describe('tracked work-run Git hooks', () => {
   registerDispatcherTests('post-checkout');
   registerDispatcherTests('prepare-commit-msg');
   it('claims on topic checkout and applies trailers through a real commit', verifyCommitHooks);
+  it(
+    'skips work-run claim when post-checkout runs on detached HEAD',
+    verifyDetachedCheckoutSkipsClaim,
+  );
 });
