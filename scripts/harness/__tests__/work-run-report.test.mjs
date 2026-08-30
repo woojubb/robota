@@ -3,7 +3,14 @@
 // harness-coverage: work-run-report-github.mjs
 // harness-coverage: work-run-report-github-evidence.mjs
 // harness-coverage: work-run-report-metrics.mjs
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -102,6 +109,35 @@ function excludedReceipt({ runId = 'excluded', reason = 'pure-planning-range' } 
     revision: 0,
     identity: { repository: 'woojubb/robota', headCommit: 'ready' },
     cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
+    events: run.events,
+    durations: projectWorkRunDurations(run.events),
+    timestamps: { claimedAt: run.events[0].at, excludedAt: run.events.at(-1).at },
+  };
+}
+
+function unboundExcludedReceipt({
+  runId = 'unbound-excluded',
+  reason = 'pure-planning-range',
+} = {}) {
+  let run = createInitialWorkRun({
+    runId,
+    branch: 'codex/work',
+    at: '2026-08-30T00:00:00.000Z',
+  });
+  run = appendWorkRunEvent(run, {
+    type: 'work.excluded',
+    at: '2026-08-30T00:00:00.010Z',
+    data: { reason },
+  });
+  return {
+    schemaVersion: 1,
+    disposition: 'excluded',
+    reason,
+    runId,
+    generation: 0,
+    revision: 0,
+    identity: { repository: 'woojubb/robota', headCommit: 'ready' },
+    cohort: null,
     events: run.events,
     durations: projectWorkRunDurations(run.events),
     timestamps: { claimedAt: run.events[0].at, excludedAt: run.events.at(-1).at },
@@ -220,10 +256,10 @@ describe('work-run report', () => {
     const readFiles = [];
     const receipts = readWorkRunReceipts(root, {
       maxBytes: 5_000,
-      readFile: (file, encoding) => {
+      openFile: (file, flags) => {
         readFiles.push(file);
         if (file === unreadable) throw new Error('EACCES');
-        return readFileSync(file, encoding);
+        return openSync(file, flags);
       },
     });
     const report = reportWorkRuns(receipts);
@@ -234,7 +270,7 @@ describe('work-run report', () => {
       'oversize-receipt': 1,
       'unreadable-receipt': 1,
     });
-    expect(readFiles.some((file) => file.includes(`${path.sep}oversize${path.sep}`))).toBe(false);
+    expect(readFiles).toHaveLength(4);
   });
 
   it('rejects oversize local state before invoking the full-file reader', () => {
@@ -243,15 +279,15 @@ describe('work-run report', () => {
     mkdirSync(directory, { recursive: true });
     const file = path.join(directory, 'oversize.json');
     writeFileSync(file, JSON.stringify({ padding: 'x'.repeat(10_000) }));
-    const readFile = vi.fn(readFileSync);
+    const readChunk = vi.fn(readSync);
 
-    expect(readLocalWorkRunTerminals(root, { maxBytes: 100, readFile })).toEqual([
+    expect(readLocalWorkRunTerminals(root, { maxBytes: 100, readChunk })).toEqual([
       expect.objectContaining({
         disposition: 'unavailable',
         reason: 'oversize-local-state',
       }),
     ]);
-    expect(readFile).not.toHaveBeenCalled();
+    expect(readChunk).not.toHaveBeenCalled();
   });
 
   it('stops before reading when the aggregate receipt byte budget is exhausted', () => {
@@ -259,15 +295,89 @@ describe('work-run report', () => {
     const directory = path.join(root, '.agents/evals/work-runs/run-1');
     mkdirSync(directory, { recursive: true });
     writeFileSync(path.join(directory, 'g0-r0.json'), '{"schemaVersion":1}\n');
-    const readFile = vi.fn(readFileSync);
+    const readChunk = vi.fn(readSync);
 
-    expect(readWorkRunReceipts(root, { maxBytes: 1_000, maxTotalBytes: 1, readFile })).toEqual([
+    expect(readWorkRunReceipts(root, { maxBytes: 1_000, maxTotalBytes: 1, readChunk })).toEqual([
       expect.objectContaining({
         disposition: 'unavailable',
         reason: 'receipt-total-byte-budget-exceeded',
       }),
     ]);
-    expect(readFile).not.toHaveBeenCalled();
+    expect(readChunk).not.toHaveBeenCalled();
+  });
+
+  it('bounds a receipt read when the file grows after its descriptor is inspected', () => {
+    const root = makeTemp('work-run-report-growing-receipt-');
+    const directory = path.join(root, '.agents/evals/work-runs/run-1');
+    mkdirSync(directory, { recursive: true });
+    const file = path.join(directory, 'g0-r0.json');
+    const initial = `${JSON.stringify(includedReceipt())}\n`;
+    writeFileSync(file, initial);
+    const maxBytes = Buffer.byteLength(initial) + 8;
+    const readChunk = vi.fn(readSync);
+
+    expect(
+      readWorkRunReceipts(root, {
+        maxBytes,
+        afterInitialStat: (openedFile) => {
+          if (openedFile === file) appendFileSync(file, 'x'.repeat(10_000));
+        },
+        readChunk,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        disposition: 'unavailable',
+        reason: 'oversize-receipt',
+      }),
+    ]);
+    expect(Math.max(...readChunk.mock.calls.map((call) => call[3]))).toBeLessThanOrEqual(
+      maxBytes + 1,
+    );
+  });
+
+  it('bounds a growing receipt by the remaining aggregate byte budget', () => {
+    const root = makeTemp('work-run-report-growing-total-');
+    const receiptRoot = path.join(root, '.agents/evals/work-runs');
+    const writeReceipt = (runId) => {
+      const directory = path.join(receiptRoot, runId);
+      mkdirSync(directory, { recursive: true });
+      const file = path.join(directory, 'g0-r0.json');
+      const text = `${JSON.stringify(includedReceipt({ runId }))}\n`;
+      writeFileSync(file, text);
+      return { file, bytes: Buffer.byteLength(text) };
+    };
+    const first = writeReceipt('run-a');
+    const second = writeReceipt('run-b');
+    const growthAllowance = 8;
+    const maxTotalBytes = first.bytes + second.bytes + growthAllowance;
+    let currentFile;
+    const readLengths = [];
+    const readChunk = (...args) => {
+      readLengths.push({ file: currentFile, length: args[3] });
+      return readSync(...args);
+    };
+
+    const receipts = readWorkRunReceipts(root, {
+      maxBytes: 100_000,
+      maxTotalBytes,
+      afterInitialStat: (openedFile) => {
+        currentFile = openedFile;
+        if (openedFile === second.file) appendFileSync(second.file, 'x'.repeat(10_000));
+      },
+      readChunk,
+    });
+
+    expect(receipts).toEqual([
+      expect.objectContaining({ disposition: 'included', runId: 'run-a' }),
+      expect.objectContaining({
+        disposition: 'unavailable',
+        reason: 'receipt-total-byte-budget-exceeded',
+      }),
+    ]);
+    const secondReadLengths = readLengths
+      .filter((entry) => entry.file === second.file)
+      .map((entry) => entry.length);
+    expect(Math.max(...secondReadLengths)).toBeLessThanOrEqual(second.bytes + growthAllowance + 1);
   });
 
   it('reports receipt traversal depth exhaustion without reading the deeper file', () => {
@@ -276,15 +386,15 @@ describe('work-run report', () => {
     mkdirSync(directory, { recursive: true });
     const file = path.join(directory, 'g0-r0.json');
     writeFileSync(file, `${JSON.stringify(includedReceipt())}\n`);
-    const readFile = vi.fn(readFileSync);
+    const readChunk = vi.fn(readSync);
 
-    expect(readWorkRunReceipts(root, { maxDepth: 1, readFile })).toEqual([
+    expect(readWorkRunReceipts(root, { maxDepth: 1, readChunk })).toEqual([
       expect.objectContaining({
         disposition: 'unavailable',
         reason: 'receipt-depth-exceeded',
       }),
     ]);
-    expect(readFile).not.toHaveBeenCalled();
+    expect(readChunk).not.toHaveBeenCalled();
   });
 
   it('reports distinct receipt and local-state entry-budget exhaustion', () => {
@@ -559,6 +669,19 @@ describe('work-run report', () => {
     });
     expect(report.populations.invalid).toBe(1);
     expect(report.invalidReasons).toEqual({ 'malformed-receipt': 1 });
+  });
+
+  it('keeps a valid unbound exclusion out of invalid and unavailable populations', () => {
+    const report = reportWorkRuns([unboundExcludedReceipt()]);
+
+    expect(report.populations).toMatchObject({
+      included: 0,
+      excluded: 1,
+      invalid: 0,
+      unavailable: 0,
+    });
+    expect(report.invalidReasons).toEqual({});
+    expect(report.unavailableReasons).toEqual({});
   });
 
   it('uses a bounded, completely paginated GitHub adapter to prove the ready-to-PR-head range', () => {

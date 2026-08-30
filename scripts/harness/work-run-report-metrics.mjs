@@ -30,13 +30,17 @@ export function normalizeWorkRunReceipt(candidate) {
   const receipt = verdict.receipt;
   if (!['included', 'excluded'].includes(receipt.disposition)) return receipt;
   try {
+    const cohort =
+      receipt.disposition === 'excluded' && verdict.state.lane === null
+        ? null
+        : {
+            key: cohortKey(verdict.state),
+            lane: verdict.state.lane,
+            workKind: verdict.state.workKind,
+          };
     return {
       ...receipt,
-      cohort: {
-        key: cohortKey(verdict.state),
-        lane: verdict.state.lane,
-        workKind: verdict.state.workKind,
-      },
+      cohort,
       durations: projectWorkRunDurations(receipt.events),
     };
   } catch {

@@ -1,4 +1,12 @@
-import { existsSync, opendirSync, readFileSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  openSync,
+  opendirSync,
+  readSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { projectLocalTerminalWorkRun, WORK_RUN_LOCAL_DIR } from './work-run-store.mjs';
@@ -100,24 +108,72 @@ function boundedJsonFiles(directory, options) {
   return state;
 }
 
+function noFollowFlags(base) {
+  return base | (constants.O_NOFOLLOW ?? 0);
+}
+
+function readDescriptorText(file, state, options, reasons, sourcePath) {
+  let descriptor;
+  let result;
+  try {
+    descriptor = options.openFile(file, noFollowFlags(constants.O_RDONLY));
+    const initial = options.fstatFile(descriptor);
+    const remainingTotalBytes = options.maxTotalBytes - state.totalBytes;
+    if (!initial.isFile()) {
+      result = reportIssue('unavailable', reasons.unreadable, sourcePath);
+    } else if (initial.size > options.maxBytes) {
+      result = reportIssue('unavailable', reasons.oversize, sourcePath);
+    } else if (initial.size > remainingTotalBytes) {
+      state.totalLimitExceeded = true;
+      result = reportIssue('unavailable', reasons.totalBytes);
+    } else {
+      options.afterInitialStat?.(file, descriptor);
+      const maxReadBytes = Math.min(options.maxBytes, remainingTotalBytes);
+      const content = Buffer.allocUnsafe(maxReadBytes + 1);
+      let offset = 0;
+      while (offset < content.byteLength) {
+        const bytesRead = options.readChunk(
+          descriptor,
+          content,
+          offset,
+          content.byteLength - offset,
+          null,
+        );
+        if (bytesRead === 0) break;
+        offset += bytesRead;
+      }
+      const final = options.fstatFile(descriptor);
+      if (!final.isFile()) {
+        result = reportIssue('unavailable', reasons.unreadable, sourcePath);
+      } else if (offset > options.maxBytes || final.size > options.maxBytes) {
+        result = reportIssue('unavailable', reasons.oversize, sourcePath);
+      } else if (offset > remainingTotalBytes || final.size > remainingTotalBytes) {
+        state.totalLimitExceeded = true;
+        result = reportIssue('unavailable', reasons.totalBytes);
+      } else if (final.size !== offset) {
+        result = reportIssue('unavailable', reasons.unreadable, sourcePath);
+      } else {
+        state.totalBytes += offset;
+        result = content.subarray(0, offset).toString('utf8');
+      }
+    }
+  } catch {
+    result = reportIssue('unavailable', reasons.unreadable, sourcePath);
+  }
+  if (descriptor !== undefined) {
+    try {
+      options.closeFile(descriptor);
+    } catch {
+      return reportIssue('unavailable', reasons.unreadable, sourcePath);
+    }
+  }
+  return result;
+}
+
 function parseBoundedFile(file, root, state, options, reasons, parse) {
   const sourcePath = path.relative(root, file);
-  let text;
-  try {
-    const size = options.statFile(file).size;
-    if (size > options.maxBytes) return reportIssue('unavailable', reasons.oversize, sourcePath);
-    if (state.totalBytes + size > options.maxTotalBytes) {
-      state.totalLimitExceeded = true;
-      return reportIssue('unavailable', reasons.totalBytes);
-    }
-    state.totalBytes += size;
-    text = options.readFile(file, 'utf8');
-  } catch {
-    return reportIssue('unavailable', reasons.unreadable, sourcePath);
-  }
-  if (Buffer.byteLength(text) > options.maxBytes) {
-    return reportIssue('unavailable', reasons.oversize, sourcePath);
-  }
+  const text = readDescriptorText(file, state, options, reasons, sourcePath);
+  if (text?.reportIssue === true) return text;
   try {
     return parse(JSON.parse(text), sourcePath);
   } catch {
@@ -152,8 +208,11 @@ function readOptions(options = {}) {
     maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
     maxBytes: options.maxBytes ?? DEFAULT_MAX_BYTES,
     maxTotalBytes: options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES,
-    readFile: options.readFile ?? readFileSync,
-    statFile: options.statFile ?? statSync,
+    openFile: options.openFile ?? openSync,
+    fstatFile: options.fstatFile ?? fstatSync,
+    readChunk: options.readChunk ?? readSync,
+    closeFile: options.closeFile ?? closeSync,
+    afterInitialStat: options.afterInitialStat,
     openDirectory: options.openDirectory ?? opendirSync,
   };
 }
