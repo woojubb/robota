@@ -348,3 +348,56 @@ measured evidence; all stated conditions hold.
   **Required action:** land the exact `**Continuation artifacts:**` declaration on `develop` in a
   planning-only correction PR, cut a fresh continuation branch from that merge, and re-run
   GATE-IMPLEMENT (continuation) before any implementation or GitHub Issue mutation.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: a prior `[GATE-IMPLEMENT] — ✅ PASS` exists and the exact
+  Task/spec pair is `in-progress`: one prior canonical PASS is present; the Task is `status: in-progress`
+  and the spec is `status: in-progress` under `.agents/spec-docs/active/`.
+- GATE-IMPLEMENT (continuation) — § Decision sequences delivery and names the artifacts this PR lands:
+  base `af0e4f747bad3b42337848ff0da21518a8c54c81` contains exactly six `Continuation artifacts`, and all
+  six paths exist in both that base tree and the current tree.
+- GATE-IMPLEMENT (continuation) — the preceding integration merge is an ancestor of the branch base:
+  `06f4f0bd4671366bd4212b7a3e6102986d4ba635` introduced the prior checkpoint and is an ancestor of
+  base `af0e4f747bad3b42337848ff0da21518a8c54c81`; correction merge `af0e4f747bad3b42337848ff0da21518a8c54c81`
+  is the exact current `origin/develop` base.
+- GATE-IMPLEMENT (continuation) — the exact Task and PLAN outcome are unchanged: the paired Task is
+  byte-identical to base and still records `SCENARIO DRAFTED: not-applicable | 0` with its concrete
+  governance-only reason; prior raw PASS digest is
+  `sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only
+  gate write is this paired active spec. The sole earlier topic commit `3bf052f6806d9d651197019c78491b2ec338960c`
+  changes only the allowed append-only closed `post-merge-cycle.jsonl` record and no implementation path.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+    ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+    ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
+  ],
+  "ancestorSha": "06f4f0bd4671366bd4212b7a3e6102986d4ba635",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
