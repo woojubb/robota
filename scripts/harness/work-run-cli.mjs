@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { boundedGitStatus } from './bounded-git-status.mjs';
+import { workRunReceiptTrailers } from './work-run-commit-trailers.mjs';
 import { reduceWorkRun } from './work-run-contract.mjs';
 import { planCutover, sealCutover } from './work-run-cutover.mjs';
 import {
@@ -19,6 +20,7 @@ import {
   repoContext,
 } from './work-run-git.mjs';
 import { pendingTerminalReceiptCorrelation } from './work-run-pending-receipt.mjs';
+import { assertCanonicalRunId } from './work-run-paths.mjs';
 import { WorkRunStore } from './work-run-store.mjs';
 
 const PROTECTED_BRANCHES = new Set(['develop', 'main', 'master']);
@@ -93,6 +95,22 @@ function handleTrailers(argv, correlation) {
   });
   writeFileSync(messageFile, updated, 'utf8');
   return { status: 'trailed', ...correlation };
+}
+
+function preservedTrailerCorrelation(argv) {
+  const source = option(argv, '--source', argv[2] ?? 'message');
+  if (!['commit', 'merge', 'squash'].includes(source)) return null;
+  const messageFile = option(argv, '--message-file') ?? argv[1];
+  const trailers = workRunReceiptTrailers(readFileSync(messageFile, 'utf8'));
+  if (trailers.misplaced || trailers.runIds.length !== 1 || trailers.receiptIds.length !== 1) {
+    return null;
+  }
+  const runId = assertCanonicalRunId(trailers.runIds[0]);
+  const receipt = trailers.receiptIds[0];
+  if (!/^g(?:0|[1-9]\d*)-r(?:0|[1-9]\d*)$/u.test(receipt)) {
+    throw new Error('preserved Work-Receipt trailer has invalid coordinates');
+  }
+  return { runId, receipt };
 }
 
 function handleTerminal(command, argv, context, store, run, subject, at) {
@@ -222,6 +240,12 @@ function execute(input, now) {
     now,
   });
   const at = now();
+  if (command === 'trailers') {
+    const pending = pendingTerminalReceiptCorrelation(context.root);
+    if (pending) return handleTrailers(argv, pending);
+    const preserved = preservedTrailerCorrelation(argv);
+    if (preserved) return handleTrailers(argv, preserved);
+  }
   const subject = resolveWorkRunSubject({ argv, currentBranch: context.branch });
   if (command === 'claim') {
     return PROTECTED_BRANCHES.has(subject.branch)
@@ -254,10 +278,6 @@ function execute(input, now) {
       }),
     }),
   );
-  if (transaction === null && command === 'trailers') {
-    const correlation = pendingTerminalReceiptCorrelation(context.root);
-    if (correlation) return handleTrailers(argv, correlation);
-  }
   if (transaction === null) {
     throw new Error('no active work run; run work-run claim before this command');
   }

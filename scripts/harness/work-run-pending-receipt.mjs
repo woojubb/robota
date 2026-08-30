@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
+import { validateWorkRunReceipt } from './work-run-receipt-validation.mjs';
 import { receiptPathCoordinates } from './work-run-validation-foundation.mjs';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -29,17 +30,6 @@ function stagedChanges(root, options) {
     changes.push({ status: fields[index], file: fields[index + 1] });
   }
   return changes;
-}
-
-function validTerminalReceipt(receipt, coordinates) {
-  const coordinatesMatch =
-    receipt?.runId === coordinates.runId &&
-    receipt?.generation === coordinates.generation &&
-    receipt?.revision === coordinates.revision;
-  const terminalDisposition =
-    receipt?.disposition === 'excluded' ||
-    (receipt?.disposition === 'invalid' && receipt?.reason === 'state-lost');
-  return coordinatesMatch && terminalDisposition;
 }
 
 function stagedReceipt(root, file, options) {
@@ -72,8 +62,15 @@ export function pendingTerminalReceiptCorrelation(root, options = {}) {
   const [{ file }] = receiptChanges;
   const coordinates = receiptPathCoordinates(file);
   const receipt = stagedReceipt(root, file, options);
-  if (!validTerminalReceipt(receipt, coordinates)) {
-    throw new Error('pending work-run receipt does not match its exact path coordinates');
+  const verdict = validateWorkRunReceipt(receipt, { receiptPath: file });
+  const terminalDisposition =
+    verdict.ok &&
+    (verdict.receipt.disposition === 'excluded' ||
+      (verdict.receipt.disposition === 'invalid' && verdict.receipt.reason === 'state-lost'));
+  if (!terminalDisposition) {
+    throw new Error(
+      `pending work-run receipt is not a valid terminal receipt: ${verdict.reason ?? 'unsupported disposition'}`,
+    );
   }
   return {
     runId: coordinates.runId,

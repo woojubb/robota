@@ -340,31 +340,31 @@ describe('work-run command lifecycle', () => {
     expect(readFileSync(messageFile, 'utf8')).toBe('feat: unmeasured\n');
   });
 
-  it('uses an existing run for a detached explicit subject without a local branch reflog', async () => {
+  it('fails closed for a detached subject without branch-continuity evidence', async () => {
     const { root } = fixture();
     const claimed = await workAt(root, '2000-01-01T00:00:00.000Z', 'claim');
     const subjectHead = git(root, 'rev-parse', 'HEAD');
     git(root, 'switch', '--quiet', '--detach', subjectHead);
     git(root, 'branch', '-D', branch);
 
-    const bound = runWorkRun([
-      'bind',
-      '--root',
-      root,
-      '--work-id',
-      'OBSERVABILITY-002',
-      '--lane',
-      'L2',
-      '--kind',
-      'observability',
-      '--subject-sha',
-      subjectHead,
-      '--subject-branch',
-      branch,
-    ]);
-
-    expect(bound.runId).toBe(claimed.runId);
-    expect(bound.events.at(-1)?.type).toBe('work.bound');
+    expect(() =>
+      runWorkRun([
+        'bind',
+        '--root',
+        root,
+        '--work-id',
+        'OBSERVABILITY-002',
+        '--lane',
+        'L2',
+        '--kind',
+        'observability',
+        '--subject-sha',
+        subjectHead,
+        '--subject-branch',
+        branch,
+      ]),
+    ).toThrow(/continuity.*unverifiable/i);
+    expect(claimed.events).toHaveLength(1);
   });
 
   it('fails explicitly instead of resetting claimedAt when the creation witness expires', async () => {

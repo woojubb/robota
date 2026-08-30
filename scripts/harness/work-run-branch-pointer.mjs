@@ -68,8 +68,11 @@ export function branchPointerReuse(pointer, branch, identity) {
   if (epochStatus === 'expired') {
     throw new Error('work-run branch creation witness expired; branch continuity is unverifiable');
   }
+  if (epochStatus === 'unavailable') {
+    throw new Error('work-run branch continuity is unverifiable without a local creation witness');
+  }
   return {
-    reusable: epochStatus === 'unavailable' || pointer.branchEpoch === identity.branchEpoch,
+    reusable: pointer.branchEpoch === identity.branchEpoch,
     migrate: false,
   };
 }

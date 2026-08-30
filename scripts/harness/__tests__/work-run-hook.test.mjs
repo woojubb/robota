@@ -163,6 +163,30 @@ function verifyExcludedReceiptClosureHook() {
   const message = git(root, 'log', '-1', '--format=%B');
   expect(message).toContain(`Work-Run: ${excluded.receipt.runId}`);
   expect(message).toContain('Work-Receipt: g0-r0');
+
+  git(root, 'commit', '--amend', '--no-edit');
+  expect(git(root, 'log', '-1', '--format=%B')).toBe(message);
+}
+
+function verifyPendingTerminalReceiptWinsOverNewActiveRun() {
+  const root = receiptClosureFixture({ claimOnCheckout: true });
+  const excluded = workRun(
+    root,
+    'exclude',
+    '--reason',
+    'pure-planning-range',
+    '--base',
+    'origin/develop',
+  );
+  const next = workRun(root, 'claim');
+  expect(next.runId).not.toBe(excluded.receipt.runId);
+  stagedReceiptPath(root, excluded.receiptPath);
+
+  git(root, 'commit', '-m', 'chore: close earlier excluded run');
+
+  const message = git(root, 'log', '-1', '--format=%B');
+  expect(message).toContain(`Work-Run: ${excluded.receipt.runId}`);
+  expect(message).not.toContain(`Work-Run: ${next.runId}`);
 }
 
 function verifyStateLostReceiptClosureHook() {
@@ -211,6 +235,34 @@ function verifyAmbiguousReceiptClosureFailsClosed() {
   expect(git(root, 'rev-parse', 'HEAD')).toBe(before);
 }
 
+function verifyMalformedReceiptClosureFailsClosed() {
+  const root = receiptClosureFixture({ claimOnCheckout: false });
+  const before = git(root, 'rev-parse', 'HEAD');
+  const file = join(root, '.agents/evals/work-runs/forged/g0-r0.json');
+  mkdirSync(join(file, '..'), { recursive: true });
+  writeFileSync(
+    file,
+    `${JSON.stringify({
+      disposition: 'invalid',
+      reason: 'state-lost',
+      runId: 'forged',
+      generation: 0,
+      revision: 0,
+    })}\n`,
+  );
+  git(root, 'add', '--', file.slice(root.length + 1));
+  git(root, 'config', 'core.hooksPath', '.husky');
+
+  const result = spawnSync('git', ['commit', '-m', 'chore: forged closure'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toMatch(/malformed|valid.*receipt/i);
+  expect(git(root, 'rev-parse', 'HEAD')).toBe(before);
+}
+
 function verifyDetachedCheckoutSkipsClaim() {
   const root = makeTemp('work-run-detached-hook-');
   git(root, 'init', '-b', 'develop');
@@ -249,8 +301,16 @@ describe('tracked work-run Git hooks', () => {
     verifyStateLostReceiptClosureHook,
   );
   it(
+    'prefers a staged terminal receipt over a newer active run',
+    verifyPendingTerminalReceiptWinsOverNewActiveRun,
+  );
+  it(
     'fails closed when the real hook sees ambiguous receipt-only closures',
     verifyAmbiguousReceiptClosureFailsClosed,
+  );
+  it(
+    'fails closed when the real hook sees a malformed receipt-only closure',
+    verifyMalformedReceiptClosureFailsClosed,
   );
   it(
     'skips work-run claim when post-checkout runs on detached HEAD',
