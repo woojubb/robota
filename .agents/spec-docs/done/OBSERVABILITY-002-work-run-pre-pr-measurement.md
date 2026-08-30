@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: OBSERVABILITY
 tags: [git-hooks, pull-request, metrics]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # OBSERVABILITY-002: measure work runs before pull-request creation
 
-Paired with `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`.
+Paired with `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`.
 
 ## Problem
 
@@ -228,27 +228,27 @@ explicit terminal event visible to local reports.
 
 ## Completion Criteria
 
-- [ ] TC-01: Post-checkout opens a collision-resistant unbound run for every non-protected topic branch,
+- [x] TC-01: Post-checkout opens a collision-resistant unbound run for every non-protected topic branch,
       the mandatory request gate reuses/opens it earlier when applicable, and binding/exclusion covers
       documentation/settings/Git-only work before the first topic commit;
       the closed v1 reducer accepts legal claim/start/phase/pause/ready/reopen/exclude transitions and
       rejects late claims, unknown versions/events, concurrent lost updates, and invalid transitions.
-- [ ] TC-02: Locked, failure-injected `ready` reconciliation emits a revisioned receipt bound to exact
+- [x] TC-02: Locked, failure-injected `ready` reconciliation emits a revisioned receipt bound to exact
       repository/base/head/tree/commit/trailer identity, accepts only its receipt closure commit, and
       rejects ungrounded amend/rebase/additional-commit or corrupt/partial persistence states; finding,
       red-check, and rebase grounds create immutable linked post-PR generations through the shared
       maintainer-approved action projection, while pre-PR retries increment receipt revision only.
-- [ ] TC-03: Real temporary Git repositories prove tracked fresh-worktree `prepare-commit-msg` reachability,
+- [x] TC-03: Real temporary Git repositories prove tracked fresh-worktree `prepare-commit-msg` reachability,
       exact/idempotent trailers, conflict refusal, and the source-mode matrix for message/template/amend/
       merge/squash with visible exit status and stderr.
-- [ ] TC-04: Pre-push and the registered always-run scan consume the shared base/change/checkpoint
+- [x] TC-04: Pre-push and the registered always-run scan consume the shared base/change/checkpoint
       projection, reject missing/stale/mixed/unreadable measurement, accept matching/exclusion receipts,
       permit exact identity-bound `state-lost` receipts while counting them invalid, cover implementation
       and non-implementation ranges, validate authorized post-PR generation grounds, apply the unique
       base-ancestry marker registry to introduction, registered old PR before/after rebase and object expiry,
       unregistered old branch, and post-cutover fixtures, and execute before
       reusable-verification returns in local and required-CI paths.
-- [ ] TC-05: Reporting states bounded included/superseded/excluded/invalid/unavailable populations and
+- [x] TC-05: Reporting states bounded included/superseded/excluded/invalid/unavailable populations and
       exact p50/p90 wall/active/paused/phase values; first-PR time appears only for a unique repository,
       pre-PR server-timestamped g0 seal, PR-body run marker, head-OID, and commit-trailer match using
       GitHub `createdAt`, while finding/
@@ -256,29 +256,29 @@ explicit terminal event visible to local reports.
       interval, and neither moves that boundary; nonterminal state survives age-based cleanup, abandonment
       is locally reportable, and state-loss recovery emits a tracked invalid receipt with unavailable
       timestamps and surviving Git identity rather than a fabricated claim.
-- [ ] TC-06: Metric/eval/harness registries, the universal rule, mandatory workflow skills, commands, and
+- [x] TC-06: Metric/eval/harness registries, the universal rule, mandatory workflow skills, commands, and
       `track-work-run` skill expose one lifecycle/schema/denominator vocabulary with no duplicate owner.
-- [ ] TC-07: A command-level temporary-repository smoke drives claim→bind→start→phase→pause/resume→ready→
+- [x] TC-07: A command-level temporary-repository smoke drives claim→bind→start→phase→pause/resume→ready→
       closure commit→first PR→finding/red-check/rebase generation→validate→report, including a docs-only
       branch plus cutover-plan/seal and state-lost-permitted-invalid fixtures, while the pre-fix/missing-
       measurement fixture is RED and the final
       focused tests, skill validation, `pnpm harness:scan`, and CI-equivalent verification are GREEN.
-- [ ] TC-08: The repository-contract harness executes each test file once with bounded two-worker
+- [x] TC-08: The repository-contract harness executes each test file once with bounded two-worker
       concurrency, and the measured slow hook/guard/cleanup fixtures reuse isolated seeds, batched shell
       probes, or in-process traversal without weakening fail-closed behavior or sharing mutable temp state.
 
 ## Test Plan
 
-| TC-ID | Test Type              | Tool / Approach                                                                                         | Notes                                                  |
-| ----- | ---------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| TC-01 | Unit/concurrency       | `work-run-contract.test.mjs`, `work-run-store.test.mjs`, `work-run-hook.test.mjs`                       | Applicability, reducer, hash/sequence, lock behavior   |
-| TC-02 | Unit/integration       | `work-run-validation.test.mjs`, `verification-receipt.test.mjs`                                         | Atomic retry/reconcile, identity, authorization parity |
-| TC-03 | Integration            | `work-run-hook.test.mjs`, `hook-reading-matches-bash.test.mjs`                                          | Hook reachability and refusal matrix                   |
-| TC-04 | Regression             | `scan-work-run-measurement.test.mjs`, `pre-push-base-ref.test.mjs`, `pre-push-sequence.test.mjs`        | Exact pushed subject; all early-return paths           |
-| TC-05 | Unit/contract          | `work-run-report.test.mjs`, `work-run-pr-evidence.test.mjs`, `work-run-attest-opening-head.test.mjs`    | First-PR seal, percentile, rework, bounded failure     |
-| TC-06 | Static                 | `node scripts/harness/scan-skill-registration.mjs`, `harness:scan:commands`, `harness:scan:consistency` | One owner and complete routing                         |
-| TC-07 | E2E/suite              | `work-run-lifecycle.test.mjs`, `harness:scan`, `harness:verify-like-ci`                                 | Real entrypoints and full repository evidence          |
-| TC-08 | Performance/regression | `harness-test-tiers.test.mjs`, `scan-user-execution-plan-order.test.mjs`, hook/guard/cleanup fixtures   | No duplicate tier; bounded two-worker semantics        |
+| TC-ID | Test Type              | Tool / Approach                                                                                                   | Notes                                                  |
+| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| TC-01 | Unit/concurrency       | `work-run-contract.test.mjs`, `work-run-store.test.mjs`, `work-run-hook.test.mjs`                                 | Applicability, reducer, hash/sequence, lock behavior   |
+| TC-02 | Unit/integration       | `work-run-validation.test.mjs`, `verification-receipt.test.mjs`                                                   | Atomic retry/reconcile, identity, authorization parity |
+| TC-03 | Integration            | `work-run-hook.test.mjs`, `hook-reading-matches-bash.test.mjs`                                                    | Hook reachability and refusal matrix                   |
+| TC-04 | Regression             | `scan-work-run-measurement.test.mjs`, `pre-push-base-ref.test.mjs`, `pre-push-sequence.test.mjs`                  | Exact pushed subject; all early-return paths           |
+| TC-05 | Unit/contract          | `work-run-report.test.mjs`, `work-run-pr-evidence.test.mjs`, `work-run-attest-opening-head.test.mjs`              | First-PR seal, percentile, rework, bounded failure     |
+| TC-06 | Static                 | `scripts/harness/__tests__/scan-skill-registration.test.mjs`, `harness:scan:commands`, `harness:scan:consistency` | One owner and complete routing                         |
+| TC-07 | E2E/suite              | `work-run-lifecycle.test.mjs`, `harness:scan`, `harness:verify-like-ci`                                           | Real entrypoints and full repository evidence          |
+| TC-08 | Performance/regression | `harness-test-tiers.test.mjs`, `scan-user-execution-plan-order.test.mjs`, hook/guard/cleanup fixtures             | No duplicate tier; bounded two-worker semantics        |
 
 ## User Execution Test Scenarios
 
@@ -290,14 +290,14 @@ which belong to the engineering test plan.
 
 ## Tasks
 
-- [ ] TC-01 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: implement universal topic claim and state transitions.
-- [ ] TC-02 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: finalize receipts and durations.
-- [ ] TC-03 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: correlate commits.
-- [ ] TC-04 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: enforce before push.
-- [ ] TC-05 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: aggregate first-PR and post-PR generation reports.
-- [ ] TC-06 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: wire rule, skill, and docs.
-- [ ] TC-07 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: prove and verify the system.
-- [ ] TC-08 — `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: remove measured harness bottlenecks without reducing coverage.
+- [x] TC-01 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: implement universal topic claim and state transitions.
+- [x] TC-02 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: finalize receipts and durations.
+- [x] TC-03 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: correlate commits.
+- [x] TC-04 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: enforce before push.
+- [x] TC-05 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: aggregate first-PR and post-PR generation reports.
+- [x] TC-06 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: wire rule, skill, and docs.
+- [x] TC-07 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: prove and verify the system.
+- [x] TC-08 — `.agents/tasks/completed/OBSERVABILITY-002-work-run-pre-pr-measurement.md`: remove measured harness bottlenecks without reducing coverage.
 
 ## Evidence Log
 
@@ -542,3 +542,185 @@ which belong to the engineering test plan.
   seconds, a 52.4% wall-time reduction despite four additional tests. Tier inventory measurement also
   removed 73 duplicate hermetic test-file executions. The final repository-contract and CI-equivalent
   results will be recorded separately before TC-08 is closed.
+- The first CI-equivalent run after oracle isolation passed 12 of 13 stages but spent 157.2 seconds in
+  `affected-verify` before failing Linux-only project-mutation tests on macOS. Its plan had expanded a
+  root manifest change containing only `harness:*` command registration to all 92 product scopes. The
+  existing semantic root-manifest classifier now treats harness-only script changes as
+  `developer-quality-only`, while mixed product `build`/`test`, dependency, and unknown changes remain
+  workspace-wide. The same stage now selects 0/92 product scopes and passes in 1.0 second.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-31
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 8/8 tasks `[x]` in .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `volta run --node 22.14.0 --pnpm 8.15.4 pnpm harness:scan > /tmp/obs002-final-scan.log 2>&1` → exit 0; all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `volta run --node 22.14.0 --pnpm 8.15.4 pnpm harness:test > /tmp/obs002-final-harness-test.log 2>&1` → exit 0; all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:scan`
+**Exit:** 0
+**Output:** (last 10 of 166 line(s))
+
+```
+✓ docs-structure
+
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2058/2862 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification: 1 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 1 real violation(s) recorded, not cleared by editing history.
+
+149 scans passed, 1 skipped (99 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M scripts/harness/check-plan.mjs,  M scripts/harness/file-size-baseline.json,  M scripts/harness/shared.mjs, ?? scripts/harness/__tests__/manifest-change-classification.test.mjs, ?? scripts/harness/__tests__/repository-check-classification.test.mjs, ?? scripts/harness/manifest-change-classification.mjs, ?? scripts/harness/repository-check-classification.mjs
+```
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-08-31
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 10 of 4229 line(s))
+
+```
+· regression-red-proof (enforcing: accidental-green only) — NOT mirrored locally: the checker RUNS locally and is useful there, but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects, and off a pull request `PR_BODY` is empty — so an `allow-green-at-base: <reason>` declared in the body ALONE is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is worse than no mirror: it would report a blocking verdict the required check does not hold.
+! dependency audit — NOT mirrored locally: downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.
+    this diff makes it relevant (the diff touches `pnpm-lock.yaml` or any `package.json`). Run it yourself: osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)
+· windows-shell — NOT mirrored locally: runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.
+· workflow provenance — NOT mirrored locally: runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.
+! review-gate — NOT mirrored locally: reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.
+    this diff makes it relevant (every pull request — the code-scanning half resolves to `PASS (not-applicable)` on a docs-only diff, but the PR-body half (RULE-016: first heading `## Background`, no agent-session link) judges every PR, so the check is never irrelevant). Run it yourself: the body half: gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs. The code-scanning half has no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)
+PASS — all 13 stage(s) passed; mirrors the required checks of `develop`.
+verification receipt not written: working tree is not clean:  M .agents/loop-runs/post-implementation-checklist.jsonl,  M .agents/spec-docs/active/OBSERVABILITY-002-work-run-pre-pr-measurement.md,  M .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
+  (without a receipt the next `git push` re-runs this entire gate)
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-31
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-31; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (8)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 8/8 tasks `[x]` in .agents/tasks/OBSERVABILITY-002-work-run-pre-pr-measurement.md
