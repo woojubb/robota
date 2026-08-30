@@ -85,7 +85,7 @@
   "scripts/harness/check-dependency-direction.mjs": 729,
   "scripts/harness/check-document-authority.mjs": 303,
   "scripts/harness/check-patch-coverage.mjs": 545,
-  "scripts/harness/check-plan.mjs": 414,
+  "scripts/harness/check-plan.mjs": 382,
   "scripts/harness/check-regression-red-proof.mjs": 1065,
   "scripts/harness/check-release-governance.mjs": 312,
   "scripts/harness/check-review-gate.mjs": 327,
@@ -143,7 +143,7 @@
   "scripts/harness/scan-unearned-done-claims.mjs": 651,
   "scripts/harness/scan-user-execution-plan-order.mjs": 2693,
   "scripts/harness/scan-workflow-permissions.mjs": 393,
-  "scripts/harness/shared.mjs": 784,
+  "scripts/harness/shared.mjs": 748,
   "scripts/harness/verify-change.mjs": 494,
   "scripts/harness/verify-like-ci.mjs": 919,
   "scripts/harness/worktree-gate.mjs": 436
