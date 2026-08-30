@@ -844,7 +844,7 @@ describe('work-run report', () => {
     expect(calls.every((call) => Number.isFinite(call.options.maxBuffer))).toBe(true);
   });
 
-  it('recovers the sealed opening head from force-push ancestry for first-PR metrics', () => {
+  it('recovers a revised g0-rN opening head from force-push ancestry for first-PR metrics', () => {
     const openingHead = '1'.repeat(40);
     const openingParent = '0'.repeat(40);
     const currentReady = '2'.repeat(40);
@@ -907,7 +907,7 @@ describe('work-run report', () => {
           stdout: JSON.stringify({
             sha: openingHead,
             commit: {
-              message: 'chore: close initial\n\nWork-Run: run-1\nWork-Receipt: g0-r0',
+              message: 'chore: close revised opening\n\nWork-Run: run-1\nWork-Receipt: g0-r2',
             },
             parents: [{ sha: openingParent }],
           }),

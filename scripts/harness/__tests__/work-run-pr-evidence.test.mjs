@@ -194,7 +194,19 @@ function openingComment(openedHead = INITIAL_HEAD, overrides = {}) {
   };
 }
 
-function evidenceRunner(timeline, { currentHead = CURRENT_HEAD, openedHead = INITIAL_HEAD } = {}) {
+function evidenceRunner(
+  timeline,
+  {
+    currentHead = CURRENT_HEAD,
+    openedHead = INITIAL_HEAD,
+    openingRevision = 0,
+    openingTrailerReceiptId = `g0-r${openingRevision}`,
+    openingPathReceiptId = openingTrailerReceiptId,
+    openingReceiptValue = openingReceipt(openingRevision),
+  } = {},
+) {
+  const openingReceiptPath = `.agents/evals/work-runs/run-1/${openingPathReceiptId}.json`;
+  const openingReceiptBytes = Buffer.from(`${JSON.stringify(openingReceiptValue)}\n`);
   return (_command, args) => {
     const endpoint = args.at(-1);
     if (args.includes('graphql')) {
@@ -245,20 +257,20 @@ function evidenceRunner(timeline, { currentHead = CURRENT_HEAD, openedHead = INI
     if (endpoint.includes('/contents/')) {
       return response({
         type: 'file',
-        path: '.agents/evals/work-runs/run-1/g0-r0.json',
+        path: openingReceiptPath,
         sha: RECEIPT_BLOB,
         encoding: 'base64',
-        content: OPENING_RECEIPT_BYTES.toString('base64'),
+        content: openingReceiptBytes.toString('base64'),
       });
     }
     if (endpoint.endsWith(`/commits/${openedHead}`)) {
       return response({
         sha: openedHead,
-        commit: { message: g0Message() },
+        commit: { message: g0Message('initial', openingTrailerReceiptId) },
         parents: [{ sha: OPENING_PARENT }],
         files: [
           {
-            filename: '.agents/evals/work-runs/run-1/g0-r0.json',
+            filename: openingReceiptPath,
             status: 'added',
             sha: RECEIPT_BLOB,
           },
@@ -300,6 +312,59 @@ describe('pull-request head evidence', () => {
     expect(remoteOpeningClosure(openingReceipt(2))).toMatchObject({
       receiptPath: '.agents/evals/work-runs/run-1/g0-r2.json',
     });
+  });
+
+  it('fetches g0-r2 opening evidence end to end', () => {
+    const receiptId = 'g0-r2';
+    const bytes = Buffer.from(`${JSON.stringify(openingReceipt(2))}\n`);
+    const fetchEvidence = createPullRequestEvidenceFetcher(repository(), {
+      run: evidenceRunner(
+        [
+          committed(INITIAL_HEAD, g0Message('revised opening', receiptId)),
+          {
+            event: 'head_ref_force_pushed',
+            before_commit: { sha: INITIAL_HEAD },
+            after_commit: { sha: CURRENT_HEAD },
+          },
+          committed(CURRENT_HEAD, 'fix: authorized rework'),
+        ],
+        { openingRevision: 2 },
+      ),
+    });
+
+    expect(fetchEvidence({ number: 7 })).toEqual({
+      status: 'found',
+      number: 7,
+      firstHeadOid: INITIAL_HEAD,
+      currentHeadOid: CURRENT_HEAD,
+      runId: 'run-1',
+      forcePushEdges: [{ before: INITIAL_HEAD, after: CURRENT_HEAD }],
+      openingReceiptDigest: createHash('sha256').update(bytes).digest('hex'),
+    });
+  });
+
+  it('rejects a g0-r2 trailer whose receipt path names another revision', () => {
+    const fetchEvidence = createPullRequestEvidenceFetcher(repository(), {
+      run: evidenceRunner([committed(INITIAL_HEAD, g0Message('revised opening', 'g0-r2'))], {
+        currentHead: INITIAL_HEAD,
+        openingRevision: 2,
+        openingPathReceiptId: 'g0-r1',
+      }),
+    });
+
+    expect(() => fetchEvidence({ number: 7 })).toThrow(/trailers do not match the receipt/u);
+  });
+
+  it('rejects a g0-r2 path and trailer carrying g0-r1 JSON', () => {
+    const fetchEvidence = createPullRequestEvidenceFetcher(repository(), {
+      run: evidenceRunner([committed(INITIAL_HEAD, g0Message('revised opening', 'g0-r2'))], {
+        currentHead: INITIAL_HEAD,
+        openingRevision: 2,
+        openingReceiptValue: openingReceipt(1),
+      }),
+    });
+
+    expect(() => fetchEvidence({ number: 7 })).toThrow(/opening receipt blob is invalid/u);
   });
 
   it.each([
@@ -542,11 +607,15 @@ describe('pull-request head evidence', () => {
   });
 
   it('recovers the old opening segment from GraphQL force-push ancestry', () => {
-    const base = evidenceRunner([
-      { event: 'head_ref_force_pushed', before: NORMAL_HEAD, after: FORCED_HEAD },
-      committed(FORCED_HEAD, 'fix: rewritten root'),
-      committed(CURRENT_HEAD, 'fix: current', [FORCED_HEAD]),
-    ]);
+    const receiptId = 'g0-r2';
+    const base = evidenceRunner(
+      [
+        { event: 'head_ref_force_pushed', before: NORMAL_HEAD, after: FORCED_HEAD },
+        committed(FORCED_HEAD, 'fix: rewritten root'),
+        committed(CURRENT_HEAD, 'fix: current', [FORCED_HEAD]),
+      ],
+      { openingRevision: 2 },
+    );
     const fetchEvidence = createPullRequestEvidenceFetcher(repository(), {
       run: (command, args) => {
         const endpoint = args.at(-1);
@@ -559,7 +628,7 @@ describe('pull-request head evidence', () => {
             },
             {
               sha: INITIAL_HEAD,
-              commit: { message: g0Message() },
+              commit: { message: g0Message('revised opening', receiptId) },
               parents: [{ sha: OPENING_PARENT }],
             },
           ]);

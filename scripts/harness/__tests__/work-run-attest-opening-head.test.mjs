@@ -82,17 +82,73 @@ describe('opening-head attestation command', () => {
     expect(calls.some((args) => args.includes(`body=${body}`))).toBe(true);
   });
 
-  it('accepts a revisioned generation-zero closure before querying GitHub', () => {
+  it('creates an opening-head comment for a g0-r2 closure', () => {
     const root = repository('close run\n\nWork-Run: run-1\nWork-Receipt: g0-r2', 'g0-r2');
+    const headOid = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+    const body = `Work-Run-Opening-Head: v1\nWork-Run: run-1\nHead-Oid: ${headOid}`;
+    const calls = [];
+    let timestampQueries = 0;
+
+    const result = attestCurrentOpeningHead(root, {
+      resolvePr: () => ({ status: 'none' }),
+      run: (_command, args) => {
+        calls.push(args);
+        if (args.includes('--include')) {
+          timestampQueries += 1;
+          const second = timestampQueries === 1 ? '00' : '01';
+          return {
+            status: 0,
+            stdout: `HTTP/2 200\ndate: Sun, 30 Aug 2026 00:00:${second} GMT\n\n{}`,
+          };
+        }
+        if (args.includes('POST')) {
+          return {
+            status: 0,
+            stdout: JSON.stringify({
+              id: 8,
+              commit_id: headOid,
+              body,
+              created_at: '2026-08-30T00:00:00Z',
+              updated_at: '2026-08-30T00:00:00Z',
+            }),
+          };
+        }
+        return { status: 0, stdout: '[]' };
+      },
+      wait: () => {},
+    });
+
+    expect(result).toEqual({
+      status: 'created',
+      commentId: 8,
+      commentCreatedAt: '2026-08-30T00:00:00Z',
+      serverAdvancedAt: '2026-08-30T00:00:01.000Z',
+    });
+    expect(timestampQueries).toBe(2);
+    expect(calls.some((args) => args.includes(`body=${body}`))).toBe(true);
+  });
+
+  it.each([
+    ['a generation-one coordinate', 'g1-r0', 'g1-r0', /generation-zero closure/u],
+    ['a noncanonical coordinate', 'g0-r01', 'g0-r01', /generation-zero closure/u],
+    ['a trailer/path mismatch', 'g0-r2', 'g0-r1', /path does not match its trailers/u],
+  ])('rejects %s before querying GitHub', (_case, trailerReceiptId, pathReceiptId, error) => {
+    const root = repository(
+      `close run\n\nWork-Run: run-1\nWork-Receipt: ${trailerReceiptId}`,
+      pathReceiptId,
+    );
 
     expect(() =>
       attestCurrentOpeningHead(root, {
         resolvePr: () => ({ status: 'none' }),
         run: () => {
-          throw new Error('revisioned closure reached GitHub attestation');
+          throw new Error('must not query GitHub');
         },
       }),
-    ).toThrow('revisioned closure reached GitHub attestation');
+    ).toThrow(error);
   });
 
   it.each(['open', 'closed', 'merged'])(

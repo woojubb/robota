@@ -215,6 +215,7 @@ function receiptEvents({
   disposition = 'included',
   generation = 0,
   revision = 0,
+  openingRevision = 0,
   claimedAt = '2000-01-01T00:00:00.000Z',
   authorization,
   rebaseProof,
@@ -245,7 +246,8 @@ function receiptEvents({
   });
   for (let currentGeneration = 0; currentGeneration <= generation; currentGeneration += 1) {
     const firstRevision = 1;
-    const lastRevision = currentGeneration === generation ? revision : 0;
+    const lastRevision =
+      currentGeneration === generation ? revision : currentGeneration === 0 ? openingRevision : 0;
     if (currentGeneration > 0) {
       run = appendWorkRunEvent(run, {
         type: 'work.reopened',
@@ -419,8 +421,8 @@ function commitClosure(fixture) {
   return git(fixture.root, ['rev-parse', 'HEAD']);
 }
 
-function pullRequestEvidence(fixture, currentHeadOid) {
-  const receiptPath = '.agents/evals/work-runs/run-1/g0-r0.json';
+function pullRequestEvidence(fixture, currentHeadOid, openingReceiptName = 'g0-r0') {
+  const receiptPath = `.agents/evals/work-runs/run-1/${openingReceiptName}.json`;
   const firstHeadOid = git(fixture.root, [
     'log',
     '-1',
@@ -440,6 +442,49 @@ function pullRequestEvidence(fixture, currentHeadOid) {
     firstHeadOid,
     currentHeadOid,
     openingReceiptDigest: createHash('sha256').update(receiptBytes).digest('hex'),
+  };
+}
+
+function laterGenerationAfterRevisedOpeningFixture() {
+  const opening = repositoryFixture({ generation: 0, revision: 1 });
+  const openingClosure = commitClosure(opening);
+  const authorization = trustedAuthorization({ head: openingClosure });
+  write(opening.root, 'src/change-g1-r0.mjs', 'export const changed = true;\n');
+  git(opening.root, ['add', 'src/change-g1-r0.mjs']);
+  git(opening.root, [
+    'commit',
+    '-m',
+    'fix: generation one\n\nWork-Run: run-1\nWork-Receipt: g1-r0',
+  ]);
+  const events = receiptEvents({ generation: 1, openingRevision: 1, authorization });
+  const receiptPath = '.agents/evals/work-runs/run-1/g1-r0.json';
+  write(
+    opening.root,
+    receiptPath,
+    `${JSON.stringify({
+      schemaVersion: 1,
+      disposition: 'included',
+      runId: 'run-1',
+      generation: 1,
+      revision: 0,
+      ground: authorization.ground,
+      authorization,
+      identity: currentReceiptIdentity(opening.root, opening.baseCommit),
+      events,
+      ...receiptProjection(events),
+      timestamps: { claimedAt: events[0].at, readyAt: events.at(-1).at },
+    })}\n`,
+  );
+  const fixture = {
+    ...opening,
+    receiptPath,
+    receiptName: 'g1-r0',
+    authorization,
+  };
+  return {
+    fixture,
+    openingClosure,
+    currentHead: commitClosure(fixture),
   };
 }
 
@@ -1021,6 +1066,19 @@ describe('work-run validation', () => {
     ).toEqual({ ok: false, reason: 'post-pr-local-fix' });
   });
 
+  it('accepts a later generation whose opening receipt is g0-r1', () => {
+    const { fixture, currentHead } = laterGenerationAfterRevisedOpeningFixture();
+    expect(
+      validateRepositoryWorkRun({
+        root: fixture.root,
+        baseRef: fixture.baseCommit,
+        currentPrNumber: 42,
+        fetchAuthorization: () => fixture.authorization,
+        fetchPullRequestEvidence: () => pullRequestEvidence(fixture, currentHead, 'g0-r1'),
+      }),
+    ).toEqual({ ok: true, population: 'included', runId: 'run-1' });
+  });
+
   it('rejects authorized g1 when the PR opened at A before a late forged g0 at B', () => {
     const authorized = repositoryFixture({
       generation: 1,
@@ -1102,22 +1160,24 @@ describe('work-run validation', () => {
       }),
     ).toEqual({ ok: true, population: 'included', runId: 'run-1' });
 
-    const afterPr = repositoryFixture({ generation: 0, revision: 1 });
-    const revisedClosure = commitClosure(afterPr);
-    const firstPrHead = git(afterPr.root, [
-      'rev-list',
-      '--reverse',
-      `${afterPr.baseCommit}..${revisedClosure}`,
-    ]).split('\n')[1];
+    const revisedAtPrOpen = repositoryFixture({ generation: 0, revision: 1 });
+    const revisedClosure = commitClosure(revisedAtPrOpen);
     expect(
       validateRepositoryWorkRun({
-        root: afterPr.root,
-        baseRef: afterPr.baseCommit,
+        root: revisedAtPrOpen.root,
+        baseRef: revisedAtPrOpen.baseCommit,
         currentPrNumber: 42,
-        fetchPullRequestEvidence: () => ({
-          ...pullRequestEvidence(afterPr, revisedClosure),
-          firstHeadOid: firstPrHead,
-        }),
+        fetchPullRequestEvidence: () =>
+          pullRequestEvidence(revisedAtPrOpen, revisedClosure, 'g0-r1'),
+      }),
+    ).toEqual({ ok: true, population: 'included', runId: 'run-1' });
+
+    expect(
+      validateRepositoryWorkRun({
+        root: revisedAtPrOpen.root,
+        baseRef: revisedAtPrOpen.baseCommit,
+        currentPrNumber: 42,
+        fetchPullRequestEvidence: () => pullRequestEvidence(revisedAtPrOpen, revisedClosure),
       }),
     ).toEqual({ ok: false, reason: 'post-pr-local-fix' });
   });
