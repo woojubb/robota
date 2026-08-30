@@ -419,3 +419,56 @@ measured evidence; all stated conditions hold.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: two prior complete canonical GATE-IMPLEMENT PASS entries
+  exist; the exact Task/spec pair remains `in-progress`, and the spec remains under
+  `.agents/spec-docs/active/`.
+- GATE-IMPLEMENT (continuation) — § Decision sequences delivery and names this PR's artifacts: base
+  `cc20654da1aad9f48c8cc57ee210275e58fc0a7d` contains exactly six `Continuation artifacts`, and every
+  exact path exists in both the base and current trees.
+- GATE-IMPLEMENT (continuation) — preceding integration ancestry: PR #2554 merge
+  `cc20654da1aad9f48c8cc57ee210275e58fc0a7d` introduced the latest prior continuation checkpoint and is
+  the exact current `origin/develop` base and an ancestor of HEAD.
+- GATE-IMPLEMENT (continuation) — Task and PLAN preservation: the paired Task is byte-identical to base
+  and still records `SCENARIO DRAFTED: not-applicable | 0` with its concrete governance-only reason;
+  latest prior raw PASS digest is
+  `sha256:3cb78d64bbf219ffe33ff974cd5d13930784bb7684da507b97d34d85f13f098f`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only gate
+  write is this paired active spec. The sole earlier topic commit
+  `bd6ea206ad56ae9a902cddae3ddaa2cf021bb114` changes only the allowed append-only closed
+  `post-merge-cycle.jsonl` record for PR #2554 and no implementation path.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:3cb78d64bbf219ffe33ff974cd5d13930784bb7684da507b97d34d85f13f098f",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
+    ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
+    ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
+  ],
+  "ancestorSha": "cc20654da1aad9f48c8cc57ee210275e58fc0a7d",
+  "taskPath": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
+    ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
