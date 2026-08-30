@@ -97,7 +97,7 @@ None
    the manifest, or if a
    population delta cannot be reconciled to an exact Issue and terminal reason. The fresh B1 snapshot
    reconciles the sole prerequisite delta: issue #2514 closed `COMPLETED`, so the pre-mutation denominator
-   is 77 rather than 78. Closed prerequisite PR cross-references #2551 and #2553 are expected historical
+   is 77 rather than 78. Closed prerequisite cross-references to PR #2551 and PR #2553 are expected historical
    evidence and are not active-work signals.
 3. Update issue #2079 once with the complete 55-descendant current Issue/Task map, changing only the four
    B1 entries from Issue-owned execution to their exact Tasks. Update each B1 child body with canonical
@@ -130,16 +130,16 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the durable prerequisite manifest records exactly 281 open Issues and 78 unique open native
+- [x] TC-01: the durable prerequisite manifest records exactly 281 open Issues and 78 unique open native
       children, includes full before-state bodies/hashes plus all four canonical-parent snapshots and
       complete group maps, keeps all rows at `OWNER_REVIEW`, and freezes B1 candidates to exactly four
       named Issue IDs and Tasks without authorizing mutation.
-- [ ] TC-02: fresh `origin/develop` contains all four exact Task paths before any GitHub write, with
+- [x] TC-02: fresh `origin/develop` contains all four exact Task paths before any GitHub write, with
       AGREEMENT-005 declaring unique children and leaf `depends_on` order matching native dependencies.
-- [ ] TC-03: issue #2079's current map and all four child bodies resolve to their exact Task paths; each exact
+- [x] TC-03: issue #2079's current map and all four child bodies resolve to their exact Task paths; each exact
       Task marker is read back before its `priority:P1` label is removed; the four children then read back
       `CLOSED/NOT_PLANNED` with work-kind labels, native history, parent links, and dependency edges preserved.
-- [ ] TC-04: the pre-pilot audit reports 77 open native children after accounting for original row #2514 as
+- [x] TC-04: the pre-pilot audit reports 77 open native children after accounting for original issue #2514 as
       `CLOSED/COMPLETED`; the post-pilot audit reports 73, accounts for all original 78 rows, and reports no
       unexplained population or pagination drift.
 - [ ] TC-05: repository scans and Task lifecycle checks pass in both prerequisite and evidence PRs; no B2,
@@ -192,16 +192,17 @@ measured evidence; all stated conditions hold.
 
 ## Evidence Log
 
-| Claim                       | Evidence                                                                                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Policy prerequisite landed  | PR #2548; merge `ce6f3589ad4690016a215be4582d991eee0dfe6f`                                                                                                                 |
-| Fresh complete denominator  | manifest query `2026-08-29T22:49:02.141Z`; 281 open / 78 child / 78 unique                                                                                                 |
-| Fresh B1 pre-mutation audit | 281 open / 77 child; #2514 alone closed `COMPLETED`; expected B1 result 73 child                                                                                           |
-| Fresh B1 body snapshot      | exact SHA-256: #2079 `986bbbdf`; #2063 `f3d869ef`; #2084 `6146e760`; #2102 `9d459a73`; #2115 `d89ee42a`; complete values and live fields are in `batchReviews.B1.snapshot` |
-| Conversion dry-runs         | AGREEMENT-005 and ARCH-113/114/115 exact paths accepted; each names `priority:P1` removal after marker read-back                                                           |
-| Frozen manifest identity    | SHA-256 `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`                                                                                                 |
-| B1 approval review          | independent review APPROVE; ACTIONABLE FINDINGS: 0; DEPTH: LOCAL (0 foundational of 1)                                                                                     |
-| Exact migration owners      | AGREEMENT-005, ARCH-113, ARCH-114, ARCH-115 paths named above                                                                                                              |
+| Claim                       | Evidence                                                                                                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Policy prerequisite landed  | PR #2548; merge `ce6f3589ad4690016a215be4582d991eee0dfe6f`                                                                                                                                               |
+| Fresh complete denominator  | manifest query `2026-08-29T22:49:02.141Z`; 281 open / 78 child / 78 unique                                                                                                                               |
+| Fresh B1 pre-mutation audit | 281 open / 77 child; issue #2514 alone closed `COMPLETED`; expected B1 result 73 child                                                                                                                   |
+| Fresh B1 body snapshot      | exact SHA-256: issue #2079 `986bbbdf`; issue #2063 `f3d869ef`; issue #2084 `6146e760`; issue #2102 `9d459a73`; issue #2115 `d89ee42a`; complete values and live fields are in `batchReviews.B1.snapshot` |
+| Conversion dry-runs         | AGREEMENT-005 and ARCH-113/114/115 exact paths accepted; each names `priority:P1` removal after marker read-back                                                                                         |
+| Frozen manifest identity    | SHA-256 `12bb977846fb1a95e3d50c34810f782a024c7582397a7539bbcbcc1be05d7938`                                                                                                                               |
+| B1 approval review          | independent review APPROVE; ACTIONABLE FINDINGS: 0; DEPTH: LOCAL (0 foundational of 1)                                                                                                                   |
+| Exact migration owners      | AGREEMENT-005, ARCH-113, ARCH-114, ARCH-115 paths named above                                                                                                                                            |
+| B1 applied result           | authorization `0c4d1cb6c`; parent map 55 rows; four exact markers; four `CLOSED/NOT_PLANNED`; audit 277 open / 73 child; rollback not triggered                                                          |
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-30
 

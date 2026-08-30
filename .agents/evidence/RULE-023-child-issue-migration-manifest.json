@@ -237,6 +237,119 @@
       }
     }
   },
+  "batchResults": {
+    "B1": {
+      "result": "PASS",
+      "completedAt": "2026-08-30T05:43:01Z",
+      "authorizationCommit": "0c4d1cb6c4e50f14d53dae7abb71a3b178882bf5",
+      "rollbackTriggered": false,
+      "independentPostwriteVerification": {
+        "verdict": "PASS",
+        "verifiedThrough": "2026-08-30T05:46:04Z",
+        "verifier": "snapshot_b1_issues",
+        "parentMapRows": 55,
+        "parentMapUniqueIssueIds": 55,
+        "exactTaskOwnerRows": [2063, 2084, 2102, 2115],
+        "originalBodiesPreserved": true,
+        "exactTaskMarkers": true,
+        "labelsParentsAndDependenciesPreserved": true,
+        "outOfBatch": {
+          "B2": "51/51 exact",
+          "B3": "17/17 exact",
+          "B4": "5/5 exact excluding reconciled #2514",
+          "unexplainedMutations": 0
+        }
+      },
+      "mutationOrder": {
+        "bodies": [2079, 2063, 2084, 2102, 2115],
+        "conversionFinalization": [2115, 2102, 2084, 2063],
+        "closure": [2115, 2102, 2084, 2063]
+      },
+      "population": {
+        "before": {
+          "openIssues": 281,
+          "openNativeChildren": 77
+        },
+        "after": {
+          "openIssues": 277,
+          "openNativeChildren": 73
+        },
+        "auditCommand": "node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota",
+        "auditExitCode": 0,
+        "examinedOpenIssues": 277,
+        "examinedOpenNativeChildren": 73
+      },
+      "canonicalParent": {
+        "issue": 2079,
+        "state": "OPEN",
+        "updatedAt": "2026-08-30T05:42:09Z",
+        "bodySha256": "d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",
+        "mapRows": 55
+      },
+      "rows": [
+        {
+          "issue": 2063,
+          "taskId": "AGREEMENT-005",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:43:01Z",
+          "updatedAt": "2026-08-30T05:43:01Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "f3d869ef7cf0ec07e2742dd85c9864eb18c0a3f74316bae01479d09bc42c4124",
+          "bodySha256": "4c24ed33c9c1bf1278783ff918fa97c4e17e96cd3ea37e0eb1ac56c9980c23db",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2063#issuecomment-5466974581",
+            "createdAt": "2026-08-30T05:42:45Z"
+          }
+        },
+        {
+          "issue": 2084,
+          "taskId": "ARCH-113",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:58Z",
+          "updatedAt": "2026-08-30T05:42:58Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "6146e760d6afe5049b52696da75db6a3a294c5e73b76bff7fecea99f3e2e22b5",
+          "bodySha256": "98f7c1dfe24bfd7302c34d7059dde278660cb82fd4257b1bb6973f0adaadff36",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2084#issuecomment-5466974104",
+            "createdAt": "2026-08-30T05:42:38Z"
+          }
+        },
+        {
+          "issue": 2102,
+          "taskId": "ARCH-114",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:55Z",
+          "updatedAt": "2026-08-30T05:42:55Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "9d459a730d44f901554e6289e8f9cf0e003902eca3efccc0544f8116470517d6",
+          "bodySha256": "efd94651d7a3636d4edbffd2e90658bdb7e7813acd02348242b1b1613866c03b",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2102#issuecomment-5466973510",
+            "createdAt": "2026-08-30T05:42:30Z"
+          }
+        },
+        {
+          "issue": 2115,
+          "taskId": "ARCH-115",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-08-30T05:42:51Z",
+          "updatedAt": "2026-08-30T05:42:51Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "d89ee42a5bb7cc021c4dc059a4cc2a9526e4ade80815a3d5052f107ea512f839",
+          "bodySha256": "891fb9140b8247e4a579db8506e1a28c1bacd17a49880b25abb91a299bfd1bad",
+          "taskMarker": {
+            "url": "https://github.com/woojubb/robota/issues/2115#issuecomment-5466972941",
+            "createdAt": "2026-08-30T05:42:22Z"
+          }
+        }
+      ]
+    }
+  },
   "parentSnapshots": [
     {
       "issue": {
@@ -385,9 +498,9 @@
             "url": "https://github.com/woojubb/robota/issues/2063",
             "title": "[TRACKING] P1 architecture: route every InteractiveSession construction through one recipe kernel"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2063",
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md"
         },
         {
@@ -550,9 +663,9 @@
             "url": "https://github.com/woojubb/robota/issues/2084",
             "title": "P1 runtime leaf: introduce the sole SessionRecipe construction kernel"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2084",
+          "currentExecutionOwner": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md"
         },
         {
@@ -726,9 +839,9 @@
             "url": "https://github.com/woojubb/robota/issues/2102",
             "title": "P1 runtime leaf: route query and AgentRuntime factories through SessionRecipe"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2102",
+          "currentExecutionOwner": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md"
         },
         {
@@ -803,9 +916,9 @@
             "url": "https://github.com/woojubb/robota/issues/2115",
             "title": "P1 runtime leaf: route interactive runtime through SessionRecipe and remove the public test escape hatch"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2115",
+          "currentExecutionOwner": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md",
           "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"
         },
         {
