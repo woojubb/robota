@@ -1,4 +1,5 @@
 // harness-coverage: post-findings-github-comment-verification.mjs
+// harness-coverage: post-findings-approver-policy.mjs
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -20,12 +21,12 @@ GROUND: red-check
 EVIDENCE: https://example.test/check
 SCOPE: scripts/harness
 APPROVED: yes
-APPROVED-BY: @maintainer`;
+APPROVED-BY: @woojubb`;
 
 const envelope = {
   id: 7,
   url: 'https://github.com/woojubb/robota/issues/42#issuecomment-7',
-  author: { login: 'maintainer', association: 'OWNER' },
+  author: { login: 'woojubb', association: 'OWNER' },
   body,
   createdAt: '2026-08-30T00:00:00Z',
   updatedAt: '2026-08-30T00:00:00Z',
@@ -58,7 +59,7 @@ describe('post-findings authorization', () => {
                       authorAssociation: 'OWNER',
                       createdAt: envelope.createdAt,
                       lastEditedAt: null,
-                      author: { login: 'maintainer' },
+                      author: { login: 'woojubb' },
                     })),
                     pageInfo: { hasNextPage: false, endCursor: null },
                   },
@@ -124,10 +125,10 @@ describe('post-findings authorization', () => {
       ground: 'red-check',
       evidence: 'https://example.test/check',
       scope: 'scripts/harness',
-      approvedBy: '@maintainer',
+      approvedBy: '@woojubb',
       commentId: 7,
       commentUrl: envelope.url,
-      commentAuthor: 'maintainer',
+      commentAuthor: 'woojubb',
       commentAuthorAssociation: 'OWNER',
     });
   });
@@ -142,9 +143,18 @@ describe('post-findings authorization', () => {
     expect(
       parsePostFindingsAuthorizationEnvelope({
         ...envelope,
-        author: { login: 'maintainer', association: 'CONTRIBUTOR' },
+        author: { login: 'woojubb', association: 'CONTRIBUTOR' },
       }),
     ).toBeNull();
+    for (const association of ['MEMBER', 'COLLABORATOR']) {
+      expect(
+        parsePostFindingsAuthorizationEnvelope({
+          ...envelope,
+          author: { login: 'org-member', association },
+          body: body.replace('@woojubb', '@org-member'),
+        }),
+      ).toBeNull();
+    }
     expect(parsePostFindingsAuthorizationEnvelope({ ...envelope, id: '7' })).toBeNull();
   });
 
@@ -195,7 +205,7 @@ describe('post-findings authorization', () => {
       prNumber: 42,
       commentId: 7,
       commentUrl: envelope.url,
-      commentAuthor: 'maintainer',
+      commentAuthor: 'woojubb',
     });
   });
 
@@ -305,7 +315,7 @@ describe('post-findings authorization', () => {
           stdout: JSON.stringify({
             id: 8,
             html_url: envelope.url,
-            user: { login: 'maintainer' },
+            user: { login: 'woojubb' },
             author_association: 'OWNER',
             body,
           }),

@@ -113,8 +113,8 @@ function authorization(messages, { ground, action, head, generation }) {
     `${JSON.stringify({
       id: commentId,
       url: `https://github.com/woojubb/robota/pull/2514#issuecomment-${commentId}`,
-      author: { login: 'maintainer', association: 'MEMBER' },
-      body: `POST_FINDINGS_ACTION_REQUEST\nPR: 2514\nHEAD: ${head}\nVERDICT: ${generation}\nACTION: ${action}\nGROUND: ${ground}\nEVIDENCE: https://github.com/woojubb/robota/actions/runs/${generation}\nSCOPE: scripts/harness\nAPPROVED: yes\nAPPROVED-BY: @maintainer`,
+      author: { login: 'woojubb', association: 'OWNER' },
+      body: `POST_FINDINGS_ACTION_REQUEST\nPR: 2514\nHEAD: ${head}\nVERDICT: ${generation}\nACTION: ${action}\nGROUND: ${ground}\nEVIDENCE: https://github.com/woojubb/robota/actions/runs/${generation}\nSCOPE: scripts/harness\nAPPROVED: yes\nAPPROVED-BY: @woojubb`,
     })}\n`,
     'utf8',
   );

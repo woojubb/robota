@@ -1,3 +1,5 @@
+import { isPostFindingsMaintainer } from './post-findings-approver-policy.mjs';
+
 export const RECEIPT_PATH_PATTERN =
   /^\.agents\/evals\/work-runs\/([A-Za-z0-9._-]+)\/g(\d+)-r(\d+)\.json$/;
 export const OID_PATTERN = /^[0-9a-f]{40}$/;
@@ -28,8 +30,6 @@ export const IDENTITY_FIELDS = [
   'trailerDigest',
   'ownerFingerprint',
 ];
-
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 
 export function same(actual, expected) {
   return JSON.stringify(actual) === JSON.stringify(expected);
@@ -77,7 +77,10 @@ export function validatePostPrAuthorizationProjection(authorization) {
     validHttpUrl(authorization.commentUrl) &&
     typeof authorization.commentAuthor === 'string' &&
     authorization.commentAuthor.length > 0 &&
-    TRUSTED_ASSOCIATIONS.has(authorization.commentAuthorAssociation) &&
+    isPostFindingsMaintainer({
+      login: authorization.commentAuthor,
+      association: authorization.commentAuthorAssociation,
+    }) &&
     authorization.approvedBy.toLowerCase() === `@${authorization.commentAuthor}`.toLowerCase()
   );
 }

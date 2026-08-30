@@ -820,6 +820,24 @@ describe('work-run validation', () => {
     });
   });
 
+  it('rejects association-only approvals from non-maintainer repository users', () => {
+    for (const commentAuthorAssociation of ['MEMBER', 'COLLABORATOR']) {
+      const forged = repositoryFixture({
+        generation: 1,
+        authorization: trustedAuthorization({
+          approvedBy: '@org-member',
+          commentAuthor: 'org-member',
+          commentAuthorAssociation,
+        }),
+      });
+      commitClosure(forged);
+      expect(validateRepositoryWorkRun({ root: forged.root, baseRef: forged.baseCommit })).toEqual({
+        ok: false,
+        reason: 'invalid-post-pr-authorization',
+      });
+    }
+  });
+
   it('requires the exact live GitHub comment for post-PR authorization', () => {
     const authorized = repositoryFixture({
       generation: 1,

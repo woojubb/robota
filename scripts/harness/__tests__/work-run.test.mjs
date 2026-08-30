@@ -285,7 +285,7 @@ GROUND: red-check
 EVIDENCE: https://example.test/check
 SCOPE: scripts/harness
 APPROVED: yes
-APPROVED-BY: @maintainer`;
+APPROVED-BY: @woojubb`;
     expect(parsePostFindingsAuthorization(body)).toEqual({
       prNumber: 42,
       head,
@@ -294,7 +294,7 @@ APPROVED-BY: @maintainer`;
       ground: 'red-check',
       evidence: 'https://example.test/check',
       scope: 'scripts/harness',
-      approvedBy: '@maintainer',
+      approvedBy: '@woojubb',
     });
   });
 
@@ -309,11 +309,11 @@ GROUND: red-check
 EVIDENCE: https://example.test/check
 SCOPE: scripts/harness
 APPROVED: yes
-APPROVED-BY: @maintainer`;
+APPROVED-BY: @woojubb`;
     const rawAuthorization = JSON.stringify({
       id: 7,
       url: 'https://github.com/woojubb/robota/issues/42#issuecomment-7',
-      author: { login: 'maintainer', association: 'MEMBER' },
+      author: { login: 'woojubb', association: 'OWNER' },
       body,
     });
     const expected = {
@@ -332,7 +332,7 @@ APPROVED-BY: @maintainer`;
       action: 'push',
       ground: 'red-check',
       commentId: 7,
-      commentAuthor: 'maintainer',
+      commentAuthor: 'woojubb',
     });
 
     for (const mismatch of [
@@ -430,11 +430,11 @@ GROUND: red-check
 EVIDENCE: https://example.test/check
 SCOPE: scripts/harness
 APPROVED: yes
-APPROVED-BY: @maintainer`;
+APPROVED-BY: @woojubb`;
     const rawAuthorization = JSON.stringify({
       id: 7,
       url: 'https://github.com/woojubb/robota/issues/42#issuecomment-7',
-      author: { login: 'maintainer', association: 'MEMBER' },
+      author: { login: 'woojubb', association: 'OWNER' },
       body,
     });
     const required = {
@@ -486,11 +486,11 @@ GROUND: finding
 EVIDENCE: https://example.test/finding
 SCOPE: scripts/harness
 APPROVED: yes
-APPROVED-BY: @maintainer`;
+APPROVED-BY: @woojubb`;
     const rawAuthorization = JSON.stringify({
       id: 8,
       url: 'https://github.com/woojubb/robota/issues/42#issuecomment-8',
-      author: { login: 'maintainer', association: 'MEMBER' },
+      author: { login: 'woojubb', association: 'OWNER' },
       body,
     });
     const authorization = authorizePostPrReopen({

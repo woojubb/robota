@@ -143,10 +143,10 @@ function postPrReceipt({ runId = 'rework', wallMs = 5, ground = 'red-check' } = 
     data: { generation: 0, revision: 0 },
   });
   const authorization = {
-    approvedBy: '@reviewer',
+    approvedBy: '@woojubb',
     action: 'push',
-    commentAuthor: 'reviewer',
-    commentAuthorAssociation: 'MEMBER',
+    commentAuthor: 'woojubb',
+    commentAuthorAssociation: 'OWNER',
     commentId: 1,
     commentUrl: 'https://github.com/woojubb/robota/pull/1#issuecomment-1',
     evidence: 'https://github.com/woojubb/robota/actions/runs/1',

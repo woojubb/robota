@@ -4,6 +4,7 @@ import {
   fetchVerifiedGitHubAuthorizationComment,
   fetchVerifiedGitHubAuthorizationComments,
 } from './post-findings-github-comment-verification.mjs';
+import { isPostFindingsMaintainer } from './post-findings-approver-policy.mjs';
 import { createWorkRunVerificationRuntime } from './work-run-verification-runtime.mjs';
 
 const REQUIRED = Object.freeze([
@@ -18,7 +19,6 @@ const REQUIRED = Object.freeze([
   'APPROVED-BY',
 ]);
 const ALLOWED_FIELDS = new Set(REQUIRED);
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 function validHttpUrl(value) {
   try {
     return ['http:', 'https:'].includes(new URL(value).protocol);
@@ -84,8 +84,7 @@ export function parsePostFindingsAuthorizationEnvelope(envelope) {
     !validHttpUrl(url) ||
     !author ||
     typeof author !== 'object' ||
-    typeof author.login !== 'string' ||
-    !TRUSTED_ASSOCIATIONS.has(author.association) ||
+    !isPostFindingsMaintainer(author) ||
     typeof body !== 'string'
   )
     return null;
