@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-023: Record continuation artifact declaration before the B1 gate
 
-Paired with `.agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md`. Arising from [issue #2063](https://github.com/woojubb/robota/issues/2063).
+Paired with `.agents/tasks/completed/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md`. Arising from [issue #2063](https://github.com/woojubb/robota/issues/2063).
 
 ## Problem
 
@@ -93,21 +93,21 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the checkpoint-evidence parser reads exactly six ordered continuation artifacts from the
+- [x] TC-01: the checkpoint-evidence parser reads exactly six ordered continuation artifacts from the
       AGREEMENT-005 Decision, and the prior raw GATE-IMPLEMENT PASS digest is unchanged from
       `06f4f0bd4671366bd4212b7a3e6102986d4ba635`.
-- [ ] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs` and its staged form both exit 0
+- [x] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs` and its staged form both exit 0
       with PROC-023's checkpoint preceding the AGREEMENT-005 correction.
-- [ ] TC-03: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-03: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0, and `git diff --name-only origin/develop...HEAD` contains no package/app/source path.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                | Notes                                       |
-| ----- | --------- | ------------------------------------------------------------------------------ | ------------------------------------------- |
-| TC-01 | Contract  | checkpoint-evidence helper + SHA-256 comparison                                | Exact set and immutable prior PASS bytes    |
-| TC-02 | Harness   | `scan-user-execution-plan-order.mjs` history and `--staged` modes              | Proves causal order, not only final content |
-| TC-03 | Suite     | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Also inspect changed-path scope             |
+| TC-ID | Test Type | Tool / Approach                                                                | Notes                                                                                               |
+| ----- | --------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| TC-01 | Contract  | checkpoint-evidence helper + SHA-256 comparison                                | **Test skipped:** no executable behavior; parser output and digest equality are direct evidence.    |
+| TC-02 | Harness   | `scan-user-execution-plan-order.mjs` history and `--staged` modes              | **Test skipped:** the existing history scanner is the owning causal-order assertion.                |
+| TC-03 | Suite     | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | **Test skipped:** documentation-only change; scans and changed-path inspection are direct evidence. |
 
 ## User Execution Test Scenarios
 
@@ -117,7 +117,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md` — todo
+- [x] `.agents/tasks/completed/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md` — done
 
 ## Approval Recommendation
 
@@ -246,3 +246,78 @@ Approval does not authorize any GitHub Issue mutation or product/runtime change.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-08-30
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no supplied --verify-cmd contains `test` or `vitest` (supplied: `node scripts/harness/scan-user-execution-plan-order.mjs` → exit 0 (::examined:: 3 topic commit(s)); `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 36 scans passed, 1 skipped (27 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md, M .agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md))
+  **Required action:** pass a test command via --verify-cmd
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 36 scans passed, 1 skipped (27 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md, M .agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` → exit 0 ( Duration 160ms (transform 21ms, setup 0ms, collect 26ms, tests 11ms, environment 0ms, prepare 27ms) ⏎ ⏎ 1:42:13 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-30
+
+**Command:** `node --input-type=module -e '<parse continuationArtifacts; assert exact six paths; compare base/current raw GATE-IMPLEMENT PASS SHA-256>'`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+{"artifactCount":6,"artifacts":[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/tasks/ARCH-113-introduce-the-sole-sessionrecipe-construction-kernel.md",".agents/tasks/ARCH-114-route-query-and-agentruntime-factories-through-sessionrecipe.md",".agents/tasks/ARCH-115-route-interactive-runtime-through-sessionrecipe-and-remove-the-public-test-escap.md"],"before":"sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0","after":"sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0"}
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/scan-user-execution-plan-order.mjs && node scripts/harness/scan-user-execution-plan-order.mjs --staged && git log --reverse --format='%h %s' origin/develop..HEAD`
+**Exit:** 0
+**Output:** (last 5 of 5 line(s))
+
+```
+::examined:: 3 topic commit(s)
+::examined:: 0 staged path(s) ::expected-empty:: the proposed commit index is empty
+3bf594ea2 chore(rule-023): record prerequisite merge cycle
+290dae6a7 docs(proc-023): approve continuation declaration correction
+c462d4817 docs(proc-023): bind b1 continuation artifacts
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-30
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts && node --input-type=module -e '<assert changed paths exclude packages/apps/src>'`
+**Exit:** 0
+**Output:** (last 10 of 52 line(s))
+
+```
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification: 3 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 3 real violation(s) recorded, not cleared by editing history.
+
+36 scans passed, 1 skipped (27 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md,  M .agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md
+{"changedPathCount":5,"changedPaths":[".agents/loop-runs/post-merge-cycle.jsonl",".agents/loop-runs/user-request-gate.jsonl",".agents/spec-docs/active/AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md",".agents/spec-docs/active/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md",".agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md"],"noPackageAppSource":true}
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-30; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/PROC-023-record-continuation-artifact-declaration-before-the-b1-gate.md

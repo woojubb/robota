@@ -1,7 +1,8 @@
 ---
 title: 'PROC-023: record continuation artifact declaration before the B1 gate'
-status: in-progress
+status: done
 created: 2026-08-30
+completed: 2026-08-30
 priority: medium
 urgency: now
 area: workflow governance
@@ -21,11 +22,11 @@ new external problem or execution owner.
 
 ## Plan
 
-- [ ] TC-01: Add the exact six-artifact `Continuation artifacts` declaration to AGREEMENT-005 without
+- [x] TC-01: Add the exact six-artifact `Continuation artifacts` declaration to AGREEMENT-005 without
       changing its prior GATE-IMPLEMENT PASS bytes.
-- [ ] TC-02: Prove the correction branch has its own checkpoint before modifying the active AGREEMENT
+- [x] TC-02: Prove the correction branch has its own checkpoint before modifying the active AGREEMENT
       spec and that `scan-user-execution-plan-order` passes.
-- [ ] TC-03: Run the affected harness scans and verify no package/runtime or GitHub state changed.
+- [x] TC-03: Run the affected harness scans and verify no package/runtime or GitHub state changed.
 
 ## Test Plan
 
@@ -43,4 +44,8 @@ surface.
 
 ## Result
 
-Pending.
+- AGREEMENT-005 now declares the exact six PR #2551 prerequisite artifacts.
+- The original GATE-IMPLEMENT PASS digest remains
+  `sha256:66ae26c59fc4dcd507e56f56da96b8f320f111afe47ff281a755825a83399be0` before and after the correction.
+- Topic history and affected scans pass; the five changed paths are Task/spec/loop records only.
+- No GitHub Issue body, comment, relation, label, assignee, dependency, or state was mutated.
