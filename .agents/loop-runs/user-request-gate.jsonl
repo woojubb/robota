@@ -33,3 +33,4 @@
 {"runId":"r20260830160302","opened":"2026-08-30T16:03:02.126Z","closed":"2026-08-30T16:09:12.123Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260830162225","opened":"2026-08-30T16:22:25.289Z","closed":"2026-08-30T16:25:36.175Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":"OBSERVABILITY-002-correction-B"}
 {"runId":"r20260830163231","opened":"2026-08-30T16:32:31.246Z","closed":"2026-08-30T16:38:39.406Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"OBSERVABILITY-002-force-history-correction"}
+{"runId":"r20260831135624","opened":"2026-08-31T13:56:24.532Z","closed":"2026-08-31T14:17:27.392Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/todo/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md"}
