@@ -70,6 +70,8 @@ This decision authorizes only ownership conversion. It does not approve an effec
 implement product code. ARCH-116 must make those decisions through its own spec-first recommendation,
 independent placement review, and any required user approval.
 
+**Continuation artifacts:** `.agents/evidence/RULE-023-child-issue-migration-manifest.json`, `.agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, `.agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md`, `.agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md`, `.agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md`
+
 Validated recommendation:
 
 - Reachability: each historical Issue URL maps to one exact Task path and all four remain exposed from
@@ -291,3 +293,19 @@ Paired execution record:
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-31
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-IMPLEMENT (continuation) — § Decision sequences the delivery and names the artifacts this PR lands:
+  the branch base and preceding integration commit
+  `3ca5ab0cc5ab550d80ae3b3e3ae08af657d0bb0f` contains no machine-readable
+  `**Continuation artifacts:**` declaration under `### Decision`; current pre-gate HEAD contains none
+  either. Although the prose describes a later GitHub evidence batch, the checkpoint contract requires
+  one exact declaration whose repository paths bind `gateImplementContinuation.sequencedArtifacts`, so
+  this continuation cannot identify the artifacts the PR is authorized to land.
+  **Required action:** land the exact `**Continuation artifacts:**` declaration on `develop` in a
+  planning-only correction PR, cut a fresh continuation branch from that integration commit, and re-run
+  GATE-IMPLEMENT (continuation) before any implementation or GitHub Issue mutation.
