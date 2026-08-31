@@ -63,3 +63,6 @@ behavior, product output, or product state that a user could execute and observe
   drift on issues #2079/#2070/#2085/#2104/#2118.
 - The recurring first-checkpoint cause is contained under PROC-026 and registered as
   [issue #2561](https://github.com/woojubb/robota/issues/2561); PROC-025 does not claim it fixed.
+- Local PR review found that immutable work-run receipt `g0-r0` misattributes correction and verification
+  time to `authorization`. The measurement-contract gap is contained under PROC-028 and registered as
+  [issue #2562](https://github.com/woojubb/robota/issues/2562); the receipt was not rewritten or backdated.

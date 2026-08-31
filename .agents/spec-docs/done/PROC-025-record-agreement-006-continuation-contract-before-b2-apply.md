@@ -70,6 +70,13 @@ is independently verified, discard the old apply branch, cut a fresh apply branc
 > separately by [issue #2561](https://github.com/woojubb/robota/issues/2561); PROC-025 does not change that
 > producer or claim the recurring cause is fixed.
 
+> **Contained — PROC-028.** Local PR review proved that work-run receipt `g0-r0` attributes the correction
+> and verification commits to its `authorization` phase because the named phases started afterward. The
+> receipt is immutable and generation-zero revisions inherit those events, so this PR neither rewrites nor
+> backdates telemetry. A truthful invalidation route is registered as
+> [issue #2562](https://github.com/woojubb/robota/issues/2562) and Task PROC-028; until that contract lands,
+> this run's phase timings must not be treated as trustworthy evidence of phase duration.
+
 The six paths are the durable manifest, AGREEMENT-006 Task/spec, and DATA-008/DATA-009/ARCH-116 Tasks.
 The change does not authorize Issue mutation by itself, alter the approved Task topology, change product
 placement, or claim any child implementation delivered.
@@ -307,21 +314,12 @@ remain engineering verification in the Test Plan.
 
 ### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-31
 
-**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement && node --input-type=module -e 'import {execFileSync} from "node:child_process"; import {createHash} from "node:crypto"; const e={2079:"d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",2070:"5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5",2085:"24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023",2104:"2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d",2118:"735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532"}; for(const [n,h] of Object.entries(e)){const v=JSON.parse(execFileSync("gh",["issue","view",n,"--repo","woojubb/robota","--json","body,state,labels,assignees,comments"],{encoding:"utf8"})); if(createHash("sha256").update(v.body).digest("hex")!==h||v.state!=="OPEN"||v.assignees.length||v.comments.some(c=>c.body.includes("robota-task:"))||JSON.stringify(v.labels.map(x=>x.name).sort())!==JSON.stringify(["enhancement","priority:P1"])) process.exit(1);} console.log(JSON.stringify(e,null,2));'`
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement && node --input-type=module -e 'import {execFileSync} from "node:child_process"; import {createHash} from "node:crypto"; const ns=[2079,2070,2085,2104,2118],f="number body state labels(first:100){nodes{name}} assignees(first:100){nodes{login}} comments(first:100){nodes{body}} parent{number} subIssues(first:100){nodes{number}} blockedBy(first:100){nodes{number}} blocking(first:100){nodes{number}}",q=`query($o:String!,$r:String!){repository(owner:$o,name:$r){${ns.map(n=>`i${n}:issue(number:${n}){${f}}`).join(" ")}}}`,d=JSON.parse(execFileSync("gh",["api","graphql","-f",`query=${q}`,"-F","o=woojubb","-F","r=robota"],{encoding:"utf8"})).data.repository,h={2079:"d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",2070:"5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5",2085:"24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023",2104:"2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d",2118:"735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532"},t={2079:[null,[2061,2062,2063,2064,2065,2066,2067,2068,2069,2070,2071,2072,2073,2074,2075,2076,2077,2078],[],[]],2070:[2079,[2085,2104,2118],[],[]],2085:[2070,[],[],[2104]],2104:[2070,[],[2085],[2118]],2118:[2070,[],[2044,2048,2104],[]]},s=a=>a.map(x=>x.number).sort((a,b)=>a-b); for(const n of ns){const v=d[`i${n}`],a=[v.parent?.number??null,s(v.subIssues.nodes),s(v.blockedBy.nodes),s(v.blocking.nodes)]; if(createHash("sha256").update(v.body).digest("hex")!==h[n]||v.state!=="OPEN"||JSON.stringify(v.labels.nodes.map(x=>x.name).sort())!==JSON.stringify(["enhancement","priority:P1"])||v.assignees.nodes.length||v.comments.nodes.some(x=>x.body.includes("robota-task:"))||JSON.stringify(a)!==JSON.stringify(t[n])) throw new Error(`issue #${n} drift`);} console.log(JSON.stringify({issues:ns,bodyHashes:h,topology:t,state:"OPEN",labels:["enhancement","priority:P1"],assignees:0,taskMarkers:0}));'`
 **Exit:** 0
-**Output:** (last 10 of 127 line(s))
+**Output:** (final line; preceding scan summary reported all selected scans passed)
 
 ```
-    "2104": [
-      2085
-    ],
-    "2118": [
-      2104,
-      2044,
-      2048
-    ]
-  }
-}
+{"issues":[2079,2070,2085,2104,2118],"bodyHashes":{"2070":"5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5","2079":"d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816","2085":"24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023","2104":"2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d","2118":"735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532"},"topology":{"2070":[2079,[2085,2104,2118],[],[]],"2079":[null,[2061,2062,2063,2064,2065,2066,2067,2068,2069,2070,2071,2072,2073,2074,2075,2076,2077,2078],[],[]],"2085":[2070,[],[],[2104]],"2104":[2070,[],[2085],[2118]],"2118":[2070,[],[2044,2048,2104],[]]},"state":"OPEN","labels":["enhancement","priority:P1"],"assignees":0,"taskMarkers":0}
 ```
 
 ### [GATE-VERIFY] — ✅ PASS | 2026-08-31
