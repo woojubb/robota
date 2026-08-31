@@ -127,6 +127,16 @@ None
 
 - [ ] `.agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md` — approved planning-order correction pending implementation checkpoint
 
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+Not applicable because PROC-025 changes only repository governance records: the AGREEMENT-006
+continuation declaration, paired Task lifecycle alignment, and preserved gate evidence. It performs no
+live GitHub mutation and delivers no runnable Robota CLI, TUI/browser, public SDK, product-output, or
+product-state behavior. Parser, plan-order, lifecycle, evidence-preservation, and read-only Issue checks
+remain engineering verification in the Test Plan.
+
 ## Evidence Log
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-31
