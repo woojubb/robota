@@ -34,3 +34,5 @@
 {"runId":"r20260829084141","opened":"2026-08-29T08:41:41.567Z","closed":"2026-08-29T17:38:35.811Z","roundFindings":[4,0],"extensions":{},"terminal":"converged","ref":"PROC-017 PR #2542 merge 026d7ac799706d9cd0c2d71b951304bdf8810727"}
 {"runId":"r20260829173835","opened":"2026-08-29T17:38:35.845Z","closed":"2026-08-30T08:26:36.464Z","roundFindings":[4,0],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260830082636"}
 {"runId":"r20260830082636","opened":"2026-08-30T08:26:36.464Z","closed":"2026-08-30T08:35:56.965Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":"AGREEMENT-005 named correction work unit; TC-06 added without completing the parent item"}
+{"runId":"r20260830093213","opened":"2026-08-30T09:32:13.647Z","closed":"2026-08-30T09:55:19.153Z","roundFindings":[2,0],"extensions":{},"terminal":"halted-for-user","ref":"AGREEMENT-006 reached review-ready with GATE-WRITE 27/27 PASS and independent REVIEW VERDICT: ENDORSE; direct document-specific GATE-APPROVAL instruction required"}
+{"runId":"r20260830100452","opened":"2026-08-30T10:04:52.280Z","closed":null,"roundFindings":[2,0],"extensions":{},"terminal":null,"ref":null}

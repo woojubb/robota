@@ -833,3 +833,59 @@ dependency. A separate `pnpm harness:scan` run passed 148 scans with one declare
    Start at  04:24:35
    Duration  143.16s (transform 90ms, setup 0ms, collect 126ms, tests 142.81s, environment 0ms, prepare 74ms)
 ```
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT (continuation) — ordering: one prior complete canonical GATE-IMPLEMENT PASS exists;
+  the exact Task/spec pair remains `in-progress`, the spec remains under `.agents/spec-docs/active/`,
+  and `git log 3faf26ad80046058647b2a61efbe56b4174e0906..a07f051f2b76931ce6c1f10302342f2d7b9f1c5b -- <active RULE-023 spec>` is empty.
+- GATE-IMPLEMENT (continuation) — § Decision sequences work units A then B and declares exactly three
+  continuation artifacts: base `3faf26ad80046058647b2a61efbe56b4174e0906` contains the single
+  machine-readable `Continuation artifacts` line; every declared path exists in both that base tree
+  and pre-gate HEAD `a07f051f2b76931ce6c1f10302342f2d7b9f1c5b`, with no byte difference across
+  the three paths.
+- GATE-IMPLEMENT (continuation) — preceding checkpoint ancestry: PR #2548 integration merge
+  `ce6f3589ad4690016a215be4582d991eee0dfe6f` introduced the sole prior RULE-023 GATE-IMPLEMENT PASS
+  (one raw PASS versus zero at its first parent), is an ancestor of branch base
+  `3faf26ad80046058647b2a61efbe56b4174e0906`, and that exact `origin/develop` base is an ancestor of
+  pre-gate HEAD `a07f051f2b76931ce6c1f10302342f2d7b9f1c5b`.
+- GATE-IMPLEMENT (continuation) — Task and PLAN preservation: the paired Task is byte-identical between
+  base and pre-gate HEAD (`sha256:f6c545c6d327b733494bd0c6148f02739e0488e739499aa926ee91404e2eab92`),
+  remains `status: in-progress`, and still records `SCENARIO DRAFTED: not-applicable | 0` with its
+  concrete governance-only reason; latest prior raw PASS digest is
+  `sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51`.
+- GATE-IMPLEMENT (continuation) — whole-worktree inventory: the pre-gate worktree was clean; the only
+  gate write is this active RULE-023 spec. No B2 Task was created and no manifest disposition or other
+  B2 implementation path changed. The sole topic commit before this gate,
+  `a07f051f2b76931ce6c1f10302342f2d7b9f1c5b`, changes only the permitted append-only closed
+  `.agents/loop-runs/post-merge-cycle.jsonl` record for PR #2557.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "gateImplementContinuation",
+  "priorPass": "sha256:9d1a4d45aeb8d12634d4e97a0a5aa7c1f5382e99e3f95bc370ea90544cef5d51",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",
+    ".agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md"
+  ],
+  "ancestorSha": "ce6f3589ad4690016a215be4582d991eee0dfe6f",
+  "taskPath": ".agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",
+  "specPath": ".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md",
+    ".agents/tasks/RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->

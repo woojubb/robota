@@ -11,9 +11,9 @@
     "openNativeChildren": 78
   },
   "frozenBatch": {
-    "name": "B1 approved migration batch",
-    "issueIds": [2063, 2084, 2102, 2115],
-    "mutationAuthorized": true
+    "name": "B2 product prerequisite candidates",
+    "issueIds": [2070, 2085, 2104, 2118],
+    "mutationAuthorized": false
   },
   "counts": {
     "OWNER_REVIEW": 74,
@@ -1385,6 +1385,29 @@
         "OWNER_REVIEW": 3,
         "CONDITIONAL_ABSORB": 3
       }
+    },
+    {
+      "shard": "#2070 product group prerequisite",
+      "queriedAt": "2026-08-30T09:49:29Z",
+      "denominator": 4,
+      "issueIds": [2070, 2085, 2104, 2118],
+      "verdict": {
+        "OWNER_REVIEW": 4,
+        "CANDIDATE_ABSORB": 4
+      },
+      "depthReview": {
+        "verdict": "DEPTH: 0 FOUNDATIONAL of 4",
+        "outcomes": {
+          "LOCAL": 4
+        }
+      },
+      "proposalReview": {
+        "round1": "REVISE — record the pure-carve-out placement boundary and live #2443 ownership",
+        "round2": "ENDORSE — conversion topology and authorization boundary corrected"
+      },
+      "liveExternalPrerequisites": [2044, 2443],
+      "historicalEvidenceOnly": [2048],
+      "mutationAuthorized": false
     }
   ],
   "rows": [
@@ -1946,7 +1969,9 @@
       "canonicalParent": 2079,
       "labels": ["enhancement", "priority:P1"],
       "assignees": [],
-      "taskCitations": [],
+      "taskCitations": [
+        ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md"
+      ],
       "citedTaskReferences": [],
       "markerComments": [],
       "pullRequests": [],
@@ -1960,9 +1985,13 @@
       "disposition": "OWNER_REVIEW",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "AGREEMENT-006",
+        "path": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+        "prerequisiteException": "new canonical migration Task from this frozen manifest"
+      },
+      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
+      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2467,7 +2496,9 @@
       "canonicalParent": 2079,
       "labels": ["enhancement", "priority:P1"],
       "assignees": [],
-      "taskCitations": [],
+      "taskCitations": [
+        ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md"
+      ],
       "citedTaskReferences": [],
       "markerComments": [],
       "pullRequests": [],
@@ -2487,9 +2518,13 @@
       "disposition": "OWNER_REVIEW",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "DATA-008",
+        "path": ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+        "prerequisiteException": "new canonical migration Task from this frozen manifest"
+      },
+      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
+      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3519,7 +3554,9 @@
       "canonicalParent": 2079,
       "labels": ["enhancement", "priority:P1"],
       "assignees": [],
-      "taskCitations": [],
+      "taskCitations": [
+        ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md"
+      ],
       "citedTaskReferences": [],
       "markerComments": [],
       "pullRequests": [],
@@ -3545,9 +3582,13 @@
       "disposition": "OWNER_REVIEW",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "DATA-009",
+        "path": ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+        "prerequisiteException": "new canonical migration Task from this frozen manifest"
+      },
+      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
+      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3979,7 +4020,9 @@
       "canonicalParent": 2079,
       "labels": ["enhancement", "priority:P1"],
       "assignees": [],
-      "taskCitations": [],
+      "taskCitations": [
+        ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
+      ],
       "citedTaskReferences": [],
       "markerComments": [],
       "pullRequests": [],
@@ -4009,9 +4052,13 @@
       "disposition": "OWNER_REVIEW",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "ARCH-116",
+        "path": ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md",
+        "prerequisiteException": "new canonical migration Task from this frozen manifest"
+      },
+      "holdReason": "candidate migration Task is not readable on develop; open #2044/#2443 ownership and fresh B2 apply approval remain prerequisites",
+      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop, #2044/#2443 are re-read, and a fresh B2 apply review approves mutation",
       "before": {
         "state": "OPEN",
         "stateReason": null,
