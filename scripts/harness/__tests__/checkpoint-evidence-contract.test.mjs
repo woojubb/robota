@@ -4,16 +4,31 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  checkpointDelivery,
   continuationArtifacts,
   formatCheckpointEvidence,
   parseCheckpointEvidence,
   parseCheckpointEvidenceContract,
+  parseCheckpointEvidenceContracts,
   priorPassDigest,
   rawGateImplementPassEntries,
   taskItemsForCheckpoint,
 } from '../checkpoint-evidence-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+function mutateV1Contract(rule, from, to) {
+  const startMarker = '<!-- checkpoint-evidence-contract:v1:start -->';
+  const endMarker = '<!-- checkpoint-evidence-contract:v1:end -->';
+  const start = rule.indexOf(startMarker);
+  const end = rule.indexOf(endMarker, start);
+  if (start === -1 || end === -1) throw new Error('fixture has no v1 checkpoint contract region');
+  const regionEnd = end + endMarker.length;
+  const region = rule.slice(start, regionEnd);
+  const mutated = region.replace(from, to);
+  if (mutated === region) throw new Error(`fixture mutation did not match v1 contract: ${from}`);
+  return `${rule.slice(0, start)}${mutated}${rule.slice(regionEnd)}`;
+}
 
 describe('checkpoint evidence contract', () => {
   it('mirrors gate Completion Criteria selection for top-level soft-wrapped labels', () => {
@@ -63,13 +78,155 @@ describe('checkpoint evidence contract', () => {
     expect(catalogue).not.toContain('"payloadKeys"');
   });
 
+  it('parses the closed v1/v2 declarations and exact v2 GATE-IMPLEMENT payload order', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+
+    const parsed = parseCheckpointEvidenceContracts(rule);
+
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect([...parsed.contracts.keys()]).toEqual([1, 2]);
+    expect(parsed.contracts.get(1).entryEncoding.startMarker).toBe(
+      '<!-- checkpoint-evidence:v1:start -->',
+    );
+    expect(parsed.contracts.get(2).entryEncoding.startMarker).toBe(
+      '<!-- checkpoint-evidence:v2:start -->',
+    );
+    expect(parsed.contracts.get(2).decisionArtifacts.multiplicityByDeliveryMode).toEqual({
+      single: 'zero',
+      sequenced: 'exactly-one',
+    });
+    expect(parsed.contracts.get(2).forms.gateImplementFirst.payloadKeys).toEqual([
+      'version',
+      'form',
+      'deliveryMode',
+      'sequencedArtifacts',
+      'taskPath',
+      'specPath',
+      'taskItems',
+      'plan',
+      'worktreePaths',
+    ]);
+    expect(parsed.contracts.get(2).forms.gateImplementContinuation.payloadKeys).toEqual([
+      'version',
+      'form',
+      'deliveryMode',
+      'sequencedArtifacts',
+      'priorPass',
+      'ancestorSha',
+      'taskPath',
+      'specPath',
+      'plan',
+      'worktreePaths',
+    ]);
+    expect(parsed.contracts.get(2).forms.doneGateStageOne).toBeUndefined();
+  });
+
+  it('enforces the v2 delivery discriminator and always-present artifact array', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const parsed = parseCheckpointEvidenceContracts(rule);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const contract = parsed.contracts.get(2);
+    const first = {
+      version: 2,
+      form: 'gateImplementFirst',
+      deliveryMode: 'single',
+      sequencedArtifacts: [],
+      taskPath: '.agents/tasks/INFRA-999-fixture.md',
+      specPath: '.agents/spec-docs/todo/INFRA-999-fixture.md',
+      taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [],
+    };
+
+    expect(formatCheckpointEvidence(contract, 'gateImplementFirst', first).ok).toBe(true);
+    expect(
+      formatCheckpointEvidence(contract, 'gateImplementFirst', {
+        ...first,
+        sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      }),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/single.*empty/i) });
+    expect(
+      formatCheckpointEvidence(contract, 'gateImplementFirst', {
+        ...first,
+        deliveryMode: 'sequenced',
+      }),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/sequenced.*non-empty/i) });
+
+    const continuation = {
+      version: 2,
+      form: 'gateImplementContinuation',
+      deliveryMode: 'single',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      priorPass: `sha256:${'a'.repeat(64)}`,
+      ancestorSha: 'b'.repeat(40),
+      taskPath: '.agents/tasks/INFRA-999-fixture.md',
+      specPath: '.agents/spec-docs/active/INFRA-999-fixture.md',
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [],
+    };
+    expect(
+      formatCheckpointEvidence(contract, 'gateImplementContinuation', continuation),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/continuation.*sequenced/i) });
+  });
+
+  it('reads the exact Decision delivery mode and binds sequenced artifacts', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const parsed = parseCheckpointEvidenceContracts(rule);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const contract = parsed.contracts.get(2);
+    const decision = (mode, artifactLine = null) =>
+      [
+        '## Architecture Review',
+        '',
+        '### Decision',
+        '',
+        `**Delivery mode:** \`${mode}\``,
+        ...(artifactLine === null ? [] : ['', artifactLine]),
+      ].join('\n');
+
+    expect(checkpointDelivery(contract, decision('single'))).toEqual({
+      ok: true,
+      deliveryMode: 'single',
+      artifacts: [],
+    });
+    expect(
+      checkpointDelivery(
+        contract,
+        decision('sequenced', '**Continuation artifacts:** `scripts/harness/gate.mjs`'),
+      ),
+    ).toEqual({
+      ok: true,
+      deliveryMode: 'sequenced',
+      artifacts: ['scripts/harness/gate.mjs'],
+    });
+    expect(
+      checkpointDelivery(
+        contract,
+        decision('single', '**Continuation artifacts:** `scripts/harness/gate.mjs`'),
+      ),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/single.*forbids/i) });
+    expect(checkpointDelivery(contract, decision('sequenced'))).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/sequenced.*requires/i),
+    });
+  });
+
   it('rejects duplicate JSON members and unknown top-level fields by name (TC-02)', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
       'utf8',
     );
-    const duplicate = rule.replace('"version": 1,', '"version": 1,\n  "version": 1,');
-    const unknown = rule.replace('"version": 1,', '"version": 1,\n  "unexpected": true,');
+    const duplicate = mutateV1Contract(rule, '"version": 1,', '"version": 1,\n  "version": 1,');
+    const unknown = mutateV1Contract(rule, '"version": 1,', '"version": 1,\n  "unexpected": true,');
 
     expect(parseCheckpointEvidenceContract(duplicate)).toMatchObject({
       ok: false,
@@ -86,7 +243,7 @@ describe('checkpoint evidence contract', () => {
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
       'utf8',
     );
-    const malformedContract = rule.replace('"version": 1,', '"ver\\uZZZZsion": 1,');
+    const malformedContract = mutateV1Contract(rule, '"version": 1,', '"ver\\uZZZZsion": 1,');
     expect(() => parseCheckpointEvidenceContract(malformedContract)).not.toThrow();
     expect(parseCheckpointEvidenceContract(malformedContract)).toMatchObject({
       ok: false,
@@ -141,7 +298,7 @@ describe('checkpoint evidence contract', () => {
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
       'utf8',
     );
-    expect(parseCheckpointEvidenceContract(rule.replace(from, to))).toMatchObject({
+    expect(parseCheckpointEvidenceContract(mutateV1Contract(rule, from, to))).toMatchObject({
       ok: false,
       error: expect.stringMatching(expected),
     });
@@ -276,6 +433,8 @@ describe('checkpoint evidence contract', () => {
       '**Status upgrade:** approved → in-progress',
       '',
       'raw evidence with significant trailing spaces  ',
+      '',
+      '',
       '',
     ].join('\n');
     const formattedContinuation = `${parent}\n### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${'**Status upgrade:** in-progress → in-progress (continuation)'}\n`;

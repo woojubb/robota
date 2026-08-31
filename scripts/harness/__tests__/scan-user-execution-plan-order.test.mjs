@@ -21,6 +21,10 @@ import {
   FIRST_CHECKPOINT_STATUS_LINE as FIRST_STATUS_LINE,
   resolveTopicMergeBase,
 } from '../scan-user-execution-plan-order.mjs';
+import {
+  parseUserExecutionPlanContract,
+  validateTaskUserExecutionPlan,
+} from '../user-execution-plan-contract.mjs';
 
 const TASK_ID = 'HARNESS-900-plan-order-fixture';
 const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
@@ -174,7 +178,7 @@ function taskText({
     `**Author verdict:** \`${signal}\``,
     '',
     outcome === 'not-applicable'
-      ? 'Not applicable because this fixture changes repository lifecycle governance only and exposes no product surface.'
+      ? '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.'
       : [
           '### Scenario 1',
           '',
@@ -557,6 +561,39 @@ function findHistoryFindings(root, requestedBase) {
 function messages(findings) {
   return findings.map((finding) => finding.problem).join('\n');
 }
+
+describe('shared not-applicable reason contract', () => {
+  it('accepts a substantive structural reason without repeated outcome prose and rejects thin or hidden evidence', () => {
+    const parsed = parseUserExecutionPlanContract(LIVE_BACKLOG_RULE);
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    const task = (reasonBlock) =>
+      [
+        '## User Execution Test Scenarios',
+        '',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        '',
+        reasonBlock,
+      ].join('\n');
+    const substantive =
+      '**Reason:** This governance change affects repository contributor checkpoint records and exposes no runnable Robota product behavior to any user.';
+
+    expect(validateTaskUserExecutionPlan(parsed.contract, task(substantive))).toMatchObject({
+      ok: true,
+      outcome: 'not-applicable',
+      count: 0,
+    });
+    for (const invalid of [
+      '**Reason:** too short',
+      '<!-- **Reason:** This hidden governance explanation contains enough words and characters but is not visible to a reader. -->',
+      '**Reason:** Repository unit tests prove this internal checkpoint behavior, which users cannot execute through any shipped Robota product surface.',
+      'This paragraph has no exact reason label even though it is otherwise long enough to look convincing to a reader.',
+    ]) {
+      expect(validateTaskUserExecutionPlan(parsed.contract, task(invalid))).toMatchObject({
+        ok: false,
+      });
+    }
+  });
+});
 
 describe('shared repository fixture isolation', () => {
   it('keeps copied worktrees and refs independent from each other and the immutable seed', () => {
@@ -1073,6 +1110,43 @@ describe('user-execution PLAN order — branch history', () => {
     commit(root, 'implementation');
 
     expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('cuts strict PLAN reason validation over by unique contract ancestry (HARNESS-134)', () => {
+    const thinTask = () =>
+      taskText().replace(
+        '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.',
+        '**Reason:** too short',
+      );
+    const legacy = repository();
+    write(legacy.root, TASK_PATH, thinTask());
+    write(legacy.root, SPEC_PATH, specText());
+    commit(legacy.root, 'legacy thin checkpoint');
+    write(legacy.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(legacy.root, 'introduce reason contract after checkpoint');
+    expect(findHistoryFindings(legacy.root, legacy.base)).toEqual([]);
+
+    const strict = repository({ withContract: true });
+    write(strict.root, TASK_PATH, thinTask());
+    write(strict.root, SPEC_PATH, specText({ v1: true }));
+    commit(strict.root, 'post-cutover thin checkpoint');
+    expect(messages(findHistoryFindings(strict.root, strict.base))).toMatch(
+      /not-applicable PLAN lacks.*concrete recorded reason/i,
+    );
+
+    const ambiguous = repository({ withContract: true });
+    const withoutReasonContract = LIVE_BACKLOG_RULE.replace(
+      /<!-- user-execution-plan-contract:v1:start -->[\s\S]*?<!-- user-execution-plan-contract:v1:end -->/,
+      '',
+    );
+    write(ambiguous.root, '.agents/rules/backlog-execution.md', withoutReasonContract);
+    commit(ambiguous.root, 'remove reason contract');
+    write(ambiguous.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(ambiguous.root, 'reintroduce reason contract');
+    checkpoint(ambiguous.root, { v1: true });
+    expect(messages(findHistoryFindings(ambiguous.root, ambiguous.base))).toMatch(
+      /PLAN contract cutover is ambiguous/i,
+    );
   });
 
   it('reports the exact traversed commit count and resets it on a second run', () => {

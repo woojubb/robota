@@ -36,14 +36,32 @@ import path from 'node:path';
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import {
+  checkpointDelivery,
   continuationArtifacts,
   parseCheckpointEvidence,
   parseCheckpointEvidenceContract,
+  parseCheckpointEvidenceContracts,
   priorPassDigest,
   rawGateImplementPassEntries,
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
+import {
+  checkpointEvidenceContractState,
+  legacyCheckpointEntries,
+  precedingCheckpointIntegrationCommit,
+} from './checkpoint-evidence-git-contract.mjs';
 import { parseConversionEvidence } from './conversion-evidence.mjs';
+import {
+  parseUserExecutionPlanContract,
+  validateTaskUserExecutionPlan,
+} from './user-execution-plan-contract.mjs';
+import { userExecutionPlanContractState } from './user-execution-plan-git-contract.mjs';
+import {
+  normalizedScenarioLines as sharedNormalizedScenarioLines,
+  scenarioContract as sharedScenarioContract,
+  scenarioEntries as sharedScenarioEntries,
+} from './user-execution-scenario-contract.mjs';
+import { tokenizeCanonicalShell as sharedTokenizeCanonicalShell } from './user-execution-scenario-surface.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASK_PREFIX = '.agents/tasks/';
@@ -66,7 +84,6 @@ const LOOP_TERMINALS = new Set([
   'abandoned',
 ]);
 const gitTextCache = new Map();
-
 function finding(problem, commit = null) {
   return { commit, problem };
 }
@@ -99,118 +116,6 @@ function gitText(root, revision, file) {
   return text;
 }
 
-function hasValidCheckpointContract(root, revision) {
-  const rule = gitText(root, revision, BACKLOG_RULE_PATH);
-  return rule !== null && parseCheckpointEvidenceContract(rule).ok;
-}
-
-function checkpointContractCutovers(root, revision) {
-  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
-  if (listed.code !== 0) {
-    throw new Error(
-      `cannot inspect checkpoint contract ancestry: ${listed.stderr || '(no stderr)'}`,
-    );
-  }
-  return lines(listed.stdout).filter((commit) => {
-    if (!hasValidCheckpointContract(root, commit)) return false;
-    const parent = runGit(root, ['rev-parse', `${commit}^`]);
-    return parent.code !== 0 || !hasValidCheckpointContract(root, parent.stdout.trim());
-  });
-}
-
-function checkpointContractMarkerCommits(root, revision) {
-  const listed = runGit(root, ['rev-list', '--reverse', revision, '--', BACKLOG_RULE_PATH]);
-  if (listed.code !== 0) {
-    throw new Error(
-      `cannot inspect checkpoint contract markers: ${listed.stderr || '(no stderr)'}`,
-    );
-  }
-  return lines(listed.stdout).filter((commit) =>
-    String(gitText(root, commit, BACKLOG_RULE_PATH) ?? '').includes(
-      'checkpoint-evidence-contract:v1:',
-    ),
-  );
-}
-
-function entryCounts(specText) {
-  const counts = new Map();
-  for (const entry of rawGateImplementPassEntries(specText)) {
-    const key = entry.trimEnd();
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
-}
-
-function legacyEntriesBeforeCutover(root, cutover, revision, basename) {
-  const parent = runGit(root, ['rev-parse', `${cutover}^`]);
-  if (parent.code !== 0) return [];
-  const specPath = `${SPEC_PREFIX}active/${basename}`;
-  const baseline = rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath));
-  const baselineCounts = entryCounts(gitText(root, parent.stdout.trim(), specPath));
-  const minimumCounts = new Map(baselineCounts);
-  const previousCounts = new Map(baselineCounts);
-  const reintroduced = new Set();
-  const changed = runGit(root, [
-    'rev-list',
-    '--reverse',
-    '--ancestry-path',
-    `${parent.stdout.trim()}..${revision}`,
-    '--',
-    specPath,
-  ]);
-  if (changed.code !== 0) {
-    throw new Error(
-      `cannot inspect legacy checkpoint occurrence ancestry: ${changed.stderr || '(no stderr)'}`,
-    );
-  }
-  for (const commit of lines(changed.stdout)) {
-    const counts = entryCounts(gitText(root, commit, specPath));
-    for (const key of baselineCounts.keys()) {
-      const count = counts.get(key) ?? 0;
-      if (count > (previousCounts.get(key) ?? 0)) reintroduced.add(key);
-      minimumCounts.set(key, Math.min(minimumCounts.get(key) ?? 0, count));
-      previousCounts.set(key, count);
-    }
-  }
-  const remaining = new Map(
-    [...baselineCounts.keys()].map((key) => [
-      key,
-      reintroduced.has(key) ? 0 : (minimumCounts.get(key) ?? 0),
-    ]),
-  );
-  return baseline.filter((entry) => {
-    const key = entry.trimEnd();
-    const count = remaining.get(key) ?? 0;
-    if (count === 0) return false;
-    remaining.set(key, count - 1);
-    return true;
-  });
-}
-
-function precedingSequencedIntegrationCommit(root, revision, basename) {
-  const specPath = `${SPEC_PREFIX}active/${basename}`;
-  const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);
-  if (priorEntry === undefined) return null;
-  const result = runGit(root, ['rev-list', '--first-parent', revision]);
-  if (result.code !== 0) {
-    throw new Error(
-      `cannot inspect preceding integration ancestry: ${result.stderr || '(no stderr)'}`,
-    );
-  }
-  for (const merge of lines(result.stdout)) {
-    const parent = runGit(root, ['rev-parse', `${merge}^1`]);
-    if (parent.code !== 0) continue;
-    const inMerge = rawGateImplementPassEntries(gitText(root, merge, specPath)).filter(
-      (entry) => entry === priorEntry,
-    ).length;
-    const inFirstParent = rawGateImplementPassEntries(
-      gitText(root, parent.stdout.trim(), specPath),
-    ).filter((entry) => entry === priorEntry).length;
-    if (inMerge > inFirstParent) return merge;
-  }
-  return null;
-}
-
 function checkpointOptionsAt(
   root,
   revision,
@@ -218,7 +123,17 @@ function checkpointOptionsAt(
   parentRevision = revision,
   checkpointPaths = null,
 ) {
-  const cutovers = checkpointContractCutovers(root, revision);
+  const checkpointState = checkpointEvidenceContractState(root, revision);
+  const planState = userExecutionPlanContractState(root, revision);
+  let strictPlanReason = false;
+  let planReasonError = null;
+  if (planState.valid) {
+    if (planState.cutovers.length !== 1) {
+      planReasonError = `user-execution PLAN contract cutover is ambiguous: expected one introduction, found ${planState.cutovers.length}`;
+    } else strictPlanReason = true;
+  } else if (planState.cutovers.length > 0) {
+    planReasonError = 'user-execution PLAN contract is missing or invalid after its cutover';
+  }
   let baseOid = null;
   const taskText = gitText(root, revision, `${TASK_PREFIX}${basename}`);
   if (String(taskText ?? '').includes('Conversion evidence:')) {
@@ -249,12 +164,21 @@ function checkpointOptionsAt(
     }
   }
   return {
-    ...(cutovers.length === 1
-      ? { legacyEntries: legacyEntriesBeforeCutover(root, cutovers[0], revision, basename) }
+    ...(checkpointState.cutovers.length === 1
+      ? {
+          legacyEntries: legacyCheckpointEntries(
+            root,
+            checkpointState.cutovers[0],
+            revision,
+            basename,
+          ),
+        }
       : {}),
-    ancestorSha: precedingSequencedIntegrationCommit(root, parentRevision, basename),
+    ancestorSha: precedingCheckpointIntegrationCommit(root, parentRevision, basename),
     ...(baseOid === null ? {} : { baseOid }),
     ...(checkpointPaths === null ? {} : { checkpointPaths }),
+    strictPlanReason,
+    ...(planReasonError === null ? {} : { planReasonError }),
   };
 }
 
@@ -560,7 +484,7 @@ function completeLegacyGateImplementEntry(body, binding = null) {
   return hasExactMarkdownToken(body, taskPath) && hasSpecPath && hasExactSignal;
 }
 
-function gateImplementEntryResults(
+export function gateImplementEntryResults(
   spec,
   binding = null,
   ruleText = null,
@@ -607,11 +531,16 @@ function gateImplementEntryResults(
       body,
     }));
   }
-  const parsedContract = parseCheckpointEvidenceContract(rule);
-  if (!parsedContract.ok) {
+  const parsedContracts = rule.includes('checkpoint-evidence-contract:v2:')
+    ? parseCheckpointEvidenceContracts(rule)
+    : (() => {
+        const parsed = parseCheckpointEvidenceContract(rule);
+        return parsed.ok ? { ok: true, contracts: new Map([[1, parsed.contract]]) } : parsed;
+      })();
+  if (!parsedContracts.ok) {
     return entries.map((body) => ({
       ok: false,
-      error: `checkpoint evidence contract unreadable: ${parsedContract.error}`,
+      error: `checkpoint evidence contract unreadable: ${parsedContracts.error}`,
       body,
     }));
   }
@@ -631,7 +560,10 @@ function gateImplementEntryResults(
           : null;
     if (formName === null)
       return { ok: false, error: 'GATE-IMPLEMENT status form is invalid', body };
-    if (!body.includes(parsedContract.contract.entryEncoding.startMarker)) {
+    const matchingContracts = [...parsedContracts.contracts.values()].filter((contract) =>
+      body.includes(contract.entryEncoding.startMarker),
+    );
+    if (matchingContracts.length === 0) {
       const key = body.trimEnd();
       const eligible = (legacyCounts.get(key) ?? 0) > 0;
       if (eligible) legacyCounts.set(key, legacyCounts.get(key) - 1);
@@ -642,11 +574,15 @@ function gateImplementEntryResults(
         body,
       };
     }
-    const parsed = parseCheckpointEvidence(parsedContract.contract, formName, body);
+    if (matchingContracts.length !== 1) {
+      return { ok: false, error: 'GATE-IMPLEMENT entry matches multiple contract versions', body };
+    }
+    const contract = matchingContracts[0];
+    const parsed = parseCheckpointEvidence(contract, formName, body);
     if (!parsed.ok) return { ok: false, error: parsed.error, body };
     if (binding !== null) {
       const expectedTask = `${TASK_PREFIX}${binding.basename}`;
-      const expectedSpec = `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`;
+      const expectedSpec = `${SPEC_PREFIX}${contract.forms[formName].specFolder}/${binding.basename}`;
       if (parsed.payload.taskPath !== expectedTask) {
         return { ok: false, error: `${formName}.taskPath does not bind ${expectedTask}`, body };
       }
@@ -695,7 +631,7 @@ function gateImplementEntryResults(
     if (isCurrentIntroduction && binding !== null && checkpointPaths !== null) {
       const expectedWorktreePaths = [
         `${TASK_PREFIX}${binding.basename}`,
-        `${SPEC_PREFIX}${parsedContract.contract.forms[formName].specFolder}/${binding.basename}`,
+        `${SPEC_PREFIX}${contract.forms[formName].specFolder}/${binding.basename}`,
         ...checkpointPaths.filter(
           (entry) => entry.startsWith(LOOP_RUNS_PREFIX) && entry !== POST_MERGE_LEDGER,
         ),
@@ -722,7 +658,7 @@ function gateImplementEntryResults(
         };
       }
       if (isCurrentIntroduction) {
-        const artifacts = continuationArtifacts(parsedContract.contract, baseSpec ?? spec);
+        const artifacts = continuationArtifacts(contract, baseSpec ?? spec);
         if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
         if (
           JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(artifacts.artifacts)
@@ -752,6 +688,23 @@ function gateImplementEntryResults(
           ok: false,
           error:
             'gateImplementContinuation.ancestorSha does not bind the preceding integration commit that introduced the sequenced checkpoint',
+          body,
+        };
+      }
+    }
+    if (contract.version === 2 && isCurrentIntroduction) {
+      const delivery = checkpointDelivery(
+        contract,
+        formName === 'gateImplementContinuation' ? (baseSpec ?? spec) : spec,
+      );
+      if (!delivery.ok) return { ok: false, error: delivery.error, body };
+      if (
+        parsed.payload.deliveryMode !== delivery.deliveryMode ||
+        JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(delivery.artifacts)
+      ) {
+        return {
+          ok: false,
+          error: `${formName} deliveryMode/sequencedArtifacts do not bind the Decision contract`,
           body,
         };
       }
@@ -788,326 +741,13 @@ function gateImplementEntryResults(
   return results;
 }
 
-function normalizedScenarioLines(body) {
-  return body
-    .split('\n')
-    .map((line) =>
-      line
-        .trim()
-        .replace(/^[-*]\s+/, '')
-        .replaceAll('**', ''),
-    )
-    .filter(Boolean);
-}
-
-function scenarioEntries(section) {
-  const source = String(section ?? '').split('\n');
-  const entries = [];
-  for (let index = 0; index < source.length; index += 1) {
-    const heading = atxHeading(source[index]);
-    const identity =
-      heading?.level === 3 ? /^Scenario ([1-9]\d*)(?::\s+.+)?$/.exec(heading.content) : null;
-    if (!identity) continue;
-    let end = source.length;
-    for (let cursor = index + 1; cursor < source.length; cursor += 1) {
-      const next = atxHeading(source[cursor]);
-      if (next && next.level <= 3) {
-        end = cursor;
-        break;
-      }
-    }
-    entries.push({
-      number: Number(identity[1]),
-      name: heading.content,
-      body: source.slice(index + 1, end).join('\n'),
-    });
-  }
-  return entries;
-}
-
-function scenarioField(fields, label) {
-  const matches = fields.filter((line) => label.test(line));
-  if (matches.length !== 1) return null;
-  const value = matches[0].slice(matches[0].indexOf(':') + 1).trim();
-  return value || null;
-}
-
-function scenarioFieldCount(fields, label) {
-  return fields.filter((line) => label.test(line)).length;
-}
-
-function tokenizeCanonicalShell(value) {
-  const trimmed = value.trim();
-  const unwrapped =
-    trimmed.startsWith('`') && trimmed.endsWith('`') ? trimmed.slice(1, -1).trim() : trimmed;
-  if (!unwrapped || /[\r\n]/.test(unwrapped)) return null;
-  const tokens = [];
-  const operators = [];
-  let token = '';
-  let tokenStarted = false;
-  let quote = null;
-  let escaped = false;
-  const finishToken = () => {
-    if (tokenStarted) tokens.push(token);
-    token = '';
-    tokenStarted = false;
-  };
-  for (let index = 0; index < unwrapped.length; index += 1) {
-    const character = unwrapped[index];
-    if (escaped) {
-      token += character;
-      tokenStarted = true;
-      escaped = false;
-      continue;
-    }
-    if (quote === "'") {
-      if (character === "'") quote = null;
-      else token += character;
-      continue;
-    }
-    if (quote === '"') {
-      if (character === '"') quote = null;
-      else if (character === '\\') {
-        const next = unwrapped[index + 1];
-        if (next !== undefined && '$`"\\\n'.includes(next)) escaped = true;
-        else token += character;
-      } else if (character === '`' || (character === '$' && unwrapped[index + 1] === '('))
-        return null;
-      else token += character;
-      continue;
-    }
-    if (character === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (character === "'" || character === '"') {
-      quote = character;
-      tokenStarted = true;
-      continue;
-    }
-    if (/\s/.test(character)) {
-      finishToken();
-      continue;
-    }
-    if ('&;<>'.includes(character) || character === '`') return null;
-    if (character === '$' && unwrapped[index + 1] === '(') return null;
-    if (character === '|') {
-      finishToken();
-      operators.push({ tokenIndex: tokens.length, operator: '|' });
-      continue;
-    }
-    token += character;
-    tokenStarted = true;
-  }
-  if (quote !== null || escaped) return null;
-  finishToken();
-  if (operators.length > 1) return null;
-  if (operators.length === 1) {
-    const pipe = operators[0];
-    if (tokens[pipe.tokenIndex] !== 'grep' || pipe.tokenIndex === 0) return null;
-  }
-  return tokens.length > 0 ? { invocation: unwrapped, tokens, operators } : null;
-}
-
-function canonicalExamplePath(candidate) {
-  if (!candidate || path.posix.isAbsolute(candidate) || /[$*?[\]{}~]/.test(candidate)) return null;
-  const segments = candidate.replace(/^\.\//, '').split('/');
-  if (segments.includes('..') || !['examples', 'scratch'].includes(segments[0])) return null;
-  const normalized = path.posix.normalize(segments.join('/'));
-  return /^(?:examples|scratch)\/.+/.test(normalized) ? normalized : null;
-}
-
-function commandScriptPath(tokens) {
-  let cursor = tokens[0] === 'pnpm' ? 3 : 1;
-  const safeOptions = new Set(['--enable-source-maps', '--no-warnings', '--trace-warnings']);
-  while (cursor < tokens.length && tokens[cursor].startsWith('-')) {
-    const option = tokens[cursor];
-    if (option === '--') {
-      cursor += 1;
-      break;
-    }
-    if (!safeOptions.has(option)) return null;
-    cursor += 1;
-  }
-  return tokens[cursor] ?? null;
-}
-
-function canonicalProductStatePath(candidate) {
-  if (
-    !candidate ||
-    path.posix.isAbsolute(candidate) ||
-    /[$*?[\]{}~\\]/.test(candidate) ||
-    candidate.split('/').includes('..')
-  ) {
-    return null;
-  }
-  const normalized = path.posix.normalize(candidate.replace(/^\.\//, ''));
-  return /^\.robota\/.*[^/]$/.test(normalized) ? normalized : null;
-}
-
-function productSurfaceInvocation(surface, command, uiSteps, browserSteps) {
-  const shell = command === null ? null : tokenizeCanonicalShell(command);
-  const invocation = shell?.invocation ?? browserSteps?.trim() ?? uiSteps?.trim() ?? null;
-  if (!invocation) return null;
-  if (surface === 'robota-cli' || surface === 'robota-tui') {
-    const prefix = shell?.tokens.slice(0, 3).join(' ') ?? '';
-    return shell && (shell.tokens[0] === 'robota' || prefix === 'pnpm exec robota')
-      ? invocation
-      : null;
-  }
-  if (surface === 'robota-browser-ui') {
-    return browserSteps !== null || uiSteps !== null ? invocation : null;
-  }
-  if (surface === 'public-sdk-example') {
-    if (!shell) return null;
-    const direct =
-      shell.tokens[0] === 'node' || shell.tokens[0] === 'tsx'
-        ? commandScriptPath(shell.tokens)
-        : shell.tokens.slice(0, 3).join(' ') === 'pnpm exec tsx'
-          ? commandScriptPath(shell.tokens)
-          : null;
-    const hasPnpmDirectoryShape =
-      shell.tokens[0] === 'pnpm' &&
-      (shell.tokens[1] === '--dir' || shell.tokens[1] === '-C') &&
-      shell.tokens[3] === 'run' &&
-      Boolean(shell.tokens[4]) &&
-      !shell.tokens[4].startsWith('-') &&
-      !/[$*?[\]{}~]/.test(shell.tokens[4]);
-    const workingDirectory = hasPnpmDirectoryShape ? shell.tokens[2] : null;
-    return canonicalExamplePath(direct ?? workingDirectory) !== null ? invocation : null;
-  }
-  return null;
-}
-
-function scenarioContract(body, outcome) {
-  const fields = normalizedScenarioLines(body);
-  const knownField =
-    /^(?:executability|product surface|surface rationale|prerequisites?|command|browser steps?|ui steps?|automation barrier|unavailable capability|attempted automation|observable type|observable rationale|product state path|expected (?:observable|result)|cleanup|reset|evidence):\s*\S/i;
-  if (!fields.every((line) => knownField.test(line))) return null;
-  const executability = scenarioField(fields, /^executability:/i);
-  const surface = scenarioField(fields, /^product surface:/i);
-  const surfaceRationale = scenarioField(fields, /^surface rationale:/i);
-  const command = scenarioField(fields, /^command:/i);
-  const browserSteps = scenarioField(fields, /^browser steps?:/i);
-  const uiSteps = scenarioField(fields, /^ui steps?:/i);
-  const barrier = scenarioField(fields, /^automation barrier:/i);
-  const unavailableCapability = scenarioField(fields, /^unavailable capability:/i);
-  const attemptedAutomation = scenarioField(fields, /^attempted automation:/i);
-  const observableType = scenarioField(fields, /^observable type:/i);
-  const observableRationale = scenarioField(fields, /^observable rationale:/i);
-  const productStatePath = scenarioField(fields, /^product state path:/i);
-  const observable = scenarioField(fields, /^expected (?:observable|result):/i);
-  const prerequisites = scenarioField(fields, /^prerequisites?:/i);
-  const cleanup = scenarioField(fields, /^(?:cleanup|reset):/i);
-  const evidence = scenarioField(fields, /^evidence:/i);
-  const invocation = productSurfaceInvocation(surface, command, uiSteps, browserSteps);
-  const allowedObservableTypes = new Map([
-    ['robota-cli', new Set(['product-output', 'product-state-file'])],
-    ['robota-tui', new Set(['product-output', 'ui-state', 'product-state-file'])],
-    ['robota-browser-ui', new Set(['ui-state'])],
-    ['public-sdk-example', new Set(['sdk-result'])],
-  ]);
-  const observableMatchesSurface =
-    observableType !== null && allowedObservableTypes.get(surface)?.has(observableType) === true;
-  const surfaceRationaleMatches =
-    surfaceRationale ===
-    new Map([
-      ['robota-cli', 'shipped-entrypoint=robota'],
-      ['robota-tui', 'shipped-entrypoint=robota'],
-      ['robota-browser-ui', 'shipped-interface=robota-browser-ui'],
-      ['public-sdk-example', 'shipped-interface=public-sdk-example'],
-    ]).get(surface);
-  const observableRationaleMatches =
-    observableRationale ===
-    new Map([
-      ['product-output', 'source=product-process'],
-      ['ui-state', 'source=rendered-product-ui'],
-      ['sdk-result', 'source=public-sdk-return'],
-      ['product-state-file', 'source=robota-state-artifact'],
-    ]).get(observableType);
-  const observableMatchesType =
-    observableType === 'product-output'
-      ? /^exit=(?:0|[1-9]\d*);\s*output-contains=\S.*$/.test(observable ?? '')
-      : observableType === 'ui-state'
-        ? /^visible=\S.*$/.test(observable ?? '')
-        : observableType === 'sdk-result'
-          ? /^result=\S.*$/.test(observable ?? '')
-          : observableType === 'product-state-file'
-            ? /^change=(?:created|updated|deleted)$/.test(observable ?? '')
-            : false;
-  const normalizedStatePath = canonicalProductStatePath(productStatePath);
-  const statePathMatches =
-    observableType === 'product-state-file'
-      ? normalizedStatePath !== null
-      : scenarioFieldCount(fields, /^product state path:/i) === 0;
-  const allowedBarrier =
-    /^(?:physical-device|credential-bound-service|platform-api-unavailable|accessibility-tree-unavailable|sandbox-restriction)$/.test(
-      barrier ?? '',
-    );
-  const matchingExecutability =
-    outcome === 'automatable'
-      ? executability === 'agent-executable' &&
-        (surface === 'robota-browser-ui'
-          ? browserSteps !== null && scenarioFieldCount(fields, /^command:/i) === 0
-          : command !== null && scenarioFieldCount(fields, /^browser steps?:/i) === 0) &&
-        scenarioFieldCount(fields, /^ui steps?:/i) === 0 &&
-        scenarioFieldCount(
-          fields,
-          /^(?:automation barrier|unavailable capability|attempted automation):/i,
-        ) === 0
-      : outcome === 'manual' &&
-        /^manual-only:\s*\S/i.test(executability ?? '') &&
-        uiSteps !== null &&
-        (surface === 'robota-tui'
-          ? command !== null
-          : surface === 'robota-browser-ui' && scenarioFieldCount(fields, /^command:/i) === 0) &&
-        scenarioFieldCount(fields, /^browser steps?:/i) === 0 &&
-        allowedBarrier &&
-        (unavailableCapability?.length ?? 0) >= 20 &&
-        (attemptedAutomation?.length ?? 0) >= 30;
-  const complete =
-    matchingExecutability &&
-    surface !== null &&
-    surfaceRationaleMatches &&
-    invocation !== null &&
-    prerequisites !== null &&
-    observableMatchesSurface &&
-    observableMatchesType &&
-    statePathMatches &&
-    observable !== null &&
-    observableRationaleMatches &&
-    cleanup !== null &&
-    evidence !== null;
-  return complete
-    ? {
-        executability,
-        surface,
-        invocation,
-        command,
-        browserSteps,
-        barrier,
-        unavailableCapability,
-        attemptedAutomation,
-        observableType,
-        observable,
-        surfaceRationale,
-        observableRationale,
-        productStatePath: normalizedStatePath,
-        uiSteps,
-        prerequisites,
-        cleanup,
-        evidence,
-      }
-    : null;
-}
-
 function stageOneScenarioPayload(scenario, outcome, contract) {
-  const binding = scenarioContract(scenario.body, outcome);
+  const binding = sharedScenarioContract(scenario.body, outcome);
   if (binding === null) return null;
   const actionKind = contract.actionMapping[`${outcome}:${binding.surface}`];
   const actionValue =
     actionKind === 'command'
-      ? (tokenizeCanonicalShell(binding.command)?.invocation ?? null)
+      ? (sharedTokenizeCanonicalShell(binding.command)?.invocation ?? null)
       : actionKind === 'browserSteps'
         ? binding.browserSteps
         : actionKind === 'uiSteps'
@@ -1188,9 +828,9 @@ function completeStageOneEntry(body, scenarios, outcome) {
   if (!/^\*\*Status upgrade:\*\* scenario drafted → scenario written\s*$/m.test(body)) {
     return false;
   }
-  const evidence = normalizedScenarioLines(body);
+  const evidence = sharedNormalizedScenarioLines(body);
   return scenarios.every((scenario) => {
-    const contract = scenarioContract(scenario.body, outcome);
+    const contract = sharedScenarioContract(scenario.body, outcome);
     if (contract === null) return false;
     const barrierEvidence =
       outcome === 'manual'
@@ -1461,6 +1101,9 @@ export function evaluatePlanTexts({
   checkpointOptions = {},
 }) {
   const problems = [];
+  if (checkpointOptions.planReasonError) {
+    problems.push(`${checkpointOptions.planReasonError}.`);
+  }
   const conversion = conversionEvidenceResult(task, spec, basename, checkpointOptions);
   if (conversion !== null && conversion.kind !== 'eligible') {
     problems.push(`combined lifecycle conversion evidence refused: ${conversion.reason}.`);
@@ -1548,25 +1191,24 @@ export function evaluatePlanTexts({
   const outcome = signal[1];
   const count = Number(signal[2]);
   if (outcome === 'not-applicable') {
-    const tail = scenarioSection.slice(
-      (signal.index ?? 0) + signal[0].length,
-      (signal.index ?? 0) + 800,
-    );
-    if (
-      count !== 0 ||
-      tail.replace(/\s+/g, ' ').trim().length < 50 ||
-      !/not applicable/i.test(tail)
-    ) {
+    const strictReason =
+      checkpointOptions.strictPlanReason ??
+      String(ruleText ?? '').includes('user-execution-plan-contract:v1:');
+    const reasonContract = strictReason ? parseUserExecutionPlanContract(ruleText) : null;
+    const reasonResult = reasonContract?.ok
+      ? validateTaskUserExecutionPlan(reasonContract.contract, task)
+      : null;
+    if (count !== 0 || (strictReason && (!reasonContract?.ok || !reasonResult?.ok))) {
       problems.push('not-applicable PLAN lacks its zero count and a concrete recorded reason.');
     }
   } else {
     if (count < 1) problems.push(`applicable PLAN outcome \`${outcome}\` declares no scenario.`);
-    const scenarios = scenarioEntries(scenarioSection);
+    const scenarios = sharedScenarioEntries(scenarioSection);
     const hasCompleteScenarioSet =
       scenarios.length === count &&
       scenarios.every(
         (scenario, index) =>
-          scenario.number === index + 1 && scenarioContract(scenario.body, outcome) !== null,
+          scenario.number === index + 1 && sharedScenarioContract(scenario.body, outcome) !== null,
       );
     if (!hasCompleteScenarioSet) {
       problems.push(
@@ -2113,9 +1755,47 @@ function requireWorktreeTopLevel(root) {
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
-  const headCutovers = checkpointContractCutovers(root, 'HEAD');
-  const markerCommits = checkpointContractMarkerCommits(root, 'HEAD');
-  if (headCutovers.length === 0 && markerCommits.length > 0) {
+  const planState = userExecutionPlanContractState(root);
+  if (planState.cutovers.length === 0 && planState.markerCommits.length > 0) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding('user-execution PLAN contract markers exist but no valid cutover can be proven.'),
+      ],
+    };
+  }
+  if (planState.cutovers.length > 1) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(
+          `user-execution PLAN contract cutover is ambiguous: ${planState.cutovers.join(', ')}.`,
+        ),
+      ],
+    };
+  }
+  if (planState.cutovers.length === 1 && !planState.valid) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding('user-execution PLAN contract is missing or invalid after the v1 cutover.'),
+      ],
+    };
+  }
+  const checkpointState = checkpointEvidenceContractState(root);
+  if (checkpointState.cutovers.length === 0 && checkpointState.markerCommits.length > 0) {
     return {
       base,
       commits: [],
@@ -2129,7 +1809,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       ],
     };
   }
-  if (headCutovers.length > 1) {
+  if (checkpointState.cutovers.length > 1) {
     return {
       base,
       commits: [],
@@ -2137,11 +1817,13 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       checkpoint: null,
       pendingBasename: null,
       findings: [
-        finding(`checkpoint evidence contract cutover is ambiguous: ${headCutovers.join(', ')}.`),
+        finding(
+          `checkpoint evidence contract cutover is ambiguous: ${checkpointState.cutovers.join(', ')}.`,
+        ),
       ],
     };
   }
-  if (headCutovers.length === 1 && !hasValidCheckpointContract(root, 'HEAD')) {
+  if (checkpointState.cutovers.length === 1 && !checkpointState.valid) {
     return {
       base,
       commits: [],
@@ -2518,11 +2200,22 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const history = historyAnalysis(root, requestedBase);
     if (history.findings.length > 0) return history.findings;
     if (staged.includes(BACKLOG_RULE_PATH)) {
-      const stagedContract = parseCheckpointEvidenceContract(indexText(root, BACKLOG_RULE_PATH));
+      const stagedRule = indexText(root, BACKLOG_RULE_PATH);
+      const stagedContract = parseCheckpointEvidenceContract(stagedRule);
       if (!stagedContract.ok) {
         return [
           finding(`staged checkpoint evidence contract is unreadable: ${stagedContract.error}.`),
         ];
+      }
+      if (String(stagedRule).includes('user-execution-plan-contract:v1:')) {
+        const stagedPlanContract = parseUserExecutionPlanContract(stagedRule);
+        if (!stagedPlanContract.ok) {
+          return [
+            finding(
+              `staged user-execution PLAN contract is unreadable: ${stagedPlanContract.error}.`,
+            ),
+          ];
+        }
       }
     }
     if (staged.includes(POST_MERGE_LEDGER)) {
