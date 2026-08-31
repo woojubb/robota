@@ -65,6 +65,11 @@ weakening a gate: add the exact six-path declaration, move only the paired AGREE
 is independently verified, discard the old apply branch, cut a fresh apply branch from the new
 `origin/develop`, and run GATE-IMPLEMENT (continuation) before restoring any manifest authorization.
 
+> **Contained — PROC-026.** This document-specific correction is required to repair the already-merged
+> AGREEMENT-006 base. The first-checkpoint producer's missing continuation-readiness contract is tracked
+> separately by [issue #2561](https://github.com/woojubb/robota/issues/2561); PROC-025 does not change that
+> producer or claim the recurring cause is fixed.
+
 The six paths are the durable manifest, AGREEMENT-006 Task/spec, and DATA-008/DATA-009/ARCH-116 Tasks.
 The change does not authorize Issue mutation by itself, alter the approved Task topology, change product
 placement, or claim any child implementation delivered.
