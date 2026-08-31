@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -106,26 +106,26 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: AGREEMENT-006's Decision contains exactly one machine-readable declaration of the manifest,
+- [x] TC-01: AGREEMENT-006's Decision contains exactly one machine-readable declaration of the manifest,
       paired Task/spec, and three child Task paths, and the checkpoint-evidence parser returns those six
       paths with no missing or extra entry.
-- [ ] TC-02: AGREEMENT-006's Task/spec pair both read `status: in-progress`, every pre-existing
+- [x] TC-02: AGREEMENT-006's Task/spec pair both read `status: in-progress`, every pre-existing
       GATE-IMPLEMENT PASS byte remains unchanged, and the 2026-08-31 continuation FAIL remains recorded.
-- [ ] TC-03: the correction topic passes staged/history plan-order and affected harness scans while live
+- [x] TC-03: the correction topic passes staged/history plan-order and affected harness scans while live
       issues #2079/#2070/#2085/#2104/#2118 retain their pre-correction bodies, labels, relationships,
       dependencies, markers, and states.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                       | Notes                                   |
-| ----- | ----------- | ------------------------------------------------------------------------------------- | --------------------------------------- |
-| TC-01 | Unit        | checkpoint-evidence contract parser plus exact six-path assertion                     | No package build required.              |
-| TC-02 | Lifecycle   | Task/spec frontmatter read plus raw PASS digest/prefix comparison                     | Preserve the guardian FAIL as evidence. |
-| TC-03 | Integration | staged/history plan-order, affected scans, and authenticated read-only Issue snapshot | No GitHub write is permitted.           |
+| TC-ID | Test Type   | Tool / Approach                                                                                          | Notes                                   |
+| ----- | ----------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| TC-01 | Unit        | `scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` plus exact six-path assertion          | No package build required.              |
+| TC-02 | Lifecycle   | `scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` plus lifecycle/PASS comparison         | Preserve the guardian FAIL as evidence. |
+| TC-03 | Integration | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`, affected scans, live Issue snapshot | No B2 GitHub write is permitted.        |
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md` — approved planning-order correction pending implementation checkpoint
+- [x] `.agents/tasks/completed/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md` — done — continuation contract correction verified
 
 ## User Execution Test Scenarios
 
@@ -268,3 +268,82 @@ remain engineering verification in the Test Plan.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-08-31
+
+**Command:** `node --input-type=module -e 'import {readFileSync} from "node:fs"; import {parseCheckpointEvidenceContract,continuationArtifacts} from "./scripts/harness/checkpoint-evidence-contract.mjs"; const c=parseCheckpointEvidenceContract(readFileSync(".agents/rules/backlog-execution.md","utf8")); if(!c.ok) throw new Error(c.error); const r=continuationArtifacts(c.contract,readFileSync(".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md","utf8")); const e=[".agents/evidence/RULE-023-child-issue-migration-manifest.json",".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"]; if(!r.ok||JSON.stringify(r.artifacts)!==JSON.stringify(e)) process.exit(1); console.log(JSON.stringify({count:r.artifacts.length,artifacts:r.artifacts},null,2));'`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+  "count": 6,
+  "artifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+    ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+    ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
+  ]
+}
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-08-31
+
+**Command:** `node --input-type=module -e 'import {readFileSync} from "node:fs"; import {execFileSync} from "node:child_process"; import {rawGateImplementPassEntries,priorPassDigest} from "./scripts/harness/checkpoint-evidence-contract.mjs"; const p=".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md"; const s=readFileSync(p,"utf8"),b=execFileSync("git",["show","origin/develop:"+p],{encoding:"utf8"}),t=readFileSync(".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md","utf8"),x=rawGateImplementPassEntries(b),y=rawGateImplementPassEntries(s); if(x.length!==y.length||x.some((v,i)=>v!==y[i])||!/^status: in-progress$/m.test(s)||!/^status: in-progress$/m.test(t)||!s.includes("### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-31")) process.exit(1); console.log(JSON.stringify({priorPassDigests:x.map(priorPassDigest),taskStatus:"in-progress",specStatus:"in-progress",failPreserved:true},null,2));'`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+{
+  "priorPassDigests": [
+    "sha256:3a2af5a39896d43865314f00a858ea69614b62f9807facae12e5e85372c7d043"
+  ],
+  "taskStatus": "in-progress",
+  "specStatus": "in-progress",
+  "failPreserved": true
+}
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-08-31
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement && node --input-type=module -e 'import {execFileSync} from "node:child_process"; import {createHash} from "node:crypto"; const e={2079:"d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",2070:"5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5",2085:"24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023",2104:"2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d",2118:"735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532"}; for(const [n,h] of Object.entries(e)){const v=JSON.parse(execFileSync("gh",["issue","view",n,"--repo","woojubb/robota","--json","body,state,labels,assignees,comments"],{encoding:"utf8"})); if(createHash("sha256").update(v.body).digest("hex")!==h||v.state!=="OPEN"||v.assignees.length||v.comments.some(c=>c.body.includes("robota-task:"))||JSON.stringify(v.labels.map(x=>x.name).sort())!==JSON.stringify(["enhancement","priority:P1"])) process.exit(1);} console.log(JSON.stringify(e,null,2));'`
+**Exit:** 0
+**Output:** (last 10 of 127 line(s))
+
+```
+    "2104": [
+      2085
+    ],
+    "2118": [
+      2104,
+      2044,
+      2048
+    ]
+  }
+}
+```
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-31
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-31; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 3/3 tasks `[x]` in .agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement` → exit 0 ( ⏎ 36 scans passed, 1 skipped (27 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md, M .agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to branch 'develop' ⏎ Switched to and reset branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-31
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-08-31; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/PROC-025-record-agreement-006-continuation-contract-before-b2-apply.md
