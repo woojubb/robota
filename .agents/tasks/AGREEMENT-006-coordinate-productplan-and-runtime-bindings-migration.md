@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-006: coordinate ProductPlan and runtime-bindings migration'
 issue: https://github.com/woojubb/robota/issues/2070
-status: todo
+status: in-progress
 created: 2026-08-30
 priority: high
 urgency: soon
