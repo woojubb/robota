@@ -18,4 +18,15 @@ describe('gate implementation contract helpers', () => {
       /only for L2 GATE-IMPLEMENT/,
     );
   });
+
+  it('rewrites only a top-level status entry in the leading frontmatter block', () => {
+    const source = '---\ntitle: status: prose\nstatus: todo\n---\nstatus: body\n';
+
+    expect(rewriteFrontmatterStatus(source, 'in-progress')).toBe(
+      '---\ntitle: status: prose\nstatus: in-progress\n---\nstatus: body\n',
+    );
+    expect(() => rewriteFrontmatterStatus('---\ntitle: task\n---\n', 'in-progress')).toThrow(
+      /no status field/,
+    );
+  });
 });
