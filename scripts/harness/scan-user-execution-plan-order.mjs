@@ -504,11 +504,6 @@ export function gateImplementEntryResults(
   const visibleEntries = canonicalPassEntries(evidence, 'GATE-IMPLEMENT');
   const rawEntries = rawGateImplementPassEntries(spec);
   const entries = rawEntries;
-  const appendsContinuation =
-    priorEntries !== null &&
-    priorEntries.length >= 1 &&
-    gateImplementEntryForm(entries[priorEntries.length]) === 'continuation';
-  const introducesContinuation = appendsContinuation && priorEntries.length === 1;
   if (rawEntries.length !== visibleEntries.length) {
     return rawEntries.map((body) => ({
       ok: false,
@@ -707,8 +702,8 @@ export function gateImplementEntryResults(
       spec,
       baseSpec,
       introductionSpec: introductionSpecs?.[index],
-      appendsContinuation,
-      introducesContinuation,
+      appendedForm: gateImplementEntryForm(entries[priorEntries?.length]),
+      priorEntryCount: priorEntries?.length ?? 0,
     });
     if (deliveryError !== null) return { ok: false, error: deliveryError, body };
     return { ok: true, payload: parsed.payload, body };

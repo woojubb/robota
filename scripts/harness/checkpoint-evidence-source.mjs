@@ -232,9 +232,11 @@ export function checkpointDeliveryBindingError({
   spec,
   baseSpec,
   introductionSpec,
-  appendsContinuation,
-  introducesContinuation,
+  appendedForm,
+  priorEntryCount,
 }) {
+  const appendsContinuation = appendedForm === 'continuation' && priorEntryCount >= 1;
+  const introducesContinuation = appendsContinuation && priorEntryCount === 1;
   if (
     contract.version === 1 &&
     formName === 'gateImplementFirst' &&
