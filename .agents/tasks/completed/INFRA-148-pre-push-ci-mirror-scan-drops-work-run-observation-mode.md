@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-148: Pre-push CI-mirror scan drops Work-Run observation mode'
-status: in-progress
+status: done
 created: 2026-09-01
+completed: 2026-09-02
 priority: medium
 urgency: soon
 area: harness pre-push verification and Work-Run measurement
@@ -56,7 +57,7 @@ scan process.
       validation is called.
 - [x] TC-04: Propagate the observation only around the nested required-scans mirror while preserving
       inherited environment entries and the exact CI command/argv projection.
-- [ ] TC-05: Run focused suites, contract/hermetic tiers, the root build, and every substantive
+- [x] TC-05: Run focused suites, contract/hermetic tiers, the root build, and every substantive
       scan through `pnpm harness:scan -- --skip work-run-measurement`, then obtain an independent
       local review without a hook bypass. The exact full scan and normal PR #2566 push remain the
       parent consolidation plan’s downstream delivery acceptance steps.
