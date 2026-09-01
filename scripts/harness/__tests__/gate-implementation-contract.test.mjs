@@ -28,5 +28,8 @@ describe('gate implementation contract helpers', () => {
     expect(() => rewriteFrontmatterStatus('---\ntitle: task\n---\n', 'in-progress')).toThrow(
       /no status field/,
     );
+    expect(() =>
+      rewriteFrontmatterStatus('---\nstatus: todo\n---not-a-fence\nbody\n', 'in-progress'),
+    ).toThrow(/no leading frontmatter block/);
   });
 });
