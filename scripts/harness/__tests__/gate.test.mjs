@@ -959,6 +959,34 @@ describe('advance', () => {
     expect(result.stdout).toContain('moved with git mv');
   });
 
+  it('refuses an existing destination before mutating tracked or untracked source, destination, or Task', () => {
+    for (const sourceKind of ['tracked', 'untracked']) {
+      const { root, doc: trackedDoc } = makeWorkspace();
+      gitInit(root);
+      const doc =
+        sourceKind === 'tracked'
+          ? trackedDoc
+          : path.join(root, '.agents/spec-docs/draft/PROC-998-untracked-collision.md');
+      if (sourceKind === 'untracked') writeFileSync(doc, conformingSpec());
+      expect(judge(root, doc, 'GATE-WRITE').status).toBe(0);
+      const target = path.join(root, '.agents/spec-docs/backlog', path.basename(doc));
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, `existing destination: ${sourceKind}\n`);
+      const sourceBefore = readFileSync(doc, 'utf8');
+      const targetBefore = readFileSync(target, 'utf8');
+      const taskPath = path.join(root, TASK_REL);
+      const taskBefore = readFileSync(taskPath, 'utf8');
+
+      const result = run(root, ['advance', '--doc', doc]);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/refused: destination spec already exists/i);
+      expect(readFileSync(doc, 'utf8')).toBe(sourceBefore);
+      expect(readFileSync(target, 'utf8')).toBe(targetBefore);
+      expect(readFileSync(taskPath, 'utf8')).toBe(taskBefore);
+    }
+  });
+
   it('refuses when the last entry is a FAIL and leaves the file where it is', () => {
     const spec = conformingSpec().replace('- [ ] TC-02: `node', '- [ ] `node');
     const { root, doc } = makeWorkspace({ spec });

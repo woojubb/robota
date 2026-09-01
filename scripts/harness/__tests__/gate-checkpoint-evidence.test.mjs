@@ -8,7 +8,12 @@ import {
   continuationCheckpointEvidence,
   firstCheckpointEvidence,
 } from '../gate-checkpoint-evidence.mjs';
-import { priorPassDigest, rawGateImplementPassEntries } from '../checkpoint-evidence-contract.mjs';
+import {
+  formatCheckpointEvidence,
+  parseCheckpointEvidenceContracts,
+  priorPassDigest,
+  rawGateImplementPassEntries,
+} from '../checkpoint-evidence-contract.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 const root = makeTemp('gate-checkpoint-evidence-');
@@ -218,5 +223,64 @@ describe('gate checkpoint evidence renderer', () => {
     expect(() =>
       continuationCheckpointEvidence({ root, ruleText, specText, taskText, taskRel, specRel }),
     ).toThrow(/prior.*delivery|Decision/i);
+  });
+
+  it('rejects a legacy v1 first PASS whose sequenced Decision was added only later', () => {
+    const ruleText = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const basename = 'PROC-995-post-hoc-v1-delivery.md';
+    const taskRel = `.agents/tasks/${basename}`;
+    const specRel = `.agents/spec-docs/active/${basename}`;
+    const taskText =
+      'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This internal repository checkpoint fixture exposes no runnable Robota product behavior or observable user action.';
+    const contract = parseCheckpointEvidenceContracts(ruleText).contracts.get(1);
+    const rendered = formatCheckpointEvidence(contract, 'gateImplementFirst', {
+      version: 1,
+      form: 'gateImplementFirst',
+      taskPath: taskRel,
+      specPath: `.agents/spec-docs/todo/${basename}`,
+      taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [taskRel, `.agents/spec-docs/todo/${basename}`].sort(),
+    });
+    if (!rendered.ok) throw new Error(rendered.error);
+    const introducedSpec = [
+      '## Architecture Review',
+      '',
+      '### Decision',
+      '',
+      '**Delivery mode:** `single`',
+      '',
+      '## Completion Criteria',
+      '',
+      '- [ ] TC-01: observable result',
+      '',
+      '## Evidence Log',
+      '',
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-01',
+      '',
+      '**Status upgrade:** approved → in-progress',
+      rendered.text,
+      '',
+    ].join('\n');
+    const file = path.join(root, specRel);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, introducedSpec);
+    git(['add', specRel]);
+    git(['commit', '-q', '-m', 'legacy v1 first checkpoint']);
+
+    const specText = introducedSpec.replace(
+      '**Delivery mode:** `single`',
+      '**Delivery mode:** `sequenced`\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
+    );
+    writeFileSync(file, specText);
+    git(['add', specRel]);
+    git(['commit', '-q', '-m', 'post-hoc sequenced Decision']);
+
+    expect(() =>
+      continuationCheckpointEvidence({ root, ruleText, specText, taskText, taskRel, specRel }),
+    ).toThrow(/historical.*Decision|corrective checkpoint/i);
   });
 });
