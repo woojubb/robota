@@ -819,6 +819,38 @@ describe('user-execution PLAN order — branch history', () => {
     };
   }
 
+  function appendSecondV1Continuation(sequence) {
+    git(sequence.root, ['switch', '-q', 'develop']);
+    git(sequence.root, ['merge', '--no-ff', '-q', '-m', 'merge PR 2', 'feature-2']);
+    const base = git(sequence.root, ['rev-parse', 'HEAD']);
+    git(sequence.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(sequence.root, ['switch', '-q', '-c', 'feature-3']);
+
+    const parentSpec = readFileSync(path.join(sequence.root, SPEC_PATH), 'utf8');
+    const payload = formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementContinuation', {
+      version: 1,
+      form: 'gateImplementContinuation',
+      priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+      sequencedArtifacts: [
+        'scripts/harness/gate.mjs',
+        'scripts/harness/scan-user-execution-plan-order.mjs',
+      ],
+      ancestorSha: base,
+      taskPath: TASK_PATH,
+      specPath: SPEC_PATH,
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+    });
+    if (!payload.ok) throw new Error(payload.error);
+    write(
+      sequence.root,
+      SPEC_PATH,
+      `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${CONTINUATION_STATUS_LINE}\n\n${payload.text}\n`,
+    );
+    commit(sequence.root, 'v1 second continuation checkpoint');
+    return base;
+  }
+
   it('binds legacy v1 first delivery to its introduction revision in history scans', () => {
     const invalid = v1SequencedRepository(postHocLegacyDelivery());
     expect(messages(findHistoryFindingsFromGit(invalid.root, invalid.base))).toMatch(
@@ -837,6 +869,32 @@ describe('user-execution PLAN order — branch history', () => {
     const valid = v1SequencedRepository();
     git(valid.root, ['reset', '--soft', valid.base]);
     expect(findStagedFindings(valid.root, valid.base)).toEqual([]);
+  });
+
+  it('keeps legacy v1 introduction delivery bound on a second continuation history scan', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    const invalidBase = appendSecondV1Continuation(invalid);
+    expect(messages(findHistoryFindingsFromGit(invalid.root, invalidBase))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+
+    const valid = v1SequencedRepository();
+    const validBase = appendSecondV1Continuation(valid);
+    expect(findHistoryFindingsFromGit(valid.root, validBase)).toEqual([]);
+  });
+
+  it('keeps legacy v1 introduction delivery bound on a second continuation staged scan', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    const invalidBase = appendSecondV1Continuation(invalid);
+    git(invalid.root, ['reset', '--soft', invalidBase]);
+    expect(messages(findStagedFindings(invalid.root, invalidBase))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+
+    const valid = v1SequencedRepository();
+    const validBase = appendSecondV1Continuation(valid);
+    git(valid.root, ['reset', '--soft', validBase]);
+    expect(findStagedFindings(valid.root, validBase)).toEqual([]);
   });
 
   it('replays the immutable conversion base across a later continuation', () => {
