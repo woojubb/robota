@@ -1842,7 +1842,18 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
 
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toContain(
-      'last [GATE-IMPLEMENT] entry is absent, PASS required',
+      'no prior [GATE-IMPLEMENT] PASS entry exists; last entry is ❌ FAIL',
+    );
+  });
+
+  it('refuses a native continuation when the history is empty', () => {
+    const { root, doc } = continuationWorkspace({ priorPass: false, priorFail: false });
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'no prior [GATE-IMPLEMENT] PASS entry exists; last entry is absent',
     );
   });
 
@@ -1901,14 +1912,14 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     );
   });
 
-  it('rechecks the current Task PLAN signal on a continuation retry', () => {
+  it('rechecks the exact prior-PASS Task PLAN binding on a continuation retry', () => {
     const { root, doc } = continuationWorkspace();
     const taskPath = path.join(root, TASK_REL);
     writeFileSync(
       taskPath,
       readFileSync(taskPath, 'utf8').replace(
         'SCENARIO DRAFTED: not-applicable | 0',
-        'SCENARIO DRAFTED: not-applicable | 1',
+        'SCENARIO DRAFTED: automatable | 1',
       ),
     );
 
@@ -1916,7 +1927,7 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
 
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toContain(
-      'not-applicable author verdict requires count zero',
+      'gateImplementFirst.plan does not bind the Task author verdict',
     );
   });
 
