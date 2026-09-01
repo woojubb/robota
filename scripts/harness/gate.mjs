@@ -189,6 +189,7 @@ import {
   parseRegistrySection,
   standingVerdict,
 } from './scan-standing-delegation-evidence.mjs';
+import { vacantAdvanceDestination } from './gate-advance-contract.mjs';
 import { extractExamined } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -2014,13 +2015,7 @@ export function runAdvance(options) {
   if (!folder)
     throw new Error(`refused: spec-workflow.md maps no folder for status \`${upgrade.to}\``);
 
-  const specRoot = path.dirname(path.dirname(docPath));
-  const target = path.join(specRoot, folder, path.basename(docPath));
-  const moved = target !== docPath;
-  if (moved && existsSync(target)) {
-    const targetRel = path.relative(root, target).split(path.sep).join('/');
-    throw new Error(`refused: destination spec already exists: ${targetRel}`);
-  }
+  const { target, moved } = vacantAdvanceDestination(root, docPath, folder);
 
   const taskRel = taskPathFromSpec(doc.text);
   let activatedTask = null;
