@@ -392,6 +392,7 @@ function v1SequencedRepository({
   mutatePayload = (payload) => payload,
   mutateContinuationSpec = (spec) => spec,
   mutateContinuationTask = (task) => task,
+  mutateAfterFirstCheckpoint = null,
   withUnrelatedMerge = false,
   withConversionEvidence = false,
   withNonAncestorConversionBase = false,
@@ -420,6 +421,11 @@ function v1SequencedRepository({
     ),
   );
   commit(root, 'PR 1 v1 checkpoint');
+  if (mutateAfterFirstCheckpoint !== null) {
+    const checkpointSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+    write(root, SPEC_PATH, mutateAfterFirstCheckpoint(checkpointSpec));
+    commit(root, 'post-checkpoint Decision change');
+  }
   git(root, ['switch', '-q', 'develop']);
   let sequencedMerge;
   if (squashFirstPr) {
@@ -801,6 +807,36 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
       /ancestorSha.*preceding integration commit/,
     );
+  });
+
+  function postHocLegacyDelivery() {
+    const artifactLine =
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`';
+    return {
+      mutateParentSpec: (spec) => spec.replace(artifactLine, ''),
+      mutateAfterFirstCheckpoint: (spec) =>
+        spec.replace('### Decision\n\n', `### Decision\n\n${artifactLine}\n\n`),
+    };
+  }
+
+  it('binds legacy v1 first delivery to its introduction revision in history scans', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    expect(messages(findHistoryFindingsFromGit(invalid.root, invalid.base))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+    const valid = v1SequencedRepository();
+    expect(findHistoryFindingsFromGit(valid.root, valid.base)).toEqual([]);
+  });
+
+  it('binds legacy v1 first delivery to its introduction revision in staged scans', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    git(invalid.root, ['reset', '--soft', invalid.base]);
+    expect(messages(findStagedFindings(invalid.root, invalid.base))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+    const valid = v1SequencedRepository();
+    git(valid.root, ['reset', '--soft', valid.base]);
+    expect(findStagedFindings(valid.root, valid.base)).toEqual([]);
   });
 
   it('replays the immutable conversion base across a later continuation', () => {
