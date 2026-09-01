@@ -223,3 +223,48 @@ export function checkpointDelivery(contract, specText) {
   const artifacts = continuationArtifacts(contract, specText);
   return artifacts.ok ? { ok: true, deliveryMode, artifacts: artifacts.artifacts } : artifacts;
 }
+
+export function checkpointDeliveryBindingError({
+  contract,
+  formName,
+  isCurrentIntroduction,
+  payload,
+  spec,
+  baseSpec,
+  introductionSpec,
+  introducesContinuation,
+}) {
+  if (
+    contract.version === 1 &&
+    formName === 'gateImplementFirst' &&
+    introducesContinuation &&
+    introductionSpec !== undefined
+  ) {
+    if (introductionSpec === null) {
+      return 'legacy v1 first PASS introduction revision is unavailable';
+    }
+    const historical = continuationArtifacts(contract, introductionSpec);
+    if (!historical.ok) {
+      return `legacy v1 first PASS historical Decision is not sequenced; a corrective checkpoint is required: ${historical.error}`;
+    }
+    const current = continuationArtifacts(contract, baseSpec ?? spec);
+    if (!current.ok) return current.error;
+    if (JSON.stringify(historical.artifacts) !== JSON.stringify(current.artifacts)) {
+      return 'legacy v1 first PASS introduction artifacts do not bind the current Decision contract';
+    }
+  }
+  if (contract.version === 2 && isCurrentIntroduction) {
+    const delivery = checkpointDelivery(
+      contract,
+      formName === 'gateImplementContinuation' ? (baseSpec ?? spec) : spec,
+    );
+    if (!delivery.ok) return delivery.error;
+    if (
+      payload.deliveryMode !== delivery.deliveryMode ||
+      JSON.stringify(payload.sequencedArtifacts) !== JSON.stringify(delivery.artifacts)
+    ) {
+      return `${formName} deliveryMode/sequencedArtifacts do not bind the Decision contract`;
+    }
+  }
+  return null;
+}

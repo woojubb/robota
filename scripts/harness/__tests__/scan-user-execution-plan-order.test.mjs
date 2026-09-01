@@ -421,11 +421,6 @@ function v1SequencedRepository({
     ),
   );
   commit(root, 'PR 1 v1 checkpoint');
-  if (mutateAfterFirstCheckpoint !== null) {
-    const checkpointSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
-    write(root, SPEC_PATH, mutateAfterFirstCheckpoint(checkpointSpec));
-    commit(root, 'post-checkpoint Decision change');
-  }
   git(root, ['switch', '-q', 'develop']);
   let sequencedMerge;
   if (squashFirstPr) {
@@ -434,6 +429,11 @@ function v1SequencedRepository({
   } else {
     git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
     sequencedMerge = git(root, ['rev-parse', 'HEAD']);
+  }
+  if (mutateAfterFirstCheckpoint !== null) {
+    const checkpointSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+    write(root, SPEC_PATH, mutateAfterFirstCheckpoint(checkpointSpec));
+    commit(root, 'post-checkpoint Decision change');
   }
   if (withUnrelatedMerge) {
     git(root, ['switch', '-q', '-c', 'unrelated']);

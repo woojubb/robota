@@ -34,6 +34,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
+import { checkpointDeliveryBindingError } from './checkpoint-evidence-source.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import {
   checkpointDelivery,
@@ -48,7 +49,7 @@ import {
 import {
   checkpointEvidenceContractState,
   legacyCheckpointEntries,
-  precedingCheckpointIntegrationCommit,
+  checkpointHistoryBindings,
 } from './checkpoint-evidence-git-contract.mjs';
 import { parseConversionEvidence } from './conversion-evidence.mjs';
 import {
@@ -174,7 +175,7 @@ function checkpointOptionsAt(
           ),
         }
       : {}),
-    ancestorSha: precedingCheckpointIntegrationCommit(root, parentRevision, basename),
+    ...checkpointHistoryBindings(root, revision, parentRevision, basename),
     ...(baseOid === null ? {} : { baseOid }),
     ...(checkpointPaths === null ? {} : { checkpointPaths }),
     strictPlanReason,
@@ -491,6 +492,7 @@ export function gateImplementEntryResults(
   {
     legacyEntries = [],
     priorEntries = null,
+    introductionSpecs = null,
     ancestorSha = null,
     expectedTaskItems = null,
     taskItemsError = null,
@@ -502,6 +504,9 @@ export function gateImplementEntryResults(
   const visibleEntries = canonicalPassEntries(evidence, 'GATE-IMPLEMENT');
   const rawEntries = rawGateImplementPassEntries(spec);
   const entries = rawEntries;
+  const introducesContinuation =
+    priorEntries?.length === 1 &&
+    gateImplementEntryForm(entries[priorEntries.length]) === 'continuation';
   if (rawEntries.length !== visibleEntries.length) {
     return rawEntries.map((body) => ({
       ok: false,
@@ -692,23 +697,17 @@ export function gateImplementEntryResults(
         };
       }
     }
-    if (contract.version === 2 && isCurrentIntroduction) {
-      const delivery = checkpointDelivery(
-        contract,
-        formName === 'gateImplementContinuation' ? (baseSpec ?? spec) : spec,
-      );
-      if (!delivery.ok) return { ok: false, error: delivery.error, body };
-      if (
-        parsed.payload.deliveryMode !== delivery.deliveryMode ||
-        JSON.stringify(parsed.payload.sequencedArtifacts) !== JSON.stringify(delivery.artifacts)
-      ) {
-        return {
-          ok: false,
-          error: `${formName} deliveryMode/sequencedArtifacts do not bind the Decision contract`,
-          body,
-        };
-      }
-    }
+    const deliveryError = checkpointDeliveryBindingError({
+      contract,
+      formName,
+      isCurrentIntroduction,
+      payload: parsed.payload,
+      spec,
+      baseSpec,
+      introductionSpec: introductionSpecs?.[index],
+      introducesContinuation,
+    });
+    if (deliveryError !== null) return { ok: false, error: deliveryError, body };
     return { ok: true, payload: parsed.payload, body };
   });
   if (priorEntries === null) return results;

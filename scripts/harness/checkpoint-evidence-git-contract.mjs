@@ -154,6 +154,18 @@ export function checkpointIntroductionSpec(root, revision, basename, rawEntry) {
   return null;
 }
 
+export function checkpointHistoryBindings(root, revision, parentRevision, basename) {
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const entries = rawGateImplementPassEntries(gitText(root, revision, specPath));
+  return {
+    ancestorSha: precedingCheckpointIntegrationCommit(root, parentRevision, basename),
+    introductionSpecs: entries.map((entry) => {
+      const introduced = checkpointIntroductionSpec(root, revision, basename, entry);
+      return introduced?.specText ?? null;
+    }),
+  };
+}
+
 export function precedingCheckpointIntegrationCommit(root, revision, basename) {
   const specPath = `${SPEC_PREFIX}active/${basename}`;
   const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);
