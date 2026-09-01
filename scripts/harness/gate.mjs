@@ -2014,6 +2014,14 @@ export function runAdvance(options) {
   if (!folder)
     throw new Error(`refused: spec-workflow.md maps no folder for status \`${upgrade.to}\``);
 
+  const specRoot = path.dirname(path.dirname(docPath));
+  const target = path.join(specRoot, folder, path.basename(docPath));
+  const moved = target !== docPath;
+  if (moved && existsSync(target)) {
+    const targetRel = path.relative(root, target).split(path.sep).join('/');
+    throw new Error(`refused: destination spec already exists: ${targetRel}`);
+  }
+
   const taskRel = taskPathFromSpec(doc.text);
   let activatedTask = null;
   if (
@@ -2027,9 +2035,6 @@ export function runAdvance(options) {
     activatedTask = prepareTaskActivation(root, taskRel);
   }
 
-  const specRoot = path.dirname(path.dirname(docPath));
-  const target = path.join(specRoot, folder, path.basename(docPath));
-  const moved = target !== docPath;
   const notes = [];
   writeFileSync(docPath, rewriteFrontmatterStatus(doc.text, upgrade.to));
   if (moved) {

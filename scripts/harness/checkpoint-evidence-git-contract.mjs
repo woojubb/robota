@@ -120,6 +120,40 @@ export function legacyCheckpointEntries(root, cutover, revision, basename) {
   });
 }
 
+export function checkpointIntroductionSpec(root, revision, basename, rawEntry) {
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const currentEntries = rawGateImplementPassEntries(gitText(root, revision, specPath));
+  const selectedIndex = currentEntries.findIndex((entry) => entry === rawEntry);
+  if (selectedIndex === -1) return null;
+  const occurrence = currentEntries
+    .slice(0, selectedIndex + 1)
+    .filter((entry) => entry === rawEntry).length;
+  const history = runGit(root, ['rev-list', '--first-parent', revision]);
+  if (history.code !== 0) {
+    throw new Error(
+      `cannot inspect checkpoint introduction ancestry: ${history.stderr || '(no stderr)'}`,
+    );
+  }
+  for (const commit of lines(history.stdout)) {
+    const parent = runGit(root, ['rev-parse', `${commit}^1`]);
+    const specText = gitText(root, commit, specPath);
+    if (specText === null) continue;
+    const inCommit = rawGateImplementPassEntries(specText).filter(
+      (entry) => entry === rawEntry,
+    ).length;
+    const inParent =
+      parent.code === 0
+        ? rawGateImplementPassEntries(gitText(root, parent.stdout.trim(), specPath)).filter(
+            (entry) => entry === rawEntry,
+          ).length
+        : 0;
+    if (inCommit >= occurrence && inParent < occurrence) {
+      return { commit, specText };
+    }
+  }
+  return null;
+}
+
 export function precedingCheckpointIntegrationCommit(root, revision, basename) {
   const specPath = `${SPEC_PREFIX}active/${basename}`;
   const priorEntry = rawGateImplementPassEntries(gitText(root, revision, specPath)).at(-1);

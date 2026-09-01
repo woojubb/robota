@@ -2,12 +2,16 @@ import { spawnSync } from 'node:child_process';
 
 import {
   checkpointDelivery,
+  continuationArtifacts,
   formatCheckpointEvidence,
   parseCheckpointEvidenceContracts,
   priorPassDigest,
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
-import { precedingCheckpointIntegrationCommit } from './checkpoint-evidence-git-contract.mjs';
+import {
+  checkpointIntroductionSpec,
+  precedingCheckpointIntegrationCommit,
+} from './checkpoint-evidence-git-contract.mjs';
 import { gateImplementEntryResults } from './scan-user-execution-plan-order.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 import {
@@ -56,7 +60,7 @@ function delivery(contract, specText) {
   return result;
 }
 
-function validatedPriorCheckpoint(ruleText, specText, taskText, taskRel, declaredDelivery) {
+function validatedPriorCheckpoint(root, ruleText, specText, taskText, taskRel, declaredDelivery) {
   const signal = planSignal(ruleText, taskText);
   const basename = taskRel.split('/').at(-1);
   const results = gateImplementEntryResults(specText, { basename, signal }, ruleText, {
@@ -88,6 +92,32 @@ function validatedPriorCheckpoint(ruleText, specText, taskText, taskRel, declare
     throw new Error(
       'GATE-IMPLEMENT continuation prior v2 delivery does not bind the current Decision contract',
     );
+  }
+  if (results[0].payload.version === 1) {
+    const introduced = checkpointIntroductionSpec(root, 'HEAD', basename, results[0].body);
+    if (introduced === null) {
+      throw new Error(
+        'GATE-IMPLEMENT continuation cannot resolve the legacy v1 first PASS introduction revision',
+      );
+    }
+    const parsedContracts = parseCheckpointEvidenceContracts(ruleText);
+    const legacyContract = parsedContracts.ok ? parsedContracts.contracts.get(1) : undefined;
+    if (!legacyContract) {
+      throw new Error('GATE-IMPLEMENT continuation legacy v1 contract is unavailable');
+    }
+    const historicalArtifacts = continuationArtifacts(legacyContract, introduced.specText);
+    if (!historicalArtifacts.ok) {
+      throw new Error(
+        `GATE-IMPLEMENT continuation legacy v1 historical Decision is not sequenced; a corrective checkpoint is required: ${historicalArtifacts.error}`,
+      );
+    }
+    if (
+      JSON.stringify(historicalArtifacts.artifacts) !== JSON.stringify(declaredDelivery.artifacts)
+    ) {
+      throw new Error(
+        'GATE-IMPLEMENT continuation legacy v1 historical Decision artifacts do not bind the current Decision contract',
+      );
+    }
   }
   const selected = taskItemsForCheckpoint(specText, taskText);
   if (!selected.ok) {
@@ -137,7 +167,14 @@ export function continuationCheckpointEvidence({
   if (declaredDelivery.deliveryMode !== 'sequenced') {
     throw new Error('GATE-IMPLEMENT continuation requires `Delivery mode: sequenced`');
   }
-  const prior = validatedPriorCheckpoint(ruleText, specText, taskText, taskRel, declaredDelivery);
+  const prior = validatedPriorCheckpoint(
+    root,
+    ruleText,
+    specText,
+    taskText,
+    taskRel,
+    declaredDelivery,
+  );
   const ancestorSha = precedingCheckpointIntegrationCommit(root, 'HEAD', specRel.split('/').at(-1));
   if (ancestorSha === null) {
     throw new Error(
