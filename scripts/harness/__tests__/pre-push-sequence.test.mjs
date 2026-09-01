@@ -15,7 +15,7 @@
  * relevant.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // harness-coverage: pre-push-verification-execution.mjs
 
@@ -26,6 +26,7 @@ import {
   runPrePushGate,
 } from '../pre-push.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
+import { createPrePushCommandRunner } from '../pre-push-command-runner.mjs';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
 function recordingSteps(decision) {
@@ -289,5 +290,40 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
         spawn: () => ({ status: 0 }),
       }),
     ).toBe(true);
+  });
+});
+
+describe('pre-push command runner characterization (INFRA-148)', () => {
+  it('renders the command and preserves the existing child-process contract', () => {
+    const writes = [];
+    const spawn = vi.fn(() => ({ status: 0 }));
+    const run = createPrePushCommandRunner({
+      root: '/tmp/repository',
+      spawn,
+      write: (value) => writes.push(value),
+    });
+
+    run('pnpm', ['harness:scan']);
+
+    expect(writes).toEqual(['> pnpm harness:scan\n']);
+    expect(spawn).toHaveBeenCalledWith('pnpm', ['harness:scan'], {
+      cwd: '/tmp/repository',
+      stdio: 'inherit',
+      encoding: 'utf8',
+    });
+  });
+
+  it('forwards a non-zero child status to the existing exit boundary', () => {
+    const exit = vi.fn();
+    const run = createPrePushCommandRunner({
+      root: '/tmp/repository',
+      spawn: () => ({ status: 7 }),
+      write: () => {},
+      exit,
+    });
+
+    run('pnpm', ['harness:scan']);
+
+    expect(exit).toHaveBeenCalledWith(7);
   });
 });
