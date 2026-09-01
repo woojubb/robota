@@ -36,6 +36,7 @@ import {
   reportPrePushBaseResolution,
   runPrePushVerification,
 } from './pre-push-verification-execution.mjs';
+import { createPrePushCommandRunner } from './pre-push-command-runner.mjs';
 
 export { createWorkRunMeasurementInput, runPrePushGate };
 /**
@@ -112,21 +113,6 @@ function substituteBaseRef(args, baseRef) {
   if (at === -1) return [...args];
   if (baseRef) return args.map((arg, i) => (i === at + 1 ? baseRef : arg));
   return args.filter((_, i) => i !== at && i !== at + 1);
-}
-
-function run(command, args) {
-  const rendered = [command, ...args].join(' ');
-  process.stdout.write(`> ${rendered}\n`);
-
-  const result = spawnSync(command, args, {
-    cwd: WORKSPACE_ROOT,
-    stdio: 'inherit',
-    encoding: 'utf8',
-  });
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
 }
 
 function runGitQuiet(args) {
@@ -413,8 +399,12 @@ function createPrePushRuntime() {
   };
 }
 
-export function createPrePushSteps() {
-  const runtime = createPrePushRuntime();
+export function createPrePushSteps({
+  runtime = createPrePushRuntime(),
+  createCommandRunner = createPrePushCommandRunner,
+  commandRunnerOptions = {},
+} = {}) {
+  const run = createCommandRunner({ root: WORKSPACE_ROOT, ...commandRunnerOptions });
 
   return {
     pruneAndWarnStaleWorktrees,

@@ -1,8 +1,10 @@
 // harness-coverage: work-run-cutover-scan.mjs
 // harness-coverage: work-run-cutover-digest.mjs
 // harness-coverage: work-run-scan-adapters.mjs
+// harness-coverage: work-run-observation.mjs
 import { describe, expect, it, vi } from 'vitest';
 
+import * as scanModule from '../scan-work-run-measurement.mjs';
 import {
   classifyPlanningExclusion,
   judgeWorkRunScan,
@@ -16,6 +18,8 @@ import {
 } from '../scan-work-run-measurement.mjs';
 import { createWorkRunVerificationRuntime } from '../work-run-verification-runtime.mjs';
 import { changedRange, inspectCutover, receiptForRunAt } from '../work-run-scan-adapters.mjs';
+
+const WORK_RUN_PR_OBSERVATION_ENV = 'HARNESS_WORK_RUN_PR_OBSERVATION';
 
 const entryIdentity = {
   repository: 'woojubb/robota',
@@ -59,6 +63,60 @@ const sealedReceipt = {
 };
 
 describe('scan-work-run-measurement', () => {
+  describe('process observation boundary (INFRA-148)', () => {
+    const input = {
+      root: '/tmp/repository',
+      baseRef: 'origin/develop',
+      subjectRef: 'a'.repeat(40),
+      subjectBranch: 'codex/work',
+      argv: [],
+    };
+
+    it('preserves the post-push default when the process context is absent', () => {
+      const validate = vi.fn(() => ({ ok: true, population: 'included' }));
+
+      expect(scanModule.executeWorkRunMeasurement).toBeTypeOf('function');
+      if (typeof scanModule.executeWorkRunMeasurement !== 'function') return;
+      scanModule.executeWorkRunMeasurement({ ...input, env: {} }, validate);
+
+      expect(validate).toHaveBeenCalledOnce();
+      expect(validate.mock.calls[0][0]).not.toHaveProperty('prObservation');
+    });
+
+    it.each(['pre-push', 'post-push'])(
+      'forwards the valid %s process context unchanged',
+      (value) => {
+        const validate = vi.fn(() => ({ ok: true, population: 'included' }));
+        const env = { [WORK_RUN_PR_OBSERVATION_ENV]: value };
+
+        expect(scanModule.executeWorkRunMeasurement).toBeTypeOf('function');
+        if (typeof scanModule.executeWorkRunMeasurement !== 'function') return;
+        scanModule.executeWorkRunMeasurement({ ...input, env }, validate);
+
+        expect(validate).toHaveBeenCalledWith(
+          expect.objectContaining({ env, prObservation: value }),
+        );
+      },
+    );
+
+    it.each(['', 'PRE-PUSH', 'before-push'])(
+      'rejects the invalid explicit context %j before repository validation starts',
+      (value) => {
+        const validate = vi.fn();
+
+        expect(scanModule.executeWorkRunMeasurement).toBeTypeOf('function');
+        if (typeof scanModule.executeWorkRunMeasurement !== 'function') return;
+        expect(() =>
+          scanModule.executeWorkRunMeasurement(
+            { ...input, env: { [WORK_RUN_PR_OBSERVATION_ENV]: value } },
+            validate,
+          ),
+        ).toThrow(/work-run-measurement: invalid.*observation/i);
+        expect(validate).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   it('uses the shared runtime for every Git-backed scan adapter', () => {
     const operations = [
       () =>
