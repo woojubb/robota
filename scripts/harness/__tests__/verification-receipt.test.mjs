@@ -5,7 +5,7 @@
 // harness-coverage: bounded-git-status.mjs
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -34,6 +34,10 @@ import {
   createInitialWorkRun,
   projectWorkRunDurations,
 } from '../work-run-contract.mjs';
+
+const REPOSITORY_PACKAGE_MANAGER = JSON.parse(
+  readFileSync(path.resolve(import.meta.dirname, '../../..', 'package.json'), 'utf8'),
+).packageManager;
 
 const identity = {
   headCommit: 'head-a',
@@ -283,7 +287,10 @@ describe('verification receipt reuse across the measured closure commit', () => 
     for (const [file, contents] of [
       ['.github/workflows/ci.yml', 'name: ci\n'],
       ['.lintstagedrc.json', '{}\n'],
-      ['package.json', '{"name":"fixture"}\n'],
+      [
+        'package.json',
+        `${JSON.stringify({ name: 'fixture', packageManager: REPOSITORY_PACKAGE_MANAGER })}\n`,
+      ],
       ['pnpm-lock.yaml', 'lockfileVersion: 6\n'],
       ['scripts/harness/with-repo-lock.sh', '#!/bin/sh\n'],
       ['scripts/harness/owner.mjs', 'export const owner = true;\n'],
