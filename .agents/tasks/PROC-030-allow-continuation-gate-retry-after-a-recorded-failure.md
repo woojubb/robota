@@ -21,14 +21,14 @@ Task/PLAN, and worktree conditions on every retry.
 
 ## Plan
 
-- [ ] TC-01 — synchronize the local gate-test catalogue with the live annotated continuation prior-map
+- [x] TC-01 — synchronize the local gate-test catalogue with the live annotated continuation prior-map
       row and prove the RED fixture fails specifically with
       `last [GATE-IMPLEMENT] entry is ❌ FAIL`.
-- [ ] TC-02 — make continuation ordering select the most recent prior GATE-IMPLEMENT PASS while leaving
+- [x] TC-02 — make continuation ordering select the most recent prior GATE-IMPLEMENT PASS while leaving
       all current continuation criteria mandatory.
-- [ ] TC-03 — prove a continuation with no prior PASS still fails and an ordinary gate still treats a
+- [x] TC-03 — prove a continuation with no prior PASS still fails and an ordinary gate still treats a
       later FAIL as ordering-blocking.
-- [ ] TC-04 — on a valid PASS→FAIL retry history, independently make current status, sequenced
+- [x] TC-04 — on a valid PASS→FAIL retry history, independently make current status, sequenced
       Decision/artifacts, preceding ancestor, Task/PLAN binding, and outside-worktree inventory invalid;
       prove every case still fails.
 - [ ] TC-05 — run focused gate tests, affected checkpoint/order tests, and repository verification.
