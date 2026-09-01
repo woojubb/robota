@@ -77,14 +77,20 @@ behavior to execute or observe.
 ## Verification
 
 - `pnpm build` exited 0 across all workspace packages.
-- The initial pre-review focused harness verification passed 261/261 tests. Independent local review
-  then found four contract gaps, and its re-review found one remaining delivery-binding gap; all five
-  were reproduced and corrected before the first push.
-- Post-review focused verification passed 269/269 tests across 13 owning files, including 142/142
-  plan-order history cases and explicit rejection of both a v2 `single` predecessor under a sequenced
-  Decision and continuation artifact drift. `pnpm build` exited 0 again. The full repository scan passed
-  149/150 before work-run closure; its sole failure was the expected active-run
-  `invalid-closure-commit`, which is resolved only by the receipt-only closure.
+- Replacement-branch independent review at base `404051abc8070a7ff162ba2a3c96ef7b809df593`
+  and head `fa5c1f21525d9d974837387d5e0f9fab56c1b607` found two local contract gaps: a
+  legacy-v1 first checkpoint could borrow a later Decision's sequenced declaration, and advance could
+  overwrite an existing destination. Both were reproduced RED first, fixed, and covered across tracked,
+  untracked, and fallback transition paths.
+- Exact re-review at head `b188d1405` confirmed the destination guard but found one remaining
+  delivery-binding gap: history and staged plan-order consumers still accepted a post-hoc legacy-v1
+  declaration. Both consumer routes were reproduced RED, then bound to the first checkpoint's
+  introduction-revision Decision with valid controls retained.
+- Final focused verification passed 172/172 tests across six owning files. Full contract verification
+  passed 4,628/4,628 tests across 223 files plus the 222/222 follow-up contract suite, and hermetic
+  verification passed 1,123/1,123 tests across 71 files. The full repository scan passed 149/150 before
+  work-run closure; its sole failure was the expected active-run `invalid-closure-commit`, which is
+  resolved only by the receipt-only closure.
 - The first plain `pnpm test` exposed an unchanged macOS `/var` versus `/private/var` test-fixture
   defect. With a canonical temporary root that package passed 119/119; the later full run reached
   unrelated Linux-only stable-no-follow tests in `agent-session`. Neither package is changed by this work.
