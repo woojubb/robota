@@ -85,8 +85,8 @@ behavior to execute or observe.
   Decision and continuation artifact drift. `pnpm build` exited 0 again. The full repository scan passed
   149/150 before work-run closure; its sole failure was the expected active-run
   `invalid-closure-commit`, which is resolved only by the receipt-only closure.
-- The first plain `pnpm test` exposed the unchanged macOS `/var` versus `/private/var` defect recorded as
-  issue #2564. With a canonical temporary root that package passed 119/119; the later full run reached
+- The first plain `pnpm test` exposed an unchanged macOS `/var` versus `/private/var` test-fixture
+  defect. With a canonical temporary root that package passed 119/119; the later full run reached
   unrelated Linux-only stable-no-follow tests in `agent-session`. Neither package is changed by this work.
 - Outcome-specific, explicitly unmerged delivery evidence was recorded on issues #2422, #2561, and #2261;
   each issue remains open for the delivery PR to close on merge.
