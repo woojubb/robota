@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asScalar, frontmatterObject, parseFrontmatterEntryLine } from './frontmatter.mjs';
 import {
   parseUserExecutionPlanContract,
   validateTaskUserExecutionPlan,
@@ -35,15 +35,19 @@ export function validateNotApplicablePlan(ruleText, taskText) {
 
 export function rewriteFrontmatterStatus(text, next) {
   const source = String(text);
-  const end = source.indexOf('\n---', 4);
-  if (!source.startsWith('---\n') || end === -1) {
+  const lines = source.split('\n');
+  const end = lines.indexOf('---', 1);
+  if (lines[0] !== '---' || end === -1) {
     throw new Error('document has no leading frontmatter block');
   }
-  const frontmatter = source.slice(4, end);
-  if (!/^status:\s*[^\n]*$/m.test(frontmatter)) {
-    throw new Error('frontmatter has no status field');
+
+  for (let index = 1; index < end; index += 1) {
+    if (parseFrontmatterEntryLine(lines[index])?.key !== 'status') continue;
+    lines[index] = `status: ${next}`;
+    return lines.join('\n');
   }
-  return `${source.slice(0, 4)}${frontmatter.replace(/^status:\s*[^\n]*$/m, `status: ${next}`)}${source.slice(end)}`;
+
+  throw new Error('frontmatter has no status field');
 }
 
 export function readTaskRecordText(taskPath) {
