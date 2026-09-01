@@ -102,7 +102,7 @@
   "scripts/harness/live-provider-smoke.mjs": 457,
   "scripts/harness/loop-run.mjs": 831,
   "scripts/harness/new-spec.mjs": 444,
-  "scripts/harness/pre-push.mjs": 468,
+  "scripts/harness/pre-push.mjs": 456,
   "scripts/harness/promote.mjs": 345,
   "scripts/harness/record-local-review.mjs": 540,
   "scripts/harness/release-run.mjs": 543,

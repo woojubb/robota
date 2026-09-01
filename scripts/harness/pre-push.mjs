@@ -36,6 +36,7 @@ import {
   reportPrePushBaseResolution,
   runPrePushVerification,
 } from './pre-push-verification-execution.mjs';
+import { createPrePushCommandRunner } from './pre-push-command-runner.mjs';
 
 export { createWorkRunMeasurementInput, runPrePushGate };
 /**
@@ -114,20 +115,7 @@ function substituteBaseRef(args, baseRef) {
   return args.filter((_, i) => i !== at && i !== at + 1);
 }
 
-function run(command, args) {
-  const rendered = [command, ...args].join(' ');
-  process.stdout.write(`> ${rendered}\n`);
-
-  const result = spawnSync(command, args, {
-    cwd: WORKSPACE_ROOT,
-    stdio: 'inherit',
-    encoding: 'utf8',
-  });
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-}
+const run = createPrePushCommandRunner({ root: WORKSPACE_ROOT });
 
 function runGitQuiet(args) {
   return (
