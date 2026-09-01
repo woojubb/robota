@@ -108,38 +108,61 @@ degrades to either lifecycle meaning.
    observation to repository validation.
 5. Prove CI argv parity, focused behavior, harness tiers, and the original normal-push path.
 
+## Verification Sequencing Amendment
+
+The original TC-05 wording made a normal PR #2566 push a prerequisite for completing INFRA-148. That
+ordering is circular: PR #2566 cannot pass its normal pre-push gate until this bridge exists, while
+the repository permits opening or updating a PR only after the included unit is complete. The
+pre-completion criterion therefore uses deterministic local sequence, boundary, repository-validation,
+contract, hermetic, build, substantive-scan, and independent-review evidence. After receipt-only
+closure, the exact full scan and same commits are integrated into PR #2566; its normal push is recorded
+as the parent consolidation plan’s delivery acceptance step rather than backdated as INFRA-148 evidence.
+
+> **Contained — INFRA-150.** Issue #2568 owns the repository-wide ordering defect between Task/spec
+> terminalization, Work-Run receipt binding, and exact full-scan acceptance. INFRA-148 carries only the
+> smallest visible sequencing hold needed to avoid claiming impossible pre-completion evidence.
+
+**Direct approval (verbatim):** “모두 사전 승인함” — 2026-09-02, this conversation, given in direct
+response to the recommendation to make this sequencing correction and bundle INFRA-148 into PR #2566.
+
 ## Affected Files
 
-| Path | Change |
-| --- | --- |
-| `scripts/harness/pre-push.mjs` | Merge an optional per-command environment overlay for child processes |
-| `scripts/harness/pre-push-verification-execution.mjs` | Scope the pre-push observation to the nested scans mirror |
-| `scripts/harness/scan-work-run-measurement.mjs` | Validate and forward the process observation |
-| `scripts/harness/__tests__/**` | Regression, boundary, leakage, and command-parity coverage |
-| `.agents/tasks/INFRA-148-pre-push-ci-mirror-scan-drops-work-run-observation-mode.md` | Persistent work record |
+| Path                                                                                 | Change                                                                  |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `scripts/harness/pre-push.mjs`                                                       | Delegate mirrored command execution to the bounded child-process runner |
+| `scripts/harness/pre-push-command-runner.mjs`                                        | Merge a per-command environment overlay and execute the child process   |
+| `scripts/harness/pre-push-verification-execution.mjs`                                | Scope the pre-push observation to the nested scans mirror               |
+| `scripts/harness/work-run-observation.mjs`                                           | Own the closed process-boundary observation vocabulary                  |
+| `scripts/harness/scan-work-run-measurement.mjs`                                      | Validate and forward the process observation                            |
+| `scripts/harness/__tests__/**`                                                       | Regression, boundary, leakage, and command-parity coverage              |
+| `.agents/tasks/INFRA-148-pre-push-ci-mirror-scan-drops-work-run-observation-mode.md` | Persistent work record                                                  |
 
 ## Completion Criteria
 
-- [ ] TC-01: the nested required-scans process receives `pre-push`, and an authorized unpublished
+- [x] TC-01: the nested required-scans process receives `pre-push`, and an authorized unpublished
       post-findings head is evaluated as a pre-push candidate rather than `post-pr-local-fix`.
-- [ ] TC-02: absent observation context retains the scanner's current `post-push` default, while
+- [x] TC-02: absent observation context retains the scanner's current `post-push` default, while
       explicit `pre-push` and `post-push` values reach repository validation unchanged.
-- [ ] TC-03: any present value outside `pre-push | post-push` fails closed with a specific diagnostic
+- [x] TC-03: any present value outside `pre-push | post-push` fails closed with a specific diagnostic
       before Work-Run repository validation starts.
-- [ ] TC-04: unrelated pre-push child commands receive no observation overlay, inherited environment
+- [x] TC-04: unrelated pre-push child commands receive no observation overlay, inherited environment
       entries survive merging, and the required-scans argv remains exactly aligned with CI.
-- [ ] TC-05: focused tests, harness contract/hermetic tiers, `pnpm harness:scan`, independent local
-      review, and the normal PR #2566 push path all pass without a hook bypass.
+- [ ] TC-05: focused tests, harness contract/hermetic tiers, the root build, every substantive scan
+      through `pnpm harness:scan -- --skip work-run-measurement`, and independent local review all
+      pass without a hook bypass. Exact full-scan and PR #2566 push evidence are downstream acceptance.
+
+> **Contained — INFRA-150.** The exact full scan cannot truthfully precede the receipt-only closure under
+> the current common lifecycle; issue #2568 owns the non-circular ordering repair.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| --- | --- | --- | --- |
-| TC-01 | Sequence regression | Pre-push verification execution test plus Work-Run fixture for an unpublished authorized generation | Reproduces the original nested-scan failure shape |
-| TC-02 | Boundary unit | Scanner adapter tests for absent, `pre-push`, and `post-push` inputs | Asserts exact value forwarded to validation |
-| TC-03 | Negative unit | Scanner adapter test with an invalid environment value | Requires named fail-closed diagnostic and no validator call |
-| TC-04 | Contract/sequence | Command-runner environment tests and existing CI mirror parity test | Covers merge preservation, leakage, and unchanged argv |
-| TC-05 | Regression/integration | Focused suites, `pnpm harness:test:contracts`, `pnpm harness:test:hermetic`, `pnpm harness:scan`, local review, and hosted push evidence | Hook bypass is forbidden; hosted push closes the original reproduction |
+| TC-ID | Test Type              | Tool / Approach                                                                                                  | Notes                                                                                   |
+| ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| TC-01 | Sequence regression    | Pre-push verification execution test plus Work-Run fixture for an unpublished authorized generation              | Reproduces the original nested-scan failure shape                                       |
+| TC-02 | Boundary unit          | Scanner adapter tests for absent, `pre-push`, and `post-push` inputs                                             | Asserts exact value forwarded to validation                                             |
+| TC-03 | Negative unit          | Scanner adapter test with an invalid environment value                                                           | Requires named fail-closed diagnostic and no validator call                             |
+| TC-04 | Contract/sequence      | Command-runner environment tests and existing CI mirror parity test                                              | Covers merge preservation, leakage, and unchanged argv                                  |
+| TC-05 | Regression/integration | Focused suites, contracts, hermetic, build, `pnpm harness:scan -- --skip work-run-measurement`, and local review | Exact full scan and PR #2566 push are downstream acceptance under INFRA-150 containment |
 
 ## User Execution Test Scenarios
 
@@ -300,7 +323,7 @@ package, product, public-surface, dependency-direction, placement, or scope defe
 
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS —
   the recorded `승인함` was given immediately in reply to the explicit request `INFRA-148의 현재
-  Decision을 승인하며 구현 진행을 승인함`. The request names this document, its current
+Decision을 승인하며 구현 진행을 승인함`. The request names this document, its current
   Decision, and implementation authorization, so the reply clearly confirms this design rather than a
   standing category, a clarifying answer, silence, or approval of another item.
 - GATE-APPROVAL — The item is inside the class as the registry defines it: N/A — the valid route is
@@ -331,6 +354,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -369,4 +393,5 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->

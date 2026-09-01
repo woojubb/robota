@@ -48,16 +48,22 @@ scan process.
 
 ## Plan
 
-- [ ] TC-01: Add a regression test proving the nested local `harness:scan` receives `pre-push`
+- [x] TC-01: Add a regression test proving the nested local `harness:scan` receives `pre-push`
       context and evaluates the unpublished authorized generation with that observation.
-- [ ] TC-02: Add scanner-boundary tests proving absent context retains `post-push` and both valid
+- [x] TC-02: Add scanner-boundary tests proving absent context retains `post-push` and both valid
       values reach repository validation unchanged.
-- [ ] TC-03: Prove an invalid explicit observation fails with a named diagnostic before repository
+- [x] TC-03: Prove an invalid explicit observation fails with a named diagnostic before repository
       validation is called.
-- [ ] TC-04: Propagate the observation only around the nested required-scans mirror while preserving
+- [x] TC-04: Propagate the observation only around the nested required-scans mirror while preserving
       inherited environment entries and the exact CI command/argv projection.
-- [ ] TC-05: Run focused and full harness verification, independent local review, and the original
-      authorized-generation push path without `--no-verify`.
+- [ ] TC-05: Run focused suites, contract/hermetic tiers, the root build, and every substantive
+      scan through `pnpm harness:scan -- --skip work-run-measurement`, then obtain an independent
+      local review without a hook bypass. The exact full scan and normal PR #2566 push remain the
+      parent consolidation plan’s downstream delivery acceptance steps.
+
+> **Contained — INFRA-150.** The repository-wide lifecycle currently cannot bind a terminal Work-Run
+> receipt and also require that receipt’s full scan before Task/spec terminalization changes the head.
+> Issue #2568 owns the common ordering repair; this Task records the smallest truthful sequencing hold.
 
 ## Completion Criteria
 
@@ -66,7 +72,12 @@ scan process.
 - GitHub CI and standalone scans continue to use `post-push` semantics by default.
 - Invalid observation context is rejected with a specific diagnostic.
 - The required-scans command projection remains byte-for-byte aligned with CI.
-- Focused tests, harness contract/hermetic tiers, and the normal pre-push gate pass.
+- Focused tests, harness contract/hermetic tiers, the root build, and every substantive scan pass
+  before completion; after receipt-only closure, the exact full scan and normal PR push provide the
+  parent consolidation plan’s delivery acceptance evidence.
+
+> **Contained — INFRA-150.** This split is temporary and visible because the common lifecycle has no
+> non-circular single-head ordering yet; issue #2568 owns that repository-wide correction.
 
 ## Test Plan
 
@@ -74,8 +85,10 @@ scan process.
 - Extend `scripts/harness/__tests__/scan-work-run-measurement.test.mjs` for absent, valid, and invalid
   observation context.
 - Run the focused pre-push and Work-Run suites.
-- Run `pnpm harness:test:contracts`, `pnpm harness:test:hermetic`, and `pnpm harness:scan`.
-- Exercise a normal push of PR #2566's authorized generation and record the gate result.
+- Run `pnpm harness:test:contracts`, `pnpm harness:test:hermetic`, the root build, and
+  `pnpm harness:scan -- --skip work-run-measurement` before lifecycle completion.
+- After the receipt-only closure, run exact `pnpm harness:scan`, integrate into PR #2566, and record
+  the normal push as the parent consolidation plan’s delivery acceptance evidence.
 
 ## User Execution Test Scenarios
 
