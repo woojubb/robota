@@ -1,98 +1,19 @@
-import { createHash } from 'node:crypto';
+export {
+  checkpointCheckboxItems,
+  checkpointCompletionCriteria,
+  checkpointDelivery,
+  continuationArtifacts,
+  priorPassDigest,
+  rawGateImplementPassEntries,
+  taskItemsForCheckpoint,
+} from './checkpoint-evidence-source.mjs';
 
-import { visibleMarkdown } from './markdown-visibility.mjs';
+import { CONTRACT_SHAPE, CONTRACT_SHAPE_V2 } from './checkpoint-evidence-contract-shapes.mjs';
 
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
-
-const CONTRACT_SHAPE = Object.freeze({
-  entryEncoding: {
-    startMarker: '<!-- checkpoint-evidence:v1:start -->',
-    fence: 'json',
-    endMarker: '<!-- checkpoint-evidence:v1:end -->',
-    multiplicity: 'exactly-one',
-  },
-  priorPassDigest: {
-    algorithm: 'sha256',
-    encoding: 'lowercase-hex',
-    source: 'prior-complete-gate-implement-entry-raw-utf8',
-  },
-  decisionArtifacts: {
-    section: 'Architecture Review/Decision',
-    linePrefix: '**Continuation artifacts:** ',
-    separator: ', ',
-    token: 'markdown-code-repository-path',
-    multiplicity: 'exactly-one',
-  },
-  actionMapping: {
-    'automatable:robota-cli': 'command',
-    'automatable:robota-tui': 'command',
-    'automatable:robota-browser-ui': 'browserSteps',
-    'automatable:public-sdk-example': 'command',
-    'manual:robota-tui': 'uiSteps',
-    'manual:robota-browser-ui': 'uiSteps',
-  },
-  forms: {
-    gateImplementFirst: {
-      heading: 'GATE-IMPLEMENT',
-      statusUpgrade: 'approved → in-progress',
-      specFolder: 'todo',
-      payloadKeys: [
-        'version',
-        'form',
-        'taskPath',
-        'specPath',
-        'taskItems',
-        'plan',
-        'worktreePaths',
-      ],
-    },
-    gateImplementContinuation: {
-      heading: 'GATE-IMPLEMENT',
-      statusUpgrade: 'in-progress → in-progress (continuation)',
-      specFolder: 'active',
-      payloadKeys: [
-        'version',
-        'form',
-        'priorPass',
-        'sequencedArtifacts',
-        'ancestorSha',
-        'taskPath',
-        'specPath',
-        'plan',
-        'worktreePaths',
-      ],
-    },
-    doneGateStageOne: {
-      heading: 'DONE-GATE-STAGE-1',
-      statusUpgrade: 'scenario drafted → scenario written',
-      payloadKeys: ['version', 'form', 'outcome', 'scenarios'],
-      scenarioKeys: [
-        'name',
-        'surface',
-        'surfaceRationale',
-        'invocation',
-        'observableType',
-        'observable',
-        'observableRationale',
-        'guardianObservableVerdict',
-        'executability',
-        'prerequisite',
-        'action',
-        'expectedObservable',
-        'cleanup',
-        'evidence',
-      ],
-      conditionalScenarioKeys: [
-        'productStatePath',
-        'barrier',
-        'unavailableCapability',
-        'attemptedAutomation',
-        'uiSteps',
-      ],
-    },
-  },
-});
+const CONTRACT_V2_START = '<!-- checkpoint-evidence-contract:v2:start -->';
+const CONTRACT_V2_END = '<!-- checkpoint-evidence-contract:v2:end -->';
 
 function failure(error) {
   return { ok: false, error };
@@ -174,44 +95,59 @@ function exactDeclaredObject(value, expected, member) {
   const keysError = exactKeys(value, Object.keys(expected), member);
   if (keysError) return keysError;
   for (const [key, expectedValue] of Object.entries(expected)) {
-    if (value[key] !== expectedValue) return `${member}.${key} must be ${expectedValue}`;
+    if (expectedValue !== null && typeof expectedValue === 'object') {
+      const nested = exactDeclaredObject(value[key], expectedValue, `${member}.${key}`);
+      if (nested) return nested;
+    } else if (value[key] !== expectedValue) {
+      return `${member}.${key} must be ${expectedValue}`;
+    }
   }
   return null;
 }
 
-function validateContractShape(contract) {
+function validateContractShape(contract, expected = CONTRACT_SHAPE) {
   const entryError = exactDeclaredObject(
     contract.entryEncoding,
-    CONTRACT_SHAPE.entryEncoding,
+    expected.entryEncoding,
     'entryEncoding',
   );
   if (entryError) return entryError;
   const digestError = exactDeclaredObject(
     contract.priorPassDigest,
-    CONTRACT_SHAPE.priorPassDigest,
+    expected.priorPassDigest,
     'priorPassDigest',
   );
   if (digestError) return digestError;
   const artifactError = exactDeclaredObject(
     contract.decisionArtifacts,
-    CONTRACT_SHAPE.decisionArtifacts,
+    expected.decisionArtifacts,
     'decisionArtifacts',
   );
   if (artifactError) return artifactError;
-  const mappingError = exactDeclaredObject(
-    contract.actionMapping,
-    CONTRACT_SHAPE.actionMapping,
-    'actionMapping',
-  );
-  if (mappingError) return mappingError;
+  if (expected.decisionDelivery) {
+    const deliveryError = exactDeclaredObject(
+      contract.decisionDelivery,
+      expected.decisionDelivery,
+      'decisionDelivery',
+    );
+    if (deliveryError) return deliveryError;
+  }
+  if (expected.actionMapping) {
+    const mappingError = exactDeclaredObject(
+      contract.actionMapping,
+      expected.actionMapping,
+      'actionMapping',
+    );
+    if (mappingError) return mappingError;
+  }
 
-  const formsError = exactKeys(contract.forms, Object.keys(CONTRACT_SHAPE.forms), 'forms');
+  const formsError = exactKeys(contract.forms, Object.keys(expected.forms), 'forms');
   if (formsError) return formsError;
-  for (const [formName, expected] of Object.entries(CONTRACT_SHAPE.forms)) {
+  for (const [formName, expectedForm] of Object.entries(expected.forms)) {
     const form = contract.forms[formName];
-    const formKeysError = exactKeys(form, Object.keys(expected), `forms.${formName}`);
+    const formKeysError = exactKeys(form, Object.keys(expectedForm), `forms.${formName}`);
     if (formKeysError) return formKeysError;
-    for (const [key, expectedValue] of Object.entries(expected)) {
+    for (const [key, expectedValue] of Object.entries(expectedForm)) {
       const error = Array.isArray(expectedValue)
         ? exactStringArray(form[key], expectedValue, `forms.${formName}.${key}`)
         : form[key] === expectedValue
@@ -279,53 +215,6 @@ function validatePlan(plan) {
   return null;
 }
 
-function levelTwoSectionLines(text, headingPattern) {
-  const source = String(text).split('\n');
-  let fenced = false;
-  let start = -1;
-  for (let index = 0; index < source.length; index += 1) {
-    const line = source[index];
-    if (/^\s*```/.test(line)) fenced = !fenced;
-    if (fenced) continue;
-    if (start === -1) {
-      if (/^##\s+/.test(line) && headingPattern.test(line.replace(/^##\s+/, '').trim())) {
-        start = index;
-      }
-      continue;
-    }
-    if (/^##\s+/.test(line)) return source.slice(start + 1, index);
-  }
-  return start === -1 ? null : source.slice(start + 1);
-}
-
-export function checkpointCheckboxItems(lines) {
-  const items = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const match = /^(\s*)[-*]\s+\[([ xX])\]\s*(.*)$/.exec(lines[index]);
-    if (!match) continue;
-    const indent = match[1].length;
-    const parts = [match[3]];
-    let next = index + 1;
-    for (; next < lines.length; next += 1) {
-      const line = lines[next];
-      if (line.trim() === '') break;
-      const lead = /^(\s*)/.exec(line)[1].length;
-      if (lead <= indent) break;
-      parts.push(line.trim());
-    }
-    items.push({ checked: match[2] !== ' ', text: parts.join(' ').trim(), line: index, indent });
-    index = next - 1;
-  }
-  return items;
-}
-
-export function checkpointCompletionCriteria(text) {
-  const section = levelTwoSectionLines(text, /^Completion Criteria$/i);
-  return section === null
-    ? null
-    : checkpointCheckboxItems(section).filter((item) => item.indent === 0);
-}
-
 function validatePayload(contract, formName, payload) {
   const form = contract?.forms?.[formName];
   if (!form) return `unknown checkpoint evidence form: ${formName}`;
@@ -358,6 +247,24 @@ function validatePayload(contract, formName, payload) {
       allowEmpty: true,
     });
     if (pathsError) return pathsError;
+    if (contract.version === 2) {
+      if (!['single', 'sequenced'].includes(payload.deliveryMode)) {
+        return `${formName}.deliveryMode must be single or sequenced`;
+      }
+      const artifactsError = validateStringArray(payload.sequencedArtifacts, 'sequencedArtifacts', {
+        allowEmpty: true,
+      });
+      if (artifactsError) return artifactsError;
+      if (payload.deliveryMode === 'single' && payload.sequencedArtifacts.length !== 0) {
+        return `${formName} single delivery requires an empty sequencedArtifacts array`;
+      }
+      if (payload.deliveryMode === 'sequenced' && payload.sequencedArtifacts.length === 0) {
+        return `${formName} sequenced delivery requires a non-empty sequencedArtifacts array`;
+      }
+      if (formName === 'gateImplementContinuation' && payload.deliveryMode !== 'sequenced') {
+        return 'gateImplementContinuation requires sequenced delivery';
+      }
+    }
   }
   if (formName === 'gateImplementFirst') {
     const itemsError = validateTaskItems(payload.taskItems);
@@ -429,42 +336,24 @@ function validatePayload(contract, formName, payload) {
   return null;
 }
 
-export function taskItemsForCheckpoint(specText, taskText) {
-  const criterionItems = checkpointCompletionCriteria(specText) ?? [];
-  const criteria = criterionItems
-    .map((item) => /^(TC-\d{2,}):/.exec(item.text)?.[1] ?? null)
-    .filter(Boolean);
-  if (criteria.every((id) => String(taskText).includes(id))) {
-    return {
-      ok: true,
-      items: criteria.map((value) => ({ kind: 'tc-id', value })),
-    };
-  }
-  const checkboxes = checkpointCheckboxItems(String(taskText).split('\n')).map((item) => item.text);
-  if (checkboxes.length < criterionItems.length) {
-    return failure(
-      `Task names ${criteria.filter((id) => String(taskText).includes(id)).length}/${criteria.length} TC ids and carries ${checkboxes.length} checkbox task(s)`,
-    );
-  }
-  return {
-    ok: true,
-    items: checkboxes.map((value) => ({ kind: 'checkbox', value })),
-  };
+export function parseCheckpointEvidenceContract(ruleText) {
+  return parseContractRegion(String(ruleText), {
+    version: 1,
+    start: CONTRACT_START,
+    end: CONTRACT_END,
+    shape: CONTRACT_SHAPE,
+  });
 }
 
-export function parseCheckpointEvidenceContract(ruleText) {
-  const source = String(ruleText);
-  const starts = source.split(CONTRACT_START).length - 1;
-  const ends = source.split(CONTRACT_END).length - 1;
+function parseContractRegion(source, { version, start, end, shape }) {
+  const starts = source.split(start).length - 1;
+  const ends = source.split(end).length - 1;
   if (starts !== 1 || ends !== 1) {
     return failure(
-      `checkpoint evidence contract markers: expected exactly one start/end pair, found ${starts}/${ends}`,
+      `checkpoint evidence contract v${version} markers: expected exactly one start/end pair, found ${starts}/${ends}`,
     );
   }
-  const region = source.slice(
-    source.indexOf(CONTRACT_START) + CONTRACT_START.length,
-    source.indexOf(CONTRACT_END),
-  );
+  const region = source.slice(source.indexOf(start) + start.length, source.indexOf(end));
   const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
   if (!fenced) return failure('checkpoint evidence contract region must contain one json fence');
   const duplicate = duplicateJsonMember(fenced[1]);
@@ -477,18 +366,51 @@ export function parseCheckpointEvidenceContract(ruleText) {
   } catch (error) {
     return failure(`checkpoint evidence contract JSON is invalid: ${error.message}`);
   }
-  if (contract?.version !== 1) {
-    return failure(`checkpoint evidence contract version must be integer 1`);
+  if (contract?.version !== version) {
+    return failure(`checkpoint evidence contract version must be integer ${version}`);
   }
-  const topLevelError = exactKeys(
-    contract,
-    ['version', 'entryEncoding', 'priorPassDigest', 'decisionArtifacts', 'actionMapping', 'forms'],
-    'contract',
-  );
+  const topLevelKeys = [
+    'version',
+    'entryEncoding',
+    'priorPassDigest',
+    'decisionArtifacts',
+    ...(shape.decisionDelivery ? ['decisionDelivery'] : []),
+    ...(shape.actionMapping ? ['actionMapping'] : []),
+    'forms',
+  ];
+  const topLevelError = exactKeys(contract, topLevelKeys, 'contract');
   if (topLevelError) return failure(topLevelError);
-  const shapeError = validateContractShape(contract);
+  const shapeError = validateContractShape(contract, shape);
   if (shapeError) return failure(shapeError);
   return { ok: true, contract };
+}
+
+export function parseCheckpointEvidenceContracts(ruleText) {
+  const source = String(ruleText);
+  const known = [
+    { version: 1, start: CONTRACT_START, end: CONTRACT_END, shape: CONTRACT_SHAPE },
+    { version: 2, start: CONTRACT_V2_START, end: CONTRACT_V2_END, shape: CONTRACT_SHAPE_V2 },
+  ];
+  const declaredVersions = [
+    ...source.matchAll(/<!-- checkpoint-evidence-contract:v(\d+):(start|end) -->/g),
+  ].map((match) => Number(match[1]));
+  const unknown = declaredVersions.find(
+    (version) => !known.some((entry) => entry.version === version),
+  );
+  if (unknown !== undefined)
+    return failure(`unknown checkpoint evidence contract version: ${unknown}`);
+  const v1Index = source.indexOf(CONTRACT_START);
+  const v2Index = source.indexOf(CONTRACT_V2_START);
+  if (v1Index !== -1 && v2Index !== -1 && v1Index > v2Index) {
+    return failure('checkpoint evidence contract regions must occur in v1 then v2 order');
+  }
+  const contracts = new Map();
+  for (const entry of known) {
+    const parsed = parseContractRegion(source, entry);
+    if (!parsed.ok) return parsed;
+    contracts.set(entry.version, parsed.contract);
+  }
+  return { ok: true, contracts };
 }
 
 export function formatCheckpointEvidence(contract, formName, payload) {
@@ -537,119 +459,9 @@ export function parseCheckpointEvidence(contract, formName, body) {
   return error ? failure(error) : { ok: true, payload };
 }
 
-function projectedHeading(line) {
-  const match = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/.exec(line);
-  if (!match) return null;
-  return {
-    level: match[1].length,
-    content: (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').trim(),
-  };
-}
-
-function projectedSection(projection, level, title) {
-  const start = projection.lines.findIndex((line) => {
-    const heading = projectedHeading(line);
-    return heading?.level === level && heading.content === title;
-  });
-  if (start === -1) return null;
-  let end = projection.lines.length;
-  for (let index = start + 1; index < projection.lines.length; index += 1) {
-    const heading = projectedHeading(projection.lines[index]);
-    if (heading && heading.level <= level) {
-      end = index;
-      break;
-    }
-  }
-  return { start, end };
-}
-
-export function rawGateImplementPassEntries(specText) {
-  const projection = visibleMarkdown(specText, true);
-  const section = projectedSection(projection, 2, 'Evidence Log');
-  if (section === null) return [];
-  const entries = [];
-  for (let index = section.start + 1; index < section.end; index += 1) {
-    const heading = projectedHeading(projection.lines[index]);
-    if (
-      heading?.level !== 3 ||
-      !/^\[GATE-IMPLEMENT\] — ✅ PASS \| \d{4}-\d{2}-\d{2}$/.test(heading.content)
-    ) {
-      continue;
-    }
-    let end = section.end;
-    for (let cursor = index + 1; cursor < section.end; cursor += 1) {
-      const next = projectedHeading(projection.lines[cursor]);
-      if (next && next.level <= 3) {
-        end = cursor;
-        break;
-      }
-    }
-    // Markdown formatters own the blank separator immediately before the next heading. It is not a
-    // byte of either entry: a PASS ending at EOF must keep the same identity after a formatter adds
-    // the required blank line before an appended continuation. Inspect ORIGINAL source lines here;
-    // visibleMarkdown deliberately hides evidence payload regions, so projected blank lines could
-    // otherwise make the boundary walk skip nonblank raw JSON/comment bytes.
-    let rawBoundaryLine = end === projection.lines.length ? null : projection.rawIndices[end];
-    if (rawBoundaryLine !== null && projectedHeading(projection.lines[end])) {
-      const rawEntryStartLine = projection.rawIndices[index];
-      while (rawBoundaryLine > rawEntryStartLine + 1) {
-        const preceding = projection.source.slice(
-          projection.lineStarts[rawBoundaryLine - 1],
-          projection.lineStarts[rawBoundaryLine],
-        );
-        if (preceding.trim() !== '') break;
-        rawBoundaryLine -= 1;
-      }
-    }
-    const rawStart = projection.lineStarts[projection.rawIndices[index]];
-    const rawEnd =
-      rawBoundaryLine === null ? projection.source.length : projection.lineStarts[rawBoundaryLine];
-    entries.push(projection.source.slice(rawStart, rawEnd));
-  }
-  return entries;
-}
-
-export function priorPassDigest(rawEntry) {
-  return `sha256:${createHash('sha256').update(String(rawEntry), 'utf8').digest('hex')}`;
-}
-
-export function continuationArtifacts(contract, specText) {
-  const [parentTitle, childTitle] = contract.decisionArtifacts.section.split('/');
-  const projection = visibleMarkdown(specText, true);
-  const parent = projectedSection(projection, 2, parentTitle);
-  if (parent === null) return failure(`missing ${contract.decisionArtifacts.section} section`);
-  const childStart = projection.lines.findIndex((line, index) => {
-    if (index <= parent.start || index >= parent.end) return false;
-    const heading = projectedHeading(line);
-    return heading?.level === 3 && heading.content === childTitle;
-  });
-  if (childStart === -1) return failure(`missing ${contract.decisionArtifacts.section} section`);
-  let childEnd = parent.end;
-  for (let index = childStart + 1; index < parent.end; index += 1) {
-    const heading = projectedHeading(projection.lines[index]);
-    if (heading && heading.level <= 3) {
-      childEnd = index;
-      break;
-    }
-  }
-  const prefix = contract.decisionArtifacts.linePrefix;
-  const lines = projection.lines
-    .slice(childStart + 1, childEnd)
-    .filter((line) => line.startsWith(prefix));
-  if (lines.length !== 1) {
-    return failure(`Continuation artifacts line must occur exactly once, found ${lines.length}`);
-  }
-  const encoded = lines[0].slice(prefix.length);
-  const tokens = encoded.split(contract.decisionArtifacts.separator);
-  if (tokens.length === 0 || tokens.some((token) => !/^`[^`]+`$/.test(token))) {
-    return failure('Continuation artifacts must be Markdown code repository paths');
-  }
-  const paths = tokens.map((token) => token.slice(1, -1));
-  const pathsError = validateStringArray(paths, 'Continuation artifacts');
-  return pathsError ? failure(pathsError) : { ok: true, artifacts: paths };
-}
-
 export const CHECKPOINT_EVIDENCE_CONTRACT_MARKERS = Object.freeze({
   start: CONTRACT_START,
   end: CONTRACT_END,
+  v2Start: CONTRACT_V2_START,
+  v2End: CONTRACT_V2_END,
 });

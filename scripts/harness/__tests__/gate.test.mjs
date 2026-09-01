@@ -9,8 +9,12 @@ import { makeTemp } from './make-temp.mjs';
 
 import { recordStub } from '../allocate-work-item-id.mjs';
 import {
+  formatCheckpointEvidence,
   parseCheckpointEvidence,
   parseCheckpointEvidenceContract,
+  parseCheckpointEvidenceContracts,
+  priorPassDigest,
+  rawGateImplementPassEntries,
 } from '../checkpoint-evidence-contract.mjs';
 import {
   APPROVE_FIRST,
@@ -33,7 +37,7 @@ import {
   parseRegistrySection,
   standingVerdict,
 } from '../scan-standing-delegation-evidence.mjs';
-import { findStagedFindings } from '../scan-user-execution-plan-order.mjs';
+import { findHistoryFindings, findStagedFindings } from '../scan-user-execution-plan-order.mjs';
 
 const GATE_SCRIPT = fileURLToPath(new URL('../gate.mjs', import.meta.url));
 const NEW_SPEC_SCRIPT = fileURLToPath(new URL('../new-spec.mjs', import.meta.url));
@@ -43,8 +47,8 @@ const LIVE_BACKLOG_RULE = readFileSync(
   path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
   'utf8',
 );
-const LIVE_CONTRACT_REGION = LIVE_BACKLOG_RULE.match(
-  /<!-- checkpoint-evidence-contract:v1:start -->[\s\S]*?<!-- checkpoint-evidence-contract:v1:end -->/,
+const LIVE_CONTRACT_REGIONS = LIVE_BACKLOG_RULE.match(
+  /<!-- user-execution-plan-contract:v1:start -->[\s\S]*?<!-- checkpoint-evidence-contract:v2:end -->/,
 )?.[0];
 
 /**
@@ -304,6 +308,8 @@ Comparable products document this flow: https://example.com/docs/feature — bot
 
 Alternative 1. The trade-off that drove it: a blocked run is visible, a silent pass is not.
 
+**Delivery mode:** \`single\`
+
 ### Architecture Review Checklist
 
 - [x] Affected packages listed
@@ -368,7 +374,7 @@ Two vitest cases: one root without the governed tree (red), one with it (green).
 
 **Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\`
 
-Harness-only change.
+**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.
 `;
 
 /**
@@ -380,7 +386,7 @@ function makeWorkspace({
   spec = conformingSpec(),
   folder = 'draft',
   task = TASK,
-  backlogRule = `${BACKLOG_RULE}\n${LIVE_CONTRACT_REGION}`,
+  backlogRule = `${BACKLOG_RULE}\n${LIVE_CONTRACT_REGIONS}`,
 } = {}) {
   const root = makeTemp('robota-gate-');
   const write = (relative, text) => {
@@ -463,6 +469,10 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
     expect(parsePriorGateMap(text).get('GATE-APPROVAL')).toEqual({
       gate: 'GATE-WRITE',
       status: 'review-ready',
+    });
+    expect(parsePriorGateMap(text).get('GATE-IMPLEMENT (continuation)')).toEqual({
+      gate: 'GATE-IMPLEMENT',
+      status: 'in-progress',
     });
   });
 
@@ -947,6 +957,34 @@ describe('advance', () => {
     const result = run(root, ['advance', '--doc', doc]);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('moved with git mv');
+  });
+
+  it('refuses an existing destination before mutating tracked or untracked source, destination, or Task', () => {
+    for (const sourceKind of ['tracked', 'untracked']) {
+      const { root, doc: trackedDoc } = makeWorkspace();
+      gitInit(root);
+      const doc =
+        sourceKind === 'tracked'
+          ? trackedDoc
+          : path.join(root, '.agents/spec-docs/draft/PROC-998-untracked-collision.md');
+      if (sourceKind === 'untracked') writeFileSync(doc, conformingSpec());
+      expect(judge(root, doc, 'GATE-WRITE').status).toBe(0);
+      const target = path.join(root, '.agents/spec-docs/backlog', path.basename(doc));
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, `existing destination: ${sourceKind}\n`);
+      const sourceBefore = readFileSync(doc, 'utf8');
+      const targetBefore = readFileSync(target, 'utf8');
+      const taskPath = path.join(root, TASK_REL);
+      const taskBefore = readFileSync(taskPath, 'utf8');
+
+      const result = run(root, ['advance', '--doc', doc]);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/refused: destination spec already exists/i);
+      expect(readFileSync(doc, 'utf8')).toBe(sourceBefore);
+      expect(readFileSync(target, 'utf8')).toBe(targetBefore);
+      expect(readFileSync(taskPath, 'utf8')).toBe(taskBefore);
+    }
   });
 
   it('refuses when the last entry is a FAIL and leaves the file where it is', () => {
@@ -1638,13 +1676,182 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     expect(result.status, result.stdout + result.stderr).toBe(0);
     const written = readFileSync(doc, 'utf8');
     expect(written).toContain('**Status upgrade:** approved → in-progress');
-    const contract = parseCheckpointEvidenceContract(
+    const contracts = parseCheckpointEvidenceContracts(
       readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
-    ).contract;
+    ).contracts;
     const entry = evidenceEntries(written).at(-1);
-    const parsed = parseCheckpointEvidence(contract, 'gateImplementFirst', entry.lines.join('\n'));
+    const parsed = parseCheckpointEvidence(
+      contracts.get(2),
+      'gateImplementFirst',
+      entry.lines.join('\n'),
+    );
     expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect(parsed.payload).toMatchObject({
+      version: 2,
+      deliveryMode: 'single',
+      sequencedArtifacts: [],
+    });
     expect(parsed.payload.specPath).toBe(`.agents/spec-docs/todo/${SPEC_ID}.md`);
+  });
+
+  it('advance prepares the approved Task/spec pair together after GATE-IMPLEMENT PASS', () => {
+    const { root, doc } = approvedWorkspace();
+    gitInit(root);
+    writeFileSync(
+      path.join(root, TASK_REL),
+      `${readFileSync(path.join(root, TASK_REL), 'utf8')}\n`,
+    );
+    writeFileSync(doc, `${readFileSync(doc, 'utf8')}\n`);
+    const judged = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+    expect(judged.status, judged.stdout + judged.stderr).toBe(0);
+
+    const advanced = run(root, ['advance', '--doc', doc]);
+
+    expect(advanced.status, advanced.stdout + advanced.stderr).toBe(0);
+    const active = path.join(root, `.agents/spec-docs/active/${SPEC_ID}.md`);
+    expect(readFileSync(active, 'utf8')).toContain('status: in-progress');
+    expect(readFileSync(path.join(root, TASK_REL), 'utf8')).toContain('status: in-progress');
+  });
+
+  it('advance refuses GATE-IMPLEMENT half-activation states before mutating either artifact', () => {
+    for (const halfState of ['task-already-active', 'task-missing']) {
+      const { root, doc } = approvedWorkspace();
+      gitInit(root);
+      writeFileSync(
+        path.join(root, TASK_REL),
+        `${readFileSync(path.join(root, TASK_REL), 'utf8')}\n`,
+      );
+      writeFileSync(doc, `${readFileSync(doc, 'utf8')}\n`);
+      const judged = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+      expect(judged.status, judged.stdout + judged.stderr).toBe(0);
+      if (halfState === 'task-already-active') {
+        writeFileSync(
+          path.join(root, TASK_REL),
+          readFileSync(path.join(root, TASK_REL), 'utf8').replace(
+            'status: todo',
+            'status: in-progress',
+          ),
+        );
+      } else {
+        rmSync(path.join(root, TASK_REL));
+      }
+      const specBefore = readFileSync(doc, 'utf8');
+
+      const advanced = run(root, ['advance', '--doc', doc]);
+
+      expect(advanced.status).toBe(1);
+      expect(advanced.stderr).toMatch(/paired Task.*(?:todo|required|not on disk)/i);
+      expect(readFileSync(doc, 'utf8')).toBe(specBefore);
+      expect(existsSync(path.join(root, `.agents/spec-docs/active/${SPEC_ID}.md`))).toBe(false);
+    }
+  });
+
+  it('judges a native continuation against the annotated ordering row and writes exact v2 evidence', () => {
+    const task = TASK.replace('status: todo', 'status: in-progress');
+    const spec = conformingSpec({ status: 'in-progress', folder: 'active', lane: 'L2' }).replace(
+      '**Delivery mode:** `single`',
+      '**Delivery mode:** `sequenced`\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
+    );
+    const { root, doc } = makeWorkspace({ spec, folder: 'active', task });
+    const git = gitInit(root);
+    const contracts = parseCheckpointEvidenceContracts(
+      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
+    ).contracts;
+    const firstPayload = {
+      version: 2,
+      form: 'gateImplementFirst',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      taskPath: TASK_REL,
+      specPath: `.agents/spec-docs/todo/${SPEC_ID}.md`,
+      taskItems: [
+        { kind: 'tc-id', value: 'TC-01' },
+        { kind: 'tc-id', value: 'TC-02' },
+      ],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [`.agents/spec-docs/todo/${SPEC_ID}.md`, TASK_REL].sort(),
+    };
+    const first = formatCheckpointEvidence(contracts.get(2), 'gateImplementFirst', firstPayload);
+    if (!first.ok) throw new Error(first.error);
+    writeFileSync(
+      doc,
+      `${readFileSync(doc, 'utf8')}\n### [GATE-IMPLEMENT] — ✅ PASS | ${DATE}\n\n**Status upgrade:** approved → in-progress\n\n${first.text}\n`,
+    );
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'first sequenced checkpoint']);
+    const ancestorSha = git(['rev-parse', 'HEAD']).stdout.trim();
+    const parentSpec = readFileSync(doc, 'utf8');
+    writeFileSync(doc, `${parentSpec}\n`);
+    const priorRaw = rawGateImplementPassEntries(readFileSync(doc, 'utf8')).at(-1);
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    const written = readFileSync(doc, 'utf8');
+    expect(written).toContain('**Status upgrade:** in-progress → in-progress (continuation)');
+    expect(written).not.toContain('status `approved` expected');
+    const continuation = parseCheckpointEvidence(
+      contracts.get(2),
+      'gateImplementContinuation',
+      evidenceEntries(written).at(-1).lines.join('\n'),
+    );
+    expect(continuation.ok, continuation.ok ? '' : continuation.error).toBe(true);
+    expect(continuation.payload).toEqual({
+      version: 2,
+      form: 'gateImplementContinuation',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      priorPass: priorPassDigest(priorRaw),
+      ancestorSha,
+      taskPath: TASK_REL,
+      specPath: `.agents/spec-docs/active/${SPEC_ID}.md`,
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [`.agents/spec-docs/active/${SPEC_ID}.md`, TASK_REL].sort(),
+    });
+  });
+
+  it('produces a first v2 checkpoint whose native continuation replays end to end', () => {
+    const { root, doc } = approvedWorkspace();
+    writeFileSync(
+      doc,
+      readFileSync(doc, 'utf8').replace(
+        '**Delivery mode:** `single`',
+        '**Delivery mode:** `sequenced`\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
+      ),
+    );
+    writeFileSync(
+      path.join(root, TASK_REL),
+      readFileSync(path.join(root, TASK_REL), 'utf8').replace(
+        `# ${SPEC_ID}: fixture task`,
+        '# PROC-999: fixture task',
+      ),
+    );
+    const git = gitInit(root);
+    const base = git(['rev-parse', 'HEAD']).stdout.trim();
+    writeFileSync(
+      path.join(root, TASK_REL),
+      `${readFileSync(path.join(root, TASK_REL), 'utf8')}\n`,
+    );
+    writeFileSync(doc, `${readFileSync(doc, 'utf8')}\n`);
+
+    const first = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+    expect(first.status, first.stdout + first.stderr).toBe(0);
+    const advanced = run(root, ['advance', '--doc', doc]);
+    expect(advanced.status, advanced.stdout + advanced.stderr).toBe(0);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'first v2 planning checkpoint']);
+    const firstHead = git(['rev-parse', 'HEAD']).stdout.trim();
+    git(['update-ref', 'refs/remotes/origin/develop', firstHead]);
+
+    const active = path.join(root, `.agents/spec-docs/active/${SPEC_ID}.md`);
+    writeFileSync(active, `${readFileSync(active, 'utf8')}\n`);
+    const continuation = judge(root, active, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+    expect(continuation.status, continuation.stdout + continuation.stderr).toBe(0);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'native v2 continuation']);
+
+    expect(base).not.toBe(firstHead);
+    expect(findHistoryFindings(root)).toEqual([]);
   });
 
   it('writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)', () => {
@@ -1667,9 +1874,9 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
     expect(result.status, result.stdout + result.stderr).toBe(0);
     const written = readFileSync(doc, 'utf8');
-    const contract = parseCheckpointEvidenceContract(
+    const contract = parseCheckpointEvidenceContracts(
       readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
-    ).contract;
+    ).contracts.get(2);
     const parsed = parseCheckpointEvidence(
       contract,
       'gateImplementFirst',
@@ -1733,6 +1940,24 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     expect(readFileSync(doc, 'utf8')).toContain(
       `names \`${archivedRel}\`, which is not an active root Task path`,
     );
+  });
+
+  it('fails GATE-IMPLEMENT when a strict not-applicable PLAN reason is thin', () => {
+    const { root, doc } = approvedWorkspace();
+    gitInit(root);
+    writeFileSync(
+      path.join(root, TASK_REL),
+      readFileSync(path.join(root, TASK_REL), 'utf8').replace(
+        '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.',
+        '**Reason:** too short',
+      ),
+    );
+    writeFileSync(doc, `${readFileSync(doc, 'utf8')}\n`);
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/not-applicable.*reason|substantive/i);
   });
 });
 

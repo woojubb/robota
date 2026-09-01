@@ -21,6 +21,10 @@ import {
   FIRST_CHECKPOINT_STATUS_LINE as FIRST_STATUS_LINE,
   resolveTopicMergeBase,
 } from '../scan-user-execution-plan-order.mjs';
+import {
+  parseUserExecutionPlanContract,
+  validateTaskUserExecutionPlan,
+} from '../user-execution-plan-contract.mjs';
 
 const TASK_ID = 'HARNESS-900-plan-order-fixture';
 const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
@@ -174,7 +178,7 @@ function taskText({
     `**Author verdict:** \`${signal}\``,
     '',
     outcome === 'not-applicable'
-      ? 'Not applicable because this fixture changes repository lifecycle governance only and exposes no product surface.'
+      ? '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.'
       : [
           '### Scenario 1',
           '',
@@ -388,6 +392,7 @@ function v1SequencedRepository({
   mutatePayload = (payload) => payload,
   mutateContinuationSpec = (spec) => spec,
   mutateContinuationTask = (task) => task,
+  mutateAfterFirstCheckpoint = null,
   withUnrelatedMerge = false,
   withConversionEvidence = false,
   withNonAncestorConversionBase = false,
@@ -424,6 +429,11 @@ function v1SequencedRepository({
   } else {
     git(root, ['merge', '--no-ff', '-q', '-m', 'merge PR 1', 'feature']);
     sequencedMerge = git(root, ['rev-parse', 'HEAD']);
+  }
+  if (mutateAfterFirstCheckpoint !== null) {
+    const checkpointSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+    write(root, SPEC_PATH, mutateAfterFirstCheckpoint(checkpointSpec));
+    commit(root, 'post-checkpoint Decision change');
   }
   if (withUnrelatedMerge) {
     git(root, ['switch', '-q', '-c', 'unrelated']);
@@ -557,6 +567,39 @@ function findHistoryFindings(root, requestedBase) {
 function messages(findings) {
   return findings.map((finding) => finding.problem).join('\n');
 }
+
+describe('shared not-applicable reason contract', () => {
+  it('accepts a substantive structural reason without repeated outcome prose and rejects thin or hidden evidence', () => {
+    const parsed = parseUserExecutionPlanContract(LIVE_BACKLOG_RULE);
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    const task = (reasonBlock) =>
+      [
+        '## User Execution Test Scenarios',
+        '',
+        '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+        '',
+        reasonBlock,
+      ].join('\n');
+    const substantive =
+      '**Reason:** This governance change affects repository contributor checkpoint records and exposes no runnable Robota product behavior to any user.';
+
+    expect(validateTaskUserExecutionPlan(parsed.contract, task(substantive))).toMatchObject({
+      ok: true,
+      outcome: 'not-applicable',
+      count: 0,
+    });
+    for (const invalid of [
+      '**Reason:** too short',
+      '<!-- **Reason:** This hidden governance explanation contains enough words and characters but is not visible to a reader. -->',
+      '**Reason:** Repository unit tests prove this internal checkpoint behavior, which users cannot execute through any shipped Robota product surface.',
+      'This paragraph has no exact reason label even though it is otherwise long enough to look convincing to a reader.',
+    ]) {
+      expect(validateTaskUserExecutionPlan(parsed.contract, task(invalid))).toMatchObject({
+        ok: false,
+      });
+    }
+  });
+});
 
 describe('shared repository fixture isolation', () => {
   it('keeps copied worktrees and refs independent from each other and the immutable seed', () => {
@@ -764,6 +807,94 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(badAncestor.root, badAncestor.base))).toMatch(
       /ancestorSha.*preceding integration commit/,
     );
+  });
+
+  function postHocLegacyDelivery() {
+    const artifactLine =
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`, `scripts/harness/scan-user-execution-plan-order.mjs`';
+    return {
+      mutateParentSpec: (spec) => spec.replace(artifactLine, ''),
+      mutateAfterFirstCheckpoint: (spec) =>
+        spec.replace('### Decision\n\n', `### Decision\n\n${artifactLine}\n\n`),
+    };
+  }
+
+  function appendSecondV1Continuation(sequence) {
+    git(sequence.root, ['switch', '-q', 'develop']);
+    git(sequence.root, ['merge', '--no-ff', '-q', '-m', 'merge PR 2', 'feature-2']);
+    const base = git(sequence.root, ['rev-parse', 'HEAD']);
+    git(sequence.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(sequence.root, ['switch', '-q', '-c', 'feature-3']);
+
+    const parentSpec = readFileSync(path.join(sequence.root, SPEC_PATH), 'utf8');
+    const payload = formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementContinuation', {
+      version: 1,
+      form: 'gateImplementContinuation',
+      priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+      sequencedArtifacts: [
+        'scripts/harness/gate.mjs',
+        'scripts/harness/scan-user-execution-plan-order.mjs',
+      ],
+      ancestorSha: base,
+      taskPath: TASK_PATH,
+      specPath: SPEC_PATH,
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+    });
+    if (!payload.ok) throw new Error(payload.error);
+    write(
+      sequence.root,
+      SPEC_PATH,
+      `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30\n\n${CONTINUATION_STATUS_LINE}\n\n${payload.text}\n`,
+    );
+    commit(sequence.root, 'v1 second continuation checkpoint');
+    return base;
+  }
+
+  it('binds legacy v1 first delivery to its introduction revision in history scans', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    expect(messages(findHistoryFindingsFromGit(invalid.root, invalid.base))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+    const valid = v1SequencedRepository();
+    expect(findHistoryFindingsFromGit(valid.root, valid.base)).toEqual([]);
+  });
+
+  it('binds legacy v1 first delivery to its introduction revision in staged scans', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    git(invalid.root, ['reset', '--soft', invalid.base]);
+    expect(messages(findStagedFindings(invalid.root, invalid.base))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+    const valid = v1SequencedRepository();
+    git(valid.root, ['reset', '--soft', valid.base]);
+    expect(findStagedFindings(valid.root, valid.base)).toEqual([]);
+  });
+
+  it('keeps legacy v1 introduction delivery bound on a second continuation history scan', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    const invalidBase = appendSecondV1Continuation(invalid);
+    expect(messages(findHistoryFindingsFromGit(invalid.root, invalidBase))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+
+    const valid = v1SequencedRepository();
+    const validBase = appendSecondV1Continuation(valid);
+    expect(findHistoryFindingsFromGit(valid.root, validBase)).toEqual([]);
+  });
+
+  it('keeps legacy v1 introduction delivery bound on a second continuation staged scan', () => {
+    const invalid = v1SequencedRepository(postHocLegacyDelivery());
+    const invalidBase = appendSecondV1Continuation(invalid);
+    git(invalid.root, ['reset', '--soft', invalidBase]);
+    expect(messages(findStagedFindings(invalid.root, invalidBase))).toMatch(
+      /historical.*Decision|introduction.*artifacts|corrective checkpoint/i,
+    );
+
+    const valid = v1SequencedRepository();
+    const validBase = appendSecondV1Continuation(valid);
+    git(valid.root, ['reset', '--soft', validBase]);
+    expect(findStagedFindings(valid.root, validBase)).toEqual([]);
   });
 
   it('replays the immutable conversion base across a later continuation', () => {
@@ -1073,6 +1204,43 @@ describe('user-execution PLAN order — branch history', () => {
     commit(root, 'implementation');
 
     expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('cuts strict PLAN reason validation over by unique contract ancestry (HARNESS-134)', () => {
+    const thinTask = () =>
+      taskText().replace(
+        '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.',
+        '**Reason:** too short',
+      );
+    const legacy = repository();
+    write(legacy.root, TASK_PATH, thinTask());
+    write(legacy.root, SPEC_PATH, specText());
+    commit(legacy.root, 'legacy thin checkpoint');
+    write(legacy.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(legacy.root, 'introduce reason contract after checkpoint');
+    expect(findHistoryFindings(legacy.root, legacy.base)).toEqual([]);
+
+    const strict = repository({ withContract: true });
+    write(strict.root, TASK_PATH, thinTask());
+    write(strict.root, SPEC_PATH, specText({ v1: true }));
+    commit(strict.root, 'post-cutover thin checkpoint');
+    expect(messages(findHistoryFindings(strict.root, strict.base))).toMatch(
+      /not-applicable PLAN lacks.*concrete recorded reason/i,
+    );
+
+    const ambiguous = repository({ withContract: true });
+    const withoutReasonContract = LIVE_BACKLOG_RULE.replace(
+      /<!-- user-execution-plan-contract:v1:start -->[\s\S]*?<!-- user-execution-plan-contract:v1:end -->/,
+      '',
+    );
+    write(ambiguous.root, '.agents/rules/backlog-execution.md', withoutReasonContract);
+    commit(ambiguous.root, 'remove reason contract');
+    write(ambiguous.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    commit(ambiguous.root, 'reintroduce reason contract');
+    checkpoint(ambiguous.root, { v1: true });
+    expect(messages(findHistoryFindings(ambiguous.root, ambiguous.base))).toMatch(
+      /PLAN contract cutover is ambiguous/i,
+    );
   });
 
   it('reports the exact traversed commit count and resets it on a second run', () => {

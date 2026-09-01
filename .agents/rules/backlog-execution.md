@@ -457,13 +457,26 @@ starts.
 `spec-user-execution-section`): a spec document in a folder whose status means implementation has
 started — `active/` and `done/`, derived from [spec-workflow.md](spec-workflow.md)'s own
 status→folder table rather than copied — must carry the section. Work that delivers no runnable
-user-facing behavior satisfies it with the reasoned not-applicable entry the bullets below require,
-so the scan asks for the SECTION, never for an invented scenario.
+user-facing behavior satisfies it with the reasoned not-applicable entry the bullets below require.
+
+The machine-readable user-execution PLAN contract below owns the post-cutover form. A spec uses the
+exact visible `Not applicable.` line followed by one exact `**Reason:** ` field, or carries a visible
+applicable scenario. Its normalized reason has at least 50 Unicode scalars and eight letter/number
+tokens and does not substitute engineering-verification evidence from the contract's forbidden list
+for a product-surface explanation. The Task uses its exact author-verdict form and the same reason
+quality contract. HTML comments, raw HTML, fenced/indented code, and hidden text do not count.
 
 Documents that predate the scan are frozen by name in
 `scripts/harness/spec-user-execution-baseline.json`. That baseline is an exempt **set**, not a count:
 a new document can never borrow an older one's exemption, the set may only shrink, and an exemption
 is keyed to the document's folder so a gate transition re-governs it.
+
+Strictness is ancestry-derived, not a phrase search. The contract introduction is the unique reachable
+commit with a valid declaration whose every parent lacks one; zero or multiple introductions after the
+marker appears fail closed. A Task checkpoint at or after that commit is strict. A spec is strict when
+its current path/blob was produced at or after the introduction, or when the path is changed in the
+worktree; an untouched older path keeps the legacy section-presence rule, while an edit or folder move
+loses that compatibility treatment.
 
 ### Pre-implementation planning checkpoint
 
@@ -491,11 +504,65 @@ change admitted is one append-only closed `post-merge-cycle.jsonl` record whose 
 is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
 path fails.
 
-Enforced by: `user-execution-plan-order`
+Enforced by: `gate.mjs`, `user-execution-plan-order`, `spec-user-execution-section`
 
 ### Checkpoint evidence contract
 
-Enforced by: `user-execution-plan-order`
+The Task PLAN gate and governed spec-section scan share the following visible-content contract. The
+contract's introduction commit is the unique reachable commit whose valid marker exists while every
+parent lacks it; zero or multiple introductions fail closed. A Task checkpoint at or after that commit,
+and a spec whose current path/blob was produced at or after it, uses this strict grammar. Untouched older
+content keeps its historical contract; a worktree edit or folder transition is strict.
+
+<!-- user-execution-plan-contract:v1:start -->
+
+```json
+{
+  "version": 1,
+  "visibility": "visibleMarkdown",
+  "task": {
+    "heading": "## User Execution Test Scenarios",
+    "authorVerdict": "**Author verdict:** `SCENARIO DRAFTED: <outcome> | <count>`",
+    "reasonLabel": "**Reason:** "
+  },
+  "spec": {
+    "heading": "## User Execution Test Scenarios",
+    "notApplicableLine": "Not applicable.",
+    "reasonLabel": "**Reason:** "
+  },
+  "reason": {
+    "normalization": "visible-text+NFKC+markdown-delimiters-removed+unicode-whitespace-collapsed",
+    "minUnicodeScalars": 50,
+    "minLetterNumberTokens": 8,
+    "forbiddenPhrases": [
+      "build",
+      "typecheck",
+      "type check",
+      "lint",
+      "unit test",
+      "unit tests",
+      "harness check",
+      "harness checks",
+      "CI check",
+      "CI checks",
+      "static inspection",
+      "document inspection",
+      "backlog inspection",
+      "source inspection",
+      "rg check"
+    ]
+  },
+  "cutover": {
+    "introduction": "unique-valid-marker-commit-whose-parents-lack-marker",
+    "taskStrictness": "introduction-is-ancestor-of-checkpoint-commit",
+    "specStrictness": "worktree-changed-or-introduction-is-ancestor-of-current-path-blob-commit"
+  }
+}
+```
+
+<!-- user-execution-plan-contract:v1:end -->
+
+Enforced by: `gate.mjs`, `user-execution-plan-order`, `spec-user-execution-section`
 
 This section is the single machine-readable owner of the evidence forms written and consumed at the
 pre-implementation checkpoint and DONE-GATE-STAGE-1. The gate catalogue references these form names;
@@ -598,10 +665,89 @@ The declared scope is GATE-IMPLEMENT first/continuation entries and DONE-GATE-ST
 
 <!-- checkpoint-evidence-contract:v1:end -->
 
+<!-- checkpoint-evidence-contract:v2:start -->
+
+```json
+{
+  "version": 2,
+  "entryEncoding": {
+    "startMarker": "<!-- checkpoint-evidence:v2:start -->",
+    "fence": "json",
+    "endMarker": "<!-- checkpoint-evidence:v2:end -->",
+    "multiplicity": "exactly-one"
+  },
+  "priorPassDigest": {
+    "algorithm": "sha256",
+    "encoding": "lowercase-hex",
+    "source": "prior-complete-gate-implement-entry-raw-utf8"
+  },
+  "decisionArtifacts": {
+    "section": "Architecture Review/Decision",
+    "linePrefix": "**Continuation artifacts:** ",
+    "separator": ", ",
+    "token": "markdown-code-repository-path",
+    "multiplicityByDeliveryMode": {
+      "single": "zero",
+      "sequenced": "exactly-one"
+    }
+  },
+  "decisionDelivery": {
+    "section": "Architecture Review/Decision",
+    "linePrefix": "**Delivery mode:** ",
+    "token": "markdown-code-enum:single|sequenced",
+    "multiplicity": "exactly-one"
+  },
+  "forms": {
+    "gateImplementFirst": {
+      "heading": "GATE-IMPLEMENT",
+      "statusUpgrade": "approved → in-progress",
+      "specFolder": "todo",
+      "payloadKeys": [
+        "version",
+        "form",
+        "deliveryMode",
+        "sequencedArtifacts",
+        "taskPath",
+        "specPath",
+        "taskItems",
+        "plan",
+        "worktreePaths"
+      ]
+    },
+    "gateImplementContinuation": {
+      "heading": "GATE-IMPLEMENT",
+      "statusUpgrade": "in-progress → in-progress (continuation)",
+      "specFolder": "active",
+      "payloadKeys": [
+        "version",
+        "form",
+        "deliveryMode",
+        "sequencedArtifacts",
+        "priorPass",
+        "ancestorSha",
+        "taskPath",
+        "specPath",
+        "plan",
+        "worktreePaths"
+      ]
+    }
+  }
+}
+```
+
+<!-- checkpoint-evidence-contract:v2:end -->
+
 The declaration is closed: unknown versions, forms, fields, duplicate members, malformed JSON, or
 missing/duplicate regions fail by name. Each evidence payload appears exactly once between the declared
 entry markers in one `json` fence. Payload keys occur exactly once in declared order; paths are
 normalized repository-relative strings, arrays preserve declared source order, and unknown keys fail.
+
+New GATE-IMPLEMENT writers emit v2; consumers dispatch by the payload marker/version and continue to
+replay historical v1. Both v2 forms always carry `deliveryMode` and `sequencedArtifacts`: `single`
+requires an empty array, while `sequenced` binds the exact non-empty Decision array. The first form is
+written by `gate.mjs judge --gate GATE-IMPLEMENT`; later PRs use
+`gate.mjs judge --gate GATE-IMPLEMENT --continuation`, which resolves the catalogue's annotated
+continuation ordering row and writes the in-progress → in-progress form.
 
 `taskItems` mirrors GATE-IMPLEMENT coverage deterministically: complete TC-ID coverage wins and records
 `{ "kind": "tc-id", "value": "TC-NN" }` objects in Completion Criteria order; otherwise sufficient

@@ -42,6 +42,15 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
+import {
+  parseUserExecutionPlanContract,
+  validateSpecUserExecutionPlan,
+} from './user-execution-plan-contract.mjs';
+import {
+  isStrictSpecContract,
+  strictSpecContractContext,
+  userExecutionPlanContractState,
+} from './user-execution-plan-git-contract.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SPEC_RELATIVE = '.agents/spec-docs';
@@ -56,6 +65,12 @@ const BASELINE_FILE = path.join(import.meta.dirname, 'spec-user-execution-baseli
  * point, so these are exactly the statuses by which it must already exist.
  */
 const IMPLEMENTATION_STARTED = ['in-progress', 'verifying', 'done'];
+
+function rulePath(root, workspacePath) {
+  const relative = path.relative(WORKSPACE_ROOT, workspacePath);
+  const candidate = path.join(root, relative);
+  return existsSync(candidate) ? candidate : workspacePath;
+}
 
 /**
  * Read the required section heading out of the rule that owns it.
@@ -116,7 +131,7 @@ export function findMissingSectionFindings(root = WORKSPACE_ROOT) {
     scan: 'spec-user-execution-section',
     why: 'The spec-document tree is what this scan measures.',
   });
-  const workflowText = readFileSync(SPEC_WORKFLOW_RULE, 'utf8');
+  const workflowText = readFileSync(rulePath(root, SPEC_WORKFLOW_RULE), 'utf8');
   const folders = resolveGovernedFolders(workflowText);
   if (folders.length === 0) {
     throw new Error(
@@ -125,19 +140,43 @@ export function findMissingSectionFindings(root = WORKSPACE_ROOT) {
         'unreadable, so "no findings" would mean "nothing was examined".',
     );
   }
-  const heading = parseRequiredHeading(readFileSync(BACKLOG_RULE, 'utf8'));
+  const backlogText = readFileSync(rulePath(root, BACKLOG_RULE), 'utf8');
+  const heading = parseRequiredHeading(backlogText);
   if (!heading) {
     throw new Error(
       'spec-user-execution-section: backlog-execution.md does not state the required section ' +
         'heading. The criterion this scan enforces is unreadable, so it has verified nothing.',
     );
   }
+  const contract = parseUserExecutionPlanContract(backlogText);
+  if (!contract.ok) {
+    const state = userExecutionPlanContractState(root);
+    if (state.cutovers.length > 0 || backlogText.includes('user-execution-plan-contract:v1:')) {
+      throw new Error(
+        `spec-user-execution-section: user-execution PLAN contract is missing or invalid after its cutover: ${contract.error}`,
+      );
+    }
+  }
+  const strictContext = contract.ok
+    ? strictSpecContractContext(root, SPEC_RELATIVE)
+    : { governed: false, changed: new Set(), producedBy: new Map(), postCutover: new Set() };
   const exempt = new Set(loadBaseline().exempt);
   const findings = [];
   const specs = listGovernedSpecs(root, folders);
   for (const { key, file } of specs) {
     if (exempt.has(key)) continue;
     const text = readFileSync(file, 'utf8');
+    const relativePath = `${SPEC_RELATIVE}/${key}`;
+    const strict = contract.ok && isStrictSpecContract(relativePath, strictContext);
+    if (strict) {
+      const result = validateSpecUserExecutionPlan(contract.contract, text);
+      if (result.ok) continue;
+      findings.push({
+        spec: key,
+        problem: `post-cutover user-execution contract failed: ${result.error}.`,
+      });
+      continue;
+    }
     if (text.split('\n').some((line) => line.trim().replace(/\s+/g, ' ') === heading)) continue;
     findings.push({
       spec: key,

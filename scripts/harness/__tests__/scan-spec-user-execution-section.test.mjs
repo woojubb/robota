@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,10 @@ import {
   readExaminedSpecCount,
   resolveGovernedFolders,
 } from '../scan-spec-user-execution-section.mjs';
+import {
+  parseUserExecutionPlanContract,
+  validateSpecUserExecutionPlan,
+} from '../user-execution-plan-contract.mjs';
 
 const WORKFLOW_RULE = fileURLToPath(
   new URL('../../../.agents/rules/spec-workflow.md', import.meta.url),
@@ -31,6 +36,41 @@ const write = (rel, body) => {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, body);
 };
+
+function git(cwd, args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+  return result.stdout.trim();
+}
+
+function ancestryFixture() {
+  const fixture = makeTemp('harness-134-spec-cutover-');
+  const put = (relative, text) => {
+    const file = path.join(fixture, relative);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, text);
+  };
+  const liveRule = readFileSync(BACKLOG_RULE, 'utf8');
+  const legacyRule = liveRule.replace(
+    /<!-- user-execution-plan-contract:v1:start -->[\s\S]*?<!-- user-execution-plan-contract:v1:end -->/,
+    '',
+  );
+  put('.agents/rules/spec-workflow.md', readFileSync(WORKFLOW_RULE, 'utf8'));
+  put('.agents/rules/backlog-execution.md', legacyRule);
+  put(
+    '.agents/spec-docs/done/HARNESS-991-legacy.md',
+    ['---', 'status: done', '---', '', '# legacy', '', HEADING, '', 'N/A.', ''].join('\n'),
+  );
+  git(fixture, ['init', '-q']);
+  git(fixture, ['config', 'user.email', 'fixture@example.com']);
+  git(fixture, ['config', 'user.name', 'Fixture']);
+  git(fixture, ['add', '-A']);
+  git(fixture, ['commit', '-q', '-m', 'legacy']);
+  put('.agents/rules/backlog-execution.md', liveRule);
+  git(fixture, ['add', '.agents/rules/backlog-execution.md']);
+  git(fixture, ['commit', '-q', '-m', 'introduce strict contract']);
+  return { fixture, put, liveRule, legacyRule };
+}
 
 describe('spec-user-execution-section — criteria are READ, never copied (HARNESS-105)', () => {
   it('reads the required heading out of the rule that owns it', () => {
@@ -141,6 +181,107 @@ describe('spec-user-execution-section — findings (HARNESS-105)', () => {
     expect(() => findMissingSectionFindings(empty)).toThrow(/missing from/);
 
     rmSync(empty, { recursive: true, force: true });
+  });
+});
+
+describe('shared post-cutover spec reason contract (HARNESS-134)', () => {
+  const contractResult = parseUserExecutionPlanContract(readFileSync(BACKLOG_RULE, 'utf8'));
+
+  it('accepts only the exact not-applicable signal plus one substantive visible reason', () => {
+    expect(contractResult.ok, contractResult.ok ? '' : contractResult.error).toBe(true);
+    const spec = (body) => `${HEADING}\n\n${body}\n\n## Tasks\n`;
+    expect(
+      validateSpecUserExecutionPlan(
+        contractResult.contract,
+        spec(
+          'Not applicable.\n\n**Reason:** This repository governance change affects contributor checkpoint records and exposes no runnable Robota product behavior to users.',
+        ),
+      ),
+    ).toMatchObject({ ok: true, outcome: 'not-applicable' });
+
+    for (const invalid of [
+      'N/A.\n\n**Reason:** This repository governance change affects contributor checkpoint records and exposes no runnable Robota product behavior to users.',
+      'Not applicable.\n\n**Reason:** too short',
+      'Not applicable.\n\n<!-- **Reason:** This hidden explanation contains enough words and characters but is not visible to any reader. -->',
+      'Not applicable.\n\n**Reason:** Repository build checks prove this internal checkpoint behavior, which users cannot execute through any shipped Robota product surface.',
+    ]) {
+      expect(validateSpecUserExecutionPlan(contractResult.contract, spec(invalid))).toMatchObject({
+        ok: false,
+      });
+    }
+  });
+
+  it('keeps an applicable visible scenario section valid', () => {
+    const spec = [
+      HEADING,
+      '',
+      '### Scenario 1: run the CLI',
+      '',
+      '- **executability:** agent-executable',
+      '- **product surface:** robota-cli',
+      '- **surface rationale:** shipped-entrypoint=robota',
+      '- **prerequisites:** the built Robota CLI is available',
+      '- **command:** `robota --version`',
+      '- **observable type:** product-output',
+      '- **observable rationale:** source=product-process',
+      '- **expected observable:** exit=0; output-contains=robota',
+      '- **cleanup:** none',
+      '- **evidence:** pending implementation',
+      '',
+    ].join('\n');
+    expect(validateSpecUserExecutionPlan(contractResult.contract, spec)).toMatchObject({
+      ok: true,
+      outcome: 'applicable',
+    });
+  });
+});
+
+describe('spec reason contract ancestry cutover (HARNESS-134)', () => {
+  it('preserves an untouched legacy spec but makes its next edit or folder transition strict', () => {
+    const { fixture, put } = ancestryFixture();
+    expect(findMissingSectionFindings(fixture).findings).toEqual([]);
+
+    put(
+      '.agents/spec-docs/done/HARNESS-991-legacy.md',
+      ['---', 'status: done', '---', '', '# edited', '', HEADING, '', 'N/A.', ''].join('\n'),
+    );
+    expect(findMissingSectionFindings(fixture).findings[0]?.problem).toMatch(
+      /post-cutover.*exact line/i,
+    );
+    git(fixture, ['restore', '.agents/spec-docs/done/HARNESS-991-legacy.md']);
+    mkdirSync(path.join(fixture, '.agents/spec-docs/active'), { recursive: true });
+    git(fixture, [
+      'mv',
+      '.agents/spec-docs/done/HARNESS-991-legacy.md',
+      '.agents/spec-docs/active/HARNESS-991-legacy.md',
+    ]);
+    expect(findMissingSectionFindings(fixture).findings[0]?.problem).toMatch(
+      /post-cutover.*exact line/i,
+    );
+    rmSync(fixture, { recursive: true, force: true });
+  });
+
+  it('fails closed when the valid contract is removed and independently reintroduced', () => {
+    const { fixture, put, liveRule, legacyRule } = ancestryFixture();
+    put('.agents/rules/backlog-execution.md', legacyRule);
+    git(fixture, ['add', '.agents/rules/backlog-execution.md']);
+    git(fixture, ['commit', '-q', '-m', 'remove strict contract']);
+    put('.agents/rules/backlog-execution.md', liveRule);
+    git(fixture, ['add', '.agents/rules/backlog-execution.md']);
+    git(fixture, ['commit', '-q', '-m', 'reintroduce strict contract']);
+
+    expect(() => findMissingSectionFindings(fixture)).toThrow(/cutover is ambiguous/i);
+    rmSync(fixture, { recursive: true, force: true });
+  });
+
+  it('fails closed when the current contract becomes missing after its introduction', () => {
+    const { fixture, put, legacyRule } = ancestryFixture();
+    put('.agents/rules/backlog-execution.md', legacyRule);
+
+    expect(() => findMissingSectionFindings(fixture)).toThrow(
+      /missing or invalid after its cutover/i,
+    );
+    rmSync(fixture, { recursive: true, force: true });
   });
 });
 
