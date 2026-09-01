@@ -115,8 +115,6 @@ function substituteBaseRef(args, baseRef) {
   return args.filter((_, i) => i !== at && i !== at + 1);
 }
 
-const run = createPrePushCommandRunner({ root: WORKSPACE_ROOT });
-
 function runGitQuiet(args) {
   return (
     spawnSync('git', args, {
@@ -401,8 +399,12 @@ function createPrePushRuntime() {
   };
 }
 
-export function createPrePushSteps() {
-  const runtime = createPrePushRuntime();
+export function createPrePushSteps({
+  runtime = createPrePushRuntime(),
+  createCommandRunner = createPrePushCommandRunner,
+  commandRunnerOptions = {},
+} = {}) {
+  const run = createCommandRunner({ root: WORKSPACE_ROOT, ...commandRunnerOptions });
 
   return {
     pruneAndWarnStaleWorktrees,

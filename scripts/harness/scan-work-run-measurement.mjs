@@ -13,6 +13,7 @@ import {
 import { git } from './work-run-git.mjs';
 import { createPullRequestEvidenceFetcher } from './work-run-pr-evidence.mjs';
 import { createWorkRunVerificationRuntime } from './work-run-verification-runtime.mjs';
+import { parseWorkRunPrObservation } from './work-run-observation.mjs';
 import {
   changedRange,
   inspectCutover,
@@ -196,6 +197,14 @@ export function validateWorkRunRange(
   });
 }
 
+export function executeWorkRunMeasurement(input, validate = validateWorkRunRange) {
+  const prObservation = parseWorkRunPrObservation(input.env);
+  return validate({
+    ...input,
+    ...(prObservation === undefined ? {} : { prObservation }),
+  });
+}
+
 export function main(argv = process.argv.slice(2)) {
   let currentBranch = null;
   try {
@@ -208,12 +217,13 @@ export function main(argv = process.argv.slice(2)) {
   const baseRef = protectedSubject ? null : (option(argv, '--base') ?? resolveGitBaseRef());
   if (!protectedSubject && !baseRef)
     throw new Error('work-run-measurement: no PR base could be resolved');
-  const verdict = validateWorkRunRange({
+  const verdict = executeWorkRunMeasurement({
     root: WORKSPACE_ROOT,
     baseRef,
     subjectRef: subject.subjectRef,
     subjectBranch: subject.subjectBranch,
     argv,
+    env: process.env,
   });
   process.stdout.write('work-run-measurement: examined one topic range\n');
   process.stdout.write(
