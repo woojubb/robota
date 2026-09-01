@@ -86,8 +86,12 @@ behavior to execute or observe.
   delivery-binding gap: history and staged plan-order consumers still accepted a post-hoc legacy-v1
   declaration. Both consumer routes were reproduced RED, then bound to the first checkpoint's
   introduction-revision Decision with valid controls retained.
-- Final focused verification passed 172/172 tests across six owning files. Full contract verification
-  passed 4,628/4,628 tests across 223 files plus the 222/222 follow-up contract suite, and hermetic
+- Follow-up exact review at head `025914db3` found that the introduction binding switched off after the
+  first continuation. Three-entry history and staged fixtures reproduced both routes RED; revision 3 now
+  requires the original v1 Decision to have declared sequenced delivery on every continuation while
+  retaining the valid control in which a later PR changes the next continuation's artifact inventory.
+- Final focused verification passed 174/174 tests across six owning files. Full contract verification
+  passed 4,630/4,630 tests across 223 files plus the 222/222 follow-up contract suite, and hermetic
   verification passed 1,123/1,123 tests across 71 files. The full repository scan passed 149/150 before
   work-run closure; its sole failure was the expected active-run `invalid-closure-commit`, which is
   resolved only by the receipt-only closure.
