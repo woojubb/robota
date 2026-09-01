@@ -1777,7 +1777,7 @@ function orderingResult(catalogue, gate, doc) {
       : gate.prior;
   if (!prior) return null;
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
-  const last = entries[entries.length - 1];
+  const last = entries.findLast((entry) => !gate.continuation || entry.verdict === '✅ PASS');
   const problems = [];
   if (!last || last.verdict !== '✅ PASS')
     problems.push(`last [${prior.gate}] entry is ${last ? last.verdict : 'absent'}, PASS required`);

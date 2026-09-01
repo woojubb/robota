@@ -99,14 +99,14 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the local catalogue fixture contains the exact annotated continuation prior-map row, and
+- [x] TC-01: the local catalogue fixture contains the exact annotated continuation prior-map row, and
       the pre-fix PASS→FAIL fixture exits 1 with
       `last [GATE-IMPLEMENT] entry is ❌ FAIL`.
-- [ ] TC-02: the PASS→FAIL→corrected continuation fixture exits 0 and records ordering against the
+- [x] TC-02: the PASS→FAIL→corrected continuation fixture exits 0 and records ordering against the
       existing prior PASS without deleting the FAIL.
-- [ ] TC-03: continuation histories with no prior PASS or only FAIL entries exit 1 with an ordering
+- [x] TC-03: continuation histories with no prior PASS or only FAIL entries exit 1 with an ordering
       failure.
-- [ ] TC-04: an ordinary gate whose last required-prior entry is FAIL continues to exit 1 even when an
+- [x] TC-04: an ordinary gate whose last required-prior entry is FAIL continues to exit 1 even when an
       older PASS exists, and retry histories with invalid current status, artifacts, ancestor, Task/PLAN,
       or worktree inventory each exit 1.
 - [ ] TC-05: focused gate/checkpoint/order suites and the required repository verification exit 0.
@@ -132,7 +132,7 @@ Robota command, public SDK result, TUI or browser flow, or any product-visible r
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md` — todo
+- [ ] `.agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md` — in-progress
 
 ## Evidence Log
 

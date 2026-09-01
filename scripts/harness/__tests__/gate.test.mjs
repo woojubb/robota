@@ -72,6 +72,7 @@ const CATALOGUE = `# Gate Catalogue
 | -------------- | ------------------------------ | ------------------------------ |
 | GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |
 | GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |
+| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) |
 | GATE-VERIFY    | GATE-IMPLEMENT                 | \`in-progress\`                |
 | GATE-COMPLETE  | GATE-VERIFY                    | \`verifying\`                  |
 
@@ -1663,6 +1664,65 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     return makeWorkspace({ spec, folder: 'todo' });
   }
 
+  function continuationWorkspace({
+    priorPass = true,
+    priorFail = true,
+    commitHistory = true,
+  } = {}) {
+    const task = TASK.replace('status: todo', 'status: in-progress');
+    const spec = conformingSpec({ status: 'in-progress', folder: 'active', lane: 'L2' }).replace(
+      '**Delivery mode:** `single`',
+      '**Delivery mode:** `sequenced`\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
+    );
+    const { root, doc } = makeWorkspace({ spec, folder: 'active', task });
+    const git = gitInit(root);
+    const contracts = parseCheckpointEvidenceContracts(
+      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
+    ).contracts;
+    const firstPayload = {
+      version: 2,
+      form: 'gateImplementFirst',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      taskPath: TASK_REL,
+      specPath: `.agents/spec-docs/todo/${SPEC_ID}.md`,
+      taskItems: [
+        { kind: 'tc-id', value: 'TC-01' },
+        { kind: 'tc-id', value: 'TC-02' },
+      ],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [`.agents/spec-docs/todo/${SPEC_ID}.md`, TASK_REL].sort(),
+    };
+    const first = formatCheckpointEvidence(contracts.get(2), 'gateImplementFirst', firstPayload);
+    if (!first.ok) throw new Error(first.error);
+    let ancestorSha = null;
+    if (priorPass) {
+      writeFileSync(
+        doc,
+        `${readFileSync(doc, 'utf8')}\n### [GATE-IMPLEMENT] — ✅ PASS | ${DATE}\n\n**Status upgrade:** approved → in-progress\n\n${first.text}\n`,
+      );
+      if (commitHistory) {
+        git(['add', '-A']);
+        git(['commit', '-q', '-m', 'first sequenced checkpoint']);
+        ancestorSha = git(['rev-parse', 'HEAD']).stdout.trim();
+      }
+    }
+    if (priorFail) {
+      writeFileSync(
+        doc,
+        `${readFileSync(doc, 'utf8')}\n### [GATE-IMPLEMENT] — ❌ FAIL | ${DATE}\n\n**Status remains:** in-progress\n\n**Failed criteria:**\n\n- fixture continuation prerequisite: missing declaration\n  **Required action:** repair the declaration\n`,
+      );
+      if (commitHistory) {
+        git(['add', '-A']);
+        git(['commit', '-q', '-m', 'record failed continuation attempt']);
+      }
+    }
+    const parentSpec = readFileSync(doc, 'utf8');
+    writeFileSync(doc, `${parentSpec}\n`);
+    const priorRaw = rawGateImplementPassEntries(readFileSync(doc, 'utf8')).at(-1);
+    return { root, doc, contracts, ancestorSha, priorRaw };
+  }
+
   it('passes when only the paired spec/Task and the PLAN ledger are dirty', () => {
     const { root, doc } = approvedWorkspace();
     gitInit(root);
@@ -1746,43 +1806,8 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     }
   });
 
-  it('judges a native continuation against the annotated ordering row and writes exact v2 evidence', () => {
-    const task = TASK.replace('status: todo', 'status: in-progress');
-    const spec = conformingSpec({ status: 'in-progress', folder: 'active', lane: 'L2' }).replace(
-      '**Delivery mode:** `single`',
-      '**Delivery mode:** `sequenced`\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
-    );
-    const { root, doc } = makeWorkspace({ spec, folder: 'active', task });
-    const git = gitInit(root);
-    const contracts = parseCheckpointEvidenceContracts(
-      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
-    ).contracts;
-    const firstPayload = {
-      version: 2,
-      form: 'gateImplementFirst',
-      deliveryMode: 'sequenced',
-      sequencedArtifacts: ['scripts/harness/gate.mjs'],
-      taskPath: TASK_REL,
-      specPath: `.agents/spec-docs/todo/${SPEC_ID}.md`,
-      taskItems: [
-        { kind: 'tc-id', value: 'TC-01' },
-        { kind: 'tc-id', value: 'TC-02' },
-      ],
-      plan: { outcome: 'not-applicable', count: 0 },
-      worktreePaths: [`.agents/spec-docs/todo/${SPEC_ID}.md`, TASK_REL].sort(),
-    };
-    const first = formatCheckpointEvidence(contracts.get(2), 'gateImplementFirst', firstPayload);
-    if (!first.ok) throw new Error(first.error);
-    writeFileSync(
-      doc,
-      `${readFileSync(doc, 'utf8')}\n### [GATE-IMPLEMENT] — ✅ PASS | ${DATE}\n\n**Status upgrade:** approved → in-progress\n\n${first.text}\n`,
-    );
-    git(['add', '-A']);
-    git(['commit', '-q', '-m', 'first sequenced checkpoint']);
-    const ancestorSha = git(['rev-parse', 'HEAD']).stdout.trim();
-    const parentSpec = readFileSync(doc, 'utf8');
-    writeFileSync(doc, `${parentSpec}\n`);
-    const priorRaw = rawGateImplementPassEntries(readFileSync(doc, 'utf8')).at(-1);
+  it('retries a native continuation from the newest prior PASS after a later FAIL', () => {
+    const { root, doc, contracts, ancestorSha, priorRaw } = continuationWorkspace();
 
     const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
 
@@ -1808,6 +1833,103 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
       plan: { outcome: 'not-applicable', count: 0 },
       worktreePaths: [`.agents/spec-docs/active/${SPEC_ID}.md`, TASK_REL].sort(),
     });
+  });
+
+  it('refuses a native continuation when the history has FAIL but no prior PASS', () => {
+    const { root, doc } = continuationWorkspace({ priorPass: false });
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'last [GATE-IMPLEMENT] entry is absent, PASS required',
+    );
+  });
+
+  it('keeps the last-entry rule for an ordinary gate after an older PASS and later FAIL', () => {
+    const { root, doc } = continuationWorkspace();
+
+    const result = judge(root, doc, 'GATE-VERIFY', ['--lane', 'L2']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'last [GATE-IMPLEMENT] entry is ❌ FAIL, PASS required',
+    );
+  });
+
+  it('rechecks the current in-progress status on a continuation retry', () => {
+    const { root, doc } = continuationWorkspace();
+    writeFileSync(
+      doc,
+      readFileSync(doc, 'utf8').replace('status: in-progress', 'status: verifying'),
+    );
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'status is `verifying`, `in-progress` expected',
+    );
+  });
+
+  it('rechecks current continuation artifacts against the prior PASS payload', () => {
+    const { root, doc } = continuationWorkspace();
+    writeFileSync(
+      doc,
+      readFileSync(doc, 'utf8').replace(
+        '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+        '**Continuation artifacts:** `scripts/harness/gate-checkpoint-evidence.mjs`',
+      ),
+    );
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'prior v2 delivery does not bind the current Decision',
+    );
+  });
+
+  it('rechecks that the prior PASS has a preceding integration commit', () => {
+    const { root, doc } = continuationWorkspace({ commitHistory: false });
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'no preceding integration commit that introduced its prior PASS',
+    );
+  });
+
+  it('rechecks the current Task PLAN signal on a continuation retry', () => {
+    const { root, doc } = continuationWorkspace();
+    const taskPath = path.join(root, TASK_REL);
+    writeFileSync(
+      taskPath,
+      readFileSync(taskPath, 'utf8').replace(
+        'SCENARIO DRAFTED: not-applicable | 0',
+        'SCENARIO DRAFTED: not-applicable | 1',
+      ),
+    );
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'not-applicable author verdict requires count zero',
+    );
+  });
+
+  it('rechecks the whole worktree boundary on a continuation retry', () => {
+    const { root, doc } = continuationWorkspace();
+    mkdirSync(path.join(root, 'packages'), { recursive: true });
+    writeFileSync(path.join(root, 'packages/outside.ts'), 'export {};\n');
+
+    const result = judge(root, doc, 'GATE-IMPLEMENT', ['--lane', 'L2', '--continuation']);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('outside the paired spec/Task');
+    expect(result.stdout + result.stderr).toContain('packages/outside.ts');
   });
 
   it('produces a first v2 checkpoint whose native continuation replays end to end', () => {
