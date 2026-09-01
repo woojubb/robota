@@ -1,7 +1,8 @@
 ---
 title: 'PROC-030: allow continuation gate retry after a recorded failure'
-status: in-progress
+status: done
 created: 2026-09-02
+completed: 2026-09-02
 priority: medium
 urgency: soon
 area: workflow governance and harness gate lifecycle
@@ -31,7 +32,7 @@ Task/PLAN, and worktree conditions on every retry.
 - [x] TC-04 — on a valid PASS→FAIL retry history, independently make current status, sequenced
       Decision/artifacts, preceding ancestor, Task/PLAN binding, and outside-worktree inventory invalid;
       prove every case still fails.
-- [ ] TC-05 — run focused gate tests, affected checkpoint/order tests, and repository verification.
+- [x] TC-05 — run focused gate tests, affected checkpoint/order tests, and repository verification.
 
 ## Test Plan
 

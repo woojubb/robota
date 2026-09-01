@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -109,17 +109,17 @@ None
 - [x] TC-04: an ordinary gate whose last required-prior entry is FAIL continues to exit 1 even when an
       older PASS exists, and retry histories with invalid current status, artifacts, ancestor, Task/PLAN,
       or worktree inventory each exit 1.
-- [ ] TC-05: focused gate/checkpoint/order suites and the required repository verification exit 0.
+- [x] TC-05: focused gate/checkpoint/order suites and the required repository verification exit 0.
 
 ## Test Plan
 
-| TC-ID | Test Type       | Tool / Approach                                                                 | Notes                     |
-| ----- | --------------- | ------------------------------------------------------------------------------- | ------------------------- |
-| TC-01 | RED contract    | `scripts/harness/__tests__/gate.test.mjs` annotated-row ordering fixture        | Must fail before code fix |
-| TC-02 | Unit regression | `scripts/harness/__tests__/gate.test.mjs` PASS→FAIL→retry fixture               | Exact repaired path       |
-| TC-03 | Negative unit   | `scripts/harness/__tests__/gate.test.mjs` no-PASS and FAIL-only fixtures        | Fail closed               |
-| TC-04 | Control unit    | ordinary ordering plus five current-input-invalid retry fixtures                | No broad weakening        |
-| TC-05 | CI smoke        | focused Vitest, affected contract suites, `pnpm harness:scan`, and `pnpm build` | Final tree                |
+| TC-ID | Test Type       | Tool / Approach                                                          | Notes                     |
+| ----- | --------------- | ------------------------------------------------------------------------ | ------------------------- |
+| TC-01 | RED contract    | `scripts/harness/__tests__/gate.test.mjs` annotated-row ordering fixture | Must fail before code fix |
+| TC-02 | Unit regression | `scripts/harness/__tests__/gate.test.mjs` PASS→FAIL→retry fixture        | Exact repaired path       |
+| TC-03 | Negative unit   | `scripts/harness/__tests__/gate.test.mjs` no-PASS and FAIL-only fixtures | Fail closed               |
+| TC-04 | Control unit    | ordinary ordering plus five current-input-invalid retry fixtures         | No broad weakening        |
+| TC-05 | CI smoke        | 7 focused suites: 260/260; `pnpm build`; substantive scan: 147/147       | Final tree                |
 
 ## User Execution Test Scenarios
 
@@ -132,7 +132,7 @@ Robota command, public SDK result, TUI or browser flow, or any product-visible r
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md` — in-progress
+- [x] `.agents/tasks/completed/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md` — done
 
 ## Evidence Log
 
@@ -253,3 +253,77 @@ Robota command, public SDK result, TUI or browser flow, or any product-visible r
 ```
 
 <!-- checkpoint-evidence:v2:end -->
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm build` → exit 0 ([33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../agent-builtin-providers/dist/node/index.js is dynamically imported by ../dag-nodes-default/dist/node/index.js but also statically imported by src/eval/eval-command.ts, src/product/robota-subagent-composition.ts, src/startup/command-setup.ts, src/startup/diagnose-command.ts, src/startup/provider-startup.ts, dynamic import will not move module into another chunk. ⏎ ⏎ [33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../dag-nodes-default/dist/node/index.js is dynamically imported by ../dag-framework/dist/node/index.js but also statically imported by ../agent-command-workflows/dist/node/index.js, dynamic import will not move module into another chunk.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/checkpoint-evidence-git-contract.test.mjs scripts/harness/__tests__/checkpoint-evidence-source.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to branch 'develop' ⏎ Switched to and reset branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs --reporter=json --outputFile=/private/tmp/proc030-gate.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 13 suites passed, 85 tests passed, 0 tests failed.
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs --reporter=json --outputFile=/private/tmp/proc030-gate.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 13 suites passed, 85 tests passed, 0 tests failed.
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs --reporter=json --outputFile=/private/tmp/proc030-gate.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 13 suites passed, 85 tests passed, 0 tests failed.
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs --reporter=json --outputFile=/private/tmp/proc030-gate.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 13 suites passed, 85 tests passed, 0 tests failed.
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/checkpoint-evidence-git-contract.test.mjs scripts/harness/__tests__/checkpoint-evidence-source.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc030-all.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 33 suites passed, 260 tests passed, 0 tests failed.
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-02; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/PROC-030-allow-continuation-gate-retry-after-a-recorded-failure.md
