@@ -18,15 +18,20 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // harness-coverage: pre-push-verification-execution.mjs
+// harness-coverage: pre-push-command-runner.mjs
 
 import {
+  createPrePushSteps,
   createWorkRunMeasurementInput,
   prerequisitesFor,
   runPostVerdictGuard,
   runPrePushGate,
 } from '../pre-push.mjs';
-import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
 import { createPrePushCommandRunner } from '../pre-push-command-runner.mjs';
+import { runPrePushVerification } from '../pre-push-verification-execution.mjs';
+import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
+
+const WORK_RUN_PR_OBSERVATION_ENV = 'HARNESS_WORK_RUN_PR_OBSERVATION';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
 function recordingSteps(decision) {
@@ -204,6 +209,68 @@ describe('pre-push work-run subject', () => {
   });
 });
 
+describe('nested scans preserve the pre-push observation (INFRA-148)', () => {
+  const runtime = {
+    prePushMode: 'fast',
+    baseRef: 'origin/develop',
+    baseArgs: ['--base', 'origin/develop'],
+    scopeExpansionArgs: [],
+    changeClassification: { harness: true, product: false },
+    basePlan: { classificationBaseRef: 'origin/develop' },
+  };
+
+  it('adds the observation overlay only to the nested harness:scan command', () => {
+    const calls = [];
+    let clock = 0;
+
+    runPrePushVerification(runtime, {
+      createMirror: () => [
+        ['pnpm', ['harness:test:contracts']],
+        ['pnpm', ['harness:scan', '--', '--affected']],
+      ],
+      now: () => (clock += 1_000),
+      run: (...args) => calls.push(args),
+      write: () => {},
+    });
+
+    const nestedScan = calls.find(([, args]) => args[0] === 'harness:scan');
+    expect(nestedScan).toEqual([
+      'pnpm',
+      ['harness:scan', '--', '--affected'],
+      { env: { [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push' } },
+    ]);
+    expect(
+      calls.filter(([, args]) => args[0] !== 'harness:scan').every((call) => call[2] === undefined),
+    ).toBe(true);
+  });
+
+  it('merges the overlay without discarding inherited child-process environment entries', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+    const run = createPrePushCommandRunner({
+      root: '/tmp/repository',
+      spawn,
+      inheritedEnvironment: { PATH: '/bin', KEEP_ME: 'yes' },
+      write: () => {},
+    });
+
+    run('pnpm', ['harness:scan'], {
+      env: { [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push' },
+    });
+
+    expect(spawn).toHaveBeenCalledWith(
+      'pnpm',
+      ['harness:scan'],
+      expect.objectContaining({
+        env: {
+          PATH: '/bin',
+          KEEP_ME: 'yes',
+          [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push',
+        },
+      }),
+    );
+  });
+});
+
 /**
  * The sequence test above uses a stubbed decision, so these connect it to the REAL predicate: the
  * two skip reasons are the ones `decidePrePushVerification` actually produces from real hook stdin.
@@ -325,5 +392,57 @@ describe('pre-push command runner characterization (INFRA-148)', () => {
     run('pnpm', ['harness:scan']);
 
     expect(exit).toHaveBeenCalledWith(7);
+  });
+});
+
+describe('pre-push production runner composition (INFRA-148)', () => {
+  it('carries the nested scan observation through createPrePushSteps into spawn', () => {
+    const runtime = {
+      prePushMode: 'fast',
+      baseRef: 'origin/develop',
+      baseArgs: ['--base', 'origin/develop'],
+      scopeExpansionArgs: [],
+      changeClassification: { harness: true, product: false },
+      basePlan: { classificationBaseRef: 'origin/develop' },
+      pushSubject: {
+        localObjectId: 'a'.repeat(40),
+        localRef: 'refs/heads/codex/work',
+        branch: 'codex/work',
+      },
+    };
+    const spawn = vi.fn(() => ({ status: 0 }));
+    const createCommandRunner = vi.fn(createPrePushCommandRunner);
+    const steps = createPrePushSteps({
+      runtime,
+      createCommandRunner,
+      commandRunnerOptions: {
+        spawn,
+        inheritedEnvironment: { PATH: '/bin', KEEP_ME: 'yes' },
+        write: () => {},
+      },
+    });
+    const productionCompositionWasUsed = createCommandRunner.mock.calls.length === 1;
+
+    if (productionCompositionWasUsed) {
+      const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        steps.runVerification();
+      } finally {
+        stdout.mockRestore();
+      }
+    }
+
+    expect(productionCompositionWasUsed).toBe(true);
+    const nestedScan = spawn.mock.calls.find(([, args]) => args[0] === 'harness:scan');
+    expect(nestedScan?.[2]?.env).toEqual({
+      PATH: '/bin',
+      KEEP_ME: 'yes',
+      [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push',
+    });
+    expect(
+      spawn.mock.calls
+        .filter(([, args]) => args[0] !== 'harness:scan')
+        .every(([, , options]) => options.env === undefined),
+    ).toBe(true);
   });
 });
