@@ -1,8 +1,9 @@
 ---
 title: 'PROC-029: Unify GATE-IMPLEMENT continuation producer and consumer contracts'
 issue: https://github.com/woojubb/robota/issues/2422
-status: in-progress
+status: done
 created: 2026-09-01
+completed: 2026-09-01
 priority: medium
 urgency: soon
 area: workflow governance and harness checkpoint lifecycle
@@ -26,15 +27,15 @@ contract. The three causes remain separately attributable in Tasks, tests, and c
 
 ## Plan
 
-- [ ] TC-01 — extend the existing versioned checkpoint contract and enforce complete first-checkpoint
+- [x] TC-01 — extend the existing versioned checkpoint contract and enforce complete first-checkpoint
       continuation readiness for PROC-026.
-- [ ] TC-02 — add native `gate.mjs judge --gate GATE-IMPLEMENT --continuation` routing, ordering,
+- [x] TC-02 — add native `gate.mjs judge --gate GATE-IMPLEMENT --continuation` routing, ordering,
       evidence generation, and annotated prior-gate parsing.
-- [ ] TC-03 — make not-applicable reason validation structural and substantive without requiring the
+- [x] TC-03 — make not-applicable reason validation structural and substantive without requiring the
       literal phrase `not applicable`, while continuing to reject absent or thin reasons.
-- [ ] TC-04 — add RED→GREEN regressions for all three historical failures and run the affected harness
+- [x] TC-04 — add RED→GREEN regressions for all three historical failures and run the affected harness
       contract and scan suites.
-- [ ] TC-05 — after verification, complete PROC-026 and HARNESS-134 under their own criteria and preserve
+- [x] TC-05 — after verification, complete PROC-026 and HARNESS-134 under their own criteria and preserve
       truthful outcome-specific delivery records for all three source Issues.
 
 ## Test Plan
@@ -62,3 +63,32 @@ Not applicable.
 **Reason:** This work governs how repository contributors record and validate planning checkpoints and
 continuation evidence; no Robota product runtime path consumes these contracts, so a user has no product
 behavior to execute or observe.
+
+## User Execution Close-out
+
+**User-execution route:** `NOT-APPLICABLE`
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+**Reason:** This work governs how repository contributors record and validate planning checkpoints and
+continuation evidence; no Robota product runtime path consumes these contracts, so a user has no product
+behavior to execute or observe.
+**DONE-GATE-STAGE-1:** N/A — not invoked; the subject-bound PLAN terminal outcome is `NOT-APPLICABLE`.
+**DONE-GATE-STAGE-2:** N/A — not invoked; Phase 4 is skipped for `NOT-APPLICABLE`.
+
+## Verification
+
+- `pnpm build` exited 0 across all workspace packages.
+- The initial pre-review focused harness verification passed 261/261 tests. Independent local review
+  then found four contract gaps, and its re-review found one remaining delivery-binding gap; all five
+  were reproduced and corrected before the first push.
+- Post-review focused verification passed 269/269 tests across 13 owning files, including 142/142
+  plan-order history cases and explicit rejection of both a v2 `single` predecessor under a sequenced
+  Decision and continuation artifact drift. `pnpm build` exited 0 again. The full repository scan passed
+  149/150 before work-run closure; its sole failure was the expected active-run
+  `invalid-closure-commit`, which is resolved only by the receipt-only closure.
+- The first plain `pnpm test` exposed the unchanged macOS `/var` versus `/private/var` defect recorded as
+  issue #2564. With a canonical temporary root that package passed 119/119; the later full run reached
+  unrelated Linux-only stable-no-follow tests in `agent-session`. Neither package is changed by this work.
+- Outcome-specific, explicitly unmerged delivery evidence was recorded on issues #2422, #2561, and #2261;
+  each issue remains open for the delivery PR to close on merge.
+- Independent user-execution guardian verdict: `PASS`; the route is `NOT-APPLICABLE`, so engineering
+  verification above is not user-execution evidence.

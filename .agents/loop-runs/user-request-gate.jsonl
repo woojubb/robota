@@ -27,7 +27,7 @@
 {"runId":"r20260830082636","opened":"2026-08-30T08:26:36.434Z","closed":"2026-08-30T08:35:56.882Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":"AGREEMENT-005 terminal TC-06 correction; guardian continuation PASS; review converged from 2 findings to ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260830093213","opened":"2026-08-30T09:32:13.642Z","closed":"2026-08-30T09:55:19.079Z","roundFindings":[0],"extensions":{},"terminal":"halted-for-user","ref":"AGREEMENT-006 reached review-ready with GATE-WRITE 27/27 PASS and independent REVIEW VERDICT: ENDORSE; direct document-specific GATE-APPROVAL instruction required"}
 {"runId":"r20260830095525","opened":"2026-08-30T09:55:25.756Z","closed":"2026-08-30T10:49:59.212Z","roundFindings":[1,6,2,3,2,2,0],"extensions":{},"terminal":"converged","ref":"OBSERVABILITY-002"}
-{"runId":"r20260830100452","opened":"2026-08-30T10:04:52.201Z","closed":null,"roundFindings":[1,0],"extensions":{},"terminal":null,"ref":null}
+{"runId":"r20260830100452","opened":"2026-08-30T10:04:52.201Z","closed":"2026-08-31T16:23:10.798Z","roundFindings":[1,0],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260831162310"}
 {"runId":"r20260830134103","opened":"2026-08-30T13:41:03.418Z","closed":"2026-08-30T13:46:01.146Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260830144409","opened":"2026-08-30T14:44:09.057Z","closed":"2026-08-30T14:47:06.452Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260830160302","opened":"2026-08-30T16:03:02.126Z","closed":"2026-08-30T16:09:12.123Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}

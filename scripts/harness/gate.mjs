@@ -168,10 +168,18 @@ import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontma
 import {
   checkpointCheckboxItems,
   checkpointCompletionCriteria,
-  formatCheckpointEvidence,
-  parseCheckpointEvidenceContract,
-  taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
+import {
+  continuationCheckpointEvidence as renderContinuationCheckpointEvidence,
+  firstCheckpointEvidence as renderFirstCheckpointEvidence,
+} from './gate-checkpoint-evidence.mjs';
+import {
+  prepareTaskActivation,
+  readTaskRecordText,
+  resolveContinuationGate,
+  rewriteFrontmatterStatus,
+  validateNotApplicablePlan,
+} from './gate-implementation-contract.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
 import { collectSpecResearchFindings } from './scan-spec-research.mjs';
 import {
@@ -262,7 +270,7 @@ export function parseArgs(argv) {
       continue;
     }
     const key = arg.slice(2);
-    const flagOnly = key === 'dry-run';
+    const flagOnly = key === 'dry-run' || key === 'continuation';
     if (flagOnly) {
       options[key] = true;
       continue;
@@ -484,7 +492,10 @@ export function parsePriorGateMap(text) {
   for (const cells of tableRows(section.body)) {
     const [gate, prior, status] = cells;
     const statusToken = /`([a-z-]+)`/.exec(status ?? '');
-    if (/^GATE-[A-Z]+$/.test(gate ?? '') && /^GATE-[A-Z]+$/.test(prior ?? '')) {
+    if (
+      /^GATE-[A-Z]+(?: \(continuation\))?$/.test(gate ?? '') &&
+      /^GATE-[A-Z]+$/.test(prior ?? '')
+    ) {
       map.set(gate, { gate: prior, status: statusToken ? statusToken[1] : null });
     }
   }
@@ -1325,6 +1336,18 @@ function implementChecks() {
             `Task \`## User Execution Test Scenarios\` carries ${signals.length} ${form}s (exactly 1 required)`,
             'keep one author verdict',
           );
+        if (signals[0][1] === 'not-applicable') {
+          const validated = validateNotApplicablePlan(
+            requireFile(ctx.backlogRule, 'backlog-execution rule'),
+            task.text,
+          );
+          if (!validated.ok) {
+            return fail(
+              `not-applicable PLAN ${validated.error}`,
+              'record one visible substantive **Reason:** field',
+            );
+          }
+        }
         return pass(
           `Task \`## User Execution Test Scenarios\` records \`SCENARIO DRAFTED: ${signals[0][1]} | ${signals[0][2]}\``,
         );
@@ -1633,6 +1656,8 @@ function resolveGate(options, doc) {
       `unknown gate ${requested}; expected one of ${SPEC_GATES.join(', ')}${lane === 'L1' ? ', PLAN, DONE' : ''}`,
     );
   }
+  const continuation = resolveContinuationGate(options, requested, lane);
+  if (continuation) return continuation;
   return {
     name: requested,
     composes: [requested],
@@ -1746,7 +1771,9 @@ export function judgeCriteria(catalogue, gate, ctx) {
 
 function orderingResult(catalogue, gate, doc) {
   const prior =
-    gate.prior === undefined ? (catalogue.priorGates.get(gate.name) ?? null) : gate.prior;
+    gate.prior === undefined
+      ? (catalogue.priorGates.get(gate.priorKey ?? gate.name) ?? null)
+      : gate.prior;
   if (!prior) return null;
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
   const last = entries[entries.length - 1];
@@ -1775,42 +1802,6 @@ function passEntry(gateName, date, upgrade, results) {
     '',
     ...results.map((result) => `- ${result.label}: ${result.observed}`),
   ];
-}
-
-function checkpointWorktreePaths(root) {
-  const status = git(root, ['status', '--porcelain', '--untracked-files=all']);
-  if (!status.ok) throw new Error(`checkpoint worktree query failed: ${status.stderr.trim()}`);
-  return status.stdout
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => line.slice(3).split(' -> ').pop().trim().replace(/^"|"$/g, ''))
-    .sort();
-}
-
-function firstCheckpointEvidence(ctx) {
-  const parsed = parseCheckpointEvidenceContract(
-    requireFile(ctx.backlogRule, 'backlog-execution rule'),
-  );
-  if (!parsed.ok) throw new Error(`GATE-IMPLEMENT evidence contract unreadable: ${parsed.error}`);
-  const task = taskContext(ctx);
-  const taskItems = taskItemsForCheckpoint(ctx.doc.text, task.text);
-  if (!taskItems.ok)
-    throw new Error(`GATE-IMPLEMENT task evidence unavailable: ${taskItems.error}`);
-  const scenarios = sectionBody(task.text, /^User Execution Test Scenarios$/i);
-  const signals = [...(scenarios?.body.join('\n') ?? '').matchAll(AUTHOR_VERDICT_LINE)];
-  if (signals.length !== 1) throw new Error('GATE-IMPLEMENT PLAN signal is not unique');
-  const payload = {
-    version: parsed.contract.version,
-    form: 'gateImplementFirst',
-    taskPath: task.rel,
-    specPath: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
-    taskItems: taskItems.items,
-    plan: { outcome: signals[0][1], count: Number(signals[0][2]) },
-    worktreePaths: checkpointWorktreePaths(ctx.root),
-  };
-  const rendered = formatCheckpointEvidence(parsed.contract, 'gateImplementFirst', payload);
-  if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
-  return rendered.text.split('\n');
 }
 
 function failEntry(gateName, date, current, failed) {
@@ -1901,7 +1892,23 @@ export function runJudge(options) {
         `the catalogue heading for ${gate.name} states no \`from → to\` status upgrade`,
       );
     entry = passEntry(gate.name, date, upgrade, results);
-    if (gate.name === 'GATE-IMPLEMENT') entry.push('', ...firstCheckpointEvidence(ctx));
+    if (gate.name === 'GATE-IMPLEMENT') {
+      const task = taskContext(ctx);
+      const evidenceInput = {
+        root: ctx.root,
+        ruleText: requireFile(ctx.backlogRule, 'backlog-execution rule'),
+        specText: ctx.doc.text,
+        taskText: task.text,
+        taskRel: task.rel,
+        specRel: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
+      };
+      entry.push(
+        '',
+        ...(gate.continuation
+          ? renderContinuationCheckpointEvidence(evidenceInput)
+          : renderFirstCheckpointEvidence(evidenceInput)),
+      );
+    }
   }
 
   let written = false;
@@ -1969,20 +1976,6 @@ export function runRecord(options) {
 
 // ── advance ──────────────────────────────────────────────────────────────────────────────────────
 
-function rewriteFrontmatterStatus(text, next) {
-  const lines = text.split('\n');
-  const close = lines.findIndex((line, index) => index > 0 && /^---\s*$/.test(line));
-  for (let i = 1; i < close; i += 1) {
-    // Key comparison by prefix, not a `^status:` regex: `frontmatter.mjs` is the one owner of
-    // frontmatter key regexes (HARNESS-046), and this is a rewrite, not a parse.
-    if (lines[i].split(':')[0].trim() === 'status' && !lines[i].startsWith(' ')) {
-      lines[i] = `status: ${next}`;
-      return lines.join('\n');
-    }
-  }
-  throw new Error('the frontmatter carries no `status:` line to rewrite');
-}
-
 export function runAdvance(options) {
   const root = path.resolve(options.root ?? WORKSPACE_ROOT);
   if (!options.doc) throw new Error('advance needs --doc');
@@ -2021,6 +2014,19 @@ export function runAdvance(options) {
   if (!folder)
     throw new Error(`refused: spec-workflow.md maps no folder for status \`${upgrade.to}\``);
 
+  const taskRel = taskPathFromSpec(doc.text);
+  let activatedTask = null;
+  if (
+    last.gate === 'GATE-IMPLEMENT' &&
+    upgrade.from === 'approved' &&
+    upgrade.to === 'in-progress'
+  ) {
+    if (!taskRel) {
+      throw new Error('refused: GATE-IMPLEMENT PASS names no paired active Task');
+    }
+    activatedTask = prepareTaskActivation(root, taskRel);
+  }
+
   const specRoot = path.dirname(path.dirname(docPath));
   const target = path.join(specRoot, folder, path.basename(docPath));
   const moved = target !== docPath;
@@ -2046,7 +2052,10 @@ export function runAdvance(options) {
       }
     }
   }
-  const taskRel = taskPathFromSpec(doc.text);
+  if (activatedTask !== null) {
+    writeFileSync(activatedTask.path, activatedTask.text);
+    notes.push(`activated ${taskRel} to in-progress with the spec`);
+  }
   if (moved && taskRel) {
     const oldRel = path.relative(root, docPath).split(path.sep).join('/');
     const newRel = path.relative(root, target).split(path.sep).join('/');
@@ -2060,16 +2069,6 @@ export function runAdvance(options) {
     }
   }
   return { exit: 0, from: upgrade.from, to: upgrade.to, path: target, moved, notes };
-}
-
-/** The Task record's text, or `null` when there is no such file; any other failure is thrown. */
-function readTaskRecordText(absolutePath) {
-  try {
-    return readFileSync(absolutePath, 'utf8');
-  } catch (error) {
-    if (error?.code === 'ENOENT') return null;
-    throw error;
-  }
 }
 
 // ── approve ──────────────────────────────────────────────────────────────────────────────────────
