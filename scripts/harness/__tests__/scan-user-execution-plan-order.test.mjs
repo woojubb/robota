@@ -3194,8 +3194,10 @@ describe('user-execution PLAN order — branch history', () => {
 
 const AGREEMENT_PARENT = 'AGREEMENT-004-parent';
 const AGREEMENT_CHILDREN = [
-  ['FLOW-008', 'FLOW-008-child'],
-  ['API-001', 'API-001-child'],
+  ['CMD-010', 'CMD-010-child'],
+  ['CMD-011', 'CMD-011-child'],
+  ['CMD-012', 'CMD-012-child'],
+  ['CMD-013', 'CMD-013-child'],
 ];
 
 function stageAgreementPrelude(
@@ -3215,15 +3217,17 @@ function stageAgreementPrelude(
         '---',
         `issue: ${issue}`,
         'status: todo',
-        'children: [FLOW-008, API-001]',
+        `children: [${AGREEMENT_CHILDREN.map(([id]) => id).join(', ')}]`,
         '---',
         '',
         '# AGREEMENT-004: parent',
         '',
         '## Children',
         '',
-        '- [ ] FLOW-008 — todo — `.agents/tasks/FLOW-008-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
-        '- [ ] API-001 — todo — `.agents/tasks/API-001-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+        ...AGREEMENT_CHILDREN.map(
+          ([id, basename]) =>
+            `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
+        ),
       ].join('\n'),
     ),
   );
@@ -3242,8 +3246,10 @@ function stageAgreementPrelude(
         '',
         '## Tasks',
         '',
-        '- [ ] FLOW-008 — todo — `.agents/tasks/FLOW-008-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
-        '- [ ] API-001 — todo — `.agents/tasks/API-001-child.md` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->',
+        ...AGREEMENT_CHILDREN.map(
+          ([id, basename]) =>
+            `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
+        ),
       ].join('\n'),
     ),
   );
@@ -3281,10 +3287,13 @@ describe('user-execution PLAN order — staged transaction', () => {
   it('accepts distinct exact leaf Issue sources in staged and committed hierarchy absorption', () => {
     const { root, base } = repository();
     const leafIssues = new Map([
-      ['FLOW-008', 1988],
-      ['API-001', 1989],
+      ['CMD-010', 2088],
+      ['CMD-011', 2092],
+      ['CMD-012', 2100],
+      ['CMD-013', 2129],
     ]);
     stageAgreementPrelude(root, {
+      parentTaskTransform: (text) => text.replace('/issues/1987', '/issues/2061'),
       childTransform: (text, id) => text.replace('/issues/1987', `/issues/${leafIssues.get(id)}`),
     });
 
@@ -3320,8 +3329,8 @@ describe('user-execution PLAN order — staged transaction', () => {
         stageAgreementPrelude(root, {
           parentTaskTransform: (text) =>
             text.replace(
-              'children: [FLOW-008, API-001]',
-              'children: [FLOW-008, FLOW-008, API-001]',
+              'children: [CMD-010, CMD-011, CMD-012, CMD-013]',
+              'children: [CMD-010, CMD-010, CMD-011, CMD-012, CMD-013]',
             ),
         });
       },
@@ -3332,7 +3341,10 @@ describe('user-execution PLAN order — staged transaction', () => {
       arrange(root) {
         stageAgreementPrelude(root, {
           parentTaskTransform: (text) =>
-            text.replace('children: [FLOW-008, API-001]', 'children: [FLOW-008, DATA-999]'),
+            text.replace(
+              'children: [CMD-010, CMD-011, CMD-012, CMD-013]',
+              'children: [CMD-010, CMD-011, CMD-012, DATA-999]',
+            ),
         });
       },
       expected: /DATA-999.*exactly one staged Task/i,
@@ -3342,17 +3354,17 @@ describe('user-execution PLAN order — staged transaction', () => {
       arrange(root) {
         stageAgreementPrelude(root, {
           childTransform: (text, id) =>
-            id === 'FLOW-008' ? text.replace('status: todo', 'status: in-progress') : text,
+            id === 'CMD-010' ? text.replace('status: todo', 'status: in-progress') : text,
         });
       },
-      expected: /FLOW-008.*status `todo`/i,
+      expected: /CMD-010.*status `todo`/i,
     },
     {
       name: 'nested AGREEMENT child',
       arrange(root) {
         stageAgreementPrelude(root, {
           childTransform: (text, id) =>
-            id === 'FLOW-008'
+            id === 'CMD-010'
               ? text.replace('status: todo', 'status: todo\nchildren: [DATA-999]')
               : text,
         });
@@ -3364,26 +3376,26 @@ describe('user-execution PLAN order — staged transaction', () => {
       arrange(root) {
         stageAgreementPrelude(root, {
           childTransform: (text, id) =>
-            id === 'FLOW-008' ? text.replace(/^issue:.*\n/m, '') : text,
+            id === 'CMD-010' ? text.replace(/^issue:.*\n/m, '') : text,
         });
       },
-      expected: /FLOW-008.*concrete GitHub source issue/i,
+      expected: /CMD-010.*concrete GitHub source issue/i,
     },
     {
       name: 'malformed child source Issue',
       arrange(root) {
         stageAgreementPrelude(root, {
           childTransform: (text, id) =>
-            id === 'FLOW-008' ? text.replace('/issues/1987', '/pull/1987') : text,
+            id === 'CMD-010' ? text.replace('/issues/1987', '/pull/1987') : text,
         });
       },
-      expected: /FLOW-008.*concrete GitHub source issue/i,
+      expected: /CMD-010.*concrete GitHub source issue/i,
     },
     {
       name: 'malformed projection',
       arrange(root) {
         stageAgreementPrelude(root, {
-          specTransform: (text) => text.replace('FLOW-008 — todo', 'FLOW-008 todo'),
+          specTransform: (text) => text.replace('CMD-010 — todo', 'CMD-010 todo'),
         });
       },
       expected: /Tasks.*malformed|Tasks.*project/i,
@@ -3403,7 +3415,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     write(root, 'README.md', 'base\n');
     write(
       root,
-      '.agents/tasks/FLOW-008-child.md',
+      '.agents/tasks/CMD-010-child.md',
       [
         '---',
         'issue: https://github.com/woojubb/robota/issues/1987',
@@ -3418,7 +3430,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     git(root, ['switch', '-c', 'feature']);
     stageAgreementPrelude(root);
 
-    expect(messages(findStagedFindings(root, base))).toMatch(/FLOW-008.*newly added/i);
+    expect(messages(findStagedFindings(root, base))).toMatch(/CMD-010.*newly added/i);
   });
 
   it('rejects staged implementation before HEAD contains a checkpoint', () => {
