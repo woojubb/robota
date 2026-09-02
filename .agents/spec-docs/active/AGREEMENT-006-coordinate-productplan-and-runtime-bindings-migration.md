@@ -70,6 +70,8 @@ This decision authorizes only ownership conversion. It does not approve an effec
 implement product code. ARCH-116 must make those decisions through its own spec-first recommendation,
 independent placement review, and any required user approval.
 
+**Delivery mode:** `sequenced`
+
 **Continuation artifacts:** `.agents/evidence/RULE-023-child-issue-migration-manifest.json`, `.agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, `.agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md`, `.agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md`, `.agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md`
 
 Validated recommendation:
@@ -153,13 +155,12 @@ None
 
 ## User Execution Test Scenarios
 
-Not applicable — this work unit changes Task/spec governance and GitHub Issue administration only. Child
-Tasks own the public SDK or CLI scenarios for their eventual implementations.
+Not applicable.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** Repository record and live GitHub read-back checks are engineering verification, not a runnable
-Robota product surface.
+**Reason:** This work unit changes Task/spec governance and GitHub Issue administration only; it exposes no
+runnable Robota product surface, so child Tasks must own future public SDK or CLI scenarios.
 
 ## Tasks
 
@@ -309,3 +310,73 @@ Paired execution record:
   **Required action:** land the exact `**Continuation artifacts:**` declaration on `develop` in a
   planning-only correction PR, cut a fresh continuation branch from that integration commit, and re-run
   GATE-IMPLEMENT (continuation) before any implementation or GitHub Issue mutation.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** in-progress → in-progress (correction)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-08-30; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (6)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 659 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementCorrection",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+    ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+    ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
+  ],
+  "priorPass": "sha256:3a2af5a39896d43865314f00a858ea69614b62f9807facae12e5e85372c7d043",
+  "firstPassIntroductionSha": "3ca5ab0cc5ab550d80ae3b3e3ae08af657d0bb0f",
+  "taskPath": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
