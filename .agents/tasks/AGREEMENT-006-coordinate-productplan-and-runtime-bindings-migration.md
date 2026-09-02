@@ -47,7 +47,9 @@ policy, implement product code, or claim any outcome is delivered.
 - Live apply: exact `woojubb` Task markers read back before P-label removal, then four
   `CLOSED/NOT_PLANNED` transitions in reverse dependency order.
 - Post-write: independent findings 0 at `2026-09-02T15:05:19.715Z`; full audit changed 277/73 to 273/69
-  open Issues/open native children with #2044/#2443 preserved as live prerequisites and #2048 as history.
+  open Issues/open native children with [issue #2044](https://github.com/woojubb/robota/issues/2044) and
+  [issue #2443](https://github.com/woojubb/robota/issues/2443) preserved as live prerequisites and
+  [issue #2048](https://github.com/woojubb/robota/issues/2048) as history.
 
 ## Shared Constraints
 

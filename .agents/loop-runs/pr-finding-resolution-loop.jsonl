@@ -24,3 +24,4 @@
 {"runId":"r20260901181702","opened":"2026-09-01T18:17:02.953Z","closed":"2026-09-01T19:28:35.950Z","roundFindings":[2,1,1,0],"extensions":{},"terminal":"converged","ref":"PROC-029 exact head 7f3ecd01a4ff5d37176d0ef35b094c0e078cfbc2"}
 {"runId":"r20260901234026","opened":"2026-09-01T23:40:26.065Z","closed":"2026-09-01T23:45:36.000Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"PROC-030 exact head 7d6259cd97f18f9332309efa677abeb16216040c final replacement review"}
 {"runId":"r20260902151408","opened":"2026-09-02T15:14:08.204Z","closed":"2026-09-02T15:14:14.259Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"AGREEMENT-006 B2 exact head 4f697505db24803eac96f660932f68b5f567621c ACTIONABLE FINDINGS: 0"}
+{"runId":"r20260902152406","opened":"2026-09-02T15:24:06.545Z","closed":"2026-09-02T15:24:59.116Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"6f7ea2083f97c55f3f503a70c3a5c704d4472aa2"}

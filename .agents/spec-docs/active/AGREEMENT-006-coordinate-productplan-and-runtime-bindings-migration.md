@@ -178,11 +178,16 @@ Paired execution record:
 - Authorization commit `1f716784f240b4693687458c2798f903d2ba359d` fixed the exact four-row batch
   after a complete 8/8 live read and independent `APPROVE — NO DRIFT` review.
 - The native finalizer wrote and read back one exact `woojubb` Task marker per row before removing each
-  `priority:P1` label; #2118, #2104, #2085, and #2070 then closed in reverse dependency order with state
-  reason `NOT_PLANNED`.
+  `priority:P1` label; [issue #2118](https://github.com/woojubb/robota/issues/2118),
+  [issue #2104](https://github.com/woojubb/robota/issues/2104),
+  [issue #2085](https://github.com/woojubb/robota/issues/2085), and
+  [issue #2070](https://github.com/woojubb/robota/issues/2070) then closed in reverse dependency order with
+  state reason `NOT_PLANNED`.
 - Independent post-write verification at `2026-09-02T15:05:19.715Z` reported zero findings. The complete
-  audit moved from 277 open Issues / 73 open native children to exactly 273 / 69, while #2044 and #2443
-  remain open prerequisites and #2048 remains closed historical evidence.
+  audit moved from 277 open Issues / 73 open native children to exactly 273 / 69, while
+  [issue #2044](https://github.com/woojubb/robota/issues/2044) and
+  [issue #2443](https://github.com/woojubb/robota/issues/2443) remain open prerequisites and
+  [issue #2048](https://github.com/woojubb/robota/issues/2048) remains closed historical evidence.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-30
 
