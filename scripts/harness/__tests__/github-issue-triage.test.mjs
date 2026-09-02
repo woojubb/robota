@@ -1265,6 +1265,65 @@ describe('Issue to Task conversion finalization', () => {
       }),
     ).rejects.toThrow('Task source issue does not match');
   });
+
+  it('finalizes each hierarchy leaf only with its exact owning Task and refuses cross-pairs before writes', async () => {
+    const leaves = [
+      [2088, 'CMD-010'],
+      [2092, 'CMD-011'],
+      [2100, 'CMD-012'],
+      [2129, 'CMD-013'],
+    ];
+
+    for (const [issueNumber, id] of leaves) {
+      const taskPath = `.agents/tasks/${id}-example.md`;
+      const taskText = `---\nissue: https://github.com/woojubb/robota/issues/${issueNumber}\nurgency: soon\n---\n`;
+      const marker = taskMarker({ id, taskPath });
+      let posted = false;
+      let removed = false;
+      await finalizeIssueConversion({
+        repo: 'woojubb/robota',
+        issueNumber,
+        taskPath,
+        taskText,
+        getIssue: async () => ({
+          labels: removed
+            ? [{ name: 'enhancement' }]
+            : [{ name: 'enhancement' }, { name: 'priority:P1' }],
+          comments: posted ? [{ body: marker }] : [],
+        }),
+        postComment: async () => {
+          posted = true;
+        },
+        removeLabels: async () => {
+          removed = true;
+        },
+      });
+      expect(posted).toBe(true);
+      expect(removed).toBe(true);
+
+      let crossPairWrites = 0;
+      const wrongIssue = leaves.find(([candidate]) => candidate !== issueNumber)[0];
+      await expect(
+        finalizeIssueConversion({
+          repo: 'woojubb/robota',
+          issueNumber: wrongIssue,
+          taskPath,
+          taskText,
+          getIssue: async () => ({
+            labels: [{ name: 'enhancement' }, { name: 'priority:P1' }],
+            comments: [],
+          }),
+          postComment: async () => {
+            crossPairWrites += 1;
+          },
+          removeLabels: async () => {
+            crossPairWrites += 1;
+          },
+        }),
+      ).rejects.toThrow('Task source issue does not match');
+      expect(crossPairWrites).toBe(0);
+    }
+  });
 });
 
 describe('the rule owns policy and the skill owns procedure', () => {
@@ -1321,6 +1380,9 @@ describe('the rule owns policy and the skill owns procedure', () => {
     expect(normalizedConversion).toContain('Any one forces `OWNER_REVIEW`');
     expect(normalizedConversion).toContain(
       'new canonical migration Task created from an approved frozen manifest',
+    );
+    expect(normalizedConversion).toContain(
+      'when absorbing an existing Issue hierarchy, the AGREEMENT cites the tracker and each child Task cites its exact leaf Issue',
     );
     expect(normalizedTriage).toContain('audits native child relationships');
     expect(normalizedTriage).toContain('## Independent external lifecycle');

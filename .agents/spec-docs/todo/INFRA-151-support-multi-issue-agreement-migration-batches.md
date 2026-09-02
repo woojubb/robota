@@ -109,13 +109,13 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type            | Tool / Approach                                     | Notes                                                   |
-| ----- | -------------------- | --------------------------------------------------- | ------------------------------------------------------- |
-| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`           | Staged/history same-source and distinct-source RED/GREEN |
-| TC-02 | Negative regression  | Existing and new planning-order invalid-shape table | Every strict atomic invariant remains fail-closed       |
-| TC-03 | Unit                 | `github-issue-triage.test.mjs`                      | Exact pairs succeed; cross-pairs write nothing          |
-| TC-04 | Contract             | Skill text assertions plus unchanged guard assertion | Procedure and mutation owner stay aligned               |
-| TC-05 | Suite                | `run-all-scans.mjs --affected --context pr`         | One post-batch affected verification                    |
+| TC-ID | Test Type            | Tool / Approach                                      | Notes                                                    |
+| ----- | -------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`            | Staged/history same-source and distinct-source RED/GREEN |
+| TC-02 | Negative regression  | Existing and new planning-order invalid-shape table  | Every strict atomic invariant remains fail-closed        |
+| TC-03 | Unit                 | `github-issue-triage.test.mjs`                       | Exact pairs succeed; cross-pairs write nothing           |
+| TC-04 | Contract             | Skill text assertions plus unchanged guard assertion | Procedure and mutation owner stay aligned                |
+| TC-05 | Suite                | `run-all-scans.mjs --affected --context pr`          | One post-batch affected verification                     |
 
 ## User Execution Test Scenarios
 

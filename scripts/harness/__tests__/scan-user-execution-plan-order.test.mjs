@@ -3278,6 +3278,21 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('accepts distinct exact leaf Issue sources in staged and committed hierarchy absorption', () => {
+    const { root, base } = repository();
+    const leafIssues = new Map([
+      ['FLOW-008', 1988],
+      ['API-001', 1989],
+    ]);
+    stageAgreementPrelude(root, {
+      childTransform: (text, id) => text.replace('/issues/1987', `/issues/${leafIssues.get(id)}`),
+    });
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'absorb existing issue hierarchy into atomic agreement manifest');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
   it('rejects an atomic AGREEMENT manifest without one concrete source Issue', () => {
     const { root, base } = repository();
     const removeIssue = (text) => text.replace(/^issue:.*\n/m, '');
@@ -3345,14 +3360,24 @@ describe('user-execution PLAN order — staged transaction', () => {
       expected: /nested AGREEMENT/i,
     },
     {
-      name: 'source Issue mismatch',
+      name: 'missing child source Issue',
       arrange(root) {
         stageAgreementPrelude(root, {
           childTransform: (text, id) =>
-            id === 'FLOW-008' ? text.replace('/issues/1987', '/issues/1988') : text,
+            id === 'FLOW-008' ? text.replace(/^issue:.*\n/m, '') : text,
         });
       },
-      expected: /parent source issue/i,
+      expected: /FLOW-008.*concrete GitHub source issue/i,
+    },
+    {
+      name: 'malformed child source Issue',
+      arrange(root) {
+        stageAgreementPrelude(root, {
+          childTransform: (text, id) =>
+            id === 'FLOW-008' ? text.replace('/issues/1987', '/pull/1987') : text,
+        });
+      },
+      expected: /FLOW-008.*concrete GitHub source issue/i,
     },
     {
       name: 'malformed projection',
