@@ -13,11 +13,11 @@
   "frozenBatch": {
     "name": "B2 product prerequisite candidates",
     "issueIds": [2070, 2085, 2104, 2118],
-    "mutationAuthorized": false
+    "mutationAuthorized": true
   },
   "counts": {
-    "OWNER_REVIEW": 74,
-    "ABSORB": 4,
+    "OWNER_REVIEW": 70,
+    "ABSORB": 8,
     "B3": 17,
     "B2": 51,
     "B1": 4,
@@ -235,6 +235,184 @@
         "beforeFirstMarker": "Restore #2079 and every changed B1 body from the prerequisite snapshots.",
         "afterAnyMarker": "Preserve append-only markers; reopen premature closures, restore a P label only when finalization did not complete, then idempotently roll forward or return the row to OWNER_REVIEW."
       }
+    },
+    "B2": {
+      "capturedFrom": "2026-09-02T14:54:04.296Z",
+      "capturedThrough": "2026-09-02T14:54:04.296Z",
+      "base": "1fef1658ee4587bde3aee08f082afcaaf2ad3a59",
+      "reviewStatus": "APPROVED",
+      "mutationAuthorized": true,
+      "ownerApproval": {
+        "date": "2026-09-02",
+        "instruction": "타당한 근거와 함께 추천안을 제시하면 타당할경우 자동 승인하겠습니다.",
+        "appliedRecommendation": "Apply the exact four-row B2 ProductPlan batch in one bounded unit because all prerequisite Tasks are readable on develop, the required correction and continuation checkpoints are valid, and the fresh complete read-back found no active owner or identity drift."
+      },
+      "independentReview": {
+        "date": "2026-09-02",
+        "reviewer": "infra148_merge_verifier",
+        "verdict": "APPROVE — NO DRIFT",
+        "actionableFindings": 0,
+        "priorSemanticVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30"
+      },
+      "preMutationPopulation": {
+        "openIssues": 277,
+        "openNativeChildren": 73
+      },
+      "expectedPostMutationPopulation": {
+        "openIssues": 273,
+        "openNativeChildren": 69
+      },
+      "prerequisitePullRequests": [
+        {
+          "pullRequest": 2573,
+          "state": "MERGED",
+          "mergeCommit": "40b9270c37f2a0fbaf2cdb9c35a2030301a4d757",
+          "purpose": "land native legacy-v1 corrective checkpoint support"
+        },
+        {
+          "pullRequest": 2574,
+          "state": "MERGED",
+          "mergeCommit": "1fef1658ee4587bde3aee08f082afcaaf2ad3a59",
+          "purpose": "record AGREEMENT-006 correction and make the exact Task graph readable on develop"
+        }
+      ],
+      "continuationCheckpoint": {
+        "commit": "3f3047346f2abf907670d461d5c4f8b38028b937",
+        "form": "gateImplementContinuation",
+        "artifacts": [
+          ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+          ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+          ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+          ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+          ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+          ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
+        ]
+      },
+      "snapshot": {
+        "queryCompletedAt": "2026-09-02T14:54:04.296Z",
+        "requestedIssues": 8,
+        "returnedIssues": 8,
+        "paginationComplete": true,
+        "activeSignals": {
+          "assignees": 0,
+          "taskMarkerComments": 0,
+          "openClosingOrCrossReferencedPullRequests": 0
+        },
+        "issues": [
+          {
+            "issue": 2079,
+            "state": "OPEN",
+            "labels": ["enhancement", "priority:P1"],
+            "bodySha256": "d8e48e72abbd8c3b1303e9302e96ec5a16fd41dec6a642f728215a342f74f816",
+            "nativeChildren": [
+              2061, 2062, 2063, 2064, 2065, 2066, 2067, 2068, 2069, 2070, 2071, 2072, 2073, 2074,
+              2075, 2076, 2077, 2078
+            ]
+          },
+          {
+            "issue": 2070,
+            "state": "OPEN",
+            "labels": ["enhancement", "priority:P1"],
+            "bodySha256": "5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5",
+            "nativeParent": 2079,
+            "nativeChildren": [2085, 2104, 2118]
+          },
+          {
+            "issue": 2085,
+            "state": "OPEN",
+            "labels": ["enhancement", "priority:P1"],
+            "bodySha256": "24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023",
+            "nativeParent": 2070,
+            "blockedBy": [],
+            "blocking": [2104]
+          },
+          {
+            "issue": 2104,
+            "state": "OPEN",
+            "labels": ["enhancement", "priority:P1"],
+            "bodySha256": "2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d",
+            "nativeParent": 2070,
+            "blockedBy": [2085],
+            "blocking": [2118]
+          },
+          {
+            "issue": 2118,
+            "state": "OPEN",
+            "labels": ["enhancement", "priority:P1"],
+            "bodySha256": "735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532",
+            "nativeParent": 2070,
+            "blockedBy": [2044, 2048, 2104],
+            "blocking": []
+          },
+          {
+            "issue": 2044,
+            "state": "OPEN",
+            "labels": ["bug", "priority:P1"],
+            "bodySha256": "62c55ad404407210e301c859fa0a2ae1ee3b84bcc6df65eb241712128abb75bb",
+            "blocking": [2118]
+          },
+          {
+            "issue": 2443,
+            "state": "OPEN",
+            "labels": ["bug", "priority:P1"],
+            "bodySha256": "00b355abd3abe3c332b51a408a9c0c02eb6f743353b808b371fdefccb9bfe46f",
+            "role": "live prerequisite without a native dependency edge"
+          },
+          {
+            "issue": 2048,
+            "state": "CLOSED",
+            "stateReason": "NOT_PLANNED",
+            "labels": ["bug"],
+            "bodySha256": "fad0b74370ccb840b952ce88359f6ed45493a10b2be7a290c1351481f7347cc7",
+            "blocking": [2118],
+            "role": "historical prerequisite evidence"
+          }
+        ]
+      },
+      "hierarchy": {
+        "canonicalParent": 2079,
+        "tracker": 2070,
+        "leaves": [2085, 2104, 2118],
+        "reverseDependencyMutationOrder": [2118, 2104, 2085, 2070]
+      },
+      "rows": [
+        {
+          "issue": 2070,
+          "disposition": "ABSORB",
+          "taskId": "AGREEMENT-006",
+          "taskPath": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: AGREEMENT-006 -->\nConverted to Task `AGREEMENT-006`: `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2085,
+          "disposition": "ABSORB",
+          "taskId": "DATA-008",
+          "taskPath": ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: DATA-008 -->\nConverted to Task `DATA-008`: `.agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2104,
+          "disposition": "ABSORB",
+          "taskId": "DATA-009",
+          "taskPath": ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: DATA-009 -->\nConverted to Task `DATA-009`: `.agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        },
+        {
+          "issue": 2118,
+          "disposition": "ABSORB",
+          "taskId": "ARCH-116",
+          "taskPath": ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md",
+          "terminalStateReason": "NOT_PLANNED",
+          "requiredTaskMarker": "<!-- robota-task: ARCH-116 -->\nConverted to Task `ARCH-116`: `.agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md`.\n\nPriority authority moved to Task `priority`/`urgency`; Issue priority labels are removed only after this marker is read back."
+        }
+      ],
+      "stopAndRecovery": {
+        "beforeFirstMarker": "Restore #2079 and every changed B2 body from the fresh snapshot.",
+        "afterAnyMarker": "Preserve append-only markers; reopen premature closures, restore a P label only when finalization did not complete, then idempotently roll forward or return the row to OWNER_REVIEW."
+      }
     }
   },
   "batchResults": {
@@ -345,6 +523,119 @@
           "taskMarker": {
             "url": "https://github.com/woojubb/robota/issues/2115#issuecomment-5466972941",
             "createdAt": "2026-08-30T05:42:22Z"
+          }
+        }
+      ]
+    },
+    "B2": {
+      "result": "PASS",
+      "completedAt": "2026-09-02T15:03:24Z",
+      "authorizationCommit": "1f716784f240b4693687458c2798f903d2ba359d",
+      "actor": "woojubb",
+      "rollbackTriggered": false,
+      "independentPostwriteVerification": {
+        "verdict": "PASS",
+        "verifiedThrough": "2026-09-02T15:05:19.715Z",
+        "verifier": "infra148_merge_verifier",
+        "actionableFindings": 0,
+        "parentMapRows": 55,
+        "parentMapUniqueIssueIds": 55,
+        "exactTaskOwnerRows": [2070, 2085, 2104, 2118],
+        "originalBodiesPreserved": true,
+        "exactTaskMarkers": true,
+        "labelsParentsAndDependenciesPreserved": true,
+        "externalPrerequisitesPreserved": [2044, 2443, 2048]
+      },
+      "mutationOrder": {
+        "bodies": [2079, 2070, 2085, 2104, 2118],
+        "conversionFinalization": [2118, 2104, 2085, 2070],
+        "closure": [2118, 2104, 2085, 2070]
+      },
+      "population": {
+        "before": {
+          "openIssues": 277,
+          "openNativeChildren": 73
+        },
+        "after": {
+          "openIssues": 273,
+          "openNativeChildren": 69
+        },
+        "auditCommand": "node scripts/harness/github-issue-triage.mjs audit --repo woojubb/robota",
+        "auditExitCode": 0,
+        "examinedOpenIssues": 273,
+        "examinedOpenNativeChildren": 69
+      },
+      "canonicalParent": {
+        "issue": 2079,
+        "state": "OPEN",
+        "updatedAt": "2026-09-02T15:01:39Z",
+        "labels": ["enhancement", "priority:P1"],
+        "bodySha256": "24afe7d19d461df1fb9dbbda9cdca93f017032d29df8de2817b1e377e8611cda",
+        "mapRows": 55
+      },
+      "rows": [
+        {
+          "issue": 2070,
+          "taskId": "AGREEMENT-006",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-09-02T15:03:24Z",
+          "updatedAt": "2026-09-02T15:03:24Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "5a6d69b6e8a15459d83fa18e1f15f546ba934eec523d3f098b3d07498b0929e5",
+          "bodySha256": "61b8365e2456ab53b773a8603d6ae08b41a35adfd008146216e64d4f66e0d920",
+          "taskMarker": {
+            "author": "woojubb",
+            "url": "https://github.com/woojubb/robota/issues/2070#issuecomment-5511667369",
+            "createdAt": "2026-09-02T15:02:37Z"
+          }
+        },
+        {
+          "issue": 2085,
+          "taskId": "DATA-008",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-09-02T15:03:15Z",
+          "updatedAt": "2026-09-02T15:03:16Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "24f75a12b3e58d8123ae363cfc7a4354f8b5352e8b5ed5f83da32c9a19043023",
+          "bodySha256": "2302893e25fad19f3415cab3f0a597a6e1d2cebd018cf3520642bbec7856bea8",
+          "taskMarker": {
+            "author": "woojubb",
+            "url": "https://github.com/woojubb/robota/issues/2085#issuecomment-5511664323",
+            "createdAt": "2026-09-02T15:02:24Z"
+          }
+        },
+        {
+          "issue": 2104,
+          "taskId": "DATA-009",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-09-02T15:03:05Z",
+          "updatedAt": "2026-09-02T15:03:05Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "2d0491aec8b89a403b763329a1baf2db35b803de225a45d7de8ff6af73b9d71d",
+          "bodySha256": "1340e2c68fd04b69802bbf9e5e3a25717a0a26d0cd0478f8c30fe21fc9b28a03",
+          "taskMarker": {
+            "author": "woojubb",
+            "url": "https://github.com/woojubb/robota/issues/2104#issuecomment-5511661635",
+            "createdAt": "2026-09-02T15:02:13Z"
+          }
+        },
+        {
+          "issue": 2118,
+          "taskId": "ARCH-116",
+          "state": "CLOSED",
+          "stateReason": "NOT_PLANNED",
+          "closedAt": "2026-09-02T15:02:54Z",
+          "updatedAt": "2026-09-02T15:02:54Z",
+          "labels": ["enhancement"],
+          "originalBodySha256": "735cc1ba8b33a831534e1d482f933a10226beb509fc1f59e10f46d69a43ae532",
+          "bodySha256": "ee03dfce91533f3f5d732efdc1622c3e59cc5c99c907adba1ab278b671ceaf02",
+          "taskMarker": {
+            "author": "woojubb",
+            "url": "https://github.com/woojubb/robota/issues/2118#issuecomment-5511658802",
+            "createdAt": "2026-09-02T15:02:01Z"
           }
         }
       ]
@@ -1982,7 +2273,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -1990,8 +2281,8 @@
         "path": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-09-02 — exact canonical parent #2079, Task AGREEMENT-006, and terminal disposition CLOSED/NOT_PLANNED independently reviewed after fresh no-drift read-back; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2515,7 +2806,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -2523,8 +2814,8 @@
         "path": ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-09-02 — exact canonical parent #2079, Task DATA-008, and terminal disposition CLOSED/NOT_PLANNED independently reviewed after fresh no-drift read-back; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3579,7 +3870,7 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -3587,8 +3878,8 @@
         "path": ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; prerequisite manifest/Task PR must land first",
-      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop and a fresh B2 apply review approves mutation",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-09-02 — exact canonical parent #2079, Task DATA-009, and terminal disposition CLOSED/NOT_PLANNED independently reviewed after fresh no-drift read-back; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4049,7 +4340,7 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
       "targetTask": {
@@ -4057,8 +4348,8 @@
         "path": ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md",
         "prerequisiteException": "new canonical migration Task from this frozen manifest"
       },
-      "holdReason": "candidate migration Task is not readable on develop; open #2044/#2443 ownership and fresh B2 apply approval remain prerequisites",
-      "reviewerVerdict": "REVIEW VERDICT: ENDORSE on 2026-08-30 for the conversion topology; OWNER_REVIEW until the candidate Task is readable on develop, #2044/#2443 are re-read, and a fresh B2 apply review approves mutation",
+      "holdReason": null,
+      "reviewerVerdict": "APPROVE on 2026-09-02 — exact canonical parent #2079, Task ARCH-116, preserved #2044/#2443/#2048 prerequisite roles, and terminal disposition CLOSED/NOT_PLANNED independently reviewed after fresh no-drift read-back; ACTIONABLE FINDINGS: 0",
       "before": {
         "state": "OPEN",
         "stateReason": null,

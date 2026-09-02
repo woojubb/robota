@@ -27,18 +27,29 @@ policy, implement product code, or claim any outcome is delivered.
 
 ## Plan
 
-- [ ] TC-01 — Freeze the exact candidate set `{#2070,#2085,#2104,#2118}` with all four rows still
+- [x] TC-01 — Freeze the exact candidate set `{#2070,#2085,#2104,#2118}` with all four rows still
       `OWNER_REVIEW`, exact Task paths, and no GitHub mutation authority.
-- [ ] TC-02 — Land this AGREEMENT, its paired spec, and DATA-008/DATA-009/ARCH-116 on `develop` in the
+- [x] TC-02 — Land this AGREEMENT, its paired spec, and DATA-008/DATA-009/ARCH-116 on `develop` in the
       native dependency order `DATA-008 → DATA-009 → ARCH-116`.
-- [ ] TC-03 — Preserve open issue #2044 and open issue #2443 as live external prerequisites rather than
+- [x] TC-03 — Preserve open issue #2044 and open issue #2443 as live external prerequisites rather than
       treating completed ARCH-109/CLI-078 or closed issue #2048 as delivery.
-- [ ] TC-04 — Require ARCH-116's own recommendation/spec gate to decide runtime-realization placement and
+- [x] TC-04 — Require ARCH-116's own recommendation/spec gate to decide runtime-realization placement and
       obtain any required package/policy/public-contract approval before implementation.
-- [ ] TC-05 — After fresh post-merge review, apply and immediately read back only the four approved Issue,
+- [x] TC-05 — After fresh post-merge review, apply and immediately read back only the four approved Issue,
       body, marker, label, dependency, and terminal-state mutations.
 - [ ] TC-06 — Complete this AGREEMENT only after all three children are `done` and issue #2079's current
       execution map points to their exact completed Task paths through resolvable full-SHA links.
+
+## Verification
+
+- B2 authorization: commit `1f716784f240b4693687458c2798f903d2ba359d`; exact frozen rows
+  `#2070/#2085/#2104/#2118`; independent pre-write findings 0.
+- Live apply: exact `woojubb` Task markers read back before P-label removal, then four
+  `CLOSED/NOT_PLANNED` transitions in reverse dependency order.
+- Post-write: independent findings 0 at `2026-09-02T15:05:19.715Z`; full audit changed 277/73 to 273/69
+  open Issues/open native children with [issue #2044](https://github.com/woojubb/robota/issues/2044) and
+  [issue #2443](https://github.com/woojubb/robota/issues/2443) preserved as live prerequisites and
+  [issue #2048](https://github.com/woojubb/robota/issues/2048) as history.
 
 ## Shared Constraints
 
