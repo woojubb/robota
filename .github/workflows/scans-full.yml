@@ -105,7 +105,10 @@ jobs:
       - name: Harness scan suite (full, integration context)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: pnpm harness:scan -- --context integration --skip dist --skip build-contracts
+        # A develop push has no unique open PR subject. PR CI validates each topic receipt before
+        # merge; asking the integration branch to rediscover one PR from aggregate history is
+        # ambiguous by construction and made every direct integration scan red.
+        run: pnpm harness:scan -- --context integration --skip dist --skip build-contracts --skip work-run-measurement
 
       # PROC-016 Decision: a full-suite failure files an issue and blocks promotion. One issue per
       # red streak, not one per push: a run that finds an open issue with the title prefix comments
