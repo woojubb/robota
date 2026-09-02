@@ -609,6 +609,8 @@ describe('CI capability wiring', () => {
 
     expect(build).toContain('name: Plan package-dist artifact membership');
     expect(build).toContain('workspace-build-plan.json');
+    expect(build).toContain('node scripts/harness/workspace-affected.mjs');
+    expect(build).not.toMatch(/pnpm harness:workspace:affected[^\n]+workspace-build-plan\.json/);
     expect(build).toContain('planned build output is missing: ${dist}');
     expect(build).toContain('package-dist-membership.bin');
     expect(build.indexOf('planned build output is missing')).toBeLessThan(

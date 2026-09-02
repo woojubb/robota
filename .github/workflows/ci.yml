@@ -353,9 +353,9 @@ jobs:
         run: |
           mkdir -p .agents/evals/local-metrics
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
-            pnpm harness:workspace:affected -- --operation build --full --format json > .agents/evals/local-metrics/workspace-build-plan.json
+            node scripts/harness/workspace-affected.mjs --operation build --full --format json > .agents/evals/local-metrics/workspace-build-plan.json
           else
-            pnpm harness:workspace:affected -- --operation build --base-ref "$HARNESS_BASE_REF" --format json > .agents/evals/local-metrics/workspace-build-plan.json
+            node scripts/harness/workspace-affected.mjs --operation build --base-ref "$HARNESS_BASE_REF" --format json > .agents/evals/local-metrics/workspace-build-plan.json
           fi
 
       - name: Show verification plan
@@ -1147,7 +1147,7 @@ jobs:
         run: |
           plan_file="${RUNNER_TEMP}/examples-affected-plan.json"
           targets_file="${RUNNER_TEMP}/examples-affected-targets.txt"
-          pnpm harness:workspace:affected -- --operation examples-typecheck --base-ref "$HARNESS_BASE_REF" --format json >"$plan_file"
+          node scripts/harness/workspace-affected.mjs --operation examples-typecheck --base-ref "$HARNESS_BASE_REF" --format json >"$plan_file"
           PLAN_FILE="$plan_file" node --input-type=module <<'EOF' >"$targets_file"
           import { readFileSync } from 'node:fs';
           const plan = JSON.parse(readFileSync(process.env.PLAN_FILE, 'utf8'));
@@ -1614,9 +1614,23 @@ jobs:
           set -euo pipefail
           required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
           run_created_at="$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.created_at')"
-          gh api --paginate --slurp \
-            "repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
-            > "$RUNNER_TEMP/job-pages.json"
+          for attempt in {1..10}; do
+            gh api --paginate --slurp \
+              "repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+              > "$RUNNER_TEMP/job-pages.json"
+            if jq -e --argjson required "$required" '
+              [.[].jobs[]] as $jobs
+              | [$required[] as $name | $jobs[] | select(.name == $name)]
+              | length == 11 and all(.[]; (.completed_at | type) == "string")
+            ' "$RUNNER_TEMP/job-pages.json" >/dev/null; then
+              break
+            fi
+            if [[ "$attempt" == 10 ]]; then
+              echo '::error::required job timestamps did not become conclusive'
+              exit 1
+            fi
+            sleep 2
+          done
           jq --argjson required "$required" --arg run_created_at "$run_created_at" '
             [.[].jobs[]] as $jobs
             | [$required[] as $name
