@@ -170,6 +170,7 @@ import {
   checkpointCompletionCriteria,
 } from './checkpoint-evidence-contract.mjs';
 import {
+  correctionCheckpointEvidence as renderCorrectionCheckpointEvidence,
   continuationCheckpointEvidence as renderContinuationCheckpointEvidence,
   firstCheckpointEvidence as renderFirstCheckpointEvidence,
 } from './gate-checkpoint-evidence.mjs';
@@ -271,7 +272,7 @@ export function parseArgs(argv) {
       continue;
     }
     const key = arg.slice(2);
-    const flagOnly = key === 'dry-run' || key === 'continuation';
+    const flagOnly = key === 'dry-run' || key === 'continuation' || key === 'correction';
     if (flagOnly) {
       options[key] = true;
       continue;
@@ -1905,9 +1906,11 @@ export function runJudge(options) {
       };
       entry.push(
         '',
-        ...(gate.continuation
-          ? renderContinuationCheckpointEvidence(evidenceInput)
-          : renderFirstCheckpointEvidence(evidenceInput)),
+        ...(gate.correction
+          ? renderCorrectionCheckpointEvidence(evidenceInput)
+          : gate.continuation
+            ? renderContinuationCheckpointEvidence(evidenceInput)
+            : renderFirstCheckpointEvidence(evidenceInput)),
       );
     }
   }
@@ -2380,7 +2383,7 @@ export function runApprove(options) {
 
 const USAGE = [
   'usage:',
-  '  gate.mjs judge   --gate <GATE> --doc <spec> [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
+  '  gate.mjs judge   --gate <GATE> --doc <spec> [--continuation|--correction] [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
   '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]',
   '  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]',
   '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',

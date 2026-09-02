@@ -101,6 +101,7 @@ answer to "what precedes this gate, and what state must the document already be 
 | GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                |
 | GATE-IMPLEMENT                | GATE-APPROVAL                  | `approved`                                    |
 | GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | `in-progress` (delivery sequenced across PRs) |
+| GATE-IMPLEMENT (correction)   | GATE-IMPLEMENT                 | `in-progress` (legacy v1 recovery only)       |
 | GATE-VERIFY                   | GATE-IMPLEMENT                 | `in-progress`                                 |
 | GATE-COMPLETE                 | GATE-VERIFY                    | `verifying`                                   |
 | DONE-GATE-STAGE-2             | DONE-GATE-STAGE-1              | scenarios written, implementation complete    |
@@ -262,8 +263,9 @@ parses it; an entry it cannot parse is a FAIL, never a pass.
       exact paired Task/spec planning artifacts and any subject-bound PLAN ledger record — `mechanical`
 
 **Evidence to record on PASS:** Tasks file path + list of tasks created + exact PLAN outcome + whole
-worktree path inventory. The machine record uses the rule-owned `gateImplementFirst` form (or
-`gateImplementContinuation` for the sequenced route) from
+worktree path inventory. The machine record uses the rule-owned `gateImplementFirst` form,
+`gateImplementContinuation` for the sequenced route, or `gateImplementCorrection` for the one-time
+legacy-v1 recovery route from
 [`backlog-execution.md`](../rules/backlog-execution.md) § Checkpoint evidence contract; this catalogue
 does not duplicate that form's field schema.
 

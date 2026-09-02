@@ -9,6 +9,7 @@ import {
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-contract.mjs';
 import {
+  checkpointHistoryBindings,
   checkpointIntroductionSpec,
   precedingCheckpointIntegrationCommit,
 } from './checkpoint-evidence-git-contract.mjs';
@@ -63,8 +64,11 @@ function delivery(contract, specText) {
 function validatedPriorCheckpoint(root, ruleText, specText, taskText, taskRel, declaredDelivery) {
   const signal = planSignal(ruleText, taskText);
   const basename = taskRel.split('/').at(-1);
+  const history = checkpointHistoryBindings(root, 'HEAD', 'HEAD', basename);
   const results = gateImplementEntryResults(specText, { basename, signal }, ruleText, {
     baseSpec: specText,
+    introductionSpecs: history.introductionSpecs,
+    introductionShas: history.introductionShas,
   });
   if (results.length === 0) {
     throw new Error('GATE-IMPLEMENT continuation has no prior raw PASS');
@@ -76,10 +80,40 @@ function validatedPriorCheckpoint(root, ruleText, specText, taskText, taskRel, d
   if (results[0].payload.form !== 'gateImplementFirst') {
     throw new Error('GATE-IMPLEMENT continuation prior sequence must begin with the first form');
   }
-  if (results.slice(1).some((result) => result.payload.form !== 'gateImplementContinuation')) {
+  const forms = results.slice(1).map((result) => result.payload.form);
+  const correctionCount = forms.filter((form) => form === 'gateImplementCorrection').length;
+  if (
+    correctionCount > 1 ||
+    (correctionCount === 1 && forms[0] !== 'gateImplementCorrection') ||
+    forms.some(
+      (form, index) =>
+        form !== 'gateImplementContinuation' &&
+        !(form === 'gateImplementCorrection' && index === 0),
+    )
+  ) {
     throw new Error(
-      'GATE-IMPLEMENT continuation prior sequence may contain only continuation forms',
+      'GATE-IMPLEMENT continuation prior sequence must be first, optional correction, then continuations',
     );
+  }
+  if (correctionCount === 1) {
+    const correction = checkpointIntroductionSpec(root, 'HEAD', basename, results[1].body);
+    if (correction === null) {
+      throw new Error(
+        'GATE-IMPLEMENT continuation cannot resolve the correction introduction revision',
+      );
+    }
+    const integrationRef = process.env.HARNESS_BASE_REF || 'origin/develop';
+    const integrated = git(root, [
+      'merge-base',
+      '--is-ancestor',
+      correction.commit,
+      integrationRef,
+    ]);
+    if (!integrated.ok) {
+      throw new Error(
+        `GATE-IMPLEMENT continuation correction is not yet on integration base ${integrationRef}`,
+      );
+    }
   }
   const deliveryMismatch = results.find(
     (result) =>
@@ -93,7 +127,7 @@ function validatedPriorCheckpoint(root, ruleText, specText, taskText, taskRel, d
       'GATE-IMPLEMENT continuation prior v2 delivery does not bind the current Decision contract',
     );
   }
-  if (results[0].payload.version === 1) {
+  if (results[0].payload.version === 1 && correctionCount === 0) {
     const introduced = checkpointIntroductionSpec(root, 'HEAD', basename, results[0].body);
     if (introduced === null) {
       throw new Error(
@@ -129,6 +163,77 @@ function validatedPriorCheckpoint(root, ruleText, specText, taskText, taskRel, d
     );
   }
   return results.at(-1).body;
+}
+
+export function correctionCheckpointEvidence({
+  root,
+  ruleText,
+  specText,
+  taskText,
+  taskRel,
+  specRel,
+}) {
+  const contract = v2Contract(ruleText);
+  const declaredDelivery = delivery(contract, specText);
+  if (declaredDelivery.deliveryMode !== 'sequenced') {
+    throw new Error('GATE-IMPLEMENT correction requires `Delivery mode: sequenced`');
+  }
+  const signal = planSignal(ruleText, taskText);
+  const basename = taskRel.split('/').at(-1);
+  const history = checkpointHistoryBindings(root, 'HEAD', 'HEAD', basename);
+  const results = gateImplementEntryResults(specText, { basename, signal }, ruleText, {
+    baseSpec: specText,
+    introductionSpecs: history.introductionSpecs,
+    introductionShas: history.introductionShas,
+  });
+  if (results.length !== 1 || !results[0].ok) {
+    throw new Error(
+      `GATE-IMPLEMENT correction requires exactly one valid prior PASS: ${results.find((result) => !result.ok)?.error ?? `found ${results.length}`}`,
+    );
+  }
+  if (results[0].payload.form !== 'gateImplementFirst' || results[0].payload.version !== 1) {
+    throw new Error('GATE-IMPLEMENT correction requires a legacy v1 first PASS');
+  }
+  const introduced = checkpointIntroductionSpec(root, 'HEAD', basename, results[0].body);
+  if (introduced === null) {
+    throw new Error(
+      'GATE-IMPLEMENT correction cannot resolve the legacy v1 first PASS introduction revision',
+    );
+  }
+  const parsedContracts = parseCheckpointEvidenceContracts(ruleText);
+  const legacyContract = parsedContracts.ok ? parsedContracts.contracts.get(1) : undefined;
+  if (!legacyContract)
+    throw new Error('GATE-IMPLEMENT correction legacy v1 contract is unavailable');
+  const historicalArtifacts = continuationArtifacts(legacyContract, introduced.specText);
+  if (historicalArtifacts.ok) {
+    throw new Error(
+      'GATE-IMPLEMENT correction is forbidden because the legacy v1 introduction already declared sequenced artifacts',
+    );
+  }
+  const selected = taskItemsForCheckpoint(specText, taskText);
+  if (!selected.ok) {
+    throw new Error(`GATE-IMPLEMENT correction Task binding is invalid: ${selected.error}`);
+  }
+  if (JSON.stringify(results[0].payload.taskItems) !== JSON.stringify(selected.items)) {
+    throw new Error('GATE-IMPLEMENT correction prior first PASS does not bind current Task items');
+  }
+  const worktreePaths = [...new Set([taskRel, specRel, ...checkpointWorktreePaths(root)])].sort();
+  const payload = {
+    version: contract.version,
+    form: 'gateImplementCorrection',
+    deliveryMode: declaredDelivery.deliveryMode,
+    sequencedArtifacts: declaredDelivery.artifacts,
+    priorPass: priorPassDigest(results[0].body),
+    firstPassIntroductionSha: introduced.commit,
+    taskPath: taskRel,
+    specPath: specRel,
+    taskItems: selected.items,
+    plan: signal,
+    worktreePaths,
+  };
+  const rendered = formatCheckpointEvidence(contract, 'gateImplementCorrection', payload);
+  if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
+  return rendered.text.split('\n');
 }
 
 export function firstCheckpointEvidence({ root, ruleText, specText, taskText, taskRel, specRel }) {

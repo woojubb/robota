@@ -9,6 +9,7 @@ import { makeTemp } from './make-temp.mjs';
 import {
   formatCheckpointEvidence,
   parseCheckpointEvidenceContract,
+  parseCheckpointEvidenceContracts,
   priorPassDigest,
   rawGateImplementPassEntries,
 } from '../checkpoint-evidence-contract.mjs';
@@ -18,6 +19,7 @@ import {
   findStagedFindings,
   readExaminedPlanOrderCount,
   CONTINUATION_STATUS_LINE,
+  CORRECTION_STATUS_LINE,
   FIRST_CHECKPOINT_STATUS_LINE as FIRST_STATUS_LINE,
   resolveTopicMergeBase,
 } from '../scan-user-execution-plan-order.mjs';
@@ -35,6 +37,7 @@ const LIVE_BACKLOG_RULE = readFileSync(
   'utf8',
 );
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
+const LIVE_V2_CONTRACT = parseCheckpointEvidenceContracts(LIVE_BACKLOG_RULE).contracts.get(2);
 const execFileAsync = promisify(execFile);
 
 // These integration fixtures create and inspect real temporary Git repositories. A focused `-t` run
@@ -491,6 +494,101 @@ function v1SequencedRepository({
   return { root, base, conversionBase, sequencedMerge };
 }
 
+function legacyCorrectionRepository({ commitCorrection = true, firstIntroductionSha = null } = {}) {
+  const { root } = repository({ withContract: true });
+  write(root, TASK_PATH, taskText());
+  write(
+    root,
+    SPEC_PATH,
+    specText({
+      v1: true,
+      worktreeLine: '- Whole-worktree precondition: planning-only inventory is recorded.',
+    }),
+  );
+  commit(root, 'legacy v1 first checkpoint');
+  git(root, ['switch', '-q', 'develop']);
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge legacy checkpoint', 'feature']);
+  const firstIntegration = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['update-ref', 'refs/remotes/origin/develop', firstIntegration]);
+  git(root, ['switch', '-q', '-c', 'feature-correction']);
+
+  const firstSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+  const firstRaw = rawGateImplementPassEntries(firstSpec)[0];
+  const withDecision = firstSpec.replace(
+    '## Completion Criteria',
+    [
+      '## Architecture Review',
+      '',
+      '### Decision',
+      '',
+      '**Delivery mode:** `sequenced`',
+      '',
+      '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+      '',
+      '## Completion Criteria',
+    ].join('\n'),
+  );
+  const rendered = formatCheckpointEvidence(LIVE_V2_CONTRACT, 'gateImplementCorrection', {
+    version: 2,
+    form: 'gateImplementCorrection',
+    deliveryMode: 'sequenced',
+    sequencedArtifacts: ['scripts/harness/gate.mjs'],
+    priorPass: priorPassDigest(firstRaw),
+    firstPassIntroductionSha: firstIntroductionSha ?? firstIntegration,
+    taskPath: TASK_PATH,
+    specPath: SPEC_PATH,
+    taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+    plan: { outcome: 'not-applicable', count: 0 },
+    worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+  });
+  if (!rendered.ok) throw new Error(rendered.error);
+  write(
+    root,
+    SPEC_PATH,
+    `${withDecision}### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02\n\n${CORRECTION_STATUS_LINE}\n\n${rendered.text}\n`,
+  );
+  if (!commitCorrection) {
+    git(root, ['add', SPEC_PATH]);
+    return { root, base: firstIntegration, firstIntegration };
+  }
+  commit(root, 'explicit legacy correction checkpoint');
+  return { root, base: firstIntegration, firstIntegration };
+}
+
+function appendContinuationAfterCorrection(fixture, { commitContinuation = true } = {}) {
+  const { root } = fixture;
+  git(root, ['switch', '-q', 'develop']);
+  git(root, ['merge', '--no-ff', '-q', '-m', 'merge correction checkpoint', 'feature-correction']);
+  const correctionIntegration = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['update-ref', 'refs/remotes/origin/develop', correctionIntegration]);
+  git(root, ['switch', '-q', '-c', 'feature-after-correction']);
+  const parentSpec = readFileSync(path.join(root, SPEC_PATH), 'utf8');
+  const rendered = formatCheckpointEvidence(LIVE_V2_CONTRACT, 'gateImplementContinuation', {
+    version: 2,
+    form: 'gateImplementContinuation',
+    deliveryMode: 'sequenced',
+    sequencedArtifacts: ['scripts/harness/gate.mjs'],
+    priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+    ancestorSha: correctionIntegration,
+    taskPath: TASK_PATH,
+    specPath: SPEC_PATH,
+    plan: { outcome: 'not-applicable', count: 0 },
+    worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+  });
+  if (!rendered.ok) throw new Error(rendered.error);
+  write(
+    root,
+    SPEC_PATH,
+    `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`,
+  );
+  if (!commitContinuation) {
+    git(root, ['add', SPEC_PATH]);
+    return { ...fixture, base: correctionIntegration, correctionIntegration };
+  }
+  commit(root, 'continuation after explicit correction');
+  return { ...fixture, base: correctionIntegration, correctionIntegration };
+}
+
 function postMergeRecord(base, runId = 'r20260825000000') {
   return {
     runId,
@@ -871,6 +969,31 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findStagedFindings(valid.root, valid.base)).toEqual([]);
   });
 
+  it('accepts one explicit legacy-v1 correction in history and rejects a stale introduction SHA', () => {
+    const valid = legacyCorrectionRepository();
+    expect(findHistoryFindingsFromGit(valid.root, valid.base)).toEqual([]);
+
+    const invalid = legacyCorrectionRepository({ firstIntroductionSha: 'a'.repeat(40) });
+    expect(messages(findHistoryFindingsFromGit(invalid.root, invalid.base))).toMatch(
+      /firstPassIntroductionSha.*legacy first PASS introduction/i,
+    );
+  });
+
+  it('accepts the same explicit legacy-v1 correction through the staged consumer', () => {
+    const valid = legacyCorrectionRepository({ commitCorrection: false });
+    expect(findStagedFindings(valid.root, valid.base)).toEqual([]);
+  });
+
+  it('accepts continuation after the correction through history and staged consumers', () => {
+    const history = appendContinuationAfterCorrection(legacyCorrectionRepository());
+    expect(findHistoryFindingsFromGit(history.root, history.base)).toEqual([]);
+
+    const staged = appendContinuationAfterCorrection(legacyCorrectionRepository(), {
+      commitContinuation: false,
+    });
+    expect(findStagedFindings(staged.root, staged.base)).toEqual([]);
+  });
+
   it('keeps legacy v1 introduction delivery bound on a second continuation history scan', () => {
     const invalid = v1SequencedRepository(postHocLegacyDelivery());
     const invalidBase = appendSecondV1Continuation(invalid);
@@ -1161,6 +1284,30 @@ describe('user-execution PLAN order — branch history', () => {
     expect(
       messages(findStagedFindings(invalidIntroduction.root, invalidIntroduction.base)),
     ).toMatch(/staged checkpoint evidence contract is unreadable/);
+  });
+
+  it('keeps the correction-form marker immutable after its contract cutover', () => {
+    const history = repository({ withContract: true });
+    write(
+      history.root,
+      '.agents/rules/backlog-execution.md',
+      LIVE_BACKLOG_RULE.replace('<!-- checkpoint-evidence-correction-form:v1 -->\n', ''),
+    );
+    commit(history.root, 'remove correction form marker');
+    expect(messages(findHistoryFindingsFromGit(history.root, history.base))).toMatch(
+      /correction form is missing or invalid after its cutover/i,
+    );
+
+    const staged = repository({ withContract: true });
+    write(
+      staged.root,
+      '.agents/rules/backlog-execution.md',
+      LIVE_BACKLOG_RULE.replace('<!-- checkpoint-evidence-correction-form:v1 -->\n', ''),
+    );
+    git(staged.root, ['add', '.agents/rules/backlog-execution.md']);
+    expect(messages(findStagedFindings(staged.root, staged.base))).toMatch(
+      /correction form.*marker missing after cutover/i,
+    );
   });
 
   it('rejects a byte-identical legacy entry removed and reappended after cutover', () => {

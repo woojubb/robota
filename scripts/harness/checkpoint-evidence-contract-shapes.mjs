@@ -145,5 +145,33 @@ export const CONTRACT_SHAPE_V2 = Object.freeze({
         'worktreePaths',
       ],
     },
+    gateImplementCorrection: {
+      heading: 'GATE-IMPLEMENT',
+      statusUpgrade: 'in-progress → in-progress (correction)',
+      specFolder: 'active',
+      payloadKeys: [
+        'version',
+        'form',
+        'deliveryMode',
+        'sequencedArtifacts',
+        'priorPass',
+        'firstPassIntroductionSha',
+        'taskPath',
+        'specPath',
+        'taskItems',
+        'plan',
+        'worktreePaths',
+      ],
+    },
   },
+});
+
+// Historical v2 declarations predate the explicit correction form. They remain byte-semantically
+// readable; only a declaration that actually names the new form is judged against the extended shape.
+export const CONTRACT_SHAPE_V2_LEGACY = Object.freeze({
+  ...CONTRACT_SHAPE_V2,
+  forms: Object.freeze({
+    gateImplementFirst: CONTRACT_SHAPE_V2.forms.gateImplementFirst,
+    gateImplementContinuation: CONTRACT_SHAPE_V2.forms.gateImplementContinuation,
+  }),
 });

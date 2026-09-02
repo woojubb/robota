@@ -11,6 +11,14 @@ describe('gate implementation contract helpers', () => {
       priorKey: 'GATE-IMPLEMENT (continuation)',
       upgrade: ['in-progress', 'in-progress (continuation)'],
     });
+    expect(resolveContinuationGate({ correction: true }, 'GATE-IMPLEMENT', 'L2')).toMatchObject({
+      priorKey: 'GATE-IMPLEMENT (correction)',
+      upgrade: ['in-progress', 'in-progress (correction)'],
+      correction: true,
+    });
+    expect(() =>
+      resolveContinuationGate({ continuation: true, correction: true }, 'GATE-IMPLEMENT', 'L2'),
+    ).toThrow(/mutually exclusive/);
     expect(rewriteFrontmatterStatus('---\nstatus: todo\n---\nbody\n', 'in-progress')).toContain(
       'status: in-progress',
     );

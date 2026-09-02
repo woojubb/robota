@@ -567,7 +567,8 @@ Enforced by: `gate.mjs`, `user-execution-plan-order`, `spec-user-execution-secti
 This section is the single machine-readable owner of the evidence forms written and consumed at the
 pre-implementation checkpoint and DONE-GATE-STAGE-1. The gate catalogue references these form names;
 writers and validators parse this declaration rather than maintaining private Markdown-token schemas.
-The declared scope is GATE-IMPLEMENT first/continuation entries and DONE-GATE-STAGE-1 scenario entries.
+The declared scope is GATE-IMPLEMENT first/continuation/correction entries and DONE-GATE-STAGE-1
+scenario entries.
 
 <!-- checkpoint-evidence-contract:v1:start -->
 
@@ -665,6 +666,7 @@ The declared scope is GATE-IMPLEMENT first/continuation entries and DONE-GATE-ST
 
 <!-- checkpoint-evidence-contract:v1:end -->
 
+<!-- checkpoint-evidence-correction-form:v1 -->
 <!-- checkpoint-evidence-contract:v2:start -->
 
 ```json
@@ -730,6 +732,24 @@ The declared scope is GATE-IMPLEMENT first/continuation entries and DONE-GATE-ST
         "plan",
         "worktreePaths"
       ]
+    },
+    "gateImplementCorrection": {
+      "heading": "GATE-IMPLEMENT",
+      "statusUpgrade": "in-progress → in-progress (correction)",
+      "specFolder": "active",
+      "payloadKeys": [
+        "version",
+        "form",
+        "deliveryMode",
+        "sequencedArtifacts",
+        "priorPass",
+        "firstPassIntroductionSha",
+        "taskPath",
+        "specPath",
+        "taskItems",
+        "plan",
+        "worktreePaths"
+      ]
     }
   }
 }
@@ -748,6 +768,17 @@ requires an empty array, while `sequenced` binds the exact non-empty Decision ar
 written by `gate.mjs judge --gate GATE-IMPLEMENT`; later PRs use
 `gate.mjs judge --gate GATE-IMPLEMENT --continuation`, which resolves the catalogue's annotated
 continuation ordering row and writes the in-progress → in-progress form.
+
+A legacy v1 first PASS whose introduction Decision did not declare sequenced artifacts cannot be made
+eligible by editing current prose. Exactly once, while the pair is already `in-progress`,
+`gate.mjs judge --gate GATE-IMPLEMENT --correction` may append `gateImplementCorrection`. The correction
+requires current `Delivery mode: sequenced` plus a non-empty exact artifact array, hashes the sole
+legacy v1 first PASS in `priorPass`, binds that PASS's immutable introduction commit in
+`firstPassIntroductionSha`, repeats its exact `taskItems` and PLAN binding, and records the exact
+planning-only inventory. It is forbidden for a v2 first PASS, an already-sequenced legacy introduction,
+after any continuation, or when a correction already exists. Later continuations hash the correction
+or latest continuation as their predecessor and bind the correction's introduction-revision delivery
+declaration. Raw v1 evidence remains byte-for-byte unchanged.
 
 `taskItems` mirrors GATE-IMPLEMENT coverage deterministically: complete TC-ID coverage wins and records
 `{ "kind": "tc-id", "value": "TC-NN" }` objects in Completion Criteria order; otherwise sufficient

@@ -37,6 +37,7 @@ import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { checkpointDeliveryBindingError } from './checkpoint-evidence-source.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import {
+  CHECKPOINT_EVIDENCE_CONTRACT_MARKERS,
   checkpointDelivery,
   continuationArtifacts,
   parseCheckpointEvidence,
@@ -450,11 +451,15 @@ function hasExactMarkdownToken(text, token) {
 export const FIRST_CHECKPOINT_STATUS_LINE = '**Status upgrade:** approved → in-progress';
 export const CONTINUATION_STATUS_LINE =
   '**Status upgrade:** in-progress → in-progress (continuation)';
+export const CORRECTION_STATUS_LINE = '**Status upgrade:** in-progress → in-progress (correction)';
 
 function gateImplementEntryForm(body) {
   if (/^\*\*Status upgrade:\*\* approved → in-progress\s*$/m.test(body)) return 'first';
   if (/^\*\*Status upgrade:\*\* in-progress → in-progress \(continuation\)\s*$/m.test(body)) {
     return 'continuation';
+  }
+  if (/^\*\*Status upgrade:\*\* in-progress → in-progress \(correction\)\s*$/m.test(body)) {
+    return 'correction';
   }
   return null;
 }
@@ -493,6 +498,7 @@ export function gateImplementEntryResults(
     legacyEntries = [],
     priorEntries = null,
     introductionSpecs = null,
+    introductionShas = null,
     ancestorSha = null,
     expectedTaskItems = null,
     taskItemsError = null,
@@ -559,7 +565,9 @@ export function gateImplementEntryResults(
         ? 'gateImplementFirst'
         : entryForm === 'continuation'
           ? 'gateImplementContinuation'
-          : null;
+          : entryForm === 'correction'
+            ? 'gateImplementCorrection'
+            : null;
     if (formName === null)
       return { ok: false, error: 'GATE-IMPLEMENT status form is invalid', body };
     const matchingContracts = [...parsedContracts.contracts.values()].filter((contract) =>
@@ -598,7 +606,7 @@ export function gateImplementEntryResults(
         return { ok: false, error: `${formName}.plan does not bind the Task author verdict`, body };
       }
     }
-    if (formName === 'gateImplementFirst') {
+    if (['gateImplementFirst', 'gateImplementCorrection'].includes(formName)) {
       if (isCurrentIntroduction && taskItemsError !== null) {
         return { ok: false, error: taskItemsError, body };
       }
@@ -609,7 +617,7 @@ export function gateImplementEntryResults(
       ) {
         return {
           ok: false,
-          error: 'gateImplementFirst.taskItems do not bind the Task/Completion Criteria selection',
+          error: `${formName}.taskItems do not bind the Task/Completion Criteria selection`,
           body,
         };
       }
@@ -646,7 +654,7 @@ export function gateImplementEntryResults(
         };
       }
     }
-    if (formName === 'gateImplementContinuation') {
+    if (['gateImplementContinuation', 'gateImplementCorrection'].includes(formName)) {
       const priorEntry = isCurrentIntroduction ? null : entries[index - 1];
       if (
         !isCurrentIntroduction &&
@@ -654,11 +662,107 @@ export function gateImplementEntryResults(
       ) {
         return {
           ok: false,
-          error:
-            'gateImplementContinuation.priorPass does not hash the latest prior raw PASS entry',
+          error: `${formName}.priorPass does not hash the latest prior raw PASS entry`,
           body,
         };
       }
+    }
+    if (formName === 'gateImplementCorrection') {
+      if (!Array.isArray(introductionSpecs) || !Array.isArray(introductionShas)) {
+        return {
+          ok: false,
+          error:
+            'gateImplementCorrection validation requires immutable introduction spec and commit context',
+          body,
+        };
+      }
+      const firstBody = entries[0] ?? '';
+      const legacyContract = parsedContracts.contracts.get(1);
+      const firstParsed = legacyContract
+        ? parseCheckpointEvidence(legacyContract, 'gateImplementFirst', firstBody)
+        : { ok: false };
+      if (index !== 1 || !firstParsed.ok) {
+        return {
+          ok: false,
+          error:
+            'gateImplementCorrection requires exactly one preceding legacy v1 first PASS and no prior correction or continuation',
+          body,
+        };
+      }
+      const firstIntroductionSpec = introductionSpecs?.[0];
+      if (firstIntroductionSpec === null) {
+        return {
+          ok: false,
+          error:
+            'gateImplementCorrection legacy v1 first PASS introduction revision is unavailable',
+          body,
+        };
+      }
+      if (firstIntroductionSpec !== undefined) {
+        const historical = continuationArtifacts(legacyContract, firstIntroductionSpec);
+        if (historical.ok) {
+          return {
+            ok: false,
+            error:
+              'gateImplementCorrection is forbidden because the legacy v1 introduction already declared sequenced artifacts',
+            body,
+          };
+        }
+      }
+      const firstIntroductionSha = introductionShas?.[0];
+      if (firstIntroductionSha === null) {
+        return {
+          ok: false,
+          error: 'gateImplementCorrection legacy v1 first PASS introduction commit is unavailable',
+          body,
+        };
+      }
+      if (
+        firstIntroductionSha !== undefined &&
+        parsed.payload.firstPassIntroductionSha !== firstIntroductionSha
+      ) {
+        return {
+          ok: false,
+          error:
+            'gateImplementCorrection.firstPassIntroductionSha does not bind the legacy first PASS introduction commit',
+          body,
+        };
+      }
+      if (
+        JSON.stringify(parsed.payload.taskItems) !== JSON.stringify(firstParsed.payload.taskItems)
+      ) {
+        return {
+          ok: false,
+          error: 'gateImplementCorrection.taskItems do not bind the legacy first PASS',
+          body,
+        };
+      }
+      const correctionSpec = isCurrentIntroduction ? spec : introductionSpecs?.[index];
+      if (correctionSpec === null) {
+        return {
+          ok: false,
+          error: 'gateImplementCorrection introduction revision is unavailable',
+          body,
+        };
+      }
+      if (correctionSpec !== undefined) {
+        const correctionDelivery = checkpointDelivery(contract, correctionSpec);
+        if (!correctionDelivery.ok) return { ok: false, error: correctionDelivery.error, body };
+        if (
+          correctionDelivery.deliveryMode !== 'sequenced' ||
+          JSON.stringify(parsed.payload.sequencedArtifacts) !==
+            JSON.stringify(correctionDelivery.artifacts)
+        ) {
+          return {
+            ok: false,
+            error:
+              'gateImplementCorrection delivery does not bind its introduction-revision Decision contract',
+            body,
+          };
+        }
+      }
+    }
+    if (formName === 'gateImplementContinuation') {
       if (isCurrentIntroduction) {
         const artifacts = continuationArtifacts(contract, baseSpec ?? spec);
         if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
@@ -704,6 +808,7 @@ export function gateImplementEntryResults(
       introductionSpec: introductionSpecs?.[index],
       appendedForm: gateImplementEntryForm(entries[priorEntries?.length]),
       priorEntryCount: priorEntries?.length ?? 0,
+      hasCorrection: entries.some((entry) => gateImplementEntryForm(entry) === 'correction'),
     });
     if (deliveryError !== null) return { ok: false, error: deliveryError, body };
     return { ok: true, payload: parsed.payload, body };
@@ -724,14 +829,13 @@ export function gateImplementEntryResults(
   const latestValidatedPredecessor = priorResults.findLast((result) => result.ok);
   if (
     current?.ok &&
-    current.payload.form === 'gateImplementContinuation' &&
+    ['gateImplementContinuation', 'gateImplementCorrection'].includes(current.payload.form) &&
     (latestValidatedPredecessor === undefined ||
       current.payload.priorPass !== priorPassDigest(latestValidatedPredecessor.body))
   ) {
     results[currentIndex] = {
       ok: false,
-      error:
-        'gateImplementContinuation.priorPass does not hash the latest complete validated predecessor PASS entry',
+      error: `${current.payload.form}.priorPass does not hash the latest complete validated predecessor PASS entry`,
       body: current.body,
     };
   }
@@ -900,6 +1004,12 @@ function gateImplementContinuationCount(spec, binding = null, ruleText = null, o
   ).length;
 }
 
+function gateImplementCorrectionCount(spec, binding = null, ruleText = null, options = {}) {
+  return gateImplementEntryResults(spec, binding, ruleText, options).filter(
+    (result) => result.ok && gateImplementEntryForm(result.body) === 'correction',
+  ).length;
+}
+
 function exactPlanSignal(task) {
   const section = markdownSection(task, '## User Execution Test Scenarios');
   const matches = [
@@ -956,15 +1066,23 @@ function isCheckpointTransition({
   // the base — a spec whose delivery is sequenced across PRs — and this commit re-records the gate
   // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
   // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
-  return (
+  const passDeltaIsOne =
     task === parentTask &&
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
     gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
     gateImplementPassCount(spec, binding, ruleText, currentOptions) ===
-      gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) + 1 &&
-    gateImplementContinuationCount(spec, binding, ruleText, currentOptions) ===
-      gateImplementContinuationCount(parentSpec, binding, ruleText, checkpointOptions) + 1
+      gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) + 1;
+  if (!passDeltaIsOne) return false;
+  const continuationDelta =
+    gateImplementContinuationCount(spec, binding, ruleText, currentOptions) -
+    gateImplementContinuationCount(parentSpec, binding, ruleText, checkpointOptions);
+  const correctionDelta =
+    gateImplementCorrectionCount(spec, binding, ruleText, currentOptions) -
+    gateImplementCorrectionCount(parentSpec, binding, ruleText, checkpointOptions);
+  return (
+    (continuationDelta === 1 && correctionDelta === 0) ||
+    (continuationDelta === 0 && correctionDelta === 1)
   );
 }
 
@@ -1168,7 +1286,7 @@ export function evaluatePlanTexts({
     problems.push(
       diagnostics.length > 0
         ? `GATE-IMPLEMENT checkpoint binding failed: ${[...new Set(diagnostics)].join('; ')}.`
-        : 'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) on a pair already in-progress.',
+        : 'checkpoint is neither the first GATE-IMPLEMENT PASS transitioning the exact Task/spec pair into in-progress nor one continuation PASS (`in-progress → in-progress (continuation)`) or one correction PASS (`in-progress → in-progress (correction)`) on a pair already in-progress.',
     );
   }
 
@@ -1832,6 +1950,45 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       ],
     };
   }
+  if (
+    checkpointState.correctionCutovers.length === 0 &&
+    checkpointState.correctionMarkerCommits.length > 0
+  ) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding('checkpoint correction-form markers exist but no valid cutover can be proven.'),
+      ],
+    };
+  }
+  if (checkpointState.correctionCutovers.length > 1) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [
+        finding(
+          `checkpoint correction-form cutover is ambiguous: ${checkpointState.correctionCutovers.join(', ')}.`,
+        ),
+      ],
+    };
+  }
+  if (checkpointState.correctionCutovers.length === 1 && !checkpointState.correctionValid) {
+    return {
+      base,
+      commits: [],
+      examined: 0,
+      checkpoint: null,
+      pendingBasename: null,
+      findings: [finding('checkpoint correction form is missing or invalid after its cutover.')],
+    };
+  }
   // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
   // against its parent, which is defined for a single-parent commit and undefined for a merge —
   // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
@@ -2202,6 +2359,20 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
       if (!stagedContract.ok) {
         return [
           finding(`staged checkpoint evidence contract is unreadable: ${stagedContract.error}.`),
+        ];
+      }
+      const committedState = checkpointEvidenceContractState(root, 'HEAD');
+      const requiresCorrectionForm = committedState.correctionCutovers.length === 1;
+      const stagedContracts = parseCheckpointEvidenceContracts(stagedRule);
+      if (
+        !stagedContracts.ok ||
+        (requiresCorrectionForm &&
+          !String(stagedRule).includes(CHECKPOINT_EVIDENCE_CONTRACT_MARKERS.correctionForm))
+      ) {
+        return [
+          finding(
+            `staged checkpoint correction form is unreadable: ${stagedContracts.ok ? 'marker missing after cutover' : stagedContracts.error}.`,
+          ),
         ];
       }
       if (String(stagedRule).includes('user-execution-plan-contract:v1:')) {
