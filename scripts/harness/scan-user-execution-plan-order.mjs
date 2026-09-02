@@ -1276,19 +1276,20 @@ function agreementPrelude(paths, textForPath, parentTextForPath) {
     const childPath = matches[0];
     const childText = textForPath(childPath);
     const childFields = frontmatterObject(childText ?? '');
+    const childIssue = asScalar(childFields.issue).trim();
     if (parentTextForPath(childPath) !== null)
       problems.push(`atomic AGREEMENT child ${childId} must be newly added.`);
     if (frontmatterStatus(childText) !== 'todo')
       problems.push(`atomic AGREEMENT child ${childId} must have status \`todo\`.`);
-    if (asScalar(childFields.issue).trim() !== parentIssue) {
-      problems.push(`atomic AGREEMENT child ${childId} must cite the parent source issue.`);
-    }
+    if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+$/.test(childIssue))
+      problems.push(
+        `atomic AGREEMENT child ${childId} must cite one concrete GitHub source issue.`,
+      );
     if (childId.startsWith('AGREEMENT-') || asList(childFields.children).length > 0) {
       problems.push(`atomic AGREEMENT child ${childId} must not be a nested AGREEMENT.`);
     }
     childRecords.push({ id: childId, taskPath: childPath });
   }
-
   const expectedPaths = new Set([
     parentTaskPath,
     parentSpecPath,

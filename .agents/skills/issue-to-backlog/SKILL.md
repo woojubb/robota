@@ -87,7 +87,10 @@ split.
    still force `OWNER_REVIEW`.
 5. For an `AGREEMENT` conversion, stage one complete atomic manifest before finalizing the Issue:
    - one newly added exact-basename parent Task/pre-checkpoint `type: AGREEMENT` spec pair;
-   - every uniquely declared child as a newly added, non-AGREEMENT `todo` Task citing the same Issue;
+   - every uniquely declared child as a newly added, non-AGREEMENT `todo` Task citing the Issue whose
+     outcome that Task owns. For one-Issue internal decomposition the records may repeat the same source;
+     when absorbing an existing Issue hierarchy, the AGREEMENT cites the tracker and each child Task cites
+     its exact leaf Issue;
    - exact `## Children` and `## Tasks` rows for those child IDs, statuses, and paths; and
    - no unrelated, pre-existing, nested-AGREEMENT, non-todo, or implementation path.
      Run `node scripts/harness/scan-user-execution-plan-order.mjs --staged`, then commit this conversion
