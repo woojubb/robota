@@ -1,4 +1,4 @@
 This package-owned marker provides a stable, non-runtime input for measuring the ordinary affected
 CI path. Change its final line in a benchmark commit; do not use workflow or root-control files.
 
-benchmark-generation: 1
+benchmark-generation: 2
