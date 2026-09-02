@@ -23,7 +23,6 @@
  * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
  * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
  *
- * Two entry points share this engine:
  *   - default: replay every commit after the topic merge base (CI / harness scan);
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */

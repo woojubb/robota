@@ -7,6 +7,7 @@ import { makeTemp } from './make-temp.mjs';
 import {
   createWorkspaceAffectedPlan,
   formatWorkspaceAffectedPlan,
+  parseCliArgs,
   parseNameStatusDiff,
   parseWorkspacePatterns,
   planWorkspaceAffected,
@@ -74,6 +75,10 @@ function fixture({ cycle = false } = {}) {
 }
 
 describe('workspace affected planner', () => {
+  it("accepts pnpm's explicit argument separator", () => {
+    expect(parseCliArgs(['--', '--operation', 'build']).operation).toBe('build');
+  });
+
   it('parses declared workspace patterns without hardcoded package families', () => {
     expect(
       parseWorkspacePatterns(

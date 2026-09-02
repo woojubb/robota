@@ -45,6 +45,7 @@ export function parseCliArgs(argv) {
   let hasExplicitFiles = false;
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
+    if (token === '--') continue;
     const value = () => {
       const next = argv[index + 1];
       if (!next) throw new Error(`${token} requires a value`);

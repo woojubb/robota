@@ -185,7 +185,7 @@ describe('content-addressed contract-test cache', () => {
       workflow.indexOf('- name: Install dependencies', cacheStepStart),
     );
 
-    expect(cacheStep).toContain('uses: actions/cache@v4');
+    expect(cacheStep).toContain('uses: actions/cache@v6');
     expect(cacheStep).toContain('path: .cache/robota-contract-tests');
     expect(cacheStep).toContain('${{ github.event.pull_request.head.sha || inputs.head_ref }}');
     expect(cacheStep).toContain('${{ github.run_id }}-${{ github.run_attempt }}');

@@ -34,17 +34,20 @@ const REQUIRED_BENCHMARK_JOBS = new Map([
 ]);
 
 describe('GitHub Actions runtime maintenance', () => {
-  it('uses the current v6 majors for every setup-node and pnpm setup reference', () => {
+  it('uses the current v6 majors for setup-node, pnpm setup, and cache references', () => {
     const references = workflowSources().flatMap(({ name, source }) =>
-      [...source.matchAll(/uses:\s+(actions\/setup-node|pnpm\/action-setup)@(v\d+)/gu)].map(
-        ([, action, version]) => ({ name, action, version }),
-      ),
+      [
+        ...source.matchAll(
+          /uses:\s+(actions\/setup-node|pnpm\/action-setup|actions\/cache)@(v\d+)/gu,
+        ),
+      ].map(([, action, version]) => ({ name, action, version })),
     );
 
     expect(references.length).toBeGreaterThan(0);
     expect(references.filter(({ version }) => version !== 'v6')).toEqual([]);
     expect(references.some(({ action }) => action === 'actions/setup-node')).toBe(true);
     expect(references.some(({ action }) => action === 'pnpm/action-setup')).toBe(true);
+    expect(references.some(({ action }) => action === 'actions/cache')).toBe(true);
   });
 });
 
@@ -103,5 +106,13 @@ describe('PR-free develop required-context benchmark', () => {
     expect(review).toContain('build-mode: none');
     expect(review).toContain('introduced-alert diff');
     expect(review).toContain('N/A without a pull request');
+  });
+
+  it('marks PR-only governance scans N/A during a manual benchmark', () => {
+    const scans = jobBlock(ci, 'scans');
+    expect(scans).toContain("BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}");
+    expect(scans).toContain(
+      'scan_args+=(--skip lane-declaration --skip user-execution-plan-order --skip work-run-measurement)',
+    );
   });
 });

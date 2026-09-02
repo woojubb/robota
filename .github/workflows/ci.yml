@@ -504,7 +504,7 @@ jobs:
 
       - name: Restore cross-head ESLint content cache
         if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/eslint/ci.cache
           key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -648,7 +648,7 @@ jobs:
       # cross heads because every marker is content-addressed and revalidated against the test's
       # complete implementation/input key before it can count as a hit.
       - name: Restore cross-head contract-test content cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/robota-contract-tests
           key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -703,6 +703,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
           HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}
           RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
         shell: bash
         run: |
@@ -724,8 +725,11 @@ jobs:
 
           start_check contracts \
             pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD
-          start_check scans \
-            pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "${HARNESS_BASE_REF}"
+          scan_args=(harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "${HARNESS_BASE_REF}")
+          if [[ "$BENCHMARK_MODE" == "true" ]]; then
+            scan_args+=(--skip lane-declaration --skip user-execution-plan-order --skip work-run-measurement)
+          fi
+          start_check scans pnpm "${scan_args[@]}"
           if [[ "$RUN_HERMETIC" == "true" ]]; then
             start_check hermetic pnpm harness:test:hermetic
           fi
