@@ -18,13 +18,13 @@ function read(relativePath) {
 
 describe('harness test suite runs as a glob, not an enumerated list (TEST-011)', () => {
   it('verify-change harness-tests check passes the whole __tests__ directory to vitest', () => {
-    const content = read('scripts/harness/verify-change.mjs');
+    const content = read('scripts/harness/verify-change-commands.mjs');
 
     expect(content).toContain(`'scripts/harness/__tests__'`);
   });
 
   it('verify-change uses the bounded thread pool', () => {
-    const content = read('scripts/harness/verify-change.mjs');
+    const content = read('scripts/harness/verify-change-commands.mjs');
 
     expect(content).toContain("'--pool=threads'");
     expect(content).toContain("'--maxWorkers=2'");
@@ -32,7 +32,7 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
   });
 
   it('verify-change never enumerates individual harness test files', () => {
-    const content = read('scripts/harness/verify-change.mjs');
+    const content = read('scripts/harness/verify-change-commands.mjs');
 
     // A hardcoded `scripts/harness/__tests__/<file>.test.mjs` argument is exactly the
     // drift that hid the stale conformance test. The runner must reference the
@@ -49,14 +49,14 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(script).toContain('harness-test-tiers.mjs --verify-hermetic-stripped');
     expect(script).not.toContain('harness-test-tiers.mjs --tier all');
     expect(script).not.toMatch(/\.test\.mjs/);
-    const owner = read('scripts/harness/harness-test-tiers.mjs');
+    const owner = read('scripts/harness/harness-test-classification.mjs');
     expect(owner).toContain(`const TEST_DIR = '${HARNESS_TESTS_DIR}'`);
     expect(owner).toContain("entry.name.endsWith('.test.mjs')");
   });
 
   it('root harness:test uses the bounded thread pool', () => {
     const packageJson = JSON.parse(read('package.json'));
-    const script = read('scripts/harness/harness-test-tiers.mjs');
+    const script = read('scripts/harness/harness-vitest-process.mjs');
 
     expect(script).toContain('--pool=threads');
     expect(script).toContain('--maxWorkers=2');
@@ -83,7 +83,7 @@ describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
       content.indexOf('steps:', content.indexOf('\n  scans:\n')),
     );
     expect(scansHeader).toContain('!cancelled()');
-    expect(scansHeader).toContain("github.base_ref != 'main'");
+    expect(scansHeader).toContain("(github.base_ref || inputs.base_ref) != 'main'");
   });
 
   // INFRA-055: on a main PR the `scans` job no longer runs at all, so the release gate is the only
@@ -98,7 +98,7 @@ describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
   });
 
   it('pre-push runs harness:verify, whose harness-tests check uses the globbed run', () => {
-    const content = read('scripts/harness/pre-push.mjs');
+    const content = read('scripts/harness/pre-push-verification-execution.mjs');
 
     expect(content).toContain('harness:verify');
   });

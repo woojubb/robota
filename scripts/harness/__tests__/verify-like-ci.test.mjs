@@ -455,7 +455,10 @@ describe('CI_STAGES', () => {
   });
 
   it('passes the original branch and head identity into detached dist-free scans', () => {
-    const source = readFileSync(path.resolve(import.meta.dirname, '../verify-like-ci.mjs'), 'utf8');
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, '../verify-like-ci-dist-free.mjs'),
+      'utf8',
+    );
     expect(source).toContain('runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow)');
     expect(source).toContain("'--affected'");
     expect(source).toContain("'--context',\n      'pr'");
@@ -472,7 +475,10 @@ describe('CI_STAGES', () => {
   });
 
   it('has a runnable implementation for every declared stage — no stage is a table entry only', async () => {
-    const source = readFileSync(path.resolve(import.meta.dirname, '../verify-like-ci.mjs'), 'utf8');
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, '../verify-like-ci-execution.mjs'),
+      'utf8',
+    );
     const runners = /const STAGE_RUNNERS = \{([\s\S]*?)\n\};/.exec(source);
     expect(runners).not.toBeNull();
     for (const stage of CI_STAGES) {

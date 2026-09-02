@@ -180,6 +180,52 @@ describe('scan-harness-script-import-safety', () => {
       expect(untestedScripts(dir, ['facade.mjs', 'work-run-cli.mjs'])).toEqual([]);
     });
 
+    it('credits helpers reached through a tested facade without debt declarations', () => {
+      const root = scriptDir({
+        'facade.mjs': "export { x } from './helper.mjs';",
+        'helper.mjs': 'export const x = 1;',
+      });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/facade.test.mjs'),
+        "import { x } from '../facade.mjs';\nit('exercises the facade', () => x);\n",
+      );
+      expect(untestedScripts(dir, ['facade.mjs', 'helper.mjs'])).toEqual([]);
+    });
+
+    it('credits helpers imported by a dedicated module-boundary test', () => {
+      const root = scriptDir({
+        'facade.mjs': "export { x } from './helper.mjs';",
+        'helper.mjs': 'export const x = 1;',
+      });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/module-boundaries.test.mjs'),
+        [
+          "import * as facade from '../facade.mjs';",
+          "import * as helper from '../helper.mjs';",
+          "it('preserves identities', () => facade.x === helper.x);",
+        ].join('\n'),
+      );
+      expect(untestedScripts(dir, ['facade.mjs', 'helper.mjs'])).toEqual([]);
+    });
+
+    it('does not credit an unimported helper beside a tested facade', () => {
+      const root = scriptDir({
+        'facade.mjs': 'export const x = 1;',
+        'helper.mjs': 'export const y = 2;',
+      });
+      const dir = path.join(root, 'scripts/harness');
+      mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+      writeFileSync(
+        path.join(dir, '__tests__/facade.test.mjs'),
+        "import { x } from '../facade.mjs';\nit('exercises the facade', () => x);\n",
+      );
+      expect(untestedScripts(dir, ['facade.mjs', 'helper.mjs'])).toEqual(['helper.mjs']);
+    });
+
     it('(RED) rejects unknown and non-top-level declaration targets', () => {
       const root = scriptDir({ 'known.mjs': 'export const x = 1;' });
       const dir = path.join(root, 'scripts/harness');

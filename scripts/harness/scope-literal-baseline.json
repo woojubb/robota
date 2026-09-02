@@ -1,4 +1,5 @@
 {
+  "changed-path-capabilities.mjs": 6,
   "check-agent-server-boundary.mjs": 41,
   "check-background-workspace-conformance.mjs": 1,
   "check-capability-placement.mjs": 11,
@@ -11,8 +12,7 @@
   "check-publish-safety.mjs": 3,
   "check-sdk-public-surface.mjs": 4,
   "check-workspace-refs.mjs": 4,
-  "classify-changed-paths.mjs": 6,
   "live-provider-smoke.mjs": 3,
   "scan-agent-tools-neutrality.mjs": 1,
-  "verify-like-ci.mjs": 2
+  "verify-like-ci-execution.mjs": 2
 }

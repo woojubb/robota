@@ -33,13 +33,11 @@
  *      path, silently green on one with a space — so rule 1 passes it on this machine, verified by
  *      reinstating the form and watching the scan stay green. A hazard that depends on where the
  *      repository is checked out can only be caught in the source.
- *   3. TEST OWNERSHIP. A coverage declaration names one existing top-level harness module exactly
- *      once and the declaring test must reach it through static imports. A comment cannot turn an
- *      unreferenced module into a tested one.
+ *   3. TEST OWNERSHIP. A script is covered by an exact-name test, by the static import/re-export
+ *      graph rooted at a test, or by a validated coverage declaration. A comment cannot turn an
+ *      unreachable module into a tested one.
  *
- * WHAT IT CANNOT DO: it does not check that a script's `main()` is CORRECT, only that importing does
- * not run it. Nor does it verify a script is tested — that is a separate axis, and one this scan is a
- * precondition for rather than a substitute.
+ * It does not prove `main()` is correct: static reachability means loaded, not fully asserted.
  * FAIL-CLOSED: the script directory must exist and contain scripts. Examining nothing cannot pass.
  * Exit code 0 = every script imports silently, 1 = one did work, printed, threw, or hung.
  */
@@ -49,6 +47,14 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { declaredHarnessCoverage } from './harness-coverage-declarations.mjs';
+import {
+  ScriptKind,
+  ScriptTarget,
+  createSourceFile,
+  isExportDeclaration,
+  isImportDeclaration,
+  isStringLiteral,
+} from './lib/ts-ast.mjs';
 import { harnessScripts } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -120,9 +126,6 @@ export function findImportSafetyFindings(root = WORKSPACE_ROOT) {
       `harness-script-import-safety: ${SCRIPT_DIR} does not exist under ${root} — nothing could be imported.`,
     );
   }
-  // Recursive: `scripts/harness/lib/` holds three shared modules that a top-level read left outside
-  // this floor entirely. Review found the same blind spot in the scope-literal ratchet; both are
-  // fixed together, because a module under `lib/` can run work on import exactly as one above it can.
   const files = harnessScripts(dir);
   if (files.length === 0) {
     throw new Error(
@@ -152,10 +155,54 @@ export function untestedScripts(dir, files) {
   if (!existsSync(testDir)) return [...files];
   const tests = readdirSync(testDir);
   const declared = declaredHarnessCoverage(testDir, tests);
+  const reached = testReachableScripts(testDir, tests, dir);
   return files.filter((name) => {
     const base = path.basename(name).replace(/\.mjs$/, '');
-    return !declared.has(name) && !tests.some((test) => test.startsWith(`${base}.`));
+    return (
+      !declared.has(name) &&
+      !reached.has(name) &&
+      !tests.some((test) => test.startsWith(`${base}.`))
+    );
   });
+}
+
+function resolveStaticModule(importer, specifier, harnessDir) {
+  if (!specifier.startsWith('.')) return null;
+  const resolved = path.resolve(path.dirname(importer), specifier);
+  const relative = path.relative(harnessDir, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative) || !existsSync(resolved)) return null;
+  return resolved;
+}
+
+function staticImports(file, harnessDir) {
+  const source = readFileSync(file, 'utf8');
+  const tree = createSourceFile(file, source, ScriptTarget.Latest, true, ScriptKind.JS);
+  const imports = [];
+  for (const statement of tree.statements) {
+    if (!isImportDeclaration(statement) && !isExportDeclaration(statement)) continue;
+    if (!statement.moduleSpecifier || !isStringLiteral(statement.moduleSpecifier)) continue;
+    const resolved = resolveStaticModule(file, statement.moduleSpecifier.text, harnessDir);
+    if (resolved !== null) imports.push(resolved);
+  }
+  return imports;
+}
+
+function testReachableScripts(testDir, tests, harnessDir) {
+  const reachable = new Set();
+  const pending = tests
+    .filter((name) => name.endsWith('.test.mjs'))
+    .map((name) => path.join(testDir, name));
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (reachable.has(current)) continue;
+    reachable.add(current);
+    pending.push(...staticImports(current, harnessDir));
+  }
+  return new Set(
+    [...reachable]
+      .filter((file) => path.dirname(file) !== testDir && file.endsWith('.mjs'))
+      .map((file) => path.relative(harnessDir, file)),
+  );
 }
 
 function inspectUntestedScripts(dir, files) {

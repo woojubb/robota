@@ -143,21 +143,22 @@ describe('repository-check ownership', () => {
   });
 
   it('assigns harness self-tests to exactly one owner in each aggregate execution graph', () => {
-    const localGate = readFileSync('scripts/harness/verify-like-ci.mjs', 'utf8');
-    const prePushGate = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const localGate = readFileSync('scripts/harness/verify-like-ci-execution.mjs', 'utf8');
+    const prePushRuntime = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
+    const prePushMirror = readFileSync('scripts/harness/pre-push-ci-mirror.mjs', 'utf8');
     const prePushVerification = readFileSync(
       'scripts/harness/pre-push-verification-execution.mjs',
       'utf8',
     );
 
-    expect(prePushGate).toContain('runPrePushVerification');
+    expect(prePushRuntime).toContain('runPrePushVerification');
     expect(prePushVerification).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
     expect(localGate).toContain("'harness:test:contracts:affected'");
     expect(localGate).toContain("'--head-ref',\n    'HEAD'");
-    expect(prePushGate).toContain("'harness:test:contracts:affected'");
-    expect(prePushGate).toContain("return [command, ['harness:test:contracts']]");
-    expect(prePushGate).toContain("['pnpm', ['harness:test:hermetic']]");
+    expect(prePushMirror).toContain("'harness:test:contracts:affected'");
+    expect(prePushMirror).toContain("return [command, ['harness:test:contracts']]");
+    expect(prePushMirror).toContain("['pnpm', ['harness:test:hermetic']]");
   });
 });
 
@@ -202,7 +203,7 @@ describe('CI build workflow', () => {
   });
 
   it('delegates scoped typechecks to the affected root command exactly once', () => {
-    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+    const content = readFileSync('scripts/harness/verify-change-commands.mjs', 'utf8');
 
     expect(content).toContain("affectedScript: 'typecheck:affected'");
     expect(content).not.toContain("runCommand('pnpm', ['typecheck'], workdir");
@@ -227,7 +228,7 @@ describe('CI build workflow', () => {
       expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
       const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));
       expect(header, `${jobId} must be excluded on a main PR at the job level`).toContain(
-        "github.base_ref != 'main'",
+        "(github.base_ref || inputs.base_ref) != 'main'",
       );
     }
   });
@@ -405,7 +406,7 @@ describe('agent-web deploy imports', () => {
 // ---------------------------------------------------------------------------
 describe('verify-change build flow', () => {
   it('uses affected root commands for scoped checks and preserves a full build escape hatch', () => {
-    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+    const content = readFileSync('scripts/harness/verify-change-commands.mjs', 'utf8');
 
     expect(content).toContain("affectedScript: 'build:affected'");
     expect(content).toContain("fullScript: 'build'");
@@ -470,7 +471,7 @@ describe('pre-push hook', () => {
   });
 
   it('keeps dependent scope expansion opt-in for pre-push', () => {
-    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const content = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
     const verification = readFileSync(
       'scripts/harness/pre-push-verification-execution.mjs',
       'utf8',
@@ -482,14 +483,14 @@ describe('pre-push hook', () => {
   });
 
   it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
-    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const content = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
 
     expect(content).toContain('hasWorkingTreeChanges');
     expect(content).toContain('basePlan.decisionBaseRef && !hasWorkingTreeChanges()');
   });
 
   it('threads the one resolved base plan through every pre-push consumer', () => {
-    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+    const content = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
     const verification = readFileSync(
       'scripts/harness/pre-push-verification-execution.mjs',
       'utf8',
@@ -499,7 +500,7 @@ describe('pre-push hook', () => {
     expect(verification).toContain('baseRef: runtime.basePlan.classificationBaseRef ?? null');
     expect(content).toContain('baseRef: runtime.basePlan.decisionBaseRef');
     expect(content).toContain('baseRef: runtime.basePlan.receiptBaseRef');
-    expect(content).toContain('const baseArgs = basePlan.baseArgs');
+    expect(content).toContain('baseArgs: basePlan.baseArgs');
   });
 
   it('parses Git pre-push update lines', () => {

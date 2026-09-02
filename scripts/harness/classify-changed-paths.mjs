@@ -1,51 +1,21 @@
 #!/usr/bin/env node
 
 /**
- * Changed-path classifier — THE single mechanism that decides whether a PR touches CODE and which
- * product capabilities are affected.
+ * Single fail-closed owner for changed-path and capability classification. Both CI and Review Gate
+ * consume this verdict so documentation detection cannot diverge between required checks.
  *
- * ## Why this is a shared module and not two copies
- *
- * The verdict has two consumers, and they must not be able to disagree:
- *
- *  - `.github/workflows/ci.yml` › `changes` — decides whether the heavy matrix (`tui-e2e`,
- *    `examples-typecheck`, `windows-shell`, patch-coverage, regression-red-proof) runs at all.
- *  - `.github/workflows/review-gate.yml` — decides whether its same-workflow CodeQL job is
- *    applicable. A docs-only PR does not run that job, so no analysis record is written for it;
- *    without this signal the gate waits for an analysis that will
- *    never arrive and then blocks on its absence (INFRA-048's fail-closed path, misapplied — see
- *    #1436, which was blocked for a single backlog markdown file).
- *
- * If the review gate re-derived "no code changed" with its own weaker rule, that rule would be the
- * bypass: any PR that could satisfy it would skip the gate entirely. So there is exactly one
- * implementation, exported here, and both callers invoke it. A PR can only be classified docs-only
- * by the very rule that also decided to skip its build and test matrix — a code PR cannot satisfy
- * one without satisfying the other.
- *
- * ## The docs set
- *
- * `DOCS_ONLY_GLOBS` is the sole owner of docs-only applicability. CI and Review Gate consume the
- * classifier output rather than copying this list into workflow `paths-ignore` blocks.
- *
- * ## Fail-closed
- *
- * Every path that cannot determine the answer — no merge base, a failed diff, an empty file list —
- * classifies as CODE. "Nothing classified" must run the checks, not skip them (INFRA-050: a
- * `changes` job that errors makes its required dependents report `skipping`, which branch
- * protection accepts).
- *
- * Usage:
- *   node scripts/harness/classify-changed-paths.mjs --base-ref origin/develop [--head HEAD]
- *
- * Prints the merge base(s), changed files, and code/product/tui/examples booleans, and appends the
- * same values to `$GITHUB_OUTPUT` under Actions. Always exits 0 — the verdict is the output.
+ * Usage: node scripts/harness/classify-changed-paths.mjs --base-ref origin/develop [--head HEAD]
+ * The CLI prints classifications and mirrors them to `$GITHUB_OUTPUT` under Actions.
  */
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 
+import { resolveCapabilityReachability } from './changed-path-capabilities.mjs';
 import { classifyRootManifestChange } from './shared.mjs';
+
+export { resolveCapabilityReachability } from './changed-path-capabilities.mjs';
 
 /**
  * Paths that are pure documentation. Workflow callers consume this classifier; they do not own a
@@ -120,79 +90,6 @@ export function isFullVerificationPath(file, { rootManifestChange = null } = {})
   const normalized = String(file ?? '').replaceAll('\\', '/');
   if (normalized === 'package.json') return rootManifestChange?.workspaceWide !== false;
   return WORKSPACE_FULL_FILES.has(normalized) || /(^|\/)package\.json$/u.test(normalized);
-}
-
-const WORKSPACE_ROOTS = ['apps', 'examples', 'packages'];
-const SKIPPED_DIRECTORIES = new Set(['dist', 'node_modules', '.git', '.cache']);
-
-function workspaceManifests(root) {
-  const manifests = [];
-  const visit = (directory) => {
-    for (const entry of readdirSync(path.join(root, directory), { withFileTypes: true })) {
-      if (!entry.isDirectory() || SKIPPED_DIRECTORIES.has(entry.name)) continue;
-      const child = `${directory}/${entry.name}`;
-      let packageJson;
-      try {
-        packageJson = JSON.parse(readFileSync(path.join(root, child, 'package.json'), 'utf8'));
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
-      if (packageJson?.name) {
-        manifests.push({
-          name: packageJson.name,
-          directory: child,
-        });
-      } else {
-        visit(child);
-      }
-    }
-  };
-  for (const directory of WORKSPACE_ROOTS) visit(directory);
-  return manifests;
-}
-
-/**
- * Resolve expensive capability jobs by direct workspace ownership. Normal PR policy deliberately does
- * not propagate these suites through dependency edges; each suite owns its own package/path surface.
- */
-export function resolveCapabilityReachability(files, { cwd = process.cwd() } = {}) {
-  try {
-    const manifests = workspaceManifests(cwd);
-    const byName = new Map(manifests.map((manifest) => [manifest.name, manifest]));
-    if (manifests.length === 0 || byName.size !== manifests.length) {
-      throw new Error('workspace graph is empty or contains duplicate package names');
-    }
-    const owners = new Map();
-    const unknownWorkspacePaths = [];
-    for (const file of files) {
-      const owner = manifests
-        .filter((manifest) => file.startsWith(`${manifest.directory}/`))
-        .sort((left, right) => right.directory.length - left.directory.length)[0];
-      if (owner) owners.set(file, owner);
-      else if (/^(?:apps|examples|packages)\//u.test(file)) unknownWorkspacePaths.push(file);
-    }
-    if (unknownWorkspacePaths.length > 0) {
-      throw new Error(`workspace owner is unknown for ${unknownWorkspacePaths.join(', ')}`);
-    }
-
-    const ownerNames = new Set([...owners.values()].map((owner) => owner.name));
-    const directOwner = (...names) => names.some((name) => ownerNames.has(name));
-    const windows = [...owners].some(
-      ([file, owner]) =>
-        ['@robota-sdk/agent-tools', '@robota-sdk/agent-executor'].includes(owner.name) &&
-        /(?:^|\/)(?:[^/]*(?:shell|windows|win32|powershell)[^/]*)(?:\/|$|\.)/iu.test(file),
-    );
-
-    return {
-      cli: directOwner('@robota-sdk/agent-cli', '@robota-sdk/agent-cli-web'),
-      tui: directOwner('@robota-sdk/agent-transport-tui', '@robota-sdk/agent-cli'),
-      examples: [...owners.values()].some((owner) => owner.directory.startsWith('examples/')),
-      windows:
-        windows || files.some((file) => /(^|\/)(windows|win32|powershell)(\/|\.|-)/iu.test(file)),
-    };
-  } catch (error) {
-    return { error: `workspace capability graph is unreadable: ${error.message}` };
-  }
 }
 
 /**
@@ -285,16 +182,7 @@ function classifyRootManifestFromGit({ files, bases, head, cwd, runGit }) {
   }
 }
 
-/**
- * Resolve the changed paths of `head` against `baseRef` and classify them.
- *
- * The merge base is computed EXPLICITLY (not via the `...` shorthand) so it is visible in the log,
- * and over `--all` because a criss-cross history (this repo back-merges main <-> develop) can have
- * several: a file changed against ANY of them counts as changed, so an ambiguous history can only
- * over-report code, never silently under-report it.
- *
- * @returns {{code: boolean, reason: string, files: string[], bases: string[], error?: string}}
- */
+/** Resolve changes against every merge base and fail closed on unresolved history. */
 export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}) {
   const merge = runGit(['merge-base', '--all', baseRef, head], { cwd });
   const bases = merge.ok

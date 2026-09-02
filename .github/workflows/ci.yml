@@ -27,6 +27,23 @@ on:
     # on `protect-main`. Putting any of them back in that required list would make a retarget erase
     # its own evidence. `scan-main-required-checks.mjs` is what refuses that combination.
     types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base branch or commit used by the PR-free required-check benchmark
+        required: true
+        default: develop
+        type: string
+      head_ref:
+        description: Head branch or commit to verify
+        required: true
+        default: develop
+        type: string
+      pr_body:
+        description: Optional synthetic PR body consumed by lane and regression-proof checks
+        required: false
+        default: "## Background\n\nPR-free required-check benchmark."
+        type: string
 
 # One in-flight run per PR. `edited` makes a second dispatch for the same head sha routine (this
 # harness edits PR bodies after opening), and two runs publishing a check run per context means a
@@ -35,7 +52,7 @@ on:
 # supersedes the previous run rather than racing it. Fails closed: a cancelled run reports
 # `cancelled`, which is not `success` and does not satisfy a required check.
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}
+  group: ci-${{ github.event.pull_request.number || format('benchmark-{0}-{1}', inputs.base_ref, inputs.head_ref) }}
   cancel-in-progress: true
 
 # INFRA-061: osv-scanner is downloaded from a GitHub release and then EXECUTED, in TWO jobs below —
@@ -132,7 +149,7 @@ jobs:
       # uses `import.meta.dirname` (Node >= 20.11) and top-level await — pin the runtime like every
       # sibling job rather than inheriting whatever the runner image ships.
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
 
@@ -191,7 +208,7 @@ jobs:
       # ES module using top-level await — pin the runtime like every sibling job rather than
       # inheriting whatever the runner image ships.
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
 
@@ -242,11 +259,12 @@ jobs:
       # A code PR would merge having never been e2e'd. Full history is ~3s on this repo.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
       - id: filter
         name: Classify changed paths and affected capabilities
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
         run: |
           # The classification lives in scripts/harness/classify-changed-paths.mjs — ONE
           # implementation with two callers. `review-gate.yml` invokes the same module to decide
@@ -285,7 +303,7 @@ jobs:
   # direction (nothing vacuous may be required).
   build:
     name: build
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
     needs: changes
     env:
@@ -296,23 +314,30 @@ jobs:
       package_dist_complete: ${{ steps.build_requirement.outputs.complete || steps.build_requirement_na.outputs.complete }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       # INFRA-050: full history, no `--depth` fetch — `harness:plan --base-ref origin/<base>`
       # resolves the affected scopes from a merge-base diff, so a grafted ancestry changes which
       # checks this PR is planned to run at all.
       - uses: actions/checkout@v7
         if: env.PRODUCT_APPLICABLE == 'true'
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
         if: env.PRODUCT_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
         if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -324,7 +349,7 @@ jobs:
       - name: Plan package-dist artifact membership
         if: env.PRODUCT_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
         run: |
           mkdir -p .agents/evals/local-metrics
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
@@ -335,7 +360,7 @@ jobs:
 
       - name: Show verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
-        run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
+        run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref || inputs.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
@@ -373,7 +398,7 @@ jobs:
       - name: Build full or affected workspace
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm build
@@ -438,7 +463,7 @@ jobs:
 
   quality:
     name: quality
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
     needs: [changes, build]
     env:
@@ -447,23 +472,30 @@ jobs:
       CLI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.cli == 'true' }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
       # selects the affected scopes from a merge-base diff; a grafted ancestry silently changes
       # what this REQUIRED check verifies.
       - uses: actions/checkout@v7
         if: env.PRODUCT_APPLICABLE == 'true'
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
         if: env.PRODUCT_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
         if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -473,7 +505,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/eslint/ci.cache
-          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             robota-eslint-content-v1-${{ runner.os }}-node22-
 
@@ -500,7 +532,7 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         shell: bash
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
         run: |
           set +e
           mkdir -p .cache/eslint
@@ -578,11 +610,17 @@ jobs:
   scans:
     name: scans
     needs: changes
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       # INFRA-050: full history. `harness:scan` contains a base-history gate
       # (check-document-authority.mjs diffs `origin/$GITHUB_BASE_REF...HEAD`). On the former
       # depth-50 checkout `origin/<base>` did not exist at all, so that scan fell back to its own
@@ -590,15 +628,16 @@ jobs:
       # still exited 0. A complete checkout makes the ref resolve directly and the gate enforce.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -610,7 +649,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/robota-contract-tests
-          key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             robota-contract-tests-v1-${{ runner.os }}-node22-
 
@@ -653,7 +692,7 @@ jobs:
       # `pre-push-mirrors-ci-scans.test.mjs` and `ci-mirror-map.mjs` declare it as such by name.
       - name: Write pull request body for the lane declaration
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
         run: printf '%s' "$PR_BODY" > "$HARNESS_PR_BODY_FILE"
 
@@ -661,6 +700,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
           RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
         shell: bash
         run: |
@@ -681,9 +721,9 @@ jobs:
           }
 
           start_check contracts \
-            pnpm harness:test:contracts:affected -- --base-ref "origin/${GITHUB_BASE_REF}" --head-ref HEAD
+            pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD
           start_check scans \
-            pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"
+            pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "${HARNESS_BASE_REF}"
           if [[ "$RUN_HERMETIC" == "true" ]]; then
             start_check hermetic pnpm harness:test:hermetic
           fi
@@ -708,21 +748,28 @@ jobs:
 
   dependency-audit:
     name: dependency audit
-    if: github.base_ref != 'main'
+    if: (github.base_ref || inputs.base_ref) != 'main'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       # INFRA-050: full history, no `--depth` fetch. This is a REQUIRED check (on `protect-develop`)
       # whose only real work is gated on a merge-base diff — a grafted ancestry could gate the
       # vulnerability scan off a wrong file list and pass in seconds having scanned nothing.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Detect dependency graph changes
         id: dependency_changes
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
         run: |
           # Explicit merge base(s), union over all of them, and any failure classifies as CHANGED —
           # an unscannable history must run the scan, never silently skip it.
@@ -784,12 +831,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -846,7 +893,7 @@ jobs:
   format-check:
     name: format-check
     runs-on: ubuntu-latest
-    if: github.base_ref != 'main'
+    if: github.event_name == 'pull_request' && github.base_ref != 'main'
 
     steps:
       - uses: actions/checkout@v7
@@ -854,12 +901,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -897,7 +944,7 @@ jobs:
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
-    if: github.base_ref != 'main'
+    if: github.event_name == 'pull_request' && github.base_ref != 'main'
 
     steps:
       - uses: actions/checkout@v7
@@ -925,20 +972,27 @@ jobs:
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
-    if: github.base_ref != 'main'
+    if: (github.base_ref || inputs.base_ref) != 'main'
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -977,8 +1031,8 @@ jobs:
       #     done
       - name: Lint PR commit messages
         env:
-          BASE_REF: ${{ github.base_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.head_ref }}
         run: |
           # INFRA-058: resolve the range into a variable and CHECK it, rather than expanding
           # `$(git rev-list …)` straight into the `for` word-list. GitHub runs this block as
@@ -1020,23 +1074,30 @@ jobs:
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       - uses: actions/checkout@v7
         if: env.EXAMPLES_APPLICABLE == 'true'
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
         if: env.EXAMPLES_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
         if: env.EXAMPLES_APPLICABLE == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -1076,7 +1137,7 @@ jobs:
       - name: Guarantee affected example consumer dist
         if: env.EXAMPLES_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
         shell: bash
         run: |
           plan_file="${RUNNER_TEMP}/examples-affected-plan.json"
@@ -1096,7 +1157,7 @@ jobs:
       - name: Typecheck examples
         if: env.EXAMPLES_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm examples:typecheck
@@ -1124,23 +1185,30 @@ jobs:
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       - uses: actions/checkout@v7
         if: env.WINDOWS_APPLICABLE == 'true'
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 50
 
       - name: Install pnpm
         if: env.WINDOWS_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
         if: env.WINDOWS_APPLICABLE == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -1224,23 +1292,30 @@ jobs:
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       - uses: actions/checkout@v7
         if: env.TUI_APPLICABLE == 'true'
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
         if: env.TUI_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
         if: env.TUI_APPLICABLE == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -1315,22 +1390,29 @@ jobs:
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       # INFRA-050: full history, no `--depth` fetch — check-regression-red-proof.mjs resolves the
       # PR's source hunks from `git merge-base <base> HEAD`, which a graft can truncate away.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -1340,7 +1422,7 @@ jobs:
 
       - name: Prove regression tests are RED without the fix
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
           # ENFORCING (INFRA-046, owner decision 2026-08-04). Only `accidental-green` exits 1: a test
           # that still passes with the fix reversed guards nothing, and that is a defect whatever
           # else the run found. `inconclusive`, `skipped` and `red-proof-unreached` still pass, so a
@@ -1375,7 +1457,7 @@ jobs:
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    if: ${{ github.event_name == 'pull_request' && !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — check-patch-coverage.mjs takes its changed
@@ -1385,12 +1467,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -1436,3 +1518,140 @@ jobs:
       - name: Skip (no coverable src changes)
         if: steps.detect.outputs.affected != 'true'
         run: echo "No package/app src lines changed — patch coverage is a no-op for this PR."
+
+  # Manual-only companions complete the 11-context develop benchmark without creating a pull
+  # request. Normal pull_request behavior remains owned by review-gate.yml and
+  # workflow-provenance-gate.yml; these jobs never run for that event.
+  benchmark-review-gate:
+    name: review-gate
+    if: github.event_name == 'workflow_dispatch'
+    needs: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.head_ref }}
+          fetch-depth: 0
+      - name: Initialize CodeQL
+        if: needs.changes.outputs.code == 'true'
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - name: Perform CodeQL Analysis
+        if: needs.changes.outputs.code == 'true'
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:javascript-typescript'
+      - name: Record PR-free review limitations
+        run: |
+          {
+            echo '### PR-free review-gate benchmark'
+            echo
+            echo "- range: \`${{ inputs.base_ref }}...${{ inputs.head_ref }}\`"
+            echo "- code classification: \`${{ needs.changes.outputs.code }}\`"
+            echo '- CodeQL used the same language, no-build mode, and default security suite as the required PR gate.'
+            echo '- PR labels, body policy, introduced-alert diff, comments, and auto-merge are N/A without a pull request.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  benchmark-workflow-provenance:
+    name: workflow provenance
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.base_ref }}
+          fetch-depth: 0
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - name: Judge the explicit file range against guarded workflows
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          git fetch --no-tags origin "$HEAD_REF"
+          node scripts/harness/scan-workflow-provenance.mjs \
+            --base-ref "$BASE_REF" --head-ref FETCH_HEAD
+
+  benchmark-summary:
+    name: required-context benchmark summary
+    if: ${{ github.event_name == 'workflow_dispatch' && always() }}
+    needs:
+      - build
+      - quality
+      - scans
+      - dependency-audit
+      - commitlint
+      - tui-e2e
+      - examples-typecheck
+      - windows-shell
+      - benchmark-review-gate
+      - benchmark-workflow-provenance
+      - regression-red-proof
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Measure all 11 develop-required contexts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
+          gh api --paginate --slurp \
+            "repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/job-pages.json"
+          jq --argjson required "$required" '
+            [.[].jobs[]] as $jobs
+            | [$required[] as $name
+              | [$jobs[] | select(.name == $name)] as $matches
+              | if ($matches | length) != 1 then
+                  error("expected exactly one benchmark job named " + $name)
+                else
+                  $matches[0]
+                  | {
+                      name,
+                      conclusion,
+                      started_at,
+                      completed_at,
+                      duration_seconds: ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601))
+                    }
+                end]
+          ' "$RUNNER_TEMP/job-pages.json" > "$RUNNER_TEMP/required-contexts.json"
+          {
+            echo '### Develop required-context benchmark'
+            echo
+            echo "Range: \`${{ inputs.base_ref }}...${{ inputs.head_ref }}\`"
+            echo
+            echo '| context | conclusion | seconds |'
+            echo '|---|---:|---:|'
+            jq -r '.[] | "| \(.name) | \(.conclusion) | \(.duration_seconds) |"' \
+              "$RUNNER_TEMP/required-contexts.json"
+            echo
+            jq -r '"Critical path: **\(map(.duration_seconds) | max) seconds**"' \
+              "$RUNNER_TEMP/required-contexts.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -e 'length == 11 and all(.[]; .conclusion == "success")' \
+            "$RUNNER_TEMP/required-contexts.json" >/dev/null

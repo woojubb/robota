@@ -8,11 +8,8 @@
  * inherits read-only — already the minimum. Writing the block out changes nothing about what the
  * token can do, and adds a copy for the next author to clone incorrectly.
  *
- * What IS a real exposure is the thing nobody would notice: **that default is a repository setting,
- * not a file.** Flip it to `write` in the Actions settings UI and every workflow without an explicit
- * block silently gains write access to the repository — no diff, no review, no failing check. The
- * workflows would keep passing, which is exactly the shape this repository has been closing all
- * week: a control whose weakening is invisible from outside.
+ * The repository default is external state: changing it to `write` grants undeclared workflows
+ * broader access without a repository diff. This scan therefore pins that setting when live.
  *
  * So this scan does two things:
  *
@@ -24,12 +21,8 @@
  *      write scope appearing in a workflow is a finding; so is a justification for a scope no
  *      workflow actually asks for any more (anti-rot — a stale excuse outlives what it excused).
  *
- * Also checked: JOB-level `permissions:` blocks (HARNESS-081's sibling, #1675). A grant scoped to
- * one job — Review Gate's analyzer, verdict, and disarm jobs — used to be invisible here
- * and excused only in prose, so the "excused-but-unchecked" category grew silently. Each job-level
- * write scope is now held to a structured allowlist (`JUSTIFIED_JOB_WRITE_SCOPES`), the same
- * bidirectional way workflow-level scopes are: an unlisted grant is a finding, and a listed grant
- * the job no longer requests is a finding.
+ * Job-level `permissions:` blocks are held to the same bidirectional structured allowlist as
+ * workflow-level scopes; both an unlisted grant and a stale justification are findings.
  *
  * Deliberately NOT checked: that every workflow declares a block. That would fire on every
  * read-only workflow in the repository — noise, and a noisy guard gets suppressed, which costs more
@@ -79,6 +72,12 @@ export const JUSTIFIED_WRITE_SCOPES = {
  * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
  */
 export const JUSTIFIED_JOB_WRITE_SCOPES = {
+  'ci.yml': {
+    'benchmark-review-gate': {
+      'security-events':
+        'uploads the PR-free benchmark CodeQL SARIF analysis so its analyze cost is measured',
+    },
+  },
   'review-gate.yml': {
     analyze: {
       'security-events': 'uploads the pull request SARIF analysis before the required gate runs',
@@ -387,6 +386,7 @@ export function main(argv = process.argv.slice(2)) {
   );
 }
 
-if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+const invokedPath = process.argv[1];
+if (invokedPath && fs.realpathSync(invokedPath) === fs.realpathSync(import.meta.filename)) {
   main();
 }
