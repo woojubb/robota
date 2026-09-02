@@ -127,17 +127,17 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the exact four-row candidate set is complete, fresh, independently reviewed, maps to one
+- [x] TC-01: the exact four-row candidate set is complete, fresh, independently reviewed, maps to one
       AGREEMENT plus DATA-008/DATA-009/ARCH-116, and remains mutation-unauthorized before merge.
-- [ ] TC-02: the parent/child Task and paired spec projections are exact, all four source Issues resolve,
+- [x] TC-02: the parent/child Task and paired spec projections are exact, all four source Issues resolve,
       and dependency order `DATA-008 → DATA-009 → ARCH-116` matches the native Issue graph.
-- [ ] TC-03: [issue #2044](https://github.com/woojubb/robota/issues/2044) and
+- [x] TC-03: [issue #2044](https://github.com/woojubb/robota/issues/2044) and
       [issue #2443](https://github.com/woojubb/robota/issues/2443) remain explicit live prerequisites,
       while [issue #2048](https://github.com/woojubb/robota/issues/2048)/ARCH-109/CLI-078 are recorded only
       as history and no migration claims their outcomes complete.
-- [ ] TC-04: ARCH-116 cannot implement until its own recommendation/spec gate resolves placement and obtains
+- [x] TC-04: ARCH-116 cannot implement until its own recommendation/spec gate resolves placement and obtains
       any required package, policy, or published-contract approval.
-- [ ] TC-05: a separately approved apply batch preserves all bodies/history/labels/dependencies, writes and
+- [x] TC-05: a separately approved apply batch preserves all bodies/history/labels/dependencies, writes and
       reads exact Task markers before P-label removal, and closes only the four rows `NOT_PLANNED`.
 - [ ] TC-06: AGREEMENT-006 completes only after all three child Tasks are done and issue #2079 contains
       resolvable full-SHA links to their exact completed paths.
@@ -172,6 +172,17 @@ Paired execution record:
 - [ ] ARCH-116 — todo — `.agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md`
 
 ## Evidence Log
+
+### B2 ProductPlan migration — ✅ PASS | 2026-09-03
+
+- Authorization commit `1f716784f240b4693687458c2798f903d2ba359d` fixed the exact four-row batch
+  after a complete 8/8 live read and independent `APPROVE — NO DRIFT` review.
+- The native finalizer wrote and read back one exact `woojubb` Task marker per row before removing each
+  `priority:P1` label; #2118, #2104, #2085, and #2070 then closed in reverse dependency order with state
+  reason `NOT_PLANNED`.
+- Independent post-write verification at `2026-09-02T15:05:19.715Z` reported zero findings. The complete
+  audit moved from 277 open Issues / 73 open native children to exactly 273 / 69, while #2044 and #2443
+  remain open prerequisites and #2048 remains closed historical evidence.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-08-30
 
