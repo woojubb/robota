@@ -1772,15 +1772,15 @@ export function judgeCriteria(catalogue, gate, ctx) {
 
 function orderingResult(catalogue, gate, doc) {
   const prior =
-    gate.prior === undefined
-      ? (catalogue.priorGates.get(gate.priorKey ?? gate.name) ?? null)
-      : gate.prior;
+    gate.prior === undefined ? catalogue.priorGates.get(gate.priorKey ?? gate.name) : gate.prior;
   if (!prior) return null;
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
-  const last = entries[entries.length - 1];
+  const last = entries.findLast((entry) => !gate.continuation || entry.verdict === '✅ PASS');
   const problems = [];
   if (!last || last.verdict !== '✅ PASS')
-    problems.push(`last [${prior.gate}] entry is ${last ? last.verdict : 'absent'}, PASS required`);
+    problems.push(
+      `${gate.continuation ? `no prior [${prior.gate}] PASS entry exists; last entry` : `last [${prior.gate}] entry`} is ${entries.at(-1)?.verdict ?? 'absent'}${gate.continuation ? '' : ', PASS required'}`,
+    );
   if (prior.status && doc.fm.status !== prior.status)
     problems.push(`status is \`${doc.fm.status ?? '(absent)'}\`, \`${prior.status}\` expected`);
   return {
