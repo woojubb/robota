@@ -584,6 +584,7 @@ describe('contract input registry', () => {
   );
 
   it('uses a safe configurable process-level shard deadline', () => {
+    expect(DEFAULT_CONTRACT_SHARD_TIMEOUT_MS).toBe(240_000);
     expect(contractShardTimeoutMs({})).toBe(DEFAULT_CONTRACT_SHARD_TIMEOUT_MS);
     expect(contractShardTimeoutMs({ HARNESS_CONTRACT_SHARD_TIMEOUT_MS: '45000' })).toBe(45_000);
     expect(contractShardTimeoutMs({ HARNESS_CONTRACT_SHARD_TIMEOUT_MS: 'invalid' })).toBe(

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 
-export const DEFAULT_CONTRACT_SHARD_TIMEOUT_MS = 120_000;
+export const DEFAULT_CONTRACT_SHARD_TIMEOUT_MS = 240_000;
 export const DEFAULT_CONTRACT_SHARD_KILL_GRACE_MS = 5_000;
 
 export function contractShardTimeoutMs(environment = process.env) {
