@@ -119,8 +119,10 @@ None
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the
-engineering test plan (TC-01 to TC-05).
+Not applicable.
+
+No runnable user-facing behaviour changes; verification evidence is recorded in the engineering test
+plan (TC-01 to TC-05).
 
 Recorded as the rule's required choice rather than skipped.
 
