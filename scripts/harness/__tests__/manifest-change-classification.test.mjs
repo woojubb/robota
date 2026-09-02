@@ -31,4 +31,22 @@ describe('manifest-change-classification', () => {
       workspaceWide: true,
     });
   });
+
+  it('treats affected execution entry points as verification tooling, not product-wide changes', () => {
+    const before = { scripts: { build: 'pnpm build', test: 'pnpm test' } };
+    const after = {
+      scripts: {
+        ...before.scripts,
+        'build:affected': 'node scripts/harness/workspace-affected-run.mjs --operation build',
+        'test:affected': 'node scripts/harness/workspace-affected-run.mjs --operation test',
+        'examples:typecheck:affected':
+          'node scripts/harness/workspace-affected-run.mjs --operation examples-typecheck',
+      },
+    };
+
+    expect(classifyRootManifestChange({ before, after })).toMatchObject({
+      kind: 'developer-quality-only',
+      workspaceWide: false,
+    });
+  });
 });

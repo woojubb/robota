@@ -38,7 +38,7 @@ export function runHookFixture(scriptRelativePath, input, projectDir) {
     env: {
       ...process.env,
       CLAUDE_PROJECT_DIR: projectDir,
-      HARNESS_DISABLE_LESSONS_DIGEST: '1',
+      ROBOTA_DISABLE_LESSONS_DIGEST: '1',
     },
     input: JSON.stringify(input),
     encoding: 'utf8',

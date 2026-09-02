@@ -2,21 +2,21 @@ name: scans-full
 
 # PROC-016. The `scans` job in ci.yml runs the AFFECTED scan set on a pull request, in the `pr`
 # context where a prose/transcript scan's failure is advisory. This workflow is the other half: the
-# WHOLE registry, in the `integration` context where every failure blocks, on every push to
-# `develop` and on demand. It is what keeps the affected set honest — a scan the selection left out
-# of every pull request still runs here, on the tree those pull requests produced.
+# WHOLE registry, in the `integration` context where every failure blocks, when the verification
+# control plane changes and on demand. It is what keeps changes to affected-selection policy honest
+# without charging every ordinary product push for a second repository-wide scan.
 #
 # It lives in its own workflow rather than as a job in ci.yml for two measured reasons:
 #   - ci.yml's every job is gated for a pull request (`github.base_ref`, `needs.changes`); a `push`
 #     trigger there would dispatch all seventeen, or need a guard on each.
 #   - `scan-ci-concurrency-footprint` freezes the job count of every workflow a pull request can
 #     trigger. This workflow has no `pull_request` trigger, so it costs the account's shared slots
-#     only when `develop` moves.
+#     only when verification ownership changes on `develop`.
 #
 # NO `schedule:` TRIGGER, by the 2026-08-04 owner directive that removed every one from this
 # repository ("nothing asks on a clock any more" — security-scheduled.yml). PROC-016's plan named a
-# nightly run; a push to `develop` is the event that carries the same content, and a nightly can be
-# added back only by amending that directive, not by this file.
+# nightly run; control-plane pushes and explicit dispatch carry that responsibility, and a nightly
+# can be added back only by amending that directive, not by this file.
 #
 # On `push` there is no pull-request base, so the diff-reading scans resolve `origin/develop` — which
 # is HEAD here — and judge an empty delta; their pull-request verdicts were rendered on the pull
@@ -25,6 +25,36 @@ name: scans-full
 on:
   push:
     branches: [develop]
+    # Full integration scans validate the machinery and policy that selects cheaper PR checks.
+    # Ordinary package/app source changes are intentionally absent: their affected checks already
+    # ran before merge. A manual dispatch remains available for incidents and release confidence.
+    paths:
+      - 'scripts/harness/**'
+      - '.github/workflows/**'
+      - '.agents/rules/**'
+      - '.agents/specs/**'
+      - 'AGENTS.md'
+      - 'ARCHITECTURE.md'
+      - 'SECURITY.md'
+      - '.dependency-cruiser.cjs'
+      - '.eslintrc.json'
+      - '.gitleaks.toml'
+      - '.lintstagedrc.json'
+      - '.npmrc'
+      - '.nvmrc'
+      - '.prettierignore'
+      - '.prettierrc.json'
+      - 'commitlint.config.js'
+      - 'osv-scanner.toml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'stryker.conf.mjs'
+      - 'tsconfig.json'
+      - 'tsconfig.base.json'
+      - 'tsconfig.eslint.json'
+      - 'vitest.config.ts'
+      - 'vitest.shared.ts'
   workflow_dispatch:
 
 permissions:

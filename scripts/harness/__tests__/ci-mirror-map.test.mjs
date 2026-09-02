@@ -161,13 +161,19 @@ describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
 });
 
 describe('the stage table itself is well-formed', () => {
-  it('models the two independently gated scans self-test tiers as separate stages', () => {
+  it('maps the three concurrent CI checks to independently gated local stages', () => {
     const contracts = CI_STAGES.find((stage) => stage.name === 'harness-self-test');
     const hermetic = CI_STAGES.find((stage) => stage.name === 'harness-hermetic-test');
+    const scans = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
     expect(contracts?.mirrors).toEqual([
-      { job: 'scans', steps: ['Harness repository-contract test suite'] },
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
     ]);
-    expect(hermetic?.mirrors).toEqual([{ job: 'scans', steps: ['Harness hermetic test suite'] }]);
+    expect(hermetic?.mirrors).toEqual([
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
+    ]);
+    expect(scans?.mirrors).toEqual([
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
+    ]);
   });
 
   it('every stage either mirrors a real ci.yml job or declares why it is extra', () => {

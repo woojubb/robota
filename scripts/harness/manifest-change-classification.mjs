@@ -23,7 +23,11 @@ export function changedManifestKeys(before, after) {
 const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set(['lint:fix', 'lint:fix:staged']);
 
 function isDeveloperQualityScript(name) {
-  return DEVELOPER_QUALITY_SCRIPT_NAMES.has(name) || name.startsWith('harness:');
+  return (
+    DEVELOPER_QUALITY_SCRIPT_NAMES.has(name) ||
+    name.startsWith('harness:') ||
+    name.endsWith(':affected')
+  );
 }
 
 export function classifyRootManifestChange({ before, after }) {

@@ -12,7 +12,9 @@ import {
   advanceBuildState,
   annotateNotMirrored,
   CI_STAGES,
+  classifyLocalProductChanges,
   collectChangedFiles,
+  createProductStageCommands,
   findMissingDist,
   globExtensions,
   lintStagedExtensions,
@@ -432,13 +434,13 @@ describe('CI_STAGES', () => {
     const names = CI_STAGES.map((stage) => stage.name);
     // The two the name promised and the command did not deliver.
     expect(names).toContain('build');
-    expect(names).toContain('affected-verify');
+    expect(names).toContain('package-quality');
     // Cheap, dist-free stages run first so a formatting or commit-message defect surfaces in
     // seconds rather than behind the minutes-long build and PTY suites.
     expect(names.indexOf('format-check')).toBeLessThan(names.indexOf('build'));
     expect(names.indexOf('commitlint')).toBeLessThan(names.indexOf('build'));
     expect(names.indexOf('build')).toBeLessThan(names.indexOf('scan-suite'));
-    expect(names.indexOf('build')).toBeLessThan(names.indexOf('affected-verify'));
+    expect(names.indexOf('build')).toBeLessThan(names.indexOf('package-quality'));
     expect(names.indexOf('build')).toBeLessThan(names.indexOf('tui-e2e'));
   });
 
@@ -455,6 +457,9 @@ describe('CI_STAGES', () => {
   it('passes the original branch and head identity into detached dist-free scans', () => {
     const source = readFileSync(path.resolve(import.meta.dirname, '../verify-like-ci.mjs'), 'utf8');
     expect(source).toContain('runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow)');
+    expect(source).toContain("'--affected'");
+    expect(source).toContain("'--context',\n      'pr'");
+    expect(source).toContain("run('pnpm', ['harness:scan:build-contracts'])");
   });
 
   it('names the real definition each stage mirrors, or says out loud that it mirrors none', () => {
@@ -486,16 +491,15 @@ describe('stageGate', () => {
     productChanged: false,
     tuiChanged: false,
     examplesChanged: false,
+    cliChanged: false,
     harnessChanged: false,
+    fullProductVerification: false,
     missingDist: [],
   };
 
-  it('builds when the plan needs build output, exactly as ci.yml → build does', () => {
-    expect(stageGate('build', { ...base, distRequired: true }).run).toBe(true);
-  });
-
-  it('builds when dist is absent — the dist-dependent scans would otherwise silently no-op', () => {
-    expect(stageGate('build', { ...base, missingDist: ['packages/agent-core'] }).run).toBe(true);
+  it('does not turn harness-only requirements or stale dist into product applicability', () => {
+    expect(stageGate('build', { ...base, distRequired: true }).run).toBe(false);
+    expect(stageGate('build', { ...base, missingDist: ['packages/agent-core'] }).run).toBe(false);
   });
 
   it('builds on product changes but not infrastructure-only code changes', () => {
@@ -505,14 +509,14 @@ describe('stageGate', () => {
     expect(stageGate('build', base).run).toBe(false);
   });
 
-  it('skips the build only when nothing needs it and dist is present', () => {
+  it('skips the build when no product capability is affected', () => {
     const gate = stageGate('build', base);
     expect(gate.run).toBe(false);
-    expect(gate.note).toMatch(/ci\.yml/);
+    expect(gate.note).toMatch(/product build N\/A/);
   });
 
   it('gates binary-e2e and the e2e suites on the same conditions CI gates their jobs on', () => {
-    expect(stageGate('binary-e2e', { ...base, distRequired: true }).run).toBe(true);
+    expect(stageGate('binary-e2e', { ...base, cliChanged: true }).run).toBe(true);
     expect(stageGate('binary-e2e', base).run).toBe(false);
     expect(stageGate('tui-e2e', { ...base, tuiChanged: true }).run).toBe(true);
     expect(stageGate('tui-e2e', base).run).toBe(false);
@@ -529,17 +533,78 @@ describe('stageGate', () => {
     );
   });
 
-  it('runs every other stage unconditionally', () => {
-    for (const name of [
-      'format-check',
-      'commitlint',
-      'harness-self-test',
-      'typecheck',
-      'scan-suite',
-      'affected-verify',
-    ]) {
+  it('runs infrastructure stages unconditionally and product quality only when applicable', () => {
+    for (const name of ['format-check', 'commitlint', 'harness-self-test']) {
       expect(stageGate(name, base).run).toBe(true);
     }
+    expect(stageGate('scan-suite', base).run).toBe(false);
+    expect(stageGate('package-quality', base).run).toBe(false);
+    expect(stageGate('scan-suite', { ...base, productChanged: true }).run).toBe(true);
+    expect(stageGate('package-quality', { ...base, productChanged: true }).run).toBe(true);
+  });
+});
+
+describe('local product classification and commands', () => {
+  it('keeps harness full-contract fallback separate from product-full verification', () => {
+    const result = classifyLocalProductChanges(['scripts/harness/check-plan.mjs'], {
+      cwd: WORKSPACE_ROOT,
+    });
+
+    expect(result.classification.full).toBe(false);
+    expect(result.productChanged).toBe(false);
+    expect(result.fullProductVerification).toBe(false);
+    expect(result).toMatchObject({
+      tuiChanged: false,
+      examplesChanged: false,
+      windowsChanged: false,
+      cliChanged: false,
+    });
+  });
+
+  it('uses direct ownership for ordinary product capabilities', () => {
+    const result = classifyLocalProductChanges(['packages/agent-transport-tui/src/index.ts'], {
+      cwd: WORKSPACE_ROOT,
+    });
+
+    expect(result.productChanged).toBe(true);
+    expect(result.fullProductVerification).toBe(false);
+    expect(result.tuiChanged).toBe(true);
+    expect(result.examplesChanged).toBe(false);
+  });
+
+  it('selects affected scripts normally and full scripts only in product-full mode', () => {
+    const options = { baseRef: 'origin/develop' };
+    const affected = { fullProductVerification: false };
+    const full = { fullProductVerification: true };
+
+    expect(createProductStageCommands('build', options, affected)).toEqual([
+      ['pnpm', ['build:affected', '--', '--base-ref', 'origin/develop']],
+    ]);
+    expect(createProductStageCommands('package-quality', options, affected)).toEqual([
+      ['pnpm', ['test:affected', '--', '--base-ref', 'origin/develop']],
+      ['pnpm', ['typecheck:affected', '--', '--base-ref', 'origin/develop']],
+      ['pnpm', ['lint:affected', '--', '--base-ref', 'origin/develop']],
+      [
+        'pnpm',
+        expect.arrayContaining([
+          'eslint',
+          'packages',
+          'apps',
+          '--cache-strategy',
+          'content',
+          '--max-warnings',
+          '2203',
+        ]),
+      ],
+    ]);
+    expect(createProductStageCommands('examples-typecheck', options, affected)).toEqual([
+      ['pnpm', ['examples:typecheck:affected', '--', '--base-ref', 'origin/develop']],
+    ]);
+    expect(createProductStageCommands('package-quality', options, full)).toEqual([
+      ['pnpm', ['test']],
+      ['pnpm', ['typecheck']],
+      ['pnpm', ['lint']],
+    ]);
   });
 });
 
@@ -606,13 +671,13 @@ describe('summarize', () => {
     // CI-equivalence claim produced by one prettier run. With stages that now cost minutes, that
     // wording is the cheapest way to hollow this gate out.
     const { lines, exitCode } = summarize([{ name: 'format-check', status: 'pass' }], {
-      skippedStages: ['build', 'affected-verify', 'tui-e2e'],
+      skippedStages: ['build', 'package-quality', 'tui-e2e'],
     });
     expect(exitCode).toBe(0);
     const text = lines.join('\n');
     expect(text).toContain('PARTIAL');
     expect(text).toContain('NOT a CI-equivalent result');
-    expect(text).toContain('build, affected-verify, tui-e2e');
+    expect(text).toContain('build, package-quality, tui-e2e');
   });
 
   it('always prints the un-mirrorable contexts, and shouts when the diff makes one relevant', () => {
@@ -655,22 +720,25 @@ describe('parseArgs', () => {
     expect(options.only.size).toBe(0);
     expect(options.baseRef).toBe('origin/develop');
     expect(options.allFiles).toBe(false);
+    expect(options.full).toBe(false);
     expect(options.unknown).toEqual([]);
   });
 
-  it('parses --only (repeatable), --base-ref and --all-files', () => {
+  it('parses --only (repeatable), --base-ref, --all-files and --full', () => {
     const options = parseArgs([
       '--only',
       'format-check',
       '--only',
-      'typecheck',
+      'package-quality',
       '--base-ref',
       'origin/main',
       '--all-files',
+      '--full',
     ]);
-    expect([...options.only]).toEqual(['format-check', 'typecheck']);
+    expect([...options.only]).toEqual(['format-check', 'package-quality']);
     expect(options.baseRef).toBe('origin/main');
     expect(options.allFiles).toBe(true);
+    expect(options.full).toBe(true);
   });
 
   it('reports an unknown stage name instead of silently running nothing', () => {

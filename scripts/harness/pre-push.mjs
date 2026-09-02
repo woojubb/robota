@@ -63,9 +63,20 @@ export { createWorkRunMeasurementInput, runPrePushGate };
  * suite and says so. The measured wall time of the stage is printed (TC-08).
  */
 export const CI_BASE_REF_PLACEHOLDER = 'origin/$GITHUB_BASE_REF';
+export const CI_HEAD_REF_PLACEHOLDER = 'HEAD';
 
 export const CI_SCANS_JOB_MIRROR = [
-  ['pnpm', ['harness:test:contracts']],
+  [
+    'pnpm',
+    [
+      'harness:test:contracts:affected',
+      '--',
+      '--base-ref',
+      CI_BASE_REF_PLACEHOLDER,
+      '--head-ref',
+      CI_HEAD_REF_PLACEHOLDER,
+    ],
+  ],
   ['pnpm', ['harness:test:hermetic']],
   [
     'pnpm',
@@ -91,28 +102,46 @@ const PATH_GATED_HARNESS_TEST = 'harness:test:hermetic';
 /**
  * The local scans plan; an absent/unresolved verdict is deliberately harness-applicable.
  *
- * Exactly what the workflow gates, and no more. `harness:test:contracts` runs UNCONDITIONALLY in
- * ci.yml (INFRA-093): the repository-contract tests inspect product, docs and policy content, so a
- * diff that touches no harness file can still turn them red, and a mirror that skipped them on a
- * `harness: false` verdict would pass locally on a push CI refuses. Only the hermetic tier is
- * path-gated there — it reads nothing but `scripts/harness/**` and the files that decide how it
- * runs, which is what `classifyFiles` names `harness` — so only the hermetic tier is gated here
- * (PROC-016). A `false` verdict is a proof, not a default; anything else runs both tiers.
- * `baseRef` replaces the workflow's `origin/$GITHUB_BASE_REF`; with none, the `--base` pair is
- * dropped and the runner resolves (or fails closed to the full suite) on its own.
+ * Exactly what the workflow gates, and no more. The default contract tier is selected from the
+ * same base/head range as CI and fails closed to full execution when that range is uncertain.
+ * Explicit full/release verification still uses the complete contract command. Only the hermetic
+ * tier is path-gated; a `false` verdict is a proof, not a default.
  */
-export function createCiScansJobMirror(classification, { baseRef = null } = {}) {
+export function createCiScansJobMirror(
+  classification,
+  { baseRef = null, headRef = CI_HEAD_REF_PLACEHOLDER, full = false } = {},
+) {
   const harnessApplicable = classification?.harness !== false;
   return CI_SCANS_JOB_MIRROR.filter(
     ([, args]) => args[0] !== PATH_GATED_HARNESS_TEST || harnessApplicable,
-  ).map(([command, args]) => [command, substituteBaseRef(args, baseRef)]);
+  ).map(([command, args]) => {
+    if (full && args[0] === 'harness:test:contracts:affected') {
+      return [command, ['harness:test:contracts']];
+    }
+    return [command, substituteRefs(args, { baseRef, headRef })];
+  });
 }
 
-function substituteBaseRef(args, baseRef) {
-  const at = args.indexOf('--base');
-  if (at === -1) return [...args];
-  if (baseRef) return args.map((arg, i) => (i === at + 1 ? baseRef : arg));
-  return args.filter((_, i) => i !== at && i !== at + 1);
+function substituteRefs(args, { baseRef, headRef }) {
+  let resolved = args.map((arg) =>
+    arg === CI_BASE_REF_PLACEHOLDER ? baseRef : arg === CI_HEAD_REF_PLACEHOLDER ? headRef : arg,
+  );
+  if (!baseRef) {
+    resolved = resolved.filter(
+      (arg, index) =>
+        !(
+          arg === '--base' ||
+          arg === '--base-ref' ||
+          (index > 0 && (resolved[index - 1] === '--base' || resolved[index - 1] === '--base-ref'))
+        ),
+    );
+  }
+  if (!headRef) {
+    resolved = resolved.filter(
+      (arg, index) => arg !== '--head-ref' && !(index > 0 && resolved[index - 1] === '--head-ref'),
+    );
+  }
+  return resolved;
 }
 
 function runGitQuiet(args) {
@@ -446,7 +475,15 @@ export function createPrePushSteps({
     reportSkipped: (reason) =>
       process.stdout.write(`▶ scoped pre-push verification skipped: ${reason}\n`),
     runVerification: () =>
-      runPrePushVerification(runtime, { run, createMirror: createCiScansJobMirror }),
+      runPrePushVerification(runtime, {
+        run,
+        createMirror: (classification, options) =>
+          createCiScansJobMirror(classification, {
+            ...options,
+            headRef: runtime.subjectRef,
+            full: runtime.prePushMode === 'full',
+          }),
+      }),
   };
 }
 

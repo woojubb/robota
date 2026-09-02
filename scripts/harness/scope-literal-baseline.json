@@ -11,6 +11,7 @@
   "check-publish-safety.mjs": 3,
   "check-sdk-public-surface.mjs": 4,
   "check-workspace-refs.mjs": 4,
+  "classify-changed-paths.mjs": 6,
   "live-provider-smoke.mjs": 3,
   "scan-agent-tools-neutrality.mjs": 1,
   "verify-like-ci.mjs": 2

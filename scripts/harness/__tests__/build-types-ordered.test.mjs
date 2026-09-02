@@ -5,7 +5,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
-import { createBuildTypeTiers, findBuildTypePackages } from '../../build-types-ordered.mjs';
+import {
+  createBuildTypeTiers,
+  findBuildTypePackages,
+  parseBuildTypeArgs,
+  runBuildTypeTier,
+  selectBuildTypePackages,
+} from '../../build-types-ordered.mjs';
 
 const temporaryRoots = [];
 
@@ -146,5 +152,91 @@ describe('findBuildTypePackages', () => {
     expect(findBuildTypePackages(workspaceRoot).map((pkg) => pkg.name)).toEqual([
       '@fixture/buildable',
     ]);
+  });
+});
+
+describe('selectBuildTypePackages', () => {
+  it('includes the transitive build prerequisites of an explicit package set', () => {
+    const packages = [
+      packageInfo('@fixture/app', { dependencies: { '@fixture/middle': 'workspace:*' } }),
+      packageInfo('@fixture/middle', { devDependencies: { '@fixture/base': 'workspace:*' } }),
+      packageInfo('@fixture/base'),
+      packageInfo('@fixture/unrelated'),
+    ];
+
+    expect(selectBuildTypePackages(packages, ['@fixture/app']).map((pkg) => pkg.name)).toEqual([
+      '@fixture/app',
+      '@fixture/base',
+      '@fixture/middle',
+    ]);
+    expect(() => selectBuildTypePackages(packages, ['@fixture/missing'])).toThrow(
+      'Unknown or non-buildable package(s): @fixture/missing',
+    );
+  });
+});
+
+describe('runBuildTypeTier', () => {
+  it('bounds parallel work and renders captured logs in deterministic package order', async () => {
+    const packages = [
+      packageInfo('@fixture/c'),
+      packageInfo('@fixture/a'),
+      packageInfo('@fixture/b'),
+    ];
+    let active = 0;
+    let maximumActive = 0;
+    const output = [];
+
+    await runBuildTypeTier(packages, {
+      concurrency: 2,
+      write: (value) => output.push(value),
+      runPackage: async (pkg) => {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolve) => setTimeout(resolve, pkg.name.endsWith('/a') ? 8 : 1));
+        active -= 1;
+        return { status: 0, signal: null, stdout: `${pkg.name} stdout`, stderr: '' };
+      },
+    });
+
+    expect(maximumActive).toBe(2);
+    expect(output.join('')).toMatch(
+      /\[build:types\] @fixture\/a[\s\S]*\[build:types\] @fixture\/b[\s\S]*\[build:types\] @fixture\/c/,
+    );
+  });
+
+  it('finishes the current tier, aggregates failures, and never starts a later tier itself', async () => {
+    const attempted = [];
+
+    await expect(
+      runBuildTypeTier([packageInfo('@fixture/b'), packageInfo('@fixture/a')], {
+        concurrency: 2,
+        write: () => {},
+        runPackage: async (pkg) => {
+          attempted.push(pkg.name);
+          return {
+            status: pkg.name.endsWith('/a') ? 2 : 0,
+            signal: null,
+            stdout: '',
+            stderr: '',
+          };
+        },
+      }),
+    ).rejects.toThrow('FAILED build:types: @fixture/a (exit 2)');
+    expect(attempted.sort()).toEqual(['@fixture/a', '@fixture/b']);
+  });
+});
+
+describe('parseBuildTypeArgs', () => {
+  it('accepts repeated package filters and an explicit concurrency bound', () => {
+    expect(
+      parseBuildTypeArgs([
+        '--package',
+        '@fixture/a',
+        '--package',
+        '@fixture/b',
+        '--concurrency',
+        '3',
+      ]),
+    ).toEqual({ concurrency: 3, packageNames: ['@fixture/a', '@fixture/b'] });
   });
 });

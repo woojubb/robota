@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -14,10 +15,25 @@ import {
 import path from 'node:path';
 
 import { canonicalTemporaryDirectory } from './canonical-temporary-directory.mjs';
+import {
+  createAffectedContractPlan,
+  resolveChangedContractInputs,
+} from './affected-contract-tests.mjs';
+import { inspectContractTestCache, recordSuccessfulContractShard } from './contract-test-cache.mjs';
+import { createContractTestRegistry } from './contract-test-inputs.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 
 const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 const TEST_DIR = 'scripts/harness/__tests__';
+export const DEFAULT_CONTRACT_SHARD_TIMEOUT_MS = 120_000;
+export const DEFAULT_CONTRACT_SHARD_KILL_GRACE_MS = 5_000;
+
+export function contractShardTimeoutMs(environment = process.env) {
+  const configured = Number(environment.HARNESS_CONTRACT_SHARD_TIMEOUT_MS);
+  return Number.isSafeInteger(configured) && configured > 0
+    ? configured
+    : DEFAULT_CONTRACT_SHARD_TIMEOUT_MS;
+}
 
 /**
  * Explicitly admitted only after execution in a repository stripped of every live-tree owner.
@@ -210,6 +226,274 @@ export function vitestInvocation(root, files, cwd = root, config = undefined) {
   }
 }
 
+function vitestArguments(root, files, config = undefined) {
+  return [
+    path.join(root, 'node_modules', 'vitest', 'vitest.mjs'),
+    'run',
+    ...files,
+    ...(config ? ['--config', config] : []),
+    '--pool=threads',
+    '--maxWorkers=2',
+    '--testTimeout=30000',
+    '--reporter=dot',
+  ];
+}
+
+/** Forward parent cancellation to every active async shard without leaking signal listeners. */
+export function createActiveShardChildRegistry(parentProcess = process) {
+  const active = new Map();
+  const forward = (signal) => {
+    for (const [child, state] of active) {
+      state.cancellationSignal ??= signal;
+      try {
+        child.kill(signal);
+      } catch {
+        // A concurrent close may win the race; its non-success result remains authoritative.
+      }
+    }
+  };
+  const handlers = new Map(['SIGINT', 'SIGTERM'].map((signal) => [signal, () => forward(signal)]));
+  const attach = () => {
+    for (const [signal, handler] of handlers) parentProcess.on(signal, handler);
+  };
+  const detach = () => {
+    for (const [signal, handler] of handlers) parentProcess.off(signal, handler);
+  };
+  return {
+    register(child) {
+      const state = { cancellationSignal: null };
+      if (active.size === 0) attach();
+      active.set(child, state);
+      let released = false;
+      return {
+        get cancellationSignal() {
+          return state.cancellationSignal;
+        },
+        release() {
+          if (released) return;
+          released = true;
+          active.delete(child);
+          if (active.size === 0) detach();
+        },
+      };
+    },
+    forward,
+    get size() {
+      return active.size;
+    },
+  };
+}
+
+const ACTIVE_SHARD_CHILDREN = createActiveShardChildRegistry();
+
+/** Async Vitest process used only by the four-way complete affected fallback. */
+export function vitestInvocationAsync(
+  root,
+  files,
+  {
+    spawnChild = spawn,
+    childRegistry = ACTIVE_SHARD_CHILDREN,
+    timeoutMs = contractShardTimeoutMs(),
+    killGraceMs = DEFAULT_CONTRACT_SHARD_KILL_GRACE_MS,
+    schedule = setTimeout,
+    cancelSchedule = clearTimeout,
+  } = {},
+) {
+  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const vitestPackage = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
+  if (!existsSync(vitestPackage) || packageJson.type !== 'module') {
+    return Promise.resolve({
+      status: 1,
+      stdout: '',
+      stderr: 'installed Vitest and an ESM package root are required to run harness tests',
+    });
+  }
+  const suiteTempRoot = mkdtempSync(
+    path.join(canonicalTemporaryDirectory(), 'robota-harness-suite-'),
+  );
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawnChild(process.execPath, vitestArguments(root, files), {
+        cwd: root,
+        env: harnessTestEnvironment(process.env, suiteTempRoot),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      rmSync(suiteTempRoot, { recursive: true, force: true });
+      resolve({ status: 1, stdout: '', stderr: '', signal: null, timedOut: false, error });
+      return;
+    }
+    const registration = childRegistry.register(child);
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timedOut = false;
+    let deadlineTimer;
+    let killTimer;
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    const onStdout = (chunk) => (stdout += chunk);
+    const onStderr = (chunk) => (stderr += chunk);
+    child.stdout.on('data', onStdout);
+    child.stderr.on('data', onStderr);
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (deadlineTimer !== undefined) cancelSchedule(deadlineTimer);
+      if (killTimer !== undefined) cancelSchedule(killTimer);
+      child.off('error', onError);
+      child.off('close', onClose);
+      child.stdout.off('data', onStdout);
+      child.stderr.off('data', onStderr);
+      const cancellationSignal = registration.cancellationSignal;
+      registration.release();
+      rmSync(suiteTempRoot, { recursive: true, force: true });
+      const signal = result.signal ?? cancellationSignal ?? null;
+      resolve({
+        stdout,
+        stderr,
+        ...result,
+        status: signal || timedOut ? 1 : result.status,
+        signal,
+        timedOut,
+        termination: timedOut ? 'timeout' : signal ? 'signal' : 'exit',
+      });
+    };
+    const onError = (error) => finish({ status: 1, error });
+    const onClose = (code, signal) => {
+      if (signal) stderr += `\nVitest shard terminated by signal ${signal}.\n`;
+      finish({ status: code ?? 1, signal });
+    };
+    child.once('error', onError);
+    child.once('close', onClose);
+    deadlineTimer = schedule(() => {
+      if (settled) return;
+      timedOut = true;
+      stderr += `\nVitest shard exceeded process deadline (${timeoutMs}ms); sending SIGTERM.\n`;
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // The close/error event remains responsible for final cleanup and failure reporting.
+      }
+      if (settled) return;
+      killTimer = schedule(() => {
+        if (settled) return;
+        stderr += `Vitest shard ignored SIGTERM for ${killGraceMs}ms; sending SIGKILL.\n`;
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // Wait for close/error so the process-owned temporary directory is never removed early.
+        }
+      }, killGraceMs);
+    }, timeoutMs);
+  });
+}
+
+function gitOutput(root, args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: null });
+  if (result.status !== 0 || result.signal) {
+    throw new Error(`worktree fingerprint failed: git ${args.join(' ')}`);
+  }
+  return result.stdout ?? Buffer.alloc(0);
+}
+
+/** Include tracked bytes and every untracked file's bytes, not only porcelain status letters. */
+export function worktreeFingerprint(root) {
+  const hash = createHash('sha256');
+  hash.update(gitOutput(root, ['diff', '--binary', 'HEAD', '--', '.']));
+  const untracked = gitOutput(root, ['ls-files', '--others', '--exclude-standard', '-z'])
+    .toString('utf8')
+    .split('\0')
+    .filter(Boolean)
+    .sort();
+  for (const file of untracked) {
+    hash.update(file);
+    hash.update('\0');
+    hash.update(readFileSync(path.join(root, file)));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+async function runAffectedContractTier(argv, root, tiers) {
+  const baseRef =
+    valueAfter(argv, '--base-ref') ??
+    (process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'origin/develop');
+  const headRef = valueAfter(argv, '--head-ref') ?? valueAfter(argv, '--head') ?? 'HEAD';
+  const resolved = resolveChangedContractInputs({ root, baseRef, headRef });
+  let registry;
+  try {
+    registry = createContractTestRegistry(root, tiers.contract);
+  } catch {
+    registry = [];
+  }
+  const plan = createAffectedContractPlan({
+    root,
+    contractTests: tiers.contract,
+    isolatedContract: tiers.isolatedContract,
+    changedFiles: resolved.ok ? resolved.files : [],
+    registry,
+  });
+  if (!resolved.ok) {
+    plan.mode = 'complete';
+    plan.reason = `changed-file resolution failed closed: ${resolved.reason}`;
+  }
+  process.stdout.write(
+    `[contract-tests] ${plan.mode}: ${plan.reason}; ${plan.selected.length}/${tiers.contract.length} selected\n`,
+  );
+  process.stdout.write(
+    `[contract-tests] owners: ${plan.selectedByOwner.map(({ owner, tests }) => `${owner}=${tests.length}`).join(', ')}\n`,
+  );
+  const cache = inspectContractTestCache({
+    root,
+    entries: registry,
+    tests: plan.selected,
+  });
+  const misses = new Set(cache.misses);
+  process.stdout.write(
+    `[contract-tests] cache: ${cache.hits.length} hit(s), ${cache.misses.length} miss(es)\n`,
+  );
+  const shardFiles = plan.shards
+    .map((files) => files.filter((file) => misses.has(file)))
+    .filter((files) => files.length > 0);
+  const before = worktreeFingerprint(root);
+  const shardRuns = await Promise.all(
+    shardFiles.map(async (files) => ({ files, result: await vitestInvocationAsync(root, files) })),
+  );
+  for (const { result } of shardRuns) {
+    process.stdout.write(result.stdout ?? '');
+    process.stderr.write(result.stderr ?? '');
+  }
+  let failed = shardRuns.some(({ result }) => result.status !== 0 || result.signal);
+  const isolatedRuns = [];
+  if (!failed) {
+    for (const files of plan.isolated.filter((file) => misses.has(file)).map((file) => [file])) {
+      const result = vitestInvocation(root, files);
+      isolatedRuns.push({ files, result });
+      process.stdout.write(result.stdout ?? '');
+      process.stderr.write(result.stderr ?? '');
+      if ((result.status ?? 1) !== 0 || result.signal) {
+        failed = true;
+        break;
+      }
+    }
+  }
+  const after = worktreeFingerprint(root);
+  if (after !== before) {
+    process.stderr.write('contract tests modified the caller worktree\n');
+    failed = true;
+  } else {
+    let recorded = 0;
+    for (const { files, result } of [...shardRuns, ...isolatedRuns]) {
+      recorded += recordSuccessfulContractShard({ cache, files, result });
+    }
+    process.stdout.write(`[contract-tests] cache: recorded ${recorded} successful miss(es)\n`);
+  }
+  process.exitCode = failed ? 1 : 0;
+  return { ...plan, status: process.exitCode };
+}
+
 /** Keep fixture git commands rooted at their explicit cwd, including when a git hook launches us. */
 export function harnessTestEnvironment(
   base = process.env,
@@ -222,6 +506,10 @@ export function harnessTestEnvironment(
     TMPDIR: tempRoot,
     TMP: tempRoot,
     TEMP: tempRoot,
+    // Contract tests execute Stop-hook fixtures. Never let those fixtures regenerate tracked
+    // lesson digests in the caller repository; their write behavior is covered in dedicated temp
+    // roots instead.
+    ROBOTA_DISABLE_LESSONS_DIGEST: '1',
   };
 }
 
@@ -262,7 +550,7 @@ function valueAfter(argv, flag) {
   return index >= 0 ? argv[index + 1] : undefined;
 }
 
-export function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
+export async function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
   if (argv.includes('--verify-hermetic-stripped')) {
     const result = runHermeticTestsInStrippedRepository(root);
     process.stdout.write(result.output);
@@ -276,6 +564,14 @@ export function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
     process.exitCode = 1;
     return undefined;
   }
+  if (argv.includes('--affected')) {
+    if (tier !== 'contracts') {
+      process.stderr.write('--affected is supported only with --tier contracts\n');
+      process.exitCode = 1;
+      return undefined;
+    }
+    return runAffectedContractTier(argv, root, tiers);
+  }
   let result;
   for (const files of testInvocationsForTier(tiers, tier)) {
     result = vitestInvocation(root, files);
@@ -287,4 +583,4 @@ export function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
   return result;
 }
 
-if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) await main();

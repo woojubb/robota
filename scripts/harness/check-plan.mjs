@@ -163,7 +163,10 @@ function listChecks(scope, classification) {
   if (classification.needsTest && scope.scripts.test) {
     checks.push('test');
   }
-  if (classification.needsLint && scope.scripts.lint) {
+  // Lint capability is owned by workspace-operation-registry: a workspace can use its own
+  // script, the root ESLint fallback, or an explicit N/A declaration. The plan must not silently
+  // omit changed source merely because package.json has no local `lint` script.
+  if (classification.needsLint) {
     checks.push('lint');
   }
   if (classification.needsTypecheck) {

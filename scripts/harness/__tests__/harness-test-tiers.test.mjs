@@ -111,6 +111,7 @@ describe('harness test tiers', () => {
     expect(environment.GIT_DIR).toBeUndefined();
     expect(environment.GIT_INDEX_FILE).toBeUndefined();
     expect(environment.GIT_WORK_TREE).toBeUndefined();
+    expect(environment.ROBOTA_DISABLE_LESSONS_DIGEST).toBe('1');
   });
 
   it('runs every requested file once while file-owned temp cleanup overlaps safely', async () => {

@@ -65,15 +65,16 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
 });
 
 describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
-  it('CI always runs contracts and gates only the hermetic tier on the develop path', () => {
+  it('CI runs affected contracts and gates only the hermetic tier on the develop path', () => {
     const content = read('.github/workflows/ci.yml');
-    const stepIndex = content.indexOf('Harness repository-contract test suite');
+    const stepIndex = content.indexOf(
+      'Harness affected verification (concurrent, dist-independent)',
+    );
 
     expect(stepIndex).toBeGreaterThanOrEqual(0);
 
-    const stepBlock = content.slice(stepIndex, stepIndex + 650);
-    expect(stepBlock).toContain('pnpm harness:test:contracts');
-    expect(stepBlock).toContain('Harness hermetic test suite');
+    const stepBlock = content.slice(stepIndex, stepIndex + 1_800);
+    expect(stepBlock).toContain('pnpm harness:test:contracts:affected');
     expect(stepBlock).toContain('pnpm harness:test:hermetic');
     expect(stepBlock).toContain("needs.changes.result != 'success'");
 

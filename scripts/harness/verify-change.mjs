@@ -20,10 +20,6 @@ import {
 // one as a GATE — `verify-like-ci.mjs` and `pre-push.mjs` — which own a real repository root.
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import {
-  createWorkspaceCheckBatches,
-  executeWorkspaceCheckBatches,
-} from './workspace-check-batches.mjs';
-import {
   WORKSPACE_ROOT,
   appendJobSummary,
   classifyScopeChanges,
@@ -56,6 +52,53 @@ export function selectRepositoryChecks(repositoryChecks, omittedNames) {
 
 export function repositoryCheckEnvironment(check) {
   return check === 'harness-tests' ? { TMPDIR: canonicalTemporaryDirectory() } : {};
+}
+
+const ROOT_OPERATION_CONFIGURATION = [
+  {
+    check: 'build',
+    skipOption: 'skipBuild',
+    fullScript: 'build',
+    affectedScript: 'build:affected',
+  },
+  { check: 'test', skipOption: 'skipTests', fullScript: 'test', affectedScript: 'test:affected' },
+  { check: 'lint', skipOption: 'skipLint', fullScript: 'lint', affectedScript: 'lint:affected' },
+  {
+    check: 'typecheck',
+    skipOption: 'skipTypecheck',
+    fullScript: 'typecheck',
+    affectedScript: 'typecheck:affected',
+  },
+];
+
+export function shouldUseFullRootVerification(plan, options, environment = process.env) {
+  const explicitlyFull =
+    environment.HARNESS_VERIFY_MODE === 'full' || environment.RELEASE_VERIFICATION === '1';
+  const workspaceWide = (plan.workspaceWideTriggers?.length ?? 0) > 0;
+  const inferredFullWorkspace =
+    options.scopeTokens.length === 0 &&
+    plan.workspaceScopeCount > 0 &&
+    plan.scopes.length === plan.workspaceScopeCount;
+  return explicitlyFull || workspaceWide || inferredFullWorkspace;
+}
+
+export function createRootVerificationCommands({ plan, options, environment = process.env }) {
+  const full = shouldUseFullRootVerification(plan, options, environment);
+  const affectedArgs = [];
+  if (options.baseRef) affectedArgs.push('--base-ref', options.baseRef);
+  for (const scope of options.scopeTokens) affectedArgs.push('--scope', scope);
+
+  return ROOT_OPERATION_CONFIGURATION.filter(({ check, skipOption }) => {
+    if (options[skipOption]) return false;
+    return plan.scopes.some((scope) => scope.checks.includes(check));
+  }).map(({ check, fullScript, affectedScript }) => ({
+    check,
+    mode: full ? 'full' : 'affected',
+    command: 'pnpm',
+    args: full
+      ? [fullScript]
+      : [affectedScript, ...(affectedArgs.length > 0 ? ['--', ...affectedArgs] : [])],
+  }));
 }
 
 function inferReportFormat(reportFile, explicitFormat) {
@@ -114,13 +157,6 @@ function runRepositoryCheck(check, dryRun) {
   }
 }
 
-async function hasPackageScript(workdir, scriptName) {
-  const manifestPath = path.join(workdir, 'package.json');
-  const manifestContent = await fs.readFile(manifestPath, 'utf8');
-  const manifest = JSON.parse(manifestContent);
-  return Object.prototype.hasOwnProperty.call(manifest.scripts ?? {}, scriptName);
-}
-
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
@@ -172,43 +208,13 @@ async function main() {
     return;
   }
 
-  const needsRootBuild =
-    !options.skipBuild && plan.scopes.some((planScope) => planScope.checks.includes('build'));
-  if (needsRootBuild) {
-    process.stdout.write('\n[verify] monorepo build\n');
-    runCommand('pnpm', ['build'], WORKSPACE_ROOT, options.dryRun);
+  const rootVerificationCommands = createRootVerificationCommands({ plan, options });
+  const completedRootChecks = new Set();
+  for (const rootCommand of rootVerificationCommands) {
+    process.stdout.write(`\n[verify ${rootCommand.mode}] ${rootCommand.check}\n`);
+    runCommand(rootCommand.command, rootCommand.args, WORKSPACE_ROOT, options.dryRun);
+    completedRootChecks.add(rootCommand.check);
   }
-
-  const fullWorkspacePlan =
-    options.scopeTokens.length === 0 &&
-    plan.workspaceScopeCount > 1 &&
-    plan.scopes.length === plan.workspaceScopeCount;
-  const enabledBatchChecks = new Set([
-    ...(!options.skipTests ? ['test'] : []),
-    ...(!options.skipLint ? ['lint'] : []),
-    ...(!options.skipTypecheck ? ['typecheck'] : []),
-  ]);
-  const batches = fullWorkspacePlan
-    ? createWorkspaceCheckBatches({
-        planScopes: plan.scopes.map((planScope) => ({
-          ...planScope,
-          checks: planScope.checks.filter((check) => enabledBatchChecks.has(check)),
-        })),
-        scopes,
-      })
-    : [];
-  const batchResult = executeWorkspaceCheckBatches(batches, (batch) => {
-    process.stdout.write(`\n[verify batch] ${batch.check}: ${batch.scopeNames.length} scope(s)\n`);
-    try {
-      runCommand('pnpm', batch.args, WORKSPACE_ROOT, options.dryRun);
-      return { status: 0 };
-    } catch {
-      return { status: 1 };
-    }
-  });
-  const batchEvidence = new Map(
-    batchResult.evidence.map((entry) => [`${entry.scope}:${entry.check}`, entry.status]),
-  );
 
   const summary = [];
 
@@ -223,7 +229,6 @@ async function main() {
       manifestChange: manifestChangesByScope.get(scope.relativeDir) ?? null,
     });
     const plannedChecks = new Set(planScope.checks);
-    const workdir = path.join(WORKSPACE_ROOT, scope.relativeDir);
     const scenarioVerification = resolveScenarioVerification(scope);
     const shouldRunScenarios =
       options.includeScenarios ||
@@ -244,63 +249,24 @@ async function main() {
       scenarios: 'not-applicable',
     };
 
-    if (!options.skipBuild && plannedChecks.has('build')) {
+    if (completedRootChecks.has('build') && plannedChecks.has('build')) {
       stepResults.build = 'pass';
-      notes.push('monorepo root build completed before scoped checks');
+      notes.push('root verification command covered this scope build');
     }
 
-    if (!options.skipTests && plannedChecks.has('test')) {
-      const batched = batchEvidence.get(`${scope.relativeDir}:test`);
-      if (batched) {
-        stepResults.test = batched;
-      } else {
-        try {
-          runCommand('pnpm', ['test'], workdir, options.dryRun);
-          stepResults.test = 'pass';
-        } catch (error) {
-          stepResults.test = 'fail';
-          throw error;
-        }
-      }
+    if (completedRootChecks.has('test') && plannedChecks.has('test')) {
+      stepResults.test = 'pass';
+      notes.push('root verification command covered this scope test');
     }
 
-    if (!options.skipLint && plannedChecks.has('lint')) {
-      const batched = batchEvidence.get(`${scope.relativeDir}:lint`);
-      if (batched) {
-        stepResults.lint = batched;
-      } else {
-        try {
-          runCommand('pnpm', ['lint'], workdir, options.dryRun);
-          stepResults.lint = 'pass';
-        } catch (error) {
-          stepResults.lint = 'fail';
-          throw error;
-        }
-      }
+    if (completedRootChecks.has('lint') && plannedChecks.has('lint')) {
+      stepResults.lint = 'pass';
+      notes.push('root verification command covered this scope lint');
     }
 
-    if (!options.skipTypecheck && plannedChecks.has('typecheck')) {
-      const batched = batchEvidence.get(`${scope.relativeDir}:typecheck`);
-      if (batched) {
-        stepResults.typecheck = batched;
-      } else {
-        try {
-          if (await hasPackageScript(workdir, 'typecheck')) {
-            runCommand('pnpm', ['typecheck'], workdir, options.dryRun);
-          } else {
-            runCommand(
-              'pnpm',
-              ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
-              workdir,
-              options.dryRun,
-            );
-          }
-          stepResults.typecheck = 'pass';
-        } catch (error) {
-          stepResults.typecheck = 'fail';
-          throw error;
-        }
-      }
+    if (completedRootChecks.has('typecheck') && plannedChecks.has('typecheck')) {
+      stepResults.typecheck = 'pass';
+      notes.push('root verification command covered this scope typecheck');
     }
 
     const scenarios = [];
@@ -446,14 +412,6 @@ async function main() {
     for (const note of item.notes) {
       process.stdout.write(`  note: ${note}\n`);
     }
-  }
-
-  if (batchResult.failures.length > 0) {
-    throw new Error(
-      `Full-workspace batch failures: ${batchResult.failures
-        .map((failure) => `${failure.check} (${failure.scopes.length} scope(s))`)
-        .join(', ')}`,
-    );
   }
 
   if (options.reportFile) {

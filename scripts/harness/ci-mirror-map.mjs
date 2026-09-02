@@ -101,19 +101,25 @@ export const CI_STAGES = [
   {
     name: 'harness-self-test',
     needsBuildOutput: false,
-    mirrors: [{ job: 'scans', steps: ['Harness repository-contract test suite'] }],
-    why: 'always runs repository-contract assertions that can inspect changed product, docs, and policy content',
+    mirrors: [
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
+    ],
+    why: 'runs affected repository-contract assertions and relies on their fail-closed full-suite fallback',
   },
   {
     name: 'harness-hermetic-test',
     needsBuildOutput: false,
-    mirrors: [{ job: 'scans', steps: ['Harness hermetic test suite'] }],
+    mirrors: [
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
+    ],
     why: 'runs the complete stripped-root-proven tier whenever a harness execution owner changes',
   },
   {
     name: 'scan-suite-dist-free',
     needsBuildOutput: false,
-    mirrors: [{ job: 'scans', steps: ['Harness scan suite (dist-independent)'] }],
+    mirrors: [
+      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
+    ],
     why: 'a hardcoded build-output path literal resolves on a built tree and is a GHOST path in CI',
   },
   {
@@ -125,28 +131,24 @@ export const CI_STAGES = [
         steps: [
           'Show verification plan',
           'Detect build requirement',
-          'Build monorepo',
+          'Build full or affected workspace',
           'Skip monorepo build when no build output is required',
         ],
       },
       {
-        job: 'tui-e2e',
-        steps: [
-          'Build packages (only when the artifact was not restored — provides the robota binary)',
-        ],
+        job: 'quality',
+        steps: ['Guarantee CLI binary target dist'],
       },
       {
         job: 'examples-typecheck',
-        steps: ['Build packages (only when the artifact was not restored)'],
+        steps: ['Guarantee affected example consumer dist'],
+      },
+      {
+        job: 'tui-e2e',
+        steps: ['Guarantee CLI and TUI consumer dist'],
       },
     ],
-    why: 'CI builds before every job that reads dist; locally a STALE dist passes the presence-only freshness scan',
-  },
-  {
-    name: 'typecheck',
-    needsBuildOutput: true,
-    extra: 'workspace-wide `pnpm -w typecheck`',
-    why: 'strictly WIDER than the affected-scope typecheck `quality` runs, and ~6s after PERF-004 — cheap over-coverage, not drift',
+    why: 'runs the affected owner/prerequisite build once; full build is reserved for product-wide root or graph changes',
   },
   {
     name: 'scan-suite',
@@ -155,16 +157,10 @@ export const CI_STAGES = [
     why: 'the dist-dependent scans silently no-op on an unbuilt tree',
   },
   {
-    name: 'affected-verify',
+    name: 'package-quality',
     needsBuildOutput: true,
-    mirrors: [{ job: 'quality', steps: ['Verify affected quality checks'] }],
-    why: 'THE package test suites, lint and scoped typecheck — the gates verify-like-ci omitted entirely (INFRA-056)',
-  },
-  {
-    name: 'lint-ceiling',
-    needsBuildOutput: false,
-    mirrors: [{ job: 'quality', steps: ['Lint-warning ceiling'] }],
-    why: 'the WORKSPACE count against `--max-warnings`, which `affected-verify` cannot see: it lints only the affected scopes, so a warning added in one package is invisible to a ceiling that counts all of them (issue #1984)',
+    mirrors: [{ job: 'quality', steps: ['Verify full or affected package quality concurrently'] }],
+    why: 'runs test, typecheck and lint concurrently through the same full-or-affected split as the required quality job',
   },
   {
     name: 'binary-e2e',
@@ -307,6 +303,11 @@ export const RELEVANCE_KEYS = [
 export const CI_SETUP_STEPS = {
   build: [
     {
+      step: 'Plan package-dist artifact membership',
+      reason:
+        'computes the cross-job archive file list; the local build keeps outputs in place and transports no artifact',
+    },
+    {
       step: 'Product verification not applicable',
       reason: 'explicit CI applicability result; the local stage gate reports the same omission',
     },
@@ -334,6 +335,10 @@ export const CI_SETUP_STEPS = {
       step: 'Restore package build output',
       reason:
         'untars the `package-dist` artifact — locally the `build` stage produces dist in place',
+    },
+    {
+      step: 'Binary e2e not applicable',
+      reason: 'explicit capability result; the local binary stage gate reports the same omission',
     },
   ],
   scans: [

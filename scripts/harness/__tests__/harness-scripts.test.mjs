@@ -150,12 +150,13 @@ describe('repository-check ownership', () => {
       'utf8',
     );
 
-    expect(localGate).toContain("'--skip-repository-check',\n    'harness-tests'");
-    expect(localGate).toContain("'--skip-typecheck'");
     expect(prePushGate).toContain('runPrePushVerification');
     expect(prePushVerification).toContain("'--skip-repository-check',\n    'harness-tests'");
     expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
-    expect(prePushGate).toContain("['pnpm', ['harness:test:contracts']]");
+    expect(localGate).toContain("'harness:test:contracts:affected'");
+    expect(localGate).toContain("'--head-ref',\n    'HEAD'");
+    expect(prePushGate).toContain("'harness:test:contracts:affected'");
+    expect(prePushGate).toContain("return [command, ['harness:test:contracts']]");
     expect(prePushGate).toContain("['pnpm', ['harness:test:hermetic']]");
   });
 });
@@ -176,7 +177,10 @@ describe('CI build workflow', () => {
       'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
     );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
-    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
+    expect(content).toContain(
+      'tar --null -czf package-dist.tgz --files-from .agents/evals/local-metrics/package-dist-membership.bin',
+    );
+    expect(content).not.toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
       'package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}',
     );
@@ -188,7 +192,7 @@ describe('CI build workflow', () => {
   it('restores root build output before skip-build quality verification', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
     const restoreIndex = content.indexOf('Restore package build output');
-    const verifyIndex = content.indexOf('Verify affected quality checks');
+    const verifyIndex = content.indexOf('Verify full or affected package quality concurrently');
 
     expect(content).toContain('needs: [changes, build]');
     expect(content).toContain("needs.build.outputs.package_dist_required == 'true'");
@@ -197,11 +201,11 @@ describe('CI build workflow', () => {
     expect(verifyIndex).toBeGreaterThan(restoreIndex);
   });
 
-  it('uses package typecheck scripts during scoped verification', () => {
+  it('delegates scoped typechecks to the affected root command exactly once', () => {
     const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
 
-    expect(content).toContain("hasPackageScript(workdir, 'typecheck')");
-    expect(content).toContain("runCommand('pnpm', ['typecheck'], workdir, options.dryRun)");
+    expect(content).toContain("affectedScript: 'typecheck:affected'");
+    expect(content).not.toContain("runCommand('pnpm', ['typecheck'], workdir");
   });
 
   // INFRA-055 inverted this assertion. It used to require the "fast successful no-op" shape — a
@@ -400,11 +404,12 @@ describe('agent-web deploy imports', () => {
 // verify-change build flow
 // ---------------------------------------------------------------------------
 describe('verify-change build flow', () => {
-  it('uses one root build for scoped build checks instead of dependency package builds', () => {
+  it('uses affected root commands for scoped checks and preserves a full build escape hatch', () => {
     const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
 
-    expect(content).toContain('[verify] monorepo build');
-    expect(content).toContain("runCommand('pnpm', ['build'], WORKSPACE_ROOT");
+    expect(content).toContain("affectedScript: 'build:affected'");
+    expect(content).toContain("fullScript: 'build'");
+    expect(content).toContain("environment.HARNESS_VERIFY_MODE === 'full'");
     expect(content).not.toContain('createWorkspaceDependencyBuildArgs');
     expect(content).not.toContain('shouldPrepareWorkspaceDependencies');
     expect(content).not.toContain("runCommand('pnpm', ['build'], workdir");

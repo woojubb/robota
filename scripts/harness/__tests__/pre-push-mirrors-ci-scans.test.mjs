@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CI_BASE_REF_PLACEHOLDER,
+  CI_HEAD_REF_PLACEHOLDER,
   CI_SCANS_JOB_MIRROR,
   createCiScansJobMirror,
 } from '../pre-push.mjs';
@@ -49,8 +50,11 @@ const CI_ONLY = [...PROVISIONING, ...CI_TRANSPORT];
  * `origin/${GITHUB_BASE_REF}` and the local gate writes the base it resolved. Every other flag must
  * agree verbatim, so only that value is normalised.
  */
-function normaliseBase(command) {
-  return command.replace(/--base \S+/, '--base <ref>');
+function normaliseRefs(command) {
+  return command
+    .replaceAll('"', '')
+    .replace(/--base-ref \S+/, '--base-ref <ref>')
+    .replace(/--base \S+/, '--base <ref>');
 }
 
 function ciScansJobCommands() {
@@ -62,14 +66,30 @@ function ciScansJobCommands() {
   const rest = CI.slice(start + 1);
   const next = /\n {2}[a-z][a-z0-9-]*:\n/.exec(rest.slice(1));
   const job = next ? rest.slice(0, next.index + 1) : rest;
-  return [...job.matchAll(/^ +run: (.+)$/gm)]
-    .map((m) => normaliseBase(m[1].trim()))
-    .filter((command) => !CI_ONLY.some((pattern) => pattern.test(command)));
+  const lines = job.split('\n');
+  const commands = [];
+  for (let index = 0; index < lines.length; index++) {
+    const first = lines[index].trim();
+    if (!/^start_check \S+ /.test(first)) continue;
+    let command = first;
+    while (command.endsWith('\\')) {
+      command = `${command.slice(0, -1)} ${lines[++index].trim()}`;
+    }
+    commands.push(
+      normaliseRefs(
+        command
+          .replace(/^start_check \S+ /, '')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      ),
+    );
+  }
+  return commands.filter((command) => !CI_ONLY.some((pattern) => pattern.test(command)));
 }
 
 describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', () => {
   const rendered = CI_SCANS_JOB_MIRROR.map(([command, args]) =>
-    normaliseBase([command, ...args].join(' ')),
+    normaliseRefs([command, ...args].join(' ')),
   );
 
   it('runs every command that job runs, with the same flags', () => {
@@ -112,32 +132,41 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     expect(commands.every((command) => /harness:/.test(command))).toBe(true);
   });
 
-  it('always runs the contract tests and the scans, and skips only the hermetic tier, only for a proven false verdict (PROC-016)', () => {
-    // INFRA-093: ci.yml runs `harness:test:contracts` unconditionally — the contract tests inspect
-    // product, docs and policy content, so a diff that touches no harness file can still break
-    // them. Only the hermetic tier is path-gated there, so only the hermetic tier may be dropped
-    // here; a mirror that dropped both would pass locally on a change CI refuses.
+  it('runs affected contracts and scans, and skips only hermetic tests for a proven false verdict', () => {
     const scanArgs = CI_SCANS_JOB_MIRROR.find(([, args]) => args[0] === 'harness:scan')[1];
     const withoutBase = scanArgs.filter(
       (arg) => arg !== '--base' && arg !== CI_BASE_REF_PLACEHOLDER,
     );
     expect(createCiScansJobMirror({ harness: false })).toEqual([
-      ['pnpm', ['harness:test:contracts']],
+      ['pnpm', ['harness:test:contracts:affected', '--', '--head-ref', CI_HEAD_REF_PLACEHOLDER]],
       ['pnpm', withoutBase],
     ]);
     expect(createCiScansJobMirror({ harness: false }).flatMap(([, args]) => args)).not.toContain(
       'harness:test:hermetic',
     );
     // An absent or unresolved verdict is harness-applicable: both tiers run.
-    const withBase = (base) =>
+    const withRefs = (base, head = CI_HEAD_REF_PLACEHOLDER) =>
       CI_SCANS_JOB_MIRROR.map(([command, args]) => [
         command,
-        args.map((arg) => (arg === CI_BASE_REF_PLACEHOLDER ? base : arg)),
+        args.map((arg) =>
+          arg === CI_BASE_REF_PLACEHOLDER ? base : arg === CI_HEAD_REF_PLACEHOLDER ? head : arg,
+        ),
       ]);
     expect(createCiScansJobMirror({ harness: true }, { baseRef: 'origin/develop' })).toEqual(
-      withBase('origin/develop'),
+      withRefs('origin/develop'),
     );
-    expect(createCiScansJobMirror(undefined, { baseRef: 'abc123' })).toEqual(withBase('abc123'));
+    expect(createCiScansJobMirror(undefined, { baseRef: 'abc123', headRef: 'def456' })).toEqual(
+      withRefs('abc123', 'def456'),
+    );
+  });
+
+  it('keeps explicit full pre-push verification on the complete contract command', () => {
+    const mirror = createCiScansJobMirror(
+      { harness: false },
+      { baseRef: 'origin/develop', full: true },
+    );
+    expect(mirror[0]).toEqual(['pnpm', ['harness:test:contracts']]);
+    expect(mirror.flatMap(([, args]) => args)).not.toContain('harness:test:contracts:affected');
   });
 
   it('runs the affected set in the pr context, with the base the gate resolved', () => {
@@ -160,5 +189,15 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     );
     expect(bare).not.toContain('--base');
     expect(bare).not.toContain(CI_BASE_REF_PLACEHOLDER);
+  });
+
+  it('aggregates concurrent child logs and fails on any missing or unsuccessful result', () => {
+    const job = CI.slice(CI.indexOf('\n  scans:'), CI.indexOf('\n  dependency-audit:'));
+    expect(job).toContain('pids+=("$!")');
+    expect(job).toContain('wait "${pids[$index]}" || status=$?');
+    expect(job).toContain('if ! cat "${logs[$index]}"');
+    expect(job).toContain('if (( status != 0 ))');
+    expect(job).toContain('exit "$failed"');
+    expect(job).toContain('RUN_HERMETIC:');
   });
 });

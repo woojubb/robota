@@ -43,7 +43,7 @@
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
 
 import { classifyRootManifestChange } from './shared.mjs';
 
@@ -64,10 +64,20 @@ export function isDocsOnlyPath(file) {
 // `.agents/` holds records, ledgers, rules and skills — the harness's own state, never product
 // code; a `.jsonl` ledger append must not make a push owe 81 packages' build output (PROC-016).
 const INFRASTRUCTURE_ONLY_PATTERN =
-  /^(scripts\/harness\/|\.github\/|\.husky\/|\.claude\/|\.agents\/)/;
+  /^(scripts\/harness\/|scripts\/build-|\.github\/|\.husky\/|\.claude\/|\.agents\/)/;
 
 function failClosedCapabilities(reason) {
-  return { code: true, product: true, tui: true, examples: true, harness: true, reason };
+  return {
+    code: true,
+    product: true,
+    tui: true,
+    examples: true,
+    windows: true,
+    cli: true,
+    harness: true,
+    full: true,
+    reason,
+  };
 }
 
 const HARNESS_OWNER_FILES = new Set([
@@ -86,9 +96,103 @@ export function isHarnessOwnerPath(file) {
     .replaceAll('\\', '/');
   return (
     normalized.startsWith('scripts/harness/') ||
+    normalized.startsWith('scripts/build-') ||
     normalized.startsWith('.github/workflows/') ||
     HARNESS_OWNER_FILES.has(normalized)
   );
+}
+
+const WORKSPACE_FULL_FILES = new Set([
+  '.eslintignore',
+  '.eslintrc.json',
+  '.npmrc',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
+  'tsconfig.base.json',
+  'tsconfig.eslint.json',
+  'tsconfig.json',
+  'vitest.config.ts',
+  'vitest.shared.ts',
+]);
+
+/** Inputs that can change product ownership, graph traversal, or root product configuration. */
+export function isFullVerificationPath(file, { rootManifestChange = null } = {}) {
+  const normalized = String(file ?? '').replaceAll('\\', '/');
+  if (normalized === 'package.json') return rootManifestChange?.workspaceWide !== false;
+  return WORKSPACE_FULL_FILES.has(normalized) || /(^|\/)package\.json$/u.test(normalized);
+}
+
+const WORKSPACE_ROOTS = ['apps', 'examples', 'packages'];
+const SKIPPED_DIRECTORIES = new Set(['dist', 'node_modules', '.git', '.cache']);
+
+function workspaceManifests(root) {
+  const manifests = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(path.join(root, directory), { withFileTypes: true })) {
+      if (!entry.isDirectory() || SKIPPED_DIRECTORIES.has(entry.name)) continue;
+      const child = `${directory}/${entry.name}`;
+      let packageJson;
+      try {
+        packageJson = JSON.parse(readFileSync(path.join(root, child, 'package.json'), 'utf8'));
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      if (packageJson?.name) {
+        manifests.push({
+          name: packageJson.name,
+          directory: child,
+        });
+      } else {
+        visit(child);
+      }
+    }
+  };
+  for (const directory of WORKSPACE_ROOTS) visit(directory);
+  return manifests;
+}
+
+/**
+ * Resolve expensive capability jobs by direct workspace ownership. Normal PR policy deliberately does
+ * not propagate these suites through dependency edges; each suite owns its own package/path surface.
+ */
+export function resolveCapabilityReachability(files, { cwd = process.cwd() } = {}) {
+  try {
+    const manifests = workspaceManifests(cwd);
+    const byName = new Map(manifests.map((manifest) => [manifest.name, manifest]));
+    if (manifests.length === 0 || byName.size !== manifests.length) {
+      throw new Error('workspace graph is empty or contains duplicate package names');
+    }
+    const owners = new Map();
+    const unknownWorkspacePaths = [];
+    for (const file of files) {
+      const owner = manifests
+        .filter((manifest) => file.startsWith(`${manifest.directory}/`))
+        .sort((left, right) => right.directory.length - left.directory.length)[0];
+      if (owner) owners.set(file, owner);
+      else if (/^(?:apps|examples|packages)\//u.test(file)) unknownWorkspacePaths.push(file);
+    }
+    if (unknownWorkspacePaths.length > 0) {
+      throw new Error(`workspace owner is unknown for ${unknownWorkspacePaths.join(', ')}`);
+    }
+
+    const ownerNames = new Set([...owners.values()].map((owner) => owner.name));
+    const directOwner = (...names) => names.some((name) => ownerNames.has(name));
+    const windows = [...owners].some(
+      ([file, owner]) =>
+        ['@robota-sdk/agent-tools', '@robota-sdk/agent-executor'].includes(owner.name) &&
+        /(?:^|\/)(?:[^/]*(?:shell|windows|win32|powershell)[^/]*)(?:\/|$|\.)/iu.test(file),
+    );
+
+    return {
+      cli: directOwner('@robota-sdk/agent-cli', '@robota-sdk/agent-cli-web'),
+      tui: directOwner('@robota-sdk/agent-transport-tui', '@robota-sdk/agent-cli'),
+      examples: [...owners.values()].some((owner) => owner.directory.startsWith('examples/')),
+      windows:
+        windows || files.some((file) => /(^|\/)(windows|win32|powershell)(\/|\.|-)/iu.test(file)),
+    };
+  } catch (error) {
+    return { error: `workspace capability graph is unreadable: ${error.message}` };
+  }
 }
 
 /**
@@ -97,7 +201,7 @@ export function isHarnessOwnerPath(file) {
  * @param {string[]} files repository-relative paths changed by the PR
  * @returns {{code: boolean, reason: string}}
  */
-export function classifyFiles(files, { rootManifestChange = null } = {}) {
+export function classifyFiles(files, { rootManifestChange = null, capabilities = null } = {}) {
   const changed = (files ?? []).map((file) => String(file).trim()).filter(Boolean);
   if (changed.length === 0) {
     return failClosedCapabilities(
@@ -112,10 +216,17 @@ export function classifyFiles(files, { rootManifestChange = null } = {}) {
       product: false,
       tui: false,
       examples: false,
+      windows: false,
+      cli: false,
       harness,
+      full: false,
       reason: 'docs-only PR: no analyzable code changed.',
     };
   }
+
+  const full =
+    codeFiles.some((file) => isFullVerificationPath(file, { rootManifestChange })) ||
+    Boolean(capabilities?.error);
 
   const product = codeFiles.some((file) => {
     if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
@@ -125,12 +236,19 @@ export function classifyFiles(files, { rootManifestChange = null } = {}) {
   return {
     code: true,
     product,
-    tui: product,
-    examples: product,
+    tui: full || capabilities?.tui === true,
+    examples: full || capabilities?.examples === true,
+    windows: full || capabilities?.windows === true,
+    cli: full || capabilities?.cli === true,
     harness,
-    reason: product
-      ? `product changes present: product matrix runs (${codeFiles.length} code file(s)).`
-      : `infrastructure-only changes: product matrix is not applicable (${codeFiles.length} code file(s)).`,
+    full,
+    reason: capabilities?.error
+      ? `${capabilities.error}; full verification runs fail closed.`
+      : full
+        ? 'control-plane, workspace graph, manifest, lock, or root config changed: full verification runs.'
+        : product
+          ? `product changes present: product matrix runs (${codeFiles.length} code file(s)).`
+          : `infrastructure-only changes: product matrix is not applicable (${codeFiles.length} code file(s)).`,
   };
 }
 
@@ -156,6 +274,9 @@ function classifyRootManifestFromGit({ files, bases, head, cwd, runGit }) {
         before: JSON.parse(baseManifest.stdout),
         after,
       });
+      if (classification.changedKeys.length === 1 && classification.changedKeys[0] === 'scripts') {
+        continue;
+      }
       if (classification.workspaceWide !== false) return classification;
     }
     return { kind: 'developer-quality-only', workspaceWide: false };
@@ -216,7 +337,10 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
     cwd,
     runGit,
   });
-  return { ...classifyFiles(sorted, { rootManifestChange }), bases, files: sorted };
+  const capabilities = sorted.some((file) => isFullVerificationPath(file, { rootManifestChange }))
+    ? null
+    : resolveCapabilityReachability(sorted, { cwd: cwd ?? process.cwd() });
+  return { ...classifyFiles(sorted, { rootManifestChange, capabilities }), bases, files: sorted };
 }
 
 function argValue(argv, flag) {
@@ -250,12 +374,15 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   write(`product=${result.product}\n`);
   write(`tui=${result.tui}\n`);
   write(`examples=${result.examples}\n`);
+  write(`windows=${result.windows}\n`);
+  write(`cli=${result.cli}\n`);
   write(`harness=${result.harness}\n`);
+  write(`full=${result.full}\n`);
 
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nharness=${result.harness}\n`,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\nharness=${result.harness}\nfull=${result.full}\n`,
     );
   }
   return result;

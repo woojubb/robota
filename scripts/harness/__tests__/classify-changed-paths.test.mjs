@@ -20,8 +20,10 @@ import {
   DOCS_ONLY_GLOBS,
   classifyFiles,
   classifyRange,
+  isFullVerificationPath,
   isDocsOnlyPath,
   isHarnessOwnerPath,
+  resolveCapabilityReachability,
 } from '../classify-changed-paths.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -103,21 +105,126 @@ describe('classifyFiles', () => {
       product: false,
       tui: false,
       examples: false,
+      windows: false,
+      cli: false,
+      full: false,
+      harness: true,
     });
     expect(classifyFiles(['scripts/harness/check-review-gate.mjs'])).toMatchObject({
       code: true,
       product: false,
       tui: false,
       examples: false,
+      windows: false,
+      cli: false,
+      full: false,
+      harness: true,
     });
   });
 
-  it('runs product capabilities for package and app changes', () => {
-    expect(classifyFiles(['packages/agent-core/src/index.ts'])).toMatchObject({
+  it('does not fan every product change out to every expensive capability', () => {
+    expect(classifyFiles(['apps/blog/src/page.tsx'], { capabilities: {} })).toMatchObject({
       code: true,
       product: true,
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
+      full: false,
+    });
+  });
+
+  it('routes expensive capabilities by direct owner instead of dependency fanout', () => {
+    const capabilities = resolveCapabilityReachability(['packages/agent-core/src/index.ts'], {
+      cwd: REPO_ROOT,
+    });
+    expect(capabilities).toEqual({ tui: false, examples: false, windows: false, cli: false });
+    expect(classifyFiles(['packages/agent-core/src/index.ts'], { capabilities })).toMatchObject({
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
+      full: false,
+    });
+
+    expect(resolveCapabilityReachability(['apps/blog/src/page.tsx'], { cwd: REPO_ROOT })).toEqual({
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
+    });
+
+    expect(
+      resolveCapabilityReachability(['packages/agent-cli-web/src/main.tsx'], { cwd: REPO_ROOT }),
+    ).toMatchObject({ tui: false, cli: true });
+
+    expect(
+      resolveCapabilityReachability(['packages/agent-cli/src/bin.ts'], { cwd: REPO_ROOT }),
+    ).toMatchObject({ tui: true, cli: true });
+    expect(
+      resolveCapabilityReachability(['packages/agent-transport-tui/src/App.tsx'], {
+        cwd: REPO_ROOT,
+      }),
+    ).toMatchObject({ tui: true, cli: false });
+    expect(
+      resolveCapabilityReachability(['examples/cli/src/index.ts'], { cwd: REPO_ROOT }),
+    ).toMatchObject({ examples: true, tui: false, cli: false });
+    expect(
+      resolveCapabilityReachability(['packages/agent-tools/src/index.ts'], { cwd: REPO_ROOT }),
+    ).toMatchObject({ windows: false });
+    expect(
+      resolveCapabilityReachability(['packages/agent-tools/src/builtins/shell-tool.ts'], {
+        cwd: REPO_ROOT,
+      }),
+    ).toMatchObject({ windows: true });
+
+    expect(
+      resolveCapabilityReachability(['packages/agent-provider-openai/src/index.ts'], {
+        cwd: REPO_ROOT,
+      }),
+    ).toMatchObject({ tui: false, cli: false });
+  });
+
+  it('fails closed when a workspace path has no resolvable direct owner', () => {
+    expect(
+      resolveCapabilityReachability(['packages/definitely-missing/src/index.ts'], {
+        cwd: REPO_ROOT,
+      }),
+    ).toMatchObject({ error: expect.stringContaining('workspace owner is unknown') });
+  });
+
+  it.each([
+    'packages/agent-core/package.json',
+    'pnpm-workspace.yaml',
+    'pnpm-lock.yaml',
+    'tsconfig.base.json',
+  ])('routes control-plane or graph input %s to full verification', (file) => {
+    expect(isFullVerificationPath(file)).toBe(true);
+    expect(classifyFiles([file])).toMatchObject({
+      code: true,
+      full: true,
       tui: true,
       examples: true,
+      windows: true,
+      cli: true,
+    });
+  });
+
+  it.each([
+    '.github/workflows/ci.yml',
+    'scripts/harness/workspace-affected.mjs',
+    'scripts/build-types-ordered.mjs',
+  ])('keeps harness/control-plane input %s out of product-full verification', (file) => {
+    expect(isFullVerificationPath(file)).toBe(false);
+    expect(classifyFiles([file])).toMatchObject({
+      code: true,
+      product: false,
+      full: false,
+      harness: true,
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
     });
   });
 
@@ -131,7 +238,49 @@ describe('classifyFiles', () => {
       product: false,
       tui: false,
       examples: false,
+      windows: false,
+      cli: false,
+      full: false,
       harness: true,
+    });
+    expect(
+      isFullVerificationPath('package.json', {
+        rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps this infrastructure change shape on explicit product N/A paths', () => {
+    const capabilities = resolveCapabilityReachability(
+      [
+        '.github/workflows/ci.yml',
+        'scripts/harness/classify-changed-paths.mjs',
+        'scripts/build-types-ordered.mjs',
+        'package.json',
+      ],
+      { cwd: REPO_ROOT },
+    );
+    expect(
+      classifyFiles(
+        [
+          '.github/workflows/ci.yml',
+          'scripts/harness/classify-changed-paths.mjs',
+          'scripts/build-types-ordered.mjs',
+          'package.json',
+        ],
+        {
+          rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+          capabilities,
+        },
+      ),
+    ).toMatchObject({
+      product: false,
+      full: false,
+      harness: true,
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
     });
   });
 
@@ -162,7 +311,10 @@ describe('classifyFiles', () => {
       product: true,
       tui: true,
       examples: true,
+      windows: true,
+      cli: true,
       harness: true,
+      full: true,
     });
     expect(classifyFiles(undefined)).toMatchObject({
       code: true,
@@ -182,6 +334,7 @@ describe('classifyRange (fail-closed on git)', () => {
     const result = classifyRange({ baseRef: 'origin/develop', runGit: () => fail() });
     expect(result.code).toBe(true);
     expect(result).toMatchObject({ product: true, tui: true, examples: true });
+    expect(result).toMatchObject({ windows: true, full: true });
     expect(result.harness).toBe(true);
     expect(result.error).toContain('no merge base');
   });
@@ -238,7 +391,33 @@ describe('classifyRange (fail-closed on git)', () => {
       product: false,
       tui: false,
       examples: false,
+      windows: false,
+      cli: false,
+      full: false,
       harness: true,
+    });
+  });
+
+  it('classifies any root scripts-only manifest edit as harness work, not product-full', () => {
+    const before = JSON.stringify({ scripts: { build: 'pnpm -r build', test: 'pnpm -r test' } });
+    const after = JSON.stringify({
+      scripts: { build: 'node scripts/build-types-ordered.mjs', test: 'pnpm -r test' },
+    });
+    const runGit = (args) => {
+      if (args[0] === 'merge-base') return ok('base1\n');
+      if (args[0] === 'diff') return ok('package.json\n');
+      if (args[0] === 'show') return ok(args[1] === 'base1:package.json' ? before : after);
+      return fail();
+    };
+
+    expect(classifyRange({ baseRef: 'origin/develop', runGit })).toMatchObject({
+      product: false,
+      full: false,
+      harness: true,
+      tui: false,
+      examples: false,
+      windows: false,
+      cli: false,
     });
   });
 
@@ -272,7 +451,10 @@ describe('CLI (the shape both workflows call)', () => {
     expect(result.stdout).toMatch(/^product=(true|false)$/m);
     expect(result.stdout).toMatch(/^tui=(true|false)$/m);
     expect(result.stdout).toMatch(/^examples=(true|false)$/m);
+    expect(result.stdout).toMatch(/^windows=(true|false)$/m);
+    expect(result.stdout).toMatch(/^cli=(true|false)$/m);
     expect(result.stdout).toMatch(/^harness=(true|false)$/m);
+    expect(result.stdout).toMatch(/^full=(true|false)$/m);
   });
 
   it('FAIL-CLOSED: an unresolvable base ref still answers code=true', () => {
@@ -288,17 +470,146 @@ describe('CLI (the shape both workflows call)', () => {
 });
 
 describe('CI capability wiring', () => {
+  it('keeps all 11 declared develop required contexts and their workflow job names', () => {
+    const declaration = JSON.parse(
+      readFileSync(path.join(REPO_ROOT, '.github/required-status-checks.json'), 'utf8'),
+    );
+    const required = declaration.branches.develop.required_status_checks;
+
+    expect(required).toHaveLength(11);
+    for (const item of required) {
+      const workflow = readFileSync(path.join(REPO_ROOT, item.workflow), 'utf8');
+      expect(workflow, item.context).toContain(`\n  ${item.job}:\n`);
+      expect(workflow, item.context).toMatch(
+        new RegExp(`^    name: ['"]?${item.context.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}`, 'mu'),
+      );
+    }
+  });
+
   it('publishes capability outputs and keeps expensive required jobs present with explicit N/A results', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
 
     expect(workflow).toContain('product: ${{ steps.filter.outputs.product }}');
     expect(workflow).toContain('tui: ${{ steps.filter.outputs.tui }}');
     expect(workflow).toContain('examples: ${{ steps.filter.outputs.examples }}');
+    expect(workflow).toContain('windows: ${{ steps.filter.outputs.windows }}');
+    expect(workflow).toContain('cli: ${{ steps.filter.outputs.cli }}');
     expect(workflow).toContain('harness: ${{ steps.filter.outputs.harness }}');
+    expect(workflow).toContain('full: ${{ steps.filter.outputs.full }}');
     expect(workflow).toContain('name: Product verification not applicable');
     expect(workflow).toContain('name: TUI verification not applicable');
     expect(workflow).toContain('name: Examples verification not applicable');
+    expect(workflow).toContain('name: Windows verification not applicable');
     expect(workflow).toContain("needs.changes.result != 'success'");
+  });
+
+  it('routes ordinary package work to affected scripts and full inputs to full scripts', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+
+    expect(workflow).toContain("needs.changes.outputs.full == 'true'");
+    expect(workflow).toContain('pnpm build:affected');
+    expect(workflow).toContain('pnpm test:affected');
+    expect(workflow).toContain('pnpm typecheck:affected');
+    expect(workflow).toContain('pnpm lint:affected');
+    expect(workflow).toContain('pnpm examples:typecheck:affected');
+    expect(workflow).toContain('pnpm build\n');
+    expect(workflow).toContain('start_check test pnpm test\n');
+    expect(workflow).toContain('start_check typecheck pnpm typecheck\n');
+    expect(workflow).toContain('start_check lint pnpm lint\n');
+    expect(workflow).toContain('pnpm examples:typecheck\n');
+  });
+
+  it('aggregates concurrent package quality children without dropping failures', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const quality = workflow.slice(
+      workflow.indexOf('\n  quality:\n'),
+      workflow.indexOf('\n  scans:\n'),
+    );
+
+    expect(quality).toContain('wait "${pids[$index]}" || status=$?');
+    expect(quality).toContain('log is missing or unreadable');
+    expect(quality).toContain('exit "$failed"');
+    expect(quality).not.toContain('pnpm harness:verify --');
+  });
+
+  it('never treats a partial package-dist restore as a complete consumer build', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const quality = workflow.slice(
+      workflow.indexOf('\n  quality:\n'),
+      workflow.indexOf('\n  scans:\n'),
+    );
+    const examples = workflow.slice(
+      workflow.indexOf('\n  examples-typecheck:\n'),
+      workflow.indexOf('\n  windows-shell:\n'),
+    );
+    const tui = workflow.slice(
+      workflow.indexOf('\n  tui-e2e:\n'),
+      workflow.indexOf('\n  regression-red-proof:\n'),
+    );
+    const coverage = workflow.slice(workflow.indexOf('\n  patch-coverage:\n'));
+
+    expect(workflow).toContain('package_dist_complete:');
+    expect(quality).not.toContain('Guarantee selected typecheck target prerequisites');
+    expect(quality).toContain('name: Guarantee CLI binary target dist');
+    expect(quality).not.toContain('--operation consumer-build');
+    expect(examples).toContain('name: Guarantee affected example consumer dist');
+    expect(examples).toContain('args=(harness:workspace:run -- --operation build)');
+    expect(examples).toContain('--changed-file "$target"');
+    expect(tui).toContain('name: Guarantee CLI and TUI consumer dist');
+    expect(tui).toContain('--changed-file packages/agent-cli/src/__ci_consumer_target__.ts');
+    expect(tui).toContain(
+      '--changed-file packages/agent-transport-tui/src/__ci_consumer_target__.ts',
+    );
+    expect(coverage).toContain('name: Guarantee affected coverage dist');
+    expect(coverage).toContain('run: pnpm build:affected');
+    expect(examples).not.toContain("steps.restore.outputs.restored != 'true'");
+    expect(tui).not.toContain("steps.restore.outputs.restored != 'true'");
+  });
+
+  it('runs CLI binary e2e only for CLI-reachable changes and guarantees its dist first', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const quality = workflow.slice(
+      workflow.indexOf('\n  quality:\n'),
+      workflow.indexOf('\n  scans:\n'),
+    );
+    const cliBuild = quality.indexOf('name: Guarantee CLI binary target dist');
+    const binaryE2e = quality.indexOf('name: Binary e2e (agent-cli bintests, dist-dependent)');
+
+    expect(quality).toContain("CLI_APPLICABLE: ${{ needs.changes.result != 'success'");
+    expect(quality).toContain("if: env.CLI_APPLICABLE == 'true'");
+    expect(quality).toContain('name: Binary e2e not applicable');
+    expect(cliBuild).toBeGreaterThanOrEqual(0);
+    expect(binaryE2e).toBeGreaterThan(cliBuild);
+  });
+
+  it('restores content-validated contract and lint caches across heads', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+
+    expect(workflow).toContain('name: Restore cross-head contract-test content cache');
+    expect(workflow).toContain(
+      'key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}',
+    );
+    expect(workflow).toContain('robota-contract-tests-v1-${{ runner.os }}-node22-\n');
+    expect(workflow).toContain('name: Restore cross-head ESLint content cache');
+    expect(workflow).toContain('--cache-strategy content');
+    expect(workflow).toContain('start_check lint pnpm lint:affected');
+    expect(workflow).toContain('start_check lint-ceiling pnpm exec eslint packages apps');
+  });
+
+  it('archives only after every planned dist contract is present', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const build = workflow.slice(
+      workflow.indexOf('\n  build:\n'),
+      workflow.indexOf('\n  quality:\n'),
+    );
+
+    expect(build).toContain('name: Plan package-dist artifact membership');
+    expect(build).toContain('workspace-build-plan.json');
+    expect(build).toContain('planned build output is missing: ${dist}');
+    expect(build).toContain('package-dist-membership.bin');
+    expect(build.indexOf('planned build output is missing')).toBeLessThan(
+      build.indexOf('tar --null -czf package-dist.tgz'),
+    );
   });
 
   it('assigns the harness suite to scans instead of rerunning it in quality', () => {
@@ -308,11 +619,12 @@ describe('CI capability wiring', () => {
     const quality = workflow.slice(qualityStart, scansStart);
     const scans = workflow.slice(scansStart, workflow.indexOf('\n  dependency-audit:\n'));
 
-    expect(quality).toContain('--skip-repository-check harness-tests');
-    expect(scans).toContain('pnpm harness:test:contracts');
+    expect(quality).not.toContain('harness:test');
+    expect(scans).toContain('pnpm harness:test:contracts:affected');
     expect(scans).toContain('pnpm harness:test:hermetic');
     expect(scans).toContain("needs.changes.outputs.harness != 'false'");
     expect(scans).toContain('pnpm harness:scan -- --skip dist --skip build-contracts');
+    expect(scans).toContain('wait "${pids[$index]}" || status=$?');
     expect(scans).not.toMatch(/scripts\/harness\/\*\*/);
   });
 });

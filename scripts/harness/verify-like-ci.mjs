@@ -91,7 +91,7 @@ import path from 'node:path';
 
 import { createVerificationPlan, planRequiresPackageDist } from './check-plan.mjs';
 import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
-import { classifyFiles } from './classify-changed-paths.mjs';
+import { classifyFiles, resolveCapabilityReachability } from './classify-changed-paths.mjs';
 import { runWithDistFreeSubject } from './dist-free-subject-identity.mjs';
 import {
   collectPackageManifestChanges,
@@ -306,13 +306,15 @@ export function parseArgs(argv) {
   const only = new Set();
   let baseRef = DEFAULT_BASE_REF;
   let allFiles = false;
+  let full = false;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--only' && argv[i + 1]) only.add(argv[++i]);
     else if (argv[i] === '--base-ref' && argv[i + 1]) baseRef = argv[++i];
     else if (argv[i] === '--all-files') allFiles = true;
+    else if (argv[i] === '--full') full = true;
   }
   const unknown = [...only].filter((name) => !CI_STAGES.some((stage) => stage.name === name));
-  return { only, baseRef, allFiles, unknown };
+  return { only, baseRef, allFiles, full, unknown };
 }
 
 // ---------------------------------------------------------------------------
@@ -368,21 +370,8 @@ async function runFormatCheck({ baseRef, allFiles }) {
 }
 
 async function runScanSuite() {
-  const missing = findMissingDist(listBuildablePackageDirs());
-  if (missing.length > 0) {
-    process.stderr.write(
-      `\n[scan-suite] BLOCKED: ${missing.length} package(s) have no dist/ — the build-dependent scans\n` +
-        `[scan-suite] (build-contracts, dist freshness) would silently no-op and LOOK like a pass.\n` +
-        `[scan-suite] CI restores dist before running them (ci.yml → quality). Run:\n` +
-        `[scan-suite]   pnpm build\n` +
-        `[scan-suite] Missing: ${missing.slice(0, 5).join(', ')}${
-          missing.length > 5 ? ` … (+${missing.length - 5})` : ''
-        }\n`,
-    );
-    return { code: 1, note: `dist missing for ${missing.length} package(s) — run \`pnpm build\`` };
-  }
-  const code = await run('node', ['scripts/harness/run-all-scans.mjs']);
-  return { code, note: 'full suite incl. build-contracts + dist (built tree)' };
+  const code = await run('pnpm', ['harness:scan:build-contracts']);
+  return { code, note: 'dist-dependent build-output contracts, matching quality' };
 }
 
 /** Run a git command that MUST succeed; its failure is a stage failure, never a silent skip. */
@@ -450,7 +439,7 @@ function destroyDistFreeTree(treeDir, links, tempRoot) {
   rmSync(tempRoot, { recursive: true, force: true });
 }
 
-async function runDistFreeScanSuite() {
+async function runDistFreeScanSuite({ baseRef }) {
   const skips = readDistIndependentScanSkips();
   const tempRoot = mkdtempSync(path.join(tmpdir(), 'verify-like-ci-dist-free-'));
   const treeDir = path.join(tempRoot, 'tree');
@@ -460,6 +449,11 @@ async function runDistFreeScanSuite() {
     links = prepared.links;
     const args = [
       'scripts/harness/run-all-scans.mjs',
+      '--affected',
+      '--base',
+      baseRef,
+      '--context',
+      'pr',
       ...skips.flatMap((skip) => ['--skip', skip]),
     ];
     const code = await runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow);
@@ -470,7 +464,10 @@ async function runDistFreeScanSuite() {
           `[scan-suite-dist-free] built-tree stage means the code depends on dist/ existing (e.g. a\n` +
           `[scan-suite-dist-free] hardcoded build-output path literal), and CI will fail on it.\n`,
       );
-    return { code, note: `dist-free worktree of HEAD+changes, skips: ${skips.join(', ')}` };
+    return {
+      code,
+      note: `affected dist-free worktree vs ${baseRef}, skips: ${skips.join(', ')}`,
+    };
   } catch (error) {
     process.stderr.write(`\n[scan-suite-dist-free] ${error?.message ?? error}\n`);
     return { code: 1, note: 'could not materialise the dist-free tree' };
@@ -518,9 +515,75 @@ async function runCommitlint({ baseRef }) {
   return { code: 0, note: `${commits.length} commit(s) vs ${baseRef}` };
 }
 
-async function runBuild(_options, context) {
-  const code = await run('pnpm', ['build']);
-  return { code, note: context.buildReason };
+function affectedScriptArgs(script, baseRef) {
+  return [script, '--', '--base-ref', baseRef];
+}
+
+export function createProductStageCommands(stageName, { baseRef }, context) {
+  const full = context.fullProductVerification === true;
+  switch (stageName) {
+    case 'build':
+      return full
+        ? [['pnpm', ['build']]]
+        : [['pnpm', affectedScriptArgs('build:affected', baseRef)]];
+    case 'package-quality':
+      if (full) {
+        return ['test', 'typecheck', 'lint'].map((operation) => ['pnpm', [operation]]);
+      }
+      return [
+        ...['test', 'typecheck', 'lint'].map((operation) => [
+          'pnpm',
+          affectedScriptArgs(`${operation}:affected`, baseRef),
+        ]),
+        [
+          'pnpm',
+          [
+            'exec',
+            'eslint',
+            'packages',
+            'apps',
+            '--ext',
+            '.ts,.tsx',
+            '--cache',
+            '--cache-location',
+            '.cache/eslint/verify-like-ci.cache',
+            '--cache-strategy',
+            'content',
+            '--max-warnings',
+            '2203',
+          ],
+        ],
+      ];
+    case 'examples-typecheck':
+      return [
+        [
+          'pnpm',
+          full
+            ? ['examples:typecheck']
+            : affectedScriptArgs('examples:typecheck:affected', baseRef),
+        ],
+      ];
+    default:
+      throw new Error(`No full/affected product command mapping for stage: ${stageName}`);
+  }
+}
+
+async function runProductStage(stageName, options, context, { concurrent = false } = {}) {
+  const commands = createProductStageCommands(stageName, options, context);
+  if (concurrent) {
+    const codes = await Promise.all(commands.map(([command, args]) => run(command, args)));
+    return { code: codes.some((code) => code !== 0) ? 1 : 0 };
+  }
+  for (const [command, args] of commands) {
+    const code = await run(command, args);
+    if (code !== 0) return { code };
+  }
+  return { code: 0 };
+}
+
+async function runBuild(options, context) {
+  const outcome = await runProductStage('build', options, context);
+  return { ...outcome, note: context.buildReason };
 }
 
 /** The affected scopes, named in the stage note so "it ran nothing" is never invisible. */
@@ -531,39 +594,39 @@ export function describeAffectedScopes(context) {
     : `${scopes.length} affected scope(s): ${scopes.slice(0, 4).join(', ')}${scopes.length > 4 ? ' …' : ''}`;
 }
 
-async function runAffectedVerify({ baseRef }, context) {
+async function runPackageQuality(options, context) {
+  const outcome = await runProductStage('package-quality', options, context, {
+    concurrent: true,
+  });
+  return { ...outcome, note: describeAffectedScopes(context) };
+}
+
+async function runAffectedContractTests({ baseRef }) {
   const code = await run('pnpm', [
-    'harness:verify',
+    'harness:test:contracts:affected',
     '--',
     '--base-ref',
     baseRef,
-    '--skip-build',
-    '--skip-record-check',
-    '--skip-repository-check',
-    'harness-tests',
-    '--skip-typecheck',
+    '--head-ref',
+    'HEAD',
   ]);
-  return { code, note: describeAffectedScopes(context) };
+  return { code };
 }
 
 const STAGE_RUNNERS = {
   'format-check': runFormatCheck,
   commitlint: runCommitlint,
-  'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test:contracts']) }),
+  'harness-self-test': runAffectedContractTests,
   'harness-hermetic-test': async () => ({ code: await run('pnpm', ['harness:test:hermetic']) }),
   'scan-suite-dist-free': runDistFreeScanSuite,
-  typecheck: async () => ({ code: await run('pnpm', ['-w', 'typecheck']) }),
   build: runBuild,
   'scan-suite': runScanSuite,
-  'affected-verify': runAffectedVerify,
-  // The workspace count against the ceiling. `affected-verify` lints only the affected scopes, so a
-  // warning it reports is a warning in ITS packages — the number the ceiling governs is the sum over
-  // all of them, and only a whole-workspace run produces it (issue #1984).
-  'lint-ceiling': async () => ({ code: await run('pnpm', ['lint']) }),
+  'package-quality': runPackageQuality,
   'binary-e2e': async () => ({
     code: await run('pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']),
   }),
-  'examples-typecheck': async () => ({ code: await run('pnpm', ['examples:typecheck']) }),
+  'examples-typecheck': (options, context) =>
+    runProductStage('examples-typecheck', options, context),
   'tui-e2e': async () => ({
     code: await run('pnpm', ['--filter', '@robota-sdk/agent-transport-tui', 'test:pty']),
   }),
@@ -581,7 +644,31 @@ const STAGE_RUNNERS = {
  * Nothing here re-derives a CI condition with a local copy of the rule. `classify-changed-paths`
  * states why: a second, weaker copy of "no build needed" IS the bypass.
  */
-export async function resolveRunContext(baseRef) {
+export function classifyLocalProductChanges(
+  changedFiles,
+  { rootManifestChange = null, cwd = WORKSPACE_ROOT, forceFull = false } = {},
+) {
+  const capabilities = resolveCapabilityReachability(changedFiles, { cwd });
+  const classification = classifyFiles(changedFiles, { rootManifestChange, capabilities });
+  const productChanged = forceFull || classification.product;
+  const fullProductVerification = forceFull || (classification.full && classification.product);
+  const capabilityApplies = (name) =>
+    productChanged &&
+    (fullProductVerification || capabilities.error !== undefined || capabilities[name] === true);
+
+  return {
+    classification,
+    capabilities,
+    productChanged,
+    fullProductVerification,
+    tuiChanged: capabilityApplies('tui'),
+    examplesChanged: capabilityApplies('examples'),
+    windowsChanged: capabilityApplies('windows'),
+    cliChanged: capabilityApplies('cli'),
+  };
+}
+
+export async function resolveRunContext(baseRef, { forceFull = false } = {}) {
   const changedFiles = detectChangedFiles(baseRef);
   const scopes = await listWorkspaceScopes();
   const manifestChangesByScope = await collectPackageManifestChanges({
@@ -600,11 +687,18 @@ export async function resolveRunContext(baseRef) {
   });
   const missingDist = findMissingDist(listBuildablePackageDirs());
   const distRequired = planRequiresPackageDist(plan);
-  const changeClassification = classifyFiles(changedFiles, { rootManifestChange });
+  const localClassification = classifyLocalProductChanges(changedFiles, {
+    rootManifestChange,
+    forceFull,
+  });
+  const changeClassification = localClassification.classification;
   const codeChanged = changeClassification.code;
-  const productChanged = changeClassification.product;
-  const tuiChanged = changeClassification.tui;
-  const examplesChanged = changeClassification.examples;
+  const productChanged = localClassification.productChanged;
+  const fullProductVerification = localClassification.fullProductVerification;
+  const tuiChanged = localClassification.tuiChanged;
+  const examplesChanged = localClassification.examplesChanged;
+  const windowsChanged = localClassification.windowsChanged;
+  const cliChanged = localClassification.cliChanged;
   const harnessChanged = changeClassification.harness;
   return {
     changedFiles,
@@ -612,20 +706,25 @@ export async function resolveRunContext(baseRef) {
     distRequired,
     codeChanged,
     productChanged,
+    fullProductVerification,
     tuiChanged,
     examplesChanged,
+    windowsChanged,
+    cliChanged,
     harnessChanged,
     missingDist,
-    buildReason: describeBuildReason({ distRequired, productChanged, missingDist }),
+    buildReason: describeBuildReason({
+      distRequired,
+      productChanged,
+      fullProductVerification,
+    }),
   };
 }
 
-function describeBuildReason({ distRequired, productChanged, missingDist }) {
-  if (distRequired) return 'the plan needs build output (ci.yml → build builds too)';
-  if (missingDist.length > 0)
-    return `${missingDist.length} package(s) have no dist/ — the dist-dependent scans would silently no-op`;
-  if (productChanged)
-    return 'code changed — ci.yml builds inside tui-e2e / examples-typecheck regardless of the plan';
+function describeBuildReason({ distRequired, productChanged, fullProductVerification }) {
+  if (fullProductVerification) return 'product-wide root or workspace graph change: full build';
+  if (distRequired) return 'the affected plan needs build output';
+  if (productChanged) return 'affected product capability requires build output';
   return 'skipped';
 }
 
@@ -660,7 +759,12 @@ function readMissingDistNow() {
 export function initialBuildState(selected, context) {
   const buildRuns =
     selected.some((stage) => stage.name === 'build') && stageGate('build', context).run;
-  return { buildPending: buildRuns, buildFailed: false, missingDist: context.missingDist };
+  return {
+    buildPending: buildRuns,
+    buildFailed: false,
+    missingDist: context.missingDist,
+    fullProductVerification: context.fullProductVerification === true,
+  };
 }
 
 /**
@@ -669,7 +773,9 @@ export function initialBuildState(selected, context) {
  */
 export function advanceBuildState(state, stage, code, readMissingDist = readMissingDistNow) {
   if (stage.name !== 'build') return state;
-  return { buildPending: false, buildFailed: code !== 0, missingDist: readMissingDist() };
+  const missingDist =
+    code === 0 && state.fullProductVerification === false ? [] : readMissingDist();
+  return { ...state, buildPending: false, buildFailed: code !== 0, missingDist };
 }
 
 /**
@@ -688,12 +794,9 @@ export function stageBlockCause(stage, state) {
 /**
  * Whether a stage runs, and why not when it does not.
  *
- * A stage skips only where CI's own job would be skipped or would do nothing, so a skip never
- * weakens the PASS line. The `build` gate is deliberately WIDER than ci.yml's `build` job condition:
- * `tui-e2e` and `examples-typecheck` each run `pnpm build:deps` inside their own job and never
- * consume the `build` artifact, and `scan-suite` hard-fails on absent dist — three dist consumers
- * the plan predicate alone does not see. Without the widening, a `scripts/harness` branch would skip
- * the build and then drive whatever stale binary happened to be in the worktree.
+ * Product stages are gated by the shared classifier's product and capability reachability verdicts.
+ * A harness/control-plane edit can require full contract fallback without becoming a full product
+ * change: those are separate decisions in CI and remain separate here.
  */
 export function stageGate(name, context) {
   switch (name) {
@@ -705,19 +808,24 @@ export function stageGate(name, context) {
             note: 'harness capability is not affected — CI skips only the hermetic tier',
           };
     case 'build':
-      return context.distRequired || context.productChanged || context.missingDist.length > 0
+      return context.productChanged
         ? { run: true }
         : {
             run: false,
-            note: 'no scope needs build output and dist is present — ci.yml → build skips too',
+            note: 'product capability is not affected — CI reports product build N/A',
           };
     case 'binary-e2e':
-      return context.distRequired
+      return context.cliChanged
         ? { run: true }
         : {
             run: false,
-            note: 'ci.yml gates it on `package_dist_required`, which this plan is not',
+            note: 'CLI capability is not affected — CI reports binary e2e N/A',
           };
+    case 'package-quality':
+    case 'scan-suite':
+      return context.productChanged
+        ? { run: true }
+        : { run: false, note: 'product capability is not affected — CI reports quality N/A' };
     case 'examples-typecheck':
       return context.examplesChanged
         ? { run: true }
@@ -796,7 +904,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   let context;
   try {
-    context = await resolveRunContext(options.baseRef);
+    context = await resolveRunContext(options.baseRef, { forceFull: options.full });
   } catch (error) {
     process.stderr.write(
       `\nverify-like-ci could not resolve what this branch changes: ${error?.message ?? error}\n` +

@@ -90,6 +90,19 @@ describe('createVerificationPlan', () => {
     expect(plan.unmappedFiles).toEqual([]);
   });
 
+  it('schedules source lint even when the workspace has no package-local lint script', () => {
+    const scopeWithoutLint = {
+      ...scopes[0],
+      scripts: { build: 'tsup', test: 'vitest run' },
+    };
+    const plan = createVerificationPlan({
+      scopes: [scopeWithoutLint],
+      changedFiles: ['packages/agent-core/src/agent.ts'],
+    });
+
+    expect(plan.scopes[0].checks).toContain('lint');
+  });
+
   it('keeps root and policy files visible instead of silently selecting no checks', () => {
     const plan = createVerificationPlan({
       scopes,

@@ -227,7 +227,10 @@ jobs:
       product: ${{ steps.filter.outputs.product }}
       tui: ${{ steps.filter.outputs.tui }}
       examples: ${{ steps.filter.outputs.examples }}
+      windows: ${{ steps.filter.outputs.windows }}
+      cli: ${{ steps.filter.outputs.cli }}
       harness: ${{ steps.filter.outputs.harness }}
+      full: ${{ steps.filter.outputs.full }}
     steps:
       # INFRA-050: `fetch-depth: 0`, and NO depth-limited fetch anywhere in this job. A `--depth`
       # fetch GRAFTS the whole repository (INFRA-049 measured 109 commits locally vs 97 — a
@@ -286,9 +289,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     env:
-      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
+      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' }}
     outputs:
       package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}
+      package_dist_complete: ${{ steps.build_requirement.outputs.complete || steps.build_requirement_na.outputs.complete }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — `harness:plan --base-ref origin/<base>`
@@ -316,6 +321,18 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Plan package-dist artifact membership
+        if: env.PRODUCT_APPLICABLE == 'true'
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          mkdir -p .agents/evals/local-metrics
+          if [[ "$FULL_VERIFICATION" == "true" ]]; then
+            pnpm harness:workspace:affected -- --operation build --full --format json > .agents/evals/local-metrics/workspace-build-plan.json
+          else
+            pnpm harness:workspace:affected -- --operation build --base-ref "$HARNESS_BASE_REF" --format json > .agents/evals/local-metrics/workspace-build-plan.json
+          fi
+
       - name: Show verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
@@ -332,16 +349,19 @@ jobs:
       - name: Detect build requirement
         id: build_requirement
         if: env.PRODUCT_APPLICABLE == 'true'
+        env:
+          FULL_VERIFICATION: ${{ env.FULL_VERIFICATION }}
         run: |
           node --input-type=module <<'EOF'
           import { appendFileSync, readFileSync } from 'node:fs';
 
           const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
           const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck']);
-          const required = plan.scopes.some((scope) =>
+          const required = process.env.FULL_VERIFICATION === 'true' || plan.scopes.some((scope) =>
             scope.checks.some((check) => checksRequiringPackageDist.has(check)),
           );
           appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `complete=${process.env.FULL_VERIFICATION === 'true' ? 'true' : 'false'}\n`);
 
           if (required) {
             console.log('Package or app verification requires the root monorepo build output.');
@@ -350,13 +370,50 @@ jobs:
           }
           EOF
 
-      - name: Build monorepo
+      - name: Build full or affected workspace
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
-        run: pnpm build
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          if [[ "$FULL_VERIFICATION" == "true" ]]; then
+            pnpm build
+          else
+            pnpm build:affected
+          fi
 
       - name: Archive package build output
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
-        run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
+        shell: bash
+        run: |
+          node --input-type=module <<'EOF'
+          import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+          import { readWorkspaceGraph } from './scripts/harness/workspace-affected.mjs';
+
+          const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/workspace-build-plan.json', 'utf8'));
+          const graph = readWorkspaceGraph(process.cwd());
+          const byName = new Map(graph.packages.map((item) => [item.name, item]));
+          const selected = plan.mode === 'global' ? graph.packages : plan.packages.map((item) => byName.get(item.name));
+          if (selected.some((item) => !item)) throw new Error('build plan references an unknown workspace');
+
+          const containsDistPath = (value) => {
+            if (typeof value === 'string') return /(?:^|\/)dist\//u.test(value);
+            if (!value || typeof value !== 'object') return false;
+            return Object.values(value).some(containsDistPath);
+          };
+          const required = [];
+          for (const item of selected) {
+            if (!item.directory.startsWith('packages/')) continue;
+            const manifest = JSON.parse(readFileSync(`${item.directory}/package.json`, 'utf8'));
+            if (!containsDistPath({ main: manifest.main, types: manifest.types, exports: manifest.exports, bin: manifest.bin })) continue;
+            const dist = `${item.directory}/dist`;
+            if (!existsSync(dist)) throw new Error(`planned build output is missing: ${dist}`);
+            required.push(dist);
+          }
+          if (required.length === 0) throw new Error('build plan produced no package dist contract');
+          writeFileSync('.agents/evals/local-metrics/package-dist-membership.bin', `${required.join('\0')}\0`);
+          console.log(`Verified ${required.length} planned package dist directories.`);
+          EOF
+          tar --null -czf package-dist.tgz --files-from .agents/evals/local-metrics/package-dist-membership.bin
 
       - name: Upload package build output
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
@@ -377,6 +434,7 @@ jobs:
         run: |
           echo "Infrastructure-only change: product build is not applicable."
           echo "required=false" >> "$GITHUB_OUTPUT"
+          echo "complete=false" >> "$GITHUB_OUTPUT"
 
   quality:
     name: quality
@@ -384,7 +442,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes, build]
     env:
-      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
+      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' }}
+      CLI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.cli == 'true' }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
@@ -408,6 +468,15 @@ jobs:
           node-version: '22.x'
           cache: 'pnpm'
 
+      - name: Restore cross-head ESLint content cache
+        if: env.PRODUCT_APPLICABLE == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/eslint/ci.cache
+          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            robota-eslint-content-v1-${{ runner.os }}-node22-
+
       - name: Install dependencies
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
@@ -423,29 +492,61 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         run: tar -xzf .artifacts/package-dist/package-dist.tgz
 
-      - name: Verify affected quality checks
-        if: env.PRODUCT_APPLICABLE == 'true'
-        run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check --skip-repository-check harness-tests
+      - name: Guarantee CLI binary target dist
+        if: env.CLI_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        run: pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_binary_target__.ts --changed-file packages/agent-cli-web/src/__ci_binary_target__.ts
 
-      # issue #1984 — the lint-warning CEILING runs on EVERY pull request, not only the promotion.
-      #
-      # The ceiling is `--max-warnings` on the root `lint` script, and until this step existed the
-      # only CI path that executed it was `release-grade verification`, which is required on pull
-      # requests to `main` and therefore runs once per promotion. Measured 2026-08-23: 111 warnings
-      # had accumulated across 42 commits with every develop pull request green, and the first thing
-      # to notice was a promotion that could not merge. A ratchet nothing turns is a number.
-      #
-      # It lives HERE and not in `harness:scan`: that scan runs on every pre-push and a full
-      # workspace lint is minutes, which `scan-lint-warning-ratchet.mjs` rejects for that reason. CI
-      # has the time and the pre-push path does not. `quality` is already a required context on
-      # develop, so this gates without a ruleset change.
-      #
-      # `--cache` is deliberate and load-bearing for the runtime; the count it reports is unaffected.
-      - name: Lint-warning ceiling
+      - name: Verify full or affected package quality concurrently
         if: env.PRODUCT_APPLICABLE == 'true'
-        run: pnpm lint
+        shell: bash
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          set +e
+          mkdir -p .cache/eslint
+          labels=()
+          pids=()
+          logs=()
 
-      # INFRA-037: build-contracts is the ONE scan that reads packages/*/dist (validates that declared
+          start_check() {
+            local label="$1"
+            shift
+            local log_file="${RUNNER_TEMP}/quality-${label}.log"
+            labels+=("$label")
+            logs+=("$log_file")
+            "$@" >"$log_file" 2>&1 &
+            pids+=("$!")
+          }
+
+          if [[ "$FULL_VERIFICATION" == "true" ]]; then
+            start_check test pnpm test
+            start_check typecheck pnpm typecheck
+            start_check lint pnpm lint
+          else
+            start_check test pnpm test:affected
+            start_check typecheck pnpm typecheck:affected
+            start_check lint pnpm lint:affected
+            start_check lint-ceiling pnpm exec eslint packages apps --ext .ts,.tsx --cache --cache-location .cache/eslint/ci.cache --cache-strategy content --max-warnings 2203
+          fi
+
+          failed=0
+          for index in "${!pids[@]}"; do
+            status=0
+            wait "${pids[$index]}" || status=$?
+            echo "::group::${labels[$index]} (exit ${status})"
+            if ! cat "${logs[$index]}"; then
+              echo "::error::${labels[$index]} log is missing or unreadable"
+              status=1
+            fi
+            echo "::endgroup::"
+            if (( status != 0 )); then
+              echo "::error::${labels[$index]} failed with child status ${status}"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      # INFRA-037: build-contracts is the ONE scan that reads built package dist outputs (validates that declared
       # main/types/exports paths resolve to built files) and silently no-ops without dist. It stays in
       # `quality` (which restores dist above) so its coverage is preserved; the other 47 scans + the
       # harness test suite moved to the `needs`-less `scans` job (parallel with build). The full scan
@@ -455,12 +556,16 @@ jobs:
         run: pnpm harness:scan:build-contracts
 
       # RUNTIME-001: build-gated black-box e2e for the real `robota --serve` binary (+ the cross-fidelity
-      # bintest). These spawn the built CLI, so they need packages/*/dist (restored above) — hence they run
+      # bintest). These spawn the built CLI, so they need restored package dist output — hence they run
       # here rather than in the dist-independent `scans` job. Deterministic (replay provider over loopback
       # WS; no model key, no network). Gated on dist actually being restored so unrelated PRs skip cleanly.
       - name: Binary e2e (agent-cli bintests, dist-dependent)
-        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
+        if: env.CLI_APPLICABLE == 'true'
         run: pnpm --filter @robota-sdk/agent-cli test:bin
+
+      - name: Binary e2e not applicable
+        if: env.PRODUCT_APPLICABLE == 'true' && env.CLI_APPLICABLE != 'true'
+        run: echo "This change cannot reach the agent CLI binary."
 
       - name: Product verification not applicable
         if: env.PRODUCT_APPLICABLE != 'true'
@@ -475,6 +580,7 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       # INFRA-050: full history. `harness:scan` contains a base-history gate
@@ -497,19 +603,28 @@ jobs:
           node-version: '22.x'
           cache: 'pnpm'
 
+      # A unique primary key makes every completed run publish an immutable snapshot. Restore may
+      # cross heads because every marker is content-addressed and revalidated against the test's
+      # complete implementation/input key before it can count as a hit.
+      - name: Restore cross-head contract-test content cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/robota-contract-tests
+          key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            robota-contract-tests-v1-${{ runner.os }}-node22-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # INFRA-093: live-repository contract tests inspect product/docs/policy content, so they remain
-      # unconditional. Only the stripped-root-proven hermetic tier is path-gated. A failed changes
-      # job or missing output runs it too; only an explicit harness=false may skip it.
-      - name: Harness repository-contract test suite
-        run: pnpm harness:test:contracts
-
-      - name: Harness hermetic test suite
-        if: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
-        run: pnpm harness:test:hermetic
-
+      # INFRA-151: the contract selector owns fail-closed fallback to the full four-shard suite.
+      # Contracts, the affected dist-independent scan, and (when applicable) hermetic tests are
+      # independent after installation, so run them concurrently. Each child writes a complete log;
+      # every result is collected before the aggregate exits, and any non-zero status (including a
+      # signal-derived status), missing child result, or unreadable log fails this required context.
+      # A failed changes job or missing harness output runs hermetic tests too; only a proven
+      # harness=false may omit that tier.
+      #
       # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
       # `dist` is a LOCAL pre-CI freshness check (a fresh checkout has no dist to measure — skip printed,
       # never silent); `build-contracts` (INFRA-037) is dist-dependent and runs in the `quality` job after
@@ -542,11 +657,54 @@ jobs:
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
         run: printf '%s' "$PR_BODY" > "$HARNESS_PR_BODY_FILE"
 
-      - name: Harness scan suite (dist-independent)
+      - name: Harness affected verification (concurrent, dist-independent)
         env:
           GH_TOKEN: ${{ github.token }}
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
-        run: pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"
+          RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
+        shell: bash
+        run: |
+          set +e
+
+          labels=()
+          pids=()
+          logs=()
+
+          start_check() {
+            local label="$1"
+            shift
+            local log_file="${RUNNER_TEMP}/scans-${label}.log"
+            labels+=("$label")
+            logs+=("$log_file")
+            "$@" >"$log_file" 2>&1 &
+            pids+=("$!")
+          }
+
+          start_check contracts \
+            pnpm harness:test:contracts:affected -- --base-ref "origin/${GITHUB_BASE_REF}" --head-ref HEAD
+          start_check scans \
+            pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "origin/${GITHUB_BASE_REF}"
+          if [[ "$RUN_HERMETIC" == "true" ]]; then
+            start_check hermetic pnpm harness:test:hermetic
+          fi
+
+          failed=0
+          for index in "${!pids[@]}"; do
+            status=0
+            wait "${pids[$index]}" || status=$?
+            echo "::group::${labels[$index]} (exit ${status})"
+            if ! cat "${logs[$index]}"; then
+              echo "::error::${labels[$index]} log is missing or unreadable"
+              status=1
+            fi
+            echo "::endgroup::"
+            if (( status != 0 )); then
+              echo "::error::${labels[$index]} failed with child status ${status}"
+              failed=1
+            fi
+          done
+
+          exit "$failed"
 
   dependency-audit:
     name: dependency audit
@@ -855,7 +1013,8 @@ jobs:
     # NOT turn this required check into a skip; the job runs and falls back to building.
     needs: [changes, build]
     env:
-      EXAMPLES_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.examples == 'true' }}
+      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
+      EXAMPLES_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.examples == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -867,7 +1026,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.EXAMPLES_APPLICABLE == 'true'
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         if: env.EXAMPLES_APPLICABLE == 'true'
@@ -911,13 +1070,39 @@ jobs:
           tar -xzf .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build packages (only when the artifact was not restored)
-        if: env.EXAMPLES_APPLICABLE == 'true' && steps.restore.outputs.restored != 'true'
-        run: pnpm build:deps
+      # A restored affected archive is intentionally incomplete. Resolve the affected examples,
+      # then synthesize those owners into one build plan so their complete dependency dist closure
+      # exists without traversing unrelated reverse dependents.
+      - name: Guarantee affected example consumer dist
+        if: env.EXAMPLES_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        shell: bash
+        run: |
+          plan_file="${RUNNER_TEMP}/examples-affected-plan.json"
+          targets_file="${RUNNER_TEMP}/examples-affected-targets.txt"
+          pnpm harness:workspace:affected -- --operation examples-typecheck --base-ref "$HARNESS_BASE_REF" --format json >"$plan_file"
+          PLAN_FILE="$plan_file" node --input-type=module <<'EOF' >"$targets_file"
+          import { readFileSync } from 'node:fs';
+          const plan = JSON.parse(readFileSync(process.env.PLAN_FILE, 'utf8'));
+          if (plan.mode !== 'packages' || plan.packages.length === 0) process.exit(2);
+          for (const item of plan.packages) console.log(`${item.directory}/__ci_consumer_target__.ts`);
+          EOF
+          mapfile -t targets <"$targets_file"
+          args=(harness:workspace:run -- --operation build)
+          for target in "${targets[@]}"; do args+=(--changed-file "$target"); done
+          pnpm "${args[@]}"
 
       - name: Typecheck examples
         if: env.EXAMPLES_APPLICABLE == 'true'
-        run: pnpm examples:typecheck
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          if [[ "$FULL_VERIFICATION" == "true" ]]; then
+            pnpm examples:typecheck
+          else
+            pnpm examples:typecheck:affected
+          fi
 
       - name: Examples verification not applicable
         if: env.EXAMPLES_APPLICABLE != 'true'
@@ -933,7 +1118,7 @@ jobs:
     runs-on: windows-latest
     needs: changes
     env:
-      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
+      WINDOWS_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.windows == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -943,29 +1128,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build agent-core + agent-process + agent-executor for dependent tests
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
         # minimal job resolves workspace deps from built dist, so agent-process must be built too.
         run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process --filter @robota-sdk/agent-executor build
@@ -998,13 +1183,13 @@ jobs:
       # scope. Measured: touching `platform-shell.ts` selects `packages/agent-core: build, test,
       # lint, typecheck`, which the REQUIRED `quality` job runs.
       - name: Verify the Shell tool actually spawns PowerShell on Windows
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         # The genuinely win32-only half: it SPAWNS a real shell and asserts PowerShell answers. No
         # Linux or macOS runner can execute this, which is what buys the runner the job runs on.
         run: pnpm --filter @robota-sdk/agent-tools exec vitest run shell-tool
 
       - name: Verify executor runners use default PowerShell
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         shell: pwsh
         run: |
           $env:ROBOTA_SCENARIO_OUTPUT = "$env:RUNNER_TEMP\arch-026-windows-shell.json"
@@ -1012,15 +1197,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload ARCH-026 Windows scenario evidence
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.WINDOWS_APPLICABLE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: arch-026-windows-shell-${{ github.run_id }}
           path: ${{ runner.temp }}/arch-026-windows-shell.json
           if-no-files-found: error
 
-      - name: Product verification not applicable
-        if: env.PRODUCT_APPLICABLE != 'true'
+      - name: Windows verification not applicable
+        if: env.WINDOWS_APPLICABLE != 'true'
         run: echo "This change does not affect Windows product behavior."
 
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
@@ -1032,7 +1217,8 @@ jobs:
     # See examples-typecheck: `!cancelled()` keeps a failed `build` from skipping this required check.
     needs: [changes, build]
     env:
-      TUI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.tui == 'true' }}
+      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
+      TUI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.tui == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -1044,7 +1230,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.TUI_APPLICABLE == 'true'
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         if: env.TUI_APPLICABLE == 'true'
@@ -1088,9 +1274,11 @@ jobs:
           tar -xzf .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build packages (only when the artifact was not restored — provides the robota binary)
-        if: env.TUI_APPLICABLE == 'true' && steps.restore.outputs.restored != 'true'
-        run: pnpm build:deps
+      # PTY tests execute the CLI/TUI target, not merely the changed owner. Complete exactly those
+      # targets' dependency graph after any partial restore; do not traverse reverse dependents.
+      - name: Guarantee CLI and TUI consumer dist
+        if: env.TUI_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        run: pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_consumer_target__.ts --changed-file packages/agent-transport-tui/src/__ci_consumer_target__.ts
 
       - name: Run the TUI PTY E2E suite against the real binary
         if: env.TUI_APPLICABLE == 'true'
@@ -1180,6 +1368,8 @@ jobs:
     # this job can no longer start before `build` finishes. It is advisory and blocks nothing, so
     # what it costs is a later advisory verdict, not a later merge.
     needs: [changes, build]
+    env:
+      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -1228,14 +1418,14 @@ jobs:
         if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
         run: tar -xzf .artifacts/package-dist/package-dist.tgz
 
-      # The fallback is NOT belt-and-braces. `package_dist_required` is `build`'s own judgement about
-      # whether the CHANGE needs built output; this job's `detect` is a different question — whether
-      # the changed LINES live in packages whose suites import sibling dist. The two can disagree,
-      # and when they do, coverage computed against absent dist would under-report in silence, which
-      # is the vacuity this repository refuses. So the build still happens in exactly that case.
-      - name: Build workspace packages (only when no dist artifact exists)
-        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required != 'true'
-        run: pnpm build:deps
+      # Coverage consumes changed package tests and their imports. A partial restore is not enough;
+      # complete exactly the changed owners' build prerequisites. A successful full producer needs
+      # no duplicate work.
+      - name: Guarantee affected coverage dist
+        if: steps.detect.outputs.affected == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        env:
+          HARNESS_BASE_REF: origin/${{ github.base_ref }}
+        run: pnpm build:affected
 
       - name: Compute patch coverage over changed lines
         if: steps.detect.outputs.affected == 'true'

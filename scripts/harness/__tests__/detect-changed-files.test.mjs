@@ -178,7 +178,7 @@ describe('detectChangedFiles unions the working tree with the base diff (INFRA-0
     const result = run(VERIFY_SCRIPT, root, ['--skip-record-check']);
     // Pre-fix: "No package or app scope detected" — a green run that verified nothing.
     expect(result.stdout).not.toContain('No package or app scope detected');
-    expect(result.stdout).toContain('packages/widget');
+    expect(result.stdout).toContain('Scope coverage: 1 of 1 workspace scopes.');
   });
 
   it('a file changed in BOTH the working tree and the branch appears once', async () => {

@@ -92,9 +92,12 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
-          queries: security-and-quality
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
+          # JS/TS is interpreted. Explicit no-build mode enables CodeQL's pull-request overlay
+          # database path and avoids spending a step discovering that there is nothing to compile.
+          # The required PR gate uses CodeQL's default security suite. The broader
+          # security-and-quality suite remains on develop in codeql.yml, where it does not extend
+          # every pull request's critical path.
+          build-mode: none
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
