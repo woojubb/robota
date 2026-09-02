@@ -5,11 +5,13 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
+  correctionCheckpointEvidence,
   continuationCheckpointEvidence,
   firstCheckpointEvidence,
 } from '../gate-checkpoint-evidence.mjs';
 import {
   formatCheckpointEvidence,
+  parseCheckpointEvidence,
   parseCheckpointEvidenceContracts,
   priorPassDigest,
   rawGateImplementPassEntries,
@@ -234,7 +236,7 @@ describe('gate checkpoint evidence renderer', () => {
     const taskRel = `.agents/tasks/${basename}`;
     const specRel = `.agents/spec-docs/active/${basename}`;
     const taskText =
-      'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This internal repository checkpoint fixture exposes no runnable Robota product behavior or observable user action.';
+      '---\nstatus: in-progress\n---\n\nTC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This internal repository checkpoint fixture exposes no runnable Robota product behavior or observable user action.';
     const contract = parseCheckpointEvidenceContracts(ruleText).contracts.get(1);
     const rendered = formatCheckpointEvidence(contract, 'gateImplementFirst', {
       version: 1,
@@ -282,5 +284,67 @@ describe('gate checkpoint evidence renderer', () => {
     expect(() =>
       continuationCheckpointEvidence({ root, ruleText, specText, taskText, taskRel, specRel }),
     ).toThrow(/historical.*Decision|corrective checkpoint/i);
+
+    const correctionLines = correctionCheckpointEvidence({
+      root,
+      ruleText,
+      specText,
+      taskText,
+      taskRel,
+      specRel,
+    });
+    const correctionBody = [
+      '### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02',
+      '',
+      '**Status upgrade:** in-progress → in-progress (correction)',
+      '',
+      ...correctionLines,
+      '',
+    ].join('\n');
+    const correctedSpec = `${specText}${correctionBody}`;
+    writeFileSync(file, correctedSpec);
+    git(['add', specRel]);
+    git(['commit', '-q', '-m', 'explicit correction checkpoint']);
+
+    const correctionRaw = rawGateImplementPassEntries(correctedSpec).at(-1);
+    const correctionContract = parseCheckpointEvidenceContracts(ruleText).contracts.get(2);
+    const parsedCorrection = parseCheckpointEvidence(
+      correctionContract,
+      'gateImplementCorrection',
+      correctionRaw,
+    );
+    expect(parsedCorrection.ok, parsedCorrection.ok ? '' : parsedCorrection.error).toBe(true);
+    expect(parsedCorrection.payload).toMatchObject({
+      deliveryMode: 'sequenced',
+      priorPass: priorPassDigest(rawGateImplementPassEntries(specText)[0]),
+      firstPassIntroductionSha: expect.stringMatching(/^[0-9a-f]{40}$/),
+    });
+
+    expect(() =>
+      continuationCheckpointEvidence({
+        root,
+        ruleText,
+        specText: correctedSpec,
+        taskText,
+        taskRel,
+        specRel,
+      }),
+    ).toThrow(/correction.*not yet on integration base/i);
+    git(['update-ref', 'refs/remotes/origin/develop', 'HEAD']);
+
+    const continuationLines = continuationCheckpointEvidence({
+      root,
+      ruleText,
+      specText: correctedSpec,
+      taskText,
+      taskRel,
+      specRel,
+    });
+    expect(continuationLines.join('\n')).toContain('"form": "gateImplementContinuation"');
+    expect(continuationLines.join('\n')).toContain(
+      `"priorPass": "${priorPassDigest(correctionRaw)}"`,
+    );
   });
 });
+// harness-coverage: gate-checkpoint-evidence-common.mjs
+// harness-coverage: gate-correction-checkpoint-evidence.mjs

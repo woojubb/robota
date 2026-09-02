@@ -66,6 +66,7 @@ An L0 change has no spec document and never enters this skill.
 | `approved`                                                                                                                                                             | L1   | `gate.mjs judge --gate DONE` (GATE-VERIFY + GATE-COMPLETE criteria)                              | `done`                        |
 | `approved`                                                                                                                                                             | L2   | `gate.mjs judge --gate GATE-IMPLEMENT`, then guard on the semantic set                           | `in-progress`                 |
 | `in-progress`, spec § Decision sequences delivery, and `git log <base>..HEAD -- .agents/spec-docs/active/<ID>.md` is empty (no checkpoint of this pair on this branch) | L2   | `gate.mjs judge --gate GATE-IMPLEMENT --continuation`, then guard on the semantic set            | `in-progress` (no transition) |
+| `in-progress`, the sole first PASS is legacy v1 without historical delivery facts, and current § Decision declares sequenced delivery                                  | L2   | `gate.mjs judge --gate GATE-IMPLEMENT --correction`, then guard on the semantic set              | `in-progress` (no transition) |
 | `in-progress`                                                                                                                                                          | L2   | `gate.mjs judge --gate GATE-VERIFY`, then guard on the semantic set                              | `verifying`                   |
 | `verifying`                                                                                                                                                            | L2   | `gate.mjs judge --gate GATE-COMPLETE`, then guard on the semantic set                            | `done`                        |
 | `done`                                                                                                                                                                 | any  | No action. Pipeline is complete.                                                                 | —                             |
@@ -105,6 +106,9 @@ work, and before a `develop → main` release. See
    `GATE-IMPLEMENT (continuation)` prior-gate row, writes the declared continuation payload, and leaves
    the status `in-progress`. Dispatch the guard only for semantic residue, exactly as for the first
    GATE-IMPLEMENT run.
+   For the legacy-v1 recovery row, pass `--correction`; the script resolves the annotated correction
+   ordering row and writes the declared correction payload. This is accepted exactly once only when
+   immutable introduction evidence proves the delivery facts were historically absent.
 2. For GATE-APPROVAL (and the L1 PLAN gate, which contains it), the approval is recorded by
    `node scripts/harness/gate.mjs approve --doc <PATH> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>]`
    — the instruction is quoted verbatim, and Route CLASS names a class from the registry in

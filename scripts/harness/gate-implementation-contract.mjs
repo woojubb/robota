@@ -8,18 +8,28 @@ import {
 } from './user-execution-plan-contract.mjs';
 
 export function resolveContinuationGate(options, requested, lane) {
-  if (!options.continuation) return null;
-  if (requested !== 'GATE-IMPLEMENT' || lane !== 'L2') {
-    throw new Error('--continuation is supported only for L2 GATE-IMPLEMENT');
+  if (!options.continuation && !options.correction) return null;
+  if (options.continuation && options.correction) {
+    throw new Error('--continuation and --correction are mutually exclusive');
   }
+  if (requested !== 'GATE-IMPLEMENT' || lane !== 'L2') {
+    throw new Error(
+      `${options.correction ? '--correction' : '--continuation'} is supported only for L2 GATE-IMPLEMENT`,
+    );
+  }
+  const correction = Boolean(options.correction);
   return {
     name: requested,
     composes: [requested],
     select: {},
-    upgrade: ['in-progress', 'in-progress (continuation)'],
+    upgrade: [
+      'in-progress',
+      correction ? 'in-progress (correction)' : 'in-progress (continuation)',
+    ],
     prior: undefined,
-    priorKey: 'GATE-IMPLEMENT (continuation)',
-    continuation: true,
+    priorKey: correction ? 'GATE-IMPLEMENT (correction)' : 'GATE-IMPLEMENT (continuation)',
+    continuation: !correction,
+    correction,
     lane,
   };
 }

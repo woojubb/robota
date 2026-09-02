@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
 
 import {
+  CHECKPOINT_EVIDENCE_CONTRACT_MARKERS,
   parseCheckpointEvidenceContract,
+  parseCheckpointEvidenceContracts,
   rawGateImplementPassEntries,
 } from './checkpoint-evidence-contract.mjs';
 import { envWithoutGitVars } from './shared.mjs';
@@ -36,6 +38,17 @@ function validAt(root, revision) {
   return rule !== null && parseCheckpointEvidenceContract(rule).ok;
 }
 
+function correctionValidAt(root, revision) {
+  const rule = gitText(root, revision, RULE_PATH);
+  if (rule === null) return false;
+  const parsed = parseCheckpointEvidenceContracts(rule);
+  return (
+    parsed.ok &&
+    rule.split(CHECKPOINT_EVIDENCE_CONTRACT_MARKERS.correctionForm).length - 1 === 1 &&
+    parsed.contracts.get(2)?.forms?.gateImplementCorrection !== undefined
+  );
+}
+
 export function checkpointEvidenceContractState(root, revision = 'HEAD') {
   const listed = runGit(root, ['rev-list', '--reverse', revision, '--', RULE_PATH]);
   if (listed.code !== 0) {
@@ -46,6 +59,11 @@ export function checkpointEvidenceContractState(root, revision = 'HEAD') {
   const commits = lines(listed.stdout);
   const markerCommits = commits.filter((commit) =>
     String(gitText(root, commit, RULE_PATH) ?? '').includes('checkpoint-evidence-contract:v1:'),
+  );
+  const correctionMarkerCommits = commits.filter((commit) =>
+    String(gitText(root, commit, RULE_PATH) ?? '').includes(
+      CHECKPOINT_EVIDENCE_CONTRACT_MARKERS.correctionForm,
+    ),
   );
   const cutovers = commits.filter((commit) => {
     if (!validAt(root, commit)) return false;
@@ -61,7 +79,28 @@ export function checkpointEvidenceContractState(root, revision = 'HEAD') {
       .slice(1)
       .every((parent) => !validAt(root, parent));
   });
-  return { cutovers, markerCommits, valid: validAt(root, revision) };
+  const correctionCutovers = commits.filter((commit) => {
+    if (!correctionValidAt(root, commit)) return false;
+    const parents = runGit(root, ['rev-list', '--parents', '-n', '1', commit]);
+    if (parents.code !== 0) {
+      throw new Error(
+        `cannot inspect correction-form contract parents: ${parents.stderr || '(no stderr)'}`,
+      );
+    }
+    return parents.stdout
+      .trim()
+      .split(/\s+/)
+      .slice(1)
+      .every((parent) => !correctionValidAt(root, parent));
+  });
+  return {
+    cutovers,
+    markerCommits,
+    valid: validAt(root, revision),
+    correctionCutovers,
+    correctionMarkerCommits,
+    correctionValid: correctionValidAt(root, revision),
+  };
 }
 
 function entryCounts(specText) {
@@ -157,12 +196,13 @@ export function checkpointIntroductionSpec(root, revision, basename, rawEntry) {
 export function checkpointHistoryBindings(root, revision, parentRevision, basename) {
   const specPath = `${SPEC_PREFIX}active/${basename}`;
   const entries = rawGateImplementPassEntries(gitText(root, revision, specPath));
+  const introductions = entries.map((entry) =>
+    checkpointIntroductionSpec(root, revision, basename, entry),
+  );
   return {
     ancestorSha: precedingCheckpointIntegrationCommit(root, parentRevision, basename),
-    introductionSpecs: entries.map((entry) => {
-      const introduced = checkpointIntroductionSpec(root, revision, basename, entry);
-      return introduced?.specText ?? null;
-    }),
+    introductionSpecs: introductions.map((introduced) => introduced?.specText ?? null),
+    introductionShas: introductions.map((introduced) => introduced?.commit ?? null),
   };
 }
 

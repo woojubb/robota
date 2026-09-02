@@ -8,7 +8,17 @@ export {
   taskItemsForCheckpoint,
 } from './checkpoint-evidence-source.mjs';
 
-import { CONTRACT_SHAPE, CONTRACT_SHAPE_V2 } from './checkpoint-evidence-contract-shapes.mjs';
+import {
+  CONTRACT_SHAPE,
+  CONTRACT_SHAPE_V2,
+  CONTRACT_SHAPE_V2_LEGACY,
+} from './checkpoint-evidence-contract-shapes.mjs';
+import {
+  CORRECTION_FORM_MARKER,
+  correctionFormMarkerState,
+  validateV2GateImplementDelivery,
+  validateV2GateImplementIdentity,
+} from './checkpoint-evidence-contract-v2.mjs';
 
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
@@ -248,38 +258,16 @@ function validatePayload(contract, formName, payload) {
     });
     if (pathsError) return pathsError;
     if (contract.version === 2) {
-      if (!['single', 'sequenced'].includes(payload.deliveryMode)) {
-        return `${formName}.deliveryMode must be single or sequenced`;
-      }
-      const artifactsError = validateStringArray(payload.sequencedArtifacts, 'sequencedArtifacts', {
-        allowEmpty: true,
-      });
-      if (artifactsError) return artifactsError;
-      if (payload.deliveryMode === 'single' && payload.sequencedArtifacts.length !== 0) {
-        return `${formName} single delivery requires an empty sequencedArtifacts array`;
-      }
-      if (payload.deliveryMode === 'sequenced' && payload.sequencedArtifacts.length === 0) {
-        return `${formName} sequenced delivery requires a non-empty sequencedArtifacts array`;
-      }
-      if (formName === 'gateImplementContinuation' && payload.deliveryMode !== 'sequenced') {
-        return 'gateImplementContinuation requires sequenced delivery';
-      }
+      const deliveryError = validateV2GateImplementDelivery(formName, payload, validateStringArray);
+      if (deliveryError) return deliveryError;
     }
   }
-  if (formName === 'gateImplementFirst') {
+  if (['gateImplementFirst', 'gateImplementCorrection'].includes(formName)) {
     const itemsError = validateTaskItems(payload.taskItems);
     if (itemsError) return itemsError;
   }
-  if (formName === 'gateImplementContinuation') {
-    if (!/^sha256:[0-9a-f]{64}$/.test(payload.priorPass)) {
-      return 'gateImplementContinuation.priorPass must be sha256 lowercase hex';
-    }
-    const artifactsError = validateStringArray(payload.sequencedArtifacts, 'sequencedArtifacts');
-    if (artifactsError) return artifactsError;
-    if (!/^[0-9a-f]{40}$/.test(payload.ancestorSha)) {
-      return 'gateImplementContinuation.ancestorSha must be a full lowercase commit SHA';
-    }
-  }
+  const identityError = validateV2GateImplementIdentity(formName, payload, validateStringArray);
+  if (identityError) return identityError;
   if (formName === 'doneGateStageOne') {
     if (!['automatable', 'manual'].includes(payload.outcome)) {
       return 'doneGateStageOne.outcome is unsupported';
@@ -387,6 +375,9 @@ function parseContractRegion(source, { version, start, end, shape }) {
 
 export function parseCheckpointEvidenceContracts(ruleText) {
   const source = String(ruleText);
+  const correction = correctionFormMarkerState(source);
+  if (correction.error) return failure(correction.error);
+  const correctionMarkers = correction.count;
   const known = [
     { version: 1, start: CONTRACT_START, end: CONTRACT_END, shape: CONTRACT_SHAPE },
     { version: 2, start: CONTRACT_V2_START, end: CONTRACT_V2_END, shape: CONTRACT_SHAPE_V2 },
@@ -406,7 +397,10 @@ export function parseCheckpointEvidenceContracts(ruleText) {
   }
   const contracts = new Map();
   for (const entry of known) {
-    const parsed = parseContractRegion(source, entry);
+    let parsed = parseContractRegion(source, entry);
+    if (!parsed.ok && entry.version === 2 && correctionMarkers === 0) {
+      parsed = parseContractRegion(source, { ...entry, shape: CONTRACT_SHAPE_V2_LEGACY });
+    }
     if (!parsed.ok) return parsed;
     contracts.set(entry.version, parsed.contract);
   }
@@ -464,4 +458,5 @@ export const CHECKPOINT_EVIDENCE_CONTRACT_MARKERS = Object.freeze({
   end: CONTRACT_END,
   v2Start: CONTRACT_V2_START,
   v2End: CONTRACT_V2_END,
+  correctionForm: CORRECTION_FORM_MARKER,
 });

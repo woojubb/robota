@@ -234,6 +234,7 @@ export function checkpointDeliveryBindingError({
   introductionSpec,
   appendedForm,
   priorEntryCount,
+  hasCorrection = false,
 }) {
   const appendsContinuation = appendedForm === 'continuation' && priorEntryCount >= 1;
   const introducesContinuation = appendsContinuation && priorEntryCount === 1;
@@ -241,6 +242,7 @@ export function checkpointDeliveryBindingError({
     contract.version === 1 &&
     formName === 'gateImplementFirst' &&
     appendsContinuation &&
+    !hasCorrection &&
     introductionSpec !== undefined
   ) {
     if (introductionSpec === null) {

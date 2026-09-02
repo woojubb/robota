@@ -73,6 +73,7 @@ const CATALOGUE = `# Gate Catalogue
 | GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |
 | GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |
 | GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) |
+| GATE-IMPLEMENT (correction) | GATE-IMPLEMENT                 | \`in-progress\` (legacy v1 recovery only) |
 | GATE-VERIFY    | GATE-IMPLEMENT                 | \`in-progress\`                |
 | GATE-COMPLETE  | GATE-VERIFY                    | \`verifying\`                  |
 
@@ -1723,6 +1724,44 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     return { root, doc, contracts, ancestorSha, priorRaw };
   }
 
+  function correctionWorkspace() {
+    const task = TASK.replace('status: todo', 'status: in-progress');
+    const spec = conformingSpec({ status: 'in-progress', folder: 'active', lane: 'L2' });
+    const { root, doc } = makeWorkspace({ spec, folder: 'active', task });
+    const git = gitInit(root);
+    const contracts = parseCheckpointEvidenceContracts(
+      readFileSync(path.join(root, '.agents/rules/backlog-execution.md'), 'utf8'),
+    ).contracts;
+    const first = formatCheckpointEvidence(contracts.get(1), 'gateImplementFirst', {
+      version: 1,
+      form: 'gateImplementFirst',
+      taskPath: TASK_REL,
+      specPath: `.agents/spec-docs/todo/${SPEC_ID}.md`,
+      taskItems: [
+        { kind: 'tc-id', value: 'TC-01' },
+        { kind: 'tc-id', value: 'TC-02' },
+      ],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [`.agents/spec-docs/todo/${SPEC_ID}.md`, TASK_REL].sort(),
+    });
+    if (!first.ok) throw new Error(first.error);
+    writeFileSync(
+      doc,
+      `${readFileSync(doc, 'utf8')}\n### [GATE-IMPLEMENT] — ✅ PASS | ${DATE}\n\n**Status upgrade:** approved → in-progress\n\n${first.text}\n`,
+    );
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'legacy v1 first checkpoint']);
+    const firstIntroductionSha = git(['rev-parse', 'HEAD']).stdout.trim();
+    writeFileSync(
+      doc,
+      readFileSync(doc, 'utf8').replace(
+        '**Delivery mode:** `single`',
+        '**Delivery mode:** `sequenced`\n\n**Continuation artifacts:** `scripts/harness/gate.mjs`',
+      ),
+    );
+    return { root, doc, contracts, firstIntroductionSha };
+  }
+
   it('passes when only the paired spec/Task and the PLAN ledger are dirty', () => {
     const { root, doc } = approvedWorkspace();
     gitInit(root);
@@ -1833,6 +1872,86 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
       plan: { outcome: 'not-applicable', count: 0 },
       worktreePaths: [`.agents/spec-docs/active/${SPEC_ID}.md`, TASK_REL].sort(),
     });
+  });
+
+  it('writes the native legacy-v1 correction form and refuses ordinary continuation first', () => {
+    const ordinary = correctionWorkspace();
+    const refused = judge(ordinary.root, ordinary.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--continuation',
+    ]);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toMatch(/corrective checkpoint|required/i);
+
+    const fixture = correctionWorkspace();
+    const result = judge(fixture.root, fixture.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    const written = readFileSync(fixture.doc, 'utf8');
+    expect(written).toContain('**Status upgrade:** in-progress → in-progress (correction)');
+    const parsed = parseCheckpointEvidence(
+      fixture.contracts.get(2),
+      'gateImplementCorrection',
+      evidenceEntries(written).at(-1).lines.join('\n'),
+    );
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect(parsed.payload).toMatchObject({
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      firstPassIntroductionSha: fixture.firstIntroductionSha,
+    });
+  });
+
+  it('refuses a legacy-v1 correction unless both the spec and Task are in-progress', () => {
+    const wrongSpec = correctionWorkspace();
+    writeFileSync(
+      wrongSpec.doc,
+      readFileSync(wrongSpec.doc, 'utf8').replace('status: in-progress', 'status: verifying'),
+    );
+    const specResult = judge(wrongSpec.root, wrongSpec.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(specResult.status).toBe(1);
+    expect(specResult.stdout + specResult.stderr).toMatch(
+      /status is `verifying`, `in-progress` expected/i,
+    );
+    writeFileSync(
+      wrongSpec.doc,
+      readFileSync(wrongSpec.doc, 'utf8').replace('status: verifying', 'status: in-progress'),
+    );
+    const repairedSpecResult = judge(wrongSpec.root, wrongSpec.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(repairedSpecResult.status, repairedSpecResult.stdout + repairedSpecResult.stderr).toBe(
+      0,
+    );
+    expect(evidenceEntries(readFileSync(wrongSpec.doc, 'utf8')).at(-1).verdict).toBe('✅ PASS');
+
+    const wrongTask = correctionWorkspace();
+    writeFileSync(
+      path.join(wrongTask.root, TASK_REL),
+      readFileSync(path.join(wrongTask.root, TASK_REL), 'utf8').replace(
+        'status: in-progress',
+        'status: verifying',
+      ),
+    );
+    const taskResult = judge(wrongTask.root, wrongTask.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(taskResult.status).toBe(1);
+    expect(taskResult.stdout + taskResult.stderr).toMatch(
+      /paired Task.*status: verifying.*in-progress/i,
+    );
   });
 
   it('refuses a native continuation when the history has FAIL but no prior PASS', () => {

@@ -169,10 +169,7 @@ import {
   checkpointCheckboxItems,
   checkpointCompletionCriteria,
 } from './checkpoint-evidence-contract.mjs';
-import {
-  continuationCheckpointEvidence as renderContinuationCheckpointEvidence,
-  firstCheckpointEvidence as renderFirstCheckpointEvidence,
-} from './gate-checkpoint-evidence.mjs';
+import { checkpointEvidenceForGate } from './gate-checkpoint-evidence.mjs';
 import {
   prepareTaskActivation,
   readTaskRecordText,
@@ -271,7 +268,7 @@ export function parseArgs(argv) {
       continue;
     }
     const key = arg.slice(2);
-    const flagOnly = key === 'dry-run' || key === 'continuation';
+    const flagOnly = key === 'dry-run' || key === 'continuation' || key === 'correction';
     if (flagOnly) {
       options[key] = true;
       continue;
@@ -494,7 +491,7 @@ export function parsePriorGateMap(text) {
     const [gate, prior, status] = cells;
     const statusToken = /`([a-z-]+)`/.exec(status ?? '');
     if (
-      /^GATE-[A-Z]+(?: \(continuation\))?$/.test(gate ?? '') &&
+      /^GATE-[A-Z]+(?: \((?:continuation|correction)\))?$/.test(gate ?? '') &&
       /^GATE-[A-Z]+$/.test(prior ?? '')
     ) {
       map.set(gate, { gate: prior, status: statusToken ? statusToken[1] : null });
@@ -1775,11 +1772,12 @@ function orderingResult(catalogue, gate, doc) {
     gate.prior === undefined ? catalogue.priorGates.get(gate.priorKey ?? gate.name) : gate.prior;
   if (!prior) return null;
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
-  const last = entries.findLast((entry) => !gate.continuation || entry.verdict === '✅ PASS');
+  const retriesFromLatestPass = gate.continuation || gate.correction;
+  const last = entries.findLast((entry) => !retriesFromLatestPass || entry.verdict === '✅ PASS');
   const problems = [];
   if (!last || last.verdict !== '✅ PASS')
     problems.push(
-      `${gate.continuation ? `no prior [${prior.gate}] PASS entry exists; last entry` : `last [${prior.gate}] entry`} is ${entries.at(-1)?.verdict ?? 'absent'}${gate.continuation ? '' : ', PASS required'}`,
+      `${retriesFromLatestPass ? `no prior [${prior.gate}] PASS entry exists; last entry` : `last [${prior.gate}] entry`} is ${entries.at(-1)?.verdict ?? 'absent'}${retriesFromLatestPass ? '' : ', PASS required'}`,
     );
   if (prior.status && doc.fm.status !== prior.status)
     problems.push(`status is \`${doc.fm.status ?? '(absent)'}\`, \`${prior.status}\` expected`);
@@ -1903,12 +1901,7 @@ export function runJudge(options) {
         taskRel: task.rel,
         specRel: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
       };
-      entry.push(
-        '',
-        ...(gate.continuation
-          ? renderContinuationCheckpointEvidence(evidenceInput)
-          : renderFirstCheckpointEvidence(evidenceInput)),
-      );
+      entry.push('', ...checkpointEvidenceForGate(gate, evidenceInput));
     }
   }
 
@@ -2380,7 +2373,7 @@ export function runApprove(options) {
 
 const USAGE = [
   'usage:',
-  '  gate.mjs judge   --gate <GATE> --doc <spec> [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
+  '  gate.mjs judge   --gate <GATE> --doc <spec> [--continuation|--correction] [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
   '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]',
   '  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]',
   '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',

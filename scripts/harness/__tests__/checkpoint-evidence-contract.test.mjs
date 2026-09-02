@@ -30,6 +30,23 @@ function mutateV1Contract(rule, from, to) {
   return `${rule.slice(0, start)}${mutated}${rule.slice(regionEnd)}`;
 }
 
+function withoutCorrectionForm(rule, { keepMarker }) {
+  const startMarker = '<!-- checkpoint-evidence-contract:v2:start -->';
+  const endMarker = '<!-- checkpoint-evidence-contract:v2:end -->';
+  const start = rule.indexOf(startMarker);
+  const end = rule.indexOf(endMarker, start);
+  const region = rule.slice(start + startMarker.length, end);
+  const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
+  if (!fenced) throw new Error('fixture has no v2 JSON fence');
+  const contract = JSON.parse(fenced[1]);
+  delete contract.forms.gateImplementCorrection;
+  const replacement = `\n\n\`\`\`json\n${JSON.stringify(contract, null, 2)}\n\`\`\`\n\n`;
+  const legacy = `${rule.slice(0, start + startMarker.length)}${replacement}${rule.slice(end)}`;
+  return keepMarker
+    ? legacy
+    : legacy.replace('<!-- checkpoint-evidence-correction-form:v1 -->\n', '');
+}
+
 describe('checkpoint evidence contract', () => {
   it('mirrors gate Completion Criteria selection for top-level soft-wrapped labels', () => {
     const spec = [
@@ -121,7 +138,29 @@ describe('checkpoint evidence contract', () => {
       'plan',
       'worktreePaths',
     ]);
+    expect(parsed.contracts.get(2).forms.gateImplementCorrection.payloadKeys).toEqual([
+      'version',
+      'form',
+      'deliveryMode',
+      'sequencedArtifacts',
+      'priorPass',
+      'firstPassIntroductionSha',
+      'taskPath',
+      'specPath',
+      'taskItems',
+      'plan',
+      'worktreePaths',
+    ]);
     expect(parsed.contracts.get(2).forms.doneGateStageOne).toBeUndefined();
+
+    const historical = parseCheckpointEvidenceContracts(
+      withoutCorrectionForm(rule, { keepMarker: false }),
+    );
+    expect(historical.ok, historical.ok ? '' : historical.error).toBe(true);
+    expect(historical.contracts.get(2).forms.gateImplementCorrection).toBeUndefined();
+    expect(
+      parseCheckpointEvidenceContracts(withoutCorrectionForm(rule, { keepMarker: true })),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/gateImplementCorrection/) });
   });
 
   it('enforces the v2 delivery discriminator and always-present artifact array', () => {
@@ -173,6 +212,27 @@ describe('checkpoint evidence contract', () => {
     expect(
       formatCheckpointEvidence(contract, 'gateImplementContinuation', continuation),
     ).toMatchObject({ ok: false, error: expect.stringMatching(/continuation.*sequenced/i) });
+
+    const correction = {
+      version: 2,
+      form: 'gateImplementCorrection',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      priorPass: `sha256:${'a'.repeat(64)}`,
+      firstPassIntroductionSha: 'c'.repeat(40),
+      taskPath: '.agents/tasks/INFRA-999-fixture.md',
+      specPath: '.agents/spec-docs/active/INFRA-999-fixture.md',
+      taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [],
+    };
+    expect(formatCheckpointEvidence(contract, 'gateImplementCorrection', correction).ok).toBe(true);
+    expect(
+      formatCheckpointEvidence(contract, 'gateImplementCorrection', {
+        ...correction,
+        firstPassIntroductionSha: 'short',
+      }),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/IntroductionSha.*full/i) });
   });
 
   it('reads the exact Decision delivery mode and binds sequenced artifacts', () => {
@@ -604,3 +664,4 @@ describe('checkpoint evidence contract', () => {
     ).toMatchObject({ ok: false, error: expect.stringMatching(/barrier/) });
   });
 });
+// harness-coverage: checkpoint-evidence-contract-v2.mjs
