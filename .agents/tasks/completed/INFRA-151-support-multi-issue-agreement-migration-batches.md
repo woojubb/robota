@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-151: support multi-issue AGREEMENT migration batches'
-status: todo
+status: done
+completed: 2026-09-03
 created: 2026-09-03
 priority: high
 urgency: now
