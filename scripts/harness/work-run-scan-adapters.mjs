@@ -254,7 +254,7 @@ export function changedRange(root, baseRef, subjectRef, receiptRunId, runtime = 
 
 export function isLocalProtectedSubject({ subjectRef, subjectBranch, env = process.env }) {
   return (
-    subjectRef === 'HEAD' &&
+    (subjectRef === 'HEAD' || SUBJECT_OID_PATTERN.test(subjectRef ?? '')) &&
     PROTECTED_SUBJECT_BRANCHES.has(subjectBranch ?? '') &&
     !env.GITHUB_ACTIONS &&
     !env.GITHUB_EVENT_NAME &&

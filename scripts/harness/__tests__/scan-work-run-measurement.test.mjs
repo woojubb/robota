@@ -150,9 +150,16 @@ describe('scan-work-run-measurement', () => {
     }
   });
 
-  it.each(['develop', 'main', 'master'])(
-    'classifies a local protected subject branch %s outside the topic range before registry lookup',
-    (subjectBranch) => {
+  it.each([
+    ['develop', 'HEAD'],
+    ['main', 'HEAD'],
+    ['master', 'HEAD'],
+    ['develop', 'a'.repeat(40)],
+    ['main', 'b'.repeat(40)],
+    ['master', 'c'.repeat(40)],
+  ])(
+    'classifies a local protected subject branch %s at %s outside the topic range before registry lookup',
+    (subjectBranch, subjectRef) => {
       const inspectCutoverRange = vi.fn(() => {
         throw new Error('cutover lookup must not run');
       });
@@ -165,7 +172,7 @@ describe('scan-work-run-measurement', () => {
           {
             root: '/tmp/repository',
             baseRef: 'origin/develop',
-            subjectRef: 'HEAD',
+            subjectRef,
             subjectBranch,
             env: {},
           },
