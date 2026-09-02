@@ -584,6 +584,10 @@ describe('CI capability wiring', () => {
 
   it('restores content-validated contract and lint caches across heads', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const executionPlan = readFileSync(
+      path.join(REPO_ROOT, 'scripts/harness/workspace-execution-plan.mjs'),
+      'utf8',
+    );
 
     expect(workflow).toContain('name: Restore cross-head contract-test content cache');
     expect(workflow).toContain(
@@ -591,9 +595,9 @@ describe('CI capability wiring', () => {
     );
     expect(workflow).toContain('robota-contract-tests-v1-${{ runner.os }}-node22-\n');
     expect(workflow).toContain('name: Restore cross-head ESLint content cache');
-    expect(workflow).toContain('--cache-strategy content');
+    expect(executionPlan).toContain("'--cache-strategy',\n        'content'");
     expect(workflow).toContain('start_check lint pnpm lint:affected');
-    expect(workflow).toContain('start_check lint-ceiling pnpm exec eslint packages apps');
+    expect(workflow).not.toContain('start_check lint-ceiling pnpm exec eslint packages apps');
   });
 
   it('archives only after every planned dist contract is present', () => {
@@ -623,7 +627,9 @@ describe('CI capability wiring', () => {
     expect(scans).toContain('pnpm harness:test:contracts:affected');
     expect(scans).toContain('pnpm harness:test:hermetic');
     expect(scans).toContain("needs.changes.outputs.harness != 'false'");
-    expect(scans).toContain('pnpm harness:scan -- --skip dist --skip build-contracts');
+    expect(scans).toContain(
+      'scan_args=(harness:scan -- --skip dist --skip build-contracts --affected --context pr',
+    );
     expect(scans).toContain('wait "${pids[$index]}" || status=$?');
     expect(scans).not.toMatch(/scripts\/harness\/\*\*/);
   });

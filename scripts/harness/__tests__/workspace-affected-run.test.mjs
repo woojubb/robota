@@ -78,6 +78,8 @@ describe('workspace affected executor', () => {
     expect(execution.errors).toEqual([]);
     expect(execution.tasks.map((task) => task.kind)).toEqual(['workspace-script', 'root-lint']);
     expect(execution.tasks[1].args).toContain('apps/action');
+    expect(execution.tasks[1].args).toContain('.cache/eslint/ci.cache');
+    expect(execution.tasks[1].args).toContain('content');
   });
 
   it('fails planning when a selected package or capability is unclassified', () => {

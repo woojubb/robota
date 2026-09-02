@@ -75,6 +75,8 @@ describe('PR-free develop required-context benchmark', () => {
     expect(summary).toContain('Measure all 11 develop-required contexts');
     expect(summary).toContain('/actions/runs/${RUN_ID}/jobs?per_page=100');
     expect(summary).toContain('duration_seconds');
+    expect(summary).toContain('elapsed_seconds');
+    expect(summary).toContain('map(.elapsed_seconds) | max) <= 128');
     expect(summary).toContain('length == 11');
     for (const context of REQUIRED_BENCHMARK_JOBS.values()) {
       expect(summary).toContain(JSON.stringify(context));
@@ -99,12 +101,10 @@ describe('PR-free develop required-context benchmark', () => {
     }
   });
 
-  it('makes the PR-free review limitation explicit while preserving the CodeQL workload', () => {
+  it('measures the required PR policy gate while CodeQL runs post-merge', () => {
     const review = jobBlock(ci, 'benchmark-review-gate');
-    expect(review).toContain('github/codeql-action/init@v4');
-    expect(review).toContain('github/codeql-action/analyze@v4');
-    expect(review).toContain('build-mode: none');
-    expect(review).toContain('introduced-alert diff');
+    expect(review).not.toContain('github/codeql-action/');
+    expect(review).toContain('CodeQL runs after merge on develop/main');
     expect(review).toContain('N/A without a pull request');
   });
 

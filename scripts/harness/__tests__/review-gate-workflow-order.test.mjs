@@ -26,7 +26,7 @@ function runJq(program, input, args = []) {
   }).trim();
 }
 
-describe('review-gate waits for same-workflow CodeQL (INFRA-096)', () => {
+describe('review-gate defers CodeQL outside the required PR path', () => {
   it('handles base retargeting and separates label reevaluation from head analysis concurrency', () => {
     expect(REVIEW_GATE).toMatch(/types:\s*\[[^\]]*edited[^\]]*\]/);
     expect(REVIEW_GATE).toMatch(/github\.event\.action[\s\S]*labels[\s\S]*head/);
@@ -43,7 +43,7 @@ describe('review-gate waits for same-workflow CodeQL (INFRA-096)', () => {
     expect(classify).toContain('github.event.pull_request.base.sha');
     expect(classify).toContain('github.event.pull_request.head.sha');
     expect(analyze).toMatch(/needs:\s*classify/);
-    expect(analyze).toMatch(/needs\.classify\.outputs\.code\s*==\s*'true'/);
+    expect(analyze).toContain('if: ${{ false }}');
     expect(analyze).toContain('github/codeql-action/analyze@v4');
     expect(gate).toMatch(/name:\s*review-gate/);
     expect(gate).toMatch(/needs:\s*\[classify, analyze\]/);
@@ -63,7 +63,7 @@ describe('review-gate waits for same-workflow CodeQL (INFRA-096)', () => {
       /uses:\s*actions\/checkout@v7[\s\S]*ref:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
     );
     expect(gate).toMatch(
-      /uses:\s*actions\/checkout@v4[\s\S]*ref:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
+      /uses:\s*actions\/checkout@v7[\s\S]*ref:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
     );
     expect(analyze).not.toContain('github.event.pull_request.base.sha');
     expect(REVIEW_GATE).toContain('Contained — INFRA-097');
@@ -171,15 +171,15 @@ describe('review-gate waits for same-workflow CodeQL (INFRA-096)', () => {
     expect(disarm).not.toContain('actions/checkout');
   });
 
-  it('uses the classifier as the only docs-only owner and skips CodeQL only for labels or explicit false', () => {
+  it('uses the classifier as the only docs-only owner and keeps PR CodeQL disabled', () => {
     expect(REVIEW_GATE).not.toMatch(/paths-ignore:/);
     expect(CODEQL).not.toMatch(/paths-ignore:/);
     expect(
       REVIEW_GATE.match(/^\s*node scripts\/harness\/classify-changed-paths\.mjs/gm),
     ).toHaveLength(1);
     const analyze = jobBlock(REVIEW_GATE, 'analyze', 'review-gate');
-    expect(analyze).toMatch(/labeled[\s\S]*unlabeled/);
-    expect(analyze).toMatch(/needs\.classify\.outputs\.code\s*==\s*'true'/);
+    expect(analyze).toContain('if: ${{ false }}');
+    expect(analyze).not.toMatch(/needs\.classify\.outputs\.code\s*==\s*'true'/);
   });
 
   it('keeps standalone CodeQL push-only and removes recovery authority', () => {

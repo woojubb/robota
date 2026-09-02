@@ -349,17 +349,9 @@ describe('scans-full.yml is justified where it asks for issues: write (PROC-016)
   });
 });
 
-describe('ci.yml PR-free review benchmark justifies its CodeQL upload permission', () => {
-  it('records why benchmark-review-gate needs security-events: write', () => {
-    const entry = JUSTIFIED_JOB_WRITE_SCOPES['ci.yml']?.['benchmark-review-gate'];
-    expect(entry?.['security-events']).toMatch(/PR-free benchmark CodeQL SARIF analysis/);
-
-    const findings = findWorkflowPermissionFindings(REPO_ROOT);
-    expect(
-      findings.filter(
-        (finding) =>
-          finding.file === 'ci.yml' && JSON.stringify(finding).includes('benchmark-review-gate'),
-      ),
-    ).toEqual([]);
+describe('ci.yml PR-free review benchmark stays read-only', () => {
+  it('needs no security-events write grant after CodeQL leaves the PR critical path', () => {
+    expect(JUSTIFIED_JOB_WRITE_SCOPES['ci.yml']?.['benchmark-review-gate']).toBeUndefined();
+    expect(findWorkflowPermissionFindings(REPO_ROOT)).toEqual([]);
   });
 });

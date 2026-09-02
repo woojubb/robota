@@ -51,22 +51,20 @@ function githubPathMatches(pattern, candidate) {
   return new RegExp(`^${escaped}$`).test(candidate);
 }
 
-describe('CodeQL remains required but uses the JavaScript no-build path', () => {
-  it('retains pull-request analysis as a prerequisite of the required review-gate job', () => {
+describe('CodeQL runs post-merge without extending the required PR path', () => {
+  it('keeps the former PR analyzer mechanically disabled and the policy gate stable', () => {
     const live = executableLines(REVIEW_GATE);
     expect(live).toMatch(/^  analyze:\n/m);
     expect(live).toContain('uses: github/codeql-action/analyze@v4');
+    expect(live).toContain('if: ${{ false }}');
     expect(live).toMatch(/^    needs: \[classify, analyze\]$/m);
     expect(live).toMatch(/^  review-gate:\n/m);
     expect(REVIEW_GATE).not.toContain('queries: security-and-quality');
     expect(CODEQL).toContain('queries: security-and-quality');
   });
 
-  it.each([
-    ['review-gate.yml', REVIEW_GATE],
-    ['codeql.yml', CODEQL],
-  ])('%s explicitly selects build-mode none and has no Autobuild action', (_name, source) => {
-    const live = executableLines(source);
+  it('standalone CodeQL selects no-build mode and has no Autobuild action', () => {
+    const live = executableLines(CODEQL);
     expect(live).toMatch(/^\s+languages: javascript-typescript$/m);
     expect(live).toMatch(/^\s+build-mode: none$/m);
     expect(live).not.toContain('github/codeql-action/autobuild');

@@ -40,7 +40,7 @@ jobs:
         target: [agent-core, agent-session, agent-executor]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: develop
 
@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload mutation report (${{ matrix.target }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report-${{ matrix.target }}
           path: reports/mutation/${{ matrix.target }}

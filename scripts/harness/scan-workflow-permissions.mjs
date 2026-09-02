@@ -72,12 +72,6 @@ export const JUSTIFIED_WRITE_SCOPES = {
  * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
  */
 export const JUSTIFIED_JOB_WRITE_SCOPES = {
-  'ci.yml': {
-    'benchmark-review-gate': {
-      'security-events':
-        'uploads the PR-free benchmark CodeQL SARIF analysis so its analyze cost is measured',
-    },
-  },
   'review-gate.yml': {
     analyze: {
       'security-events': 'uploads the pull request SARIF analysis before the required gate runs',

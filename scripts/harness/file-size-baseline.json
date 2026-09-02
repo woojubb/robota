@@ -139,7 +139,7 @@
   "scripts/harness/scan-task-path-citations.mjs": 326,
   "scripts/harness/scan-unearned-done-claims.mjs": 651,
   "scripts/harness/scan-user-execution-plan-order.mjs": 2220,
-  "scripts/harness/scan-workflow-permissions.mjs": 393,
+  "scripts/harness/scan-workflow-permissions.mjs": 387,
   "scripts/harness/shared.mjs": 748,
   "scripts/harness/worktree-gate.mjs": 436
 }

@@ -94,7 +94,7 @@ jobs:
       # The report records provider/model/latency and the key VARIABLE NAMES only — never a key value.
       - name: Upload live smoke report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: live-provider-smoke-report
           path: reports/live-provider-smoke
