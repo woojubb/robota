@@ -1,7 +1,8 @@
 ---
 title: 'PROC-031: add an executable corrective checkpoint for legacy v1 delivery declarations'
-status: in-progress
+status: done
 created: 2026-09-02
+completed: 2026-09-02
 issue: https://github.com/woojubb/robota/issues/2561
 priority: high
 urgency: soon
@@ -54,4 +55,4 @@ product, SDK, CLI, TUI, or user-observable runtime surface.
 
 ## Bound spec document
 
-`.agents/spec-docs/active/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md`
+`.agents/spec-docs/done/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md`

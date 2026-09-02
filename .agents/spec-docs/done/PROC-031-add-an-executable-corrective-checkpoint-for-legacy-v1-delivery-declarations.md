@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [workflow, harness]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-031: add an executable corrective checkpoint for legacy v1 delivery declarations
 
-Paired with `.agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md`. Arising from [issue #2561](https://github.com/woojubb/robota/issues/2561).
+Paired with `.agents/tasks/completed/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md`. Arising from [issue #2561](https://github.com/woojubb/robota/issues/2561).
 
 ## Problem
 
@@ -154,13 +154,13 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type       | Tool / Approach                                                                    | Notes                                                                                                                             |
-| ----- | --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Contract unit   | `checkpoint-evidence-contract.test.mjs` and source/shape fixtures                  | `scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` — correction-form parse/format and refusal matrix               |
-| TC-02 | Writer unit     | `gate.test.mjs` plus `gate-checkpoint-evidence.test.mjs`                           | `scripts/harness/__tests__/gate.test.mjs` — native legacy-v1 correction form, eligibility, wrong-status refusal, and repair retry |
-| TC-03 | Repository unit | `scan-user-execution-plan-order.test.mjs` history and staged fixtures              | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — correction sequence, drift, closure, and residue controls   |
-| TC-04 | Red proof       | targeted eligible fixture with the implementation reverted                         | `scripts/harness/__tests__/gate.test.mjs` — eligible correction RED before support and GREEN with v1/v2 compatibility controls    |
-| TC-05 | Suite           | focused Vitest, affected/full `harness:scan`, `pnpm build`, and `git diff --check` | Five focused suites 266/266; build PASS; history scan examined five commits; Round C review found zero actionable findings        |
+| TC-ID | Test Type       | Tool / Approach                                                                    | Notes                                                                                                                                                                                                                                                            |
+| ----- | --------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Contract unit   | `checkpoint-evidence-contract.test.mjs` and source/shape fixtures                  | `scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` — correction-form parse/format and refusal matrix                                                                                                                                              |
+| TC-02 | Writer unit     | `gate.test.mjs` plus `gate-checkpoint-evidence.test.mjs`                           | `scripts/harness/__tests__/gate.test.mjs` — native legacy-v1 correction form, eligibility, wrong-status refusal, and repair retry                                                                                                                                |
+| TC-03 | Repository unit | `scan-user-execution-plan-order.test.mjs` history and staged fixtures              | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — correction sequence, drift, closure, and residue controls                                                                                                                                  |
+| TC-04 | Red proof       | targeted eligible fixture with the implementation reverted                         | `scripts/harness/__tests__/gate.test.mjs` — eligible correction RED before support and GREEN with v1/v2 compatibility controls                                                                                                                                   |
+| TC-05 | Suite           | focused Vitest, affected/full `harness:scan`, `pnpm build`, and `git diff --check` | Five focused suites 266/266; build and diff check PASS; history scan examined seven commits; exact tree `c023168732a7276441afcb6ab60467fc1e1efaf0` has a passing full substantive receipt covering 147 scans; Round D code review found zero actionable findings |
 
 ## User Execution Test Scenarios
 
@@ -171,7 +171,7 @@ product, SDK, CLI, TUI, or user-observable runtime surface.
 
 ## Tasks
 
-- [x] `.agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md` — completion-ready
+- [x] `.agents/tasks/completed/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md` — done
 
 ## Evidence Log
 
@@ -278,3 +278,77 @@ product, SDK, CLI, TUI, or user-observable runtime surface.
 ```
 
 <!-- checkpoint-evidence:v2:end -->
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm build` → exit 0 ([33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../agent-builtin-providers/dist/node/index.js is dynamically imported by ../dag-nodes-default/dist/node/index.js but also statically imported by src/eval/eval-command.ts, src/product/robota-subagent-composition.ts, src/startup/command-setup.ts, src/startup/diagnose-command.ts, src/startup/provider-startup.ts, dynamic import will not move module into another chunk. ⏎ ⏎ [33m[INEFFECTIVE_DYNAMIC_IMPORT] [0m../dag-nodes-default/dist/node/index.js is dynamically imported by ../dag-framework/dist/node/index.js but also statically imported by ../agent-command-workflows/dist/node/index.js, dynamic import will not move module into another chunk.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to branch 'develop' ⏎ Switched to and reset branch 'feature'); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc031-final-focused.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 29 suites passed, 266 tests passed, 0 tests failed; focused correction contract, writer, history, staged-consumer, retry, drift, and residue controls all passed.
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc031-final-focused.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 29 suites passed, 266 tests passed, 0 tests failed; focused correction contract, writer, history, staged-consumer, retry, drift, and residue controls all passed.
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc031-final-focused.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 29 suites passed, 266 tests passed, 0 tests failed; focused correction contract, writer, history, staged-consumer, retry, drift, and residue controls all passed.
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc031-final-focused.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 29 suites passed, 266 tests passed, 0 tests failed; focused correction contract, writer, history, staged-consumer, retry, drift, and residue controls all passed.
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-02
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs scripts/harness/__tests__/gate-implementation-contract.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --reporter=json --outputFile=/private/tmp/proc031-final-focused.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Vitest JSON summary: 29 suites passed, 266 tests passed, 0 tests failed; focused correction contract, writer, history, staged-consumer, retry, drift, and residue controls all passed.
+```
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-02; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md
