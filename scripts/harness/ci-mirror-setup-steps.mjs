@@ -21,24 +21,12 @@ export const CI_SETUP_STEPS = {
       reason:
         'tars dist for the `package-dist` artifact — cross-JOB plumbing with no local counterpart',
     },
-  ],
-  quality: [
-    {
-      step: 'Product verification not applicable',
-      reason:
-        'explicit CI applicability result; the local affected plan reports zero product scopes',
-    },
-    install,
-    {
-      step: 'Restore package build output',
-      reason:
-        'untars the `package-dist` artifact — locally the `build` stage produces dist in place',
-    },
     {
       step: 'Binary e2e not applicable',
       reason: 'explicit capability result; the local binary stage gate reports the same omission',
     },
   ],
+  quality: [],
   scans: [
     install,
     {

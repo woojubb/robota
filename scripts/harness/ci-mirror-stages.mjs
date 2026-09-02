@@ -49,7 +49,6 @@ export const CI_STAGES = [
           'Skip monorepo build when no build output is required',
         ],
       },
-      { job: 'quality', steps: ['Guarantee CLI binary target dist'] },
       { job: 'examples-typecheck', steps: ['Guarantee affected example consumer dist'] },
       { job: 'tui-e2e', steps: ['Guarantee CLI and TUI consumer dist'] },
     ],
@@ -58,19 +57,22 @@ export const CI_STAGES = [
   {
     name: 'scan-suite',
     needsBuildOutput: true,
-    mirrors: [{ job: 'quality', steps: ['Build-output contracts scan (dist-dependent)'] }],
+    mirrors: [{ job: 'build', steps: ['Build-output contracts scan (dist-dependent)'] }],
     why: 'the dist-dependent scans silently no-op on an unbuilt tree',
   },
   {
     name: 'package-quality',
     needsBuildOutput: true,
-    mirrors: [{ job: 'quality', steps: ['Verify full or affected package quality concurrently'] }],
+    mirrors: [
+      { job: 'build', steps: ['Verify full or affected package quality concurrently'] },
+      { job: 'quality', steps: ['Publish the product verification verdict'] },
+    ],
     why: 'runs test, typecheck and lint concurrently through the same full-or-affected split as the required quality job',
   },
   {
     name: 'binary-e2e',
     needsBuildOutput: true,
-    mirrors: [{ job: 'quality', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
+    mirrors: [{ job: 'build', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
     why: 'black-box e2e over the BUILT robota binary; no unit suite covers the packaged entry point',
   },
   {

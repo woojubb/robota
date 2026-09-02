@@ -309,6 +309,7 @@ jobs:
     env:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
       PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' }}
+      CLI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.cli == 'true' }}
     outputs:
       package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}
       package_dist_complete: ${{ steps.build_requirement.outputs.complete || steps.build_requirement_na.outputs.complete }}
@@ -341,6 +342,15 @@ jobs:
         with:
           node-version: '22.x'
           cache: 'pnpm'
+
+      - name: Restore cross-head ESLint content cache
+        if: env.PRODUCT_APPLICABLE == 'true'
+        uses: actions/cache@v6
+        with:
+          path: .cache/eslint/ci.cache
+          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            robota-eslint-content-v1-${{ runner.os }}-node22-
 
       - name: Install dependencies
         if: env.PRODUCT_APPLICABLE == 'true'
@@ -451,85 +461,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Skip monorepo build when no build output is required
-        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required != 'true'
-        run: echo "No package or app verification requires build output."
-
-      - name: Product verification not applicable
-        id: build_requirement_na
-        if: env.PRODUCT_APPLICABLE != 'true'
-        run: |
-          echo "Infrastructure-only change: product build is not applicable."
-          echo "required=false" >> "$GITHUB_OUTPUT"
-          echo "complete=false" >> "$GITHUB_OUTPUT"
-
-  quality:
-    name: quality
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
-    runs-on: ubuntu-latest
-    needs: [changes, build]
-    env:
-      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
-      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' }}
-      CLI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.cli == 'true' }}
-
-    steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
-        with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-
-      # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
-      # selects the affected scopes from a merge-base diff; a grafted ancestry silently changes
-      # what this REQUIRED check verifies.
-      - uses: actions/checkout@v7
-        if: env.PRODUCT_APPLICABLE == 'true'
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
-          fetch-depth: 0
-
-      - name: Install pnpm
-        if: env.PRODUCT_APPLICABLE == 'true'
-        uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Restore cross-head ESLint content cache
-        if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/cache@v6
-        with:
-          path: .cache/eslint/ci.cache
-          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            robota-eslint-content-v1-${{ runner.os }}-node22-
-
-      - name: Install dependencies
-        if: env.PRODUCT_APPLICABLE == 'true'
-        run: pnpm install --frozen-lockfile
-
-      - name: Download package build output
-        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: package-dist
-          path: .artifacts/package-dist
-
-      - name: Restore package build output
-        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
-        run: tar -xzf .artifacts/package-dist/package-dist.tgz
-
-      - name: Guarantee CLI binary target dist
-        if: env.CLI_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
-        run: pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_binary_target__.ts --changed-file packages/agent-cli-web/src/__ci_binary_target__.ts
-
+      # Build and quality share checkout, runtime, install, and the just-produced dist. Keeping both
+      # verdicts in this producer removes a measured 32-second duplicate setup from the critical path;
+      # the required `quality` job below only publishes this producer's conclusion.
       - name: Verify full or affected package quality concurrently
         if: env.PRODUCT_APPLICABLE == 'true'
         shell: bash
@@ -579,19 +513,10 @@ jobs:
           done
           exit "$failed"
 
-      # INFRA-037: build-contracts is the ONE scan that reads built package dist outputs (validates that declared
-      # main/types/exports paths resolve to built files) and silently no-ops without dist. It stays in
-      # `quality` (which restores dist above) so its coverage is preserved; the other 47 scans + the
-      # harness test suite moved to the `needs`-less `scans` job (parallel with build). The full scan
-      # suite remains a develop-merge gate (INFRA-026) — split across `scans` + this step, both required.
       - name: Build-output contracts scan (dist-dependent)
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:scan:build-contracts
 
-      # RUNTIME-001: build-gated black-box e2e for the real `robota --serve` binary (+ the cross-fidelity
-      # bintest). These spawn the built CLI, so they need restored package dist output — hence they run
-      # here rather than in the dist-independent `scans` job. Deterministic (replay provider over loopback
-      # WS; no model key, no network). Gated on dist actually being restored so unrelated PRs skip cleanly.
       - name: Binary e2e (agent-cli bintests, dist-dependent)
         if: env.CLI_APPLICABLE == 'true'
         run: pnpm --filter @robota-sdk/agent-cli test:bin
@@ -600,10 +525,38 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true' && env.CLI_APPLICABLE != 'true'
         run: echo "This change cannot reach the agent CLI binary."
 
+      - name: Skip monorepo build when no build output is required
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required != 'true'
+        run: echo "No package or app verification requires build output."
+
       - name: Product verification not applicable
+        id: build_requirement_na
         if: env.PRODUCT_APPLICABLE != 'true'
         run: |
-          echo "Infrastructure-only change: product quality checks are not applicable."
+          echo "Infrastructure-only change: product build is not applicable."
+          echo "required=false" >> "$GITHUB_OUTPUT"
+          echo "complete=false" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: quality
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+      - name: Publish the product verification verdict
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            echo "::error::build/quality producer concluded ${BUILD_RESULT}"
+            exit 1
+          fi
+          echo "Build and package quality verification passed in the shared producer job."
 
   # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
   # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that

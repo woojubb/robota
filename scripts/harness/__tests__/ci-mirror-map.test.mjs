@@ -106,9 +106,7 @@ describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
     expect(CI_SETUP_STEPS.scans.map((entry) => entry.step)).toContain(
       'Write pull request body for the lane declaration',
     );
-    expect(CI_SETUP_STEPS.quality.map((entry) => entry.step)).toContain(
-      'Product verification not applicable',
-    );
+    expect(claimedSteps('quality')).toContain('Publish the product verification verdict');
     expect(CI_SETUP_STEPS['examples-typecheck'].map((entry) => entry.step)).toContain(
       'Examples verification not applicable',
     );

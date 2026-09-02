@@ -521,22 +521,22 @@ describe('CI capability wiring', () => {
 
   it('aggregates concurrent package quality children without dropping failures', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-    const quality = workflow.slice(
+    const producer = workflow.slice(
+      workflow.indexOf('\n  build:\n'),
       workflow.indexOf('\n  quality:\n'),
-      workflow.indexOf('\n  scans:\n'),
     );
 
-    expect(quality).toContain('wait "${pids[$index]}" || status=$?');
-    expect(quality).toContain('log is missing or unreadable');
-    expect(quality).toContain('exit "$failed"');
-    expect(quality).not.toContain('pnpm harness:verify --');
+    expect(producer).toContain('wait "${pids[$index]}" || status=$?');
+    expect(producer).toContain('log is missing or unreadable');
+    expect(producer).toContain('exit "$failed"');
+    expect(producer).not.toContain('pnpm harness:verify --');
   });
 
   it('never treats a partial package-dist restore as a complete consumer build', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-    const quality = workflow.slice(
+    const producer = workflow.slice(
+      workflow.indexOf('\n  build:\n'),
       workflow.indexOf('\n  quality:\n'),
-      workflow.indexOf('\n  scans:\n'),
     );
     const examples = workflow.slice(
       workflow.indexOf('\n  examples-typecheck:\n'),
@@ -549,9 +549,9 @@ describe('CI capability wiring', () => {
     const coverage = workflow.slice(workflow.indexOf('\n  patch-coverage:\n'));
 
     expect(workflow).toContain('package_dist_complete:');
-    expect(quality).not.toContain('Guarantee selected typecheck target prerequisites');
-    expect(quality).toContain('name: Guarantee CLI binary target dist');
-    expect(quality).not.toContain('--operation consumer-build');
+    expect(producer).not.toContain('Guarantee selected typecheck target prerequisites');
+    expect(producer).not.toContain('Guarantee CLI binary target dist');
+    expect(producer).not.toContain('--operation consumer-build');
     expect(examples).toContain('name: Guarantee affected example consumer dist');
     expect(examples).toContain('args=(harness:workspace:run -- --operation build)');
     expect(examples).toContain('--changed-file "$target"');
@@ -568,18 +568,18 @@ describe('CI capability wiring', () => {
 
   it('runs CLI binary e2e only for CLI-reachable changes and guarantees its dist first', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-    const quality = workflow.slice(
+    const producer = workflow.slice(
+      workflow.indexOf('\n  build:\n'),
       workflow.indexOf('\n  quality:\n'),
-      workflow.indexOf('\n  scans:\n'),
     );
-    const cliBuild = quality.indexOf('name: Guarantee CLI binary target dist');
-    const binaryE2e = quality.indexOf('name: Binary e2e (agent-cli bintests, dist-dependent)');
+    const workspaceBuild = producer.indexOf('name: Build full or affected workspace');
+    const binaryE2e = producer.indexOf('name: Binary e2e (agent-cli bintests, dist-dependent)');
 
-    expect(quality).toContain("CLI_APPLICABLE: ${{ needs.changes.result != 'success'");
-    expect(quality).toContain("if: env.CLI_APPLICABLE == 'true'");
-    expect(quality).toContain('name: Binary e2e not applicable');
-    expect(cliBuild).toBeGreaterThanOrEqual(0);
-    expect(binaryE2e).toBeGreaterThan(cliBuild);
+    expect(producer).toContain("CLI_APPLICABLE: ${{ needs.changes.result != 'success'");
+    expect(producer).toContain("if: env.CLI_APPLICABLE == 'true'");
+    expect(producer).toContain('name: Binary e2e not applicable');
+    expect(workspaceBuild).toBeGreaterThanOrEqual(0);
+    expect(binaryE2e).toBeGreaterThan(workspaceBuild);
   });
 
   it('restores content-validated contract and lint caches across heads', () => {
