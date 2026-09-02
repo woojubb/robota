@@ -380,3 +380,47 @@ Paired execution record:
 ```
 
 <!-- checkpoint-evidence:v2:end -->
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-02; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (6)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 659 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+    ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+    ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
+  ],
+  "priorPass": "sha256:9b5a7c1e28638c4f257fa1223f218e511295a0f6cb0890b0b2179379e7744723",
+  "ancestorSha": "1fef1658ee4587bde3aee08f082afcaaf2ad3a59",
+  "taskPath": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+  "specPath": ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+    ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
