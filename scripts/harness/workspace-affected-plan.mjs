@@ -10,7 +10,6 @@ import {
   packageRows,
   WORKSPACE_OPERATIONS,
 } from './workspace-plan-shapes.mjs';
-import { hasLiteralWorkspaceReference } from './workspace-source-dependencies.mjs';
 
 function validateGraph(graph) {
   if (!graph || !Array.isArray(graph.packages) || graph.packages.length === 0) {
@@ -64,7 +63,6 @@ export function createWorkspaceAffectedPlan({
   graph,
   integrationOwners = {},
   typecheckIntegrationOwners = {},
-  candidateReferenceResolver = hasLiteralWorkspaceReference,
   full = false,
 }) {
   if (!WORKSPACE_OPERATIONS.includes(operation)) {
@@ -157,7 +155,6 @@ export function createWorkspaceAffectedPlan({
     reasons,
     integrationOwners,
     typecheckIntegrationOwners,
-    candidateReferenceResolver,
   });
   if (selection.failure) {
     return globalPlan({ operation, changedFiles: files, mergeBases, reason: selection.failure });
@@ -207,7 +204,6 @@ export function planWorkspaceAffected({
   environment,
   integrationOwners,
   typecheckIntegrationOwners,
-  candidateReferenceResolver,
   full = false,
 }) {
   if (full) {
@@ -217,7 +213,6 @@ export function planWorkspaceAffected({
       changedFiles: changedFiles ?? [],
       integrationOwners,
       typecheckIntegrationOwners,
-      candidateReferenceResolver,
       full: true,
     });
   }
@@ -239,6 +234,5 @@ export function planWorkspaceAffected({
     mergeBases: resolution.mergeBases,
     integrationOwners,
     typecheckIntegrationOwners,
-    candidateReferenceResolver,
   });
 }

@@ -139,7 +139,7 @@ describe('workspace affected planner', () => {
         operation: 'test',
         changedFiles: ['packages/core/src/index.ts'],
       }).packages.map((entry) => entry.name),
-    ).toContain('@fixture/dev-only');
+    ).toEqual(['@fixture/core']);
   });
 
   it('isolates lint to the owning package and returns deterministic owners', () => {
@@ -193,7 +193,7 @@ describe('workspace affected planner', () => {
     ]);
   });
 
-  it('adds only direct tested dependents with a literal import of the changed package', () => {
+  it('does not infer integration ownership from dependent imports', () => {
     const root = fixture();
     writeJson(root, 'packages/util/package.json', {
       name: '@fixture/util',
@@ -228,10 +228,7 @@ describe('workspace affected planner', () => {
       operation: 'test',
       changedFiles: ['packages/core/src/index.ts'],
     });
-    expect(plan.packages.map((entry) => entry.name)).toEqual(['@fixture/core', '@fixture/util']);
-    expect(plan.packages.find((entry) => entry.name === '@fixture/util').reasons).toContain(
-      'literal-import-of:@fixture/core',
-    );
+    expect(plan.packages.map((entry) => entry.name)).toEqual(['@fixture/core']);
   });
 
   it('does not treat a direct dependent runtime import as an owned integration test', () => {
@@ -257,32 +254,6 @@ describe('workspace affected planner', () => {
       changedFiles: ['packages/core/src/index.ts'],
     });
     expect(plan.packages.map((entry) => entry.name)).toEqual(['@fixture/core']);
-  });
-
-  it('fails closed when direct-dependent integration inputs cannot be read', () => {
-    const root = fixture();
-    writeJson(root, 'packages/util/package.json', {
-      name: '@fixture/util',
-      dependencies: { '@fixture/core': 'workspace:*' },
-      scripts: { test: 'vitest' },
-    });
-    writeFileSync(
-      path.join(root, 'packages/util/integration.test.ts'),
-      "import { core } from '@fixture/core';\n",
-    );
-    const plan = planWorkspaceAffected({
-      root,
-      operation: 'test',
-      changedFiles: ['packages/core/src/index.ts'],
-      candidateReferenceResolver: () => {
-        throw new Error('permission denied');
-      },
-    });
-    expect(plan).toMatchObject({
-      mode: 'global',
-      globalFallback: true,
-      reason: expect.stringContaining('integration reference scan failed: permission denied'),
-    });
   });
 
   it('uses operation-specific dependency directions', () => {

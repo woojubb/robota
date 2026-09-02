@@ -31,15 +31,7 @@ function selectRegisteredTypechecks({ ownerNames, byName, registry, reasons }) {
   return { selectedNames: new Set([...ownerNames, ...registered]) };
 }
 
-function selectTestIntegrations({
-  root,
-  ownerNames,
-  byName,
-  dependents,
-  registry,
-  reasons,
-  candidateReferenceResolver,
-}) {
+function selectTestIntegrations({ ownerNames, byName, registry, reasons }) {
   const registered = new Set();
   for (const owner of ownerNames) {
     const integrations = registry[owner] ?? [];
@@ -55,25 +47,6 @@ function selectTestIntegrations({
       }
       registered.add(integration);
       addReason(reasons, integration, `integration-owner-for:${owner}`);
-    }
-    for (const candidateName of dependents.get(owner) ?? []) {
-      if (ownerNames.has(candidateName) || registered.has(candidateName)) continue;
-      const candidate = byName.get(candidateName);
-      if (resolveWorkspaceCapability(candidate, 'test').kind !== 'script') continue;
-      let referencesOwner;
-      try {
-        referencesOwner = candidateReferenceResolver({
-          root,
-          workspacePackage: candidate,
-          packageName: owner,
-        });
-      } catch (error) {
-        return failure(`integration reference scan failed: ${error.message}`);
-      }
-      if (referencesOwner) {
-        registered.add(candidateName);
-        addReason(reasons, candidateName, `literal-import-of:${owner}`);
-      }
     }
   }
   return { selectedNames: new Set([...ownerNames, ...registered]) };

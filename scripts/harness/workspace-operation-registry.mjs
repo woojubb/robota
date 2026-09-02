@@ -14,8 +14,8 @@ export const WORKSPACE_OPERATION_SCRIPTS = Object.freeze({
   'examples-typecheck': 'typecheck',
 });
 
-// Static cross-package integration overrides are opt-in. The planner additionally discovers direct
-// tested dependents with literal imports, so an empty override object does not disable propagation.
+// Cross-package integration tests are opt-in. Ordinary test selection stays with changed owners;
+// packages that deliberately own another package's contract must be named here.
 export const WORKSPACE_INTEGRATION_OWNERS = Object.freeze({});
 
 // Typecheck is owner-local by default. Cross-package compiler contracts must be named here rather
