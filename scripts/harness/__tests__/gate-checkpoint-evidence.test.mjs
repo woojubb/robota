@@ -346,3 +346,5 @@ describe('gate checkpoint evidence renderer', () => {
     );
   });
 });
+// harness-coverage: gate-checkpoint-evidence-common.mjs
+// harness-coverage: gate-correction-checkpoint-evidence.mjs

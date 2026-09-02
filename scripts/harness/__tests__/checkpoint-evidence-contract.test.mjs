@@ -664,3 +664,4 @@ describe('checkpoint evidence contract', () => {
     ).toMatchObject({ ok: false, error: expect.stringMatching(/barrier/) });
   });
 });
+// harness-coverage: checkpoint-evidence-contract-v2.mjs

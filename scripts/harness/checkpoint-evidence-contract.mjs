@@ -13,12 +13,17 @@ import {
   CONTRACT_SHAPE_V2,
   CONTRACT_SHAPE_V2_LEGACY,
 } from './checkpoint-evidence-contract-shapes.mjs';
+import {
+  CORRECTION_FORM_MARKER,
+  correctionFormMarkerState,
+  validateV2GateImplementDelivery,
+  validateV2GateImplementIdentity,
+} from './checkpoint-evidence-contract-v2.mjs';
 
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
 const CONTRACT_V2_START = '<!-- checkpoint-evidence-contract:v2:start -->';
 const CONTRACT_V2_END = '<!-- checkpoint-evidence-contract:v2:end -->';
-const CORRECTION_FORM_MARKER = '<!-- checkpoint-evidence-correction-form:v1 -->';
 
 function failure(error) {
   return { ok: false, error };
@@ -253,49 +258,16 @@ function validatePayload(contract, formName, payload) {
     });
     if (pathsError) return pathsError;
     if (contract.version === 2) {
-      if (!['single', 'sequenced'].includes(payload.deliveryMode)) {
-        return `${formName}.deliveryMode must be single or sequenced`;
-      }
-      const artifactsError = validateStringArray(payload.sequencedArtifacts, 'sequencedArtifacts', {
-        allowEmpty: true,
-      });
-      if (artifactsError) return artifactsError;
-      if (payload.deliveryMode === 'single' && payload.sequencedArtifacts.length !== 0) {
-        return `${formName} single delivery requires an empty sequencedArtifacts array`;
-      }
-      if (payload.deliveryMode === 'sequenced' && payload.sequencedArtifacts.length === 0) {
-        return `${formName} sequenced delivery requires a non-empty sequencedArtifacts array`;
-      }
-      if (
-        ['gateImplementContinuation', 'gateImplementCorrection'].includes(formName) &&
-        payload.deliveryMode !== 'sequenced'
-      ) {
-        return `${formName} requires sequenced delivery`;
-      }
+      const deliveryError = validateV2GateImplementDelivery(formName, payload, validateStringArray);
+      if (deliveryError) return deliveryError;
     }
   }
   if (['gateImplementFirst', 'gateImplementCorrection'].includes(formName)) {
     const itemsError = validateTaskItems(payload.taskItems);
     if (itemsError) return itemsError;
   }
-  if (['gateImplementContinuation', 'gateImplementCorrection'].includes(formName)) {
-    if (!/^sha256:[0-9a-f]{64}$/.test(payload.priorPass)) {
-      return `${formName}.priorPass must be sha256 lowercase hex`;
-    }
-    const artifactsError = validateStringArray(payload.sequencedArtifacts, 'sequencedArtifacts');
-    if (artifactsError) return artifactsError;
-  }
-  if (formName === 'gateImplementContinuation') {
-    if (!/^[0-9a-f]{40}$/.test(payload.ancestorSha)) {
-      return 'gateImplementContinuation.ancestorSha must be a full lowercase commit SHA';
-    }
-  }
-  if (
-    formName === 'gateImplementCorrection' &&
-    !/^[0-9a-f]{40}$/.test(payload.firstPassIntroductionSha)
-  ) {
-    return 'gateImplementCorrection.firstPassIntroductionSha must be a full lowercase commit SHA';
-  }
+  const identityError = validateV2GateImplementIdentity(formName, payload, validateStringArray);
+  if (identityError) return identityError;
   if (formName === 'doneGateStageOne') {
     if (!['automatable', 'manual'].includes(payload.outcome)) {
       return 'doneGateStageOne.outcome is unsupported';
@@ -403,12 +375,9 @@ function parseContractRegion(source, { version, start, end, shape }) {
 
 export function parseCheckpointEvidenceContracts(ruleText) {
   const source = String(ruleText);
-  const correctionMarkers = source.split(CORRECTION_FORM_MARKER).length - 1;
-  if (correctionMarkers > 1) {
-    return failure(
-      `checkpoint evidence correction-form marker must occur at most once, found ${correctionMarkers}`,
-    );
-  }
+  const correction = correctionFormMarkerState(source);
+  if (correction.error) return failure(correction.error);
+  const correctionMarkers = correction.count;
   const known = [
     { version: 1, start: CONTRACT_START, end: CONTRACT_END, shape: CONTRACT_SHAPE },
     { version: 2, start: CONTRACT_V2_START, end: CONTRACT_V2_END, shape: CONTRACT_SHAPE_V2 },

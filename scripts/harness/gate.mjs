@@ -169,11 +169,7 @@ import {
   checkpointCheckboxItems,
   checkpointCompletionCriteria,
 } from './checkpoint-evidence-contract.mjs';
-import {
-  correctionCheckpointEvidence as renderCorrectionCheckpointEvidence,
-  continuationCheckpointEvidence as renderContinuationCheckpointEvidence,
-  firstCheckpointEvidence as renderFirstCheckpointEvidence,
-} from './gate-checkpoint-evidence.mjs';
+import { checkpointEvidenceForGate } from './gate-checkpoint-evidence.mjs';
 import {
   prepareTaskActivation,
   readTaskRecordText,
@@ -1905,14 +1901,7 @@ export function runJudge(options) {
         taskRel: task.rel,
         specRel: path.relative(ctx.root, ctx.doc.path).split(path.sep).join('/'),
       };
-      entry.push(
-        '',
-        ...(gate.correction
-          ? renderCorrectionCheckpointEvidence(evidenceInput)
-          : gate.continuation
-            ? renderContinuationCheckpointEvidence(evidenceInput)
-            : renderFirstCheckpointEvidence(evidenceInput)),
-      );
+      entry.push('', ...checkpointEvidenceForGate(gate, evidenceInput));
     }
   }
 

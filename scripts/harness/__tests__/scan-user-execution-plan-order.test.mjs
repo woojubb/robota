@@ -4182,3 +4182,5 @@ describe('the finders read only the root they are given (PROC-016)', () => {
     }
   }, 300_000);
 });
+// harness-coverage: gate-implement-correction-validation.mjs
+// harness-coverage: gate-implement-entry-results.mjs
