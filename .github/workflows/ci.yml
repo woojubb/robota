@@ -264,7 +264,7 @@ jobs:
       - id: filter
         name: Classify changed paths and affected capabilities
         env:
-          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           # The classification lives in scripts/harness/classify-changed-paths.mjs — ONE
           # implementation with two callers. `review-gate.yml` invokes the same module to decide
@@ -283,7 +283,7 @@ jobs:
           # required matrix would trade a real risk for a cosmetic one — a flake here makes
           # tui-e2e / examples-typecheck / windows-shell report `skipping`, which branch protection
           # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
-          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
+          node scripts/harness/classify-changed-paths.mjs --base-ref "${BASE_REF}"
 
   # INFRA-055: `build` / `quality` / `scans` / `dependency audit` are DEVELOP-side gates. They used to run on a
   # `main` PR too, as a "Skip duplicate …" echo with every real step gated on `base_ref != 'main'` — a 3–6
@@ -349,7 +349,7 @@ jobs:
       - name: Plan package-dist artifact membership
         if: env.PRODUCT_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           mkdir -p .agents/evals/local-metrics
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
@@ -360,7 +360,9 @@ jobs:
 
       - name: Show verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
-        run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref || inputs.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
+        env:
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: pnpm harness:plan -- --base-ref "$HARNESS_BASE_REF" --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
@@ -398,7 +400,7 @@ jobs:
       - name: Build full or affected workspace
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm build
@@ -532,7 +534,7 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         shell: bash
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           set +e
           mkdir -p .cache/eslint
@@ -700,7 +702,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
           RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
         shell: bash
         run: |
@@ -769,15 +771,15 @@ jobs:
       - name: Detect dependency graph changes
         id: dependency_changes
         env:
-          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           # Explicit merge base(s), union over all of them, and any failure classifies as CHANGED —
           # an unscannable history must run the scan, never silently skip it.
-          bases="$(git merge-base --all "origin/${BASE_REF}" HEAD)" || bases=''
+          bases="$(git merge-base --all "${BASE_REF}" HEAD)" || bases=''
           changed_files=''
           scan=''
           if [ -z "$bases" ]; then
-            echo "::error::dependency audit: no merge base between origin/${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
+            echo "::error::dependency audit: no merge base between ${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
             scan=forced
           fi
           for base in $bases; do
@@ -1031,7 +1033,7 @@ jobs:
       #     done
       - name: Lint PR commit messages
         env:
-          BASE_REF: ${{ github.base_ref || inputs.base_ref }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.head_ref }}
         run: |
           # INFRA-058: resolve the range into a variable and CHECK it, rather than expanding
@@ -1042,9 +1044,9 @@ jobs:
           # unresolvable head sha: two `fatal: Invalid revision range` lines, `Linting  commit(s)`,
           # and exit 0 — this REQUIRED check reporting green having linted nothing. "Could not
           # determine" is not "checked and clean"; both now fail closed.
-          range="origin/${BASE_REF}..${HEAD_SHA}"
+          range="${BASE_REF}..${HEAD_SHA}"
           if ! commits="$(git rev-list --first-parent "$range")"; then
-            echo "::error::commitlint: could not resolve the commit range '$range'. origin/${BASE_REF} or ${HEAD_SHA} is not present in this checkout (the job checks out with fetch-depth: 0, so this means the head sha was force-pushed away or the base ref was never fetched). Failing rather than linting zero commits."
+            echo "::error::commitlint: could not resolve the commit range '$range'. ${BASE_REF} or ${HEAD_SHA} is not present in this checkout (the job checks out with fetch-depth: 0, so this means the head sha was force-pushed away or the base ref was never fetched). Failing rather than linting zero commits."
             exit 1
           fi
           if [ -z "$commits" ]; then
@@ -1137,7 +1139,7 @@ jobs:
       - name: Guarantee affected example consumer dist
         if: env.EXAMPLES_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         shell: bash
         run: |
           plan_file="${RUNNER_TEMP}/examples-affected-plan.json"
@@ -1157,7 +1159,7 @@ jobs:
       - name: Typecheck examples
         if: env.EXAMPLES_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref || inputs.base_ref }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm examples:typecheck
