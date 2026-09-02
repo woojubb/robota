@@ -17,6 +17,58 @@ import * as tierOwner from '../harness-test-tiers.mjs';
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 describe('harness test tiers', () => {
+  it('distributes only large, already validated affected selections', () => {
+    const { distributedAffectedTiers } = tierOwner;
+    const tiers = {
+      contract: ['a.test.mjs', 'b.test.mjs', 'c.test.mjs'],
+      isolatedContract: ['c.test.mjs'],
+      hermetic: ['hermetic.test.mjs'],
+    };
+
+    expect(
+      distributedAffectedTiers(tiers, { mode: 'affected', selected: tiers.contract }, 3),
+    ).toEqual(tiers);
+    expect(
+      distributedAffectedTiers(tiers, { mode: 'affected', selected: tiers.contract }, 4),
+    ).toBeUndefined();
+    expect(
+      distributedAffectedTiers(tiers, { mode: 'complete', selected: tiers.contract }, 1),
+    ).toBeUndefined();
+  });
+
+  it('narrows distributed execution exactly to the selected set and isolated intersection', () => {
+    const tiers = {
+      contract: ['a.test.mjs', 'b.test.mjs', 'c.test.mjs', 'd.test.mjs'],
+      isolatedContract: ['c.test.mjs', 'd.test.mjs'],
+      all: ['a.test.mjs', 'b.test.mjs', 'c.test.mjs', 'd.test.mjs', 'hermetic.test.mjs'],
+      hermetic: ['hermetic.test.mjs'],
+    };
+    const distributed = tierOwner.distributedAffectedTiers(
+      tiers,
+      { mode: 'affected', selected: ['a.test.mjs', 'c.test.mjs'] },
+      2,
+    );
+
+    expect(distributed).toEqual({
+      ...tiers,
+      contract: ['a.test.mjs', 'c.test.mjs'],
+      isolatedContract: ['c.test.mjs'],
+    });
+    expect(new Set(distributed.contract)).toEqual(new Set(['a.test.mjs', 'c.test.mjs']));
+  });
+
+  it('gives distributed affected shards headroom while preserving an explicit deadline', () => {
+    expect(tierOwner.distributedAffectedTimeoutMs({})).toBe(
+      tierOwner.DEFAULT_DISTRIBUTED_AFFECTED_TIMEOUT_MS,
+    );
+    expect(
+      tierOwner.distributedAffectedTimeoutMs({ HARNESS_CONTRACT_SHARD_TIMEOUT_MS: '180000' }),
+    ).toBe(180_000);
+    expect(
+      tierOwner.distributedAffectedTimeoutMs({ HARNESS_CONTRACT_SHARD_TIMEOUT_MS: 'invalid' }),
+    ).toBe(tierOwner.DEFAULT_DISTRIBUTED_AFFECTED_TIMEOUT_MS);
+  });
+
   it('does not forward hook git context across the Vitest subprocess boundary', async () => {
     const { vitestInvocation } = tierOwner;
     const fixtureRoot = makeTemp('robota-harness-tier-environment-');

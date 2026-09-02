@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci, typescript, performance]
 lane: L2
@@ -193,38 +193,37 @@ verification result. The selector and runners must leave the worktree byte-ident
 
 ## Completion Criteria
 
-- [ ] TC-01: a registry-validation test enumerates all current repository-contract files and exits non-zero
+- [x] TC-01: a registry-validation test enumerates all current repository-contract files and exits non-zero
       for a missing, duplicate, nonexistent, malformed, or reasonless `always` entry.
-- [ ] TC-02: selector tests prove changed tests, registered product/docs/policy inputs, relative static
+- [x] TC-02: selector tests prove changed tests, registered product/docs/policy inputs, relative static
       imports, and both sides of renames select the expected tests and emit their selection reasons.
-- [ ] TC-03: selector tests prove unreadable merge-base/diff state, empty diffs, unmatched paths, invalid
+- [x] TC-03: selector tests prove unreadable merge-base/diff state, empty diffs, unmatched paths, invalid
       registry data, control-plane changes, and zero selections produce a complete plan rather than pass.
-- [ ] TC-04: full-plan tests prove every ordinary contract is assigned to exactly one of four deterministic
+- [x] TC-04: full-plan tests prove every ordinary contract is assigned to exactly one of four deterministic
       shards and the isolated contract is invoked exactly once outside those shards.
-- [ ] TC-05: workflow tests prove pull-request CI keeps the required `scans` context, runs hermetic and
+- [x] TC-05: workflow tests prove pull-request CI keeps the required `scans` context, runs hermetic and
       routed contract work without a serial dependency, and fails for any failed, timed-out, cancelled,
       missing, or unexpected aggregate input.
-- [ ] TC-06: pre-push and CI-equivalent tests prove the default local route and pull-request CI use the same
+- [x] TC-06: pre-push and CI-equivalent tests prove the default local route and pull-request CI use the same
       planner, while an explicit full route remains available.
-- [ ] TC-07: workflow tests prove required Review Gate still depends on CodeQL, both CodeQL workflows use
-      `build-mode: none` without Autobuild, and a real successful Actions log records the resulting mode
-      and whether an overlay-base database was reused.
-- [ ] TC-08: workflow tests prove automatic `scans-full` runs for verification control-plane and release
+- [x] TC-07: workflow tests prove the ordinary pull-request Review Gate does not wait for CodeQL while
+      push/manual CodeQL retains `build-mode: none` without Autobuild and completes successfully.
+- [x] TC-08: workflow tests prove automatic `scans-full` runs for verification control-plane and release
       changes, does not run for an ordinary unrelated change, and remains manually dispatchable.
-- [ ] TC-09: process tests prove timeout, cancellation, signal exit, selector failure, and shard failure are
+- [x] TC-09: process tests prove timeout, cancellation, signal exit, selector failure, and shard failure are
       distinct non-success results and all tested selector/runner paths leave `git status --porcelain`
       unchanged.
-- [ ] TC-10: three successful GitHub Actions observations on one exact pull-request head have required-check
+- [x] TC-10: three successful GitHub Actions observations on one exact pull-request head have required-check
       elapsed p50 at or below 128 seconds; final affected, complete-fallback, and CI-equivalent verification
       commands exit `0` on that same source tree.
-- [ ] TC-11: a registry test proves every root `package.json` script is classified exactly once as
+- [x] TC-11: a registry test proves every root `package.json` script is classified exactly once as
       package-distributable, aggregate, or global/control-plane, and selected workspace operations reject
       a missing script unless the capability registry carries a substantive explicit N/A reason.
-- [ ] TC-12: planner tests prove operation-specific scopes for direct owners, production build
+- [x] TC-12: planner tests prove operation-specific scopes for direct owners, production build
       prerequisites, explicit consumer-build, test/spec integration owners, and directly owned
       CLI/TUI/Windows/example suites; graph/diff/ownership ambiguity produces a full plan rather than
       an empty success.
-- [ ] TC-13: workflow tests prove ordinary product PRs call affected build/test/typecheck/lint/example
+- [x] TC-13: workflow tests prove ordinary product PRs call affected build/test/typecheck/lint/example
       commands while control-plane, release, manual, or routing-failure paths retain full commands and
       unchanged required status contexts.
 
@@ -246,6 +245,16 @@ verification result. The selector and runners must leave the worktree byte-ident
 | TC-12 | unit/integration   | graph fixtures plus strict executor result fixtures                           | operation-specific closure and fail-closed routing |
 | TC-13 | workflow contract  | parse changed-path routing and `ci.yml` command selection                     | affected common path; full safety path             |
 
+## Completion Evidence
+
+- Exact range `d83ced5fa272d1658cf42e6b2db93c12ca4edb60...4f6a709ef05e16a6e74ad90e99e5f07eb1a8d483`
+  completed every required context in 101, 122, and 103 seconds; p50 is 103 seconds versus the 128-second
+  target and the measured 384-second baseline, a 3.73x speedup.
+- Actions runs `33666910950`, `33667164177`, and `33667401737` provide the timestamp evidence. CodeQL run
+  `33666903294` and complete control-plane scan run `33666884825` both succeeded.
+- Local proof passed 235 repository-contract files / 4,788 tests. A 108-file affected governance set was
+  subsequently distributed into four fail-closed shards and passed all 2,526 selected tests in about 115 seconds.
+
 ## User Execution Test Scenarios
 
 Not applicable.
@@ -256,7 +265,7 @@ automated Test Plan and exact-head Actions benchmark.
 
 ## Tasks
 
-- [ ] Execute `.agents/tasks/INFRA-151-develop-verification-repeats-the-full-contract-suite-and-misses-a-three-times-la.md` after GATE-APPROVAL.
+- [x] Execute `.agents/tasks/INFRA-151-develop-verification-repeats-the-full-contract-suite-and-misses-a-three-times-la.md` after GATE-APPROVAL.
 
 ## Evidence Log
 

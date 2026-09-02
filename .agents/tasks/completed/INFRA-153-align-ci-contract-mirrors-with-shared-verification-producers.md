@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-153: align CI contract mirrors with shared verification producers'
 issue: https://github.com/woojubb/robota/issues/2489
-status: todo
+status: done
 created: 2026-09-03
+completed: 2026-09-03
 priority: high
 urgency: now
 area: scripts/harness, .github/workflows, CI contract tests
@@ -19,17 +20,25 @@ without restoring duplicated pull-request work.
 
 ## Plan
 
-- [ ] TC-01 — Update workflow placement and review-gate contract expectations for routed full scans
+- [x] TC-01 — Update workflow placement and review-gate contract expectations for routed full scans
       and post-merge CodeQL.
-- [ ] TC-02 — Parse computed scan arguments in local CI mirrors and fail closed on unsupported dynamic
+- [x] TC-02 — Parse computed scan arguments in local CI mirrors and fail closed on unsupported dynamic
       expressions.
-- [ ] TC-03 — Prove the focused mirror suite and complete repository-contract suite pass.
+- [x] TC-03 — Prove the focused mirror suite, distributed large affected route, and complete
+      repository-contract suite pass.
 
 ## Test Plan
 
 Run the six affected Vitest files together, then run `pnpm harness:test:contracts` to prove every
 repository contract agrees with the final workflow structure. The parser tests must cover both the
 supported `scan_args` producer and rejection of unrelated dynamic shell expressions.
+
+## Completion Evidence
+
+- Six mirror files under `scripts/harness/__tests__/`: 235 focused tests passed.
+- `pnpm harness:test:contracts`: 235 files / 4,788 tests passed.
+- Commit `f1aba5e91cd0a8e66f990c66bb4dbbe4009e93fb`: 108 files / 2,526 tests passed
+  across four shards in about 115 seconds.
 
 ## User Execution Test Scenarios
 

@@ -57,13 +57,50 @@ function normaliseRefs(command) {
     .replace(/--base \S+/, '--base <ref>');
 }
 
-function ciScansJobCommands() {
-  const start = CI.indexOf('\n  scans:');
+function prValueOfShellArray(job, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const definition = new RegExp(`^\\s*${escapedName}=\\(([^\\r\\n]*)\\)\\s*$`);
+  const append = new RegExp(`^\\s*${escapedName}\\+=\\(([^\\r\\n]*)\\)\\s*$`);
+  const values = [];
+  const ifStack = [];
+
+  for (const line of job.split('\n')) {
+    const trimmed = line.trim();
+    if (/^if\b.*;\s*then$/.test(trimmed)) {
+      ifStack.push(/^if \[\[ "\$BENCHMARK_MODE" == "true" \]\]; then$/.test(trimmed));
+      continue;
+    }
+    if (trimmed === 'fi') {
+      ifStack.pop();
+      continue;
+    }
+    const initial = definition.exec(line);
+    if (initial) {
+      values.push(initial[1]);
+      continue;
+    }
+    if (append.test(line) && !ifStack.includes(true)) {
+      throw new Error(
+        `\`${name}\` is appended outside the BENCHMARK_MODE-only branch; its PR value is ambiguous.`,
+      );
+    }
+  }
+
+  if (values.length !== 1) {
+    throw new Error(
+      `expected exactly one initial \`${name}=(...)\` definition, found ${values.length}.`,
+    );
+  }
+  return values[0];
+}
+
+function ciScansJobCommands(ci = CI) {
+  const start = ci.indexOf('\n  scans:');
   expect(start, 'the `scans` job is gone from ci.yml — this mirror has no subject').toBeGreaterThan(
     -1,
   );
   // The next top-level job key ends it. Two-space indent, a name, a colon, end of line.
-  const rest = CI.slice(start + 1);
+  const rest = ci.slice(start + 1);
   const next = /\n {2}[a-z][a-z0-9-]*:\n/.exec(rest.slice(1));
   const job = next ? rest.slice(0, next.index + 1) : rest;
   const lines = job.split('\n');
@@ -75,14 +112,13 @@ function ciScansJobCommands() {
     while (command.endsWith('\\')) {
       command = `${command.slice(0, -1)} ${lines[++index].trim()}`;
     }
-    commands.push(
-      normaliseRefs(
-        command
-          .replace(/^start_check \S+ /, '')
-          .replace(/\s+/g, ' ')
-          .trim(),
-      ),
-    );
+    command = command
+      .replace(/^start_check \S+ /, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const dynamic = /^pnpm "\$\{([A-Za-z_][A-Za-z0-9_]*)\[@\]\}"$/.exec(command);
+    if (dynamic) command = `pnpm ${prValueOfShellArray(job, dynamic[1])}`;
+    commands.push(normaliseRefs(command));
   }
   return commands.filter((command) => !CI_ONLY.some((pattern) => pattern.test(command)));
 }
@@ -130,6 +166,24 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     // And the exclusion must not have eaten the subject: a CI_ONLY pattern loose enough to
     // match a real check would empty the list above and pass everything.
     expect(commands.every((command) => /harness:/.test(command))).toBe(true);
+  });
+
+  it('expands the PR value of scan_args and excludes only its benchmark-only additions', () => {
+    const scan = ciScansJobCommands().find((command) => /harness:scan\b/.test(command));
+    expect(scan).toBe(
+      'pnpm harness:scan -- --skip dist --skip build-contracts --affected --context pr --base <ref>',
+    );
+    expect(scan).not.toContain('lane-declaration');
+    expect(scan).not.toContain('user-execution-plan-order');
+    expect(scan).not.toContain('work-run-measurement');
+  });
+
+  it('fails closed if scan_args gains a non-benchmark append', () => {
+    const unguarded = CI.replace(
+      'if [[ "$BENCHMARK_MODE" == "true" ]]; then',
+      'if [[ "$RUN_HERMETIC" == "true" ]]; then',
+    );
+    expect(() => ciScansJobCommands(unguarded)).toThrow(/outside the BENCHMARK_MODE-only branch/);
   });
 
   it('runs affected contracts and scans, and skips only hermetic tests for a proven false verdict', () => {

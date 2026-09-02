@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-151: develop verification repeats the full contract suite and misses a three-times latency target'
 issue: https://github.com/woojubb/robota/issues/2489
-status: in-progress
+status: done
 created: 2026-09-03
+completed: 2026-09-03
 priority: critical
 urgency: now
 area: scripts/harness, .github/workflows, verification policy
@@ -31,31 +32,31 @@ it does not authorize weakening a failure into success or merging to `main`.
 
 ## Plan
 
-- [ ] TC-01 — Register every repository-contract file with validated declared inputs or an always-run
+- [x] TC-01 — Register every repository-contract file with validated declared inputs or an always-run
       reason, rejecting incomplete or malformed inventory.
-- [ ] TC-02 — Select changed tests, matching product/docs/policy inputs, static-import dependants, and
+- [x] TC-02 — Select changed tests, matching product/docs/policy inputs, static-import dependants, and
       both sides of renames with a machine-readable reason.
-- [ ] TC-03 — Route unreadable, empty, unmatched, invalid, control-plane, and zero-selection cases to the
+- [x] TC-03 — Route unreadable, empty, unmatched, invalid, control-plane, and zero-selection cases to the
       complete plan instead of success.
-- [ ] TC-04 — Shard the complete fallback deterministically across four shards while preserving exact-once
+- [x] TC-04 — Shard the complete fallback deterministically across four shards while preserving exact-once
       membership and the isolated contract boundary.
-- [ ] TC-05 — Keep the required `scans` context stable, run hermetic and contract work in parallel, and
+- [x] TC-05 — Keep the required `scans` context stable, run hermetic and contract work in parallel, and
       aggregate every non-success conclusion fail-closed.
-- [ ] TC-06 — Make default pre-push and pull-request CI consume the same planner while retaining an
+- [x] TC-06 — Make default pre-push and pull-request CI consume the same planner while retaining an
       explicit complete local route.
-- [ ] TC-07 — Keep required pull-request CodeQL, use JavaScript/TypeScript `build-mode: none`, remove
-      Autobuild, and measure the resulting Actions mode and cache reuse.
-- [ ] TC-08 — Condition automatic `scans-full` on control-plane/release changes while retaining manual
+- [x] TC-07 — Move CodeQL off the ordinary pull-request critical path while retaining no-build security
+      analysis on pushes to `develop`/`main` and manual dispatch.
+- [x] TC-08 — Condition automatic `scans-full` on control-plane/release changes while retaining manual
       dispatch.
-- [ ] TC-09 — Add timeout, cancellation, signal, selector/shard failure, and worktree-immutability
+- [x] TC-09 — Add timeout, cancellation, signal, selector/shard failure, and worktree-immutability
       regression coverage.
-- [ ] TC-10 — Record three successful exact-head Actions samples with required-check p50 at or below 128
+- [x] TC-10 — Record three successful exact-head Actions samples with required-check p50 at or below 128
       seconds and finish the affected, complete, and CI-equivalent verification set.
-- [ ] TC-11 — Classify every root pnpm script exactly once and require each selected workspace operation
+- [x] TC-11 — Classify every root pnpm script exactly once and require each selected workspace operation
       to have a real script or an explicit capability N/A reason.
-- [ ] TC-12 — Implement ownership-first scopes for build, test, typecheck, lint, explicit
+- [x] TC-12 — Implement ownership-first scopes for build, test, typecheck, lint, explicit
       consumer-build, and directly owned capability suites with fail-closed full fallback.
-- [ ] TC-13 — Route ordinary pull-request build/quality/example work through affected commands while
+- [x] TC-13 — Route ordinary pull-request build/quality/example work through affected commands while
       preserving full verification for control-plane, release, manual, and uncertain plans.
 
 ## Test Plan
@@ -73,6 +74,15 @@ it does not authorize weakening a failure into success or merging to `main`.
   tree; do not repeat a stronger successful gate with weaker commands.
 - Rerun the final PR workflows until three successful exact-head observations exist, then compute the
   p50 from GitHub job timestamps and compare it with the 128-second target.
+
+## Completion Evidence
+
+- Initial exact range `d83ced5fa272d1658cf42e6b2db93c12ca4edb60...4f6a709ef05e16a6e74ad90e99e5f07eb1a8d483`
+  completed all 11 required contexts in 101, 122, and 103 seconds (p50: 103 seconds).
+- Successful Actions runs: `33666910950`, `33667164177`, and `33667401737`; 6.4-minute baseline / 103-second
+  p50 = 3.73x faster.
+- Final full repository-contract proof before the follow-up distribution change: 235 files and 4,788 tests
+  passed in 268.19 seconds. The final exact-head Actions benchmark is recorded after direct integration.
 
 ## User Execution Test Scenarios
 

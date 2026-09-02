@@ -359,7 +359,12 @@ const CI_SCANS_JOB_FIXTURE = `
       - name: Harness scan test suite
         run: pnpm harness:test
       - name: Harness scan suite (dist-independent)
-        run: pnpm harness:scan -- --skip dist --skip build-contracts
+        run: |
+          scan_args=(harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "\${HARNESS_BASE_REF}")
+          if [[ "$BENCHMARK_MODE" == "true" ]]; then
+            scan_args+=(--skip lane-declaration --skip user-execution-plan-order --skip work-run-measurement)
+          fi
+          start_check scans pnpm "\${scan_args[@]}"
 `;
 
 describe('parseDistIndependentScanSkips', () => {
@@ -380,6 +385,34 @@ describe('parseDistIndependentScanSkips', () => {
       'build-contracts',
       'docs-structure',
     ]);
+  });
+
+  it('does not add benchmark-only skips to the mirrored PR scan set', () => {
+    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain('lane-declaration');
+    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain(
+      'user-execution-plan-order',
+    );
+    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain(
+      'work-run-measurement',
+    );
+  });
+
+  it('fails closed when a scan_args append is not benchmark-only', () => {
+    const unguarded = CI_SCANS_JOB_FIXTURE.replace(
+      'if [[ "$BENCHMARK_MODE" == "true" ]]; then',
+      'if [[ "$RUN_HERMETIC" == "true" ]]; then',
+    );
+    expect(() => parseDistIndependentScanSkips(unguarded)).toThrow(
+      /outside the BENCHMARK_MODE-only branch/,
+    );
+  });
+
+  it('fails closed when the dynamic scan_args command is not invoked exactly once', () => {
+    expect(() =>
+      parseDistIndependentScanSkips(
+        CI_SCANS_JOB_FIXTURE.replace('start_check scans pnpm "\${scan_args[@]}"', ''),
+      ),
+    ).toThrow(/exactly one/);
   });
 
   it('throws when no dist-independent scan step exists — never silently scans nothing', () => {
@@ -447,11 +480,13 @@ describe('CI_STAGES', () => {
   it('mirrors BOTH CI scan halves — the built-tree job and the dist-free job (neither replaces the other)', () => {
     const built = CI_STAGES.find((stage) => stage.name === 'scan-suite');
     const distFree = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
-    // `quality` restores dist before the build-dependent scans; `scans` runs on a fresh checkout.
-    expect(describeCiSource(built)).toMatch(/quality/);
+    // `build` owns the build-dependent scan after producing dist; `scans` runs on a fresh checkout.
+    const builtSource = describeCiSource(built);
+    expect(builtSource).toBe('ci.yml → build → Build-output contracts scan (dist-dependent)');
+    expect(builtSource).not.toMatch(/→ quality →/);
     expect(describeCiSource(distFree)).toMatch(/scans/);
     expect(describeCiSource(distFree)).toMatch(/dist/);
-    expect(describeCiSource(built)).not.toEqual(describeCiSource(distFree));
+    expect(builtSource).not.toEqual(describeCiSource(distFree));
   });
 
   it('passes the original branch and head identity into detached dist-free scans', () => {

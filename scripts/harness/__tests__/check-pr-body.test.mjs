@@ -143,7 +143,7 @@ describe('the required check reaches the judge', () => {
     'utf8',
   );
 
-  it('sits directly after the base-sha checkout, before the first classifier-gated step, with no if:', () => {
+  it('sits after the base-sha checkout, before the first applicable classifier-gated step, with no if:', () => {
     const job = WORKFLOW.slice(
       WORKFLOW.indexOf('\n  review-gate:'),
       WORKFLOW.indexOf('\n  disarm-auto-merge:'),
@@ -151,10 +151,16 @@ describe('the required check reaches the judge', () => {
     const checkoutAt = job.indexOf('ref: ${{ github.event.pull_request.base.sha }}');
     // The `run:` line, not the comment above the step that quotes the local command.
     const stepAt = job.indexOf('run: node scripts/harness/check-pr-body.mjs');
-    const firstGateAt = job.indexOf("if: needs.classify.outputs.code == 'true'");
+    // CodeQL-backed review steps may all be disabled when that verification moves off the PR path.
+    // In that shape the end of the job is the boundary; if an applicable classifier gate returns,
+    // its `if:` line becomes the boundary automatically.
+    const firstGateAt =
+      [...job.matchAll(/^\s+if:.*needs\.classify\.outputs\.code.*$/gmu)][0]?.index ?? job.length;
     expect(checkoutAt, 'base-sha checkout').toBeGreaterThan(-1);
     expect(stepAt, 'the pr-body step invokes the judge').toBeGreaterThan(checkoutAt);
-    expect(firstGateAt, 'a classifier-gated step exists').toBeGreaterThan(stepAt);
+    expect(firstGateAt, 'the first applicable classifier gate follows the judge').toBeGreaterThan(
+      stepAt,
+    );
 
     const stepBlock = job.slice(job.lastIndexOf('- name:', stepAt), stepAt);
     expect(stepBlock, 'the pr-body step must not carry an if:').not.toMatch(/^\s+if:/m);

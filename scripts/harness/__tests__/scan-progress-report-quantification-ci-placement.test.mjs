@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 
 /**
- * HARNESS-063, second decision: does `scan-progress-report-quantification` belong on CI's `--skip`
- * list beside `dist`?
+ * HARNESS-063, second decision: does `scan-progress-report-quantification` belong on the full
+ * integration scan's `--skip` list beside `dist`?
  *
  * **No**, and the two reasons the item gave were both measured rather than accepted:
  *
@@ -19,10 +19,11 @@ import { SCAN_COMMANDS } from '../run-all-scans.mjs';
  * - "the summary implies it verified something" was closed by HARNESS-057/#1561: the scan now prints
  *   its examined count and an advisory naming the zero AND the reason.
  *
- * What keeping it buys, for that ~30 ms: CI executes the module, so a crash, a bad config key or a
- * broken import fails the `scans` job. On the `--skip` list it would never run there at all, and
- * `run-all-scans` would print `skipped: … (--skip)` — a line that drops the REASON the scan itself
- * reports today.
+ * What keeping it buys, for that ~30 ms: the full integration scan executes the module, so a crash,
+ * a bad config key or a broken import fails the `scans-full` job. On the `--skip` list it would
+ * never run there at all, and `run-all-scans` would print `skipped: … (--skip)` — a line that drops
+ * the REASON the scan itself reports today. PR CI deliberately runs an affected suite assembled in
+ * `scan_args`; it is not the authoritative whole-registry coverage point for this invariant.
  *
  * This file is the anchor for that decision. Reversing it should mean revisiting the reasons, not
  * editing a workflow line in passing.
@@ -32,7 +33,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const SCAN_NAME = 'progress-report-quantification';
 
 /**
- * The FULL-SUITE `harness:scan` invocations the required `scans` job runs.
+ * The FULL-SUITE `harness:scan` invocations the post-merge `scans-full` workflow runs.
  *
  * Matching on the substring `pnpm harness:scan` was written first and was vacuous: `pnpm
  * harness:scan:build-contracts` contains it and appears EARLIER in the file, so taking the first
@@ -40,12 +41,18 @@ const SCAN_NAME = 'progress-report-quantification';
  * actually present. The word boundary is what makes it the suite entry point rather than any script
  * whose name starts the same way.
  */
-function ciFullScanCommands() {
-  const workflow = readFileSync(path.join(WORKSPACE_ROOT, '.github/workflows/ci.yml'), 'utf8');
+function integrationFullScanCommands() {
+  const workflow = readFileSync(
+    path.join(WORKSPACE_ROOT, '.github/workflows/scans-full.yml'),
+    'utf8',
+  );
   const lines = workflow.split('\n').filter((l) => /pnpm harness:scan(\s|$)/.test(l));
   // Fail closed: no match means the workflow changed shape and this decision needs re-reading, not
   // that nothing is skipped.
-  expect(lines.length, 'CI no longer runs the full `pnpm harness:scan` suite').toBeGreaterThan(0);
+  expect(
+    lines.length,
+    'scans-full no longer runs the full `pnpm harness:scan` suite',
+  ).toBeGreaterThan(0);
   return lines;
 }
 
@@ -54,10 +61,11 @@ describe('HARNESS-063 — the progress-report scan stays in the CI scan suite', 
     expect(SCAN_COMMANDS.map((s) => s.name)).toContain(SCAN_NAME);
   });
 
-  it('is NOT on the CI --skip list', () => {
+  it('is NOT on the full integration scan --skip list', () => {
     // `dist` and `build-contracts` are skipped because they CANNOT run on a fresh checkout at all.
     // This one runs, in ~30 ms, and reports why it judged nothing.
-    for (const command of ciFullScanCommands()) {
+    for (const command of integrationFullScanCommands()) {
+      expect(command).toContain('--context integration');
       expect(command).not.toContain(`--skip ${SCAN_NAME}`);
     }
   });

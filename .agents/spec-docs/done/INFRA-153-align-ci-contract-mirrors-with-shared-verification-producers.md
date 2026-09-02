@@ -1,8 +1,8 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [ci, harness, contracts]
-lane: L1
+lane: L2
 ---
 
 # INFRA-153: Align CI contract mirrors with shared verification producers
@@ -29,6 +29,8 @@ Waived: internal CI contract alignment following the repository's existing workf
 - `scripts/harness/__tests__/pre-push-mirrors-ci-scans.test.mjs`
 - `scripts/harness/__tests__/scan-progress-report-quantification-ci-placement.test.mjs`
 - `scripts/harness/__tests__/verify-like-ci.test.mjs`
+- `scripts/harness/__tests__/harness-test-tiers.test.mjs`
+- `scripts/harness/harness-test-tiers.mjs`
 - `scripts/harness/verify-like-ci-dist-free.mjs`
 - `packages/agent-core/src/ci-affected-benchmark.ts`
 
@@ -74,15 +76,17 @@ only to produce an exact-head, package-owned benchmark after the alignment lands
 - `scripts/harness/__tests__/pre-push-mirrors-ci-scans.test.mjs`
 - `scripts/harness/__tests__/scan-progress-report-quantification-ci-placement.test.mjs`
 - `scripts/harness/__tests__/verify-like-ci.test.mjs`
+- `scripts/harness/__tests__/harness-test-tiers.test.mjs`
+- `scripts/harness/harness-test-tiers.mjs`
 - `scripts/harness/verify-like-ci-dist-free.mjs`
 - `packages/agent-core/src/ci-affected-benchmark.ts`
 
 ## Completion Criteria
 
-- [ ] TC-01: the six affected workflow and mirror Vitest files run together and all tests exit 0.
-- [ ] TC-02: `pnpm harness:test:contracts` exits 0 with all repository-contract files passing.
-- [ ] TC-03: both local mirror implementations resolve the workflow-owned `scan_args` expression and
-      their contract tests reject an unrelated dynamic expression.
+- [x] TC-01: the six affected workflow and mirror Vitest files run together and all tests exit 0.
+- [x] TC-02: `pnpm harness:test:contracts` exits 0 with all repository-contract files passing.
+- [x] TC-03: both local mirror implementations resolve the workflow-owned `scan_args` expression,
+      reject an unrelated dynamic expression, and distribute a validated affected set of at least 32 files.
 
 ## Test Plan
 
@@ -92,15 +96,23 @@ only to produce an exact-head, package-owned benchmark after the alignment lands
 | TC-02 | Suite     | `pnpm harness:test:contracts`             | Complete repository-contract regression     |
 | TC-03 | Unit      | Local mirror parser tests                 | Supported producer plus fail-closed unknown |
 
+## Completion Evidence
+
+- Six workflow/mirror files passed 235 focused tests.
+- The complete contract tier passed 235 files and 4,788 tests in 268.19 seconds.
+- The formerly timing-out 108-file affected set passed 2,526 tests in four shards in about 115 seconds;
+  focused tier tests passed 38/38.
+
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** no runnable user-facing behaviour changes; verification evidence is recorded in the
+engineering test plan (TC-01 to TC-03).
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-153-align-ci-contract-mirrors-with-shared-verification-producers.md` — todo
+- [x] `.agents/tasks/INFRA-153-align-ci-contract-mirrors-with-shared-verification-producers.md` — done
 
 ## Evidence Log
 

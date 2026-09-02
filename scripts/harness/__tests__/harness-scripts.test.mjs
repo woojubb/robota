@@ -190,16 +190,31 @@ describe('CI build workflow', () => {
     expect(content).not.toContain('<scope>^...');
   });
 
-  it('restores root build output before skip-build quality verification', () => {
+  it('keeps dist-dependent contracts in the shared build/quality producer', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
-    const restoreIndex = content.indexOf('Restore package build output');
-    const verifyIndex = content.indexOf('Verify full or affected package quality concurrently');
+    const buildStart = content.indexOf('\n  build:\n');
+    const qualityStart = content.indexOf('\n  quality:\n');
+    const scansStart = content.indexOf('\n  scans:\n');
 
-    expect(content).toContain('needs: [changes, build]');
-    expect(content).toContain("needs.build.outputs.package_dist_required == 'true'");
-    expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
-    expect(restoreIndex).toBeGreaterThanOrEqual(0);
-    expect(verifyIndex).toBeGreaterThan(restoreIndex);
+    expect(buildStart).toBeGreaterThanOrEqual(0);
+    expect(qualityStart).toBeGreaterThan(buildStart);
+    expect(scansStart).toBeGreaterThan(qualityStart);
+
+    const buildJob = content.slice(buildStart, qualityStart);
+    const qualityJob = content.slice(qualityStart, scansStart);
+    const workspaceBuildIndex = buildJob.indexOf('Build full or affected workspace');
+    const packageQualityIndex = buildJob.indexOf(
+      'Verify full or affected package quality concurrently',
+    );
+    const buildContractsIndex = buildJob.indexOf('Build-output contracts scan (dist-dependent)');
+
+    expect(workspaceBuildIndex).toBeGreaterThanOrEqual(0);
+    expect(packageQualityIndex).toBeGreaterThan(workspaceBuildIndex);
+    expect(buildContractsIndex).toBeGreaterThan(packageQualityIndex);
+    expect(qualityJob).toContain('needs: [changes, build]');
+    expect(qualityJob).toContain('Publish the product verification verdict');
+    expect(qualityJob).toContain('BUILD_RESULT: ${{ needs.build.result }}');
+    expect(qualityJob).not.toContain('Build-output contracts scan (dist-dependent)');
   });
 
   it('delegates scoped typechecks to the affected root command exactly once', () => {

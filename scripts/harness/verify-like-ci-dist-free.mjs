@@ -21,8 +21,56 @@ import {
 import { WORKSPACE_ROOT, gitOrThrow, parseGitFileList, run } from './verify-like-ci-shared.mjs';
 
 const CI_WORKFLOW = path.join('.github', 'workflows', 'ci.yml');
-const CI_DIST_INDEPENDENT_SCAN_STEP =
-  /pnpm\s+harness:scan\s+--\s+((?:--skip\s+[A-Za-z0-9_-]+\s*)+)/g;
+const DIRECT_SCAN = /^\s*(?:run:\s*)?pnpm\s+(harness:scan\s+--\s+[^\r\n]*)\s*$/gm;
+const SCAN_ARRAY = /^\s*([A-Za-z_][A-Za-z0-9_]*)=\((harness:scan\s+--\s+[^\r\n]*)\)\s*$/gm;
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertOnlyBenchmarkAppends(source, name) {
+  const append = new RegExp(`^\\s*${escapeRegExp(name)}\\+=\\([^\\r\\n]*\\)\\s*$`);
+  const ifStack = [];
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim();
+    if (/^if\b.*;\s*then$/.test(trimmed)) {
+      ifStack.push(/^if \[\[ "\$BENCHMARK_MODE" == "true" \]\]; then$/.test(trimmed));
+      continue;
+    }
+    if (trimmed === 'fi') {
+      ifStack.pop();
+      continue;
+    }
+    if (append.test(line) && !ifStack.includes(true)) {
+      throw new Error(
+        `\`${name}\` is appended outside the BENCHMARK_MODE-only branch; the PR scan set is ambiguous.`,
+      );
+    }
+  }
+}
+
+function dynamicScanCommands(source) {
+  const assignments = [...source.matchAll(SCAN_ARRAY)];
+  // Let the caller report the stronger top-level invariant first: multiple scan definitions are
+  // already an ambiguous mirror target, regardless of how those arrays happen to be invoked.
+  if (assignments.length > 1) return assignments.map((match) => match[2]);
+
+  return assignments.map((match) => {
+    const [, name, command] = match;
+    const invocation = new RegExp(
+      `^\\s*start_check\\s+\\S+\\s+pnpm\\s+"\\$\\{${escapeRegExp(name)}\\[@\\]\\}"\\s*$`,
+      'gm',
+    );
+    const invocations = [...source.matchAll(invocation)];
+    if (invocations.length !== 1) {
+      throw new Error(
+        `expected exactly one \`start_check … pnpm "\${${name}[@]}"\` invocation, found ${invocations.length}.`,
+      );
+    }
+    assertOnlyBenchmarkAppends(source, name);
+    return command;
+  });
+}
 
 export function listBuildablePackageDirs(root = WORKSPACE_ROOT) {
   return listBuildablePackageDirsIn(root);
@@ -33,18 +81,26 @@ export function findMissingDist(dirs, exists = existsSync, root = WORKSPACE_ROOT
 }
 
 export function parseDistIndependentScanSkips(ciYaml) {
-  const matches = [...String(ciYaml ?? '').matchAll(CI_DIST_INDEPENDENT_SCAN_STEP)];
-  if (matches.length === 0) {
+  const source = String(ciYaml ?? '');
+  const commands = [
+    ...[...source.matchAll(DIRECT_SCAN)].map((match) => match[1]),
+    ...dynamicScanCommands(source),
+  ];
+  if (commands.length === 0) {
     throw new Error(
-      `no \`pnpm harness:scan -- --skip …\` step found in ${CI_WORKFLOW} — the dist-free stage cannot mirror a job it cannot read.`,
+      `no \`harness:scan -- --skip …\` command found in ${CI_WORKFLOW} — the dist-free stage cannot mirror a job it cannot read.`,
     );
   }
-  if (matches.length > 1) {
+  if (commands.length > 1) {
     throw new Error(
-      `more than one \`pnpm harness:scan -- --skip …\` step in ${CI_WORKFLOW} — ambiguous mirror target; the dist-free stage must name exactly one.`,
+      `more than one \`harness:scan -- --skip …\` command in ${CI_WORKFLOW} — ambiguous mirror target; the dist-free stage must name exactly one.`,
     );
   }
-  return [...matches[0][1].matchAll(/--skip\s+([A-Za-z0-9_-]+)/g)].map((skip) => skip[1]);
+  const skips = [...commands[0].matchAll(/--skip\s+([A-Za-z0-9_-]+)/g)].map((skip) => skip[1]);
+  if (skips.length === 0) {
+    throw new Error(`the mirrored \`harness:scan\` command in ${CI_WORKFLOW} has no skip set.`);
+  }
+  return skips;
 }
 
 export function readDistIndependentScanSkips(root = WORKSPACE_ROOT) {
