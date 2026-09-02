@@ -139,7 +139,7 @@ Recorded as the rule's required choice rather than skipped.
 **Class:** `LANE-L0-L1`
 **Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
 **Given:** 2026-08-28, this conversation
-**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs --changed <2 path(s)> --diff-file <diff vs origin/develop> --trailers-file <Lane: L1>` over 2 changed path(s) — committed and working-tree changes vs origin/develop (merge base eb25171678cf) → exit 0, `lane-declaration summary: violations=0 result=PASS` (Lane L1 (spec-doc frontmatter .agents/spec-docs/draft/INFRA-152-support-multi-issue-agreement-migration-batches.md) is at or above the floor L0)
+**Replacement evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs` over 7 changed paths against current merge base `954468159317b65d770b2b49fb4e0d5c2667da45` → exit 0, `lane-declaration summary: violations=0 result=PASS` (`Lane L1` from `.agents/spec-docs/done/INFRA-152-support-multi-issue-agreement-migration-batches.md` is at or above the L1 floor).
 **Review fingerprint:** aaf20efe901e (review 3192368f, type/tags 7839d832)
 
 - GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
