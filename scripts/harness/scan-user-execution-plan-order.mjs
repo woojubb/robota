@@ -2473,9 +2473,10 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const stagedText = (file) => indexText(root, file);
     const headText = (file) => gitText(root, 'HEAD', file);
     if (history.checkpoint) {
+      const residue = worktreePaths(root);
       if (
         history.checkpoint.form === 'correction' &&
-        !correctionClosureOnly(staged, stagedText, headText)
+        (!correctionClosureOnly(staged, stagedText, headText) || residue.length > 0)
       ) {
         return [
           finding(

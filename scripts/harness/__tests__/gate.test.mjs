@@ -1921,6 +1921,19 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
     expect(specResult.stdout + specResult.stderr).toMatch(
       /status is `verifying`, `in-progress` expected/i,
     );
+    writeFileSync(
+      wrongSpec.doc,
+      readFileSync(wrongSpec.doc, 'utf8').replace('status: verifying', 'status: in-progress'),
+    );
+    const repairedSpecResult = judge(wrongSpec.root, wrongSpec.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(repairedSpecResult.status, repairedSpecResult.stdout + repairedSpecResult.stderr).toBe(
+      0,
+    );
+    expect(evidenceEntries(readFileSync(wrongSpec.doc, 'utf8')).at(-1).verdict).toBe('✅ PASS');
 
     const wrongTask = correctionWorkspace();
     writeFileSync(

@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -1134,6 +1134,12 @@ describe('user-execution PLAN order — branch history', () => {
     const receiptPath = '.agents/evals/work-runs/00000000-0000-4000-8000-000000000000/g0-r0.json';
     write(closure.root, receiptPath, '{}\n');
     git(closure.root, ['add', '-f', receiptPath]);
+    expect(findStagedFindings(closure.root, closure.base)).toEqual([]);
+    write(closure.root, 'packages/example/src.ts', 'unstaged implementation beside receipt\n');
+    expect(messages(findStagedFindings(closure.root, closure.base))).toMatch(
+      /correction.*integration base.*continuation/i,
+    );
+    rmSync(path.join(closure.root, 'packages/example'), { recursive: true, force: true });
     git(closure.root, ['commit', '-m', 'correction work-run receipt closure']);
     expect(findHistoryFindingsFromGit(closure.root, closure.base)).toEqual([]);
   });
