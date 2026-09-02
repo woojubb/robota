@@ -21,16 +21,16 @@ that checkpoint must remain invalid.
 
 ## Plan
 
-- [ ] TC-01 — Extend the rule-owned v2 checkpoint contract with one explicit correction form and exact
+- [x] TC-01 — Extend the rule-owned v2 checkpoint contract with one explicit correction form and exact
       payload order; do not weaken or reinterpret v1 evidence.
-- [ ] TC-02 — Add a native correction command that is available only for an in-progress L2 spec with one
+- [x] TC-02 — Add a native correction command that is available only for an in-progress L2 spec with one
       legacy v1 first PASS, a valid sequenced Decision, unchanged Task/PLAN binding, and planning-only
       worktree inventory.
-- [ ] TC-03 — Make the native continuation writer and history/staged consumers accept the same canonical
+- [x] TC-03 — Make the native continuation writer and history/staged consumers accept the same canonical
       correction anchor, while still rejecting a bare post-hoc Delivery mode/artifact edit.
-- [ ] TC-04 — Add RED→GREEN fixtures for the exact AGREEMENT-006 legacy shape, malformed/stale correction
+- [x] TC-04 — Add RED→GREEN fixtures for the exact AGREEMENT-006 legacy shape, malformed/stale correction
       payloads, a correction for an already-valid/v2 first checkpoint, and second/later continuations.
-- [ ] TC-05 — Run the focused contract/gate/plan-order suites, affected scans, full harness scan, and
+- [x] TC-05 — Run the focused contract/gate/plan-order suites, affected scans, full harness scan, and
       build; record exact results before completion.
 
 ## Test Plan

@@ -140,27 +140,27 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: checkpoint contract tests parse/format exactly one v2 correction form with the declared key
+- [x] TC-01: checkpoint contract tests parse/format exactly one v2 correction form with the declared key
       order and refuse missing, duplicate, reordered, unknown, or semantically inconsistent fields.
-- [ ] TC-02: gate/writer tests reproduce AGREEMENT-006's legacy introduction failure, then prove the
+- [x] TC-02: gate/writer tests reproduce AGREEMENT-006's legacy introduction failure, then prove the
       native correction command emits a canonical PASS only for the exact eligible state.
-- [ ] TC-03: history and staged plan-order tests accept legacy first → correction → first/later
+- [x] TC-03: history and staged plan-order tests accept legacy first → correction → first/later
       continuation, and reject post-hoc-only declarations plus every stale, duplicate, drifted, or
       retrospective correction control.
-- [ ] TC-04: reverting the correction implementation makes the exact eligible end-to-end fixture RED,
+- [x] TC-04: reverting the correction implementation makes the exact eligible end-to-end fixture RED,
       while existing valid v1 sequenced and v2 first/continuation fixture populations remain GREEN.
-- [ ] TC-05: focused whole-file suites, affected scan, full harness scan, `pnpm build`, and
+- [x] TC-05: focused whole-file suites, affected scan, full harness scan, `pnpm build`, and
       `git diff --check` all exit 0 on the reviewed exact head.
 
 ## Test Plan
 
-| TC-ID | Test Type       | Tool / Approach                                                                    | Notes                                                     |
-| ----- | --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| TC-01 | Contract unit   | `checkpoint-evidence-contract.test.mjs` and source/shape fixtures                  | Exact schema and semantic refusal matrix                  |
-| TC-02 | Writer unit     | `gate.test.mjs` plus `gate-checkpoint-evidence.test.mjs`                           | Native eligible/refusal behavior                          |
-| TC-03 | Repository unit | `scan-user-execution-plan-order.test.mjs` history and staged fixtures              | Introduction binding, sequence, drift, later continuation |
-| TC-04 | Red proof       | targeted eligible fixture with the implementation reverted                         | RED before correction support, GREEN after                |
-| TC-05 | Suite           | focused Vitest, affected/full `harness:scan`, `pnpm build`, and `git diff --check` | Exact-head regression and repository contracts            |
+| TC-ID | Test Type       | Tool / Approach                                                                    | Notes                                                                                                                             |
+| ----- | --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Contract unit   | `checkpoint-evidence-contract.test.mjs` and source/shape fixtures                  | `scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` — correction-form parse/format and refusal matrix               |
+| TC-02 | Writer unit     | `gate.test.mjs` plus `gate-checkpoint-evidence.test.mjs`                           | `scripts/harness/__tests__/gate.test.mjs` — native legacy-v1 correction form, eligibility, wrong-status refusal, and repair retry |
+| TC-03 | Repository unit | `scan-user-execution-plan-order.test.mjs` history and staged fixtures              | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — correction sequence, drift, closure, and residue controls   |
+| TC-04 | Red proof       | targeted eligible fixture with the implementation reverted                         | `scripts/harness/__tests__/gate.test.mjs` — eligible correction RED before support and GREEN with v1/v2 compatibility controls    |
+| TC-05 | Suite           | focused Vitest, affected/full `harness:scan`, `pnpm build`, and `git diff --check` | Five focused suites 266/266; build PASS; history scan examined five commits; Round C review found zero actionable findings        |
 
 ## User Execution Test Scenarios
 
@@ -171,7 +171,7 @@ product, SDK, CLI, TUI, or user-observable runtime surface.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md` — todo
+- [x] `.agents/tasks/PROC-031-add-an-executable-corrective-checkpoint-for-legacy-v1-delivery-declarations.md` — completion-ready
 
 ## Evidence Log
 
