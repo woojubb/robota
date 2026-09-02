@@ -23,15 +23,15 @@ GitHub Issue would add the queue entry this fix exists to remove.
 
 ## Plan
 
-- [ ] TC-01 — Accept a strict atomic AGREEMENT prelude when every child cites one concrete GitHub Issue,
+- [x] TC-01 — Accept a strict atomic AGREEMENT prelude when every child cites one concrete GitHub Issue,
       whether all records share one source or existing hierarchy children cite distinct leaf sources.
-- [ ] TC-02 — Preserve rejection of missing/malformed child source URLs and every unrelated-path,
+- [x] TC-02 — Preserve rejection of missing/malformed child source URLs and every unrelated-path,
       pre-existing-child, nested-AGREEMENT, non-todo, duplicate, and projection mismatch.
-- [ ] TC-03 — Document the two source topologies in `issue-to-backlog` without weakening exact
+- [x] TC-03 — Document the two source topologies in `issue-to-backlog` without weakening exact
       Task-to-Issue identity at conversion time.
-- [ ] TC-04 — Prove a five-record tracker/leaf fixture passes staged and history validation, and that
+- [x] TC-04 — Prove a five-record tracker/leaf fixture passes staged and history validation, and that
       every leaf succeeds only with its own Task while cross-pairing is refused before writes.
-- [ ] TC-05 — Run the focused planning-order/triage suites and the affected repository scan once after
+- [x] TC-05 — Run the focused planning-order/triage suites and the affected repository scan once after
       the complete implementation batch.
 
 ## Constraints
