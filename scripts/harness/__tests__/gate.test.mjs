@@ -73,6 +73,7 @@ const CATALOGUE = `# Gate Catalogue
 | GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |
 | GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |
 | GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) |
+| GATE-IMPLEMENT (correction) | GATE-IMPLEMENT                 | \`in-progress\` (legacy v1 recovery only) |
 | GATE-VERIFY    | GATE-IMPLEMENT                 | \`in-progress\`                |
 | GATE-COMPLETE  | GATE-VERIFY                    | \`verifying\`                  |
 
@@ -1903,6 +1904,41 @@ describe('judge — GATE-IMPLEMENT reads the worktree', () => {
       sequencedArtifacts: ['scripts/harness/gate.mjs'],
       firstPassIntroductionSha: fixture.firstIntroductionSha,
     });
+  });
+
+  it('refuses a legacy-v1 correction unless both the spec and Task are in-progress', () => {
+    const wrongSpec = correctionWorkspace();
+    writeFileSync(
+      wrongSpec.doc,
+      readFileSync(wrongSpec.doc, 'utf8').replace('status: in-progress', 'status: verifying'),
+    );
+    const specResult = judge(wrongSpec.root, wrongSpec.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(specResult.status).toBe(1);
+    expect(specResult.stdout + specResult.stderr).toMatch(
+      /status is `verifying`, `in-progress` expected/i,
+    );
+
+    const wrongTask = correctionWorkspace();
+    writeFileSync(
+      path.join(wrongTask.root, TASK_REL),
+      readFileSync(path.join(wrongTask.root, TASK_REL), 'utf8').replace(
+        'status: in-progress',
+        'status: verifying',
+      ),
+    );
+    const taskResult = judge(wrongTask.root, wrongTask.doc, 'GATE-IMPLEMENT', [
+      '--lane',
+      'L2',
+      '--correction',
+    ]);
+    expect(taskResult.status).toBe(1);
+    expect(taskResult.stdout + taskResult.stderr).toMatch(
+      /paired Task.*status: verifying.*in-progress/i,
+    );
   });
 
   it('refuses a native continuation when the history has FAIL but no prior PASS', () => {

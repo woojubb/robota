@@ -495,7 +495,7 @@ export function parsePriorGateMap(text) {
     const [gate, prior, status] = cells;
     const statusToken = /`([a-z-]+)`/.exec(status ?? '');
     if (
-      /^GATE-[A-Z]+(?: \(continuation\))?$/.test(gate ?? '') &&
+      /^GATE-[A-Z]+(?: \((?:continuation|correction)\))?$/.test(gate ?? '') &&
       /^GATE-[A-Z]+$/.test(prior ?? '')
     ) {
       map.set(gate, { gate: prior, status: statusToken ? statusToken[1] : null });

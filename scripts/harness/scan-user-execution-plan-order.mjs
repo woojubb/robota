@@ -763,6 +763,34 @@ export function gateImplementEntryResults(
       }
     }
     if (formName === 'gateImplementContinuation') {
+      const correctionBody = entries
+        .slice(0, index)
+        .find((entry) => gateImplementEntryForm(entry) === 'correction');
+      if (correctionBody !== undefined) {
+        const correctionContract = parsedContracts.contracts.get(2);
+        const correction = correctionContract
+          ? parseCheckpointEvidence(correctionContract, 'gateImplementCorrection', correctionBody)
+          : { ok: false };
+        if (!correction.ok) {
+          return {
+            ok: false,
+            error: 'gateImplementContinuation correction delivery anchor is invalid',
+            body,
+          };
+        }
+        if (
+          parsed.payload.deliveryMode !== correction.payload.deliveryMode ||
+          JSON.stringify(parsed.payload.sequencedArtifacts) !==
+            JSON.stringify(correction.payload.sequencedArtifacts)
+        ) {
+          return {
+            ok: false,
+            error:
+              'gateImplementContinuation delivery does not bind the canonical correction delivery array',
+            body,
+          };
+        }
+      }
       if (isCurrentIntroduction) {
         const artifacts = continuationArtifacts(contract, baseSpec ?? spec);
         if (!artifacts.ok) return { ok: false, error: artifacts.error, body };
@@ -1473,6 +1501,20 @@ function onlyLedgerAppends(paths, textForPath, parentTextForPath) {
     paths.every((file) =>
       validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', null),
     )
+  );
+}
+
+function isWorkRunReceiptPath(file) {
+  return /^\.agents\/evals\/work-runs\/[0-9a-f-]+\/g(?:0|[1-9]\d*)-r(?:0|[1-9]\d*)\.json$/u.test(
+    file,
+  );
+}
+
+function correctionClosureOnly(paths, textForPath, parentTextForPath) {
+  return (
+    paths.length === 0 ||
+    (paths.length === 1 && isWorkRunReceiptPath(paths[0])) ||
+    onlyLedgerAppends(paths, textForPath, parentTextForPath)
   );
 }
 
@@ -2198,7 +2240,27 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       ),
     );
   }
-  for (const entry of entries.slice(entries.indexOf(first) + 1)) {
+  const parentPasses = rawGateImplementPassEntries(
+    gitText(root, first.parent, `${SPEC_PREFIX}active/${basename}`),
+  );
+  const currentPasses = rawGateImplementPassEntries(
+    gitText(root, first.commit, `${SPEC_PREFIX}active/${basename}`),
+  );
+  const checkpointForm =
+    lane === 'L2' ? gateImplementEntryForm(currentPasses[parentPasses.length]) : 'first';
+  const firstEntryIndex = entries.findIndex((entry) => entry.commit === first.commit);
+  for (const entry of entries.slice(firstEntryIndex + 1)) {
+    if (
+      checkpointForm === 'correction' &&
+      !correctionClosureOnly(entry.paths, textIn(entry.commit), textIn(entry.parent))
+    ) {
+      findings.push(
+        finding(
+          `correction checkpoint must reach the integration base before implementation; a later branch must record continuation first. Unexpected path(s): ${entry.paths.join(', ') || '(none)'}.`,
+          entry.commit,
+        ),
+      );
+    }
     const secondary = checkpointTransitions(
       entry.paths,
       textIn(entry.commit),
@@ -2221,7 +2283,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     base,
     commits,
     examined,
-    checkpoint: { commit: first.commit, basename, lane },
+    checkpoint: { commit: first.commit, basename, lane, form: checkpointForm },
     pendingBasename: null,
     findings,
   };
@@ -2411,6 +2473,16 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const stagedText = (file) => indexText(root, file);
     const headText = (file) => gitText(root, 'HEAD', file);
     if (history.checkpoint) {
+      if (
+        history.checkpoint.form === 'correction' &&
+        !correctionClosureOnly(staged, stagedText, headText)
+      ) {
+        return [
+          finding(
+            'correction checkpoint must reach the integration base before implementation; a later branch must record continuation first.',
+          ),
+        ];
+      }
       // A same-basename re-transition is refused here too, as before: the checkpoint already exists.
       const secondary = checkpointTransitions(staged, stagedText, headText, (basename) =>
         checkpointOptionsAt(root, 'HEAD', basename, 'HEAD', staged),

@@ -763,7 +763,7 @@ entry markers in one `json` fence. Payload keys occur exactly once in declared o
 normalized repository-relative strings, arrays preserve declared source order, and unknown keys fail.
 
 New GATE-IMPLEMENT writers emit v2; consumers dispatch by the payload marker/version and continue to
-replay historical v1. Both v2 forms always carry `deliveryMode` and `sequencedArtifacts`: `single`
+replay historical v1. All three v2 forms carry `deliveryMode` and `sequencedArtifacts`: `single`
 requires an empty array, while `sequenced` binds the exact non-empty Decision array. The first form is
 written by `gate.mjs judge --gate GATE-IMPLEMENT`; later PRs use
 `gate.mjs judge --gate GATE-IMPLEMENT --continuation`, which resolves the catalogue's annotated

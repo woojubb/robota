@@ -84,8 +84,8 @@ Every entry MUST use this format. No exceptions.
 ```
 
 `<current> → <next>` may carry one parenthetical annotation naming a re-judgement that is not a
-transition — today only `in-progress → in-progress (continuation)` (§ GATE-IMPLEMENT). A parser accepts
-exactly the annotated lines this document declares.
+transition — `in-progress → in-progress (continuation)` or `in-progress → in-progress (correction)`
+(§ GATE-IMPLEMENT). A parser accepts exactly the annotated lines this document declares.
 
 Partial entries (e.g., PASS without specific evidence lines) are treated as NON-COMPLIANCE on the next gate run.
 

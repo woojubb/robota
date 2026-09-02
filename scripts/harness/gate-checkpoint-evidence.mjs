@@ -13,6 +13,7 @@ import {
   checkpointIntroductionSpec,
   precedingCheckpointIntegrationCommit,
 } from './checkpoint-evidence-git-contract.mjs';
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { gateImplementEntryResults } from './scan-user-execution-plan-order.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 import {
@@ -173,6 +174,12 @@ export function correctionCheckpointEvidence({
   taskRel,
   specRel,
 }) {
+  const taskStatus = asScalar(frontmatterObject(taskText).status ?? '');
+  if (taskStatus !== 'in-progress') {
+    throw new Error(
+      `GATE-IMPLEMENT correction paired Task is \`status: ${taskStatus || '(absent)'}\`, \`in-progress\` required`,
+    );
+  }
   const contract = v2Contract(ruleText);
   const declaredDelivery = delivery(contract, specText);
   if (declaredDelivery.deliveryMode !== 'sequenced') {

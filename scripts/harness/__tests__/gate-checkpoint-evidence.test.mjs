@@ -236,7 +236,7 @@ describe('gate checkpoint evidence renderer', () => {
     const taskRel = `.agents/tasks/${basename}`;
     const specRel = `.agents/spec-docs/active/${basename}`;
     const taskText =
-      'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This internal repository checkpoint fixture exposes no runnable Robota product behavior or observable user action.';
+      '---\nstatus: in-progress\n---\n\nTC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This internal repository checkpoint fixture exposes no runnable Robota product behavior or observable user action.';
     const contract = parseCheckpointEvidenceContracts(ruleText).contracts.get(1);
     const rendered = formatCheckpointEvidence(contract, 'gateImplementFirst', {
       version: 1,
