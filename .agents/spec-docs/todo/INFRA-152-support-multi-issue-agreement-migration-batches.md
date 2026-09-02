@@ -94,17 +94,17 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       exits 0 with same-source and distinct-source atomic AGREEMENT fixtures in staged and committed
       history modes; reverting the child-source predicate makes the distinct-source case fail.
-- [ ] TC-02: the same planning-order suite rejects missing/malformed child Issue URLs and preserves every
+- [x] TC-02: the same planning-order suite rejects missing/malformed child Issue URLs and preserves every
       existing unrelated-path, pre-existing-child, nested-AGREEMENT, non-todo, duplicate, and projection
       mismatch negative case.
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs` exits 0 and
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs` exits 0 and
       proves each distinct leaf succeeds only with its exact Task while cross-pairing performs no write.
-- [ ] TC-04: repository text and focused tests prove `issue-to-backlog` describes both source topologies,
+- [x] TC-04: repository text and focused tests prove `issue-to-backlog` describes both source topologies,
       and `github-issue-triage.mjs` retains its exact `Task source issue does not match` guard unchanged.
-- [ ] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0 after the complete implementation batch.
 
 ## Test Plan
@@ -126,7 +126,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md` — todo
+- [x] `.agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md` — completed
 
 ## Evidence Log
 
@@ -191,3 +191,89 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md`, which exists
 - GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000
+Observed: 2026-09-03 Asia/Seoul
+Test Files  2 passed (2)
+Tests  273 passed (273)
+scan-user-execution-plan-order.test.mjs  154 passed
+github-issue-triage.test.mjs  119 passed
+Duration  89.98s
+Exit  0
+```
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000
+Observed: 2026-09-03 Asia/Seoul
+Test Files  2 passed (2)
+Tests  273 passed (273)
+scan-user-execution-plan-order.test.mjs  154 passed
+github-issue-triage.test.mjs  119 passed
+Duration  89.98s
+Exit  0
+```
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000
+Observed: 2026-09-03 Asia/Seoul
+Test Files  2 passed (2)
+Tests  273 passed (273)
+scan-user-execution-plan-order.test.mjs  154 passed
+github-issue-triage.test.mjs  119 passed
+Duration  89.98s
+Exit  0
+```
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000
+Observed: 2026-09-03 Asia/Seoul
+Test Files  2 passed (2)
+Tests  273 passed (273)
+scan-user-execution-plan-order.test.mjs  154 passed
+github-issue-triage.test.mjs  119 passed
+Duration  89.98s
+Exit  0
+```
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-03
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 9 of 9 line(s))
+
+```
+Command: node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts
+Observed: 2026-09-03 Asia/Seoul
+Affected paths  7
+Scans  60 passed, 2 skipped
+work-run-measurement  passed
+reference-kind-qualified  passed
+user-execution-plan-order  passed
+file-size contract  passed
+Exit  0
+```
