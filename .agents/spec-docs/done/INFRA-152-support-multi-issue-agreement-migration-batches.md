@@ -109,13 +109,13 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type            | Tool / Approach                                      | Notes                                                    |
-| ----- | -------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`            | Staged/history same-source and distinct-source RED/GREEN |
-| TC-02 | Negative regression  | Existing and new planning-order invalid-shape table  | Every strict atomic invariant remains fail-closed        |
-| TC-03 | Unit                 | `github-issue-triage.test.mjs`                       | Exact pairs succeed; cross-pairs write nothing           |
-| TC-04 | Contract             | Skill text assertions plus unchanged guard assertion | Procedure and mutation owner stay aligned                |
-| TC-05 | Suite                | `run-all-scans.mjs --affected --context pr`          | One post-batch affected verification                     |
+| TC-ID | Test Type            | Tool / Approach                                      | Notes                                                                                     |
+| ----- | -------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| TC-01 | Unit/Git integration | `scan-user-execution-plan-order.test.mjs`            | Staged/history same-source and distinct-source RED/GREEN                                  |
+| TC-02 | Negative regression  | Existing and new planning-order invalid-shape table  | Every strict atomic invariant remains fail-closed                                         |
+| TC-03 | Unit                 | `github-issue-triage.test.mjs`                       | Exact pairs succeed; cross-pairs write nothing                                            |
+| TC-04 | Contract             | Skill text assertions plus unchanged guard assertion | Five-record tracker + four-leaf staged/history fixture; 154/154 planning-order tests pass |
+| TC-05 | Suite                | `run-all-scans.mjs --affected --context pr`          | One post-batch affected verification                                                      |
 
 ## User Execution Test Scenarios
 
@@ -288,7 +288,7 @@ Exit  0
 - GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md
 - GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
 - GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 ( ⏎ 60 scans passed, 2 skipped (44 declared what they examined) ⏎ scan receipt written: an unchanged tree will not be re-scanned.); all 2 supplied commands exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1` → exit 0 (   Duration  164ms (transform 35ms, setup 0ms, collect 40ms, tests 36ms, environment 0ms, prepare 25ms) ⏎  ⏎ 1:28:41 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs --pool=threads --maxWorkers=1` → exit 0 ( Duration 164ms (transform 35ms, setup 0ms, collect 40ms, tests 36ms, environment 0ms, prepare 25ms) ⏎ ⏎ 1:28:41 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
 - GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
 - GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
 - GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
@@ -297,3 +297,21 @@ Exit  0
 - GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
 - GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md`, which exists
 - GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/INFRA-152-support-multi-issue-agreement-migration-batches.md
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000`
+**Exit:** 0
+**Output:** (last 9 of 9 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=120000
+Observed: 2026-09-03 Asia/Seoul
+Fixture: tracker #2061 plus CMD-010/#2088, CMD-011/#2092, CMD-012/#2100, CMD-013/#2129
+Staged validation: pass
+Committed history validation: pass
+Test Files  1 passed (1)
+Tests  154 passed (154)
+Duration  98.59s
+Exit  0
+```
