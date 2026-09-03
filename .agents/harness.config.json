@@ -462,8 +462,9 @@
     "patterns": ["scripts/harness/*.mjs"]
   },
   "barrelParameterTypes": {
-    "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header. Scope: EVERY package barrel in the workspace. It was 2 of 55 until #1851 widened it, because a floor scoped to 4% of the tree reports the same passed a fully-scoped one does — the scope IS the check. The 16 findings that widening exposed were each verified against the source before being fixed (a scan finding is a claim, not a proof), and in every case the type was already exported from its own module and merely absent from the barrel.",
+    "$comment": "ARCH-037: a barrel-exported function whose parameter type is not exported from the same barrel leaves a consumer unable to name what it must pass. ARCH-025 fixed that shape for IScheduleEditPatch and ARCH-037 found it again on subagentExecutionRoot, which is the argument for a mechanism rather than a third note. Return types and other packages types are deliberately out of scope — see the scan header. Scope: EVERY package barrel in the workspace. It was 2 of 55 until #1851 widened it, because a floor scoped to 4% of the tree reports the same passed a fully-scoped one does — the scope IS the check; #2457 found six barrels added since sitting outside the list, so the scan now compares this list with every packages/*/src/index.ts on disk and fails on an ungoverned one (barrel-scope-incomplete) rather than shrinking silently. The 16 findings that widening exposed were each verified against the source before being fixed (a scan finding is a claim, not a proof), and in every case the type was already exported from its own module and merely absent from the barrel.",
     "barrels": [
+      "packages/agent-builtin-providers/src/index.ts",
       "packages/agent-capability-pack/src/index.ts",
       "packages/agent-cli/src/index.ts",
       "packages/agent-command-workflows/src/index.ts",
@@ -471,6 +472,11 @@
       "packages/agent-core/src/index.ts",
       "packages/agent-executor/src/index.ts",
       "packages/agent-framework/src/index.ts",
+      "packages/agent-interface-analytics/src/index.ts",
+      "packages/agent-interface-command/src/index.ts",
+      "packages/agent-interface-execution/src/index.ts",
+      "packages/agent-interface-session-mobility/src/index.ts",
+      "packages/agent-interface-session/src/index.ts",
       "packages/agent-interface-transport/src/index.ts",
       "packages/agent-interface-tui/src/index.ts",
       "packages/agent-playground/src/index.ts",
@@ -480,7 +486,6 @@
       "packages/agent-product/src/index.ts",
       "packages/agent-provider-anthropic/src/index.ts",
       "packages/agent-provider-bytedance/src/index.ts",
-      "packages/agent-builtin-providers/src/index.ts",
       "packages/agent-provider-gemini/src/index.ts",
       "packages/agent-provider-openai-compatible/src/index.ts",
       "packages/agent-provider-openai/src/index.ts",
@@ -491,6 +496,7 @@
       "packages/agent-session/src/index.ts",
       "packages/agent-subagent-runner/src/index.ts",
       "packages/agent-testing/src/index.ts",
+      "packages/agent-tool-defaults/src/index.ts",
       "packages/agent-tool-mcp/src/index.ts",
       "packages/agent-tools/src/index.ts",
       "packages/agent-transport-gui/src/index.ts",
