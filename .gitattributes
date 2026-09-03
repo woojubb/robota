@@ -1,0 +1,6 @@
+# Append-only ledgers (issue #2400): every run appends one line to the tail, so two branches that each
+# appended a record conflict on rebase even though both sides are correct. `merge=union` is git's
+# built-in driver for line-oriented append-only files — it keeps both sides' lines. It is applied to
+# the `.jsonl` ledgers ONLY: the JSON ratchet baselines are whole documents, and union-merging a JSON
+# object produces a file that no reader can parse.
+.agents/loop-runs/*.jsonl merge=union
