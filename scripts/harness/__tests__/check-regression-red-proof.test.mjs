@@ -17,6 +17,7 @@ import {
   classifyChanges,
   classifyVitestOutcome,
   decidePairVerdict,
+  decidingFailures,
   defaultReverseApply,
   filesForDefectFixCommits,
   EMPTY_MODULE_SOURCE,
@@ -464,6 +465,59 @@ describe('INFRA-072 per-case granularity — the range judges its OWN new cases'
     // hand the verdict back to exactly the pre-existing case the granularity exists to exclude.
     expect(matchers.some((re) => re.test('an existing case nobody touched'))).toBe(false);
     expect(matchers.some((re) => re.test('a case this range deleted'))).toBe(false);
+  });
+
+  it('an it.each title with printf tokens matches its runtime rows, and NOT a case the range did not add (issue #2216)', () => {
+    const diff = [
+      "+  it.each(TABLE)('removes %s from the stream', (name) => {",
+      "+  test.each(rows)('row %# of %d: %i %f %j %o %$ 100%%', () => {",
+      "+  it.each(objects)('handles $kind.name with $count', () => {",
+      '+  it.each(rows)(`${prefix} removes %s`, () => {',
+    ].join('\n');
+    const [removes, printf, keyed, mixed] = addedCaseTitleMatchers(diff);
+
+    expect(removes.test('removes DCS from the stream')).toBe(true);
+    expect(removes.test('removes OSC 8 hyperlink from the stream')).toBe(true);
+    // The fixture a `/^.*$/` matcher would satisfy: a case the range did NOT add must still miss,
+    // or the "fix" has silently restored file granularity while reading as per-case.
+    expect(removes.test('keeps DCS in the stream')).toBe(false);
+    expect(removes.test('removes DCS')).toBe(false);
+
+    expect(printf.test('row 1 of 3: 2 1.5 {"a":1} {} 1 100%')).toBe(true);
+    expect(printf.test('row 1 of 3: 2 1.5 {"a":1} {} 1 100')).toBe(false);
+
+    expect(keyed.test('handles DCS with 3')).toBe(true);
+    expect(keyed.test('an existing case nobody touched')).toBe(false);
+
+    expect(mixed.test('sanitizer removes DCS')).toBe(true);
+    expect(mixed.test('sanitizer keeps DCS')).toBe(false);
+
+    for (const re of [removes, printf, keyed, mixed]) expect(re.source).not.toBe('^.*$');
+  });
+
+  it('a range whose only new cases are it.each rows is assertion-fail, and decidingFailures names the row', () => {
+    const added = new Map([
+      [nameAbs, addedCaseTitleMatchers("+  it.each(TABLE)('removes %s', () => {")],
+    ]);
+    const json = {
+      testResults: [
+        {
+          name: nameAbs,
+          assertionResults: [
+            { title: 'removes DCS', fullName: 'sanitizer removes DCS', status: 'failed' },
+            { title: 'an old case', fullName: 'sanitizer an old case', status: 'passed' },
+          ],
+        },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile], added)).toBe('assertion-fail');
+    expect(decidePairVerdict({ importsReversedFile: true, outcome: 'assertion-fail' })).toBe(
+      VERDICT.RED_PROOF_OK,
+    );
+    // The execution witness re-runs the deciding case with `-t`, so the ROW must be named.
+    expect(decidingFailures(json, [testFile], added)).toEqual([
+      { file: nameAbs, name: 'sanitizer removes DCS', qualified: true },
+    ]);
   });
 
   it('a new case that FAILS on the reversed source is the proof → assertion-fail', () => {

@@ -276,9 +276,10 @@ export function parseOptOut(text) {
 // ── Pure: which cases the range ADDED (INFRA-072) ────────────────────────────────────────────────────
 
 // `it('…')`, `it.only('…')`, and the table form `it.each(rows)('…')` — the intervening call is what
-// makes the last one a separate shape rather than a suffix.
+// makes the last one a separate shape rather than a suffix. The modifier chain is captured because
+// `.each` changes what the title MEANS: its `%s` is a placeholder, not two characters.
 const CASE_TITLE_RE =
-  /\b(?:it|test|bench)(?:\.[A-Za-z]+)*(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  /\b(?:it|test|bench)((?:\.[A-Za-z]+)*)(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\2)[^\\])*)\2/g;
 
 /**
  * Title matchers for the test cases a diff ADDED.
@@ -293,6 +294,14 @@ const CASE_TITLE_RE =
  * the matcher and the interpolations become wildcards — a wider match is a weaker check, never a
  * wrong verdict. A title this cannot read at all yields no matcher, and a file with no matchers
  * falls back to file granularity rather than failing something it cannot see.
+ *
+ * An `it.each` title is the third form (issue #2216): `'removes %s'` is a literal `%s` in the source
+ * and `removes DCS` at runtime, so the exact matcher anchored it and matched nothing. Every such
+ * case then fell into "a case failed, but not one this range added", and a table-driven suite whose
+ * rows went red exactly as designed was reported ACCIDENTAL_GREEN — the failure verdict, inverted.
+ * Measured on PR #2212: five red rows, reported `added-cases-pass`; two literal-title cases asserting
+ * the same thing flipped it to `red-proof-ok`. The printf tokens and `$key` references become the
+ * same wildcards a template's interpolations do.
  */
 export function addedCaseTitleMatchers(diffText) {
   const matchers = [];
@@ -300,8 +309,8 @@ export function addedCaseTitleMatchers(diffText) {
     if (!line.startsWith('+') || line.startsWith('+++')) continue;
     CASE_TITLE_RE.lastIndex = 0;
     for (const m of line.slice(1).matchAll(CASE_TITLE_RE)) {
-      const [, quote, raw] = m;
-      matchers.push(quote === '`' ? templateTitleMatcher(raw) : exactTitleMatcher(raw));
+      const [, modifiers, quote, raw] = m;
+      matchers.push(titleMatcher(raw, quote, /\.each\b/.test(modifiers)));
     }
   }
   return matchers;
@@ -311,19 +320,33 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function exactTitleMatcher(raw) {
+/**
+ * The placeholders vitest's `.each` formats into a title: printf tokens (`%s %d %i %f %j %o %# %$`)
+ * and, for object tables, `$key` / `$key.path` references. `%%` is a literal percent and is split
+ * out before this runs so the token pass cannot see it.
+ */
+const EACH_TOKEN_RE = /%[sdifjo#$]|\$(?:#|[A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
+
+/** One anchored matcher for a title in any of the three forms; statics escaped, placeholders `.*`. */
+function titleMatcher(raw, quote, isEach) {
+  // A template's `${…}` interpolations are wildcards; a quoted title is one static after decoding.
+  const statics = quote === '`' ? raw.split(/\$\{[^}]*\}/) : [decodeQuoted(raw)];
+  const parts = statics.map((text) => (isEach ? eachStatic(text) : escapeRegExp(text)));
+  return new RegExp(`^${parts.join('.*')}$`);
+}
+
+function eachStatic(text) {
+  return text
+    .split('%%')
+    .map((chunk) => chunk.split(EACH_TOKEN_RE).map(escapeRegExp).join('.*'))
+    .join('%');
+}
+
+function decodeQuoted(raw) {
   // The source spelling is escaped; the runtime title is not. Left un-decoded, a title containing
   // `\'` or `\n` would never match its own case, and the file would then report its added case as
   // passing — a false accidental-green from a quoting detail.
-  const decoded = raw.replace(/\\(['"\\nt])/g, (_, ch) =>
-    ch === 'n' ? '\n' : ch === 't' ? '\t' : ch,
-  );
-  return new RegExp(`^${escapeRegExp(decoded)}$`);
-}
-
-function templateTitleMatcher(raw) {
-  const statics = raw.split(/\$\{[^}]*\}/).map(escapeRegExp);
-  return new RegExp(`^${statics.join('.*')}$`);
+  return raw.replace(/\\(['"\\nt])/g, (_, ch) => (ch === 'n' ? '\n' : ch === 't' ? '\t' : ch));
 }
 
 /** Did any matcher name this case? Both the bare title and the describe-qualified name are tried. */
