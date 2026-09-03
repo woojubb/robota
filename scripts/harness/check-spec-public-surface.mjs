@@ -199,9 +199,12 @@ function resolveModuleFile(fromFile, spec) {
  * name is mentioned somewhere in `src/`. Prose is free to be ABOUT a symbol; an export statement
  * has to BE one. The reverse edge ratchets the two surfaces separately (issue #2331).
  *
+ * Exported for `scan-workspace-import-integrity` (issue #2230), which asks the same question of an
+ * entry file from the importer's side.
+ *
  * @returns {{ runtime: Set<string>, type: Set<string> }}
  */
-function effectiveExports(file, seen = new Set()) {
+export function effectiveExports(file, seen = new Set()) {
   const names = { runtime: new Set(), type: new Set() };
   if (!file || seen.has(file) || !existsSync(file)) return names;
   seen.add(file);
@@ -267,6 +270,9 @@ function effectiveExports(file, seen = new Set()) {
         for (const el of stmt.exportClause.elements) {
           (stmt.isTypeOnly || el.isTypeOnly ? names.type : names.runtime).add(el.name.text);
         }
+      } else if (stmt.exportClause.name) {
+        // `export * as ns from './x'` — one runtime name.
+        names.runtime.add(stmt.exportClause.name.text);
       }
     }
   }

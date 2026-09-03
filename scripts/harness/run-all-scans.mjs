@@ -1215,6 +1215,14 @@ export const SCAN_COMMANDS = [
     examines: [...WORKSPACE],
   },
   {
+    // Issue #2230 — every source file's workspace imports (tests included) against the importer's
+    // declared dependencies and the named package's real exports; the gap between `deps` and
+    // `interface-imports`.
+    name: 'workspace-import-integrity',
+    command: ['node', 'scripts/harness/scan-workspace-import-integrity.mjs'],
+    examines: [...WORKSPACE],
+  },
+  {
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
     examines: [
