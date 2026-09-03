@@ -112,6 +112,8 @@ export {
 export type {
   IAgentJobHostContext,
   ICommandHostAdapters,
+  ICommandCostBudget,
+  ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   IHandoffProgress,
@@ -288,6 +290,7 @@ export type {
   IMemoryCandidate,
   IMemoryPendingRecord,
   TAutoCompactThreshold,
+  TSessionResponseFormat,
   TAutoCompactThresholdSource,
   TMemoryCandidateStatus,
   TRecommendedResponseLanguage,

@@ -57,6 +57,8 @@ export type {
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
+  ICommandCostBudget,
+  ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,

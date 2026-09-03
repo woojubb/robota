@@ -13,6 +13,8 @@ import {
   resolveCliUpdateNotice,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
+
+import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
@@ -195,6 +197,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
+  // CMD-007 (issue #2058): this product stores `/cost budget` in `.robota/budget.json` under the
+  // workspace; the command sees only the port, so another product may store it elsewhere.
+  commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd);
   const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
