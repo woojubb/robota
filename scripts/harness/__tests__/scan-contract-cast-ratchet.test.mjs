@@ -128,7 +128,11 @@ describe('scan-contract-cast-ratchet', () => {
       readFileSync(path.join(root, 'scripts/harness/contract-cast-baseline.json'), 'utf8'),
     );
     expect(frozen[CONTRACT]).toBe(0);
+    // The persisted-and-transferred contract is enrolled (issue #2190): a cast to it outlives the
+    // process that made it, and three round-trip fixtures encoded values the contract forbids before
+    // the ratchet governed it. Its baseline is the measured count, frozen so it can only fall.
+    expect(Object.keys(frozen)).toContain('IInteractiveSessionRecord');
     const reported = Number(/(\d+) cast\(s\) at baseline/.exec(output)?.[1] ?? '-1');
-    expect(reported).toBe(frozen[CONTRACT]);
+    expect(reported).toBe(Object.values(frozen).reduce((sum, casts) => sum + casts, 0));
   });
 });
