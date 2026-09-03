@@ -1,13 +1,20 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "allowJs": true
   },
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
+    "packages/*/src/**/*.js",
+    "packages/*/src/**/*.mjs",
+    "packages/*/src/**/*.cjs",
     "packages/dag-nodes/*/src/**/*.ts",
     "packages/dag-nodes/*/src/**/*.tsx",
+    "packages/dag-nodes/*/src/**/*.js",
+    "packages/dag-nodes/*/src/**/*.mjs",
+    "packages/dag-nodes/*/src/**/*.cjs",
     "apps/*/src/**/*.ts",
     "apps/*/src/**/*.tsx"
   ],

@@ -30,7 +30,7 @@
   },
   "overrides": [
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/fixtures/**/*.{js,mjs,cjs}"],
       "rules": {
         "@typescript-eslint/explicit-function-return-type": "off",
         "@typescript-eslint/consistent-type-imports": "off",

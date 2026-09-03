@@ -15,6 +15,9 @@ function repositoryContract() {
     hook: readFileSync(path.join(WORKSPACE_ROOT, '.husky/pre-commit'), 'utf8'),
     lintStaged: JSON.parse(readFileSync(path.join(WORKSPACE_ROOT, '.lintstagedrc.json'), 'utf8')),
     packageJson: JSON.parse(readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8')),
+    typedProject: JSON.parse(
+      readFileSync(path.join(WORKSPACE_ROOT, 'tsconfig.eslint.json'), 'utf8'),
+    ),
     workflow: readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/skills/post-implementation-checklist/SKILL.md'),
       'utf8',
@@ -22,8 +25,45 @@ function repositoryContract() {
   };
 }
 
-function contractProblems({ hook, lintStaged, packageJson, workflow }) {
+/**
+ * The extensions a lint-staged glob key routes to a task, expanded from its brace group.
+ * `*.{js,mjs,cjs}` -> ['js', 'mjs', 'cjs']; a key with no brace group is one extension.
+ */
+function extensionsOf(globKey) {
+  const brace = /^\*\.\{([^}]+)\}$/.exec(globKey);
+  if (brace) return brace[1].split(',').map((ext) => ext.trim());
+  const single = /^\*\.([A-Za-z0-9]+)$/.exec(globKey);
+  return single ? [single[1]] : [];
+}
+
+/**
+ * Issue #2316: lint-staged handed a tracked `.mjs` fixture under `packages/<pkg>/src` to a TYPED
+ * linter whose project (`tsconfig.eslint.json`) listed only `.ts`/`.tsx`, so a staged edit to it
+ * failed the pre-commit hook with a parser error. Nothing compared the two files, and the divergence
+ * was invisible until someone edited one of the two fixtures. This asks the one question that
+ * catches the next divergence: every extension lint-staged routes to `eslint --fix` is one the typed
+ * project includes under `packages/<pkg>/src`.
+ */
+function typedProjectGaps(lintStaged, typedProject) {
+  const include = Array.isArray(typedProject.include) ? typedProject.include : [];
+  const gaps = [];
+  for (const [globKey, tasks] of Object.entries(lintStaged)) {
+    if (!Array.isArray(tasks) || !tasks.includes('eslint --fix')) continue;
+    for (const ext of extensionsOf(globKey)) {
+      if (!include.includes(`packages/*/src/**/*.${ext}`)) gaps.push(ext);
+    }
+  }
+  return gaps;
+}
+
+function contractProblems({ hook, lintStaged, packageJson, typedProject, workflow }) {
   const problems = [];
+  const typedGaps = typedProjectGaps(lintStaged, typedProject);
+  if (typedGaps.length > 0) {
+    problems.push(
+      `lint-staged routes *.{${typedGaps.join(',')}} to eslint --fix but tsconfig.eslint.json does not include them under packages/*/src (issue #2316)`,
+    );
+  }
   const scripts = packageJson.scripts ?? {};
   const fullFix = scripts['lint:fix'] ?? '';
   const stagedFix = scripts['lint:fix:staged'] ?? '';
@@ -92,6 +132,12 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
       'formatter before linter',
       ({ lintStaged }) => {
         lintStaged['*.{ts,tsx}'] = ['prettier --write', 'eslint --fix'];
+      },
+    ],
+    [
+      'lint-staged lints an extension the typed project excludes (issue #2316)',
+      ({ typedProject }) => {
+        typedProject.include = typedProject.include.filter((entry) => !entry.endsWith('.mjs'));
       },
     ],
   ])('rejects %s', (_name, mutate) => {

@@ -158,7 +158,12 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.bintest.ts"],
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.bintest.ts",
+        "**/__tests__/fixtures/**/*.{js,mjs,cjs}"
+      ],
       "env": {
         "jest": true
       },
