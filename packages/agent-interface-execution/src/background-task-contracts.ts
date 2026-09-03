@@ -116,6 +116,17 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   agentInstruction?: string;
 }
 
+/**
+ * A scheduled task carries NO `permissionPolicy`, by decision (issue #2354).
+ *
+ * A `kind: 'agent'` task spawns a SEPARATE agent, so it declares its own policy and CORE-025
+ * enforces it. A schedule with `agentInstruction` does not spawn anything: it WAKES the host
+ * session (`background_task_waking` → `requestWakeup` → an `agent-wakeup` turn), and that turn runs
+ * under the host session's own permission configuration — mode, allow/deny rules, hooks, session
+ * consent — exactly as a turn the user typed would. Inheritance is the contract, not an omission:
+ * a policy field here would either duplicate the session's or silently disagree with it. The
+ * `contracts.test.ts` type assertion fails if one is added without that wiring being designed.
+ */
 export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
   kind: 'scheduled';
   cronExpression: string;

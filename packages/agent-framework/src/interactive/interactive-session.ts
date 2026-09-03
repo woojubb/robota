@@ -532,7 +532,14 @@ export class InteractiveSession
     return this.execCtrl.pendingCount();
   }
 
-  /** FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id. */
+  /**
+   * FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id.
+   *
+   * Issue #2354: the woken turn is an ordinary `submitNewTurn` and runs under THIS session's
+   * permission configuration (mode, rules, hooks, consent) — a schedule carries no policy of its own,
+   * by the decision recorded on `IScheduledBackgroundTaskRequest`. `turnSource: 'agent-wakeup'` is
+   * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
+   */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
