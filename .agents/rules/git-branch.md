@@ -515,6 +515,39 @@ comment (or the PR description):
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
 
+### Landing a control-plane change (a workflow that provides a required check)
+
+`workflow provenance` is a required context on both protected branches, and it refuses any pull
+request that edits a workflow file providing a required check — BY DESIGN, because the edited
+definition is what would judge that pull request, so the change could move its own gate. The
+context stays red for the life of the pull request, so the ordinary merge path cannot land it. That
+is the correct property. This section is the other half: how a legitimate control-plane change
+lands, written once so it is not re-decided from scratch each time.
+
+1. **State the reason in the PR body.** Which workflow file changes, and why the control plane has
+   to change rather than the code under it. The scan's finding names the required context(s) the
+   edited file provides; that list goes in the body verbatim.
+2. **A reviewer reads the JOB, not the diff.** For every context the scan listed, the reviewer opens
+   the job that reports it in the edited file and confirms what the edit does to that context's
+   verdict — moved deliberately (say how) or untouched. Recorded as a review comment naming each
+   context; an approval with no context named is not this confirmation.
+3. **The owner lands it.** A required context that is red by design cannot be satisfied, so the
+   landing is the owner's bypass merge over that one red context, taken only after steps 1 and 2
+   are on the pull request. Nobody else lands one, and no local hatch substitutes for it — the
+   override forms below excuse local hooks, not a branch ruleset.
+4. **Leave the record beside the red check.** One PR comment: control-plane change; approved by
+   whom; contexts moved, or "none". A red required check with a bypass merge behind it and no such
+   comment is indistinguishable from a gate that was ignored.
+
+First instance: PR #2246 (issue #1984) added the lint-warning ceiling step to the required
+`quality` job in `ci.yml`. It landed on an owner decision taken in conversation, because none of
+the above was written; this section is that decision written down so the next one costs a read
+(issue #2256).
+
+Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
+path, and its finding points here. Whether steps 1–4 were performed is judged by the human reader
+of the pull request; no scan reads a PR's comments for them.
+
 ### One issue, one PR, one session (mandatory)
 
 **A GitHub issue and a pull request each have exactly ONE owning session while work on it is open.**

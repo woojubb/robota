@@ -151,7 +151,10 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
             `Because it is triggered by \`pull_request\`, the edited definition is what will judge ` +
             `this pull request — the change can move its own gate. This is not a refusal to make the ` +
             `edit; it is a refusal to make it INVISIBLY. State in the pull request why the control ` +
-            `plane changes, and have a reviewer read the job that reports each context above.`,
+            `plane changes, and have a reviewer read the job that reports each context above. The ` +
+            `landing procedure — who approves, what they confirm, how it merges over this red ` +
+            `context, what is recorded — is .agents/rules/git-branch.md § "Landing a control-plane ` +
+            `change" (issue #2256).`,
       });
     }
   }
