@@ -1,7 +1,8 @@
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { renderMarkdown } from './render-markdown.js';
+import { Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { PALETTE } from './tui-palette.js';
 import { buildToolDiffSummary } from './utils/tool-diff-summary.js';

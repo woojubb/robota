@@ -115,6 +115,23 @@ reset, exit/restart, rename, statusline patch, remote control. The renderer only
 - `ITuiCliAdapter` is **read-only toward settings** (`readSettings`/`getUserSettingsPath`); the
   write/delete/statusline-apply members were removed with the legacy effect handler.
 
+## Terminal Text Boundary (#2222)
+
+`src/SafeText.tsx` is the ONLY module in this package that imports `Text` from `ink`. It exports
+`SafeText` (and the alias `Text` every render site imports from `./SafeText.js`), which passes every
+string child through `sanitizeTerminalText` before Ink sees it; nested elements sanitize their own
+children on their own render. A render site therefore cannot put a string on the terminal without
+passing the boundary — the property SEC-019's per-site sanitizing could not hold (three unguarded
+sites found across six review rounds).
+
+The load-bearing half is the required scan `tui-safe-text-boundary`
+(`scripts/harness/scan-tui-safe-text-boundary.mjs`): it refuses a `Text` import from `ink` in any
+production module — plain, aliased (`Text as T`) and namespace (`* as ink`) forms — and reports
+`::examined::`. Tests and fixtures are exempt so the boundary's own suite can render raw Ink `Text`
+to prove a leak. That suite (`src/__tests__/safe-text-boundary.test.tsx`) asserts against the bytes
+Ink writes to a stream that claims to be a tty, never against `lastFrame()`, which drops most
+markers on its own.
+
 ## Type Ownership
 
 Owns the TUI rendering/presentation types (`IRenderOptions`, `ITuiInteractionChannelOptions`,

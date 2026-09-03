@@ -1,5 +1,5 @@
 import { consentScopeFor } from '@robota-sdk/agent-framework';
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React from 'react';
 
 import {
@@ -15,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IPendingPermissionRequest } from './types.js';

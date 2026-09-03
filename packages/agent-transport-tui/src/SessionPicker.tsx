@@ -3,11 +3,12 @@
  * Shows a list of sessions for the current cwd.
  */
 
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';

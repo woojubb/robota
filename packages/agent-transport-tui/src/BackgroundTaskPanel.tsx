@@ -1,7 +1,8 @@
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';

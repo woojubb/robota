@@ -3,7 +3,7 @@
  * Used by model change, permission prompts, and other yes/no confirmations.
  */
 
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React, { useState, useRef, useCallback } from 'react';
 
 import {
@@ -18,6 +18,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 /**

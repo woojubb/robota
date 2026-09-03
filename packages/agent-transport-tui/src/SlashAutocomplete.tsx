@@ -1,4 +1,4 @@
-import { Box, Text, useStdout } from 'ink';
+import { Box, useStdout } from 'ink';
 import React, { useState, useEffect } from 'react';
 
 import {
@@ -7,6 +7,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-command';

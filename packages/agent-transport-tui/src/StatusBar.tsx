@@ -1,7 +1,8 @@
 import { formatTokenCount } from '@robota-sdk/agent-core';
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
+import { Text } from './SafeText.js';
 import { formatStatusActivity } from './status-activity.js';
 import { PALETTE } from './tui-palette.js';
 

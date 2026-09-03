@@ -12,7 +12,7 @@
  */
 
 import chalk from 'chalk';
-import { Box, Text, useInput, usePaste } from 'ink';
+import { Box, useInput, usePaste } from 'ink';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -29,6 +29,7 @@ import {
   type IDeferSubmitState,
 } from './flows/defer-submit.js';
 import { useRealCursorPosition } from './hooks/useRealCursorPosition.js';
+import { Text } from './SafeText.js';
 import { supportsImeCursorPositioning } from './terminal-capabilities.js';
 
 import type { DOMElement } from 'ink';

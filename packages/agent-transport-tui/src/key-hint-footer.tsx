@@ -16,8 +16,9 @@
  * exactly the keys that do something — a prompt that suppresses Esc in its flow omits Esc here.
  */
 
-import { Text } from 'ink';
 import React from 'react';
+
+import { Text } from './SafeText.js';
 
 /** One key hint: the key(s) and the verb label, e.g. `{ keys: '↑↓', label: 'Navigate' }`. */
 export interface IKeyHint {

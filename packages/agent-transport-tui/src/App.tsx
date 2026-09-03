@@ -1,6 +1,6 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
-import { Box, Static, Text, useApp, useInput } from 'ink';
+import { Box, Static, useApp, useInput } from 'ink';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
@@ -22,6 +22,7 @@ import { EntryItem } from './MessageList.js';
 import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
+import { Text } from './SafeText.js';
 import SessionEventNotices from './SessionEventNotices.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';

@@ -3,11 +3,12 @@
  * Displayed during session.run() execution.
  */
 
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
+import { Text } from './SafeText.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import { PALETTE } from './tui-palette.js';

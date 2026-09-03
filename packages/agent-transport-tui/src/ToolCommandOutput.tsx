@@ -1,7 +1,8 @@
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
+import { Text } from './SafeText.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { PALETTE } from './tui-palette.js';
 

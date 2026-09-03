@@ -1,11 +1,12 @@
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { RoleLabel } from './RoleLabel.js';
+import { Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
