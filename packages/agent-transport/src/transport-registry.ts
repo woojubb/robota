@@ -2,6 +2,7 @@
 
 import { configurationError, startupError } from './transport-registry-errors.js';
 import { TransportRunGeneration } from './transport-run-generation.js';
+import { createFileTransportSettingsRepository } from './transport-settings-repository.js';
 import { TransportSettingsView } from './transport-settings-view.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
@@ -11,6 +12,7 @@ import type {
   ITransportEntry,
   ITransportFailureRecord,
   ITransportRunnerAdapter,
+  ITransportSettingsRepository,
   TConfigurableTransport,
   TTransportAdapter,
 } from '@robota-sdk/agent-interface-transport';
@@ -46,8 +48,15 @@ export class TransportRegistry {
   private preemptionStopFailure:
     { readonly transportName: string; readonly cause: unknown } | undefined;
 
-  constructor(settingsPath: string) {
-    this.settings = new TransportSettingsView(settingsPath);
+  /**
+   * TRANS-010 (issue #2480): settings storage is an injected repository. A string is accepted as the
+   * path of a settings file and wrapped in the file repository, so the existing shell and tests keep
+   * their call shape.
+   */
+  constructor(settings: string | ITransportSettingsRepository) {
+    this.settings = new TransportSettingsView(
+      typeof settings === 'string' ? createFileTransportSettingsRepository(settings) : settings,
+    );
   }
 
   /** The lifecycle/shape agreement every entry must satisfy, on the way in and on a replace. */
@@ -127,8 +136,33 @@ export class TransportRegistry {
   }
 
   async setOptions(name: string, options: Record<string, TUniversalValue>): Promise<void> {
-    this.requireConfigurable(name);
+    const transport = this.requireConfigurable(name);
+    // TRANS-002: an option the transport would refuse is not persisted — the validation hook exists.
+    if (transport.validateOptions && !transport.validateOptions(options)) {
+      throw configurationError(name, 'invalid-options');
+    }
     this.settings.setOptions(name, options);
+  }
+
+  /**
+   * TRANS-002 (issue #2480): hand the persisted options to a transport BEFORE it starts. Non-empty
+   * options a transport cannot receive (`configure` absent) or refuses (`validateOptions` false) are
+   * a typed configuration error rather than a silent ignore — the former "read, displayed, never
+   * applied" state.
+   */
+  private deliverOptions(transport: TTransportAdapter<IInteractiveSession>): void {
+    const entry = this.entries.get(transport.name);
+    if (!entry?.configurable) return;
+    const saved = this.settings.readAll()[transport.name];
+    const options = this.settings.resolve(entry.configurable, saved).options ?? {};
+    if (Object.keys(options).length === 0) return;
+    if (entry.configurable.validateOptions && !entry.configurable.validateOptions(options)) {
+      throw configurationError(transport.name, 'invalid-options');
+    }
+    if (!entry.configurable.configure) {
+      throw configurationError(transport.name, 'options-not-applicable');
+    }
+    entry.configurable.configure(options);
   }
 
   async startAll(session: IInteractiveSession): Promise<void> {
@@ -222,6 +256,7 @@ export class TransportRegistry {
         currentName = transport.name;
         attempted.push(transport);
         this.startingTransport = transport;
+        this.deliverOptions(transport);
         transport.attach(session);
         await transport.start();
         if (generation.stopRequested) throw new Error('Transport startup was stopped.');

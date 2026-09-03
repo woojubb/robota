@@ -155,7 +155,7 @@ settings mutations reject `TransportConfigurationError`.
 
 Headless runner surfaces provider/runtime errors as typed failed outcomes with a non-zero exit code;
 `getExitCode()` remains the package-specific readback.
-Registry settings I/O errors propagate from the `agent-framework` settings helpers.
+Registry settings I/O goes through an injected `ITransportSettingsRepository` (TRANS-010, issue #2480): `new TransportRegistry(pathOrRepository)` — a string path wraps `createFileTransportSettingsRepository`, whose errors propagate from the `agent-framework` settings helpers; `createMemoryTransportSettingsRepository` serves tests and hosts without a settings file. Persisted `options` are DELIVERED at `startAll` via `configure(options)` after `validateOptions` (TRANS-002): invalid options reject `TransportConfigurationError` `invalid-options`, and non-empty options for a transport without `configure` reject `options-not-applicable` — never silently ignored.
 
 `run(prompt)` resolves the exit code only AFTER the underlying `session.submit()` operation has fully
 settled — the terminal `complete`/`interrupted`/`error` event fires from inside the turn, before the

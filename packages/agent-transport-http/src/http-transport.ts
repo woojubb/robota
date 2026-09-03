@@ -6,6 +6,7 @@
  */
 
 import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+import { Hono } from 'hono';
 
 import { createAgentRoutes } from './routes.js';
 
@@ -17,7 +18,6 @@ import type {
   ITransportAdmissionConfig,
   ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';
-import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {
   /** Optional: base path prefix for routes. */
@@ -67,13 +67,16 @@ export function createHttpTransport(options?: IHttpTransportOptions): IHttpTrans
     async start() {
       if (!session) throw lifecycleError('not-attached');
       if (app) throw lifecycleError('already-started');
-      app = createAgentRoutes({
+      const routes = createAgentRoutes({
         sessionFactory: () => session!,
         // The decision already made, passed through — not taken apart and rebuilt for the routes to
         // resolve a second time.
         admission,
         onStreamFailure: options?.onStreamFailure,
       });
+      // TRANS-002 (issue #2480): `basePath` was declared and advertised but never read, so routes
+      // always mounted at root. It is honored here — or absent, in which case the routes ARE the app.
+      app = options?.basePath ? new Hono().route(options.basePath, routes) : routes;
     },
     async stop() {
       app = null;

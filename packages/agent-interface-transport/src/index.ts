@@ -45,6 +45,8 @@ export type {
   ITransportConfig,
   IConfigurableTransport,
   ITransportSettingsCapability,
+  ITransportSavedConfig,
+  ITransportSettingsRepository,
   ITransportEntry,
   ITransportConfigurationError,
   ITransportLifecycleRegistryView,

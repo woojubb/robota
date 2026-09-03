@@ -67,8 +67,8 @@ export class WsTransport
   private state: 'detached' | 'attached' | 'starting' | 'ready' | 'stopping' = 'detached';
   private startOperation: Promise<{ stop: () => Promise<void>; port: number }> | undefined;
   private startCancelled = false;
-  private readonly port: number;
-  private readonly maxRetries: number;
+  private port: number;
+  private maxRetries: number;
   private readonly token?: string;
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
@@ -165,6 +165,18 @@ export class WsTransport
     this.resolvedPort = undefined;
     this.session = null;
     this.state = 'detached';
+  }
+
+  /** TRANS-002 (issue #2480): persisted `port`/`maxRetries` reach the server through here, before start. */
+  configure(options: Record<string, TUniversalValue>): void {
+    if (this.state !== 'detached' && this.state !== 'attached') {
+      throw this.lifecycleError('already-started');
+    }
+    if (!this.validateOptions(options)) {
+      throw new TypeError('WsTransport options are invalid (port 1-65535, maxRetries >= 0).');
+    }
+    if (typeof options['port'] === 'number') this.port = options['port'];
+    if (typeof options['maxRetries'] === 'number') this.maxRetries = options['maxRetries'];
   }
 
   validateOptions(options: Record<string, TUniversalValue>): boolean {
