@@ -3,7 +3,7 @@
  */
 
 import type { ISessionLogger } from './session-logger.js';
-import type { IToolWithEventService, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IHookTypeExecutor,
   ISpinner,

@@ -53,10 +53,20 @@ describe('runRegistryTransaction', () => {
     const undoFailure = new Error('undo two failed');
     await expect(
       runRegistryTransaction([
-        { name: 'one', run: () => order.push('one'), undo: () => order.push('undo one') },
+        {
+          name: 'one',
+          run: () => {
+            order.push('one');
+          },
+          undo: () => {
+            order.push('undo one');
+          },
+        },
         {
           name: 'two',
-          run: () => order.push('two'),
+          run: () => {
+            order.push('two');
+          },
           undo: () => {
             order.push('undo two');
             throw undoFailure;
@@ -67,7 +77,9 @@ describe('runRegistryTransaction', () => {
           run: () => {
             throw primary;
           },
-          undo: () => order.push('never'),
+          undo: () => {
+            order.push('never');
+          },
         },
       ]),
     ).rejects.toSatisfy((error: unknown) => {

@@ -26,7 +26,7 @@ import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
-import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
+import type { TMessageState } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationStore } from '../managers/conversation-history-manager';

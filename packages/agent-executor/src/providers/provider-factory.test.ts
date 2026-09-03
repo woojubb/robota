@@ -186,23 +186,32 @@ describe('#2347: both profile branches resolve through the injected resolver', (
 
   it('resolves an $ENV: apiKey reference through the resolver, not the process environment', () => {
     expect(process.env.INJECTED_KEY).toBeUndefined();
-    expect(resolveProfileApiKey({ type: 'anthropic', apiKey: '$ENV:INJECTED_KEY' }, resolve)).toBe(
-      'from-injected-resolver',
-    );
+    expect(
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKey: '$ENV:INJECTED_KEY' },
+        resolve,
+      ),
+    ).toBe('from-injected-resolver');
   });
 
   it('resolves an apiKeyEnv name through the SAME resolver', () => {
-    expect(resolveProfileApiKey({ type: 'anthropic', apiKeyEnv: 'INJECTED_KEY' }, resolve)).toBe(
-      'from-injected-resolver',
-    );
     expect(
-      resolveProfileApiKey({ type: 'anthropic', apiKeyEnv: 'MISSING' }, resolve),
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'INJECTED_KEY' },
+        resolve,
+      ),
+    ).toBe('from-injected-resolver');
+    expect(
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'MISSING' },
+        resolve,
+      ),
     ).toBeUndefined();
   });
 
   it('createProviderFromProfile hands the resolver to normalization', () => {
     const provider = createProviderFromProfile(
-      { type: 'anthropic', apiKeyEnv: 'INJECTED_KEY' },
+      { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'INJECTED_KEY' },
       undefined,
       stubDefs,
       resolve,
@@ -210,7 +219,7 @@ describe('#2347: both profile branches resolve through the injected resolver', (
     expect(provider).toBeDefined();
     expect(() =>
       createProviderFromProfile(
-        { type: 'anthropic', apiKeyEnv: 'MISSING' },
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'MISSING' },
         undefined,
         stubDefs,
         resolve,

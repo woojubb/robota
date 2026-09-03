@@ -7,7 +7,6 @@
  */
 
 import type { IInteractiveSessionStore } from './session-persistence.js';
-import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
@@ -19,7 +18,6 @@ import type {
   ICommandModule,
   ICommandResult,
   IRemoteCommandPolicy,
-  ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -31,14 +29,11 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
-  IContextWindowState,
+  IProviderDefinition,
   IToolWithEventService,
-  IUserInteraction,
-  TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
@@ -117,7 +112,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
-  providerDefinitions?: readonly import('@robota-sdk/agent-core').IProviderDefinition[];
+  providerDefinitions?: readonly IProviderDefinition[];
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */

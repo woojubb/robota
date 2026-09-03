@@ -124,6 +124,13 @@ children on their own render. A render site therefore cannot put a string on the
 passing the boundary — the property SEC-019's per-site sanitizing could not hold (three unguarded
 sites found across six review rounds).
 
+The one deliberate pass-through is `RenderedText`, exported from the same module: Ink's `Text`
+without the sanitizing step, for a string this package's OWN renderer produced from input it already
+sanitized. `renderMarkdown` runs `sanitizeTerminalText` on the markdown BEFORE `marked-terminal`
+styles it, so the SGR in its output (the `tui-ansi-palette` diff pairs) is the renderer's, and
+routing it through `SafeText` would strip exactly that styling. `MessageList` uses it for the
+assistant markdown branch only; every other string still goes through `SafeText`.
+
 The load-bearing half is the required scan `tui-safe-text-boundary`
 (`scripts/harness/scan-tui-safe-text-boundary.mjs`): it refuses a `Text` import from `ink` in any
 production module — plain, aliased (`Text as T`) and namespace (`* as ink`) forms — and reports

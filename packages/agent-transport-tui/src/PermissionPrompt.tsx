@@ -91,10 +91,12 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
         </Text>
       </Text>
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
-      <Box marginTop={1}>
+      {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
+          of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
+      <Box marginTop={1} flexDirection="column">
         {permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs)).map(
           (opt, i) => (
-            <Box key={opt} marginRight={2}>
+            <Box key={opt}>
               <Text
                 color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
                 bold={i === state.selectedIndex}

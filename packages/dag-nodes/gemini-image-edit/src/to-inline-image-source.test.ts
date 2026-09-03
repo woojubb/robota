@@ -94,14 +94,12 @@ describe('toInlineImageSource', () => {
   // HTTP URI resolution
   // -----------------------------------------------------------------------
   describe('HTTP URI input', () => {
+    // #2026: a model-provided URI is fetched through the egress boundary, which reads the body as a
+    // stream and re-checks the headers — so the mock must be a real `Response`, not a bare object.
     it('resolves valid HTTP URI to inline image source', async () => {
-      const imageBuffer = new ArrayBuffer(4);
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: true,
-        headers: new Headers({ 'content-type': 'image/jpeg' }),
-        arrayBuffer: () => Promise.resolve(imageBuffer),
-      });
+      mockFetch.mockResolvedValue(
+        new Response(new Uint8Array(4), { status: 200, headers: { 'content-type': 'image/jpeg' } }),
+      );
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'https://example.com/photo.jpg' }),
@@ -115,13 +113,9 @@ describe('toInlineImageSource', () => {
     });
 
     it('resolves valid HTTP URI (http scheme) to inline image source', async () => {
-      const imageBuffer = new ArrayBuffer(4);
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: true,
-        headers: new Headers({ 'content-type': 'image/png' }),
-        arrayBuffer: () => Promise.resolve(imageBuffer),
-      });
+      mockFetch.mockResolvedValue(
+        new Response(new Uint8Array(4), { status: 200, headers: { 'content-type': 'image/png' } }),
+      );
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'http://example.com/photo.png' }),
@@ -135,10 +129,7 @@ describe('toInlineImageSource', () => {
     });
 
     it('returns error when HTTP fetch fails', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        body: null,
-      });
+      mockFetch.mockResolvedValue(new Response(null, { status: 404 }));
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'https://example.com/missing.jpg' }),
@@ -151,12 +142,12 @@ describe('toInlineImageSource', () => {
     });
 
     it('returns error when HTTP response has non-image content type', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: true,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)),
-      });
+      mockFetch.mockResolvedValue(
+        new Response(new Uint8Array(4), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'https://example.com/data.json' }),
@@ -169,12 +160,7 @@ describe('toInlineImageSource', () => {
     });
 
     it('returns error when HTTP response has no content type', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: true,
-        headers: new Headers(),
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)),
-      });
+      mockFetch.mockResolvedValue(new Response(new Uint8Array(4), { status: 200 }));
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'https://example.com/unknown' }),
@@ -187,10 +173,7 @@ describe('toInlineImageSource', () => {
     });
 
     it('returns error when HTTP response body is null', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: null,
-      });
+      mockFetch.mockResolvedValue(new Response(null, { status: 200 }));
 
       const result = await toInlineImageSource({
         image: makeImageBinary({ uri: 'https://example.com/empty' }),

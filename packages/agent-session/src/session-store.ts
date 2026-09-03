@@ -7,7 +7,7 @@
  */
 
 import { readFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
-import { join, resolve, sep } from 'path';
+import { resolve, sep } from 'path';
 
 import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 

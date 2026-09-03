@@ -22,7 +22,9 @@ afterEach(() => {
   }
 });
 
-describe('resolveSessionLogExternalPayloads', () => {
+// ARCH-049 containment: `NodeExternalPayloadSource.readBytes` refuses every read off Linux (no stable
+// no-follow handle there yet), so the resolver has nothing to exercise on another host.
+describe.skipIf(process.platform !== 'linux')('resolveSessionLogExternalPayloads', () => {
   it('ARCH-014: resolves a valid content-addressed JSON sidecar', () => {
     const baseDirectory = mkdtempSync(join(tmpdir(), 'robota-payload-resolver-'));
     temporaryDirectories.push(baseDirectory);

@@ -1,3 +1,4 @@
+import type { TConfigValue } from '@robota-sdk/agent-core';
 import type { TSessionResponseFormat } from '@robota-sdk/agent-framework';
 
 /**
@@ -30,5 +31,5 @@ export function buildJsonSchemaResponseFormat(
       '--json-schema must be a JSON object (a JSON Schema), not a primitive or array',
     );
   }
-  return { type: 'json_schema', schema: parsed as Record<string, unknown> };
+  return { type: 'json_schema', schema: parsed as Record<string, TConfigValue> };
 }

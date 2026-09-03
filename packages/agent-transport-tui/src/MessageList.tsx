@@ -6,7 +6,7 @@ import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { RoleLabel } from './RoleLabel.js';
-import { Text } from './SafeText.js';
+import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
@@ -148,11 +148,14 @@ const MessageItem = React.memo(function MessageItem({
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>
-        <Text wrap="wrap">
-          {isAssistantMessage(message)
-            ? renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))
-            : content}
-        </Text>
+        {isAssistantMessage(message) ? (
+          // `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours.
+          <RenderedText wrap="wrap">
+            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))}
+          </RenderedText>
+        ) : (
+          <Text wrap="wrap">{content}</Text>
+        )}
       </Box>
     </Box>
   );

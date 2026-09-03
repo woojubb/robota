@@ -31,9 +31,7 @@ import type {
   TSessionConstructorWithAutoCompact,
 } from './create-session-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IToolWithEventService, THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
+import type { THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 

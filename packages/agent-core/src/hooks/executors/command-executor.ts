@@ -105,7 +105,7 @@ export class CommandExecutor implements IHookTypeExecutor {
         cwd: input.cwd,
         env: { ...process.env, ...input.env },
       });
-      const { stdoutChunks, stderrChunks } = wireChildIo(child, inputJson);
+      const { stdoutOutput, stderrOutput } = wireChildIo(child, inputJson);
 
       const timer = setTimeout(() => {
         if (!settled) {

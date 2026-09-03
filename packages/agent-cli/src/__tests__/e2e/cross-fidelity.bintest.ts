@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createProgrammaticAgent } from '@robota-sdk/agent-transport/programmatic';
+import { createProgrammaticAgent } from '@robota-sdk/agent-transport';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';

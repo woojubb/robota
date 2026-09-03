@@ -103,6 +103,7 @@ export {
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export type { ICommandCostBudget, ICommandCostBudgetAdapter } from './command-api/index.js';
 export {
   loadOrgPolicy,
   formatOrgPolicyViolationMessage,
@@ -112,8 +113,6 @@ export {
 export type {
   IAgentJobHostContext,
   ICommandHostAdapters,
-  ICommandCostBudget,
-  ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   IHandoffProgress,
@@ -290,7 +289,6 @@ export type {
   IMemoryCandidate,
   IMemoryPendingRecord,
   TAutoCompactThreshold,
-  TSessionResponseFormat,
   TAutoCompactThresholdSource,
   TMemoryCandidateStatus,
   TRecommendedResponseLanguage,
@@ -502,7 +500,7 @@ export type {
 // The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
 // about a public surface at any count. It is the return type of a factory that is no longer public,
 // so it describes nothing a consumer can obtain.
-export type { ICreateSessionOptions } from './assembly/index.js';
+export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';

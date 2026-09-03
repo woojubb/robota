@@ -21,6 +21,8 @@ import type {
   TBackgroundPrimitive,
   TBackgroundTaskErrorCategory,
   TBackgroundTaskKind,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
   TBackgroundTaskRequest,
 } from '@robota-sdk/agent-interface-execution';
 
@@ -50,7 +52,6 @@ export type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
 } from '@robota-sdk/agent-interface-execution';
-import type { TBackgroundTaskEventListener } from '@robota-sdk/agent-interface-execution';
 import type { TObserverFailureReporter } from './observer-delivery.js';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {

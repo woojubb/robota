@@ -15,7 +15,7 @@ import {
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
-import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
+import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';

@@ -24,7 +24,7 @@ import type {
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
-import type { IChatOptions } from '@robota-sdk/agent-core';
+import type { IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
@@ -43,7 +43,7 @@ import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools'
  * `responseFormat` — including `json_schema` — so a product flag such as `--json-schema` is routed as
  * structured policy (provider capability, fallback, validation are CORE-043's) and never as prose.
  */
-export type TSessionResponseFormat = NonNullable<IChatOptions['responseFormat']>;
+export type TSessionResponseFormat = IResponseFormatConfig;
 
 // Issue #2052: owned by agent-session; re-exported so framework consumers keep their import path.
 export type { TAutoCompactThreshold };
