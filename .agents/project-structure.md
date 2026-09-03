@@ -397,5 +397,12 @@ above.
 
 Enforced by the `cli-agent-executor-import` rule in
 `scripts/harness/check-background-workspace-conformance.mjs`. Every exemption entry MUST
-carry a reason string and is reported (never silent) on each scan run; composition-root
-wiring is the only valid exemption category. (HARNESS-011)
+name one of the sanctioned composition-root categories below plus a reason string, and is
+reported (never silent) on each scan run. Membership is verified STRUCTURALLY by the guard —
+a listing with a reason admits nothing on its own (`…-category-mismatch`). (HARNESS-011, CLI-080)
+
+| Category             | Boundary (mechanically verified)                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entrypoint`         | The assembly point: only the launch surfaces `src/bin.ts` and the barrel `src/index.ts` import the file; nothing inside the package composes on top of it.      |
+| `type-only-contract` | Every `@robota-sdk/agent-executor` import in the file is `import type`.                                                                                         |
+| `host-adapter`       | A class `implements` an interface imported as a type from `agent-executor`; the only executor VALUE imports are the contract's `*Error` classes. Host I/O only. |

@@ -56,7 +56,9 @@ CLI-visible behavior is not automatically CLI-owned behavior. Before adding term
 capability, verify the non-UI behavior is owned by `agent-framework`, `agent-executor`,
 `agent-command`, a provider package, or another lower reusable layer. If that owner API
 does not exist, add it first and keep `agent-cli` limited to TUI, input, ephemeral selection state,
-and concrete host adapters.
+and concrete host adapters. A direct `agent-executor` import is admitted only under one of the
+composition-root categories `.agents/project-structure.md` § Composition-Root Exemption defines
+(`entrypoint`, `type-only-contract`, `host-adapter`), each verified structurally by the guard.
 
 Before merging a CLI architecture change, check this router, the relevant subdocument, and the
 owning package `SPEC.md` files for boundary drift.

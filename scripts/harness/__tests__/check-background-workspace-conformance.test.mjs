@@ -81,6 +81,64 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
       expect(exemption.type).toBe('cli-agent-executor-import');
       expect(exemption.reason).toContain('composition root');
     }
+    expect(exemptions.map((exemption) => exemption.category).sort()).toEqual([
+      'entrypoint',
+      'type-only-contract',
+    ]);
+  });
+
+  it('verifies the host-adapter category structurally and refuses a false claim (CLI-080)', async () => {
+    const adapter = 'packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts';
+    const genuine = await createFixture({
+      ...baselineFiles,
+      [adapter]: [
+        'import { BackgroundTaskError, type ISubagentWorktreeAdapter } from "@robota-sdk/agent-executor";',
+        'export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {',
+        '  prepare() { throw new BackgroundTaskError("runner", "x"); }',
+        '}',
+        '',
+      ].join('\n'),
+    });
+    expect(await findBackgroundWorkspaceConformanceFindings(genuine)).toEqual([]);
+    expect((await findUsedExemptions(genuine)).map((exemption) => exemption.category)).toEqual([
+      'host-adapter',
+    ]);
+
+    // Same exempted path, but the file is not a host adapter: it imports a runtime value and
+    // implements nothing. The listing alone must not admit it.
+    const impostor = await createFixture({
+      ...baselineFiles,
+      [adapter]:
+        'import { BackgroundTaskManager } from "@robota-sdk/agent-executor";\nexport const manager = new BackgroundTaskManager();\n',
+    });
+    const findings = await findBackgroundWorkspaceConformanceFindings(impostor);
+    expect(findings.map((finding) => finding.type)).toEqual([
+      'cli-agent-executor-import-category-mismatch',
+    ]);
+    expect(findings[0].detail).toContain('host-adapter');
+    expect(await findUsedExemptions(impostor)).toEqual([]);
+  });
+
+  it('refuses an entrypoint that something in the package imports, and a type-only file with a value import (CLI-080)', async () => {
+    const importedEntry = await createFixture({
+      ...baselineFiles,
+      'packages/agent-cli/src/cli.ts':
+        'import { createDefaultBackgroundTaskRunners } from "@robota-sdk/agent-executor";\n',
+      'packages/agent-cli/src/bin.ts': 'import { startCli } from "./cli.js";\n',
+      'packages/agent-cli/src/other.ts': 'import { run } from "./cli.js";\n',
+    });
+    expect(
+      (await findBackgroundWorkspaceConformanceFindings(importedEntry)).map((f) => f.type),
+    ).toEqual(['cli-agent-executor-import-category-mismatch']);
+
+    const valueInTypeOnly = await createFixture({
+      ...baselineFiles,
+      'packages/agent-cli/src/modes/print-mode.ts':
+        'import { BackgroundTaskManager } from "@robota-sdk/agent-executor";\n',
+    });
+    expect(
+      (await findBackgroundWorkspaceConformanceFindings(valueInTypeOnly)).map((f) => f.type),
+    ).toEqual(['cli-agent-executor-import-category-mismatch']);
   });
 
   it('flags CLI-owned retention policy', async () => {
