@@ -16,9 +16,13 @@
  */
 
 import {
+  decodeEnrollFrame,
+  decodePairingFrame,
+  decodeReconnectFrame,
   importPublicKey,
   startDeviceReconnect,
   startPairingHandshake,
+  type IEnrollFrame,
   type IPairingResult,
   type TPairingFrame,
   type TReconnectFrame,
@@ -67,24 +71,21 @@ export interface IResponderGateOptions {
   readonly startReconnect?: typeof startDeviceReconnect;
 }
 
+// Issue #2046: the pre-auth frame vocabulary is decoded by its OWNER (`agent-remote-pairing`), totally —
+// required fields, base64url, length ceilings — and this carrier shares that codec with the Node gate
+// instead of keeping a second discriminator-only copy.
 function isPairingFrame(value: unknown): value is TPairingFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'pair-nonce' || t === 'pair-confirm';
+  return decodePairingFrame(value).ok;
 }
 
-function isReconnectFrame(value: unknown): value is TReconnectFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  return (value as { t?: unknown }).t === 'rc-host';
+/** The device side consumes only `rc-host`; the other reconnect variants are its own outbound frames. */
+function isHostReconnectFrame(value: unknown): value is Extract<TReconnectFrame, { t: 'rc-host' }> {
+  const decoded = decodeReconnectFrame(value);
+  return decoded.ok && decoded.frame.t === 'rc-host';
 }
 
-function isEnrollFrame(value: unknown): value is { t: 'enroll-key'; spki: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { t?: unknown }).t === 'enroll-key' &&
-    typeof (value as { spki?: unknown }).spki === 'string'
-  );
+function isEnrollFrame(value: unknown): value is IEnrollFrame {
+  return decodeEnrollFrame(value).ok;
 }
 
 type TGateState = 'pairing' | 'enrolling' | 'reconnecting' | 'accepted' | 'closed';
@@ -123,7 +124,7 @@ export class ResponderGate {
       return;
     }
     if (this.state === 'reconnecting') {
-      if (isReconnectFrame(parsed)) this.reconnectController?.onFrame(parsed);
+      if (isHostReconnectFrame(parsed)) this.reconnectController?.onFrame(parsed);
       return;
     }
     if (this.state === 'enrolling') {

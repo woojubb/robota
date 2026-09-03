@@ -48,6 +48,11 @@ interface IPairingController {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+/** The rejection reason a failed async transition settles with (issue #2046). */
+export function settleMessage(error: unknown): string {
+  return `pairing rejected: ${error instanceof Error ? error.message : String(error)}`;
+}
+
 /**
  * Start a pairing handshake. Emits this peer's nonce immediately; once both nonces are known it sends its
  * confirmation; once the peer's confirmation arrives it verifies and resolves. The returned promise is the
@@ -132,14 +137,16 @@ export function startPairingHandshake(options: IPairingHandshakeOptions): IPairi
     result,
     onFrame(frame: TPairingFrame): void {
       if (settled) return;
+      // Issue #2046: every async transition settles the ONE result channel. A rejected crypto call
+      // used to detach as an unhandled rejection while the handshake sat open until its timeout.
       if (frame.t === 'pair-nonce') {
         if (peerNonce !== undefined) return; // ignore duplicates
         peerNonce = frame.nonce;
-        void maybeSendConfirmation();
+        maybeSendConfirmation().catch((error: unknown) => fail(settleMessage(error)));
       } else if (frame.t === 'pair-confirm') {
         if (peerMac !== undefined) return;
         peerMac = frame.mac;
-        void maybeVerify();
+        maybeVerify().catch((error: unknown) => fail(settleMessage(error)));
       }
     },
   };

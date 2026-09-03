@@ -54,6 +54,10 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 | `verifyChallenge`           | function | Verify a counterpart's reconnect signature against its pinned public key (fail-closed).                                                                  |
 | `startDeviceReconnect`      | function | Device-side mutual reconnect controller; verifies the host before accept.                                                                                |
 | `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                                                                                |
+| `decodePairingFrame`        | function | Issue #2046: total decoder for `pair-nonce` / `pair-confirm` — required fields, base64url, length ceiling — the ONE codec both carriers import.          |
+| `decodeReconnectFrame`      | function | Issue #2046: total decoder for `rc-hello` / `rc-host` / `rc-device`.                                                                                     |
+| `decodeEnrollFrame`         | function | Issue #2046: total decoder for the E3 `enroll-key` identity-exchange frame (moved under this owner).                                                     |
+| `PRE_AUTH_FRAME_LIMITS`     | const    | Issue #2046: per-field length ceilings (chars) — part of the wire contract, see below.                                                                   |
 | `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                                                                          |
 | `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).                                                        |
 | `generateUserRootKeyPair`   | function | SEC-011: the USER's root ECDSA keypair — one per person, not per machine.                                                                                |
@@ -148,12 +152,26 @@ act on either.
 peer-credential accessor on a connected socket handle (measured). Building on it would have produced
 a mechanism that compiles, passes a mocked test, and refuses every real peer.
 
+## Pre-auth wire contract (issue #2046)
+
+Every pre-auth frame (`TPairingFrame`, `TReconnectFrame`, `IEnrollFrame`) is decoded ONLY by this
+package's `decode*Frame` codecs; a carrier implements `raw bytes → JSON.parse → owner decoder → typed
+frame` and drops anything the decoder refuses. Each string field MUST be non-empty base64url
+(`[A-Za-z0-9_-]+`, no padding) and MUST NOT exceed its ceiling in `PRE_AUTH_FRAME_LIMITS`:
+`nonce`/`nonceHost`/`nonceDevice` 64, `mac` 128, `sig` 256, `deviceId` 128, `spki` 2048 chars. A frame
+failing any check is rejected before any crypto work. Decoder reasons name the field, never its value.
+
+Every fallible async frame transition inside `startPairingHandshake`, `startDeviceReconnect` and
+`startHostReconnect` settles the controller's single `result` channel on rejection (a resolver,
+crypto or storage throw rejects `result`); no detached rejection remains.
+
 ## Type Ownership
 
 | Type                                                                                                              | Location                 | Purpose                              |
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------ |
 | `IPairingSecret`, `IConfirmationInput`, `TPairingRole`                                                            | `src/pairing.ts`         | Pairing crypto contracts.            |
 | `IPairingHandshakeOptions`, `IPairingResult`, `TPairingFrame`                                                     | `src/handshake.ts`       | Handshake protocol contracts.        |
+| `IEnrollFrame`, `TPreAuthFrame`, `TFrameDecodeResult`                                                             | `src/frame-codec.ts`     | Pre-auth frame codec (issue #2046).  |
 | `IIdentityKeyPairJwk`, `IReconnectChallenge`                                                                      | `src/device-identity.ts` | E3 identity + challenge contracts.   |
 | `IReconnectController`, `IReconnectResult`, `IDeviceReconnectOptions`, `IHostReconnectOptions`, `TReconnectFrame` | `src/reconnect.ts`       | Mutual reconnect protocol contracts. |
 
