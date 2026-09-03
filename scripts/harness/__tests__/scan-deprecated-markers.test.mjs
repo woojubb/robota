@@ -98,6 +98,17 @@ describe('scan-deprecated-markers CLI', () => {
     const harnessDir = path.join(root, 'scripts/harness');
     mkdirSync(harnessDir, { recursive: true });
     copyFileSync(SCAN_SCRIPT, path.join(harnessDir, 'scan-deprecated-markers.mjs'));
+    // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
+    for (const shared of [
+      'shared.mjs',
+      'git-base-ref-resolution.mjs',
+      'manifest-change-classification.mjs',
+    ]) {
+      copyFileSync(
+        fileURLToPath(new URL(`../${shared}`, import.meta.url)),
+        path.join(harnessDir, shared),
+      );
+    }
     copyFileSync(WORKSPACE_PACKAGES_HELPER, path.join(harnessDir, 'workspace-packages.mjs'));
     copyFileSync(GOVERNED_TREE_MODULE, path.join(harnessDir, 'governed-tree.mjs'));
     return { root, scriptCopy: path.join(harnessDir, 'scan-deprecated-markers.mjs') };

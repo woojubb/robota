@@ -10,7 +10,7 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
 const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';

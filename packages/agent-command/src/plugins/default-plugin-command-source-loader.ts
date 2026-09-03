@@ -12,14 +12,18 @@ function getHomeDir(): string {
 }
 
 /**
- * Issue #2487 (PLG-021 residual): `install --scope project` writes under `<cwd>/.robota/plugins`,
- * but this loader read only `~/.robota/plugins`, so a project-scope install was invisible to the
- * session that made it. Project scope is listed first — the more specific one wins when a plugin is
- * present in both.
+ * Issue #2487 (PLG-021 residual): `install --scope project` writes under the project's own plugin
+ * directory, but this loader read only the user-level one, so a project-scope install was invisible
+ * to the session that made it. Project scope is listed first — the more specific one wins when a
+ * plugin is present in both.
  */
+function pluginsDirUnder(base: string): string {
+  return join(base, '.robota', 'plugins');
+}
+
 function pluginScopeDirs(cwd: string | undefined): string[] {
-  const user = join(getHomeDir(), '.robota', 'plugins');
-  return cwd === undefined ? [user] : [join(cwd, '.robota', 'plugins'), user];
+  const user = pluginsDirUnder(getHomeDir());
+  return cwd === undefined ? [user] : [pluginsDirUnder(cwd), user];
 }
 
 export function reloadPluginCommandSource(registry: CommandRegistry, cwd?: string): number {

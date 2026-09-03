@@ -242,6 +242,17 @@ describe('scan-review-findings CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-review-findings.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
+    for (const shared of [
+      'shared.mjs',
+      'git-base-ref-resolution.mjs',
+      'manifest-change-classification.mjs',
+    ]) {
+      copyFileSync(
+        fileURLToPath(new URL(`../${shared}`, import.meta.url)),
+        path.join(path.dirname(scriptCopy), shared),
+      );
+    }
     return { root, scriptCopy };
   }
 

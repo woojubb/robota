@@ -42,7 +42,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const DEFAULT_BASE_BRANCH = 'develop';
 
 const ARCHITECTURE_PLAN_HEADINGS =

@@ -253,7 +253,8 @@ Not-yet-implemented methods return `{ status: 501, ... NOT_IMPLEMENTED_IN_FRAMEW
   `dag-projection`, and the default node packages (`dag-nodes-default`, `dag-node-*`).
 - `dag-framework` MAY import neutral shared contracts from `@robota-sdk/agent-core` (the
   provider-definition and trusted-root SSOT contracts approved in ARCH-PROVIDER-003/004 and
-  ARCH-010). It MUST NOT import concrete provider packages (`@robota-sdk/agent-provider-*`) or the
+  ARCH-010). It MUST NOT import concrete provider packages (the `agent-provider-*` family, e.g.
+  `@robota-sdk/agent-provider-openai`) or the
   upper agent-runtime packages (`@robota-sdk/agent-framework`, `agent-session`, `agent-executor`,
   `agent-cli`, `agent-tools`, …). `src/__tests__/spec-dependency-rules.test.ts` holds the manifest to
   this list.

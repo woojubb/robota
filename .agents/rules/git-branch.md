@@ -354,7 +354,7 @@ This rule applies even when:
    "park it"). The open branch's commits are parked somewhere git TRACKS before the branch is deleted
    — never as a `git format-patch` file in a session scratchpad, which sits outside every ref,
    reflog, scan and record, so a session ending in that window loses the work with nothing left to
-   report its absence (issue #2344). The safe form, in this order:
+   report its absence. The safe form, in this order:
    `git update-ref refs/holding/<branch> <sha>` (or a scoped `git stash push -- <paths>`), THEN
    `git branch -D <branch>`; after the urgent work lands, recreate the branch from a freshly-fetched
    `origin/develop`, restore with `git cherry-pick <sha>` (or `git stash pop`), and drop the holding
@@ -395,7 +395,7 @@ in the post-merge sequence, before any branch deletion.
 - **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
   returns every run ever created for the commit, so a re-triggered workflow leaves superseded rows
   behind as `completed`/`cancelled` — rows that say "concluded" about a check that never ran on the
-  tree (issue #2237, measured on PR #2235). `latestCheckRunsByName` in
+  tree. `latestCheckRunsByName` in
   `scripts/harness/github-api.mjs` is the one place that dedupe lives; every gate or script reading
   check state goes through it. And `cancelled` is **evidence in neither direction** — not a failure,
   not a pass, but the absence of a result: wait for or trigger a real run (`checkRunEvidence`).
@@ -539,10 +539,9 @@ lands, written once so it is not re-decided from scratch each time.
    whom; contexts moved, or "none". A red required check with a bypass merge behind it and no such
    comment is indistinguishable from a gate that was ignored.
 
-First instance: PR #2246 (issue #1984) added the lint-warning ceiling step to the required
-`quality` job in `ci.yml`. It landed on an owner decision taken in conversation, because none of
-the above was written; this section is that decision written down so the next one costs a read
-(issue #2256).
+The first such edit — the lint-warning ceiling step in the required `quality` job of `ci.yml` —
+landed on an owner decision taken in conversation, because none of the above was written; this
+section is that decision written down so the next one costs a read.
 
 Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
 path, and its finding points here. Whether steps 1–4 were performed is judged by the human reader

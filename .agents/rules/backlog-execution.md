@@ -244,7 +244,7 @@ not the user.
 <!-- standing-authorization-contract: bounded gate-FAIL correction -->
 
 Under a **recorded** standing authorization, two further routes are automatically approved
-(issue #2470) — the owner granted both explicitly: _"앞으로 모든 제안이 타당한 근거와 함께 추천안이
+— the owner granted both explicitly: _"앞으로 모든 제안이 타당한 근거와 함께 추천안이
 제시되었을 때 타당하면 자동승인 하겠습니다"_ and _"Fail후 수정도 동일하게 타당한 근거를 제시하고 그게
 타당하다면 자동승인합니다"_:
 
@@ -1111,8 +1111,8 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
   additionally validates AGREEMENT child projections and fails a fully-checked task file whose spec
   never reached `spec-docs/done/` (gates overdue) — **over un-archived task files only.** It reads
   `.agents/tasks/` and not `completed/`, so the `git mv` that archives a record also removes it from
-  the scan's population, and the act the invariant gates is the act that ends its enforcement
-  (issue #2265). Refusing to archive a fully-checked record whose spec is still outside
+  the scan's population, and the act the invariant gates is the act that ends its enforcement.
+  Refusing to archive a fully-checked record whose spec is still outside
   `spec-docs/done/` is therefore the contributor's responsibility, not something the scan will catch
   afterwards; widening the scan to the archived population (~900 records, ~80 of which would go red
   on the first run) is a separate decision with its own baseline. These

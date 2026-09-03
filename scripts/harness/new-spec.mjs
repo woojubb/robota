@@ -59,7 +59,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 // stdout is the payload here (`--dry-run` prints the document, otherwise the created path), so the
 // root announcement goes to stderr — the document must not begin with a `::root::` line.
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { stdout: process.stderr });
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 export const TASKS_DIR = '.agents/tasks';
 export const DRAFT_DIR = '.agents/spec-docs/draft';

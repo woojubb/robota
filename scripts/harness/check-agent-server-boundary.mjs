@@ -30,7 +30,7 @@ import path from 'node:path';
 
 import { escapeForRegExp, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
 
 const PACKAGE_CHECKS = [

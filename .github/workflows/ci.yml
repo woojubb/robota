@@ -657,11 +657,8 @@ jobs:
           HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
           BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}
           RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
-          # Issue #2412: `harness:scan` runs per-commit history scans (user-execution-plan-order,
-          # promotion-ancestry). On a pull_request event HEAD is refs/pull/N/merge, a synthetic merge
-          # whose first parent is the base — so the head those scans end at is exported ONCE here,
-          # the way release-grade-verify already does. `scan-ci-base-history` refuses a per-commit
-          # job without it.
+          # Issue #2412: the head the per-commit history scans end at (on pull_request, HEAD is the
+          # synthetic merge ref); `scan-ci-base-history` refuses a per-commit job without it.
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |

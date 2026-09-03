@@ -12,7 +12,7 @@ import * as ts from './lib/ts-ast.mjs';
 import { listWorkspaceScopes, pathExists, readText, resolveWorkspaceRoot } from './shared.mjs';
 import { normalizeSpecHeading, readSpecSectionContract } from './spec-sections.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const SKILLS_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'skills');
 const SKILLS_INDEX_PATH = path.join(SKILLS_ROOT, 'index.md');
 const DESIGN_TMP_PATH = path.join(WORKSPACE_ROOT, '.design', 'tmp');

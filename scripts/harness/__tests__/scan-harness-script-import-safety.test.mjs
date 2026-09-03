@@ -361,5 +361,6 @@ describe('scan-harness-script-import-safety', () => {
     expect(findings).toEqual([]);
     // A pass over nothing is not a pass — and this number is the whole harness.
     expect(examined).toBeGreaterThan(100);
-  });
+    // Imports every harness script in a subprocess; the whole tree takes ~10s on a loaded machine.
+  }, 60_000);
 });

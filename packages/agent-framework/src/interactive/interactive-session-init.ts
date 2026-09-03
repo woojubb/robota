@@ -88,9 +88,10 @@ export async function createInteractiveSession(
     ? { ...config, language: options.language }
     : config;
 
-  // Issue #2487: a project-scope install lives under `<cwd>/.robota/plugins`; both scopes load,
-  // the project copy winning by manifest name when a plugin is present in both.
-  const pluginsDirs = [join(cwd, '.robota', 'plugins'), join(homedir(), '.robota', 'plugins')];
+  // Issue #2487: a project-scope install lives under the project's own plugin directory; both
+  // scopes load, the project copy winning by manifest name when a plugin is present in both.
+  const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
+  const pluginsDirs = [pluginsDirUnder(cwd), pluginsDirUnder(homedir())];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local

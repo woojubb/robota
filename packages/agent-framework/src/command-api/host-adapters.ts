@@ -209,7 +209,7 @@ export interface ICommandCostBudget {
 /**
  * CMD-007 (issue #2058): the narrow storage port `/cost budget` reads and writes through.
  *
- * The command used to own `.robota/budget.json` and the filesystem calls itself, which made a
+ * The command used to own the budget file's location and the filesystem calls itself, which made a
  * reusable command package responsible for a product's storage location and symlink policy. The
  * shell now composes an adapter (agent-cli: a file under the workspace, written atomically and never
  * through a symlink); the command sees `read/write/clear` and nothing else, so another product can

@@ -22,7 +22,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const WORKFLOWS_DIR = '.github/workflows';
 /** A one-level package dist glob (the pattern that omits nested groups). */
 const ONE_LEVEL_DIST_GLOB = 'packages/*/dist';

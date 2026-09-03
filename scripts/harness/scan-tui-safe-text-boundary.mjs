@@ -19,7 +19,9 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+import { resolveWorkspaceRoot } from './shared.mjs';
+
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const PACKAGE_SRC = 'packages/agent-transport-tui/src';
 export const BOUNDARY_MODULE = `${PACKAGE_SRC}/SafeText.tsx`;
 

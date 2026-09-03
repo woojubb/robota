@@ -10,7 +10,7 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 const TEXT_SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md']);
 

@@ -185,6 +185,22 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(examinedFireSiteCount()).toBe(5);
     });
 
+    it('examinedDerivedCount resets on a SECOND run rather than accumulating', () => {
+      findFireSites(null, FIXTURE_CORPUS);
+      const first = examinedDerivedCount();
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(examinedDerivedCount()).toBe(first);
+      expect(examinedDerivedCount()).toBe(3);
+    });
+
+    it('examinedReadCount resets on a SECOND run rather than accumulating', () => {
+      findFireSites(null, FIXTURE_CORPUS);
+      const first = examinedReadCount();
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(examinedReadCount()).toBe(first);
+      expect(examinedReadCount()).toBe(3);
+    });
+
     it('the counters move with the input rather than being constants', () => {
       // The check that separates a real counter from a hardcoded number: a narrower pathspec must
       // produce a smaller count, and the reader must follow it.

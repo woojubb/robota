@@ -148,9 +148,12 @@ describe('the real repository (HARNESS-117 · issue #2178)', () => {
 
   // The incident this scan was built for: ARCH-100 deleted the Interface Package Rule's statements
   // from .agents/project-structure.md and every scan stayed green. This asserts the verdict FLIPS.
-  it('reports INTERFACE-DEPS as UNSTATED when .agents/project-structure.md no longer states it', () => {
+  // Since issue #2188 the identifier is ALSO stated in ARCHITECTURE.md's rule-identifier section, so
+  // both statements go — the flip is what is asserted, not which document carries the last copy.
+  it('reports INTERFACE-DEPS as UNSTATED when no document states it any more', () => {
     const without = { ...docs };
     delete without['.agents/project-structure.md'];
+    delete without['ARCHITECTURE.md'];
     expect(findUnstatedIdentifiers(emitted, without).map((u) => u.id)).toContain('INTERFACE-DEPS');
   });
 

@@ -13,7 +13,9 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+import { resolveWorkspaceRoot } from './shared.mjs';
+
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Normalization modules that must resolve the environment ONLY through the injected resolver. */
 export const NORMALIZATION_MODULES = Object.freeze([

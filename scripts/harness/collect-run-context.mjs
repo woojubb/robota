@@ -22,7 +22,7 @@ import {
   resolveWorkspaceRoot,
 } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 function parseArgs(argv) {
   const options = { scope: null, reportFile: null };

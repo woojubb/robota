@@ -38,7 +38,7 @@ import {
   resolveWorkspaceRoot,
 } from './shared.mjs';
 
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const AGENTS_PATH = path.join(WORKSPACE_ROOT, 'AGENTS.md');
 const ROOT_PACKAGE_JSON_PATH = path.join(WORKSPACE_ROOT, 'package.json');
 const RULES_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'rules');

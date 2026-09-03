@@ -9,24 +9,45 @@ const HARNESS_DIR = path.resolve(import.meta.dirname, '..');
 const OWN_CHECKOUT = path.resolve(HARNESS_DIR, '../..');
 const SCRIPT = path.join(HARNESS_DIR, 'scan-example.mjs');
 
-function resolve({ argv = ['node', SCRIPT], env = {} } = {}) {
+function resolve({ argv = ['node', SCRIPT], env = {}, cwd = '/elsewhere/cwd', fromCwd } = {}) {
   let printed = '';
   const root = resolveWorkspaceRoot(
     { filename: SCRIPT },
-    { argv, env, stdout: { write: (text) => (printed += text) } },
+    { argv, env, cwd, fromCwd, out: { write: (text) => (printed += text) } },
   );
   return { root, printed };
 }
 
 describe('resolveWorkspaceRoot (issue #2413)', () => {
-  it('reads the checkout the script lives in, never process.cwd(), and names it as the entry', () => {
+  it('reads the checkout the script lives in, not process.cwd(), and names it as the entry', () => {
     const { root, printed } = resolve();
     expect(root).toBe(OWN_CHECKOUT);
     expect(printed).toBe(`${ROOT_MARKER} ${OWN_CHECKOUT}\n`);
   });
 
-  it('honours HARNESS_ROOT and --root overrides and says which one applied', () => {
-    const viaEnv = resolve({ env: { HARNESS_ROOT: '/elsewhere/env' } });
+  it('stays silent when the root it resolved IS the directory the caller stands in', () => {
+    const { root, printed } = resolve({ cwd: OWN_CHECKOUT });
+    expect(root).toBe(OWN_CHECKOUT);
+    expect(printed).toBe('');
+  });
+
+  it('reads the directory it is run in for a fixture-driven script, and the override still wins', () => {
+    const fixture = path.resolve('/elsewhere/fixture');
+    const { root, printed } = resolve({ cwd: fixture, fromCwd: true });
+    expect(root).toBe(fixture);
+    expect(printed).toBe('');
+
+    const overridden = resolve({
+      cwd: fixture,
+      fromCwd: true,
+      env: { HARNESS_ROOT: '/elsewhere/env' },
+    });
+    expect(overridden.root).toBe(path.resolve('/elsewhere/env'));
+    expect(overridden.printed).toContain('(override: HARNESS_ROOT)');
+  });
+
+  it('honours HARNESS_ROOT and --root overrides and says which one applied, even from that root', () => {
+    const viaEnv = resolve({ env: { HARNESS_ROOT: '/elsewhere/env' }, cwd: '/elsewhere/env' });
     expect(viaEnv.root).toBe(path.resolve('/elsewhere/env'));
     expect(viaEnv.printed).toContain('(override: HARNESS_ROOT)');
 

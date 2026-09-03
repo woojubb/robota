@@ -54,7 +54,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 // stdout is the payload here (the allocated ID, and the file it was written to), so the root
 // announcement goes to stderr.
-const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { stdout: process.stderr });
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_DIR = '.agents/tasks';
 
 /** A work-item ID: one or more uppercase segments, then a number. `ARCH-FIX-020` is one. */
