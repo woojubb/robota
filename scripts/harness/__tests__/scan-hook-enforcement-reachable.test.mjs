@@ -31,6 +31,9 @@ import {
   isProductionSource,
   examinedRowCount,
   examinedFireSiteCount,
+  examinedDerivedCount,
+  examinedReadCount,
+  unclassifiedEntries,
 } from '../scan-hook-enforcement-reachable.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -93,7 +96,7 @@ describe('scan-hook-enforcement-reachable', () => {
     // `::examined::` is the harness's provenance convention: "checked and clean" must be
     // distinguishable from "found nothing to check" in the scan's own output.
     expect(output).toMatch(
-      /::examined:: \d+ policy row\(s\), \d+ non-test runHooks fire site\(s\)/,
+      /::examined:: \d+ policy row\(s\), \d+ non-test runHooks fire site\(s\) across \d+ read of \d+ derived production file\(s\)/,
     );
     expect(output).toContain('enforcing: PreToolUse');
   });
@@ -120,6 +123,48 @@ describe('scan-hook-enforcement-reachable', () => {
       findFireSites(null, FIXTURE_CORPUS);
       expect(examinedFireSiteCount()).toBe(FIXTURE_SITE_COUNT);
       expect(examinedFireSiteCount()).toBe(5);
+    });
+
+    it('reads every TypeScript flavour the derivation admits, and reports derived vs read (issue #2242)', () => {
+      // `isProductionSource` admitted a `.tsx`/`.mts`/`.cts` fire site and a `.ts`-only filter then
+      // discarded it — a denylist wearing the derivation's clothes. For an `enforcing` row that miss
+      // is loud; for the `[stale-reachability]` arm it was silent.
+      const corpus = [
+        { relative: 'packages/p/src/a.ts', source: 'runHooks(one);\n' },
+        { relative: 'packages/p/src/b.tsx', source: 'runHooks(two);\n' },
+        { relative: 'packages/p/src/c.mts', source: 'runHooks(three);\n' },
+        { relative: 'packages/p/src/d.cts', source: 'runHooks(four);\n' },
+        // Derived (it is under src/) but not code: counted as derived, never read.
+        { relative: 'packages/p/src/styles.css', source: null },
+        { relative: 'packages/p/src/README.md', source: '# runHooks(\n' },
+        // Gated OUT by the derivation, so it appears in neither count.
+        { relative: 'scripts/harness/not-production.tsx', source: 'runHooks(gated);\n' },
+      ];
+      const sites = findFireSites(null, corpus);
+      expect(sites.map((site) => site.file)).toEqual([
+        'packages/p/src/a.ts',
+        'packages/p/src/b.tsx',
+        'packages/p/src/c.mts',
+        'packages/p/src/d.cts',
+      ]);
+      expect(examinedFireSiteCount()).toBe(4);
+      expect(examinedDerivedCount()).toBe(6);
+      expect(examinedReadCount()).toBe(4);
+      expect(unclassifiedEntries()).toEqual([]);
+    });
+
+    it('an entry the derivation admits but the reader cannot classify is reported, not passed over', () => {
+      const corpus = [
+        { relative: 'packages/p/src/a.ts', source: 'runHooks(one);\n' },
+        { relative: 'packages/p/src/blob.unknown-ext', source: null },
+      ];
+      findFireSites(null, corpus);
+      expect(examinedDerivedCount()).toBe(2);
+      expect(examinedReadCount()).toBe(1);
+      expect(unclassifiedEntries()).toEqual(['packages/p/src/blob.unknown-ext']);
+      // And the list is reset by the next walk rather than accumulating.
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(unclassifiedEntries()).toEqual([]);
     });
 
     it('examinedRowCount resets on a SECOND run rather than accumulating', () => {

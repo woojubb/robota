@@ -69,6 +69,10 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  */
 let examinedRows = 0;
 let examinedFireSites = 0;
+let examinedDerived = 0;
+let examinedRead = 0;
+/** @type {string[]} */
+let unclassified = [];
 
 /** Policy rows the last `collectPolicyRows` actually parsed. */
 export function examinedRowCount() {
@@ -78,6 +82,48 @@ export function examinedRowCount() {
 /** Non-test `runHooks` fire sites the last `findFireSites` walk actually read. */
 export function examinedFireSiteCount() {
   return examinedFireSites;
+}
+
+/**
+ * Issue #2242 — the two counts a filtered corpus owes its reader: how many files the derivation
+ * (`isProductionSource`) ADMITTED, and how many of those the fire-site reader actually READ. When
+ * they differ, the difference is a scope decision, and it belongs in the output rather than in an
+ * `endsWith` a reviewer skims past.
+ */
+export function examinedDerivedCount() {
+  return examinedDerived;
+}
+
+export function examinedReadCount() {
+  return examinedRead;
+}
+
+/** Derived entries the last walk could neither read nor recognise as a non-code asset. */
+export function unclassifiedEntries() {
+  return [...unclassified];
+}
+
+/**
+ * What the reader can scan for `runHooks(`: every TypeScript and JavaScript flavour, plus `.astro`,
+ * whose frontmatter is a TypeScript script block. The scan used to read `.ts` alone — a `.tsx`,
+ * `.mts` or `.cts` fire site was admitted by `isProductionSource` and then discarded by a filter
+ * that read as iteration detail (issue #2242).
+ */
+const READABLE_SOURCE = /\.(ts|tsx|mts|cts|js|mjs|cjs|jsx|astro)$/;
+
+/**
+ * Non-code assets a production `src/` tree legitimately ships. Measured 2026-09-04 over the live
+ * derived corpus: css, ico, txt, md, json. Anything the derivation admits that is in NEITHER set is
+ * an entry the scan cannot classify, and an unclassifiable entry is a failure, not a pass-over.
+ */
+const NON_CODE_ASSET =
+  /\.(css|scss|less|md|mdx|json|txt|ico|svg|png|jpe?g|gif|webp|html|ya?ml|snap|wasm)$/;
+
+/** `'read'`, `'skip'`, or `'unclassified'` — the reader's own scope decision, stated once. */
+export function classifyCorpusEntry(relative) {
+  if (READABLE_SOURCE.test(relative)) return 'read';
+  if (NON_CODE_ASSET.test(relative)) return 'skip';
+  return 'unclassified';
 }
 const DEFAULT_POLICY = 'packages/agent-core/src/hooks/enforcement-policy.ts';
 
@@ -426,16 +472,19 @@ export function collectFireSitesFromSource(relative, rawSource) {
 }
 
 /**
- * The live corpus: every tracked production `.ts` under `pathspecs`, paired with its source.
+ * The live corpus: every tracked file under `pathspecs`. Readable sources come paired with their
+ * text; everything else comes with `source: null`, so `findFireSites` can count what the derivation
+ * admitted and say what it did not read — the extension filter is a scope decision made THERE, once,
+ * not here in the iteration.
  *
  * Split out so `findFireSites` has a seam. It is the only part that touches disk.
  */
 function* liveCorpus(pathspecs) {
   for (const relative of enumerateFiles(pathspecs)) {
-    if (!relative.endsWith('.ts')) continue;
     const file = path.join(WORKSPACE_ROOT, relative);
     if (!existsSync(file)) continue;
-    yield { relative, source: readFileSync(file, 'utf8') };
+    const source = classifyCorpusEntry(relative) === 'read' ? readFileSync(file, 'utf8') : null;
+    yield { relative, source };
   }
 }
 
@@ -457,11 +506,27 @@ export function findFireSites(pathspecs, corpus) {
   /** @type {TFireSite[]} */
   const sites = [];
 
+  let derived = 0;
+  let read = 0;
+  /** @type {string[]} */
+  const unknown = [];
+
   for (const { relative, source } of corpus ?? liveCorpus(pathspecs)) {
     if (!isProductionSource(relative)) continue;
-    sites.push(...collectFireSitesFromSource(relative, source));
+    derived += 1;
+    const kind = classifyCorpusEntry(relative);
+    if (kind === 'skip') continue;
+    if (kind === 'unclassified') {
+      unknown.push(relative);
+      continue;
+    }
+    read += 1;
+    sites.push(...collectFireSitesFromSource(relative, source ?? ''));
   }
   examinedFireSites = sites.length;
+  examinedDerived = derived;
+  examinedRead = read;
+  unclassified = unknown;
   return sites;
 }
 
@@ -603,10 +668,19 @@ function main() {
     );
     process.exit(1);
   }
+  // An entry the derivation admitted and the reader could not classify is not skipped — a silent
+  // drop here is the same defect as the `.ts`-only filter, with a different predicate (issue #2242).
+  const unknown = unclassifiedEntries();
+  if (unknown.length > 0) {
+    console.error(
+      `hook-enforcement-reachable: ${unknown.length} production file(s) could not be classified as readable source or as a non-code asset — add the extension to READABLE_SOURCE or NON_CODE_ASSET rather than letting the scan skip it:\n${unknown.map((entry) => `  - ${entry}`).join('\n')}`,
+    );
+    process.exit(1);
+  }
   const findings = evaluate(entries, sites);
 
   console.log(
-    `::examined:: ${examinedRowCount()} policy row(s), ${examinedFireSiteCount()} non-test runHooks fire site(s)`,
+    `::examined:: ${examinedRowCount()} policy row(s), ${examinedFireSiteCount()} non-test runHooks fire site(s) across ${examinedReadCount()} read of ${examinedDerivedCount()} derived production file(s)`,
   );
 
   if (findings.length > 0) {
