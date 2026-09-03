@@ -24,7 +24,7 @@ import { BundlePluginLoader } from './bundle-plugin-loader.js';
 import { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import { getUserSettingsPath } from '../config/settings-io.js';
 
-import type { TEnabledPlugins } from './bundle-plugin-types.js';
+import type { ILoadedBundlePlugin, TEnabledPlugins } from './bundle-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**
@@ -62,4 +62,31 @@ export function createHostBundlePluginLoader(
     new NodeHostPluginSettingsStore(settingsPath, options.fs).getEnabledPlugins();
 
   return new BundlePluginLoader(options.pluginsDir, enabledPlugins, options.fs);
+}
+
+/**
+ * Load bundle plugins from several scope directories, most specific first (issue #2487).
+ *
+ * A project-scope install lands in a different directory from the user scope, and a loader built
+ * for one directory cannot see the other. A plugin present in more than one scope is taken from the
+ * first directory that holds it, by manifest name. Each directory gets its own loader from the
+ * composition root above, so the enablement treatment is not bypassed.
+ */
+export function loadHostBundlePluginsFromScopes(
+  pluginsDirs: readonly string[],
+  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'> = {},
+): ILoadedBundlePlugin[] {
+  const seen = new Set<string>();
+  const plugins: ILoadedBundlePlugin[] = [];
+  for (const pluginsDir of new Set(pluginsDirs)) {
+    for (const plugin of createHostBundlePluginLoader({
+      ...options,
+      pluginsDir,
+    }).loadPluginsSync()) {
+      if (seen.has(plugin.manifest.name)) continue;
+      seen.add(plugin.manifest.name);
+      plugins.push(plugin);
+    }
+  }
+  return plugins;
 }

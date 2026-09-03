@@ -100,6 +100,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+  // Issue #2487: plugin reloads read the project scope too, so an `install --scope project` made in
+  // this session shows up in the same session.
+  const reloadPluginCommandSourceInCwd = (
+    registry: Parameters<typeof reloadPluginCommandSource>[0],
+  ): number => reloadPluginCommandSource(registry, cwd);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -431,8 +436,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
-    cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
-    reloadPluginCommandSource,
+    cliAdapter: createDefaultTuiCliAdapter({
+      providerDefinitions,
+      reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
+    }),
+    reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     ...toSessionOptions(presetSurface),
   });
   process.exit(0);
