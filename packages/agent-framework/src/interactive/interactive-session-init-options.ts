@@ -13,6 +13,7 @@
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
@@ -157,6 +158,6 @@ export interface IInitOptions {
   guardrails?: Record<string, TGuardrail>;
   /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
   retrievalAdapter?: IRetrievalAdapter;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }

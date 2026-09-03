@@ -24,6 +24,7 @@ import type {
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
+import type { IChatOptions } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
@@ -36,6 +37,13 @@ import type {
   TAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
+
+/**
+ * Issue #2056 (CLI-081): the session-level structured-output option is the provider contract's own
+ * `responseFormat` — including `json_schema` — so a product flag such as `--json-schema` is routed as
+ * structured policy (provider capability, fallback, validation are CORE-043's) and never as prose.
+ */
+export type TSessionResponseFormat = NonNullable<IChatOptions['responseFormat']>;
 
 // Issue #2052: owned by agent-session; re-exported so framework consumers keep their import path.
 export type { TAutoCompactThreshold };
@@ -239,8 +247,8 @@ export interface ICreateSessionOptions {
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }
 
 /** Result of createSession — session instance plus a system-message rebuilder for context refresh. */

@@ -1,10 +1,11 @@
 import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
 
 import { buildAppendSystemPrompt } from './append-system-prompt.js';
+import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
-import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
+import type { ICreateSessionOptions, TSessionResponseFormat } from '@robota-sdk/agent-framework';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 /**
@@ -95,6 +96,12 @@ export interface IPresetSurfaceOptions {
    * pre-empt it. Two origins, two names, and the merge stays expressible.
    */
   cliAppendSystemPrompt?: string;
+  /**
+   * Issue #2056: `--json-schema`, routed as the session's structured `responseFormat` rather than as
+   * prompt prose. Rides on the projection for the same reason `cliAppendSystemPrompt` does — one
+   * composition, all three shells.
+   */
+  responseFormat?: TSessionResponseFormat;
 }
 
 /**
@@ -115,6 +122,8 @@ export function buildPresetSurfaceOptions(
 ): IPresetSurfaceOptions {
   const cliAppendSystemPrompt =
     cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
+  const responseFormat =
+    cli !== undefined ? buildJsonSchemaResponseFormat(cli.args.jsonSchema) : undefined;
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     agentName: resolved.agentName ?? DEFAULT_AGENT_NAME,
@@ -137,6 +146,7 @@ export function buildPresetSurfaceOptions(
     ...(resolved.allowedTools !== undefined ? { allowedTools: resolved.allowedTools } : {}),
     ...(resolved.deniedTools !== undefined ? { deniedTools: resolved.deniedTools } : {}),
     ...(cliAppendSystemPrompt !== undefined ? { cliAppendSystemPrompt } : {}),
+    ...(responseFormat !== undefined ? { responseFormat } : {}),
   };
 }
 

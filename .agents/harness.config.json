@@ -229,6 +229,10 @@
       {
         "id": "returned-literal-or-array",
         "pattern": "\\breturn\\s*(?=['\"`\\[])"
+      },
+      {
+        "id": "prompt-parts-push",
+        "pattern": "\\b[A-Za-z_$]*[Pp]arts\\.push\\(\\s*"
       }
     ],
     "prose": {
