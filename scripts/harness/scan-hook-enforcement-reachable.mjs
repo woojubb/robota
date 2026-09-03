@@ -43,6 +43,12 @@
  *                                    `blocked`
  *   - `[stale-reachability]`         `enforcementReachable` disagrees with what the fire sites show
  *   - `[reachability-contradiction]` a row that is `enforcing` while `enforcementReachable` is false
+ *   - `[enforcing-advisory-row]`     an `advisory` row whose fire site nonetheless awaits `runHooks`
+ *                                    and reads `blocked` — the mirror of `[inert-enforcing-row]`
+ *                                    (issue #2259): the code enforces where the table says it does
+ *                                    not, so a one-field posture flip that disarms a gate is caught
+ *                                    even once a second enforcing row keeps `[no-enforcing-rows]`
+ *                                    quiet
  *
  * Note what this scan does NOT reach, because the boundary matters more than the list: it checks the
  * `blocked` path only. Deleting the `isEnforcing('PreToolUse')` block in `tool-hook-helpers.ts`
@@ -621,6 +627,22 @@ export function evaluate(entries, sites, expectedEvents = readEventUnion()) {
         `[stale-reachability] ${event} records enforcementReachable: false, but its fire site awaits and reads .blocked. The flag is stale; the site changed under it.`,
       );
     }
+  }
+
+  // Arm 4 (issue #2259) — the mirror of arm 3. An `advisory` row whose fire site awaits and reads
+  // `.blocked` is code enforcing where the table says it does not: the one-field edit that disarms
+  // a gate. Until now that edit was caught only by `[no-enforcing-rows]`, and only because exactly
+  // one row was enforcing — a property of the data, not of the check. Independent of the
+  // `enforcementReachable` flag: `[stale-reachability]` owns the flag, this owns the posture.
+  for (const [event, entry] of entries) {
+    if (entry.posture !== 'advisory') continue;
+    const owning = sites.filter((s) => s.events.includes(event));
+    const honouring = owning.filter((s) => s.awaited && s.readsBlocked);
+    if (honouring.length === 0) continue;
+    const where = honouring.map((s) => `${s.file}:${s.line}`).join(', ');
+    findings.push(
+      `[enforcing-advisory-row] ${event} is declared 'advisory', but its fire site awaits runHooks and reads .blocked (${where}). The code enforces where the table says it does not — a posture flip alone does not disarm a gate, and a table that says otherwise is wrong about the code.`,
+    );
   }
 
   return findings;

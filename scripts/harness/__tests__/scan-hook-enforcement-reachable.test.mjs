@@ -337,6 +337,62 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(output).toContain('PreToolUse');
     });
 
+    it('fails when only the POSTURE is flipped to advisory and the site still enforces (issue #2259)', () => {
+      // The one-field disarm: `posture: 'advisory'`, `enforcementReachable: true` left as it was,
+      // the enforcing code untouched. Before the mirror arm this was caught by `[no-enforcing-rows]`
+      // alone — an accident of PreToolUse being the ONLY enforcing row.
+      const mutant = realPolicy.replace(
+        "      posture: 'enforcing',\n      enforcementReachable: true,",
+        "      posture: 'advisory',\n      enforcementReachable: true,",
+      );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[enforcing-advisory-row]');
+      expect(output).toContain('PreToolUse');
+    });
+
+    it('the mirror arm fires with a SECOND enforcing row present, so [no-enforcing-rows] is not what catches it', () => {
+      // Two enforcing rows; PreToolUse flipped to advisory while its site awaits and reads
+      // `.blocked`. The table now has an enforcing row, so arm 2 stays quiet — and before #2259
+      // nothing else said anything.
+      const honouring = (event) => ({
+        file: 'x.ts',
+        line: 1,
+        events: [event],
+        awaited: true,
+        readsBlocked: true,
+      });
+      const findings = evaluate(
+        new Map([
+          ['PreToolUse', { posture: 'advisory', reachable: true }],
+          ['PostToolUse', { posture: 'enforcing', reachable: true }],
+        ]),
+        [honouring('PreToolUse'), honouring('PostToolUse')],
+        ['PreToolUse', 'PostToolUse'],
+      );
+      const text = findings.join('\n');
+      expect(text).not.toContain('[no-enforcing-rows]');
+      expect(text).toContain('[enforcing-advisory-row] PreToolUse');
+      expect(text).not.toContain('[enforcing-advisory-row] PostToolUse');
+    });
+
+    it('does not fire for an advisory row whose site fires and forgets (the honest advisory case)', () => {
+      const findings = evaluate(
+        new Map([
+          ['PreToolUse', { posture: 'enforcing', reachable: true }],
+          ['PostToolUse', { posture: 'advisory', reachable: false }],
+        ]),
+        [
+          { file: 'x.ts', line: 1, events: ['PreToolUse'], awaited: true, readsBlocked: true },
+          { file: 'x.ts', line: 2, events: ['PostToolUse'], awaited: false, readsBlocked: false },
+        ],
+        ['PreToolUse', 'PostToolUse'],
+      );
+      expect(findings.join('\n')).not.toContain('[enforcing-advisory-row]');
+    });
+
     it('fails when a row claims enforcing AND records unreachable', () => {
       const mutant = realPolicy.replace(
         "      posture: 'enforcing',\n      enforcementReachable: true,",
@@ -949,6 +1005,7 @@ describe('scan-hook-enforcement-reachable', () => {
       // compared only against other derivations can shrink silently; compared against a literal it
       // cannot, because data does not narrow itself and losing an entry is a visible edit.
       const EXPECTED_CODES = [
+        'enforcing-advisory-row',
         'inert-enforcing-row',
         'no-enforcing-rows',
         'policy-row-not-parsed',
