@@ -196,6 +196,13 @@ describe('check-functional-coverage CLI', () => {
     manifestOn(root, manifest);
     const scriptCopy = path.join(root, 'scripts/harness/check-functional-coverage.mjs');
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    // The script delegates comment blanking to the shared owner (issue #2258); a standalone copy
+    // needs it beside itself.
+    mkdirSync(path.join(root, 'scripts/harness/lib'), { recursive: true });
+    copyFileSync(
+      fileURLToPath(new URL('../lib/blank-comments.mjs', import.meta.url)),
+      path.join(root, 'scripts/harness/lib/blank-comments.mjs'),
+    );
     return { root, scriptCopy };
   }
 

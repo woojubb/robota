@@ -17,6 +17,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { blankComments } from './lib/blank-comments.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MANIFEST_PATH = path.join(import.meta.dirname, 'functional-coverage-manifest.json');
 
@@ -26,11 +28,14 @@ const MANIFEST_PATH = path.join(import.meta.dirname, 'functional-coverage-manife
  * HARNESS-052 sub-shape A: this check claimed "every framework capability … drives a REAL
  * InteractiveSession" while accepting `source.includes('scriptedSession')` — true of the token in a
  * comment beside a `describe.skip`, which is the precise case its own docstring forbids.
+ *
+ * Issue #2258: delegates to the offset-preserving owner in `lib/blank-comments.mjs` rather than
+ * keeping a second, collapsing implementation. Every byte of a comment becomes a space and newlines
+ * survive, so a caller that indexes into the result still indexes into the original; a `//` inside
+ * a string or regex literal no longer opens a false comment either.
  */
 export function stripComments(sourceText) {
-  return String(sourceText ?? '')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return blankComments(String(sourceText ?? ''));
 }
 
 /** Is the harness marker actually CALLED (or constructed / used as a type argument) here? */
