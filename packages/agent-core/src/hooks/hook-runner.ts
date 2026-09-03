@@ -19,8 +19,9 @@
  */
 
 import { matchesGroup, getMatcherTarget } from './hook-matching.js';
-import { PERMISSION_PRIORITY, parseHookJson } from './response-protocol.js';
+import { PERMISSION_PRIORITY, interpretAllowOutcome } from './response-protocol.js';
 
+import type { TPermissionDecision } from './response-protocol.js';
 import type {
   THookEvent,
   THooksConfig,
@@ -62,7 +63,7 @@ export interface IRunHooksResult {
   /** Parsed updatedInput from PreToolUse hookSpecificOutput (PreToolUse only). */
   updatedInput?: Record<string, unknown>;
   /** Highest-priority permissionDecision from PreToolUse hooks (PreToolUse only). */
-  permissionDecision?: 'allow' | 'deny' | 'ask' | 'defer';
+  permissionDecision?: TPermissionDecision;
   /**
    * Hook types that were configured but had no registered executor, so nothing ran for them.
    *
@@ -136,7 +137,7 @@ export async function runHooks(
 
   // PreToolUse multi-hook priority tracking
   let highestPermissionPriority = -1;
-  let highestPermissionDecision: 'allow' | 'deny' | 'ask' | 'defer' | undefined;
+  let highestPermissionDecision: TPermissionDecision | undefined;
   let lastUpdatedInput: Record<string, unknown> | undefined;
 
   for (const group of groups) {
@@ -175,92 +176,32 @@ export async function runHooks(
         continue;
       }
 
-      const json = parseHookJson(outcome.stdout);
+      // The body's meaning is the protocol module's call (issue #2191); this loop only aggregates.
+      const interpretation = interpretAllowOutcome(outcome.stdout, event);
+      stdoutParts.push(...interpretation.context);
 
-      if (json !== null) {
-        // Common: continue: false → block
-        if (json['continue'] === false) {
-          const stopReason =
-            typeof json['stopReason'] === 'string'
-              ? json['stopReason']
-              : 'Blocked by hook (continue: false)';
-          return {
-            blocked: true,
-            reason: stopReason,
-            stdout: stdoutParts.join('\n'),
-            ...diagnostics(),
-          };
-        }
+      if (interpretation.blockReason !== undefined) {
+        return {
+          blocked: true,
+          reason: interpretation.blockReason,
+          stdout: stdoutParts.join('\n'),
+          ...(interpretation.permissionDecision === 'deny' && {
+            permissionDecision: 'deny' as const,
+          }),
+          ...diagnostics(),
+        };
+      }
 
-        // UserPromptSubmit: decision: "block" → block
-        if (event === 'UserPromptSubmit' && json['decision'] === 'block') {
-          const hookSpecific = json['hookSpecificOutput'];
-          const additionalContext =
-            hookSpecific !== null &&
-            typeof hookSpecific === 'object' &&
-            'additionalContext' in (hookSpecific as object)
-              ? String((hookSpecific as Record<string, unknown>)['additionalContext'])
-              : undefined;
-          return {
-            blocked: true,
-            reason: 'Blocked by hook (decision: block)',
-            stdout: additionalContext
-              ? [...stdoutParts, additionalContext].join('\n')
-              : stdoutParts.join('\n'),
-            ...diagnostics(),
-          };
+      if (interpretation.permissionDecision !== undefined) {
+        const priority = PERMISSION_PRIORITY[interpretation.permissionDecision];
+        if (priority > highestPermissionPriority) {
+          highestPermissionPriority = priority;
+          highestPermissionDecision = interpretation.permissionDecision;
         }
-
-        // UserPromptSubmit: additionalContext without block → inject into stdout
-        if (event === 'UserPromptSubmit') {
-          const hookSpecific = json['hookSpecificOutput'];
-          if (
-            hookSpecific !== null &&
-            typeof hookSpecific === 'object' &&
-            'additionalContext' in (hookSpecific as object)
-          ) {
-            const ctx = String((hookSpecific as Record<string, unknown>)['additionalContext']);
-            if (ctx) stdoutParts.push(ctx);
-          }
+        // Track updatedInput from the highest-priority decision
+        if (priority >= highestPermissionPriority && interpretation.updatedInput !== undefined) {
+          lastUpdatedInput = interpretation.updatedInput;
         }
-
-        // PreToolUse: parse permissionDecision and updatedInput
-        if (event === 'PreToolUse') {
-          const hookSpecific = json['hookSpecificOutput'];
-          if (hookSpecific !== null && typeof hookSpecific === 'object') {
-            const specific = hookSpecific as Record<string, unknown>;
-            const decision = specific['permissionDecision'];
-            if (typeof decision === 'string' && decision in PERMISSION_PRIORITY) {
-              const priority = PERMISSION_PRIORITY[decision];
-              if (priority > highestPermissionPriority) {
-                highestPermissionPriority = priority;
-                highestPermissionDecision = decision as 'allow' | 'deny' | 'ask' | 'defer';
-              }
-              // deny → immediate block
-              if (decision === 'deny') {
-                return {
-                  blocked: true,
-                  reason: 'Blocked by hook (permissionDecision: deny)',
-                  stdout: stdoutParts.join('\n'),
-                  permissionDecision: 'deny',
-                  ...diagnostics(),
-                };
-              }
-              // Track updatedInput from the highest-priority decision
-              if (priority >= highestPermissionPriority && specific['updatedInput'] !== undefined) {
-                lastUpdatedInput = specific['updatedInput'] as Record<string, unknown>;
-              }
-            }
-          }
-        }
-
-        // systemMessage → inject into stdout for AI context
-        if (typeof json['systemMessage'] === 'string' && json['systemMessage']) {
-          stdoutParts.push(json['systemMessage']);
-        }
-      } else if (outcome.stdout.trim()) {
-        // Raw text stdout (non-JSON)
-        stdoutParts.push(outcome.stdout.trim());
       }
     }
   }
