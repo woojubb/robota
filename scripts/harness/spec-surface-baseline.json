@@ -1,19 +1,149 @@
 {
-  "@robota-sdk/agent-cli": 1,
-  "@robota-sdk/agent-command": 113,
-  "@robota-sdk/agent-core": 93,
-  "@robota-sdk/agent-executor": 1,
-  "@robota-sdk/agent-framework": 149,
-  "@robota-sdk/agent-playground": 26,
-  "@robota-sdk/agent-session-analytics": 8,
-  "@robota-sdk/dag-adapters-sqlite": 2,
-  "@robota-sdk/dag-api": 10,
-  "@robota-sdk/dag-cli": 1,
-  "@robota-sdk/dag-core": 10,
-  "@robota-sdk/dag-framework": 8,
-  "@robota-sdk/dag-mcp-server": 5,
-  "@robota-sdk/dag-node": 1,
-  "@robota-sdk/dag-orchestration-client": 2,
-  "@robota-sdk/dag-projection": 2,
-  "@robota-sdk/dag-scheduler": 2
+  "@robota-sdk/agent-cli": {
+    "runtime": 1,
+    "type": 1
+  },
+  "@robota-sdk/agent-command": {
+    "runtime": 113,
+    "type": 16
+  },
+  "@robota-sdk/agent-core": {
+    "runtime": 93,
+    "type": 229
+  },
+  "@robota-sdk/agent-executor": {
+    "runtime": 1,
+    "type": 26
+  },
+  "@robota-sdk/agent-framework": {
+    "runtime": 151,
+    "type": 292
+  },
+  "@robota-sdk/agent-interface-analytics": {
+    "type": 7
+  },
+  "@robota-sdk/agent-interface-command": {
+    "type": 21
+  },
+  "@robota-sdk/agent-interface-execution": {
+    "type": 60
+  },
+  "@robota-sdk/agent-interface-session": {
+    "type": 80
+  },
+  "@robota-sdk/agent-interface-session-mobility": {
+    "type": 17
+  },
+  "@robota-sdk/agent-interface-transport": {
+    "type": 28
+  },
+  "@robota-sdk/agent-playground": {
+    "runtime": 26,
+    "type": 44
+  },
+  "@robota-sdk/agent-plugin": {
+    "type": 45
+  },
+  "@robota-sdk/agent-provider-anthropic": {
+    "type": 2
+  },
+  "@robota-sdk/agent-provider-bytedance": {
+    "type": 9
+  },
+  "@robota-sdk/agent-provider-gemini": {
+    "type": 4
+  },
+  "@robota-sdk/agent-provider-openai": {
+    "type": 8
+  },
+  "@robota-sdk/agent-provider-openai-compatible": {
+    "type": 46
+  },
+  "@robota-sdk/agent-remote-client": {
+    "type": 12
+  },
+  "@robota-sdk/agent-remote-pairing": {
+    "type": 43
+  },
+  "@robota-sdk/agent-session": {
+    "type": 18
+  },
+  "@robota-sdk/agent-session-analytics": {
+    "runtime": 8,
+    "type": 10
+  },
+  "@robota-sdk/agent-tools": {
+    "type": 49
+  },
+  "@robota-sdk/agent-transport": {
+    "type": 1
+  },
+  "@robota-sdk/agent-transport-gui": {
+    "type": 3
+  },
+  "@robota-sdk/agent-transport-http": {
+    "type": 4
+  },
+  "@robota-sdk/agent-transport-mcp": {
+    "type": 2
+  },
+  "@robota-sdk/agent-transport-protocol": {
+    "type": 16
+  },
+  "@robota-sdk/agent-transport-tui": {
+    "type": 6
+  },
+  "@robota-sdk/agent-transport-webrtc": {
+    "type": 3
+  },
+  "@robota-sdk/agent-transport-webrtc-web": {
+    "type": 3
+  },
+  "@robota-sdk/agent-transport-ws": {
+    "type": 3
+  },
+  "@robota-sdk/dag-adapters-sqlite": {
+    "runtime": 2
+  },
+  "@robota-sdk/dag-api": {
+    "runtime": 10,
+    "type": 56
+  },
+  "@robota-sdk/dag-builder": {
+    "type": 7
+  },
+  "@robota-sdk/dag-cli": {
+    "runtime": 1,
+    "type": 6
+  },
+  "@robota-sdk/dag-core": {
+    "runtime": 10,
+    "type": 138
+  },
+  "@robota-sdk/dag-framework": {
+    "runtime": 8,
+    "type": 12
+  },
+  "@robota-sdk/dag-mcp-server": {
+    "runtime": 5,
+    "type": 5
+  },
+  "@robota-sdk/dag-node": {
+    "runtime": 1
+  },
+  "@robota-sdk/dag-orchestration-client": {
+    "runtime": 2,
+    "type": 38
+  },
+  "@robota-sdk/dag-projection": {
+    "runtime": 2,
+    "type": 6
+  },
+  "@robota-sdk/dag-scheduler": {
+    "runtime": 2,
+    "type": 5
+  },
+  "@robota-sdk/dag-worker": {
+    "type": 10
+  }
 }

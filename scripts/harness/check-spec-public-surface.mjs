@@ -18,13 +18,23 @@
  * - A real export's name always appears in `src/` (at its definition or barrel
  *   re-export); a phantom one appears nowhere. That asymmetry is the whole check.
  *
- * REVERSE (`spec-undocumented-export`) — INFRA-DOC-GUARD-001 (architecture audit
- * 2026-06-14, AF-02/AF-04 class). Every EFFECTIVE runtime export of the package entry
- * (`src/index.ts`, plus `browser.ts`/`node.ts` when package.json points there) must be
- * listed as a Public API table identifier. "Effective runtime export" = direct
- * `export const/function/class/enum`, plus names surfaced by re-export edges
- * (`export { A, B as C } from './x'` and `export * from './x'` resolved recursively) —
- * excluding all type-only exports (`export type`, `interface`, `export { type A }`).
+ * REVERSE (`spec-undocumented-export` / `spec-undocumented-type-export`) —
+ * INFRA-DOC-GUARD-001 (architecture audit 2026-06-14, AF-02/AF-04 class). Every EFFECTIVE
+ * export of the package entry (`src/index.ts`, plus `browser.ts`/`node.ts` when
+ * package.json points there) must be listed as a Public API table identifier. Two
+ * surfaces are counted SEPARATELY (issue #2331):
+ *
+ *   - RUNTIME: direct `export const/function/class/enum`, plus names surfaced by re-export
+ *     edges (`export { A, B as C } from './x'` and `export * from './x'` resolved
+ *     recursively).
+ *   - TYPE: `export interface` / `export type`, `export type { … }`, inline
+ *     `export { type A }`, and the type names an `export *` barrel surfaces.
+ *
+ * Both are the published surface of a TypeScript SDK: removing a published type breaks a
+ * consumer at compile time exactly as removing a function breaks it at run time. They are
+ * two counts rather than one so a decrement says WHICH surface moved — issue #2331 measured
+ * a two-symbol removal (`createSession` + `ICreateSessionResult`) re-freezing `150 → 149`
+ * and being read as pinning both, when the type-only half was not counted at all.
  * Parsed via the TypeScript AST (not line-regex) so multi-line `export {` and nested
  * `export *` barrels resolve correctly. Derives from a published completeness contract
  * (spec-writing-standard: "the Public API table MUST list every runtime export of the
@@ -34,15 +44,16 @@
  * (`spec-surface-baseline.json`, HARNESS-DIET-003; precedent: the file-size ratchet).
  * The former per-symbol `@robota-sdk#symbol` allowlist had grown to ~641 entries —
  * effectively switching the reverse edge OFF for the whole surface. The ratchet
- * replaces it with one number per package:
+ * replaces it with one number per package and surface:
  *
- *   - baseline[pkg] = number of undocumented runtime entry exports frozen at adoption.
- *   - A package's undocumented count may not GROW past its baseline — a NEW
- *     undocumented export FAILS (document it in the Public API table or un-export it).
- *   - A package absent from the baseline has an allowance of 0.
- *   - Shrinking is always allowed; when a package drops below its baseline the scan
- *     prints a ratchet-tightening notice — regenerate with `--write-baseline` in the
- *     same PR so the ratchet only ever tightens.
+ *   - baseline[pkg] = `{ runtime: n, type: m }`, the undocumented entry exports of each
+ *     surface frozen at adoption (a surface at 0 is omitted).
+ *   - A package's undocumented count may not GROW past its baseline on EITHER surface —
+ *     a NEW undocumented export FAILS (document it in the Public API table or un-export it).
+ *   - A package or surface absent from the baseline has an allowance of 0.
+ *   - Shrinking is always allowed; when a surface drops below its baseline the scan
+ *     prints a ratchet-tightening notice naming the surface — regenerate with
+ *     `--write-baseline` in the same PR so the ratchet only ever tightens.
  *
  * Known tradeoff (accepted, documented): a count ratchet cannot see a SWAP (document
  * one old undocumented export while adding one new undocumented export in the same
@@ -64,10 +75,25 @@ import { blankComments } from './scan-hook-enforcement-reachable.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/spec-surface-baseline.json');
 
-/** Frozen per-package undocumented-export counts (package name → count). */
+/** The two published surfaces the reverse edge ratchets, in report order. */
+export const SURFACES = Object.freeze(['runtime', 'type']);
+
+/**
+ * Frozen per-package undocumented-export counts: package name → `{ runtime, type }`. A bare
+ * number (the pre-#2331 shape) is a RUNTIME count only; its type surface reads as 0, so an
+ * un-refrozen baseline fails closed on the surface it never counted rather than waiving it.
+ */
 export function loadUndocumentedExportBaseline(baselinePath = BASELINE_PATH) {
   if (!existsSync(baselinePath)) return {};
-  return JSON.parse(readFileSync(baselinePath, 'utf8'));
+  const raw = JSON.parse(readFileSync(baselinePath, 'utf8'));
+  const baseline = {};
+  for (const [pkgName, entry] of Object.entries(raw)) {
+    baseline[pkgName] =
+      typeof entry === 'number'
+        ? { runtime: entry, type: 0 }
+        : { runtime: entry?.runtime ?? 0, type: entry?.type ?? 0 };
+  }
+  return baseline;
 }
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -164,22 +190,19 @@ function resolveModuleFile(fromFile, spec) {
 }
 
 /**
- * Effective runtime export names of a module: direct runtime declarations plus names
- * surfaced by re-export edges (`export { … } from`, `export * from` resolved recursively).
- * Type-only exports are excluded. `seen` guards against `export *` cycles.
+ * Effective export names of a module, by surface: direct declarations plus names surfaced by
+ * re-export edges (`export { … } from`, `export * from` resolved recursively). `seen` guards
+ * against `export *` cycles.
+ *
+ * Both surfaces are what a module DECLARES as exported, which is the positive evidence the forward
+ * edge needs (issue #2228): a table row is real when it resolves to a genuine export, not when its
+ * name is mentioned somewhere in `src/`. Prose is free to be ABOUT a symbol; an export statement
+ * has to BE one. The reverse edge ratchets the two surfaces separately (issue #2331).
+ *
+ * @returns {{ runtime: Set<string>, type: Set<string> }}
  */
-function effectiveRuntimeExports(file, seen = new Set()) {
-  return effectiveExports(file, { includeTypes: false }, seen);
-}
-
-/**
- * Every name a module DECLARES as exported — runtime and, with `includeTypes`, type-only — resolved
- * through its re-export edges. This is the positive evidence the forward edge needs (issue #2228):
- * a table row is real when it resolves to a genuine export, not when its name is mentioned
- * somewhere in `src/`. Prose is free to be ABOUT a symbol; an export statement has to BE one.
- */
-function effectiveExports(file, { includeTypes }, seen = new Set()) {
-  const names = new Set();
+function effectiveExports(file, seen = new Set()) {
+  const names = { runtime: new Set(), type: new Set() };
   if (!file || seen.has(file) || !existsSync(file)) return names;
   seen.add(file);
 
@@ -192,9 +215,11 @@ function effectiveExports(file, { includeTypes }, seen = new Set()) {
   );
 
   for (const stmt of sourceFile.statements) {
-    // Type-only declarations never contribute a runtime export.
-    if (ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)) {
-      if (includeTypes && hasExportModifier(stmt) && stmt.name) names.add(stmt.name.text);
+    if (
+      (ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)) &&
+      hasExportModifier(stmt)
+    ) {
+      names.type.add(stmt.name.text);
       continue;
     }
 
@@ -207,39 +232,40 @@ function effectiveExports(file, { includeTypes }, seen = new Set()) {
     ) {
       // Default exports are anonymous surface, not table identifiers.
       const isDefault = (stmt.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword);
-      if (!isDefault) names.add(stmt.name.text);
+      if (!isDefault) names.runtime.add(stmt.name.text);
       continue;
     }
 
     if (ts.isVariableStatement(stmt) && hasExportModifier(stmt)) {
       for (const decl of stmt.declarationList.declarations) {
-        if (ts.isIdentifier(decl.name)) names.add(decl.name.text);
+        if (ts.isIdentifier(decl.name)) names.runtime.add(decl.name.text);
       }
       continue;
     }
 
     if (ts.isExportDeclaration(stmt)) {
-      if (stmt.isTypeOnly && !includeTypes) continue; // `export type { … }` / `export type * from`
       const modSpec =
         stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)
           ? stmt.moduleSpecifier.text
           : null;
 
       if (!stmt.exportClause) {
-        // `export * from './x'` — enumerate the target's own exports.
+        // `export * from './x'` — enumerate the target's own exports, surface by surface;
+        // `export type * from './x'` surfaces every name as a type.
         if (modSpec) {
-          const target = resolveModuleFile(file, modSpec);
-          for (const name of effectiveExports(target, { includeTypes }, seen)) names.add(name);
+          const target = effectiveExports(resolveModuleFile(file, modSpec), seen);
+          for (const name of target.runtime)
+            (stmt.isTypeOnly ? names.type : names.runtime).add(name);
+          for (const name of target.type) names.type.add(name);
         }
         continue;
       }
 
       if (ts.isNamedExports(stmt.exportClause)) {
-        // `export { A, B as C }` / `export { A } from './x'` — surfaced (exported) names,
-        // excluding inline `type`-qualified specifiers unless types are wanted.
+        // `export { A, B as C }` / `export { A } from './x'` — surfaced (exported) names;
+        // `export type { … }` and inline `type`-qualified specifiers are the type surface.
         for (const el of stmt.exportClause.elements) {
-          if (el.isTypeOnly && !includeTypes) continue;
-          names.add(el.name.text);
+          (stmt.isTypeOnly || el.isTypeOnly ? names.type : names.runtime).add(el.name.text);
         }
       }
     }
@@ -259,7 +285,8 @@ export function declaredSurface(pkgDir) {
   const entries = entrySourceFiles(pkgDir);
   const names = new Set();
   for (const entry of entries) {
-    for (const name of effectiveExports(entry, { includeTypes: true })) names.add(name);
+    const effective = effectiveExports(entry);
+    for (const surface of SURFACES) for (const name of effective[surface]) names.add(name);
   }
   return { entries, names };
 }
@@ -306,8 +333,9 @@ function packageName(pkgDir, root) {
 }
 
 /**
- * Per-package undocumented runtime entry exports: `{ [pkgName]: { specPath, names } }`,
- * where `names` is sorted. Packages with zero undocumented exports are omitted.
+ * Per-package undocumented entry exports by surface:
+ * `{ [pkgName]: { specPath, runtime: string[], type: string[] } }`, each list sorted.
+ * Packages with zero undocumented exports on both surfaces are omitted.
  */
 export function collectUndocumentedExports(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
@@ -324,52 +352,74 @@ export function collectUndocumentedExports(root = WORKSPACE_ROOT) {
     if (entries.length === 0) continue;
 
     const tableIdents = new Set(publicApiIdentifiers(readFileSync(specPath, 'utf8')));
-    const runtimeExports = new Set();
+    const exportsBySurface = { runtime: new Set(), type: new Set() };
     for (const entry of entries) {
-      for (const name of effectiveRuntimeExports(entry)) runtimeExports.add(name);
+      const effective = effectiveExports(entry);
+      for (const surface of SURFACES) {
+        for (const name of effective[surface]) exportsBySurface[surface].add(name);
+      }
     }
 
-    const undocumented = [...runtimeExports].filter((name) => !tableIdents.has(name)).sort();
-    if (undocumented.length > 0) {
+    const undocumented = {};
+    for (const surface of SURFACES) {
+      undocumented[surface] = [...exportsBySurface[surface]]
+        .filter((name) => !tableIdents.has(name))
+        .sort();
+    }
+    if (SURFACES.some((surface) => undocumented[surface].length > 0)) {
       byPackage[packageName(pkgDir, root)] = {
         specPath: path.relative(root, specPath),
-        names: undocumented,
+        ...undocumented,
       };
     }
   }
   return byPackage;
 }
 
+const FINDING_TYPE = Object.freeze({
+  runtime: 'spec-undocumented-export',
+  type: 'spec-undocumented-type-export',
+});
+
 /**
- * Pure reverse-edge ratchet evaluation (exposed for tests).
- * @param {Record<string, {specPath: string, names: string[]}>} undocumentedByPackage
- * @param {Record<string, number>} baseline package name → frozen undocumented count
- * @returns {{findings: Array<{file, type, detail}>, tightenable: string[]}}
+ * Pure reverse-edge ratchet evaluation (exposed for tests). Each surface ratchets on its own,
+ * so a finding or a tightening notice always names the surface that moved.
+ * @param {Record<string, {specPath: string, runtime: string[], type: string[]}>} undocumentedByPackage
+ * @param {Record<string, {runtime: number, type: number}>} baseline package name → frozen counts
+ * @returns {{findings: Array<{file, type, detail}>, tightenable: string[]}} `tightenable` entries
+ *   are `<package> (<surface>)`
  */
 export function evaluateUndocumentedExports(undocumentedByPackage, baseline) {
   const findings = [];
   const tightenable = [];
+  const allowanceOf = (pkgName, surface) => baseline[pkgName]?.[surface] ?? 0;
 
-  for (const [pkgName, { specPath, names }] of Object.entries(undocumentedByPackage)) {
-    const allowed = baseline[pkgName] ?? 0;
-    if (names.length > allowed) {
-      findings.push({
-        file: specPath,
-        type: 'spec-undocumented-export',
-        detail:
-          `${pkgName} has ${names.length} undocumented runtime entry export(s), exceeding its ` +
-          `frozen baseline of ${allowed} — document the new export(s) in the Public API table, ` +
-          `un-export them, or (only for a deliberate policy change) regenerate the baseline. ` +
-          `Undocumented: ${names.map((n) => `\`${n}\``).join(', ')}`,
-      });
-    } else if (names.length < allowed) {
-      tightenable.push(pkgName);
+  for (const [pkgName, entry] of Object.entries(undocumentedByPackage)) {
+    for (const surface of SURFACES) {
+      const names = entry[surface] ?? [];
+      const allowed = allowanceOf(pkgName, surface);
+      if (names.length > allowed) {
+        findings.push({
+          file: entry.specPath,
+          type: FINDING_TYPE[surface],
+          detail:
+            `${pkgName} has ${names.length} undocumented ${surface} entry export(s), exceeding its ` +
+            `frozen ${surface} baseline of ${allowed} — document the new export(s) in the Public API ` +
+            `table, un-export them, or (only for a deliberate policy change) regenerate the baseline. ` +
+            `Undocumented: ${names.map((n) => `\`${n}\``).join(', ')}`,
+        });
+      } else if (names.length < allowed) {
+        tightenable.push(`${pkgName} (${surface})`);
+      }
     }
   }
 
-  // Baseline entries for packages with zero remaining undocumented exports (or gone entirely).
+  // Baseline surfaces for packages with zero remaining undocumented exports (or gone entirely).
   for (const pkgName of Object.keys(baseline)) {
-    if (!(pkgName in undocumentedByPackage)) tightenable.push(pkgName);
+    if (pkgName in undocumentedByPackage) continue;
+    for (const surface of SURFACES) {
+      if (allowanceOf(pkgName, surface) > 0) tightenable.push(`${pkgName} (${surface})`);
+    }
   }
 
   return { findings, tightenable: tightenable.sort() };
@@ -426,9 +476,9 @@ export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT, options =
     baseline,
   );
   findings.push(...reverseFindings);
-  for (const pkgName of tightenable) {
+  for (const entry of tightenable) {
     notices.push(
-      `${pkgName} is below its frozen undocumented-export baseline — tighten the ratchet ` +
+      `${entry} is below its frozen undocumented-export baseline — tighten the ratchet ` +
         `(regenerate spec-surface-baseline.json with --write-baseline in this PR).`,
     );
   }
@@ -440,7 +490,12 @@ function writeBaseline() {
   const undocumentedByPackage = collectUndocumentedExports(WORKSPACE_ROOT);
   const baseline = {};
   for (const pkgName of Object.keys(undocumentedByPackage).sort()) {
-    baseline[pkgName] = undocumentedByPackage[pkgName].names.length;
+    const counts = {};
+    for (const surface of SURFACES) {
+      const count = undocumentedByPackage[pkgName][surface].length;
+      if (count > 0) counts[surface] = count;
+    }
+    baseline[pkgName] = counts;
   }
   writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8');
   process.stdout.write(
