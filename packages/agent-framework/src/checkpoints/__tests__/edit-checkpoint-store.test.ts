@@ -18,6 +18,37 @@ import {
   createWorkspaceProjectMutation,
 } from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
+import {
+  EditCheckpointManifestEscapeError,
+  resolveContainedSnapshotPath,
+} from '../edit-checkpoint-store-helpers.js';
+
+describe('resolveContainedSnapshotPath (issue #2076)', () => {
+  const checkpointDir = join('session_1', 'cp-0001');
+
+  it('accepts a snapshot that is a strict descendant of the checkpoint directory', () => {
+    expect(resolveContainedSnapshotPath(checkpointDir, join('files', '000001.snap'))).toBe(
+      join(checkpointDir, 'files', '000001.snap'),
+    );
+    expect(resolveContainedSnapshotPath(checkpointDir, 'files/../files/x')).toBe(
+      join(checkpointDir, 'files', 'x'),
+    );
+  });
+
+  it('refuses traversal, the directory itself, an absolute path and an empty name', () => {
+    for (const snapshotFile of ['../../x', '..', 'files/../../x', '.', '', '/etc/passwd']) {
+      expect(() => resolveContainedSnapshotPath(checkpointDir, snapshotFile), snapshotFile).toThrow(
+        EditCheckpointManifestEscapeError,
+      );
+    }
+  });
+
+  it('refuses a prefix collision — `../cp-0001-evil/x` is a sibling, not a descendant', () => {
+    expect(() => resolveContainedSnapshotPath(checkpointDir, '../cp-0001-evil/x')).toThrow(
+      EditCheckpointManifestEscapeError,
+    );
+  });
+});
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-'));
 
@@ -92,6 +123,53 @@ describe('EditCheckpointStore', () => {
     // reachable (a sibling branch). Nothing is removed.
     expect(result.removedCheckpointCount).toBe(0);
     expect(store.list('session_1')).toHaveLength(2);
+  });
+
+  it('issue #2076 Given a manifest whose snapshotFile escapes the checkpoint directory When restoring Then the whole restore aborts with a typed error and nothing is restored', async () => {
+    const cwd = makeProject();
+    const filePath = join(cwd, 'src', 'example.ts');
+    const otherPath = join(cwd, 'src', 'other.ts');
+    mkdirSync(join(cwd, 'src'), { recursive: true });
+    writeFileSync(filePath, 'version 1', 'utf8');
+    writeFileSync(otherPath, 'other 1', 'utf8');
+    const store = await createStore(cwd);
+
+    const first = await store.beginTurn({ sessionId: 'session_1', prompt: 'first edit' });
+    await store.finalizeTurn();
+
+    const second = await store.beginTurn({ sessionId: 'session_1', prompt: 'second edit' });
+    await store.captureFile(otherPath);
+    writeFileSync(otherPath, 'other 2', 'utf8');
+    await store.captureFile(filePath);
+    writeFileSync(filePath, 'version 2', 'utf8');
+    await store.finalizeTurn();
+
+    // Tamper with the persisted manifest: the SECOND record now names a snapshot outside its
+    // checkpoint directory. The first record is still valid — a validate-as-you-go restore would
+    // restore it before failing, which is the partial restore the issue forbids.
+    const manifestPath = join(
+      cwd,
+      '.robota',
+      'checkpoints',
+      'session_1',
+      second.id,
+      'manifest.json',
+    );
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: { originalPath: string; snapshotFile?: string }[];
+    };
+    expect(manifest.files).toHaveLength(2);
+    manifest.files[1]!.snapshotFile = '../../x';
+    writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+
+    await expect(store.restoreToCheckpoint('session_1', first.id)).rejects.toBeInstanceOf(
+      EditCheckpointManifestEscapeError,
+    );
+    expect(readFileSync(otherPath, 'utf8')).toBe('other 2');
+    expect(readFileSync(filePath, 'utf8')).toBe('version 2');
+    expect(() => store.inspect('session_1', second.id)).toThrowError(
+      EditCheckpointManifestEscapeError,
+    );
   });
 
   it('Given a file created after a checkpoint When restoring to that checkpoint Then the created file is removed', async () => {
