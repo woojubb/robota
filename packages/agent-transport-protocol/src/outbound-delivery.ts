@@ -116,11 +116,63 @@ export function isOverPendingBudget(
   return pending !== undefined && pending > limit;
 }
 
+/**
+ * Default outbound DRAIN budget (issue #2306): how long a carrier may stay non-empty before the peer
+ * is treated as not reading.
+ *
+ * 120 seconds. The byte budget bounds HOW MUCH a peer holds; it cannot bound HOW LONG, because
+ * `bufferedAmount` is a quantity with no history — a peer draining just enough to stay under 8 MiB
+ * forever is never over it. The figure is generous on purpose: a legitimately slow link drains to
+ * zero between bursts, so the clock resets, whereas a peer that keeps SOMETHING pending for two
+ * minutes straight is holding a session, its resume buffer, and a socket it does not intend to read.
+ * A badly chosen figure here disconnects real users, which is why it is one named constant and an
+ * argument, never an inline number. `Infinity` disables the budget.
+ */
+export const DEFAULT_MAX_PENDING_MS = Number('120') * Number('1000');
+
+/**
+ * The drain clock the boundary keeps for a carrier (issue #2306). One timestamp, not per-frame
+ * bookkeeping: it starts on the first reading that finds the carrier non-empty, RESETS only when a
+ * reading finds it empty (a peer that drains to one byte and stalls again has not drained), and is
+ * consulted synchronously at each send — the boundary has no timer and gains none here.
+ */
+export interface IPendingStallClock {
+  readonly maxPendingMs: number;
+  /**
+   * Record one reading of the carrier's pending bytes. Returns how long the carrier has been
+   * continuously non-empty when that exceeds the budget; `undefined` otherwise. An `undefined`
+   * reading is unknown, not zero: it neither starts nor resets the clock.
+   */
+  observe: (pending: number | undefined) => number | undefined;
+}
+
+export function createPendingStallClock(
+  maxPendingMs: number = DEFAULT_MAX_PENDING_MS,
+  now: () => number = Date.now,
+): IPendingStallClock {
+  let nonEmptySince: number | undefined;
+  return {
+    maxPendingMs,
+    observe(pending) {
+      if (pending === undefined) return undefined;
+      if (pending === 0) {
+        nonEmptySince = undefined;
+        return undefined;
+      }
+      const at = now();
+      nonEmptySince ??= at;
+      const stalledMs = at - nonEmptySince;
+      return stalledMs > maxPendingMs ? stalledMs : undefined;
+    },
+  };
+}
+
 export function createOutboundDelivery(
   send: (message: TServerMessage) => void,
   onDeliveryError: TDeliveryErrorHandler,
   pendingBytes?: () => number | undefined,
   maxPendingBytes: number = DEFAULT_MAX_PENDING_BYTES,
+  stallClock: IPendingStallClock = createPendingStallClock(),
 ): TOutboundDeliver {
   let closed = false;
   const deliver = (message: TServerMessage): void => {
@@ -135,6 +187,20 @@ export function createOutboundDelivery(
         new Error(
           `outbound backpressure budget exceeded: ${pending} byte(s) pending, limit ${maxPendingBytes}. ` +
             'The peer has accepted frames it is not reading.',
+        ),
+        message.type,
+      );
+      return;
+    }
+    // Issue #2306: the same reading, judged by duration. A peer under the byte budget that has kept
+    // the carrier non-empty for longer than the drain budget is not reading either.
+    const stalledMs = stallClock.observe(pending);
+    if (stalledMs !== undefined) {
+      closed = true;
+      reportFailure(
+        new Error(
+          `outbound drain budget exceeded: ${pending} byte(s) pending for ${stalledMs} ms, limit ${stallClock.maxPendingMs} ms. ` +
+            'The peer is reading too slowly to ever drain what it accepted.',
         ),
         message.type,
       );

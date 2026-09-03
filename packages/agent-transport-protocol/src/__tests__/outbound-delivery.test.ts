@@ -10,7 +10,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it } from 'vitest';
 
-import { createOutboundDelivery } from '../outbound-delivery.js';
+import { createOutboundDelivery, createPendingStallClock } from '../outbound-delivery.js';
 import { createWsHandler } from '../ws-handler.js';
 
 import type { TOutboundDeliver } from '../outbound-delivery.js';
@@ -461,5 +461,98 @@ describe('ARCH-030: the byte budget the boundary enforces itself', () => {
 
     deliver({ type: 'protocol_error', message: 'no reading available' });
     expect(sent).toHaveLength(1);
+  });
+});
+
+/**
+ * Issue #2306: the byte budget bounds how MUCH a peer holds, not how LONG. A peer that reads just
+ * slowly enough to stay under 8 MiB forever is never over it. These pin the drain-time budget.
+ */
+describe('#2306: the drain-time budget the boundary enforces itself', () => {
+  function build(maxPendingMs: number): {
+    deliver: TOutboundDeliver;
+    sent: TServerMessage[];
+    failures: string[];
+    setPending: (bytes: number | undefined) => void;
+    setNow: (ms: number) => void;
+  } {
+    const sent: TServerMessage[] = [];
+    const failures: string[] = [];
+    let pending: number | undefined = 0;
+    let now = 0;
+    const deliver = createOutboundDelivery(
+      (message) => sent.push(message),
+      (error) => failures.push(error.message),
+      () => pending,
+      10_000_000, // well above every reading below: only the clock can close these
+      createPendingStallClock(maxPendingMs, () => now),
+    );
+    return {
+      deliver,
+      sent,
+      failures,
+      setPending: (bytes) => {
+        pending = bytes;
+      },
+      setNow: (ms) => {
+        now = ms;
+      },
+    };
+  }
+
+  it('closes a peer that stays under the byte budget but never drains for longer than the limit', () => {
+    // The falsification the issue names: a 1 MiB backlog read at one byte per second stays under any
+    // byte budget forever. Only a clock can tell it from a healthy peer.
+    const t = build(1_000);
+    t.setPending(1_048_576);
+    t.deliver({ type: 'protocol_error', message: 'clock starts' });
+    t.setNow(500);
+    t.setPending(1_048_000); // drained a little — not to zero
+    t.deliver({ type: 'protocol_error', message: 'still under' });
+    expect(t.sent).toHaveLength(2);
+
+    t.setNow(1_001);
+    t.setPending(1_047_000);
+    t.deliver({ type: 'protocol_error', message: 'over the drain budget' });
+
+    expect(t.sent).toHaveLength(2); // not sent
+    expect(t.failures).toHaveLength(1);
+    expect(t.failures[0]).toContain('pending for 1001 ms, limit 1000 ms');
+    t.deliver({ type: 'protocol_error', message: 'latched' });
+    expect(t.failures).toHaveLength(1);
+  });
+
+  it('resets the clock only when the carrier is observed EMPTY, not merely smaller', () => {
+    const t = build(1_000);
+    t.setPending(10);
+    t.deliver({ type: 'protocol_error', message: 'starts' });
+    t.setNow(900);
+    t.setPending(0); // fully drained — a legitimately slow peer between bursts
+    t.deliver({ type: 'protocol_error', message: 'reset' });
+    t.setNow(1_800);
+    t.setPending(10); // non-empty again: a NEW stall, 0 ms old, not a 1800 ms one
+    t.deliver({ type: 'protocol_error', message: 'fresh clock' });
+    t.setNow(2_700);
+    t.setPending(1);
+    t.deliver({ type: 'protocol_error', message: '900 ms into the second stall' });
+
+    expect(t.sent).toHaveLength(4);
+    expect(t.failures).toHaveLength(0);
+  });
+
+  it('an unknown reading neither starts nor resets the clock', () => {
+    const t = build(1_000);
+    t.setPending(undefined);
+    t.deliver({ type: 'protocol_error', message: 'unknown' });
+    t.setNow(5_000);
+    t.deliver({ type: 'protocol_error', message: 'still unknown, still fine' });
+    expect(t.failures).toHaveLength(0);
+
+    t.setPending(5); // the clock starts HERE, at t=5000, not at t=0
+    t.deliver({ type: 'protocol_error', message: 'starts' });
+    t.setNow(5_500);
+    t.deliver({ type: 'protocol_error', message: '500 ms in' });
+    expect(t.sent).toHaveLength(4);
+    expect(t.failures).toHaveLength(0);
   });
 });

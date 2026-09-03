@@ -78,6 +78,15 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   Before ARCH-030 the fan-out had its own guard and the eleven reply families had none — five of
   them resolving from a Promise continuation, which is the shape WS-001 recorded and half-fixed.
 
+  **Drain budget (issue #2306).** The byte budget bounds how MUCH a peer holds; a peer reading just
+  slowly enough to stay under it is never over it. The boundary therefore also keeps one
+  `IPendingStallClock` (`createPendingStallClock(maxPendingMs, now)`): the clock starts on the first
+  send that finds `pendingBytes > 0`, resets only when a send finds it `0` (draining to one byte is
+  not draining), is consulted synchronously before each send (no timer), and a reading of
+  `undefined` neither starts nor resets it. Exceeding `DEFAULT_MAX_PENDING_MS` (120 s, `Infinity`
+  disables) latches the boundary exactly like the byte budget. `WsSessionDelivery` shares ONE clock
+  between its text boundary and `deliverBinary`, since `bufferedAmount` covers both halves.
+
 - **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
   SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
   `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
@@ -178,6 +187,9 @@ once and the carriers stay dumb.
 | `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                   |
 | `isOverPendingBudget`                   | function  | ARCH-030: is a carrier holding more than the budget allows — `undefined` is never over     |
 | `DEFAULT_MAX_PENDING_BYTES`             | constant  | ARCH-030: the outbound backpressure budget, in carrier-pending bytes                       |
+| `createPendingStallClock`               | function  | #2306: the drain-time clock a boundary consults — starts non-empty, resets only at zero    |
+| `IPendingStallClock`                    | interface | #2306: `observe(pending)` → stalled ms when over the drain budget, else `undefined`        |
+| `DEFAULT_MAX_PENDING_MS`                | constant  | #2306: the outbound drain budget, in ms a carrier may stay continuously non-empty (120 s)  |
 | `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`        |
 | `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary         |
 | `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                      |

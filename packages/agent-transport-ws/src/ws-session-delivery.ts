@@ -1,7 +1,16 @@
-import { createOutboundDelivery, isOverPendingBudget } from '@robota-sdk/agent-transport-protocol';
+import {
+  createOutboundDelivery,
+  createPendingStallClock,
+  DEFAULT_MAX_PENDING_BYTES,
+  isOverPendingBudget,
+} from '@robota-sdk/agent-transport-protocol';
 import { WebSocket } from 'ws';
 
-import type { TOutboundDeliver, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type {
+  IPendingStallClock,
+  TOutboundDeliver,
+  TServerMessage,
+} from '@robota-sdk/agent-transport-protocol';
 
 /**
  * Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures.
@@ -15,6 +24,12 @@ export class WsSessionDelivery {
   private cleanupProtocol = (): void => undefined;
   private detachSink = (): void => undefined;
   private closed = false;
+  /**
+   * Issue #2306: ONE drain clock for the socket. `bufferedAmount` does not distinguish text from
+   * binary, so both halves observe the same clock — a slow reader of payload frames is caught when a
+   * JSON reply is attempted, and the reverse.
+   */
+  private readonly stallClock: IPendingStallClock = createPendingStallClock();
 
   /**
    * The connection's outbound boundary. Built here, from this class's own sink and its own `close`
@@ -30,6 +45,8 @@ export class WsSessionDelivery {
       // ARCH-030 / issue #1734: the socket's own count of what it has accepted and not yet written.
       // Read at call time — it changes underneath.
       () => this.socket.bufferedAmount,
+      DEFAULT_MAX_PENDING_BYTES,
+      this.stallClock,
     );
   }
 
@@ -50,7 +67,10 @@ export class WsSessionDelivery {
   readonly deliverBinary = (frame: Uint8Array): void => {
     if (this.closed) return;
     if (this.socket.readyState !== WebSocket.OPEN) return;
-    if (isOverPendingBudget(this.socket.bufferedAmount)) {
+    if (
+      isOverPendingBudget(this.socket.bufferedAmount) ||
+      this.stallClock.observe(this.socket.bufferedAmount) !== undefined
+    ) {
       this.close();
       return;
     }
