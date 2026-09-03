@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-157: complete the RULE-023 GitHub migration as one bulk wave'
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: now
@@ -15,6 +15,8 @@ depends_on: [INFRA-155, INFRA-156]
 Execute the fully approved RULE-023 GitHub disposition set from one complete `/tmp` snapshot and close it with one post-write audit.
 
 no-issue: This is the terminal execution record for the existing approved migration; creating another GitHub Issue would recreate the queue overhead being removed.
+
+Checkpoint: implementation starts only after this Task and its paired spec are atomically activated.
 
 ## Plan
 
