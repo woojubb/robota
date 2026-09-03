@@ -1,5 +1,6 @@
 import {
   buildValidationError,
+  decodeDagDefinitionAsDagError,
   type IDagDefinition,
   type IDagError,
   type IDagRun,
@@ -15,8 +16,8 @@ function resolveErrorMessage(error: unknown): string {
 }
 
 /**
- * Parses the definition snapshot JSON string from a DAG run record
- * and validates its structural shape.
+ * Parses the definition snapshot JSON string from a DAG run record through the canonical total
+ * decoder (issue #2077), so a malformed nested node or edge is a diagnostic with a field path.
  *
  * @param dagRun - The DAG run containing the snapshot to parse.
  * @param dagRunId - The identifier used for error context.
@@ -40,19 +41,10 @@ export function parseDefinitionSnapshot(
     };
   }
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(dagRun.definitionSnapshot);
-    if (!isValidDefinitionShape(parsed)) {
-      return {
-        ok: false,
-        error: buildValidationError(
-          'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
-          'DagRun definition snapshot has invalid shape',
-          { dagRunId },
-        ),
-      };
-    }
-    return { ok: true, value: parsed as IDagDefinition };
+    parsed = JSON.parse(dagRun.definitionSnapshot);
+    // allow-fallback: a parse failure is returned as a typed error result, not swallowed
   } catch (error) {
     return {
       ok: false,
@@ -63,18 +55,10 @@ export function parseDefinitionSnapshot(
       ),
     };
   }
-}
-
-/** Checks whether a parsed JSON value has the required fields for an IDagDefinition. */
-function isValidDefinitionShape(parsed: unknown): boolean {
-  return (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    !Array.isArray(parsed) &&
-    typeof (parsed as Record<string, unknown>).dagId === 'string' &&
-    typeof (parsed as Record<string, unknown>).version === 'number' &&
-    Array.isArray((parsed as Record<string, unknown>).nodes) &&
-    Array.isArray((parsed as Record<string, unknown>).edges) &&
-    typeof (parsed as Record<string, unknown>).status === 'string'
+  return decodeDagDefinitionAsDagError(
+    parsed,
+    'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+    'DagRun definition snapshot has invalid shape',
+    { dagRunId },
   );
 }

@@ -57,9 +57,9 @@ describe('fromDagWorkflowFile produces a status inside its own union (DAG-002)',
 });
 
 describe('dagDefinitionFromParsedFile is the one import adapter (DAG-002)', () => {
-  it('passes a definition file through untouched', () => {
+  it('passes a definition file through unchanged (as a decoded copy, issue #2077)', () => {
     const definition = { dagId: 'd', version: 1, status: 'draft', nodes: [], edges: [] };
-    expect(dagDefinitionFromParsedFile(definition)).toBe(definition);
+    expect(dagDefinitionFromParsedFile(definition)).toEqual(definition);
   });
 
   it('converts a workflow file', () => {
@@ -90,7 +90,7 @@ describe('the import boundary rejects a status the domain type cannot hold (DAG-
         nodes: [],
         edges: [],
       }),
-    ).toThrow(/'active'.*draft.*published.*deprecated/s);
+    ).toThrow(/status.*draft.*published.*deprecated.*'active'/s);
   });
 
   it('accepts every legal status', () => {

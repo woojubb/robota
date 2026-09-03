@@ -11,6 +11,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
+  decodeDagDefinition,
   type IDagDefinition,
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
@@ -82,10 +83,15 @@ export async function scanWorkspaceCatalog(
       continue;
     }
     if (!isDagShaped(raw)) continue; // aux JSON (aliases/history/…) sharing the root
+    // Issue #2077: a DAG-shaped file is decoded totally through the dag-core codec; one that does not
+    // decode is a malformed file, skipped like any other malformed file rather than cast into the
+    // catalog with holes in it.
+    const decoded = decodeDagDefinition(raw, { absentStatus: 'draft', absentEdgesAsEmpty: true });
+    if (!decoded.ok) continue;
     entries.push({
       id: fileName.slice(0, -ext.length),
       filePath,
-      definition: raw as unknown as IDagDefinition,
+      definition: decoded.value,
       meta: extractMeta(raw),
     });
   }

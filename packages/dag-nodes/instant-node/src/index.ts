@@ -18,6 +18,8 @@ import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
 import { z } from 'zod';
 
+import { decodePersistedComposite } from './persisted-composite-decoder.js';
+
 /**
  * The single runtime source of truth for the supported instant-node providers. The `TInstantNodeProvider`
  * type is derived from it, so adding a provider is a one-line change here (DATA-003 F1).
@@ -500,26 +502,10 @@ export function parsePersistedInstantNode(raw: unknown): TPersistedInstantNode |
   const displayName = typeof r['displayName'] === 'string' ? r['displayName'] : nodeType;
 
   if (r['kind'] === 'composite') {
-    const innerDag = asPersistedRecord(r['innerDag']);
-    const exposedInputPort = asPersistedRecord(r['exposedInputPort']);
-    if (
-      !innerDag ||
-      !exposedInputPort ||
-      typeof exposedInputPort['key'] !== 'string' ||
-      !Array.isArray(r['exposedOutputPorts']) ||
-      r['exposedOutputPorts'].length === 0
-    ) {
-      return null;
-    }
-    return {
-      kind: 'composite',
-      nodeType,
-      displayName,
-      innerDag: innerDag as unknown as IDagDefinition,
-      exposedInputPort: exposedInputPort as unknown as IExposedInputPort,
-      exposedOutputPorts: r['exposedOutputPorts'] as unknown as ReadonlyArray<IExposedOutputPort>,
-      ...(typeof r['maxDepth'] === 'number' ? { maxDepth: r['maxDepth'] } : {}),
-    };
+    // Issue #2077: the inner DAG goes through the canonical dag-core decoder and the wrapper's
+    // exposed ports through a package-owned total decoder — no cast on a top-level check.
+    const composite = decodePersistedComposite(r);
+    return composite === null ? null : { kind: 'composite', nodeType, displayName, ...composite };
   }
 
   // prompt (default kind)

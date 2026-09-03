@@ -1,7 +1,11 @@
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { IDagDefinition } from '@robota-sdk/dag-core';
+import {
+  decodeDagDefinition,
+  formatDagDecodeIssues,
+  type IDagDefinition,
+} from '@robota-sdk/dag-core';
 
 /**
  * Definitions on disk, one JSON file per version.
@@ -44,16 +48,27 @@ export async function saveDefinitionAtomically(
   await rename(temporaryFilePath, filePath);
 }
 
+/**
+ * Absent is "no definition"; present-but-malformed is terminal (issue #2077). The two used to share
+ * one `catch`, so a corrupted file read as "not there" and its JSON was cast without a look.
+ */
 export async function readDefinitionFromFile(
   filePath: string,
 ): Promise<IDagDefinition | undefined> {
+  let content: string;
   try {
-    const content = await readFile(filePath, 'utf-8');
-    return JSON.parse(content) as IDagDefinition;
+    content = await readFile(filePath, 'utf-8');
   } catch {
     // allow-fallback: an absent/unreadable definition file means there is no definition to return
     return undefined;
   }
+  const result = decodeDagDefinition(JSON.parse(content));
+  if (!result.ok) {
+    throw new Error(
+      `Malformed DAG definition at ${filePath}: ${formatDagDecodeIssues(result.error)}`,
+    );
+  }
+  return result.value;
 }
 
 /**

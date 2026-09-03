@@ -4,6 +4,8 @@
 //   internal kebab-case: "llm-text"
 //   workflow PascalCase: "RobotaLlmText"  (prefix "Robota" + each segment capitalized)
 
+import { decodeDagDefinition, decodeDagWorkflowFile } from '@robota-sdk/dag-core';
+
 import type {
   IDagDefinition,
   IDagEdgeDefinition,
@@ -291,21 +293,19 @@ export function fromDagWorkflowFile(
 // Format detection
 // ---------------------------------------------------------------------------
 
-/** Returns true if the parsed object looks like an IDagWorkflowFile (new format). */
+/**
+ * Returns true if the parsed value IS a well-formed IDagWorkflowFile. Issue #2077: total, not a
+ * top-level discriminator check — a true answer means every nested field decoded, so the narrowed
+ * type is honest at the eight dag-cli sites that still branch on it (DAG-004).
+ */
 export function isWorkflowFileFormat(parsed: unknown): parsed is IDagWorkflowFile {
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
-  const obj = parsed as Record<string, unknown>;
-  return (
-    Array.isArray(obj['nodes']) &&
-    Array.isArray(obj['links']) &&
-    typeof obj['version'] === 'number' &&
-    !('dagId' in obj)
-  );
+  return decodeDagWorkflowFile(parsed).ok;
 }
 
-/** Returns true if the parsed object looks like an IDagDefinition (legacy format). */
+/**
+ * Returns true if the parsed value IS a well-formed IDagDefinition read from a FILE, with the file
+ * boundary's allowances for an absent `status` / `edges` (`DAG_DEFINITION_FILE_DECODE_OPTIONS`).
+ */
 export function isLegacyDefinitionFormat(parsed: unknown): parsed is IDagDefinition {
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
-  const obj = parsed as Record<string, unknown>;
-  return typeof obj['dagId'] === 'string' && Array.isArray(obj['nodes']);
+  return decodeDagDefinition(parsed, { absentStatus: 'draft', absentEdgesAsEmpty: true }).ok;
 }
