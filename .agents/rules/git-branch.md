@@ -142,11 +142,12 @@ Reading, listing and editing a hook are untouched; only destroying one is refuse
 through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
 left with nothing to run is a removal wearing an edit's clothes.
 
-Changing a hook through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`. That is not an escape
-from a check — it IS the check: a hook may be changed, it may not be changed in passing. A content
-test ("is the new body empty?") is wrong in both directions — it refuses an ordinary partial
-deletion and passes a body of `exit 0` — which is why the check demands the acknowledgement instead
-of judging the edit.
+Changing a hook — any file under `.husky/` (the git-level hooks) or `.claude/hooks/` (the PreToolUse
+gates, the guard itself included) — through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`.
+That is not an escape from a check — it IS the check: a hook may be changed, it may not be changed
+in passing. A content test ("is the new body empty?") is wrong in both directions — it refuses an
+ordinary partial deletion and passes a body of `exit 0` — which is why the check demands the
+acknowledgement instead of judging the edit.
 
 **One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
 that apart from an ordinary substitution means evaluating the editor's program, and being wrong
@@ -773,8 +774,9 @@ An unreadable count is not zero — the exemption stands, because a refusal on a
 blocks correct work on no evidence. Deliberate exception: `PRE_PUSH_ALLOW_UNREVIEWED=1` inline.
 
 **Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
-and carries a review naming the exact current `headRefOid` and a `baseRefOid` that is either current or
-moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
+and carries a review naming the exact current `headRefOid` and a base that is either the base branch's
+live tip — read with `git ls-remote`, because GitHub's `baseRefOid` lags the branch by minutes (issue
+#2309) — or moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
 when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not
 review identity: a base can change while the child head does not. The hook fails closed on missing,
 malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE_GATE_ACK=1` **inline
@@ -805,7 +807,7 @@ opposite lifetime from inline and the reason this form is worth naming rather th
 | `BRANCH_GUARD_ALLOW_DELETE`, `_BASE`, `_BRANCH_COPY`, `_OPEN_BRANCHES`, `_BADNAME`, `_MAIN_MERGE` | `branch-guard.sh`             | either      |
 | `BULK_EDIT_ACK`                                                                                   | `bulk-edit-guard.sh`          | either      |
 | `FOREGROUND_WAIT_ACK`                                                                             | `no-foreground-wait.sh`       | either      |
-| `HOOK_EDIT_ACK`                                                                                   | `check-forbidden-patterns.sh` | environment |
+| `HOOK_EDIT_ACK` — any file under `.husky/` or `.claude/hooks/`                                    | `check-forbidden-patterns.sh` | environment |
 | `LOCKFILE_CHURN_ACK`                                                                              | `pre-push-check.sh`           | environment |
 
 `BRANCH_GUARD_ALLOW_BADNAME` exempts a branch name from the naming convention, and
