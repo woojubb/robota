@@ -40,6 +40,13 @@ NOT edit code, do NOT post the review to GitHub, do NOT fix anything — those a
    regression test does not fail on the pre-fix code, so it guards nothing"), with the fix direction being the
    smallest change that makes it exercise the actual bug window/branch. Watch especially for a test that asserts
    a **late invariant** both versions satisfy. Record the pre-fix run result in your review.
+5. **Value-path reach (REQUIRED when the PR is a security- or correctness-relevant fix).** Ask once:
+   _what else carries this value, and does the fix reach it?_ The issue names a site; the extent of the
+   value is not the extent of the issue (`package-code-review` § Review Perspectives, issue #2314 — a
+   projection missing the fifth site, a third parse site in an unnamed package, a whole config carried
+   beside the field that was narrowed). Search for the value's other construction and carrier sites
+   (`grep` the field/type name across `packages/*/src`). A fix that reaches one of several paths is a
+   **SHOULD** with the unreached paths named, until each is fixed or filed and linked.
 
 ## A hold already contained is not a finding
 
