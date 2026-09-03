@@ -19,10 +19,13 @@ import {
 import {
   APPROVE_FIRST,
   L1_NOT_REQUIRED,
+  blobIdOf,
   boundClassMeasurement,
   evidenceEntries,
+  judgedAtLine,
   localDate,
   parseCatalogue,
+  parseJudgedAt,
   parsePriorGateMap,
   registryConditions,
   reviewFingerprint,
@@ -514,6 +517,8 @@ describe('judge — GATE-WRITE', () => {
     const text = readFileSync(doc, 'utf8');
     expect(text).toContain(`### [GATE-WRITE] — ✅ PASS | ${DATE}`);
     expect(text).toContain('**Status upgrade:** draft → review-ready');
+    // Issue #2213 — the entry binds to the tree state it judged.
+    expect(text).toContain('**Judged at:** HEAD `');
     const [entry] = evidenceEntries(text);
     const evidenceLines = entry.lines.filter((line) => line.startsWith('- '));
     expect(evidenceLines).toHaveLength(20);
@@ -2259,5 +2264,42 @@ describe('the review fingerprint reads the VALUES of type: and tags: (PR #2419 r
       doc('tags: [api, west]').replace('type: RULE', 'type: INFRA'),
     );
     expect(retyped.typeTags).not.toBe(flow.typeTags);
+  });
+});
+
+describe('tree binding (issue #2213): a verdict names the state it judged', () => {
+  it("blobIdOf is git's blob id, computed without a repository", () => {
+    expect(blobIdOf('hello\n')).toBe('ce013625030ba8dba906f756967f9e9ca394464a');
+  });
+
+  it('names HEAD, the document blob, and whether the judged content is what the repository holds', () => {
+    const root = makeTemp('gate-judged-at-');
+    const docPath = path.join(root, 'doc.md');
+    writeFileSync(docPath, 'judged\n', 'utf8');
+    // Outside a repository the binding is visibly absent, never omitted.
+    expect(parseJudgedAt([judgedAtLine(root, docPath, 'judged\n')])).toMatchObject({
+      head: 'no-repository',
+      state: 'no-repository',
+      blob: blobIdOf('judged\n').slice(0, 12),
+    });
+
+    const git = gitInit(root);
+    const head = git(['rev-parse', 'HEAD']).stdout.trim().slice(0, 12);
+    expect(parseJudgedAt([judgedAtLine(root, docPath, 'judged\n')])).toMatchObject({
+      head,
+      document: 'doc.md',
+      state: 'tracked',
+    });
+
+    writeFileSync(docPath, 'edited\n', 'utf8');
+    const modified = parseJudgedAt([judgedAtLine(root, docPath, 'edited\n')]);
+    expect(modified.state).toBe('modified');
+    // The blob is of the text JUDGED, so a later reader can tell it from the committed content.
+    expect(modified.blob).toBe(blobIdOf('edited\n').slice(0, 12));
+    expect(modified.blob).not.toBe(blobIdOf('judged\n').slice(0, 12));
+
+    const untracked = path.join(root, 'new.md');
+    writeFileSync(untracked, 'x\n', 'utf8');
+    expect(parseJudgedAt([judgedAtLine(root, untracked, 'x\n')]).state).toBe('untracked');
   });
 });

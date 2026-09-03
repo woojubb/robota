@@ -542,6 +542,67 @@ function git(root, args) {
   return { ok: result.status === 0, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
+// ── Tree binding (issue #2213) ───────────────────────────────────────────────────────────────────
+
+export const JUDGED_AT_LABEL = 'Judged at';
+
+/** Git's blob id for `text` — sha1 over `blob <bytes>\0<text>` — computed without a repository. */
+export function blobIdOf(text) {
+  const bytes = Buffer.from(String(text ?? ''), 'utf8');
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
+/**
+ * The tree state a verdict was judged against, as one Evidence Log line.
+ *
+ * Issue #2213 measured four verdicts recorded against two UNTRACKED files while `origin/develop`
+ * moved underneath them, and nothing in any entry could say so: a verdict on committed content, on
+ * content never committed, on content since edited, and on a base that moved all wrote the same
+ * entry. The document blob is the load-bearing part — it makes "this verdict was recorded against
+ * different content than you are reading" mechanically detectable. The blob is of the text JUDGED,
+ * hashed before the entry is appended, so it names the content the verdict is about.
+ *
+ * `(tracked)` / `(modified)` / `(untracked)` is the cheap half: it makes a run on an uncommitted
+ * document visible at the first verdict rather than the fourth. Outside a repository every SHA
+ * reads `no-repository` rather than being omitted — an absent binding must look absent.
+ */
+export function judgedAtLine(root, docPath, judgedText) {
+  const head = git(root, ['rev-parse', 'HEAD']);
+  const headSha = head.ok ? head.stdout.trim().slice(0, 12) : 'no-repository';
+  const base = git(root, ['rev-parse', 'origin/develop']);
+  const baseSha = base.ok ? base.stdout.trim().slice(0, 12) : 'unavailable';
+  const rel = path.relative(root, docPath).split(path.sep).join('/');
+  let state = 'no-repository';
+  if (head.ok) {
+    if (!git(root, ['ls-files', '--error-unmatch', '--', rel]).ok) state = 'untracked';
+    else state = git(root, ['diff', '--quiet', 'HEAD', '--', rel]).ok ? 'tracked' : 'modified';
+  }
+  return (
+    `**${JUDGED_AT_LABEL}:** HEAD \`${headSha}\` · base \`origin/develop@${baseSha}\` · ` +
+    `document \`${rel}\` blob \`${blobIdOf(judgedText).slice(0, 12)}\` (${state})`
+  );
+}
+
+/** The `**Judged at:**` line of an Evidence Log entry, parsed, or null when the entry has none. */
+export function parseJudgedAt(entryLines) {
+  for (const line of entryLines ?? []) {
+    const match =
+      /^\*\*Judged at:\*\*\s+HEAD `([^`]+)` · base `origin\/develop@([^`]+)` · document `([^`]+)` blob `([^`]+)` \(([a-z-]+)\)\s*$/.exec(
+        line,
+      );
+    if (match) {
+      return {
+        head: match[1],
+        base: match[2],
+        document: match[3],
+        blob: match[4],
+        state: match[5],
+      };
+    }
+  }
+  return null;
+}
+
 // ── Mechanical judgements ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -1866,7 +1927,11 @@ function mergeIntoLastApprovalEntry(text, lines) {
   const start = docLines.findIndex((line) => /^##\s+Evidence Log\s*$/i.test(line));
   const end = sectionEnd(docLines, start);
   const headingAt = docLines.lastIndexOf(last.heading, end);
-  const kept = docLines.slice(headingAt, end).filter((line) => !/^- GATE-APPROVAL — /.test(line));
+  // The re-judged result lines AND the earlier tree binding are replaced: the merged entry names the
+  // state the LATEST judgement read, not the one `approve` read (issue #2213).
+  const kept = docLines
+    .slice(headingAt, end)
+    .filter((line) => !/^- GATE-APPROVAL — /.test(line) && !/^\*\*Judged at:\*\*/.test(line));
   while (kept.length > 0 && kept[kept.length - 1].trim() === '') kept.pop();
   return [...docLines.slice(0, headingAt), ...kept, '', ...lines, '', ...docLines.slice(end)]
     .join('\n')
@@ -1939,6 +2004,9 @@ export function runJudge(options) {
       entry.push('', ...checkpointEvidenceForGate(gate, evidenceInput));
     }
   }
+  // Issue #2213 — every entry binds to the tree state it judged; the blob is of `doc.text`, the
+  // content read, before this entry is appended to it.
+  if (entry) entry.push('', judgedAtLine(root, docPath, doc.text));
 
   let written = false;
   if (entry && !options['dry-run']) {
@@ -1999,6 +2067,7 @@ export function runRecord(options) {
       '```',
     ];
   }
+  lines.push('', judgedAtLine(root, docPath, doc.text));
   writeFileSync(docPath, appendToEvidenceLog(doc.text, lines));
   return { exit: 0, lines };
 }
@@ -2400,6 +2469,7 @@ export function runApprove(options) {
       .filter(Boolean)
       .join('\n  ');
   }
+  lines.push('', judgedAtLine(root, docPath, doc.text));
   writeFileSync(docPath, appendToEvidenceLog(doc.text, lines));
   return { exit: problem ? 1 : 0, lines, problem, route: parsed.route, summary };
 }

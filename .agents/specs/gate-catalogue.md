@@ -87,6 +87,18 @@ Every entry MUST use this format. No exceptions.
 transition — `in-progress → in-progress (continuation)` or `in-progress → in-progress (correction)`
 (§ GATE-IMPLEMENT). A parser accepts exactly the annotated lines this document declares.
 
+**Tree binding.** Every entry `gate.mjs` writes ends with one line naming the state it judged:
+
+```markdown
+**Judged at:** HEAD `<sha>` · base `origin/develop@<sha>` · document `<path>` blob `<sha>` (tracked|modified|untracked)
+```
+
+The blob is git's id of the document text the verdict READ, hashed before the entry was appended, so
+a later reader can tell a verdict recorded against different content from one recorded against the
+content in front of them; `(untracked)` / `(modified)` says the judged content was not what the
+repository holds. A verdict whose blob is not the document's current content is a verdict on
+something else, not on this document (issue #2213).
+
 Partial entries (e.g., PASS without specific evidence lines) are treated as NON-COMPLIANCE on the next gate run.
 
 ---
