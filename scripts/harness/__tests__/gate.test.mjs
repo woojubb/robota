@@ -1655,6 +1655,33 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
     expect(text).toContain('no `[GATE-COMPLETE: TC-N]` entry for TC-01, TC-02');
     expect(text).toContain('`exit 3` → exit 3');
   });
+
+  /**
+   * HARNESS-133 (issue #2552): the exact-command criterion accepted ANY non-empty **Command:** —
+   * including `node -e '<parse …; assert …>'`, a description that cannot reproduce the output it was
+   * recorded beside. A placeholder is not a command; the criterion must say so and name it.
+   */
+  it('DONE fails when a **Command:** is a placeholder description rather than the command that ran (HARNESS-133)', () => {
+    const placeholder =
+      "node --input-type=module -e '<parse continuationArtifacts; assert exact six paths>'";
+    const real = 'pnpm exec vitest run scripts/harness/__tests__/example.test.mjs';
+    const entry = (tc, command) =>
+      `\n### [GATE-COMPLETE: ${tc}] — ✅ PASS | ${DATE}\n\n**Command:** \`${command}\`\n**Exit:** 0\n**Output:** ok\n`;
+    const spec =
+      conformingSpec({ status: 'approved', folder: 'todo', ticked: true }) +
+      `\n### [GATE-PLAN] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → approved\n` +
+      entry('TC-01', placeholder) +
+      entry('TC-02', real);
+    const { root, doc } = makeWorkspace({ spec, folder: 'todo' });
+    const result = judge(root, doc, 'DONE', ['--lane', 'L1', '--verify-cmd', 'true']);
+    expect(result.status).toBe(1);
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain(
+      `TC-01 (\`${placeholder}\`): **Command:** is a placeholder (\`<…>\`, TBD or TODO), not the command that produced the output`,
+    );
+    // The real command beside it is not named: the criterion rejects the placeholder, not the entry shape.
+    expect(text).not.toContain('TC-02 (`');
+  });
 });
 
 describe('judge — GATE-IMPLEMENT reads the worktree', () => {

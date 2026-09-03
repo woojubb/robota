@@ -1503,11 +1503,36 @@ function tcCheckboxesTicked(ctx) {
       );
 }
 
+/**
+ * HARNESS-133 (issue #2552): a **Command:** that cannot be copied and run is a description, not
+ * evidence. `node -e '<parse continuationArtifacts; assert exact six paths>'` was accepted as the
+ * exact command that produced a real output, so nothing tied the recorded output to anything
+ * reproducible. The shapes seen are angle-bracket placeholders (`<spec>`, `<assert …>`) and
+ * TBD/TODO. A redirect (`< in`, `2>&1`) and a heredoc (`<<'EOF'`) do not match: the `<` there is
+ * not followed by a letter.
+ */
+const PLACEHOLDER_COMMAND = /<[A-Za-z][^<>`]*>|\b(?:TBD|TODO)\b/;
+
+/** The backticked command text(s) on an entry's **Command:** lines that are placeholders. */
+function placeholderCommands(body) {
+  const hits = [];
+  for (const line of body.split('\n')) {
+    const m = /^\*\*Command:\*\*\s*(.*)$/.exec(line.trim());
+    if (!m) continue;
+    const spans = [...m[1].matchAll(/`([^`]+)`/g)].map((span) => span[1]);
+    for (const text of spans.length > 0 ? spans : [m[1]]) {
+      if (PLACEHOLDER_COMMAND.test(text)) hits.push(text);
+    }
+  }
+  return hits;
+}
+
 function tcEntriesExist(ctx) {
   const items = completionCriteria(ctx.doc.text) ?? [];
   const entries = evidenceEntries(ctx.doc.text) ?? [];
   const missing = [];
   const thin = [];
+  const placeholder = [];
   for (const item of items) {
     const id = tcIdOf(item.text);
     if (!id) continue;
@@ -1517,7 +1542,12 @@ function tcEntriesExist(ctx) {
       continue;
     }
     const body = entry.lines.join('\n');
-    if (!/\*\*(Command|Action|Test skipped)[^*]*:\*\*/.test(body)) thin.push(id);
+    if (!/\*\*(Command|Action|Test skipped)[^*]*:\*\*/.test(body)) {
+      thin.push(id);
+      continue;
+    }
+    const hits = placeholderCommands(body);
+    if (hits.length > 0) placeholder.push(`${id} (\`${hits[0]}\`)`);
   }
   if (missing.length > 0)
     return fail(
@@ -1528,6 +1558,11 @@ function tcEntriesExist(ctx) {
     return fail(
       `${thin.join(', ')} entries carry no **Command:**/**Action:**/**Test skipped:** line`,
       'record the command and its output',
+    );
+  if (placeholder.length > 0)
+    return fail(
+      `${placeholder.join(', ')}: **Command:** is a placeholder (\`<…>\`, TBD or TODO), not the command that produced the output`,
+      'record the exact command that was run, verbatim',
     );
   return pass(
     `a \`[GATE-COMPLETE: TC-N]\` entry with command/output exists for every TC (${items.length})`,
