@@ -281,10 +281,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   );
   const provider = product.provider;
   // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
-  const { backgroundTaskRunners, subagentRunnerFactory } = bindAssembledCollaborators(product, {
-    backgroundTaskRunners: backgroundTaskRunnerInput,
-    subagentRunnerFactory: subagentRunnerFactoryInput,
-  });
+  const { backgroundTaskRunners: assembledBackgroundTaskRunners, subagentRunnerFactory } =
+    bindAssembledCollaborators(product, {
+      backgroundTaskRunners: backgroundTaskRunnerInput,
+      subagentRunnerFactory: subagentRunnerFactoryInput,
+    });
+  // The assembled product holds the runners readonly; the framework's session options take a
+  // mutable array, so hand them a copy rather than widening the product's type.
+  const backgroundTaskRunners = [...assembledBackgroundTaskRunners];
   if (provider === undefined) {
     // Unreachable with robota's profile (it always supplies providerSettings) — surfaced, never silent.
     process.stderr.write('No provider could be constructed from the resolved settings.\n');
