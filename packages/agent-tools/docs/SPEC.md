@@ -47,7 +47,7 @@ builtins/
   index.ts              -- Re-exports all built-in CLI tools + classifyFetchError
   atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
   path-guard.ts         -- checkPathWithinCwd: path traversal guard for host-local tool operations
-  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell
+  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell; stdout/stderr retained through agent-core createBoundedOutput (2 MB head each, ARCH-056 #2161) so memory is bounded while the command runs
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
@@ -158,18 +158,18 @@ Types owned by this package (SSOT):
 
 ### Public API: Built-in CLI Tools
 
-| Export                | Kind    | Tool Name         | Description                                                                                                  |
-| --------------------- | ------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `createShellTool`     | Factory | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
-| `createBashTool`      | Factory | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
-| `createReadTool`      | Factory | `Read`            | Read file contents with line numbers (cat -n)                                                                |
-| `createWriteTool`     | Factory | `Write`           | Write content to a file (creates parent dirs)                                                                |
-| `createEditTool`      | Factory | `Edit`            | Replace a specific string in a file                                                                          |
-| `createGlobTool`      | Factory | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
-| `createGrepTool`      | Factory | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
-| `webFetchTool`        | Object  | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
-| `webSearchTool`       | Object  | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
-| `askUserQuestionTool` | Object  | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+| Export                | Kind    | Tool Name         | Description                                                                                                                                                                              |
+| --------------------- | ------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createShellTool`     | Factory | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                                                                                            |
+| `createBashTool`      | Factory | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                                                                                                           |
+| `createReadTool`      | Factory | `Read`            | Read file contents with line numbers (cat -n)                                                                                                                                            |
+| `createWriteTool`     | Factory | `Write`           | Write content to a file (creates parent dirs)                                                                                                                                            |
+| `createEditTool`      | Factory | `Edit`            | Replace a specific string in a file                                                                                                                                                      |
+| `createGlobTool`      | Factory | `Glob`            | Find files matching a glob pattern (fast-glob)                                                                                                                                           |
+| `createGrepTool`      | Factory | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                                                                                                 |
+| `webFetchTool`        | Object  | `WebFetch`        | Fetch URL content with HTML-to-text conversion; fetches through `fetchWithEgressPolicy` (#2026) — private/loopback/metadata refused, redirects re-validated, body capped while streaming |
+| `webSearchTool`       | Object  | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                                                                                                   |
+| `askUserQuestionTool` | Object  | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005)                                                                             |
 
 **These are factories, not instances — ARCH-010.** This package used to also export a ready-made
 `readTool`/`writeTool`/`editTool`/`globTool`/`grepTool`/`shellTool`/`bashTool` for each of them. A

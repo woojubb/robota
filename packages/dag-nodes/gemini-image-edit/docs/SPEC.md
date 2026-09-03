@@ -48,29 +48,29 @@
 
 ## Error Taxonomy
 
-| Code                                                        | Layer      | Description                                     |
-| ----------------------------------------------------------- | ---------- | ----------------------------------------------- |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_INVALID`                 | Validation | Input image is not a valid binary image payload |
-| `DAG_VALIDATION_GEMINI_IMAGE_PROMPT_REQUIRED`               | Validation | Prompt input is empty or missing                |
-| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_INVALID`        | Validation | Compose images input is not a valid binary list |
-| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_PROMPT_REQUIRED`       | Validation | Compose prompt is empty or missing              |
-| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_MIN_ITEMS`      | Validation | Compose requires at least two images            |
-| `DAG_VALIDATION_GEMINI_API_KEY_REQUIRED`                    | Validation | API key not configured                          |
-| `DAG_VALIDATION_GEMINI_IMAGE_MODEL_NOT_ALLOWED`             | Validation | Model not in allowlist                          |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_ASSET_NOT_FOUND`         | Validation | Asset reference could not be fetched            |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID`        | Validation | Data URI is malformed                           |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE`         | Validation | HTTP URI fetch failed                           |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID`      | Validation | Resolved content is not an image MIME type      |
-| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_REFERENCE_UNSUPPORTED`   | Validation | URI scheme not supported                        |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_INVALID`            | Execution  | Runtime returned non-image output               |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_FAILED`               | Execution  | Provider edit call failed                       |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_FAILED`            | Execution  | Provider compose call failed                    |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_OUTPUT_INVALID`    | Execution  | Compose returned non-image output               |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_RESPONSE_MISSING_IMAGE`    | Execution  | Provider response has no image data             |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_ASSET_INVALID`      | Execution  | Output asset missing valid assetId              |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_MEDIA_TYPE_INVALID` | Execution  | Output has non-image MIME type                  |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_MISSING`        | Execution  | Output URI reference missing                    |
-| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_UNSUPPORTED`    | Execution  | Output data URI is not a valid image            |
+| Code                                                        | Layer      | Description                                                                                                         |
+| ----------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_INVALID`                 | Validation | Input image is not a valid binary image payload                                                                     |
+| `DAG_VALIDATION_GEMINI_IMAGE_PROMPT_REQUIRED`               | Validation | Prompt input is empty or missing                                                                                    |
+| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_INVALID`        | Validation | Compose images input is not a valid binary list                                                                     |
+| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_PROMPT_REQUIRED`       | Validation | Compose prompt is empty or missing                                                                                  |
+| `DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_MIN_ITEMS`      | Validation | Compose requires at least two images                                                                                |
+| `DAG_VALIDATION_GEMINI_API_KEY_REQUIRED`                    | Validation | API key not configured                                                                                              |
+| `DAG_VALIDATION_GEMINI_IMAGE_MODEL_NOT_ALLOWED`             | Validation | Model not in allowlist                                                                                              |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_ASSET_NOT_FOUND`         | Validation | Asset reference could not be fetched                                                                                |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID`        | Validation | Data URI is malformed                                                                                               |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE`         | Validation | HTTP URI fetch failed, or refused by the shared egress policy (`fetchWithEgressPolicy`, #2026; `reason` in details) |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID`      | Validation | Resolved content is not an image MIME type                                                                          |
+| `DAG_VALIDATION_GEMINI_IMAGE_INPUT_REFERENCE_UNSUPPORTED`   | Validation | URI scheme not supported                                                                                            |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_INVALID`            | Execution  | Runtime returned non-image output                                                                                   |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_FAILED`               | Execution  | Provider edit call failed                                                                                           |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_FAILED`            | Execution  | Provider compose call failed                                                                                        |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_OUTPUT_INVALID`    | Execution  | Compose returned non-image output                                                                                   |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_RESPONSE_MISSING_IMAGE`    | Execution  | Provider response has no image data                                                                                 |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_ASSET_INVALID`      | Execution  | Output asset missing valid assetId                                                                                  |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_MEDIA_TYPE_INVALID` | Execution  | Output has non-image MIME type                                                                                      |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_MISSING`        | Execution  | Output URI reference missing                                                                                        |
+| `DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_UNSUPPORTED`    | Execution  | Output data URI is not a valid image                                                                                |
 
 ## Test Strategy
 

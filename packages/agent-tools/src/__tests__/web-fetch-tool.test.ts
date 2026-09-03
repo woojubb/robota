@@ -96,7 +96,12 @@ describe('webFetchTool — fetch behaviour', () => {
     url: string,
     headers?: Record<string, string>,
   ): Promise<IToolInvocationResult> {
-    const { webFetchTool } = await import('../builtins/web-fetch-tool.js');
+    const { createWebFetchTool } = await import('../builtins/web-fetch-tool.js');
+    // #2026: the tool resolves every destination before fetching; a hermetic test injects the
+    // lookup (a public address) so no DNS leaves the process, while `fetch` stays the stubbed global.
+    const webFetchTool = createWebFetchTool({
+      egress: { deps: { lookup: async () => ['93.184.216.34'] } },
+    });
     const args: Record<string, unknown> = { url };
     if (headers !== undefined) args['headers'] = headers;
     const result = await webFetchTool.execute(args as Parameters<typeof webFetchTool.execute>[0]);
