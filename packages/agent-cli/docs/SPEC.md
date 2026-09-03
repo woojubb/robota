@@ -162,7 +162,12 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 3. Calls `assembleProduct(createRobotaProfile(…))` once. The kernel constructs the provider from the
    resolved settings + the injected `IProviderDefinition[]`, merges the capability packs onto the base
    (base ⊕ packs, with a rejection channel), and ADOPTS the instance-scoped preset registry the shell
-   already resolved over (ARCH-008) instead of building a second one.
+   already resolved over (ARCH-008) instead of building a second one. The shell-built
+   `backgroundTaskRunners` and `subagentRunnerFactory` are fold INPUTS whose returned identities every
+   mode binds to (`bindAssembledCollaborators`, CLI-078 / issue #2443). **Documented exception:**
+   `robota eval` does not pass through the fold — it shares the settings sources and the default
+   provider-definition set with the fold and nothing else (no preset, packs, replay or session); the
+   boundary is recorded at `src/eval/eval-command.ts`.
 4. Applies the preset's `enabledCommandModules`/`disabledCommandModules` delta to that merged superset,
    then appends the fixed modules the delta never filters (`/workflows`, caller-injected).
 5. Resolves one host-owned `TWorkspaceProjectAccess` decision, derives the allowed project sources and

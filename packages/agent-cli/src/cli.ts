@@ -24,6 +24,7 @@ import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
+import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
 import {
   buildRobotaRuntimeOptions,
@@ -134,6 +135,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   if (args.positional[0] === 'eval') {
     // Normally unreachable — the pre-parse interceptor above handles `eval`.
     // Kept as a defensive fallthrough for non-argv invocations.
+    // CLI-078 (issue #2443): `eval` is the documented shell exception to `assembleProduct` — it
+    // needs no preset, packs, transports or session; see `eval-command.ts` for the equivalence boundary.
     const composition = createInitialCliWorkspaceComposition(cwd, options);
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
       settingsSources: composition.settingsSources,
@@ -238,8 +241,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
-  const subagentRunnerFactory = createRobotaSubagentRunnerFactory({
+  // CLI-078 (issue #2443): these are the fold's INPUTS. The modes below never read them — they bind
+  // to the identities `assembleProduct` returns (`bindAssembledCollaborators`), like every other
+  // product-owned collaborator.
+  const backgroundTaskRunnerInput = createDefaultBackgroundTaskRunners();
+  const subagentRunnerFactoryInput = createRobotaSubagentRunnerFactory({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
     reproduction: {
@@ -268,19 +274,27 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       preset,
       baseCommandModules,
       packs,
-      backgroundTaskRunners,
-      subagentRunnerFactory,
+      backgroundTaskRunners: backgroundTaskRunnerInput,
+      subagentRunnerFactory: subagentRunnerFactoryInput,
       transports: transportRegistry,
     }),
   );
   const provider = product.provider;
+  // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
+  const { backgroundTaskRunners, subagentRunnerFactory } = bindAssembledCollaborators(product, {
+    backgroundTaskRunners: backgroundTaskRunnerInput,
+    subagentRunnerFactory: subagentRunnerFactoryInput,
+  });
   if (provider === undefined) {
     // Unreachable with robota's profile (it always supplies providerSettings) — surfaced, never silent.
     process.stderr.write('No provider could be constructed from the resolved settings.\n');
     process.exit(1);
   }
 
-  // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
+  // ARCH-007 (B1): the kernel's RUNTIME SEAM. `commandModules`, `agentDefinitions`, `toolOptions` and
+  // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
+  // surface that does NOT pass through this assembly is `robota eval`, a documented shell exception —
+  // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
   const { commandModules, agentDefinitions, toolOptions, permissionMode } =
     buildRobotaRuntimeOptions({
       product,
