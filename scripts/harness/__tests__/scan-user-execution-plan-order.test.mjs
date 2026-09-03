@@ -1662,6 +1662,41 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, advanced)).toEqual([]);
   });
 
+  it('judges a merge by its own content: an evil merge before the checkpoint is refused, a clean two-hunk merge is not (issue #2410)', () => {
+    const backMerge = ({ evil }) => {
+      const { root } = repository({ taskInBase: true });
+      const seedTask = readOptional(root, TASK_PATH);
+      git(root, ['switch', '-q', 'develop']);
+      write(root, TASK_PATH, `${seedTask}\n\n\n\ndevelop note at the tail\n`);
+      commit(root, 'develop moves on (#2)');
+      const advanced = git(root, ['rev-parse', 'HEAD']);
+      git(root, ['update-ref', 'refs/remotes/origin/develop', advanced]);
+      git(root, ['switch', '-q', 'feature']);
+      write(root, TASK_PATH, seedTask.replace(`# ${TASK_ID}`, `# ${TASK_ID}\n\nfeature note`));
+      commit(root, 'planning prelude touching the Task head');
+      // Both sides changed one file at different hunks: Git merges it cleanly.
+      git(root, ['merge', '--no-ff', '--no-commit', '-q', advanced]);
+      if (evil) write(root, 'scripts/harness/evil.mjs', 'present in neither parent\n');
+      git(root, ['add', '-A']);
+      const staged = messages(findStagedFindings(root, advanced));
+      commit(root, 'merge develop into feature');
+      expect(git(root, ['rev-list', '--parents', '-n', '1', 'HEAD']).split(' ')).toHaveLength(3);
+      checkpoint(root);
+      write(root, 'scripts/harness/change.mjs', 'implementation\n');
+      commit(root, 'implementation');
+      return { staged, history: messages(findHistoryFindings(root, advanced)) };
+    };
+
+    const clean = backMerge({ evil: false });
+    expect(clean.staged).toBe('');
+    expect(clean.history).toBe('');
+
+    const evil = backMerge({ evil: true });
+    expect(evil.staged).toMatch(/no planning checkpoint ancestor/);
+    expect(evil.history).toContain('scripts/harness/evil.mjs');
+    expect(evil.history).not.toContain('README.md');
+  });
+
   it('accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)', () => {
     const { root, base } = sequencedRepository();
     continuation(root);

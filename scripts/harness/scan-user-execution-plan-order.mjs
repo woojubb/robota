@@ -23,6 +23,10 @@
  * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
  * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
  *
+ * A merge commit is judged by its OWN content — the paths its tree adds beyond Git's automatic merge
+ * of its parents — on both paths (issue #2410); a clean merge, back-merge or synthetic PR merge
+ * contributes nothing.
+ *
  *   - default: replay every commit after the topic merge base (CI / harness scan);
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */
@@ -214,15 +218,55 @@ function changedPaths(root, from, to) {
   return nulPaths(result.stdout);
 }
 
+/**
+ * The tree Git itself would produce by merging `ours` and `theirs` (issue #2410). Conflicted paths
+ * are written with their markers, so a resolution differs from this tree at exactly those paths.
+ */
+function automaticMergeTree(root, ours, theirs) {
+  const result = runGit(root, ['merge-tree', '--write-tree', ours, theirs]);
+  // 0: clean, 1: conflicts (the tree is still on the first line), anything else: not a merge result.
+  if (result.code !== 0 && result.code !== 1) {
+    throw new Error(
+      `git merge-tree ${ours} ${theirs} failed: ${result.stderr || '(no stderr)'} — a merge's own content cannot be attributed`,
+    );
+  }
+  const tree = result.stdout.split('\n', 1)[0].trim();
+  if (!/^[0-9a-f]{40,64}$/.test(tree)) {
+    throw new Error(`git merge-tree ${ours} ${theirs} wrote no tree: ${result.stdout.trim()}`);
+  }
+  return tree;
+}
+
+/**
+ * A merge commit's OWN content (issue #2410): the paths at which the merge's tree differs from the
+ * automatic merge of its two parents. A clean merge — including one where both sides changed
+ * different hunks of one file, which `diff-tree --cc` would list — has none; a conflict resolution
+ * and an evil merge (a path present in neither parent) are exactly what remains. An octopus merge
+ * has no single automatic result to compare against and is refused rather than guessed.
+ */
+function mergeOwnPaths(root, commit, parents) {
+  if (parents.length !== 2) {
+    throw new Error(
+      `${commit} is a ${parents.length}-parent merge; its own content cannot be attributed`,
+    );
+  }
+  return changedPaths(root, automaticMergeTree(root, parents[0], parents[1]), commit);
+}
+
 function stagedPaths(root) {
   requireWorktreeTopLevel(root);
+  // A merge in progress (issue #2410): the index against HEAD is the whole other side. The proposed
+  // merge's own content is what the index adds beyond Git's automatic merge of HEAD and MERGE_HEAD.
+  const mergeHead = runGit(root, ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD^{commit}']);
+  const against =
+    mergeHead.code === 0 ? automaticMergeTree(root, 'HEAD', mergeHead.stdout.trim()) : 'HEAD';
   const result = runGit(root, [
-    'diff',
+    'diff-index',
     '--cached',
     '--name-only',
     '-z',
     '--no-renames',
-    'HEAD',
+    against,
     '--',
   ]);
   if (result.code !== 0) throw new Error(`staged diff failed: ${result.stderr || '(no stderr)'}`);
@@ -1675,39 +1719,40 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       findings: [finding('checkpoint correction form is missing or invalid after its cutover.')],
     };
   }
-  // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
-  // against its parent, which is defined for a single-parent commit and undefined for a merge —
-  // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
-  // side's whole history. CI evaluates `refs/pull/N/merge`, exactly that shape: the checkpoint's
-  // todo → active transition inside the merge's diff read as a second candidate and refused every
-  // PR whose spec was still in-progress (issue #2373); on the branch tip a back-merge carrying the
-  // base's content was refused the same way. Fail direction, stated: merges are EXCLUDED, so a
-  // merge's OWN pre-checkpoint content — a conflict resolution introducing a path in neither
-  // parent — is not judged on this path. That residual, and the staged path's mirror of it, is
-  // HARNESS-130's.
+  // Attribution (issue #2410, formerly `--no-merges` under HARNESS-129/130): a single-parent commit
+  // is judged by its diff against that parent. A merge commit is judged by its OWN content — what its
+  // tree adds beyond Git's automatic merge of its parents (`mergeOwnPaths`) — never by its
+  // first-parent diff, which for `refs/pull/N/merge` or a back-merge of the base is the whole other
+  // side's history (issue #2373). A clean merge therefore contributes nothing and is not an entry;
+  // a conflict resolution or an evil merge is an entry at exactly the paths it introduced.
   const listed = runGit(root, [
     'rev-list',
     '--reverse',
     '--topo-order',
-    '--no-merges',
+    '--parents',
     `${base}..HEAD`,
   ]);
   if (listed.code !== 0) {
     throw new Error(`git rev-list failed: ${listed.stderr || '(no stderr)'}`);
   }
-  const commits = lines(listed.stdout);
   let examined = 0;
-  const entries = commits.map((commit) => {
-    examined += 1;
-    const parentResult = runGit(root, ['rev-parse', `${commit}^`]);
-    if (parentResult.code !== 0) {
-      throw new Error(
-        `cannot resolve parent of ${commit}: ${parentResult.stderr || '(no stderr)'}`,
-      );
+  const entries = [];
+  for (const row of lines(listed.stdout)) {
+    const [commit, ...parents] = row.split(' ');
+    if (parents.length === 0) {
+      throw new Error(`cannot resolve parent of ${commit}: it is a root commit`);
     }
-    const parent = parentResult.stdout.trim();
-    return { commit, parent, paths: changedPaths(root, parent, commit) };
-  });
+    if (parents.length === 1) {
+      examined += 1;
+      entries.push({ commit, parent: parents[0], paths: changedPaths(root, parents[0], commit) });
+      continue;
+    }
+    const own = mergeOwnPaths(root, commit, parents);
+    if (own.length === 0) continue;
+    examined += 1;
+    entries.push({ commit, parent: parents[0], paths: own, merge: true });
+  }
+  const commits = entries.map((entry) => entry.commit);
 
   const textIn = (revision) => (file) => gitText(root, revision, file);
   const candidates = [];
