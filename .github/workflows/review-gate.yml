@@ -238,12 +238,31 @@ jobs:
           EVENT_ACTION: ${{ github.event.action }}
           EVENT_MERGE_SHA: ${{ github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # #2508: how long a label-only reevaluation waits for the head lane's analysis record
+          # before it fails closed, and how often it re-reads the inventory meanwhile.
+          LABEL_POLL_TIMEOUT_SECONDS: '900'
+          LABEL_POLL_INTERVAL_SECONDS: '30'
         run: |
           # Head-changing events consume the same-workflow prerequisite result. Label-only events
           # intentionally skip the expensive analyzer. Ordinary events require the processed
           # CodeQL record for this workflow's immutable merge SHA. Label events may reuse an older
           # synthetic SHA only when its base parent, head parent, and tree equal the current merge.
-          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
+          #
+          # #2508: the `labels` concurrency lane has no `needs:` on the `head` lane, so a label
+          # event can run before the head lane has written the analysis record for the very same
+          # head. Observed on #2507 and #1720: the label run blocked `verdict-unavailable` while the
+          # unchanged head run, minutes later, passed the identical head. A label-only reevaluation
+          # therefore POLLS the inventory for the current merge identity — bounded by
+          # LABEL_POLL_TIMEOUT_SECONDS, one serial read per LABEL_POLL_INTERVAL_SECONDS — before it
+          # fails closed. The bound is what keeps this fail-closed: a head lane that concluded
+          # without writing a record still ends in `verdict-unavailable`, only later. An unreadable
+          # inventory or merge identity is an error, not a reason to wait, and is refused at once.
+          # Head-changing events never wait: their analysis is a same-workflow prerequisite.
+          label_event=false
+          if [ "${EVENT_ACTION}" = 'labeled' ] || [ "${EVENT_ACTION}" = 'unlabeled' ]; then
+            label_event=true
+          fi
+          if [ "${label_event}" != 'true' ]; then
             if [ "${ANALYZE_RESULT}" != 'success' ]; then
               echo "::error::review-gate: same-workflow CodeQL prerequisite concluded ${ANALYZE_RESULT}."
               echo "analysis_complete=false" >> "$GITHUB_ENV"
@@ -251,25 +270,12 @@ jobs:
             fi
           fi
 
-          # Read all analysis pages before selecting. `gh --jq` evaluates once per page, so the
-          # pages are slurped and merged by jq exactly once.
-          if ! analysis_pages="$(gh api --paginate --slurp \
-            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&tool_name=CodeQL&per_page=100")" || \
-             ! analyses="$(jq -ce 'add | map(select(.tool.name == "CodeQL" and .category == "/language:javascript-typescript"))' \
-               <<<"${analysis_pages}")"; then
-            echo "::error::review-gate: could not read a complete CodeQL analysis inventory."
-            echo "analysis_complete=false" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          analysis_sha=''
-          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
-            analysis_sha="$(jq -r --arg sha "${EVENT_MERGE_SHA}" \
-              '[.[] | select(.commit_sha == $sha)][0].commit_sha // empty' <<<"${analyses}")"
-          else
+          current_identity=''
+          if [ "${label_event}" = 'true' ]; then
             # GitHub can regenerate a synthetic merge SHA while preserving the actual merge. For a
             # label-only reevaluation, compare the two ordered parents and tree. Same-head/old-base
-            # and any malformed non-two-parent commit therefore remain rejected.
+            # and any malformed non-two-parent commit therefore remain rejected. The identity is
+            # read once, before the poll: it is fixed by the resolver step above.
             # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
             # supplies exactly one commit identity and no count is derived.
             if ! current_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${CURRENT_MERGE_SHA}")" || \
@@ -280,23 +286,55 @@ jobs:
               echo "analysis_complete=false" >> "$GITHUB_ENV"
               exit 0
             fi
-
-            while IFS= read -r candidate_sha; do
-              if ! printf '%s' "${candidate_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
-                continue
-              fi
-              # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
-              # supplies exactly one commit identity and no count is derived.
-              if candidate_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${candidate_sha}")" 2>/dev/null && \
-                 candidate_identity="$(jq -er \
-                   'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
-                   <<<"${candidate_commit}")" && \
-                 [ "${candidate_identity}" = "${current_identity}" ]; then
-                analysis_sha="${candidate_sha}"
-                break
-              fi
-            done < <(jq -r '.[].commit_sha' <<<"${analyses}")
           fi
+
+          deadline=$(( $(date +%s) + LABEL_POLL_TIMEOUT_SECONDS ))
+          analysis_sha=''
+          while :; do
+            # Read all analysis pages before selecting. `gh --jq` evaluates once per page, so the
+            # pages are slurped and merged by jq exactly once.
+            if ! analysis_pages="$(gh api --paginate --slurp \
+              "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&tool_name=CodeQL&per_page=100")" || \
+               ! analyses="$(jq -ce 'add | map(select(.tool.name == "CodeQL" and .category == "/language:javascript-typescript"))' \
+                 <<<"${analysis_pages}")"; then
+              echo "::error::review-gate: could not read a complete CodeQL analysis inventory."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+
+            if [ "${label_event}" != 'true' ]; then
+              analysis_sha="$(jq -r --arg sha "${EVENT_MERGE_SHA}" \
+                '[.[] | select(.commit_sha == $sha)][0].commit_sha // empty' <<<"${analyses}")"
+            else
+              while IFS= read -r candidate_sha; do
+                if ! printf '%s' "${candidate_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
+                  continue
+                fi
+                # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
+                # supplies exactly one commit identity and no count is derived.
+                if candidate_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${candidate_sha}")" 2>/dev/null && \
+                   candidate_identity="$(jq -er \
+                     'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
+                     <<<"${candidate_commit}")" && \
+                   [ "${candidate_identity}" = "${current_identity}" ]; then
+                  analysis_sha="${candidate_sha}"
+                  break
+                fi
+              done < <(jq -r '.[].commit_sha' <<<"${analyses}")
+            fi
+
+            if printf '%s' "${analysis_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
+              break
+            fi
+            # Only a label event waits, and only until the deadline; everything else falls through
+            # to the fail-closed refusal below.
+            now=$(date +%s)
+            if [ "${label_event}" != 'true' ] || [ "${now}" -ge "${deadline}" ]; then
+              break
+            fi
+            echo "review-gate: no CodeQL analysis record for the current merge yet — the head lane may still be analysing; retrying in ${LABEL_POLL_INTERVAL_SECONDS}s ($(( deadline - now ))s left before failing closed)."
+            sleep "${LABEL_POLL_INTERVAL_SECONDS}"
+          done
 
           if ! printf '%s' "${analysis_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
             echo "::error::review-gate: no trustworthy current CodeQL analysis record is available."
