@@ -283,6 +283,7 @@ export async function collectDistFreshnessResults(root, scopes) {
     // single footer line below, not repeated per package until people stop reading it.
     results.push({
       kind: 'stale',
+      scope: scope.workspaceName,
       message:
         `${scope.workspaceName}: dist/ may be STALE — src/${verdict.srcNewest.path} is ` +
         `${formatLag(verdict.lagMs)} newer than dist/${verdict.distNewest.path}`,
@@ -290,6 +291,17 @@ export async function collectDistFreshnessResults(root, scopes) {
   }
 
   return { results, buildableCount: buildable.length, freshness };
+}
+
+/**
+ * The workspace names whose dist/ is older than their src/ — the packages a whole-workspace
+ * typecheck reads stale cross-package types from. Measured, not read from a cache, so it costs one
+ * tree walk; `verify-like-ci` spends it only on a typecheck stage that has already failed
+ * (issue #2200).
+ */
+export async function staleDistScopes(root = ROOT) {
+  const { results } = await collectDistFreshnessResults(root, await listWorkspaceScopes());
+  return results.filter((result) => result.kind === 'stale').map((result) => result.scope);
 }
 
 export async function main() {

@@ -9,6 +9,32 @@ function formatDuration(durationMs) {
   return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(1)}s`;
 }
 
+/**
+ * The stages whose typecheck resolves cross-package types through built `dist/`. A stale dist —
+ * one older than its package's `src/` — makes those stages report a type error in a package the
+ * branch never touched, and it reads as "develop is broken" (issue #2200).
+ */
+const DIST_TYPED_STAGES = new Set(['package-quality', 'examples-typecheck']);
+
+export function readsDistTypes(stageName) {
+  return DIST_TYPED_STAGES.has(stageName);
+}
+
+/**
+ * The diagnosis, placed where the reader is looking (issue #2200). The `dist` scan already measures
+ * staleness and prints an advisory among ~140 scan results, at a different moment than the failure
+ * it explains; three cross-package type errors in one session were each mis-read as a branch defect
+ * before anyone connected the two. `null` when nothing is stale, so the line stays a signal rather
+ * than boilerplate.
+ */
+export function staleDistHint(staleScopes) {
+  if (!Array.isArray(staleScopes) || staleScopes.length === 0) return null;
+  return (
+    `stale dist: ${staleScopes.join(', ')} — dist/ is older than src/, so this typecheck may be ` +
+    'reading old cross-package types; run `pnpm build` and re-check before treating it as a branch defect'
+  );
+}
+
 export function summarize(
   results,
   { skippedStages = [], notMirrored = [], totalDurationMs = null } = {},

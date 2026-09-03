@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { staleDistScopes } from './scan-dist-freshness.mjs';
 import { appendJobSummary } from './shared.mjs';
 import { realDirtyLines, shouldWriteFullReceipt } from './verification-receipt.mjs';
 import { runDistFreeScanSuite, runScanSuite } from './verify-like-ci-dist-free.mjs';
@@ -15,7 +16,13 @@ import {
   runProductStage,
   stageGate,
 } from './verify-like-ci-product.mjs';
-import { annotateNotMirrored, parseArgs, summarize } from './verify-like-ci-reporting.mjs';
+import {
+  annotateNotMirrored,
+  parseArgs,
+  readsDistTypes,
+  staleDistHint,
+  summarize,
+} from './verify-like-ci-reporting.mjs';
 import { WORKSPACE_ROOT, gitOrThrow, parseGitFileList, run } from './verify-like-ci-shared.mjs';
 
 export function firstParentCommits(baseRef) {
@@ -100,6 +107,29 @@ async function resolveContextOrReport(options) {
   }
 }
 
+/**
+ * A failed typecheck beside a stale dist/ names the stale packages and the rebuild command in the
+ * stage's OWN failure output — where the reader is looking — instead of an advisory printed among
+ * the scan results an earlier stage produced (issue #2200). Measured only on a failure of a stage
+ * that reads dist types, so a passing run pays nothing and a fresh tree adds no line. A failed
+ * measurement is reported, not swallowed: the stage verdict stands either way.
+ */
+async function annotateStaleDist(stageName, outcome) {
+  if (outcome.code === 0 || !readsDistTypes(stageName)) return outcome.note;
+  let hint;
+  try {
+    hint = staleDistHint(await staleDistScopes(WORKSPACE_ROOT));
+  } catch (error) {
+    process.stderr.write(
+      `${stageName}: dist freshness could not be measured: ${error?.message ?? error}\n`,
+    );
+    return outcome.note;
+  }
+  if (hint === null) return outcome.note;
+  process.stderr.write(`${stageName}: ${hint}\n`);
+  return outcome.note ? `${outcome.note}; ${hint}` : hint;
+}
+
 async function executeStages(selected, options, context) {
   const results = [];
   let buildState = initialBuildState(selected, context);
@@ -128,7 +158,7 @@ async function executeStages(selected, options, context) {
     results.push({
       name: stage.name,
       status: outcome.code === 0 ? 'pass' : 'fail',
-      note: outcome.note,
+      note: await annotateStaleDist(stage.name, outcome),
       durationMs: performance.now() - stageStartedAt,
     });
     buildState = advanceBuildState(buildState, stage, outcome.code);

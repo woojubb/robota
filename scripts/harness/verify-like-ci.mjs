@@ -31,7 +31,13 @@ export {
   stageBlockCause,
   stageGate,
 } from './verify-like-ci-product.mjs';
-export { annotateNotMirrored, parseArgs, summarize } from './verify-like-ci-reporting.mjs';
+export {
+  annotateNotMirrored,
+  parseArgs,
+  readsDistTypes,
+  staleDistHint,
+  summarize,
+} from './verify-like-ci-reporting.mjs';
 export { parseGitFileList, WORKSPACE_ROOT } from './verify-like-ci-shared.mjs';
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
