@@ -1703,6 +1703,25 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(firstForm.root, firstForm.base))).toMatch(
       /implementation exists with no planning checkpoint/,
     );
+  });
+
+  it('names the failed criterion for a near-miss checkpoint instead of "implementation exists" (#2420)', () => {
+    // The change set is the active spec alone — a planning document — and the entry is in the
+    // first form on a pair already in-progress. The refusal must say which criterion of the form
+    // failed, the way a recognised candidate is refused, not call a spec path "non-planning".
+    const { root, base } = sequencedRepository();
+    continuation(root, { statusLine: '**Status upgrade:** approved → in-progress' });
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+    const found = findHistoryFindings(root, base);
+    expect(found).toHaveLength(2);
+    expect(found[1].problem).toMatch(/^implementation exists with no planning checkpoint: /);
+    expect(found[0].problem).toMatch(/^planning checkpoint not recognised: /);
+    expect(found[0].problem).toContain(`checkpoint-form near miss for \`${TASK_ID}.md\``);
+    expect(found[0].problem).toMatch(
+      /checkpoint is neither the first GATE-IMPLEMENT PASS|GATE-IMPLEMENT checkpoint binding failed/,
+    );
+    expect(found[0].problem).not.toMatch(/implementation exists|non-planning prelude path/);
 
     // A continuation whose Task changes the PLAN signal re-plans the outcome; the prior PASS is
     // bound to another signal, so it is not a continuation.

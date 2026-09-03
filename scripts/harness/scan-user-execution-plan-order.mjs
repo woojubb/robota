@@ -1110,6 +1110,41 @@ function correctionClosureOnly(paths, textForPath, parentTextForPath) {
   );
 }
 
+const NEAR_MISS_PREFIX = 'checkpoint-form near miss';
+
+/**
+ * A commit whose only unexpected paths are the exact checkpoint pair — or the active spec alone —
+ * is not implementation: it is a checkpoint whose entry failed the form (a typo in the status line,
+ * a missing binding, an entry appended without its pair). Refusing it as "non-planning prelude
+ * path" names a planning document and hides which criterion failed (issue #2420). So the
+ * checkpoint-form checks are run and their own words reported, the way a recognised candidate
+ * already is, and the refusal carries this prefix so the caller can lead with it.
+ */
+function checkpointNearMissProblem(basename, textForPath, parentTextForPath) {
+  const taskPath = `${TASK_PREFIX}${basename}`;
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const task = textForPath(taskPath);
+  const spec = textForPath(specPath);
+  const criteria =
+    task === null || spec === null
+      ? [
+          `paired ${task === null ? 'Task' : 'active spec'} \`${basename}\` is missing from the tree this commit leaves.`,
+        ]
+      : evaluatePlanTexts({
+          basename,
+          parentTask: parentTextForPath(taskPath),
+          parentSpec: parentTextForPath(specPath),
+          task,
+          spec,
+          ruleText: textForPath(BACKLOG_RULE_PATH),
+        });
+  return `${NEAR_MISS_PREFIX} for \`${basename}\`: the change set is the Task/spec pair or the active spec alone, but the entry does not meet the checkpoint form — ${criteria.join(' ')}`;
+}
+
+function isCheckpointNearMiss(problems) {
+  return problems.length > 0 && problems.every((problem) => problem.startsWith(NEAR_MISS_PREFIX));
+}
+
 export function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
   const problems = [];
   const ledgerAppend = (file) =>
@@ -1131,7 +1166,11 @@ export function planningPreludeProblems(paths, basename, textForPath, parentText
       !rewrittenLedgers.includes(file),
   );
   if (unexpected.length > 0) {
-    problems.push(`non-planning prelude path(s): ${unexpected.join(', ')}.`);
+    problems.push(
+      unexpected.every((file) => isExactCheckpointPairPath(file, basename))
+        ? checkpointNearMissProblem(basename, textForPath, parentTextForPath)
+        : `non-planning prelude path(s): ${unexpected.join(', ')}.`,
+    );
   }
   for (const file of paths) {
     if (!isPreCheckpointPlanningPath(file, basename)) continue;
@@ -1748,9 +1787,12 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         preludeProblems.length > 0 ||
         (pendingBasename !== null && pendingBasename !== basename)
       ) {
+        const lead = isCheckpointNearMiss(preludeProblems)
+          ? 'planning checkpoint not recognised'
+          : 'implementation exists with no planning checkpoint';
         findings.push(
           finding(
-            `implementation exists with no planning checkpoint: ${entry.paths.join(', ') || '(empty commit)'}${preludeProblems.length > 0 ? ` (${preludeProblems.join(' ')})` : ''}.`,
+            `${lead}: ${entry.paths.join(', ') || '(empty commit)'}${preludeProblems.length > 0 ? ` (${preludeProblems.join(' ')})` : ''}.`,
             entry.commit,
           ),
         );
@@ -2127,7 +2169,13 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
           history.pendingBasename !== null &&
           history.pendingBasename !== basename)
       ) {
-        findings.push(finding('staged implementation has no planning checkpoint ancestor.'));
+        findings.push(
+          finding(
+            isCheckpointNearMiss(preludeProblems)
+              ? `staged planning checkpoint not recognised: ${preludeProblems.join(' ')}`
+              : 'staged implementation has no planning checkpoint ancestor.',
+          ),
+        );
       }
       const residue = worktreePaths(root);
       if (residue.length > 0) {
