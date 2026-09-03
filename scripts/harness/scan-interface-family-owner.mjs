@@ -46,6 +46,10 @@
 // shrinking it, and was rejected on cost — see the HARNESS-116 spec-doc, Alternative B. If a form
 // outside the list above ever appears in a package this scan reads, the fix is that parse, not
 // another pattern.
+//
+// The parser itself lives in `module-reference-forms.mjs` (issue #2206) so that a migration codemod
+// asks "which statements reference module X" through the SAME expressions this scan has debugged,
+// rather than re-deriving an `import`-only one and inheriting the blind spots above.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -57,16 +61,13 @@ import { explainEdge, judgeEdge, readInterfaceLayers } from './interface-layers.
 // The npm scope is configuration, not a literal. A hardcoded `@robota-sdk/` does not FAIL when the
 // scope changes -- it matches nothing, and matching nothing reads as a pass. (`harness-scope-literal`.)
 import { loadHarnessConfig } from './harness-config.mjs';
+// Issue #2206: the statement parser is shared with codemods, so a form this scan can see is one no
+// codemod over the same package can be blind to.
+import { findModuleReferences } from './module-reference-forms.mjs';
 
 const HARNESS = loadHarnessConfig();
 // `internalPackagePrefix` is the FULL specifier prefix (`@robota-sdk/agent-`), scope included -- it is
 // not a bare package prefix to concatenate a scope onto, which is the mistake this comment records.
-const INTERFACE_PACKAGE_IMPORT = new RegExp(
-  String.raw`(?:import|export)\s+(?:type\s+)?(?:\{[^}]*\}|\*(?:\s+as\s+[A-Za-z_$][\w$]*)?)\s*from\s*'` +
-    HARNESS.internalPackagePrefix.replace(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`) +
-    String.raw`(interface-[a-z-]+)'`,
-  'gms',
-);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RULE_DOC = path.join(ROOT, '.agents/specs/contract-family-owner-map.md');
@@ -167,14 +168,15 @@ export function projectGraph(sources, moduleOwner, symbolOwner, corrections = []
     // was getting cheaper exactly as the work progressed. Same class as the shrinking module set
     // ARCH-103 fixed, one level over: there it was which FILES are read, here it is which EDGES are
     // seen.
-    for (const pkg of src.matchAll(INTERFACE_PACKAGE_IMPORT)) {
-      const target = `${HARNESS.internalPackagePrefix.split('/').pop()}${pkg[1]}`;
+    const references = findModuleReferences(src, {
+      internalPackagePrefix: HARNESS.internalPackagePrefix,
+    });
+    for (const ref of references.filter((r) => r.form === 'package')) {
+      const target = `${HARNESS.internalPackagePrefix.split('/').pop()}${ref.target}`;
       addEdge(moduleOwner.get(mod), target, `package import (${mod} → ${target})`);
     }
-    for (const bare of src.matchAll(
-      /(?:export\s+\*|import\s+\*\s+as\s+[A-Za-z_$][\w$]*)\s+from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
-    )) {
-      const target = bare[1];
+    for (const ref of references.filter((r) => r.form === 'bare')) {
+      const target = ref.target;
       const corr = corrections.find((c) => c.from === mod && c.to === target && c.symbol === '*');
       addEdge(
         moduleOwner.get(mod),
@@ -182,17 +184,9 @@ export function projectGraph(sources, moduleOwner, symbolOwner, corrections = []
         `* (${mod} → ${target})`,
       );
     }
-    for (const imp of src.matchAll(
-      /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'\.\/([a-z-]+)(?:\.m?[jt]s)?'/gms,
-    )) {
-      const targetModule = imp[2];
-      for (const raw of imp[1].split(',')) {
-        const sym = raw
-          .trim()
-          .replace(/^type\s+/, '')
-          .split(/\s+as\s+/)[0]
-          ?.trim();
-        if (!sym || !/^[A-Za-z_$][\w$]*$/.test(sym)) continue;
+    for (const ref of references.filter((r) => r.form === 'named')) {
+      const targetModule = ref.target;
+      for (const sym of ref.symbols) {
         const corr = corrections.find(
           (c) => c.from === mod && c.to === targetModule && c.symbol === sym,
         );
