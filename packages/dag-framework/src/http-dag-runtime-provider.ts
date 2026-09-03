@@ -71,6 +71,22 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/** Resolve only when the signal aborts — the stream branch's answer when it saw no terminal frame. */
+function untilAborted(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+}
+
+/** The run-level frames after which the run is over; a task-level frame never is. */
+function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
+  return event.eventType === 'execution.completed' || event.eventType === 'execution.failed';
+}
+
 /** Parse a single SSE frame (`event: <name>\ndata: <json>`) into its event name + data payload. */
 function parseSseFrame(frame: string): { event: string; data: string } | undefined {
   let event = 'message';
@@ -169,7 +185,9 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
     // The progress bus is live-only: a run that finished before we subscribe emits no terminal event,
     // so the stream alone could hang. Race the live stream against a terminal-status poll — whichever
     // observes completion first wins, then abort the loser. This makes attaching to an already-finished
-    // run (the detachable-run reconnect case) safe.
+    // run (the detachable-run reconnect case) safe. Issue #2169: the stream branch settles ONLY on a
+    // terminal frame — an unavailable stream, a null body or an EOF without one says nothing about
+    // completion, so it leaves the poll as the sole authority instead of ending the race.
     const watchAbort = new AbortController();
     const forwardAbort = (): void => watchAbort.abort();
     if (signal?.aborted) watchAbort.abort();
@@ -184,6 +202,24 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
       signal?.removeEventListener('abort', forwardAbort);
     }
 
+    let data = await this.readRunResult(runId);
+    if (!isTerminalStatus(data.dagRun.status)) {
+      // The race settled on a terminal frame the result endpoint has not caught up with (or on an
+      // abort): the result is not an answer until the run's own status is terminal.
+      await this.pollUntilTerminal(runId, signal ?? new AbortController().signal);
+      data = await this.readRunResult(runId);
+      if (!isTerminalStatus(data.dagRun.status)) {
+        throw new Error(
+          `watchRun ended without observing a terminal state for run ${runId} (status ${data.dagRun.status}${signal?.aborted ? ', watch aborted' : ''})`,
+        );
+      }
+    }
+    return mapRunToResult(data.dagRun, data.taskRuns ?? [], Date.now() - startMs);
+  }
+
+  private async readRunResult(
+    runId: string,
+  ): Promise<{ dagRun: IDagRun; taskRuns: ITaskRun[] | undefined }> {
     const result = await this.client.getRunResult(runId);
     if (!result.ok) {
       throw new Error(`getRunResult failed (HTTP ${result.status})`);
@@ -192,7 +228,7 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
     if (data?.dagRun === undefined) {
       throw new Error('getRunResult response did not include the run state');
     }
-    return mapRunToResult(data.dagRun, data.taskRuns ?? [], Date.now() - startMs);
+    return { dagRun: data.dagRun, taskRuns: data.taskRuns };
   }
 
   public async getRunStatus(runId: string): Promise<IDagRunStatus> {
@@ -245,7 +281,11 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
     }
   }
 
-  /** Consume the run's SSE progress stream until it closes (terminal event or abort). */
+  /**
+   * Consume the run's SSE progress stream. Resolves when a TERMINAL frame has been observed, or when
+   * the watch is aborted; a stream that is unavailable, has no body, or closes without a terminal
+   * frame is no observation of completion and does not resolve on its own (issue #2169).
+   */
   private async consumeProgressStream(
     runId: string,
     onProgress: (event: IDagRuntimeProgressEvent) => void,
@@ -257,8 +297,9 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
         signal,
       },
     );
-    // No stream available (e.g. 501): the caller still reads the final result via getRunResult.
-    if (!response.ok || response.body === null) return;
+    // No stream available (e.g. 501): the poll is the only authority; the caller reads the final
+    // result via getRunResult once it reports a terminal state.
+    if (!response.ok || response.body === null) return untilAborted(signal);
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -275,11 +316,9 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
           buffer = buffer.slice(separator + 2);
           const parsed = parseSseFrame(frame);
           if (parsed !== undefined && parsed.event !== 'open') {
-            emitRuntimeProgress(
-              JSON.parse(parsed.data) as TRunProgressEvent,
-              onProgress,
-              startTimes,
-            );
+            const event = JSON.parse(parsed.data) as TRunProgressEvent;
+            emitRuntimeProgress(event, onProgress, startTimes);
+            if (isTerminalProgressEvent(event)) return;
           }
           separator = buffer.indexOf('\n\n');
         }
@@ -290,5 +329,8 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
       if (signal.aborted) return;
       throw err;
     }
+    // EOF without a terminal frame (premature close, empty stream): the stream said nothing about
+    // completion. Leave the poll to decide rather than ending the race on silence.
+    return untilAborted(signal);
   }
 }
