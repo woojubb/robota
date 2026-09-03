@@ -19,9 +19,11 @@ export type { ISpinner, ITerminalOutput };
  * `TPermissionResultValue`; this name is the session-layer alias, not a second declaration):
  * - true: allow this invocation
  * - false: deny this invocation
- * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
- * - 'allow-project': allow this invocation and persist the approval to the project's local
- *   settings; the storage location is owned by the consuming layer (via `onProjectAllowTool`)
+ * - 'allow-session': allow this invocation and auto-approve the CONSENT SCOPE — the pattern
+ *   `consentScopeFor` projects from this invocation's argument (issue #2351), e.g. `Bash(git *)` —
+ *   for the rest of the session
+ * - 'allow-project': allow this invocation and persist that same scope pattern to the project's
+ *   local settings; the storage location is owned by the consuming layer (via `onProjectAllowTool`)
  */
 export type TPermissionResult = TPermissionResultValue;
 

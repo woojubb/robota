@@ -8,6 +8,7 @@ export type {
 export { TRUST_TO_MODE, DEFAULT_BACKGROUND_PERMISSION_POLICY } from './types.js';
 export {
   evaluatePermission,
+  matchesAnyPattern,
   registerToolPermissionProfile,
   clearRegisteredToolProfiles,
   getToolPermissionProfile,

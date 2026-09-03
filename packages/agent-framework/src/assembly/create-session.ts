@@ -206,8 +206,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
-  function onProjectAllowTool(toolName: string): void {
-    const pattern = `${toolName}(*)`;
+  // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
+  // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.
+  function onProjectAllowTool(scope: string): void {
+    const pattern = scope.includes('(') ? scope : `${scope}(*)`;
     const settings = readSettings(projectSettingsPath);
     const currentAllow = Array.isArray(settings.permissions)
       ? []

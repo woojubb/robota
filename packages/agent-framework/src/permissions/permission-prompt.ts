@@ -4,11 +4,17 @@
  * Used by both agent-sdk query() and agent-cli.
  */
 
+import { consentScopeFor } from '@robota-sdk/agent-session';
+
 import type { TPermissionResultValue } from '../interactive/types.js';
 import type { ITerminalOutput } from '../types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 
-const PERMISSION_OPTIONS = ['Allow once', 'Allow for this session', 'Deny'];
+// Issue #2351: the session option names the SCOPE it grants, computed the same way the enforcer
+// remembers it, so the user reads exactly what "don't ask again" will cover.
+function permissionOptions(scope: string): string[] {
+  return ['Allow once', `Allow ${scope} for this session`, 'Deny'];
+}
 const ALLOW_ONCE_INDEX = 0;
 const ALLOW_SESSION_INDEX = 1;
 
@@ -32,7 +38,10 @@ export async function promptForApproval(
   terminal.writeLine(`  ${formatArgs(toolArgs)}`);
   terminal.writeLine('');
 
-  const selected = await terminal.select(PERMISSION_OPTIONS, ALLOW_ONCE_INDEX);
+  const selected = await terminal.select(
+    permissionOptions(consentScopeFor(toolName, toolArgs)),
+    ALLOW_ONCE_INDEX,
+  );
   if (selected === ALLOW_SESSION_INDEX) return 'allow-session';
   return selected === ALLOW_ONCE_INDEX;
 }

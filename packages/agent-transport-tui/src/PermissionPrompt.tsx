@@ -1,10 +1,11 @@
+import { consentScopeFor } from '@robota-sdk/agent-framework';
 import { Box, Text, useInput } from 'ink';
 import React from 'react';
 
 import {
   applyPermissionPromptInput,
   getPermissionPromptInputAction,
-  PERMISSION_PROMPT_OPTIONS,
+  permissionPromptOptionsFor,
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
@@ -90,17 +91,19 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
       </Text>
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
       <Box marginTop={1}>
-        {PERMISSION_PROMPT_OPTIONS.map((opt, i) => (
-          <Box key={opt} marginRight={2}>
-            <Text
-              color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
-              bold={i === state.selectedIndex}
-            >
-              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-              {opt}
-            </Text>
-          </Box>
-        ))}
+        {permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs)).map(
+          (opt, i) => (
+            <Box key={opt} marginRight={2}>
+              <Text
+                color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
+                bold={i === state.selectedIndex}
+              >
+                {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+                {opt}
+              </Text>
+            </Box>
+          ),
+        )}
       </Box>
       <KeyHintFooter hints={PERMISSION_PROMPT_FOOTER_HINTS} />
     </Box>

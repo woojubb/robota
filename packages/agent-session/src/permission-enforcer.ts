@@ -9,11 +9,13 @@
 import {
   applyPresetToolLists,
   evaluatePermission,
+  matchesAnyPattern,
   resolvePermissionByPolicy,
   runHooks,
 } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
+import { consentScopeFor } from './consent-scope.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 
 import type {
@@ -42,6 +44,10 @@ export class PermissionEnforcer {
   private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   private readonly transcriptPath?: string;
+  /**
+   * Issue #2351: consent is remembered as PATTERNS (`consentScopeFor`), not tool names, and read
+   * back through the gate's own matcher — approving one argument does not allow every argument.
+   */
   private readonly sessionAllowedTools = new Set<string>();
   /** The configured rules before any preset contributed — see {@link applyPresetToolLists}. */
   private readonly presetFreeRules: { allow: readonly string[]; deny: readonly string[] };
@@ -96,7 +102,7 @@ export class PermissionEnforcer {
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
   }
 
-  /** Get tools that have been session-approved (via "Allow always" choice). */
+  /** The consent patterns granted this session via "Allow always" — e.g. `Bash(git *)` (issue #2351). */
   getSessionAllowedTools(): string[] {
     return [...this.sessionAllowedTools];
   }
@@ -202,9 +208,10 @@ export class PermissionEnforcer {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
   ): Promise<boolean> {
+    const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed: this.sessionAllowedTools.has(toolName),
+      alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
       ...(this.permissionHandler ? { handler: this.permissionHandler } : {}),
       ...(this.promptForApprovalFn
         ? { injectedPrompt: this.promptForApprovalFn, terminal: this.terminal }
@@ -212,8 +219,8 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
-    if (outcome.rememberForSession) this.sessionAllowedTools.add(toolName);
-    if (outcome.rememberForProject) this.onProjectAllowTool?.(toolName);
+    if (outcome.rememberForSession) this.sessionAllowedTools.add(scope);
+    if (outcome.rememberForProject) this.onProjectAllowTool?.(scope);
     return outcome.allowed;
   }
 
