@@ -15,7 +15,7 @@ import {
   SENTINEL_FLOOR,
   collectClaimed,
   idsFromCitations,
-  idsFromIssueTitles,
+  idsFromIssues,
   idsFromRecords,
   localDate,
   nextFreeId,
@@ -133,18 +133,26 @@ describe('the claimed set is wider than the record filenames', () => {
   });
 });
 
-describe('the issue-title source', () => {
+describe('the issue source', () => {
   it('reads every ID a title names', () => {
-    expect(
-      idsFromIssueTitles({ run: () => ['INFRA-126 something', 'fix ARCH-FIX-020 too'] }),
-    ).toEqual(new Set(['INFRA-126', 'ARCH-FIX-020']));
+    expect(idsFromIssues({ run: () => ['INFRA-126 something', 'fix ARCH-FIX-020 too'] })).toEqual(
+      new Set(['INFRA-126', 'ARCH-FIX-020']),
+    );
+  });
+
+  it('reads an ID declared only in an issue BODY (#2322)', () => {
+    // Issue #2049's body declared ARCH-050 and ARCH-060; neither had a record or a tracked citation,
+    // and a title-only read allocated from a set that did not contain them. The source hands the
+    // allocator one line per title and per body line, so a body-only claim is in the union.
+    const lines = ['a title naming nothing', 'body line: this splits into ARCH-050 and ARCH-060.'];
+    expect(idsFromIssues({ run: () => lines })).toEqual(new Set(['ARCH-050', 'ARCH-060']));
   });
 
   it('returns null — NOT an empty set — when the source could not be read', () => {
     // The distinction the whole script turns on. An empty set says no issue claims an ID; null says
     // nobody asked. Conflating them makes an unreachable network read as a clean allocation, which
     // is the exact failure the three original collisions were.
-    expect(idsFromIssueTitles({ run: () => null })).toBeNull();
+    expect(idsFromIssues({ run: () => null })).toBeNull();
   });
 });
 

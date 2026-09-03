@@ -24,8 +24,8 @@
  * highest and the next allocation walked straight into a live number. That happened while writing
  * this file's own sibling, which is why the citation half is here rather than deferred.
  *
- * Issue titles are the third source and the one the original three collisions came from. They are
- * read when the network and `gh` are both available, and their ABSENCE is reported rather than
+ * Issues — titles AND bodies — are the third source and the one the original three collisions came
+ * from. They are read when the network and `gh` are both available, and their ABSENCE is reported rather than
  * assumed away — an allocator that quietly skips a source allocates from a smaller set than it
  * claims to, which is the failure it exists to prevent.
  *
@@ -110,26 +110,44 @@ export function idsFromCitations(root = WORKSPACE_ROOT) {
 }
 
 /**
- * Every ID named by an issue title, or `null` when the source could not be read.
+ * Every ID named by an issue — its title OR its body — or `null` when the source could not be read.
+ *
+ * Bodies are read as well as titles because an ID is declared there too: issue #2049's body named
+ * `ARCH-050` and `ARCH-060` with no record and no tracked citation, and a body is the one place an
+ * ID can be claimed that no scan over the tree will ever reach (issue #2322). The source is one
+ * field away from the titles this already read, and the reasoning for reading titles applies
+ * unchanged.
  *
  * `null` is not an empty set and the two must not be conflated: an empty set says no issue claims
  * an ID, and `null` says nobody asked. The caller reports which one it got.
  */
-export function idsFromIssueTitles({ run = defaultGh } = {}) {
+export function idsFromIssues({ run = defaultGh } = {}) {
   const result = run();
   if (result === null) return null;
   const ids = new Set();
-  for (const title of result) {
-    for (const match of title.matchAll(WORK_ITEM_ID)) ids.add(match[0]);
+  for (const text of result) {
+    for (const match of text.matchAll(WORK_ITEM_ID)) ids.add(match[0]);
   }
   return ids;
 }
 
+/** One line per issue title and per body line; the ID pattern never spans a line. */
 function defaultGh() {
   const listed = spawnSync(
     'gh',
-    ['issue', 'list', '--state', 'all', '--limit', '1000', '--json', 'title', '-q', '.[].title'],
-    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
+    [
+      'issue',
+      'list',
+      '--state',
+      'all',
+      '--limit',
+      '1000',
+      '--json',
+      'title,body',
+      '-q',
+      '.[] | .title, .body',
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
   );
   if (listed.status !== 0) return null;
   return (listed.stdout ?? '').split('\n').filter((line) => line.trim() !== '');
@@ -412,7 +430,7 @@ function main(argv) {
 
   const records = idsFromRecords();
   const citations = idsFromCitations();
-  const issues = idsFromIssueTitles();
+  const issues = idsFromIssues();
 
   const claimed = collectClaimed(records, citations, issues);
   const id = nextFreeId(prefix, claimed, SENTINEL_FLOOR, records);
@@ -420,11 +438,13 @@ function main(argv) {
   console.log(
     `::examined:: ${readExamined()} claimed work-item id(s); ` +
       `${records.size} from records, ${citations.size} from citations, ` +
-      (issues === null ? 'issue titles UNREAD' : `${issues.size} from issue titles`),
+      (issues === null
+        ? 'issue titles and bodies UNREAD'
+        : `${issues.size} from issue titles and bodies`),
   );
   if (issues === null) {
     console.log(
-      '  issue titles could not be read (no `gh`, no network, or not authenticated). The three ' +
+      '  issue titles and bodies could not be read (no `gh`, no network, or not authenticated). The three ' +
         'collisions this allocator exists for were all between a record and an issue title, so ' +
         'this run allocated from a SMALLER set than the one that matters. Re-check before pushing.',
     );

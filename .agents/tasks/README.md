@@ -63,8 +63,10 @@ Two things it deliberately does not treat as collisions, and one it cannot see:
   the ID pattern was widened to reach multi-segment prefixes like `ARCH-FIX-` and `INFRA-BL-`. They are all in `completed/`, and the merged commits that deliver them name the old
   numbers, so renaming the files would move each record out from under every citation pointing at
   it. The allowlist may not grow: a fresh collision is refused.
-- An ID claimed by a record in one clone and by an **issue title** opened by another session is
-  invisible to it on its own, because nothing in the tree said which issue registers which record.
+- An ID claimed by a record in one clone and by an **issue title or body** opened by another session
+  is invisible to it on its own, because nothing in the tree said which issue registers which record.
+  A body is the one place an ID is declared that no scan over the tree reaches, so the allocator
+  reads bodies as a claimed-ID source too (issue #2322).
 
 **So a NEW record names its issue.** Any of `Registered as … issue #N`, a bare `issue #N`, or the
 issue URL — the three spellings already in the tree, so a record that links already does not have to
@@ -101,9 +103,9 @@ record's ID".
    rule citing the item that introduced it, a scan header, a hook comment. `INFRA-127` was one of
    them, and a survey of this directory reported `INFRA-126` as the highest.
 
-   The allocator reads the records, every citation in the tree, and the issue titles, and says so:
-   when it cannot reach the issue list it prints that it allocated from a smaller set rather than
-   passing quietly. Add `--dry-run` to see the ID without writing the file.
+   The allocator reads the records, every citation in the tree, and the issue titles and bodies, and
+   says so: when it cannot reach the issue list it prints that it allocated from a smaller set rather
+   than passing quietly. Add `--dry-run` to see the ID without writing the file.
 
 2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
 3. When implementation is complete and all gates pass (see
