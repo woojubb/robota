@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2128
 status: todo
 created: 2026-09-03
 priority: medium
-urgency: later
+urgency: soon
 area: host consumers and transport package boundaries
 depends_on: [HOST-016, HOST-017]
 ---

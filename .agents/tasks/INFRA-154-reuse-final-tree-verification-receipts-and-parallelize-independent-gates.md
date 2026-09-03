@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2518
 status: todo
 created: 2026-09-03
 priority: medium
-urgency: later
+urgency: soon
 area: repository verification throughput
 depends_on: []
 ---

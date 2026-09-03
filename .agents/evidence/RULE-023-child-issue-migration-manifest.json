@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "authority": "RULE-023 work unit B",
   "repository": "woojubb/robota",
-  "queriedAt": "2026-08-29T22:49:02.141Z",
-  "querySemantics": "Authenticated GraphQL repository.issues(states:OPEN), complete cursor pagination; parent-present nodes are the native open-child population; per-row comments, closing PRs, blockedBy, and blocking connections fail closed if pagination is incomplete.",
+  "queriedAt": "2026-09-03T14:43:33.167Z",
+  "querySemantics": "Authenticated GraphQL repository.issues(states:OPEN), complete cursor pagination; parent-present nodes are the native open-child population; per-row comments, closing PRs, blockedBy, and blocking connections fail closed if pagination is incomplete. Final execution used complete before/after all-state Issue and repository-comment snapshots plus 82 target relationship nodes; 511/511 exact comparisons passed.",
   "visibilityLimitations": "Closing-PR references plus exact-number local/remote branch names and local worktrees are captured. Deleted records, inaccessible private forks, unpushed artifacts in another clone, and unnamed Development-sidebar links may be invisible; absence is never used as closure authority.",
   "base": "ce6f3589ad4690016a215be4582d991eee0dfe6f",
   "population": {
@@ -22,16 +22,44 @@
       1989, 1990, 2066, 2067, 2073, 2075, 2076, 2077, 2078, 2504, 2515, 2516, 2517, 2520, 2522,
       2525, 2526, 2527, 2533, 2534
     ],
-    "mutationAuthorized": true
+    "mutationAuthorized": true,
+    "authorizationCommit": "4a1a031f81d8f568fa29cf89b9eacec0e2639e07",
+    "authorizationRecordedAt": "2026-09-03T14:14:38Z",
+    "preMutationPopulation": {
+      "openIssues": 273
+    },
+    "expectedPostMutationPopulation": {
+      "openIssues": 227
+    },
+    "expectedPostMutationFormula": "273 - 48 - 1 + 3 = 227",
+    "execution": {
+      "actor": "woojubb",
+      "startedFromSnapshot": {
+        "issues": "/tmp/robota-issues-before-2026-09-03.json",
+        "relations": "/tmp/robota-target-relations-before-2026-09-03.json",
+        "comments": "/tmp/robota-issue-comments-before-2026-09-03.json"
+      },
+      "planPath": "/tmp/robota-issue-bulk-mutation-plan.json",
+      "planSha256": "bd40bbd3f0e61bee167130f705d760c4e75f944ca9404c2d7a6d9cfafe417a61",
+      "applyLogPath": "/tmp/robota-issue-bulk-apply-log.json",
+      "closeLogPath": "/tmp/robota-issue-bulk-close-log.json",
+      "labelRemovalLogPath": "/tmp/robota-issue-bulk-label-removal-log.json",
+      "finalVerificationPath": "/tmp/robota-issue-bulk-verification-final.json",
+      "completedAt": "2026-09-03T14:40:16.020Z",
+      "postMutationPopulation": {
+        "openIssues": 227
+      }
+    }
   },
   "counts": {
-    "OWNER_REVIEW": 2,
+    "OWNER_REVIEW": 0,
     "ABSORB": 56,
     "B3": 17,
     "B2": 51,
     "B1": 4,
     "B4": 6,
-    "RETAIN": 20
+    "RETAIN": 20,
+    "ALREADY_RESOLVED": 2
   },
   "batchReviews": {
     "B1": {
@@ -444,14 +472,14 @@
         2525, 2526, 2527, 2533, 2534
       ],
       "preMutationPopulation": {
-        "openIssues": 272
+        "openIssues": 273
       },
       "expectedPostMutation": {
-        "openIssues": 226,
+        "openIssues": 227,
         "absorbedClosures": 48,
         "completedClosureIssue": 2093,
         "reopenedParentIssues": [1985, 1986, 2512],
-        "formula": "272 - 48 - 1 + 3 = 226"
+        "formula": "273 - 48 - 1 + 3 = 227"
       },
       "taskMappings": [
         {
@@ -921,6 +949,88 @@
           }
         }
       ]
+    },
+    "BULK_2026_09_03": {
+      "result": "PASS",
+      "completedAt": "2026-09-03T14:40:16.020Z",
+      "actor": "woojubb",
+      "authorizationCommit": "4a1a031f81d8f568fa29cf89b9eacec0e2639e07",
+      "rollbackTriggered": false,
+      "mutationOrder": {
+        "p2Promotions": [2064, 2065, 2069, 2074, 2087, 2103, 2116, 2117, 2128, 2518, 2524],
+        "markerReadbackCount": 48,
+        "closureLayers": [
+          [
+            2061, 2062, 2064, 2065, 2069, 2071, 2072, 2074, 2095, 2098, 2099, 2114, 2117, 2120,
+            2127, 2128, 2129, 2518, 2523, 2524, 2528, 2532
+          ],
+          [
+            2087, 2100, 2101, 2103, 2116, 2119, 2121, 2122, 2123, 2124, 2125, 2126, 2519, 2521, 2531
+          ],
+          [2089, 2092, 2094, 2105, 2106, 2107],
+          [2086, 2088, 2090, 2091, 2530]
+        ],
+        "completedReconciliation": 2093
+      },
+      "population": {
+        "before": {
+          "openIssues": 273
+        },
+        "after": {
+          "openIssues": 227
+        },
+        "formula": "273 - 48 - 1 + 3 = 227"
+      },
+      "parentMaps": [
+        {
+          "issue": 2079,
+          "rows": 55,
+          "state": "OPEN",
+          "bodySha256": "df98cd23fa4996e3540e49205f3e9292dec37704633b2efa5544acd266958c8b"
+        },
+        {
+          "issue": 1985,
+          "rows": 12,
+          "state": "OPEN",
+          "bodySha256": "625b8aaf3cf23117e51c6cb9c070ced8dc7c5d3be0f9b93e97ad194d58e44527"
+        },
+        {
+          "issue": 1986,
+          "rows": 5,
+          "state": "OPEN",
+          "bodySha256": "b6af0c736b2bcccdf70b12b1658ab19245e36f2c7f599a7d0b21d9327d91fdfc"
+        },
+        {
+          "issue": 2512,
+          "rows": 6,
+          "state": "OPEN",
+          "bodySha256": "3d31e9462997bbe397e4832001c5395d1d3551530001f3c7a4b1a796c7cfd311"
+        }
+      ],
+      "independentPostwriteVerification": {
+        "verdict": "PASS",
+        "verifiedAt": "2026-09-03T14:43:33.167Z",
+        "checksPassed": 511,
+        "checksFailed": 0,
+        "originalBodiesPreserved": true,
+        "exactTaskMarkers": true,
+        "labelsAssigneesAndRelationshipsPreserved": true,
+        "retainedLifecycleReceipts": 20,
+        "unexplainedExistingIssueMutations": 0,
+        "unrelatedConcurrentNewIssues": 0,
+        "unrelatedConcurrentNewComments": 0,
+        "nativeChildMissing": 0,
+        "triageAuditExitCode": 1,
+        "triageAuditNote": "The global audit reports 18 pre-existing/general queue-shape malformed rows, while the migration-specific native-child check passes with 20 retained and 0 missing; the 511-check before/after verifier found no unexplained mutation."
+      },
+      "snapshotPaths": {
+        "beforeIssuesPath": "/tmp/robota-issues-before-2026-09-03.json",
+        "afterIssuesPath": "/tmp/robota-issues-after-final-2026-09-03.json",
+        "beforeRelationsPath": "/tmp/robota-target-relations-before-2026-09-03.json",
+        "afterRelationsPath": "/tmp/robota-target-relations-after-final-2026-09-03.json",
+        "beforeCommentsPath": "/tmp/robota-issue-comments-before-2026-09-03.json",
+        "afterCommentsPath": "/tmp/robota-issue-comments-after-2026-09-03.json"
+      }
     }
   },
   "parentSnapshots": [
@@ -1049,10 +1159,10 @@
             "url": "https://github.com/woojubb/robota/issues/2061",
             "title": "[TRACKING] P1 contract: replace dual ICommand and ISystemCommand definitions with one command SSOT"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2061",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2061"
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md"
         },
         {
           "issue": {
@@ -1060,10 +1170,10 @@
             "url": "https://github.com/woojubb/robota/issues/2062",
             "title": "[TRACKING] P1 contract: preserve background-task kind correlation across requests, state, runners, and handles"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2062",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2062"
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-009-coordinate-the-kind-safe-background-task-migration.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-009-coordinate-the-kind-safe-background-task-migration.md"
         },
         {
           "issue": {
@@ -1082,10 +1192,10 @@
             "url": "https://github.com/woojubb/robota/issues/2064",
             "title": "P2 contract: remove phantom service and factory ports from agent-core"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2064",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2064"
+          "currentExecutionOwner": ".agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md"
         },
         {
           "issue": {
@@ -1093,10 +1203,10 @@
             "url": "https://github.com/woojubb/robota/issues/2065",
             "title": "P2 contract: finish removing the ghost workflow subsystem from agent-core"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2065",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2065"
+          "currentExecutionOwner": ".agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md"
         },
         {
           "issue": {
@@ -1104,7 +1214,7 @@
             "url": "https://github.com/woojubb/robota/issues/2066",
             "title": "[TRACKING] P1 security: validate skill and agent frontmatter with one strict decoder"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2066",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2066"
@@ -1115,7 +1225,7 @@
             "url": "https://github.com/woojubb/robota/issues/2067",
             "title": "[TRACKING] P1 contract: give resumable session data one versioned total codec"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2067",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2067"
@@ -1126,10 +1236,10 @@
             "url": "https://github.com/woojubb/robota/issues/2069",
             "title": "[TRACKING] P2 contract: bind transports to exact session capabilities instead of IInteractiveSession"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2069",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2069"
+          "currentExecutionOwner": ".agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md"
         },
         {
           "issue": {
@@ -1137,10 +1247,10 @@
             "url": "https://github.com/woojubb/robota/issues/2070",
             "title": "[TRACKING] P1 architecture: split agent-product's declarative plan from live runtime bindings"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2070",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2070"
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md"
         },
         {
           "issue": {
@@ -1148,10 +1258,10 @@
             "url": "https://github.com/woojubb/robota/issues/2071",
             "title": "[TRACKING] P1 architecture: extract the remote-control host application from agent-cli"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2071",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2071"
+          "currentExecutionOwner": ".agents/tasks/AGREEMENT-010-coordinate-the-remote-control-host-extraction.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/AGREEMENT-010-coordinate-the-remote-control-host-extraction.md"
         },
         {
           "issue": {
@@ -1159,10 +1269,10 @@
             "url": "https://github.com/woojubb/robota/issues/2072",
             "title": "[TRACKING] P1 architecture: organize command features as vertical slices outside agent-framework"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2072",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2072"
+          "currentExecutionOwner": ".agents/tasks/CMD-014-coordinate-command-features-as-owner-aligned-vertical-slices.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-014-coordinate-command-features-as-owner-aligned-vertical-slices.md"
         },
         {
           "issue": {
@@ -1170,7 +1280,7 @@
             "url": "https://github.com/woojubb/robota/issues/2073",
             "title": "[TRACKING] P1 architecture: move handoff authority policy out of the wire protocol package"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2073",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2073"
@@ -1181,10 +1291,10 @@
             "url": "https://github.com/woojubb/robota/issues/2074",
             "title": "[TRACKING] P2 architecture: split headless and programmatic hosts out of agent-transport"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2074",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2074"
+          "currentExecutionOwner": ".agents/tasks/HOST-015-coordinate-headless-and-programmatic-host-extraction.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HOST-015-coordinate-headless-and-programmatic-host-extraction.md"
         },
         {
           "issue": {
@@ -1192,7 +1302,7 @@
             "url": "https://github.com/woojubb/robota/issues/2075",
             "title": "[TRACKING] P1 security: make enforcing hooks fail closed on errors and unsupported executors"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2075",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2075"
@@ -1203,7 +1313,7 @@
             "url": "https://github.com/woojubb/robota/issues/2076",
             "title": "P1 security: reject checkpoint manifests that escape restore containment"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2076",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2076"
@@ -1214,7 +1324,7 @@
             "url": "https://github.com/woojubb/robota/issues/2077",
             "title": "P1 contract: replace shallow DAG file guards with a total decoder"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2077",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2077"
@@ -1225,7 +1335,7 @@
             "url": "https://github.com/woojubb/robota/issues/2078",
             "title": "P2 contract: decode tool-call arguments as objects before batch execution"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2078",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2078"
@@ -1247,10 +1357,10 @@
             "url": "https://github.com/woojubb/robota/issues/2085",
             "title": "P1 product leaf: introduce a structured-cloneable ProductPlan"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2085",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2085"
+          "currentExecutionOwner": ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/DATA-008-define-secret-free-structured-cloneable-productplan.md"
         },
         {
           "issue": {
@@ -1258,10 +1368,10 @@
             "url": "https://github.com/woojubb/robota/issues/2086",
             "title": "P1 remote-control leaf: extract the pure host state reducer"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2086",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2086"
+          "currentExecutionOwner": ".agents/tasks/REMOTE-015-extract-the-pure-remote-control-host-state-reducer.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REMOTE-015-extract-the-pure-remote-control-host-state-reducer.md"
         },
         {
           "issue": {
@@ -1269,10 +1379,10 @@
             "url": "https://github.com/woojubb/robota/issues/2087",
             "title": "P2 host leaf: extract the headless stdio host package"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2087",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2087"
+          "currentExecutionOwner": ".agents/tasks/HOST-016-extract-the-headless-stdio-host-package.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HOST-016-extract-the-headless-stdio-host-package.md"
         },
         {
           "issue": {
@@ -1280,10 +1390,10 @@
             "url": "https://github.com/woojubb/robota/issues/2088",
             "title": "P1 command leaf: define discriminated CommandDefinition and serializable CommandDescriptor"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2088",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2088"
+          "currentExecutionOwner": ".agents/tasks/CMD-010-define-the-discriminated-command-definition-and-serializable-descriptor.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-010-define-the-discriminated-command-definition-and-serializable-descriptor.md"
         },
         {
           "issue": {
@@ -1291,10 +1401,10 @@
             "url": "https://github.com/woojubb/robota/issues/2089",
             "title": "P1 background leaf: define the kind-indexed background task contract map"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2089",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2089"
+          "currentExecutionOwner": ".agents/tasks/DATA-010-define-the-kind-indexed-background-task-contract-map.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/DATA-010-define-the-kind-indexed-background-task-contract-map.md"
         },
         {
           "issue": {
@@ -1302,10 +1412,10 @@
             "url": "https://github.com/woojubb/robota/issues/2090",
             "title": "P1 handoff leaf: move authority transitions into a session-mobility owner"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2090",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2090"
+          "currentExecutionOwner": ".agents/tasks/HANDOFF-002-move-authority-transitions-into-session-mobility.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HANDOFF-002-move-authority-transitions-into-session-mobility.md"
         },
         {
           "issue": {
@@ -1313,10 +1423,10 @@
             "url": "https://github.com/woojubb/robota/issues/2091",
             "title": "[transport] Make the registry store already-bound adapters"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2091",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2091"
+          "currentExecutionOwner": ".agents/tasks/TRANS-011-the-transport-registry-erases-heterogeneous-exact-session-capabilities-into-one-.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-011-the-transport-registry-erases-heterogeneous-exact-session-capabilities-into-one-.md"
         },
         {
           "issue": {
@@ -1324,10 +1434,10 @@
             "url": "https://github.com/woojubb/robota/issues/2092",
             "title": "P1 command leaf: derive palette, model, and transport projections from CommandDefinition"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2092",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2092"
+          "currentExecutionOwner": ".agents/tasks/CMD-011-derive-command-projections-from-one-definition.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-011-derive-command-projections-from-one-definition.md"
         },
         {
           "issue": {
@@ -1335,10 +1445,10 @@
             "url": "https://github.com/woojubb/robota/issues/2093",
             "title": "P1 hook leaf: enforce per-event fail-closed and advisory policies"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ALREADY_RESOLVED",
           "candidateDisposition": "ALREADY_RESOLVED",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2093",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2093"
+          "currentExecutionOwner": "https://github.com/woojubb/robota/pull/2235",
+          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2225"
         },
         {
           "issue": {
@@ -1346,10 +1456,10 @@
             "url": "https://github.com/woojubb/robota/issues/2094",
             "title": "P1 metadata leaf: migrate skill and plugin discovery to the strict decoder"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2094",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2094"
+          "currentExecutionOwner": ".agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md"
         },
         {
           "issue": {
@@ -1357,10 +1467,10 @@
             "url": "https://github.com/woojubb/robota/issues/2095",
             "title": "P1 metadata leaf: migrate agent definition loading to the strict decoder"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2095",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2095"
+          "currentExecutionOwner": ".agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md"
         },
         {
           "issue": {
@@ -1368,10 +1478,10 @@
             "url": "https://github.com/woojubb/robota/issues/2098",
             "title": "P1 session leaf: decode JSONL events by event name before replay"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2098",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2098"
+          "currentExecutionOwner": ".agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md"
         },
         {
           "issue": {
@@ -1379,10 +1489,10 @@
             "url": "https://github.com/woojubb/robota/issues/2099",
             "title": "P1 hook leaf: reject configured hook types without reachable executors"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2099",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2099"
+          "currentExecutionOwner": ".agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md"
         },
         {
           "issue": {
@@ -1390,10 +1500,10 @@
             "url": "https://github.com/woojubb/robota/issues/2100",
             "title": "P1 command leaf: migrate skill and plugin commands to discriminated definitions"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2100",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2100"
+          "currentExecutionOwner": ".agents/tasks/CMD-012-migrate-skill-and-plugin-commands-to-discriminated-definitions.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-012-migrate-skill-and-plugin-commands-to-discriminated-definitions.md"
         },
         {
           "issue": {
@@ -1401,10 +1511,10 @@
             "url": "https://github.com/woojubb/robota/issues/2101",
             "title": "P1 background leaf: type the runner registry and migrate process, scheduled, and agent runners"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2101",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2101"
+          "currentExecutionOwner": ".agents/tasks/ARCH-117-type-the-runner-registry-and-migrate-background-runners.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-117-type-the-runner-registry-and-migrate-background-runners.md"
         },
         {
           "issue": {
@@ -1423,10 +1533,10 @@
             "url": "https://github.com/woojubb/robota/issues/2103",
             "title": "P2 host leaf: extract the programmatic in-process host package"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2103",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2103"
+          "currentExecutionOwner": ".agents/tasks/HOST-017-extract-the-programmatic-in-process-host-package.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HOST-017-extract-the-programmatic-in-process-host-package.md"
         },
         {
           "issue": {
@@ -1434,10 +1544,10 @@
             "url": "https://github.com/woojubb/robota/issues/2104",
             "title": "P1 product leaf: encode provider, preset, and transport sources as discriminated modes"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2104",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2104"
+          "currentExecutionOwner": ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/DATA-009-encode-product-source-modes-as-discriminated-data.md"
         },
         {
           "issue": {
@@ -1445,10 +1555,10 @@
             "url": "https://github.com/woojubb/robota/issues/2105",
             "title": "P1 remote-control leaf: define the host facade and effect ports"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2105",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2105"
+          "currentExecutionOwner": ".agents/tasks/REMOTE-016-define-the-remote-control-host-facade-and-effect-ports.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REMOTE-016-define-the-remote-control-host-facade-and-effect-ports.md"
         },
         {
           "issue": {
@@ -1456,10 +1566,10 @@
             "url": "https://github.com/woojubb/robota/issues/2106",
             "title": "P1 handoff leaf: move inventory and refusal policy into session mobility"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2106",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2106"
+          "currentExecutionOwner": ".agents/tasks/HANDOFF-003-move-inventory-and-refusal-policy-into-session-mobility.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HANDOFF-003-move-inventory-and-refusal-policy-into-session-mobility.md"
         },
         {
           "issue": {
@@ -1467,10 +1577,10 @@
             "url": "https://github.com/woojubb/robota/issues/2107",
             "title": "[transport] Bind HTTP and MCP to their exact session ports"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2107",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2107"
+          "currentExecutionOwner": ".agents/tasks/TRANS-013-bind-http-and-mcp-to-their-exact-session-ports.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-013-bind-http-and-mcp-to-their-exact-session-ports.md"
         },
         {
           "issue": {
@@ -1478,10 +1588,10 @@
             "url": "https://github.com/woojubb/robota/issues/2114",
             "title": "P1 background leaf: migrate persisted state and command views to kind-safe variants"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2114",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2114"
+          "currentExecutionOwner": ".agents/tasks/DATA-011-migrate-persisted-background-state-and-command-views-to-kind-safe-variants.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/DATA-011-migrate-persisted-background-state-and-command-views-to-kind-safe-variants.md"
         },
         {
           "issue": {
@@ -1500,10 +1610,10 @@
             "url": "https://github.com/woojubb/robota/issues/2116",
             "title": "P2 transport leaf: bind WS, protocol, and WebRTC adapters to exact session ports"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2116",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2116"
+          "currentExecutionOwner": ".agents/tasks/TRANS-014-bind-ws-protocol-and-webrtc-adapters-to-exact-session-ports.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-014-bind-ws-protocol-and-webrtc-adapters-to-exact-session-ports.md"
         },
         {
           "issue": {
@@ -1511,10 +1621,10 @@
             "url": "https://github.com/woojubb/robota/issues/2117",
             "title": "P2 transport leaf: remove IInteractiveSession from production transport seams"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2117",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2117"
+          "currentExecutionOwner": ".agents/tasks/TRANS-015-remove-iinteractive-session-from-production-transport-seams.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/TRANS-015-remove-iinteractive-session-from-production-transport-seams.md"
         },
         {
           "issue": {
@@ -1522,10 +1632,10 @@
             "url": "https://github.com/woojubb/robota/issues/2118",
             "title": "P1 product leaf: realize ProductPlan through explicit runtime bindings and migrate consumers"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2118",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2118"
+          "currentExecutionOwner": ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/ARCH-116-place-product-realization-and-migrate-consumers.md"
         },
         {
           "issue": {
@@ -1533,10 +1643,10 @@
             "url": "https://github.com/woojubb/robota/issues/2119",
             "title": "P1 remote-control leaf: implement Node identity and trusted-device repository adapters"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2119",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2119"
+          "currentExecutionOwner": ".agents/tasks/REMOTE-017-implement-node-identity-and-trusted-device-repository-adapters.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REMOTE-017-implement-node-identity-and-trusted-device-repository-adapters.md"
         },
         {
           "issue": {
@@ -1544,10 +1654,10 @@
             "url": "https://github.com/woojubb/robota/issues/2120",
             "title": "P1 remote-control leaf: wire the host service into CLI presentation and delete the CLI controller"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2120",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2120"
+          "currentExecutionOwner": ".agents/tasks/REMOTE-018-wire-the-host-service-into-cli-and-delete-the-controller.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/REMOTE-018-wire-the-host-service-into-cli-and-delete-the-controller.md"
         },
         {
           "issue": {
@@ -1555,10 +1665,10 @@
             "url": "https://github.com/woojubb/robota/issues/2121",
             "title": "P1 command slice leaf: move execution, background, and schedule command semantics to their owner"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2121",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2121"
+          "currentExecutionOwner": ".agents/tasks/CMD-015-move-execution-background-and-schedule-commands-to-their-owners.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-015-move-execution-background-and-schedule-commands-to-their-owners.md"
         },
         {
           "issue": {
@@ -1566,10 +1676,10 @@
             "url": "https://github.com/woojubb/robota/issues/2122",
             "title": "P1 command slice leaf: move session, history, compact, and rewind command semantics to their owner"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2122",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2122"
+          "currentExecutionOwner": ".agents/tasks/CMD-016-move-session-history-compact-and-rewind-commands-to-their-owners.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-016-move-session-history-compact-and-rewind-commands-to-their-owners.md"
         },
         {
           "issue": {
@@ -1577,10 +1687,10 @@
             "url": "https://github.com/woojubb/robota/issues/2123",
             "title": "P1 command slice leaf: move provider, settings, and plugin command semantics to their owners"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2123",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2123"
+          "currentExecutionOwner": ".agents/tasks/CMD-017-move-provider-settings-and-plugin-commands-to-their-owners.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-017-move-provider-settings-and-plugin-commands-to-their-owners.md"
         },
         {
           "issue": {
@@ -1588,10 +1698,10 @@
             "url": "https://github.com/woojubb/robota/issues/2124",
             "title": "P1 command slice leaf: move help, language, and permission commands to the product shell slice"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2124",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2124"
+          "currentExecutionOwner": ".agents/tasks/CMD-018-move-help-language-and-permission-commands-to-the-product-shell.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-018-move-help-language-and-permission-commands-to-the-product-shell.md"
         },
         {
           "issue": {
@@ -1599,10 +1709,10 @@
             "url": "https://github.com/woojubb/robota/issues/2125",
             "title": "P1 command slice leaf: expose coding commands as leaf entries and remove umbrella consumers"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2125",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2125"
+          "currentExecutionOwner": ".agents/tasks/CMD-019-expose-coding-commands-as-leaf-entries-and-remove-umbrella-consumers.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-019-expose-coding-commands-as-leaf-entries-and-remove-umbrella-consumers.md"
         },
         {
           "issue": {
@@ -1610,10 +1720,10 @@
             "url": "https://github.com/woojubb/robota/issues/2126",
             "title": "P1 handoff leaf: move source and destination orchestration to session mobility"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2126",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2126"
+          "currentExecutionOwner": ".agents/tasks/HANDOFF-004-move-source-and-destination-orchestration-into-session-mobility.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HANDOFF-004-move-source-and-destination-orchestration-into-session-mobility.md"
         },
         {
           "issue": {
@@ -1621,10 +1731,10 @@
             "url": "https://github.com/woojubb/robota/issues/2127",
             "title": "P1 handoff leaf: reduce transport protocol to codecs and remove the CLI bridge"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2127",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2127"
+          "currentExecutionOwner": ".agents/tasks/HANDOFF-005-reduce-transport-protocol-to-codecs-and-remove-the-cli-bridge.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HANDOFF-005-reduce-transport-protocol-to-codecs-and-remove-the-cli-bridge.md"
         },
         {
           "issue": {
@@ -1632,10 +1742,10 @@
             "url": "https://github.com/woojubb/robota/issues/2128",
             "title": "P2 host leaf: migrate remaining consumers and remove the agent-transport umbrella"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2128",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2128"
+          "currentExecutionOwner": ".agents/tasks/HOST-018-migrate-consumers-and-remove-the-agent-transport-umbrella.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/HOST-018-migrate-consumers-and-remove-the-agent-transport-umbrella.md"
         },
         {
           "issue": {
@@ -1643,10 +1753,10 @@
             "url": "https://github.com/woojubb/robota/issues/2129",
             "title": "P1 command leaf: remove parallel ICommand and ISystemCommand registries after slice migration"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2129",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2129"
+          "currentExecutionOwner": ".agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md"
         }
       ]
     },
@@ -1663,7 +1773,7 @@
             "url": "https://github.com/woojubb/robota/issues/1989",
             "title": "P1: permission rules match only the primary argument, and no rule can be made unoverridable"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/1989",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/1989"
@@ -1674,7 +1784,7 @@
             "url": "https://github.com/woojubb/robota/issues/1990",
             "title": "P1: no tool search — the whole tool surface is enumerated on every request"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/1990",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/1990"
@@ -1685,10 +1795,10 @@
             "url": "https://github.com/woojubb/robota/issues/2519",
             "title": "[enhancement] Add a typed MCP configuration and management control plane"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2519",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2519"
+          "currentExecutionOwner": ".agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md"
         },
         {
           "issue": {
@@ -1696,7 +1806,7 @@
             "url": "https://github.com/woojubb/robota/issues/2520",
             "title": "[security] Require trust approval before project or plugin MCP activation"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2520",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2520"
@@ -1707,10 +1817,10 @@
             "url": "https://github.com/woojubb/robota/issues/2521",
             "title": "[enhancement] Build the shared MCP client and HTTP product vertical slice"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2521",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2521"
+          "currentExecutionOwner": ".agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md"
         },
         {
           "issue": {
@@ -1718,7 +1828,7 @@
             "url": "https://github.com/woojubb/robota/issues/2522",
             "title": "[security] Add a safe stdio MCP client transport"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2522",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2522"
@@ -1729,10 +1839,10 @@
             "url": "https://github.com/woojubb/robota/issues/2523",
             "title": "[enhancement] Add an MCP connection and capability-catalog supervisor"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2523",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2523"
+          "currentExecutionOwner": ".agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md"
         },
         {
           "issue": {
@@ -1740,10 +1850,10 @@
             "url": "https://github.com/woojubb/robota/issues/2524",
             "title": "[enhancement] Hand long-running MCP calls to background tasks"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2524",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2524"
+          "currentExecutionOwner": ".agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md"
         },
         {
           "issue": {
@@ -1751,7 +1861,7 @@
             "url": "https://github.com/woojubb/robota/issues/2525",
             "title": "[security] Bound MCP results and spill oversized output securely"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2525",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2525"
@@ -1762,7 +1872,7 @@
             "url": "https://github.com/woojubb/robota/issues/2526",
             "title": "[security] Add MCP OAuth authorization and credential lifecycle"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2526",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2526"
@@ -1773,7 +1883,7 @@
             "url": "https://github.com/woojubb/robota/issues/2527",
             "title": "[security] Add an opt-in dynamic authentication header helper"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2527",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2527"
@@ -1784,10 +1894,10 @@
             "url": "https://github.com/woojubb/robota/issues/2528",
             "title": "[enhancement] Project MCP tool schemas safely across providers"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2528",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2528"
+          "currentExecutionOwner": ".agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md"
         }
       ]
     },
@@ -1804,10 +1914,10 @@
             "url": "https://github.com/woojubb/robota/issues/2530",
             "title": "[enhancement] Export canonical session runtime tools through MCP"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2530",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2530"
+          "currentExecutionOwner": ".agents/tasks/MCP-006-export-canonical-session-runtime-tools-through-mcp.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-006-export-canonical-session-runtime-tools-through-mcp.md"
         },
         {
           "issue": {
@@ -1815,10 +1925,10 @@
             "url": "https://github.com/woojubb/robota/issues/2531",
             "title": "[enhancement] Ship robota mcp serve as a carrier-owning stdio product mode"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2531",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2531"
+          "currentExecutionOwner": ".agents/tasks/MCP-007-ship-robota-mcp-serve-as-a-carrier-owning-stdio-product-mode.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-007-ship-robota-mcp-serve-as-a-carrier-owning-stdio-product-mode.md"
         },
         {
           "issue": {
@@ -1826,10 +1936,10 @@
             "url": "https://github.com/woojubb/robota/issues/2532",
             "title": "[integration] Prove an MCP-served session can also consume MCP tools"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2532",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2532"
+          "currentExecutionOwner": ".agents/tasks/MCP-008-prove-an-mcp-served-session-can-also-consume-mcp-tools.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/MCP-008-prove-an-mcp-served-session-can-also-consume-mcp-tools.md"
         },
         {
           "issue": {
@@ -1837,7 +1947,7 @@
             "url": "https://github.com/woojubb/robota/issues/2533",
             "title": "[security] Add authenticated loopback Streamable HTTP MCP hosting"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2533",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2533"
@@ -1848,7 +1958,7 @@
             "url": "https://github.com/woojubb/robota/issues/2534",
             "title": "[security] Add remote MCP resource-server authorization and admission"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2534",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2534"
@@ -1868,7 +1978,7 @@
             "url": "https://github.com/woojubb/robota/issues/2504",
             "title": "[bug] Open loop-run records can merge and block every same-day successor"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "RETAIN",
           "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2504",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2504"
@@ -1879,8 +1989,8 @@
             "url": "https://github.com/woojubb/robota/issues/2514",
             "title": "[throughput] Combine issue conversion, PLAN, and implementation into one PR lifecycle"
           },
-          "currentDisposition": "OWNER_REVIEW",
-          "candidateDisposition": "RETAIN",
+          "currentDisposition": "ALREADY_RESOLVED",
+          "candidateDisposition": "ALREADY_RESOLVED",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2514",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2514"
         },
@@ -1890,8 +2000,8 @@
             "url": "https://github.com/woojubb/robota/issues/2515",
             "title": "[throughput] Stabilize intake with bounded filing and rolling net-growth measurement"
           },
-          "currentDisposition": "OWNER_REVIEW",
-          "candidateDisposition": "ABSORB",
+          "currentDisposition": "RETAIN",
+          "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2515",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2515"
         },
@@ -1901,8 +2011,8 @@
             "url": "https://github.com/woojubb/robota/issues/2516",
             "title": "[throughput] Add safe read-only preflight during remote delivery waits"
           },
-          "currentDisposition": "OWNER_REVIEW",
-          "candidateDisposition": "ABSORB",
+          "currentDisposition": "RETAIN",
+          "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2516",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2516"
         },
@@ -1912,8 +2022,8 @@
             "url": "https://github.com/woojubb/robota/issues/2517",
             "title": "[throughput] Make Task/spec/PR evidence ownership reference-based"
           },
-          "currentDisposition": "OWNER_REVIEW",
-          "candidateDisposition": "ABSORB",
+          "currentDisposition": "RETAIN",
+          "candidateDisposition": "RETAIN",
           "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2517",
           "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2517"
         },
@@ -1923,10 +2033,10 @@
             "url": "https://github.com/woojubb/robota/issues/2518",
             "title": "[throughput] Reuse final-tree verification receipts and parallelize independent gates"
           },
-          "currentDisposition": "OWNER_REVIEW",
+          "currentDisposition": "ABSORB",
           "candidateDisposition": "ABSORB",
-          "currentExecutionOwner": "https://github.com/woojubb/robota/issues/2518",
-          "plannedExecutionOwnerAfterPrerequisites": "https://github.com/woojubb/robota/issues/2518"
+          "currentExecutionOwner": ".agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md",
+          "plannedExecutionOwnerAfterPrerequisites": ".agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md"
         }
       ]
     }
@@ -2046,7 +2156,18 @@
           }
         ]
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:09Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "675c0763f8a000b2a02f12ca425f29fa4bb48a2395ff247fb1025a06d92dfdef",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2103,7 +2224,18 @@
           }
         ]
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:10Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "99cf1a98b10f0a872686d0e5cef0bce55c1d80f0de0c360718060c0e4739537a",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2157,7 +2289,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "2cce76682cc63a7cc8a464c1b8dfc4f4163df1ba375bfe2f25b8ea917238f9fe",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2061#issuecomment-5527412792",
+          "createdAt": "2026-09-03T14:38:44Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2211,7 +2360,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "53ad85cbecafc3dfe131180e7965b21b755598fab348590ce1bdd3c48904d25d",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2062#issuecomment-5527412869",
+          "createdAt": "2026-09-03T14:38:44Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2327,7 +2493,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "37db92f3ae1cf0ac1fd062569c89b67e533376ad82492d284d2dd4b6b84bed32",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2064#issuecomment-5527412949",
+          "createdAt": "2026-09-03T14:38:44Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2381,7 +2564,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "39583d1ab2238397381020fc4d3befbe05a2429a5ff79fbe06edd126750e7d91",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2065#issuecomment-5527413008",
+          "createdAt": "2026-09-03T14:38:45Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2427,7 +2627,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:10Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "a8cb442ca99f0aef1ddbda2b527ce59aec123c363c22365996a1ceedac8ff175",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2488,7 +2699,18 @@
           }
         ]
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:11Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "c3e0ca27f7612277608d54a6293dc57c7752269184017892fec2dfe2893d46c3",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2548,7 +2770,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "f61a685a42a315720e1fa09842bf0fba4039638afc26b493f5dfa1346ec951d6",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2069#issuecomment-5527413118",
+          "createdAt": "2026-09-03T14:38:45Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2644,7 +2883,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "202ed51e93594360f7f4bff0236b00e432c595e7e33eb326a657ed78084bf4aa",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2071#issuecomment-5527413189",
+          "createdAt": "2026-09-03T14:38:46Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2691,7 +2947,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "3108afab4ee817c66efb76dd726e9b79146fc534074c6aeba0a6a8fe78d7a2c0",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2072#issuecomment-5527413257",
+          "createdAt": "2026-09-03T14:38:46Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2735,7 +3008,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:11Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "be590acb0ba4f49c8e5d363dbad4bed12beba545755946daf492ea71568e6e71",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2782,7 +3066,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:02Z",
+        "updatedAt": "2026-09-03T14:42:53Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "53ca8418326f7629a5e9a45e79864618dcfa070686fb6e07a3b370e1b504a572",
+        "nativeParent": 2079,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2074#issuecomment-5527413330",
+          "createdAt": "2026-09-03T14:38:46Z"
+        }
+      }
     },
     {
       "issue": {
@@ -2835,7 +3136,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:11Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "9fcb662b24be975bc8e12a61d0e3d7811c3bb4e07ffd9701e5de6abea72eb5e5",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2886,7 +3198,18 @@
           }
         ]
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:12Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "88569292b203f77915b5130d12a74cc71951d764f1e79835ebffbbf640eb51ac",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -2945,7 +3268,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:12Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "2a320116583c76c77f4926dbcdc0ab158696af3575d830913b2c4400245ecda3",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -3025,7 +3359,18 @@
           }
         ]
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:13Z",
+        "labels": ["bug", "priority:P2"],
+        "assignees": [],
+        "bodySha256": "23e004f5071a7036ddcb7bbc4831e8a436aaf3f657eb0018873492a2cbc3d057",
+        "nativeParent": 2079,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -3200,7 +3545,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:13Z",
+        "updatedAt": "2026-09-03T14:42:55Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "e231dbf6137aab0e0fc28dc14393427aeb41092a00a803f4c3ac75dd3e1b9c49",
+        "nativeParent": 2071,
+        "blockedBy": [],
+        "blocking": [2105],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2086#issuecomment-5527413384",
+          "createdAt": "2026-09-03T14:38:46Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3253,7 +3615,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "3094aea4c5e322192d2962032607c3999bf447b32fa6bad5df486cfa81062b2c",
+        "nativeParent": 2074,
+        "blockedBy": [],
+        "blocking": [2128],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2087#issuecomment-5527413448",
+          "createdAt": "2026-09-03T14:38:47Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3319,7 +3698,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:13Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "5a5332275fa866075cfa41c44b2bb997d121ef68939f6fe401ece01158a7946f",
+        "nativeParent": 2061,
+        "blockedBy": [2080],
+        "blocking": [2092],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2088#issuecomment-5527413510",
+          "createdAt": "2026-09-03T14:38:47Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3385,7 +3781,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "63087ce76600ea7d3b4785b516d8fc5dad03042f6f58f48ca820a2fa4fc90dce",
+        "nativeParent": 2062,
+        "blockedBy": [2080],
+        "blocking": [2101],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2089#issuecomment-5527413559",
+          "createdAt": "2026-09-03T14:38:47Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3462,7 +3875,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:13Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "a7303e06550bdefcbb127b3f78238e2d03e07738ab54404986556bd144dedf6f",
+        "nativeParent": 2073,
+        "blockedBy": [2080],
+        "blocking": [2111, 2106],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2090#issuecomment-5527413823",
+          "createdAt": "2026-09-03T14:38:49Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3576,7 +4006,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:13Z",
+        "updatedAt": "2026-09-03T14:40:13Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "f100b9b5c358e003d197bbc3e856b35c6926bb727bf7e973edeba43ec658c45c",
+        "nativeParent": 2069,
+        "blockedBy": [2536, 2050],
+        "blocking": [2116, 2107],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2091#issuecomment-5462379140",
+          "createdAt": "2026-08-29T12:19:14Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3660,7 +4107,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "80577005aea2fb84d0012d6fdba388c3f0dc239b2a963b70dd68ab5e6a18000d",
+        "nativeParent": 2061,
+        "blockedBy": [2088],
+        "blocking": [2125, 2124, 2123, 2122, 2121, 2100],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2092#issuecomment-5527413872",
+          "createdAt": "2026-09-03T14:38:49Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3695,12 +4159,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ALREADY_RESOLVED",
       "candidateDisposition": "ALREADY_RESOLVED",
       "externalLifecycleReason": null,
       "targetTask": null,
-      "holdReason": "security-sensitive Issue record says its own subject was absent/not started while PR #2235 shipped only 11/12 criteria; explicit owner disposition is required",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Owner-approved delivery reconciliation: PR #2235 delivered at 3cea3b8b5d573cdde207e132c615057a039accc4; residual CLI proof remains issue #2225.",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3716,6 +4180,19 @@
             "createdAt": "2026-08-25T18:39:29Z"
           }
         ]
+      },
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "COMPLETED",
+        "closedAt": "2026-09-03T14:40:15Z",
+        "updatedAt": "2026-09-03T14:40:15Z",
+        "labels": ["bug", "priority:P1"],
+        "bodySha256": "20c05e7ed6c2771f47e00615d7b78ba03007bf17a221bd81d5140044c973c685",
+        "reconciliationComment": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2093#issuecomment-5527416428",
+          "createdAt": "2026-09-03T14:39:01Z"
+        }
       }
     },
     {
@@ -3788,7 +4265,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:54Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "ea5eeed03ac7b3f4453d6d985cce8d62d4fa7fc08895ee4d91e146c2d8e9db38",
+        "nativeParent": 2066,
+        "blockedBy": [1987, 2082],
+        "blocking": [2100],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2094#issuecomment-5527413908",
+          "createdAt": "2026-09-03T14:38:49Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3849,7 +4343,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:55Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "da520c8ef57d348805a9b59456ad35e12ac03c13e761f97a053c035e7b0572da",
+        "nativeParent": 2066,
+        "blockedBy": [2082],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2095#issuecomment-5527413959",
+          "createdAt": "2026-09-03T14:38:49Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3909,7 +4420,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "5d6424639aecc4e2ef28fa2a320235701ddbdb4ab0d7f91d46294493f249569c",
+        "nativeParent": 2067,
+        "blockedBy": [2081],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2098#issuecomment-5527414002",
+          "createdAt": "2026-09-03T14:38:50Z"
+        }
+      }
     },
     {
       "issue": {
@@ -3969,7 +4497,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "b8e41f28fc0c8f076a2e612828029fe37d543d075ee54502596046f056368197",
+        "nativeParent": 2075,
+        "blockedBy": [2083],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2099#issuecomment-5527414044",
+          "createdAt": "2026-09-03T14:38:50Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4033,7 +4578,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:08Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "36ca0b8bc1ce430333cdeb51617db0ab26d823e27a260c9361c5dc65531ad88d",
+        "nativeParent": 2061,
+        "blockedBy": [2094, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2100#issuecomment-5527414090",
+          "createdAt": "2026-09-03T14:38:50Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4092,7 +4654,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "0332f1bb2469fedc64c66257af33142701746a5b93bd752504c99509428b1b5d",
+        "nativeParent": 2062,
+        "blockedBy": [2089],
+        "blocking": [2114],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2101#issuecomment-5527414138",
+          "createdAt": "2026-09-03T14:38:50Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4206,7 +4785,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "b9cb01b7db84bde3fd3c7505d4d7824b343de6aec8609bd2fac372710be1cf6b",
+        "nativeParent": 2074,
+        "blockedBy": [],
+        "blocking": [2128],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2103#issuecomment-5527414177",
+          "createdAt": "2026-09-03T14:38:51Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4326,7 +4922,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "9961a6d301bc2fac3073ffe016d7cac319df96ae023e1248b9fef758474a15c9",
+        "nativeParent": 2071,
+        "blockedBy": [2086],
+        "blocking": [2119],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2105#issuecomment-5527414220",
+          "createdAt": "2026-09-03T14:38:51Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4385,7 +4998,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "d6d4004b8add7872a85dea205010168130c5606287ab930092a40c629b5b10c6",
+        "nativeParent": 2073,
+        "blockedBy": [2090],
+        "blocking": [2126],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2106#issuecomment-5527414255",
+          "createdAt": "2026-09-03T14:38:51Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4461,7 +5091,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:11Z",
+        "updatedAt": "2026-09-03T14:42:56Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "8ea94189896b07dca1cec7cf6847f9f6df5d81e36f9cd0199c7bb5b063f016ec",
+        "nativeParent": 2069,
+        "blockedBy": [2530, 2091],
+        "blocking": [2531, 2117],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2107#issuecomment-5527414295",
+          "createdAt": "2026-09-03T14:38:51Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4514,7 +5161,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "50500216aa56a5829f96b5c7dc42c440a7ef722e41268be94e4f1836c74b8e3e",
+        "nativeParent": 2062,
+        "blockedBy": [2101],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2114#issuecomment-5527414653",
+          "createdAt": "2026-09-03T14:38:53Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4633,7 +5297,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "2f082862ab0537fba0682f472fd1ddc04b157a794a2390a6fbb4c03801d3cab7",
+        "nativeParent": 2069,
+        "blockedBy": [2091],
+        "blocking": [2117],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2116#issuecomment-5527414759",
+          "createdAt": "2026-09-03T14:38:53Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4696,7 +5377,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:58Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "d1c171379ed83e56295076230e90a18ae0f01a84aaa74f994505b410c0a9b0e5",
+        "nativeParent": 2069,
+        "blockedBy": [2054, 2116, 2107],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2117#issuecomment-5527414834",
+          "createdAt": "2026-09-03T14:38:54Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4836,7 +5534,24 @@
           }
         ]
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "6000d536291c48da7b5af377552840a58ccca188d89163fabb579cb1455e829c",
+        "nativeParent": 2071,
+        "blockedBy": [2105],
+        "blocking": [2120],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2119#issuecomment-5527414898",
+          "createdAt": "2026-09-03T14:38:54Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4894,7 +5609,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "01a59183347b32ad6538d7b3220fcdc5890a7be4e137ee7b37ec461572955fdf",
+        "nativeParent": 2071,
+        "blockedBy": [2043, 2119],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2120#issuecomment-5527414959",
+          "createdAt": "2026-09-03T14:38:55Z"
+        }
+      }
     },
     {
       "issue": {
@@ -4958,7 +5690,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "b277b4b09738750cd225bad309033fa75d040b9be5943a3332e1080498553fdd",
+        "nativeParent": 2072,
+        "blockedBy": [2108, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2121#issuecomment-5527415037",
+          "createdAt": "2026-09-03T14:38:55Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5022,7 +5771,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:07Z",
+        "updatedAt": "2026-09-03T14:42:57Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "35905e869b8c906180733ac597cd2551f65c09c1b3067f37653990de067da5d6",
+        "nativeParent": 2072,
+        "blockedBy": [2108, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2122#issuecomment-5527415122",
+          "createdAt": "2026-09-03T14:38:55Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5086,7 +5852,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:42:58Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "f864a637f3f113bbfdd8a3a14d28c55066cf53d51e8f340ff4730204c314478b",
+        "nativeParent": 2072,
+        "blockedBy": [2108, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2123#issuecomment-5527415228",
+          "createdAt": "2026-09-03T14:38:56Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5150,7 +5933,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "118f18c8308c0007acb7076128ec8533e9e17d206c262b6ff93c40cb4a67f422",
+        "nativeParent": 2072,
+        "blockedBy": [2108, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2124#issuecomment-5527415313",
+          "createdAt": "2026-09-03T14:38:56Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5214,7 +6014,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "abdc845424c42ac6932799346c807999acb09ccda937900b26cc0f96f9cc363b",
+        "nativeParent": 2072,
+        "blockedBy": [2108, 2092],
+        "blocking": [2129],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2125#issuecomment-5527415399",
+          "createdAt": "2026-09-03T14:38:56Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5278,7 +6095,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "776e037327f2b40a993e5e34efeb6b21a71fff15af610a746ce913ae30df8d1d",
+        "nativeParent": 2073,
+        "blockedBy": [2111, 2106],
+        "blocking": [2127],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2126#issuecomment-5527415457",
+          "createdAt": "2026-09-03T14:38:57Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5331,7 +6165,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "50cc9bf8564cfbfcd34c527d1ec1c8dba8cd4cd71e14b6dc8b194dc3f2151902",
+        "nativeParent": 2073,
+        "blockedBy": [2126],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2127#issuecomment-5527415543",
+          "createdAt": "2026-09-03T14:38:57Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5399,7 +6250,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:04Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "8a18e4217e9cbb7da41a6847ba5a8bfd7600162985f54ba3b87c981d71fbb9ee",
+        "nativeParent": 2074,
+        "blockedBy": [2052, 2050, 2103, 2087],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2128#issuecomment-5527415807",
+          "createdAt": "2026-09-03T14:38:58Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5477,7 +6345,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["bug"],
+        "assignees": [],
+        "bodySha256": "c217a759a2001a3b5efb4c894a113c5520a066e4d5ccdf7b4d575fd85d7e2a0e",
+        "nativeParent": 2061,
+        "blockedBy": [2125, 2124, 2123, 2122, 2121, 2100],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2129#issuecomment-5527415870",
+          "createdAt": "2026-09-03T14:38:58Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5546,7 +6431,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:13Z",
+        "labels": ["bug", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "5ab9b7e88c902f9f7400a7394b2d203b698fda813c69a87085ada7e1409ecf9e",
+        "nativeParent": 2512,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -5599,12 +6495,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
-      "candidateDisposition": "RETAIN",
+      "disposition": "ALREADY_RESOLVED",
+      "candidateDisposition": "ALREADY_RESOLVED",
       "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
       "targetTask": null,
-      "holdReason": "forced OWNER_REVIEW until PROC-017 terminalizes; active converted Task marker exists",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Already CLOSED/COMPLETED before the final wave; verified byte-identical and intentionally not mutated.",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5650,6 +6546,14 @@
             "createdAt": "2026-08-29T22:12:00Z"
           }
         ]
+      },
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "COMPLETED",
+        "closedAt": "2026-08-29T23:07:25Z",
+        "updatedAt": "2026-08-29T23:07:25Z",
+        "labels": ["enhancement"],
+        "bodySha256": "8b5dfe0ddcef88b75bcef80593a2a4785f858e21347f2ad3bc1f085b0f4e589a"
       }
     },
     {
@@ -5694,7 +6598,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:14Z",
+        "labels": ["enhancement", "priority:P0"],
+        "assignees": [],
+        "bodySha256": "31e50701c828dc5e07602ca44e231541379467b6292620d0e9e2b0a3422e0d8e",
+        "nativeParent": 2512,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -5738,7 +6653,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:14Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "d7664724243549320348b65c50c603ddaae4925bae372020be6ab1405883adee",
+        "nativeParent": 2512,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -5782,7 +6708,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:16Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "54a1851d88f24c7d2b5f42064651f56f89dfb62d3351679e1b23087487d57daa",
+        "nativeParent": 2512,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -5829,7 +6766,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "9393ca070e4edff91983772f99f6b7817d07ce721d00893eff10b7eed6b8607e",
+        "nativeParent": 2512,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2518#issuecomment-5527415944",
+          "createdAt": "2026-09-03T14:38:59Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5882,7 +6836,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:42:59Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "baf3c7eab5aec674560e947c636c93ed2e81fb582187bb31725846f486815d42",
+        "nativeParent": 1985,
+        "blockedBy": [],
+        "blocking": [2532],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2519#issuecomment-5527415991",
+          "createdAt": "2026-09-03T14:38:59Z"
+        }
+      }
     },
     {
       "issue": {
@@ -5932,7 +6903,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:16Z",
+        "labels": ["enhancement", "priority:P0"],
+        "assignees": [],
+        "bodySha256": "b567b8dbefbf580463a3b97f85a69a4794459961607b9d2b35d1fe1492a20529",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -5985,7 +6967,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "746f7cc3b30c93a34815d16f4369f98f5b1e337a44e71def0b4014c5b1f05501",
+        "nativeParent": 1985,
+        "blockedBy": [],
+        "blocking": [2532],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2521#issuecomment-5527416049",
+          "createdAt": "2026-09-03T14:38:59Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6029,7 +7028,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:17Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "7112d70fcf1e1677bf2319eea0c97ad0e1f06b35746b664e20dd9eaba382872f",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -6076,7 +7086,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "480d40cf47a8f08e6445542c368364a53ca4bd299567853764d79857397cf252",
+        "nativeParent": 1985,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2523#issuecomment-5527416098",
+          "createdAt": "2026-09-03T14:39:00Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6123,7 +7150,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "29e90c4d540777cbfb906421b8532adaeabcda4942d2f965e8f8aacc90f74885",
+        "nativeParent": 1985,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2524#issuecomment-5527416156",
+          "createdAt": "2026-09-03T14:39:00Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6167,7 +7211,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:17Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "f171ebfa7b69d5750e3ec338048fd6835ba3a85ca4f3f9a0abbf5988fc8fac3a",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -6211,7 +7266,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:18Z",
+        "labels": ["enhancement", "priority:P1"],
+        "assignees": [],
+        "bodySha256": "61a5df9fb9533fe59e3d4f0fc46660970b054660d4b587af36955d271c47c137",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -6255,7 +7321,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:19Z",
+        "labels": ["enhancement", "priority:P2"],
+        "assignees": [],
+        "bodySha256": "84ff129a4475e0c34ce6a159d282e5d58e78c8469f62b7b3e02a6bfd5096f1dd",
+        "nativeParent": 1985,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -6311,7 +7388,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "901bcc034d593b48e8d6a38bed6ca798c3a59312a6ced412fcc31be3cb95203d",
+        "nativeParent": 1985,
+        "blockedBy": [],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2528#issuecomment-5527416202",
+          "createdAt": "2026-09-03T14:39:00Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6364,7 +7458,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:13Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "909a77b76777786d0c80064893a00d1fc506ad95807addde0ec9e3c254e6a8c1",
+        "nativeParent": 1986,
+        "blockedBy": [],
+        "blocking": [2107],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2530#issuecomment-5527416259",
+          "createdAt": "2026-09-03T14:39:00Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6428,7 +7539,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:09Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "62a0a16b606a59896f2406b77448edbf55a5aef4e10f96acee455ae348f7b6e3",
+        "nativeParent": 1986,
+        "blockedBy": [2107],
+        "blocking": [2533, 2532],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2531#issuecomment-5527416305",
+          "createdAt": "2026-09-03T14:39:01Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6496,7 +7624,24 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": true
+      "mutationAuthorized": true,
+      "after": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED",
+        "closedAt": "2026-09-03T14:40:06Z",
+        "updatedAt": "2026-09-03T14:43:01Z",
+        "labels": ["enhancement"],
+        "assignees": [],
+        "bodySha256": "21aa9c91b5b770e523c1cd481562cbcd2a08131ae59ad79f8d29164dd39ef981",
+        "nativeParent": 1986,
+        "blockedBy": [2521, 2520, 2519, 2531],
+        "blocking": [],
+        "taskMarker": {
+          "author": "woojubb",
+          "url": "https://github.com/woojubb/robota/issues/2532#issuecomment-5527416361",
+          "createdAt": "2026-09-03T14:39:01Z"
+        }
+      }
     },
     {
       "issue": {
@@ -6552,7 +7697,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:19Z",
+        "labels": ["enhancement", "priority:P2"],
+        "assignees": [],
+        "bodySha256": "d58a644af25120e22a7abe10758ecc4eb297fbc22ecafa4e53c027cfd9dc7f75",
+        "nativeParent": 1986,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     },
     {
       "issue": {
@@ -6602,7 +7758,18 @@
         "commentCount": 0,
         "comments": []
       },
-      "mutationAuthorized": false
+      "mutationAuthorized": false,
+      "after": {
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-09-03T14:39:20Z",
+        "labels": ["enhancement", "priority:P2"],
+        "assignees": [],
+        "bodySha256": "c2f31b2006fc0d1ab5f8fc95f13630ed411ada52fec515a886c3934a0ef74390",
+        "nativeParent": 1986,
+        "lifecycleSectionCount": 1,
+        "reviewerReceiptCount": 1
+      }
     }
   ]
 }

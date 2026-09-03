@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2524
 status: todo
 created: 2026-09-03
 priority: medium
-urgency: later
+urgency: soon
 area: MCP background execution
 depends_on: [MCP-002, MCP-003]
 ---

@@ -20,10 +20,10 @@ Checkpoint: implementation starts only after this Task and its paired spec are a
 
 ## Plan
 
-- [ ] TC-01 — Promote the eleven P2 sources and make their Task urgency `soon`.
-- [ ] TC-02 — Finalize and close all 48 ABSORB rows while preserving bodies and relations.
-- [ ] TC-03 — Record and preserve all twenty RETAIN external lifecycles.
-- [ ] TC-04 — Update four parent maps, reopen three parents, and complete issue #2093 reconciliation.
+- [x] TC-01 — Promote the eleven P2 sources and make their Task urgency `soon`.
+- [x] TC-02 — Finalize and close all 48 ABSORB rows while preserving bodies and relations.
+- [x] TC-03 — Record and preserve all twenty RETAIN external lifecycles.
+- [x] TC-04 — Update four parent maps, reopen three parents, and complete issue #2093 reconciliation.
 - [ ] TC-05 — Re-snapshot once, reconcile the manifest and `/tmp` plan, and run the large final verification.
 
 ## Test Plan
@@ -31,6 +31,12 @@ Checkpoint: implementation starts only after this Task and its paired spec are a
 - Compare exact before/after JSON snapshots for all authorized IDs and parent relationships.
 - Assert marker authors, bodies, labels, states/reasons, assignees, and map row counts locally.
 - Run the issue-triage audit and one full affected repository verification on the final tree.
+
+## Execution Evidence
+
+- `/tmp/robota-issue-bulk-verification-final.json`: 511/511 PASS and 273→227 OPEN Issues.
+- `.agents/evidence/RULE-023-child-issue-migration-manifest.json`: final 56 ABSORB / 20 RETAIN / 2 ALREADY_RESOLVED / 0 OWNER_REVIEW accounting and exact receipt metadata.
+- `/tmp/robota-issue-child-consolidation-plan.md`: complete before/after paths, query population, mutation order, recovery, and final reconciliation.
 
 ## User Execution Test Scenarios
 

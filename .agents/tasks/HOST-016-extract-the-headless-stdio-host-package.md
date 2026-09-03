@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2087
 status: todo
 created: 2026-09-03
 priority: medium
-urgency: later
+urgency: soon
 area: headless stdio host
 depends_on: []
 ---

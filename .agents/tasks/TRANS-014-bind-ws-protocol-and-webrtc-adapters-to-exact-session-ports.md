@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2116
 status: todo
 created: 2026-09-03
 priority: medium
-urgency: later
+urgency: soon
 area: WebSocket, protocol, and WebRTC transports
 depends_on: [TRANS-011]
 ---

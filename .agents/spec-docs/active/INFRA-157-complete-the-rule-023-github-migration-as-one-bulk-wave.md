@@ -64,10 +64,10 @@ Checkpoint intent: this paired Task/spec is activated atomically before any Task
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: exactly eleven named P2 rows become P1 before conversion and their exact Tasks record `urgency: soon`.
-- [ ] TC-02: Observable: 48 exact `woojubb` Task markers are readable, their Issues preserve byte-identical bodies/assignees/relations, have no priority label, and are `CLOSED/NOT_PLANNED`.
-- [ ] TC-03: Observable: all twenty RETAIN Issues remain OPEN and contain their substantive lifecycle reason plus exact `Semantic review: @woojubb on 2026-09-03 — RETAIN` receipt exactly once.
-- [ ] TC-04: Observable: four complete canonical parent maps are readable, issues #1985, #1986, and #2512 are OPEN, and issue #2093 contains the delivery reconciliation and is `CLOSED/COMPLETED`.
+- [x] TC-01: Observable: exactly eleven named P2 rows become P1 before conversion and their exact Tasks record `urgency: soon`.
+- [x] TC-02: Observable: 48 exact `woojubb` Task markers are readable, their Issues preserve byte-identical bodies/assignees/relations, have no priority label, and are `CLOSED/NOT_PLANNED`.
+- [x] TC-03: Observable: all twenty RETAIN Issues remain OPEN and contain their substantive lifecycle reason plus exact `Semantic review: @woojubb on 2026-09-03 — RETAIN` receipt exactly once.
+- [x] TC-04: Observable: four complete canonical parent maps are readable, issues #1985, #1986, and #2512 are OPEN, and issue #2093 contains the delivery reconciliation and is `CLOSED/COMPLETED`.
 - [ ] TC-05: Command: the before/after `/tmp` audit, exact manifest assertions, issue-triage audit, planning/lifecycle/reference scans, and final large repository verification all exit zero or report no unexplained mutation.
 
 ## Test Plan
@@ -91,6 +91,13 @@ Not applicable.
 ## Tasks
 
 Paired execution record: `.agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md`.
+
+## Execution Evidence
+
+- Actor preflight: `GH_CONFIG_DIR=/Users/jungyoun/.config/gh-woojubb gh api user --jq .login` returned `woojubb`.
+- Complete snapshots and operation logs are named in `/tmp/robota-issue-child-consolidation-plan.md` section 15 and in the durable RULE-023 manifest.
+- `/tmp/robota-issue-bulk-verification-final.json` records 511/511 PASS, 273→227 OPEN Issues, 48 exact marker comments, 20 RETAIN sections, zero missing native child, and zero unexplained Issue/comment mutation.
+- The live triage audit examined 227 OPEN Issues and reported `native-child-retained: 20`, `native-child-missing: 0`; its global nonzero result is isolated to 18 broader queue-shape rows outside the migration result.
 
 ## Evidence Log
 
