@@ -68,6 +68,62 @@ describe('memory-mirror-reminder', () => {
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
   });
+
+  // Issue #2271: the documented way to edit files in this repository is Bash, and a heredoc, `tee`,
+  // `cp` or `sed -i` carries no `file_path` — six durable lessons sat unmirrored because every one
+  // was written that way. Signal: the PostToolUse payload's `tool_input.command`, sent by the tool
+  // host on every Bash call, under the `Bash` matcher added beside the Write/Edit one.
+  it('reminds on a Bash heredoc redirected into host memory', () => {
+    const verdict = run('memory-mirror-reminder.sh', {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: {
+          command: "cat > ~/.claude/projects/p/memory/lesson.md <<'EOF'\n# lesson\nEOF",
+        },
+      }),
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toContain('/.claude/projects/p/memory/lesson.md');
+  });
+
+  it('reminds on a Bash cp whose quoted target is host memory', () => {
+    const verdict = run('memory-mirror-reminder.sh', {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'cp notes.md "$HOME/.claude/memory/notes.md"' },
+      }),
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toContain('/.claude/memory/notes.md');
+  });
+
+  it('stays silent on a Bash READ of host memory', () => {
+    // A reminder that fires on `cat` is one everybody learns to ignore — same reason as the in-repo
+    // case above.
+    const verdict = run('memory-mirror-reminder.sh', {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'cat ~/.claude/memory/thing.md' },
+      }),
+    });
+
+    expect(verdict.status).toBe(0);
+    expect(verdict.output.trim()).toBe('');
+  });
+
+  it('stays silent on a Bash write INTO the in-repo memory', () => {
+    const verdict = run('memory-mirror-reminder.sh', {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: "tee .agents/memory/thing.md <<'EOF'\nfact\nEOF" },
+      }),
+    });
+
+    expect(verdict.status).toBe(0);
+    expect(verdict.output.trim()).toBe('');
+  });
 });
 
 describe('post-tool-format', () => {
