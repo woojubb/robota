@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-009: coordinate the kind-safe background-task migration'
 issue: https://github.com/woojubb/robota/issues/2062
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -32,6 +32,7 @@ Coordinate background task requests, runners, persisted state, and command views
 
 ## Test Plan
 
+- Execute the administrative migration as one bounded batch and reconcile it once after all authorized writes.
 - Validate the complete parent/child projection and exact source Issue URL for every Task.
 - Compare frozen and post-write marker, label, state, body-prefix, hierarchy, dependency, and assignee fields once for the whole group.
 - Run affected repository scans after the complete group evidence update.
