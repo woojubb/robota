@@ -18,8 +18,9 @@
  *               query and fragment never participate; only special schemes are comparable.
  * - `path`    — separators normalised, both sides lexically normalised; `*` stays inside one
  *               segment, `**` crosses.
- * - `command` — today's shell-style glob (`*` any run of characters). The separator residual
- *               (`Bash(git *)` matching `git status; rm -rf /`) is issue #2427.
+ * - `command` — a shell-style glob (`*` any run of characters) over ONE command: an argument that
+ *               carries a separator (`;` `&` `|` newline) or a substitution (`$(` backtick `<(`
+ *               `>(`) outside single quotes is not a command the pattern names (issue #2427).
  * - `text`    — today's glob, for arguments that are neither (a search query, a glob pattern).
  *
  * A bare `*` or `**` argument pattern matches ANY invocation of the tool, for every kind and for a
@@ -42,7 +43,8 @@ export type TPatternMatch = 'match' | 'no-match' | 'unevaluable';
 const REGEX_SPECIALS = /[.+^${}()|[\]\\]/g;
 
 /**
- * Convert a glob-style wildcard pattern to a RegExp — the `command` and `text` matcher.
+ * Convert a glob-style wildcard pattern to a RegExp — the `text` matcher, and the first half of
+ * the `command` one.
  * Only `*` and `**` wildcards are supported (same semantics as minimatch lite).
  */
 export function globToRegex(glob: string): RegExp {
@@ -51,6 +53,61 @@ export function globToRegex(glob: string): RegExp {
     .replace(/\*\*/g, '.+') // ** → one-or-more any char
     .replace(/\*/g, '.*'); // * → zero-or-more any char (shell-style, not path-segment restricted)
   return new RegExp(`^${escaped}$`);
+}
+
+/**
+ * Does the command line carry a second command? A separator (`;`, `&`, `&&`, `|`, `||`, newline)
+ * outside quotes, or a substitution (`$(`, backtick, `<(`, `>(`) outside SINGLE quotes — double
+ * quotes do not stop the shell from running what is inside `"$(…)"`. A backslash outside single
+ * quotes escapes the next character. `Bash(git *)` then does not match `git status; rm -rf /`.
+ *
+ * The anti-goal (issue #2427): refusal comes from RECOGNISING a separator, not from escaping more
+ * characters in the glob — `*` in a pattern still stands for any run of characters, so the
+ * pattern's author keeps writing `git *` and the gate keeps `git commit -m "a; b"` matchable.
+ */
+export function hasUnquotedCommandSeparator(command: string): boolean {
+  let quote: "'" | '"' | undefined;
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]!;
+    if (quote === "'") {
+      if (char === "'") quote = undefined;
+      continue;
+    }
+    if (char === '\\') {
+      index += 1;
+      continue;
+    }
+    const next = command[index + 1];
+    if (char === '`' || (char === '$' && next === '(')) return true;
+    if (quote === '"') {
+      if (char === '"') quote = undefined;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === ';' || char === '|' || char === '\n') return true;
+    if ((char === '<' || char === '>') && next === '(') return true;
+    // `2>&1`, `<&0` and `&>log` are redirections, not a second command.
+    if (char === '&') {
+      const previous = command[index - 1];
+      if (previous !== '>' && previous !== '<' && next !== '>') return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The `command` matcher: the glob decides whether the pattern names this command; a separator or
+ * substitution outside quotes decides that it is not ONE command. A pattern without a wildcard is
+ * the exact line and matches it — an operator who allowed `git status && git push` verbatim wrote
+ * the whole line, and only the whole line is allowed.
+ */
+export function matchCommand(pattern: string, argument: string): TPatternMatch {
+  if (!globToRegex(pattern).test(argument)) return 'no-match';
+  if (!pattern.includes('*')) return 'match';
+  return hasUnquotedCommandSeparator(argument) ? 'no-match' : 'match';
 }
 
 /**

@@ -14,7 +14,7 @@
  * - `ToolName`      — match any invocation of that tool
  */
 
-import { globToRegex, matchPath, matchUrl } from './argument-matchers.js';
+import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 
 import type { TArgumentKind, TPatternMatch } from './argument-matchers.js';
@@ -209,6 +209,7 @@ function evaluateArgumentPattern(
     case 'path':
       return matchPath(parsed.argPattern, primary);
     case 'command':
+      return matchCommand(parsed.argPattern, primary);
     case 'text':
       return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
     default: {
