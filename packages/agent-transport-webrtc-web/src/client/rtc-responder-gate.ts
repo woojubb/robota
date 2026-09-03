@@ -28,6 +28,8 @@ import {
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
 
+import { decodeServerMessage } from '@robota-sdk/agent-transport-protocol';
+
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
 
 /** The minimal data-channel surface the gate drives (a native `RTCDataChannel` satisfies it). */
@@ -116,7 +118,14 @@ export class ResponderGate {
       return;
     }
     if (this.state === 'accepted') {
-      this.options.onMessage(parsed as TServerMessage);
+      // Issue #2045: post-accept frames go through the protocol owner's decoder; an invalid shape is
+      // surfaced as the protocol's own client error rather than cast into `TServerMessage`.
+      const decoded = decodeServerMessage(parsed);
+      this.options.onMessage(
+        decoded.ok
+          ? decoded.message
+          : { type: 'protocol_error', message: `Malformed message from host (${decoded.reason})` },
+      );
       return;
     }
     if (this.state === 'pairing') {

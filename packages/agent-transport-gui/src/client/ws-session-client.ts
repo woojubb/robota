@@ -3,6 +3,8 @@
  * Wraps the native WebSocket API with typed agent-transport-ws messages.
  */
 
+import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport-protocol';
+
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
 
 export type { TServerMessage, TClientMessage };
@@ -61,19 +63,18 @@ export function createWsSessionClient(
     ws.onmessage = (event: MessageEvent): void => {
       const data = event.data;
       if (typeof data !== 'string') return;
-      let msg: TServerMessage;
-      try {
-        msg = JSON.parse(data) as TServerMessage;
-      } catch {
-        // A malformed frame must not throw inside the handler (it would break the
-        // socket's message pump and freeze the UI). Surface it via the normal path.
+      // Issue #2045: `raw → owner decoder → typed`. A malformed frame (invalid JSON or an invalid
+      // shape) must not throw inside the handler (it would break the socket's message pump and
+      // freeze the UI) and must not be cast onward; surface it via the normal path.
+      const decoded = decodeFrame(data, decodeServerMessage);
+      if (!decoded.ok) {
         callbacks.onMessage({
           type: 'protocol_error',
-          message: 'Malformed message from server (invalid JSON)',
+          message: `Malformed message from server (${decoded.reason})`,
         });
         return;
       }
-      callbacks.onMessage(msg);
+      callbacks.onMessage(decoded.message);
     };
 
     ws.onclose = (): void => {

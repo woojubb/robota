@@ -15,6 +15,14 @@ export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
 export type { TProtocolSessionEventClassification } from './ws-session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type { TClientMessage, TServerMessage, TSeqServerMessage } from './ws-protocol.js';
+// Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
+export {
+  MAX_INBOUND_FRAME_BYTES,
+  decodeClientMessage,
+  decodeFrame,
+  decodeServerMessage,
+} from './message-decoders.js';
+export type { TMessageDecodeResult } from './message-decoders.js';
 export { ResumeBuffer } from './resume-buffer.js';
 export type { IResumeBufferOptions, IBufferedFrame, TResumeTail } from './resume-buffer.js';
 // TRANS-001 — payload-agnostic channel frame codec (transport-neutral, body-opaque).
