@@ -27,11 +27,10 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * How many review artifacts the last walk actually READ.
  *
  * A module-level holder rather than a widened return: the finder's shape is asserted by its own
- * cases (HARNESS-057).
- *
- * Contained — HARNESS-087. This scan currently increments per assertion rather than per unique
- * artifact and does not reset between collection calls. Issue #2325 owns the exact-count and
- * second-run migration; callers must not treat this number as an exact artifact population yet.
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number, and counted per DISTINCT file rather than per assertion: the first
+ * version added one per `must()` and reported 9 artifacts for 3 files read, 18 on the second call
+ * (HARNESS-087, issue #2325).
  */
 let examinedCount = 0;
 
@@ -45,13 +44,18 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const verifier = path.join(root, '.claude/agents/merge-verifier.md');
 
   const findings = [];
+  const examined = new Set();
+  examinedCount = 0;
 
   function must(file, label, re, why) {
     if (!existsSync(file)) {
       findings.push(`${label}: file missing (${path.relative(root, file)})`);
       return;
     }
-    examinedCount += 1;
+    if (!examined.has(file)) {
+      examined.add(file);
+      examinedCount = examined.size;
+    }
     if (!re.test(readFileSync(file, 'utf8'))) {
       findings.push(`${label}: ${why}`);
     }

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
-import { collectReviewFindingsFindings } from '../scan-review-findings.mjs';
+import { collectReviewFindingsFindings, readExamined } from '../scan-review-findings.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-review-findings.mjs', import.meta.url));
 
@@ -62,6 +62,27 @@ describe('collectReviewFindingsFindings', () => {
   it('passes when both pipeline contracts are declared', async () => {
     const root = await createFixture();
     expect(collectReviewFindingsFindings(root)).toEqual([]);
+  });
+
+  it('reports exactly the artifacts it read, and the same number on a second walk (#2325)', async () => {
+    // Three files are read; several assertions run against each. The population is the files, not
+    // the assertions — 3, not 9 — and a second walk must report 3 again, not 6: the count is reset
+    // at the walk boundary rather than accumulated across calls.
+    const root = await createFixture();
+    collectReviewFindingsFindings(root);
+    expect(readExamined()).toBe(3);
+    collectReviewFindingsFindings(root);
+    expect(readExamined()).toBe(3);
+  });
+
+  it('counts a missing artifact as unread, and forgets the previous walk (#2325)', async () => {
+    const full = await createFixture();
+    collectReviewFindingsFindings(full);
+    expect(readExamined()).toBe(3);
+
+    const root = await createFixture({ [VERIFIER_PATH]: null });
+    collectReviewFindingsFindings(root);
+    expect(readExamined()).toBe(2);
   });
 
   it('flags a missing reviewer agent file (RED)', async () => {
@@ -240,6 +261,7 @@ describe('scan-review-findings CLI', () => {
   it('exits 0 with a pass message on a green fixture', async () => {
     const { root, scriptCopy } = await createCliFixture();
     const result = runScan(scriptCopy, root);
+    expect(result.stdout).toContain('::examined:: 3 review artifacts');
     expect(result.stdout).toContain('review-findings scan passed.');
     expect(result.status).toBe(0);
   });
