@@ -17,6 +17,7 @@ import {
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
+import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
 import {
@@ -145,6 +146,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   // the gate actually runs — otherwise P3 would be inert. Idempotent: skipped if the user already
   // declared a guardrail hook.
   const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
+
+  // Issue #2245: a declared hook type with no executor would validate and then deny every tool
+  // call (SEC-016). Refuse it here, before any turn, naming the type and the option it needs.
+  assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors);
 
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
     options,

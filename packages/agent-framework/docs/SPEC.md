@@ -439,6 +439,15 @@ deregistered `command` and `http`. A `{ type: 'command' }` hook then did nothing
 command or http hook that was inert under one of those configurations now runs.** The option
 contract that made this possible is issue #2238.
 
+**A declared type with no executor is refused at assembly (issue #2245).** The settings schema
+accepts `prompt`, `agent` and `guardrail` definitions, but their executors exist only when the
+embedder supplies `providerFactory`, `sessionFactory` or `guardrails` — options no settings file can
+express (SELFHOST-005 keeps `guardrail` parseable precisely for an embedder that registers
+guardrails, so the schema is not the place to refuse). `createSession()` therefore runs
+`assertConfiguredHookTypesExecutable` (`src/assembly/hook-type-reachability.ts`) over the resolved
+hooks and the executors it built, and throws before any turn, naming every unrunnable type and the
+option it needs — instead of validating the config and then denying every tool call under SEC-016.
+
 **Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so
 the LAST executor of a given type wins. Built-ins are therefore seeded **first**, so a
 caller-supplied executor of the same type still overrides one. Seeding them last would make the

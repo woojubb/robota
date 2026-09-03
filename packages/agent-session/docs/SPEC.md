@@ -507,9 +507,10 @@ reasons one per attempt is a gate the operator debugs by being repeatedly stoppe
 
 Note the availability consequence, because it is reachable from valid configuration: the config
 schema accepts `prompt`, `agent` and `guardrail` hook types while no product surface supplies the
-factories their executors need, so such a config validates and denies every tool call. Denying is
-deliberate — silently skipping a gate the user wrote is the fail-open SEC-016 closes — but the
-schema accepting an unrunnable type is a defect, filed as issue #2245.
+factories their executors need, so such a config validates and would deny every tool call. Denying is
+deliberate — silently skipping a gate the user wrote is the fail-open SEC-016 closes — and the
+composition root now refuses such a config at assembly, before any turn, naming the type and the
+option it needs (`agent-framework` `createSession()`, issue #2245); this gate remains the floor.
 
 ## Extension Points
 
