@@ -65,7 +65,7 @@ export class HttpExecutor implements IHookTypeExecutor {
       // Read the body as TEXT first. `response.json()` would collapse "the endpoint sent HTML" and
       // "the endpoint sent a verdict" into one throw, and the raw text is what the decoder quotes
       // back — so a misconfigured endpoint is identifiable from the reason alone.
-      return decodeHookVerdict(await response.text(), 'http');
+      return decodeHookVerdict(await response.text(), 'http', input.hook_event_name);
     } catch (err: unknown) {
       return toTransportOutcome(err);
     }

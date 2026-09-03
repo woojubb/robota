@@ -67,7 +67,7 @@ export class AgentExecutor implements IHookTypeExecutor {
       const rawResponse = await session.run(prompt);
       const jsonStr = extractJson(rawResponse);
 
-      return decodeHookVerdict(jsonStr, 'agent');
+      return decodeHookVerdict(jsonStr, 'agent', input.hook_event_name);
     } catch (err: unknown) {
       return {
         outcome: 'error',

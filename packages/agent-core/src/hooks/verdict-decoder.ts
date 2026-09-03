@@ -11,12 +11,13 @@
  * verdict, not a quiet vote for one — UNLESS the same body carries an explicit block directive from
  * the Claude Code response protocol (`continue: false`, `decision: "block"`,
  * `permissionDecision: "deny"`), which is a decision the hook stated outright and which an
- * undecodable `ok` beside it does not retract.
+ * undecodable `ok` beside it does not retract — read with the same per-event scoping `runHooks`
+ * applies (issue #2196), so decoder and runner cannot disagree about when a directive means anything.
  */
 
 import { explicitBlockDirective } from './response-protocol.js';
 
-import type { THookDefinition, THookOutcome } from './types.js';
+import type { THookDefinition, THookEvent, THookOutcome } from './types.js';
 
 /** How much of an undecodable payload to quote back. Enough to identify it, not enough to flood a log. */
 const REASON_EXCERPT_LIMIT = 200;
@@ -39,8 +40,14 @@ function excerpt(raw: string): string {
  *
  * @param raw - The response text as it arrived.
  * @param source - The executor doing the decoding, carried onto the outcome for diagnostics.
+ * @param event - The event the hook answered, which decides WHICH block directives count
+ *   (issue #2196): the decoder scopes them exactly as `runHooks` does.
  */
-export function decodeHookVerdict(raw: string, source: THookDefinition['type']): THookOutcome {
+export function decodeHookVerdict(
+  raw: string,
+  source: THookDefinition['type'],
+  event: THookEvent,
+): THookOutcome {
   let body: unknown;
   try {
     body = JSON.parse(raw) as unknown;
@@ -52,13 +59,14 @@ export function decodeHookVerdict(raw: string, source: THookDefinition['type']):
       reason: `Hook response is not valid JSON (${err instanceof Error ? err.message : String(err)}): ${excerpt(raw)}`,
     };
   }
-  return decodeParsedVerdict(body, source, raw);
+  return decodeParsedVerdict(body, source, event, raw);
 }
 
 /** The decode proper, once the text is known to be JSON. Separated only so each half stays readable. */
 function decodeParsedVerdict(
   body: unknown,
   source: THookDefinition['type'],
+  event: THookEvent,
   raw: string,
 ): THookOutcome {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -89,8 +97,9 @@ function decodeParsedVerdict(
   // `decision: "block"`, `permissionDecision: "deny"`. Those are unambiguous statements the hook
   // made outright, and an endpoint that wrote `{"ok": "false", "continue": false}` plainly meant to
   // block. Discarding that because `ok` was a string would be fail-open in an enforcement gate: the
-  // same class of defect as reading the string as approval, pointed the other way.
-  const directive = explicitBlockDirective(body);
+  // same class of defect as reading the string as approval, pointed the other way. Which of the
+  // three count is the event's call — the same scoping `runHooks` applies (issue #2196).
+  const directive = explicitBlockDirective(body, event);
   if (directive !== null) {
     return { outcome: 'deny', source, reason: directive };
   }

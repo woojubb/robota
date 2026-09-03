@@ -123,13 +123,20 @@ export function parseHookJson(stdout: string): Record<string, unknown> | null {
 }
 
 /**
- * The reason an explicitly-blocking response gives, or `null` when the body requests no block.
+ * The reason an explicitly-blocking response gives, or `null` when the body requests no block ON
+ * THIS EVENT.
  *
  * These three directives are the vocabulary `HOOK-CATALOG.md` names as blocking triggers, and each
  * is a decision the hook stated outright — unlike `ok`, which can be malformed into meaning nothing.
  * A body carrying one has spoken, whatever else in it did not decode.
+ *
+ * Scoped by event exactly as `runHooks` scopes them (issue #2196): `continue: false` blocks on every
+ * event; `decision: "block"` is the `UserPromptSubmit` vocabulary; `permissionDecision: "deny"` is
+ * the `PreToolUse` vocabulary. The decoder used to read all three on any event, so a body like
+ * `{"ok": "maybe", "decision": "block"}` denied a tool call the runner would not have blocked — one
+ * vocabulary, two sets of rules. Now there is one set.
  */
-export function explicitBlockDirective(body: unknown): string | null {
+export function explicitBlockDirective(body: unknown, event: THookEvent): string | null {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
   const record = body as Record<string, unknown>;
 
@@ -138,15 +145,17 @@ export function explicitBlockDirective(body: unknown): string | null {
       ? record['stopReason']
       : 'Blocked by hook (continue: false)';
   }
-  if (record['decision'] === 'block') {
+  if (event === 'UserPromptSubmit' && record['decision'] === 'block') {
     return typeof record['reason'] === 'string' && record['reason']
       ? record['reason']
       : 'Blocked by hook (decision: block)';
   }
-  const specific = record['hookSpecificOutput'];
-  if (typeof specific === 'object' && specific !== null) {
-    if ((specific as Record<string, unknown>)['permissionDecision'] === 'deny') {
-      return 'Blocked by hook (permissionDecision: deny)';
+  if (event === 'PreToolUse') {
+    const specific = record['hookSpecificOutput'];
+    if (typeof specific === 'object' && specific !== null) {
+      if ((specific as Record<string, unknown>)['permissionDecision'] === 'deny') {
+        return 'Blocked by hook (permissionDecision: deny)';
+      }
     }
   }
   return null;

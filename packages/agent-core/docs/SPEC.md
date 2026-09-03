@@ -976,6 +976,9 @@ A `{ ok, reason }` body is decoded by `decodeHookVerdict`: `ok` must be exactly 
 `false`. A body whose `ok` is undecodable is `error` — UNLESS it also carries an explicit block
 directive (`continue: false`, `decision: "block"`, `hookSpecificOutput.permissionDecision: "deny"`),
 which is a decision the hook stated outright and which an undecodable `ok` beside it does not retract.
+The decoder takes the event and scopes those directives exactly as `runHooks` does (issue #2196):
+`continue: false` everywhere, `decision: "block"` on `UserPromptSubmit` only,
+`permissionDecision: "deny"` on `PreToolUse` only — one vocabulary, one set of rules.
 
 `error` is not a third verdict; it is the absence of one. **Whether that blocks is per-event policy,
 and `PreToolUse` fails closed on it (SEC-016)** — see "Per-event enforcement posture" above. Every
