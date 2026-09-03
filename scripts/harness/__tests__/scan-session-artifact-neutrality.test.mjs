@@ -29,7 +29,7 @@ describe('findForbiddenTokens', () => {
     const withDoc = `
       /** This module carries no link, no cloud/upload, and no access-control policy. */
       // not a permissions module
-      export const SESSION_ARTIFACT_SCHEMA_VERSION = 1;
+      export const SESSION_RECORD_ENVELOPE_VERSION = 1;
     `;
     expect(findForbiddenTokens(withDoc)).toEqual([]);
   });

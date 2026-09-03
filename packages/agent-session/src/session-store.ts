@@ -13,7 +13,7 @@ import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-
 
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 import {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
 
@@ -132,7 +132,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
     writeOwnerOnlyFile(
       this.filePath(session.id),
-      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: session }, null, 2),
+      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: session }, null, 2),
     );
   }
 

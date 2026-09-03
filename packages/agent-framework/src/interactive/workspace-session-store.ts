@@ -1,5 +1,5 @@
 import {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   assertSafeSessionId,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
@@ -99,7 +99,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     // TRANS-007: the versioned envelope, the same shape the host store and the share artifact carry.
     this.sessions.writeText(
       `${session.id}.json`,
-      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: session }, null, 2),
+      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: session }, null, 2),
       'persist project session record',
     );
   }

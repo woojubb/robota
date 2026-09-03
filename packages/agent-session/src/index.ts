@@ -97,7 +97,7 @@ export type { ICheckpointNode } from './checkpoint-tree.js';
 // (`scan-interface-runtime`), and a decoder is a mechanism.
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';

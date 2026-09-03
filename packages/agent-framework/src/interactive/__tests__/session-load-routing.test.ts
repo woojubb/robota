@@ -18,7 +18,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SESSION_ARTIFACT_SCHEMA_VERSION } from '@robota-sdk/agent-session';
+import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 
 import { getWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
@@ -179,8 +179,8 @@ describe('TC-10: the project store writes the envelope too', () => {
     const outcome = store.load(SESSION_ID);
     expect(outcome.status).toBe('valid');
     // Round-tripping through this store proves the pair agrees; the shape assertion is what proves
-    // the format. `SESSION_ARTIFACT_SCHEMA_VERSION` is the single constant both stores write.
-    expect(SESSION_ARTIFACT_SCHEMA_VERSION).toBe(1);
+    // the format. `SESSION_RECORD_ENVELOPE_VERSION` is the single constant both stores write.
+    expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(1);
   });
 });
 
