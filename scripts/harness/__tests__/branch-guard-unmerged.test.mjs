@@ -80,8 +80,16 @@ function squashOnto(dir, label) {
  * decision needs. A branch absent from the map has no merged PR. Any query the hook makes other than
  * `--state merged` exits non-zero, so a change in what the hook ASKS FOR shows up as an unread answer
  * rather than a silently different verdict.
+ *
+ * A branch with no merged PR answers `null null` (issue #2173). That is what the real command
+ * prints: `--jq '.[0] | "\(.headRefOid) \(.mergeCommit.oid)"'` on an empty list interpolates two
+ * `null`s. This stub used to print NOTHING for that case — a world `gh` never produces — and both
+ * spellings happened to reach the same verdict only because the comparison of the day did not tell
+ * them apart. The hook now guards `merged_commit != "null"`, which is exactly the branch an empty
+ * stub could never reach. `emptyNoMerge` keeps the empty spelling as one explicit case rather than
+ * the default.
  */
-function stubbedPath(merges, { broken = false, hangs = false } = {}) {
+function stubbedPath(merges, { broken = false, hangs = false, emptyNoMerge = false } = {}) {
   const dir = makeTemp('gh-stub-');
   scratch.push(dir);
   const gh = path.join(dir, 'gh');
@@ -97,8 +105,10 @@ function stubbedPath(merges, { broken = false, hangs = false } = {}) {
       hangs ? 'sleep 120' : '',
       'case "$*" in',
       ...cases,
-      // A branch with no merged PR: the real gh prints nothing and exits 0.
-      '  *"--state merged"*) exit 0 ;;',
+      // A branch with no merged PR: gh + jq print the literal `null null` and exit 0.
+      emptyNoMerge
+        ? '  *"--state merged"*) exit 0 ;;'
+        : '  *"--state merged"*) echo "null null"; exit 0 ;;',
       'esac',
       'exit 1',
     ]
@@ -157,6 +167,31 @@ describe('branch-guard counts only branches that are really still open', () => {
     expect(verdict.status, 'genuinely unmerged work stopped blocking').toBe(2);
     expect(verdict.output).toMatch(/feat\/open/);
     expect(verdict.output, 'a merged branch was named as unmerged').not.toMatch(/- feat\/a /);
+  });
+
+  it("treats gh's `null null` for a branch with no merged PR as unmerged (issue #2173)", () => {
+    // Spelled explicitly, not via the stub default: the literal `null null` is the answer the real
+    // `gh … --jq` gives for an empty list, and it must never be read as a merged head or a merge
+    // commit. Were the hook to compare only `-n "$merged_commit"`, this would go green — the string
+    // `null` is non-empty.
+    const cwd = scratchRepo(['feat/open']);
+    const verdict = judge(cwd, { 'feat/open': 'null null' });
+
+    expect(verdict.status, '`null null` was accepted as a merged PR').toBe(2);
+    expect(verdict.output).toMatch(/feat\/open/);
+    expect(verdict.output, 'a `null null` answer was reported as a query failure').not.toMatch(
+      /merged-PR query failed/,
+    );
+  });
+
+  it('still refuses on genuinely EMPTY output, which is the other spelling of "no merged PR"', () => {
+    // Kept as one explicit case: empty output is not what gh prints for an empty list, but a jq
+    // change (`// empty`, `-e`) could produce it, and the verdict must be the same.
+    const cwd = scratchRepo(['feat/open']);
+    const verdict = judge(cwd, {}, { emptyNoMerge: true });
+
+    expect(verdict.status, 'empty output was accepted as a merged PR').toBe(2);
+    expect(verdict.output).toMatch(/feat\/open/);
   });
 
   it('refuses a branch whose PR merged somewhere other than the integration ref', () => {
