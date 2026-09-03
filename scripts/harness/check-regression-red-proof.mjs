@@ -463,6 +463,46 @@ export function decidePairVerdict({ importsReversedFile, outcome, witness = WITN
   return VERDICT.INCONCLUSIVE;
 }
 
+// ── Pure: run-error visibility + per-file summary (issue #2263) ──────────────────────────────────────
+
+/**
+ * The decisions a run-error DOWNGRADED to inconclusive.
+ *
+ * Issue #2263: on one commit, CI reported a file `inconclusive (run-error)` where the same checker run
+ * locally reported it `red-proof-ok`. A run-error is the right classification (C1: a case that never
+ * ran has not been shown to pass) but it is a PERMISSIVE one — a real accidental-green in that file
+ * goes unreported — and until now the downgrade was one `⚠︎` line among the others, invisible in the
+ * summary. Named here so the count is a first-class output rather than something read off the log.
+ */
+export function runErrorDowngrades(decisions) {
+  return decisions.filter((decision) => decision.outcome === 'run-error');
+}
+
+/**
+ * The per-file verdict table as markdown, for a surface a reader can compare WITHOUT pulling raw
+ * job logs. Issue #2263 found the CI and local runs disagreeing on two files in opposite directions,
+ * and the disagreement was only visible by diffing the two consoles by hand: the check-run's own
+ * summary was empty. The CLI writes this to `GITHUB_STEP_SUMMARY` when it is set.
+ */
+export function renderDecisionSummary({ verdict, decisions }) {
+  const downgraded = runErrorDowngrades(decisions);
+  const rows = decisions.map((decision) => {
+    const subject = decision.source ?? decision.pkg;
+    const detail = decision.outcome ?? decision.reason ?? '';
+    return `| \`${subject}\` | ${decision.verdict} | ${detail} |`;
+  });
+  return [
+    `### regression-red-proof: \`${verdict}\``,
+    '',
+    '| file | verdict | outcome |',
+    '| --- | --- | --- |',
+    ...rows,
+    '',
+    `${downgraded.length} file(s) downgraded to inconclusive by run-error.`,
+    '',
+  ].join('\n');
+}
+
 // ── Pure: relative-import module graph (C3) ─────────────────────────────────────────────────────────
 
 /** Resolve a relative import specifier from an importer file to an on-disk source path, or null. */
@@ -907,7 +947,17 @@ export async function runRegressionRedProof(io = {}) {
     }
   }
 
-  return { verdict: worst, decisions };
+  // Issue #2263 — a silent downgrade is the permissive direction. Say how many files it took, so a
+  // summary reading `inconclusive` can be told apart from one where every pair was actually judged.
+  const downgraded = runErrorDowngrades(decisions);
+  if (downgraded.length > 0) {
+    log(
+      `⚠︎  ${downgraded.length} file(s) downgraded to inconclusive by run-error — a real ` +
+        `accidental-green there would go unreported: ${downgraded.map((d) => d.source ?? d.pkg).join(', ')}`,
+    );
+  }
+
+  return { verdict: worst, decisions, runErrorDowngrades: downgraded.length };
 }
 
 /**
@@ -1044,8 +1094,17 @@ export function exitCodeFor(verdict, enforce) {
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   runRegressionRedProof()
-    .then(({ verdict }) => {
+    .then(({ verdict, decisions }) => {
       const enforce = process.env.REGRESSION_RED_PROOF_ENFORCE === '1';
+      // Issue #2263 — publish the per-file table where the check-run shows it, so a CI verdict and a
+      // local one can be compared file by file without pulling raw job logs.
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        fs.appendFileSync(
+          process.env.GITHUB_STEP_SUMMARY,
+          renderDecisionSummary({ verdict, decisions }),
+          'utf8',
+        );
+      }
       if (verdict === VERDICT.ACCIDENTAL_GREEN) {
         log(
           '\n❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.\n' +

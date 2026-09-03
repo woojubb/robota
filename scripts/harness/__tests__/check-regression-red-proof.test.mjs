@@ -30,8 +30,10 @@ import {
   qualifyingPairs,
   reachableRelativeGraph,
   relativeSpecifiers,
+  renderDecisionSummary,
   resolveRelativeImport,
   reversalBaseFor,
+  runErrorDowngrades,
   runRegressionRedProof,
   testExecutesHook,
 } from '../check-regression-red-proof.mjs';
@@ -1192,5 +1194,58 @@ describe('INFRA-120 (issue #1905): a source ADDED in the range', () => {
     expect(decisions[0].verdict).toBe(VERDICT.NO_EARLIER_STATE);
     // The point of the branch: it must not reverse to the base and read the resulting throws.
     expect(reversed, 'reversing to the absence of the file is what this avoids').toBe(false);
+  });
+});
+
+describe('issue #2263: a run-error downgrade is counted, not silent', () => {
+  const runError = {
+    pkg: 'packages/a',
+    source: 'packages/a/src/x.ts',
+    verdict: VERDICT.INCONCLUSIVE,
+    outcome: 'run-error',
+  };
+  const proven = {
+    pkg: 'packages/b',
+    source: 'packages/b/src/y.ts',
+    verdict: VERDICT.RED_PROOF_OK,
+    outcome: 'assertion-fail',
+  };
+
+  it('runErrorDowngrades names exactly the decisions a run-error turned inconclusive', () => {
+    const dirty = { pkg: 'packages/c', verdict: VERDICT.INCONCLUSIVE, reason: 'dirty-tree' };
+    expect(runErrorDowngrades([runError, proven, dirty]).map((d) => d.source)).toEqual([
+      'packages/a/src/x.ts',
+    ]);
+  });
+
+  it('the orchestrator reports the downgrade count beside the verdict', async () => {
+    const { verdict, runErrorDowngrades: count } = await runRegressionRedProof(
+      baseIo({ runVitest: () => ({ testResults: [] }) }),
+    );
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+    expect(count).toBe(1);
+  });
+
+  it('a judged range reports zero downgrades', async () => {
+    const { runErrorDowngrades: count } = await runRegressionRedProof(
+      baseIo({
+        runVitest: () => ({
+          testResults: [
+            { name: abs('packages/x/src/a.test.ts'), assertionResults: [{ status: 'failed' }] },
+          ],
+        }),
+      }),
+    );
+    expect(count).toBe(0);
+  });
+
+  it('renderDecisionSummary carries every file, its verdict, and the downgrade count', () => {
+    const summary = renderDecisionSummary({
+      verdict: VERDICT.INCONCLUSIVE,
+      decisions: [runError, proven],
+    });
+    expect(summary).toContain('| `packages/a/src/x.ts` | inconclusive | run-error |');
+    expect(summary).toContain('| `packages/b/src/y.ts` | red-proof-ok | assertion-fail |');
+    expect(summary).toContain('1 file(s) downgraded to inconclusive by run-error.');
   });
 });
