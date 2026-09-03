@@ -1082,6 +1082,16 @@ function validLoopRecord(record) {
   );
 }
 
+/** A record `loop-run void` wrote: sealed, `terminal: voided`, and it says why. */
+function voidedLoopRecord(record) {
+  return (
+    validLoopRecord({ ...record, terminal: 'converged' }) &&
+    record.terminal === 'voided' &&
+    typeof record.extensions?.void?.reason === 'string' &&
+    record.extensions.void.reason.trim() !== ''
+  );
+}
+
 function successfulLoopRecord(record) {
   return (
     validLoopRecord(record) && record.terminal === 'converged' && record.roundFindings.at(-1) === 0
@@ -1140,9 +1150,18 @@ function appendedLedgerLines(before, after) {
 function validateLedgerAppend(file, before, after, basename) {
   if (file === POST_MERGE_LEDGER || !isLoopLedgerPath(file)) return false;
   if (file === UES_LEDGER) {
-    const record = appendedRecord(before, after);
+    // Issue #2438: a PLAN run sealed with a malformed `ref` could not be recovered — the gate wants
+    // exactly one bound record, the ledger rule forbids rewriting a sealed one. `loop-run void`
+    // marks such an UNCOMMITTED record `voided` in place; the append may then carry voided records
+    // ahead of the ONE closed record bound to the exact Task, and nothing else.
+    const appended = appendedLedgerLines(before, after);
+    if (appended === null || basename === null) return false;
+    const records = appended.map((line) => JSON.parse(line));
+    const last = records.at(-1);
     return (
-      basename !== null && successfulLoopRecord(record) && exactSubjectRef(record.ref, basename)
+      records.slice(0, -1).every((record) => voidedLoopRecord(record)) &&
+      successfulLoopRecord(last) &&
+      exactSubjectRef(last.ref, basename)
     );
   }
   return appendedLedgerLines(before, after) !== null;

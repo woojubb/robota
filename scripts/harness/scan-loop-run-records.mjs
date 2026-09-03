@@ -184,6 +184,12 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
 
       const permitted = permitsTerminal(declaration, entry.terminal);
       if (!permitted.ok) at(rel, `run \`${entry.runId}\`: ${permitted.why}`);
+      if (entry.terminal === 'voided' && !entry.extensions?.void?.reason) {
+        at(
+          rel,
+          `run \`${entry.runId}\` is voided without \`extensions.void.reason\` — a void that says nothing is a deletion with extra steps (#2438).`,
+        );
+      }
       const closedMs = Date.parse(entry.closed ?? '');
       if (typeof entry.closed !== 'string' || Number.isNaN(closedMs)) {
         at(

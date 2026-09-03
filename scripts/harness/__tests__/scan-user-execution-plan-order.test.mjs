@@ -3757,6 +3757,52 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(messages(findStagedFindings(root, base))).toMatch(/ledger|subject-bound/i);
   });
 
+  it('accepts voided predecessors ahead of the one bound PLAN record, and nothing less (#2438)', () => {
+    const voided = (runId) => ({
+      ...userScenarioRecord('DOCS-031', runId),
+      terminal: 'voided',
+      extensions: {
+        void: {
+          reason: 'ref named DOCS-031 only',
+          at: '2026-08-25T00:02:00.000Z',
+          priorTerminal: 'converged',
+        },
+      },
+    });
+    const stage = (records) => {
+      const { root, base } = repository();
+      writeCheckpoint(root);
+      git(root, ['add', TASK_PATH, SPEC_PATH]);
+      write(
+        root,
+        '.agents/loop-runs/user-execution-scenario.jsonl',
+        records.map((record) => `${JSON.stringify(record)}\n`).join(''),
+      );
+      git(root, ['add', '.agents/loop-runs/user-execution-scenario.jsonl']);
+      return messages(findStagedFindings(root, base));
+    };
+
+    expect(
+      stage([
+        voided('r20260825000001'),
+        voided('r20260825000002'),
+        userScenarioRecord(TASK_ID, 'r20260825000003'),
+      ]),
+    ).toBe('');
+    // Voided alone is not a checkpoint; a voided record without its reason is a deletion in disguise.
+    expect(stage([voided('r20260825000001')])).toMatch(/ledger|subject-bound/i);
+    expect(
+      stage([
+        { ...voided('r20260825000001'), extensions: {} },
+        userScenarioRecord(TASK_ID, 'r20260825000003'),
+      ]),
+    ).toMatch(/ledger|subject-bound/i);
+    // The bound record must be LAST: a voided record after it is not the run the checkpoint records.
+    expect(
+      stage([userScenarioRecord(TASK_ID, 'r20260825000003'), voided('r20260825000004')]),
+    ).toMatch(/ledger|subject-bound/i);
+  });
+
   it('rejects rewriting an existing PLAN ledger line while appending a bound record', () => {
     const seeded = repository();
     git(seeded.root, ['switch', 'develop']);

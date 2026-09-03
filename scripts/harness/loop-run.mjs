@@ -49,6 +49,7 @@
  *   node scripts/harness/loop-run.mjs checkpoint --loop <skill> --run <id> --phase <last completed phase>   (before closing `abandoned` / an audit-only `halted-for-user`)
  *   node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
  *   node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason> [--ref <text>]
+ *   node scripts/harness/loop-run.mjs void  --loop <skill> --run <id> --reason <text>   (an UNCOMMITTED sealed record only; #2438)
  *   node scripts/harness/loop-run.mjs show  --loop <skill>
  *
  * Exit 0 = recorded, 1 = refused.
@@ -62,6 +63,7 @@ import {
   writeFileSync,
   readdirSync,
 } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import {
@@ -72,6 +74,7 @@ import {
   refreshPhaseIndex,
 } from './architecture-refresh-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export const LEDGER_DIR = '.agents/loop-runs';
@@ -90,6 +93,11 @@ export const TERMINAL_REASONS = {
   'bound-reached': { requires: 'bound', why: 'the declared numeric bound was hit' },
   'halted-for-user': { requires: null, why: 'escalated to a person' },
   abandoned: { requires: null, why: 'stopped without reaching any of the above' },
+  // Issue #2438: a sealed record that was malformed BEFORE it was ever committed (a `ref` that does
+  // not name the exact Task, for one) and that the checkpoint gate refuses. `close` never writes it;
+  // only `void` does, and only on a record absent from HEAD's ledger, keeping every field the
+  // refusal was about as evidence.
+  voided: { requires: 'void', why: 'an uncommitted sealed record voided in place, evidence kept' },
 };
 
 /**
@@ -619,6 +627,11 @@ export function closeRun({ root, skill, runId, terminal, ref = null, now }) {
   const declaration = readLoopDeclaration(root, skill);
   const permitted = permitsTerminal(declaration, terminal);
   if (!permitted.ok) throw new Error(`loop-run: ${permitted.why}`);
+  if (terminal === 'voided') {
+    throw new Error(
+      'loop-run: `voided` is not a way to close a run — it is what `void` writes over an uncommitted sealed record.',
+    );
+  }
   const entries = readLedger(root, skill);
   const index = requireOpen(entries, skill, runId);
   entries[index].closed = new Date(now).toISOString();
@@ -626,6 +639,75 @@ export function closeRun({ root, skill, runId, terminal, ref = null, now }) {
   entries[index].ref = ref;
   writeLedger(root, skill, entries);
   return entries[index];
+}
+
+/**
+ * The ledger as HEAD has it, or null when HEAD has no such file. Throws when `root` is not a git
+ * worktree: without a committed ledger to compare against, nothing can be proved uncommitted.
+ */
+function committedLedgerText(root, skill) {
+  const relative = path.posix.join(LEDGER_DIR, `${skill}.jsonl`);
+  const head = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: envWithoutGitVars(),
+  });
+  if (head.status !== 0) {
+    throw new Error(
+      `loop-run: ${root} has no HEAD to compare against, so \`${relative}\` cannot be shown uncommitted.`,
+    );
+  }
+  const shown = spawnSync('git', ['show', `HEAD:${relative}`], {
+    cwd: root,
+    encoding: 'utf8',
+    env: envWithoutGitVars(),
+  });
+  return shown.status === 0 ? shown.stdout : null;
+}
+
+/**
+ * Void a SEALED record that has never been committed (issue #2438). The record stays in place with
+ * every field the refusal was about — `ref`, `closed`, `roundFindings`, the prior `terminal` — and
+ * gains `terminal: "voided"` plus `extensions.void = { reason, at, priorTerminal }`. A record already
+ * in HEAD's ledger is refused: sealed committed history is never rewritten; a later run corrects it.
+ */
+export function voidRun({ root, skill, runId, reason, now, committed = committedLedgerText }) {
+  requireText(reason, '--reason');
+  const entries = readLedger(root, skill);
+  const index = entries.findIndex((e) => e.runId === runId);
+  if (index === -1) throw new Error(`loop-run: \`${skill}\` has no run \`${runId}\`.`);
+  const entry = entries[index];
+  if (entry.terminal === null || entry.terminal === undefined) {
+    throw new Error(
+      `loop-run: run \`${runId}\` is OPEN — close it (\`abandoned\` if dropped), do not void it.`,
+    );
+  }
+  if (entry.terminal === 'voided') throw new Error(`loop-run: run \`${runId}\` is already voided.`);
+  const committedText = committed(root, skill);
+  const committedIds = new Set(
+    (committedText ?? '')
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => {
+        try {
+          return JSON.parse(line).runId;
+        } catch {
+          return null;
+        }
+      }),
+  );
+  if (committedIds.has(runId)) {
+    throw new Error(
+      `loop-run: run \`${runId}\` is already committed in HEAD's ledger. A committed sealed record is never rewritten — record the correction as a new run.`,
+    );
+  }
+  entry.extensions = {
+    ...(entry.extensions ?? {}),
+    void: { reason, at: new Date(now).toISOString(), priorTerminal: entry.terminal },
+  };
+  entry.terminal = 'voided';
+  writeLedger(root, skill, entries);
+  return entry;
 }
 
 /* ------------------------------------------------------------------ CLI */
@@ -652,6 +734,7 @@ function parseArgs(argv) {
     site: null,
     evidence: null,
     action: undefined,
+    reason: undefined,
   };
   for (let i = 1; i < argv.length; i += 1) {
     if (argv[i] === '--loop') args.loop = argv[++i];
@@ -673,6 +756,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--site') args.site = argv[++i];
     else if (argv[i] === '--evidence') args.evidence = argv[++i];
     else if (argv[i] === '--action') args.action = argv[++i];
+    else if (argv[i] === '--reason') args.reason = argv[++i];
     else throw new Error(`loop-run: unknown argument \`${argv[i]}\``);
   }
   if (!args.loop) throw new Error('loop-run: --loop <skill> is required');
@@ -845,6 +929,19 @@ export function main(
       );
       return 0;
     }
+    case 'void': {
+      const entry = voidRun({
+        root,
+        skill: args.loop,
+        runId: args.run,
+        reason: args.reason,
+        now: clock,
+      });
+      out(
+        `loop-run: ${args.loop} run ${entry.runId} VOIDED (was \`${entry.extensions.void.priorTerminal}\`, ref=${entry.ref ?? '(none)'}): ${entry.extensions.void.reason}`,
+      );
+      return 0;
+    }
     case 'show': {
       for (const entry of readLedger(root, args.loop)) {
         out(
@@ -856,7 +953,7 @@ export function main(
     }
     default:
       throw new Error(
-        `loop-run: unknown command \`${args.command ?? '(none)'}\`. Use open, expect, coverage, observe, pass-through, draft-finding, final-finding, foundational, reconcile-route, disposition, link, round, close or show.`,
+        `loop-run: unknown command \`${args.command ?? '(none)'}\`. Use open, expect, coverage, observe, pass-through, draft-finding, final-finding, foundational, reconcile-route, disposition, link, round, close, void or show.`,
       );
   }
 }

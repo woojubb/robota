@@ -31,6 +31,7 @@ import {
   recordVerificationPassThrough,
   linkNestedRun,
   terminalReasonNames,
+  voidRun,
 } from '../loop-run.mjs';
 
 /** A throwaway workspace whose only content is the skills this case needs. */
@@ -383,6 +384,75 @@ describe('closeRun', () => {
   });
 });
 
+describe('voidRun (#2438)', () => {
+  const sealWrongRef = (root) => {
+    const { runId } = openRun({ root, skill: 'looper', now: NOW });
+    recordRound({ root, skill: 'looper', runId, findings: 0 });
+    closeRun({ root, skill: 'looper', runId, terminal: 'converged', ref: 'DOCS-031', now: NOW });
+    return runId;
+  };
+
+  it('voids an uncommitted sealed record in place, keeping the refused ref as evidence', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const runId = sealWrongRef(root);
+    const voided = voidRun({
+      root,
+      skill: 'looper',
+      runId,
+      reason: 'ref named DOCS-031, not the exact Task basename',
+      now: NOW + 1000,
+      committed: () => null,
+    });
+    expect(voided.terminal).toBe('voided');
+    expect(voided.ref).toBe('DOCS-031');
+    expect(voided.extensions.void).toEqual({
+      reason: 'ref named DOCS-031, not the exact Task basename',
+      at: new Date(NOW + 1000).toISOString(),
+      priorTerminal: 'converged',
+    });
+    expect(readLedger(root, 'looper')).toHaveLength(1);
+    expect(() =>
+      voidRun({ root, skill: 'looper', runId, reason: 'again', now: NOW, committed: () => null }),
+    ).toThrow(/already voided/);
+  });
+
+  it('refuses a committed record, an OPEN record, a missing reason, and `close --terminal voided`', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const runId = sealWrongRef(root);
+    const committedLine = JSON.stringify(readLedger(root, 'looper')[0]);
+    expect(() =>
+      voidRun({
+        root,
+        skill: 'looper',
+        runId,
+        reason: 'x',
+        now: NOW,
+        committed: () => `${committedLine}\n`,
+      }),
+    ).toThrow(/already committed/);
+    expect(() =>
+      voidRun({ root, skill: 'looper', runId, reason: '', now: NOW, committed: () => null }),
+    ).toThrow(/--reason/);
+    expect(() => voidRun({ root, skill: 'looper', runId, reason: 'x', now: NOW })).toThrow(
+      /no HEAD/,
+    );
+    const open = openRun({ root, skill: 'looper', now: NOW + 86_400_000 * 2 });
+    expect(() =>
+      voidRun({
+        root,
+        skill: 'looper',
+        runId: open.runId,
+        reason: 'x',
+        now: NOW,
+        committed: () => null,
+      }),
+    ).toThrow(/OPEN/);
+    expect(() =>
+      closeRun({ root, skill: 'looper', runId: open.runId, terminal: 'voided', now: NOW }),
+    ).toThrow(/not a way to close/);
+  });
+});
+
 describe('permitsTerminal', () => {
   it('holds every vocabulary member reachable for some declaration', () => {
     expect(terminalReasonNames()).toEqual([
@@ -391,6 +461,7 @@ describe('permitsTerminal', () => {
       'bound-reached',
       'halted-for-user',
       'abandoned',
+      'voided',
     ]);
     for (const name of terminalReasonNames()) {
       const permitted =
