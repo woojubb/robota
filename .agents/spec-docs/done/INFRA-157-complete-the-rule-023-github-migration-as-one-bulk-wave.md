@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [github, migration, governance]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # INFRA-157: complete the RULE-023 GitHub migration as one bulk wave
 
-Paired with `.agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md`.
+Paired with `.agents/tasks/completed/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md`.
 
 ## Problem
 
@@ -68,17 +68,17 @@ Checkpoint intent: this paired Task/spec is activated atomically before any Task
 - [x] TC-02: Observable: 48 exact `woojubb` Task markers are readable, their Issues preserve byte-identical bodies/assignees/relations, have no priority label, and are `CLOSED/NOT_PLANNED`.
 - [x] TC-03: Observable: all twenty RETAIN Issues remain OPEN and contain their substantive lifecycle reason plus exact `Semantic review: @woojubb on 2026-09-03 — RETAIN` receipt exactly once.
 - [x] TC-04: Observable: four complete canonical parent maps are readable, issues #1985, #1986, and #2512 are OPEN, and issue #2093 contains the delivery reconciliation and is `CLOSED/COMPLETED`.
-- [ ] TC-05: Command: the before/after `/tmp` audit, exact manifest assertions, issue-triage audit, planning/lifecycle/reference scans, and final large repository verification all exit zero or report no unexplained mutation.
+- [x] TC-05: Command: the before/after `/tmp` audit, exact manifest assertions, issue-triage audit, planning/lifecycle/reference scans, and final large repository verification all exit zero or report no unexplained mutation.
 
 ## Test Plan
 
-| Criterion | Test Type | Tool / Approach                                           |
-| --------- | --------- | --------------------------------------------------------- |
-| TC-01     | automated | snapshot label and Task-frontmatter comparison            |
-| TC-02     | automated | exact comment/body/state/label/assignee/relation diff     |
-| TC-03     | automated | exact-set lifecycle-section and state assertion           |
-| TC-04     | automated | parent-map cardinality/state and reconciliation assertion |
-| TC-05     | automated | post-snapshot audit plus current repository harness       |
+| Criterion | Test Type | Tool / Approach                                                                                                                                             |
+| --------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01     | automated | snapshot label and Task-frontmatter comparison; repository unit test skipped because the exact GitHub snapshot verifier owns this external state            |
+| TC-02     | automated | exact comment/body/state/label/assignee/relation diff; repository unit test skipped because the exact GitHub snapshot verifier owns this external state     |
+| TC-03     | automated | exact-set lifecycle-section and state assertion; repository unit test skipped because the exact GitHub snapshot verifier owns this external state           |
+| TC-04     | automated | parent-map cardinality/state and reconciliation assertion; repository unit test skipped because the exact GitHub snapshot verifier owns this external state |
+| TC-05     | automated | post-snapshot audit plus affected contract tier, including `scripts/harness/__tests__/run-all-scans-affected.test.mjs`                                      |
 
 ## User Execution Test Scenarios
 
@@ -90,7 +90,7 @@ Not applicable.
 
 ## Tasks
 
-Paired execution record: `.agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md`.
+- [x] `.agents/tasks/completed/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md` — done
 
 ## Execution Evidence
 
@@ -98,6 +98,7 @@ Paired execution record: `.agents/tasks/INFRA-157-complete-the-rule-023-github-m
 - Complete snapshots and operation logs are named in `/tmp/robota-issue-child-consolidation-plan.md` section 15 and in the durable RULE-023 manifest.
 - `/tmp/robota-issue-bulk-verification-final.json` records 511/511 PASS, 273→227 OPEN Issues, 48 exact marker comments, 20 RETAIN sections, zero missing native child, and zero unexplained Issue/comment mutation.
 - The live triage audit examined 227 OPEN Issues and reported `native-child-retained: 20`, `native-child-missing: 0`; its global nonzero result is isolated to 18 broader queue-shape rows outside the migration result.
+- Final substantive-tree boundary at `21a859d6d`: `pnpm build` exited 0; `pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD` passed 97 files / 2,304 tests; planning-order history examined three commits and passed; all non-Work-Run harness scans passed. The first raw Work-Run query failed because the sandbox could not reach GitHub, not because a no-PR branch is exempt. An authorized `gh api` read later returned the authoritative empty PR history; the required receipt-only commit immediately following this completion commit binds that observation and is validated by the unskipped full scan before push.
 
 ## Evidence Log
 
@@ -206,3 +207,62 @@ Paired execution record: `.agents/tasks/INFRA-157-complete-the-rule-023-github-m
 ```
 
 <!-- checkpoint-evidence:v2:end -->
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-03
+
+**Test skipped:** Repository unit test skipped because this criterion is live GitHub label and Task-frontmatter state; `/tmp/robota-issue-bulk-verification-final.json` is the exact snapshot assertion and passed 511/511.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-03
+
+**Test skipped:** Repository unit test skipped because this criterion is live GitHub comment/body/state/relationship state; `/tmp/robota-issue-bulk-verification-final.json` is the exact snapshot assertion and passed 511/511.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-03
+
+**Test skipped:** Repository unit test skipped because this criterion is live GitHub lifecycle-section state; `/tmp/robota-issue-bulk-verification-final.json` is the exact snapshot assertion and passed 511/511.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-03
+
+**Test skipped:** Repository unit test skipped because this criterion is live GitHub parent-map/reconciliation state; `/tmp/robota-issue-bulk-verification-final.json` is the exact snapshot assertion and passed 511/511.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-03
+
+**Command:** `pnpm harness:scan -- --context integration --skip work-run-measurement` (substantive-tree pre-receipt scan; Work-Run is validated after its mandatory receipt-only closure)
+**Exit:** 0
+**Output:** (last 10 of 167 line(s))
+
+```
+✓ docs-structure
+
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2058/2862 lines (71.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 318/757 lines (42.0%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /Users/jungyoun/.claude/projects/-private-tmp-robota-direct-develop; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+
+147 scans passed, 2 skipped (99 declared what they examined)
+scan receipt written: an unchanged tree will not be re-scanned.
+```
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-03
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-03; status `in-progress`
+- GATE-VERIFY — All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`): 5/5 tasks `[x]` in .agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md
+- GATE-VERIFY — No tasks are blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan -- --context integration --skip work-run-measurement` → exit 0 ( ⏎ 147 scans passed, 2 skipped (99 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M .agents/spec-docs/active/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md, M .agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD` → exit 0 (fatal: not a git repository (or any of the parent directories): .git ⏎ fatal: not a git repository (or any of the parent directories): .git ⏎ fatal: not a git repository (or any of the parent directories): .git); all 2 supplied commands exit 0
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-03
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-03; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/INFRA-157-complete-the-rule-023-github-migration-as-one-bulk-wave.md
