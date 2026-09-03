@@ -90,6 +90,20 @@ export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSetti
  * are kept and both run — a repeated guard costs an extra execution, while dropping one on a
  * key-collision guess would be this defect again in a smaller form.
  */
+function mergeHooks(
+  base: TEnvResolvedSettings['hooks'],
+  override: TEnvResolvedSettings['hooks'],
+): TEnvResolvedSettings['hooks'] {
+  const result: NonNullable<TEnvResolvedSettings['hooks']> = { ...(base ?? {}) };
+  for (const [event, groups] of Object.entries(override ?? {})) {
+    if (groups === undefined) continue;
+    const key = event as keyof NonNullable<TEnvResolvedSettings['hooks']>;
+    const existing = result[key];
+    result[key] = existing === undefined ? [...groups] : [...existing, ...groups];
+  }
+  return result;
+}
+
 /**
  * Combine two denylists.
  *
@@ -118,20 +132,6 @@ function unionDeny(
   if (base === undefined) return layer === undefined ? undefined : [...layer];
   if (layer === undefined) return [...base];
   return [...new Set([...base, ...layer])];
-}
-
-function mergeHooks(
-  base: TEnvResolvedSettings['hooks'],
-  override: TEnvResolvedSettings['hooks'],
-): TEnvResolvedSettings['hooks'] {
-  const result: NonNullable<TEnvResolvedSettings['hooks']> = { ...(base ?? {}) };
-  for (const [event, groups] of Object.entries(override ?? {})) {
-    if (groups === undefined) continue;
-    const key = event as keyof NonNullable<TEnvResolvedSettings['hooks']>;
-    const existing = result[key];
-    result[key] = existing === undefined ? [...groups] : [...existing, ...groups];
-  }
-  return result;
 }
 
 function mergeProviders(
