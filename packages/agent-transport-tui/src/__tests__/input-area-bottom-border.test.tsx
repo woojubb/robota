@@ -10,7 +10,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import InputArea from '../InputArea.js';
 
-const stripAnsi = (s: string): string => s.replace(/\[[0-9;]*m/g, '');
+// Built from the code point rather than a literal ESC in the pattern (no-control-regex).
+const ANSI_SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
+const stripAnsi = (s: string): string => s.replace(ANSI_SGR, '');
 
 function borderLines(frame: string): { first: string; last: string; all: string[] } {
   const lines = stripAnsi(frame)
