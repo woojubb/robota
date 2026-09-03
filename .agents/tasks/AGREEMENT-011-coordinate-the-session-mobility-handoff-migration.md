@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-011: coordinate the session-mobility handoff migration'
 issue: https://github.com/woojubb/robota/issues/2073
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -36,6 +36,7 @@ Coordinate handoff authority, refusal policy, orchestration, and protocol codecs
 - Validate the complete parent/child projection and exact source Issue URL for every Task.
 - Compare frozen and post-write marker, label, state, body-prefix, hierarchy, dependency, and assignee fields once for the whole group.
 - Run affected repository scans after the complete group evidence update.
+- Execute the administrative migration as one bounded batch and reconcile it once after all authorized writes.
 
 ## User Execution Test Scenarios
 
