@@ -524,6 +524,55 @@ describe('INFRA-072 per-case granularity — the range judges its OWN new cases'
     ]);
   });
 
+  it('THE CASE OF #2358: an `it.each` printf placeholder matches the runtime title', () => {
+    // Measured on PR #2357: the source title was `'%s does not re-export …'`, the runner reported
+    // `provider-factory.ts does not re-export …`, and the two never matched — so a case that DID
+    // fail under reversal was reported as `added-cases-pass`, blocking a sound test.
+    const diff = [
+      "+  it.each(files)('%s does not re-export the factory', (file) => {",
+      "+  test.each(rows)('$name keeps its shape at %d', ({ name }) => {",
+      '+  it.each(rows)(`${name} rejects %s`, () => {',
+    ].join('\n');
+    const matchers = addedCaseTitleMatchers(diff);
+    for (const runtime of [
+      'provider-factory.ts does not re-export the factory',
+      'branch-guard keeps its shape at 3',
+      'branch-guard rejects garbage',
+    ]) {
+      expect(
+        matchers.some((re) => re.test(runtime)),
+        runtime,
+      ).toBe(true);
+    }
+    // A wildcard is wider, never wrong: a title that shares no static part still does not match.
+    expect(matchers.some((re) => re.test('an unrelated case'))).toBe(false);
+  });
+
+  it('says which tree it judged: the committed range, uncommitted work excluded', async () => {
+    // Issue #2358 (2): three real fixes in the working tree produced three identical failures,
+    // because none was committed and nothing in the output said the range was what was read.
+    const lines = [];
+    const restoreWrite = process.stdout.write;
+    process.stdout.write = (chunk) => {
+      lines.push(String(chunk));
+      return true;
+    };
+    try {
+      await runRegressionRedProof({
+        mergeBase: 'abc1234',
+        changedFiles: [],
+        commitSubjects: ['feat: nothing'],
+        addedFiles: [],
+        optOutText: '',
+      });
+    } finally {
+      process.stdout.write = restoreWrite;
+    }
+    const header = lines.find((line) => line.includes('judging committed range'));
+    expect(header).toContain('abc1234..HEAD');
+    expect(header).toMatch(/uncommitted .* NOT read/);
+  });
+
   it('a new case that FAILS on the reversed source is the proof → assertion-fail', () => {
     const added = new Map([[nameAbs, addedCaseTitleMatchers("+  it('the new case', () => {")]]);
     const json = {

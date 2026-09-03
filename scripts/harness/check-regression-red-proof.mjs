@@ -377,7 +377,9 @@ function escapeRegExp(text) {
 /**
  * The placeholders vitest's `.each` formats into a title: printf tokens (`%s %d %i %f %j %o %# %$`)
  * and, for object tables, `$key` / `$key.path` references. `%%` is a literal percent and is split
- * out before this runs so the token pass cannot see it.
+ * out before this runs so the token pass cannot see it. Measured twice (issues #2216 and #2358):
+ * `'%s does not re-export …'` in the source, `provider-factory.ts does not re-export …` at run time,
+ * and a case that FAILED under reversal reported as `added-cases-pass` — a case that passed.
  */
 const EACH_TOKEN_RE = /%[sdifjo#$]|\$(?:#|[A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
 
@@ -774,6 +776,13 @@ export async function runRegressionRedProof(io = {}) {
       .split('\n')
       .filter(Boolean);
   const optOutText = io.optOutText ?? `${process.env.PR_BODY ?? ''}\n${commitSubjects.join('\n')}`;
+
+  // Issue #2358 (2): the checker judges the COMMIT RANGE, and said so nowhere — so "you have not fixed
+  // it" and "you fixed it but have not committed" printed the same verdict. Say which tree was read.
+  log(
+    `regression-red-proof: judging committed range ${base}..HEAD ` +
+      `(${commitSubjects.length} commit(s)); uncommitted working-tree changes are NOT read.`,
+  );
 
   const decisions = [];
 
