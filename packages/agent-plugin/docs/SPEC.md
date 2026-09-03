@@ -10,14 +10,15 @@ tool infrastructure.
 
 ## Boundaries
 
-| Responsibility                       | Owner                         |
-| ------------------------------------ | ----------------------------- |
-| Plugin host and lifecycle management | `@robota-sdk/agent-core`      |
-| `IPlugin` / `AbstractPlugin` base    | `@robota-sdk/agent-core`      |
-| Provider calls and tool execution    | `@robota-sdk/agent-framework` |
-| Session and conversation runtime     | `@robota-sdk/agent-session`   |
-| Tool definitions and registry        | `@robota-sdk/agent-tools`     |
-| Custom application plugins           | Consumer packages             |
+| Responsibility                                                                                                                                                                                                                                                                             | Owner                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Plugin host and lifecycle management                                                                                                                                                                                                                                                       | `@robota-sdk/agent-core`            |
+| Hook dispatch on a real turn (PLG-020, issue #2460): `LimitsPlugin` via `beforeExecution`/`afterExecution`, `WebhookPlugin` via `afterExecution`/`afterConversation`/`afterToolExecution`/`onError`, `ConversationHistoryPlugin` via `onMessageAdded`, `ErrorHandlingPlugin` via `onError` | `@robota-sdk/agent-core` dispatcher |
+| `IPlugin` / `AbstractPlugin` base                                                                                                                                                                                                                                                          | `@robota-sdk/agent-core`            |
+| Provider calls and tool execution                                                                                                                                                                                                                                                          | `@robota-sdk/agent-framework`       |
+| Session and conversation runtime                                                                                                                                                                                                                                                           | `@robota-sdk/agent-session`         |
+| Tool definitions and registry                                                                                                                                                                                                                                                              | `@robota-sdk/agent-tools`           |
+| Custom application plugins                                                                                                                                                                                                                                                                 | Consumer packages                   |
 
 `agent-plugin` depends exclusively on `agent-core`. It must never import from
 `agent-framework`, `agent-session`, or `agent-tools`.

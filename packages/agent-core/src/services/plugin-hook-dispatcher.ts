@@ -7,6 +7,7 @@ import type {
   IPluginStats,
   IPluginErrorContext,
 } from '../abstracts/abstract-plugin';
+import type { IPluginExecutionContext } from '../abstracts/abstract-plugin-types';
 import type { IPluginContext } from '../interfaces/types';
 import type { ILogger } from '../utils/logger';
 
@@ -16,8 +17,47 @@ export type TPluginWithHooks = IPluginContract<IPluginOptions, IPluginStats> & I
 /** Handler for a single plugin hook invocation */
 type TPluginHookHandler = (plugin: TPluginWithHooks, context: IPluginContext) => Promise<void>;
 
+/**
+ * PLG-020 (issue #2460): the execution-level context the official plugins consume. Built from the
+ * dispatcher's `executionContext` (string ids) plus the conversation messages, so `LimitsPlugin`,
+ * `WebhookPlugin` and friends are reached by the production dispatcher rather than only by tests.
+ */
+function toExecutionContext(context: IPluginContext): IPluginExecutionContext {
+  const execution: IPluginExecutionContext = {};
+  for (const key of ['executionId', 'sessionId', 'userId'] as const) {
+    const value = context.executionContext?.[key];
+    if (typeof value === 'string' && value.length > 0) execution[key] = value;
+  }
+  if (context.messages) execution.messages = context.messages;
+  return execution;
+}
+
 /** Map from hook name to its handler function */
 const HOOK_HANDLERS: Record<string, TPluginHookHandler> = {
+  // PLG-020 (issue #2460): the four execution-level hooks the official plugins implement, and the
+  // message hook the history plugin implements, were declared on `IPluginHooks` and dispatched by
+  // nothing. They are dispatched here, at the same sites as their run-level siblings.
+  beforeExecution: async (plugin, context) => {
+    if (plugin.beforeExecution) await plugin.beforeExecution(toExecutionContext(context));
+  },
+  afterExecution: async (plugin, context) => {
+    if (plugin.afterExecution && context.executionResult) {
+      await plugin.afterExecution(toExecutionContext(context), context.executionResult);
+    }
+  },
+  afterConversation: async (plugin, context) => {
+    if (plugin.afterConversation && context.executionResult) {
+      await plugin.afterConversation(toExecutionContext(context), context.executionResult);
+    }
+  },
+  afterToolExecution: async (plugin, context) => {
+    if (plugin.afterToolExecution && context.executionResult?.toolCalls?.length) {
+      await plugin.afterToolExecution(toExecutionContext(context), context.executionResult);
+    }
+  },
+  onMessageAdded: async (plugin, context) => {
+    if (plugin.onMessageAdded && context.message) await plugin.onMessageAdded(context.message);
+  },
   beforeRun: async (plugin, context) => {
     if (plugin.beforeRun && context.input) {
       await plugin.beforeRun(context.input, context.metadata);

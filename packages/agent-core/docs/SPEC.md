@@ -57,7 +57,7 @@ Robota (Facade)
 ### Design Patterns
 
 - **Facade**: `Robota` is the single entry point, hiding manager/service/plugin complexity.
-- **Template Method**: `AbstractAgent` defines lifecycle hooks (`beforeRun`, `afterRun`, `onError`).
+- **Template Method**: `AbstractAgent` defines lifecycle hooks (`beforeRun`, `afterRun`, `onError`). The production plugin dispatcher (`services/plugin-hook-dispatcher.ts`) dispatches `beforeRun`, `afterRun`, `beforeProviderCall`, `afterProviderCall`, `onError` AND — PLG-020 (issue #2460) — `beforeExecution`, `afterExecution`, `afterConversation`, `afterToolExecution` (when a tool ran) and `onMessageAdded` (user and assistant messages), so every official plugin's declared hook is reached on a real turn.
 - **Strategy**: Event services, storage strategies, error handling strategies are interchangeable.
 - **Registry**: `ToolRegistry` and `ModuleRegistry` for central resource management.
 - **Null Object**: `SilentLogger` and `DefaultEventService` provide safe no-op defaults.

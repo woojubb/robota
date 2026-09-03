@@ -151,6 +151,23 @@ export async function finalizeExecution(
     },
     logger,
   );
+  // PLG-020 (issue #2460): the execution-level hooks, carrying the run's result. `afterToolExecution`
+  // fires only when a tool ran (the dispatcher checks `toolCalls`).
+  const pluginContext = {
+    messages: result.messages,
+    executionContext: { executionId, conversationId },
+    executionResult: {
+      response: result.response,
+      duration: result.duration,
+      ...(result.tokensUsed !== undefined ? { tokensUsed: result.tokensUsed } : {}),
+      toolsExecuted: result.toolsExecuted.length,
+      success: result.success,
+      toolCalls: result.toolsExecuted.map((name) => ({ name })),
+    },
+  };
+  for (const hookName of ['afterExecution', 'afterConversation', 'afterToolExecution'] as const) {
+    await callPluginHook(plugins, hookName, pluginContext, logger);
+  }
 
   logger.debug('Execution pipeline completed successfully', {
     executionId,

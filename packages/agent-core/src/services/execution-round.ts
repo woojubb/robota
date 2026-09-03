@@ -186,6 +186,8 @@ export async function executeRound(
     { messages: conversationMessages, responseMessage: response },
     logger,
   );
+  // PLG-020 (issue #2460): the assistant message is observable as it lands, like the user's.
+  await callPluginHook(plugins, 'onMessageAdded', { message: response }, logger);
 
   const responseHasText =
     typeof assistantResponse.content === 'string' && assistantResponse.content.trim().length > 0;
