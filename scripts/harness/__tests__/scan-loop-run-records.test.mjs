@@ -124,6 +124,27 @@ describe('findLoopRunRecordFindings', () => {
     expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/abandoned/);
   });
 
+  it('fails a committed unbound OPEN run as an orphan, and passes a live or a bound one (#2504)', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const fresh = new Date(NOW - 3_600_000).toISOString();
+    const open = (ref) => ({
+      runId: 'r1',
+      opened: fresh,
+      closed: null,
+      roundFindings: [],
+      terminal: null,
+      ref,
+    });
+    ledger(root, 'looper', [open(null)]);
+    const committed = () => `${JSON.stringify(open(null))}\n`;
+    expect(findLoopRunRecordFindings(root, NOW, committed)[0].detail).toMatch(/orphan/);
+    expect(findLoopRunRecordFindings(root, NOW, () => null)).toEqual([]);
+    ledger(root, 'looper', [open('HARNESS-900')]);
+    expect(
+      findLoopRunRecordFindings(root, NOW, () => `${JSON.stringify(open('HARNESS-900'))}\n`),
+    ).toEqual([]);
+  });
+
   it('fails a duplicate runId and a non-integer round-findings entry', () => {
     const root = workspace({ looper: FINDING_SET });
     ledger(root, 'looper', [closed('r1', [1], 'converged'), closed('r1', ['x'], 'converged')]);

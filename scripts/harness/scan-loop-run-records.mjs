@@ -36,6 +36,9 @@ import {
 } from './architecture-refresh-record.mjs';
 import {
   LEDGER_DIR,
+  committedLedgerText,
+  committedRunIds,
+  isOrphanedOpenRun,
   ledgerSkills,
   permitsTerminal,
   readLedger,
@@ -66,7 +69,11 @@ export function examinedEntryCount() {
  * @param {string} root
  * @param {number} now epoch ms — injected so the staleness horizon is testable rather than wall-clock.
  */
-export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now()) {
+export function findLoopRunRecordFindings(
+  root = WORKSPACE_ROOT,
+  now = Date.now(),
+  committed = committedLedgerText,
+) {
   // `.agents/skills/` is the governed tree, not `.agents/loop-runs/`. The distinction is the whole of
   // HARNESS-052 applied here: an ABSENT ledger directory is a legitimate state (no loop has run yet),
   // while an absent skills tree means the population this scan judges could not be read at all — and
@@ -121,6 +128,7 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
     }
 
     const seen = new Set();
+    const committedIds = committedRunIds(root, skill, committed);
     for (const entry of entries) {
       examinedEntries += 1;
       if (typeof entry?.runId !== 'string' || entry.runId === '') {
@@ -172,6 +180,17 @@ export function findLoopRunRecordFindings(root = WORKSPACE_ROOT, now = Date.now(
       }
 
       if (entry.terminal === null || entry.terminal === undefined) {
+        // Issue #2504: the SAME validity model `open` applies. An unbound OPEN run in HEAD's ledger
+        // crossed the commit boundary with no owner; tolerating it for seven days is what let a
+        // green merged ledger refuse every same-day successor.
+        if (isOrphanedOpenRun(entry, committedIds)) {
+          at(
+            rel,
+            `run \`${entry.runId}\` is OPEN, unbound (\`ref: null\`) and already committed — an orphan that crossed the commit boundary. ` +
+              'Close it as `abandoned`, or let the next `loop-run open` recover it (#2504).',
+          );
+          continue;
+        }
         if (!Number.isNaN(openedMs) && now - openedMs > STALE_OPEN_DAYS * 86_400_000) {
           at(
             rel,

@@ -1164,7 +1164,20 @@ function validateLedgerAppend(file, before, after, basename) {
       exactSubjectRef(last.ref, basename)
     );
   }
-  return appendedLedgerLines(before, after) !== null;
+  const appended = appendedLedgerLines(before, after);
+  // Issue #2504: an OPEN record with no subject (`terminal: null`, `ref: null`) must not cross the
+  // commit boundary — once committed it is indistinguishable from a live owner and blocks every
+  // same-day successor. A bound OPEN run (`open --ref <subject>`) names its owner and may.
+  return (
+    appended !== null &&
+    !appended.some((line) => {
+      const record = JSON.parse(line);
+      return (
+        (record.terminal === null || record.terminal === undefined) &&
+        (record.ref === null || record.ref === undefined)
+      );
+    })
+  );
 }
 
 function validateLedgerAppendBetween(root, from, to, file, basename) {
@@ -2143,7 +2156,7 @@ function stagedLedgerProblems(root, paths, basename) {
     problems.push(
       file === UES_LEDGER
         ? 'proposed PLAN ledger is not one append-only closed record subject-bound to the exact Task.'
-        : `proposed ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, or a record is malformed).`,
+        : `proposed ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, a record is malformed, or an unbound OPEN run is being committed — #2504).`,
     );
   }
   return problems;

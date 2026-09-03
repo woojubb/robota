@@ -4319,6 +4319,29 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('refuses committing an unbound OPEN run, and accepts a bound one (#2504)', () => {
+    const openRecord = (ref) =>
+      `${JSON.stringify({
+        runId: 'r20260827000009',
+        opened: '2026-08-27T00:00:00.000Z',
+        closed: null,
+        roundFindings: [],
+        extensions: {},
+        terminal: null,
+        ref,
+      })}\n`;
+    const { root, base } = repository();
+    write(root, USER_REQUEST_LEDGER, ledgerRecord());
+    commit(root, 'ledger-only prelude');
+    write(root, USER_REQUEST_LEDGER, `${ledgerRecord()}${openRecord(null)}`);
+    git(root, ['add', USER_REQUEST_LEDGER]);
+    expect(messages(findStagedFindings(root, base))).toMatch(/no planning checkpoint/);
+
+    write(root, USER_REQUEST_LEDGER, `${ledgerRecord()}${openRecord(TASK_ID)}`);
+    git(root, ['add', USER_REQUEST_LEDGER]);
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
   it('refuses a prelude that rewrites an existing ledger line (TC-e)', () => {
     const { root, base } = repository();
     write(root, USER_REQUEST_LEDGER, ledgerRecord());

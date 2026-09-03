@@ -124,6 +124,55 @@ describe('openRun', () => {
   });
 });
 
+describe('openRun across the commit boundary (#2504)', () => {
+  const asCommitted = (root, skill) => () =>
+    readLedger(root, skill)
+      .map((entry) => JSON.stringify(entry))
+      .join('\n') + '\n';
+
+  it('recovers a same-day OPEN run that is unbound AND committed, recording its disposition', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const orphan = openRun({ root, skill: 'looper', now: NOW, committed: () => null });
+    const next = openRun({
+      root,
+      skill: 'looper',
+      now: NOW + 60_000,
+      committed: asCommitted(root, 'looper'),
+    });
+    expect(next.superseded).toBe(orphan.runId);
+    const [sealed, live] = readLedger(root, 'looper');
+    expect(sealed.terminal).toBe('abandoned');
+    expect(sealed.ref).toMatch(/orphaned: committed while OPEN and unbound; superseded by/);
+    expect(live.terminal).toBeNull();
+  });
+
+  it('still refuses a same-day OPEN run that is uncommitted (live) or bound (owned)', () => {
+    const root = workspace({ looper: FINDING_SET });
+    openRun({ root, skill: 'looper', now: NOW, committed: () => null });
+    expect(() =>
+      openRun({ root, skill: 'looper', now: NOW + 60_000, committed: () => null }),
+    ).toThrow(/already has run/);
+
+    const bound = workspace({ looper: FINDING_SET });
+    const owned = openRun({
+      root: bound,
+      skill: 'looper',
+      now: NOW,
+      ref: 'HARNESS-900',
+      committed: () => null,
+    });
+    expect(owned.ref).toBe('HARNESS-900');
+    expect(() =>
+      openRun({
+        root: bound,
+        skill: 'looper',
+        now: NOW + 60_000,
+        committed: asCommitted(bound, 'looper'),
+      }),
+    ).toThrow(/already has run/);
+  });
+});
+
 describe('recordRound', () => {
   it('makes the ARRAY the round count — no second stored number to diverge from it', () => {
     const root = workspace({ looper: FINDING_SET });

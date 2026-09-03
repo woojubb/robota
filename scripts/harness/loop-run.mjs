@@ -35,7 +35,7 @@
  * run RECORDABLE; HARNESS-113 is what makes recording one a condition of registering a new loop.
  *
  * Usage:
- *   node scripts/harness/loop-run.mjs open  --loop <skill>          (an OPEN run from an earlier UTC day is closed `abandoned`, superseded)
+ *   node scripts/harness/loop-run.mjs open  --loop <skill> [--ref <subject>]   (an OPEN run from an earlier UTC day, or a same-day one that is unbound and already committed, is closed `abandoned`, superseded; #2504)
  *   node scripts/harness/loop-run.mjs expect --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --token <signal> [--cells <id,id>]
  *   node scripts/harness/loop-run.mjs coverage --loop <skill> --run <id> --agent <agent> --subject <subject> --cells <id,id>
  *   node scripts/harness/loop-run.mjs observe --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --signal '<terminal-line>'
@@ -210,7 +210,41 @@ export function makeRunId(now) {
     .slice(0, 14)}`;
 }
 
-export function openRun({ root, skill, now }) {
+/** Run ids present in HEAD's copy of a ledger; empty when HEAD has none or cannot be read. */
+export function committedRunIds(root, skill, committed = committedLedgerText) {
+  let text = null;
+  try {
+    text = committed(root, skill);
+  } catch {
+    return new Set();
+  }
+  return new Set(
+    (text ?? '')
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => {
+        try {
+          return JSON.parse(line).runId;
+        } catch {
+          return null;
+        }
+      })
+      .filter((id) => typeof id === 'string'),
+  );
+}
+
+/** Issue #2504's validity model, shared by `open` and the records scan: an OPEN run that is unbound
+ * (`ref: null`) AND already in HEAD's ledger is an ORPHAN — it crossed the commit boundary with no
+ * owner. An uncommitted OPEN run is a live local owner; a bound OPEN run names its owner. */
+export function isOrphanedOpenRun(entry, committedIds) {
+  return (
+    (entry.terminal === null || entry.terminal === undefined) &&
+    (entry.ref === null || entry.ref === undefined) &&
+    committedIds.has(entry.runId)
+  );
+}
+
+export function openRun({ root, skill, now, ref = null, committed = committedLedgerText }) {
   const declaration = readLoopDeclaration(root, skill);
   if (declaration === undefined) {
     throw new Error(
@@ -229,13 +263,19 @@ export function openRun({ root, skill, now }) {
     // the refusal was hand-editing the ledger, the amendment a sealed record forbids. So `open`
     // seals it as `abandoned`, naming its successor, through the same write `close` uses. A run
     // opened the SAME day is still refused: within one day two open runs cannot be told apart.
-    if (utcDay(open.opened) < utcDay(now)) {
+    const orphan = isOrphanedOpenRun(open, committedRunIds(root, skill, committed));
+    if (utcDay(open.opened) < utcDay(now) || orphan) {
+      // Issue #2504: a same-day OPEN run that is UNBOUND and already COMMITTED is not a live owner —
+      // no owner commits its run before closing it (the staged gate refuses that append) — so it is
+      // recovered here, its disposition recorded, rather than blocking every same-day successor.
       closeRun({
         root,
         skill,
         runId: open.runId,
         terminal: 'abandoned',
-        ref: `superseded by ${runId}`,
+        ref: orphan
+          ? `orphaned: committed while OPEN and unbound; superseded by ${runId}`
+          : `superseded by ${runId}`,
         now,
       });
       superseded = open.runId;
@@ -253,7 +293,7 @@ export function openRun({ root, skill, now }) {
     roundFindings: [],
     extensions: {},
     terminal: null,
-    ref: null,
+    ref: ref === null ? null : requireText(ref, 'ref'),
   };
   mkdirSync(path.join(root, LEDGER_DIR), { recursive: true });
   appendFileSync(ledgerPath(root, skill), JSON.stringify(entry) + '\n', 'utf8');
@@ -645,7 +685,7 @@ export function closeRun({ root, skill, runId, terminal, ref = null, now }) {
  * The ledger as HEAD has it, or null when HEAD has no such file. Throws when `root` is not a git
  * worktree: without a committed ledger to compare against, nothing can be proved uncommitted.
  */
-function committedLedgerText(root, skill) {
+export function committedLedgerText(root, skill) {
   const relative = path.posix.join(LEDGER_DIR, `${skill}.jsonl`);
   const head = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], {
     cwd: root,
@@ -771,7 +811,7 @@ export function main(
   const args = parseArgs(argv);
   switch (args.command) {
     case 'open': {
-      const entry = openRun({ root, skill: args.loop, now: clock });
+      const entry = openRun({ root, skill: args.loop, now: clock, ref: args.ref });
       if (entry.superseded !== null) {
         out(
           `loop-run: closed run \`${entry.superseded}\` (opened an earlier UTC day, left OPEN) as abandoned, superseded by ${entry.runId}.`,

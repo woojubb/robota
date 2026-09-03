@@ -41,6 +41,11 @@ would be a second source for one quantity, and two sources agree until the day t
 `.agents/rules/measurement-provenance.md` clause 1. Not storing it makes the divergence impossible
 rather than merely checked.
 
+An OPEN entry that is UNBOUND (`ref: null`) never crosses the commit boundary (issue #2504): the
+pre-commit gate refuses the append, the records scan fails a committed one as an orphan, and
+`loop-run open` recovers a same-day one by sealing it `abandoned` with its disposition in `ref`. A run
+that must span commits is opened bound — `open --loop <skill> --ref <subject>` — so its owner is named.
+
 An entry with `terminal: null` is OPEN. Not-closed is a state, not an absence — a run left open past
 seven days is a finding, and the fix is to close it as `abandoned`.
 
