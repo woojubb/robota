@@ -431,6 +431,7 @@ export {
   NodeHostPluginSettingsStore,
   BundlePluginLoader,
   createHostBundlePluginLoader,
+  loadHostBundlePluginsFromScopes,
 } from './plugins/index.js';
 export type { IHostBundlePluginLoaderOptions } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
@@ -686,6 +687,7 @@ export {
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
+export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
