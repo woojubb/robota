@@ -8,6 +8,14 @@ between the runtime that schedules execution and the surfaces that display it.
 
 It contains type declarations only. No class, no runtime logic, no mechanism.
 
+## Package Identity
+
+- **npm name**: `@robota-sdk/agent-interface-execution`
+- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
+  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
+  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
+  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+
 ## Boundaries
 
 **Not owned here.**
@@ -25,11 +33,11 @@ an owner package; this one gives it the vocabulary to describe the behavior.
 
 ## Architecture Overview
 
-**Layer 0.** Its internal dependency set is `{@robota-sdk/agent-core}` and it depends on **no peer
-`agent-interface-*` package**. Composition runs downward into it — `agent-interface-session` names
-these types; this package never names a session type. The layer is declared in
-[`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-and enforced by `scripts/harness/interface-layers.mjs` through two guards (ARCH-101).
+**Layer 0.** It depends on **no peer `agent-interface-*` package** — that boundary is the
+commitment this document makes; which packages it does depend on is the manifest's to say (see
+Package Identity). Composition runs downward into it — `agent-interface-session` names these types;
+this package never names a session type. The layer is enforced by
+`scripts/harness/interface-layers.mjs` through two guards (ARCH-101).
 
 Four modules, one contract family each, and the dependency between them runs one way:
 
