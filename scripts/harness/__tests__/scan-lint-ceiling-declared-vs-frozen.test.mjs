@@ -17,7 +17,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ceilingIn, judge } from '../scan-lint-warning-ratchet.mjs';
+import { ceilingIn, judge } from '../scan-lint-ceiling-declared-vs-frozen.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 

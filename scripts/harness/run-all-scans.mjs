@@ -969,8 +969,8 @@ export const SCAN_COMMANDS = [
   // enforcing, on the release path where that script already runs. This keeps the number from
   // becoming a hand-maintained second source — present, matching its baseline, and falling only.
   {
-    name: 'lint-warning-ratchet',
-    command: ['node', 'scripts/harness/scan-lint-warning-ratchet.mjs'],
+    name: 'lint-ceiling-declared-vs-frozen',
+    command: ['node', 'scripts/harness/scan-lint-ceiling-declared-vs-frozen.mjs'],
     examines: ['scripts/harness/lint-warning-baseline.json', 'package.json'],
   },
   {
