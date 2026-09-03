@@ -187,10 +187,13 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       throw createRunnerError(`Background task runner does not support edit: ${taskId}`);
     }
     await handle.editSchedule(patch);
+    const { label, ...schedulePatch } = patch;
     // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
     if (task.state.schedule) {
-      task.state.schedule = { ...task.state.schedule, ...patch };
+      task.state.schedule = { ...task.state.schedule, ...schedulePatch };
     }
+    // CMD-009: the label is the list view's rendering of the instruction, so it moves with it.
+    if (label !== undefined) task.state.label = label;
     task.state.updatedAt = this.now();
     this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
   }

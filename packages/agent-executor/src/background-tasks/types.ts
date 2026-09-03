@@ -111,6 +111,8 @@ export interface IScheduleEditPatch {
   cronExpression?: string;
   agentInstruction?: string;
   command?: string;
+  /** CMD-009: the list-view label summarizes the instruction, so an edit may refresh it too. */
+  label?: string;
 }
 
 export interface IBackgroundTaskRunner {
