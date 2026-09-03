@@ -249,9 +249,14 @@ Not-yet-implemented methods return `{ status: 501, ... NOT_IMPLEMENTED_IN_FRAMEW
 ## Dependency Rules
 
 - `dag-framework` MAY import from: `dag-core`, `dag-api`, `dag-runtime`, `dag-worker`,
-  `dag-adapters-local`, `dag-orchestration-client`, `dag-cost`, `dag-node`, and the
-  default node packages (`dag-node-*`).
-- `dag-framework` MUST NOT import `@robota-sdk/agent-*` packages.
+  `dag-adapters-local`, `dag-orchestration-client`, `dag-cost`, `dag-node`, `dag-builder`,
+  `dag-projection`, and the default node packages (`dag-nodes-default`, `dag-node-*`).
+- `dag-framework` MAY import neutral shared contracts from `@robota-sdk/agent-core` (the
+  provider-definition and trusted-root SSOT contracts approved in ARCH-PROVIDER-003/004 and
+  ARCH-010). It MUST NOT import concrete provider packages (`@robota-sdk/agent-provider-*`) or the
+  upper agent-runtime packages (`@robota-sdk/agent-framework`, `agent-session`, `agent-executor`,
+  `agent-cli`, `agent-tools`, …). `src/__tests__/spec-dependency-rules.test.ts` holds the manifest to
+  this list.
 - LLM node packages (`dag-node-llm-text-*`, `dag-node-gemini-*`) are declared as
   `optionalDependencies` — loaded via dynamic import with silent skip on missing SDK.
 - `dag-node-text-to-image`, `dag-node-seedance-video`, and `dag-node-skill` load via the same
