@@ -217,6 +217,16 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     );
   });
 
+  it('composes /mode alongside /permissions in the default set — CLI-079 (issue #2444)', () => {
+    // The agent-cli SPEC once said the default CLI does NOT compose `/mode` while the code did; the
+    // set-equality above would catch a silent loss, but only through a baseline a reader must diff.
+    // This pins the product decision by name so a future "tidy /mode away" reads as a decision.
+    const names = assembleRobota().commandModules.map((m) => m.name);
+
+    expect(names).toContain('agent-command-mode');
+    expect(names).toContain('agent-command-permissions');
+  });
+
   it('derives the same module-NAME superset the kernel actually merges (no drift)', () => {
     // The shell reports INFRA-032 unknown names from `mergedCommandModuleNames` BEFORE assembling (so the
     // notice survives the init/--configure early-returns). That shortcut is only valid while the derived
