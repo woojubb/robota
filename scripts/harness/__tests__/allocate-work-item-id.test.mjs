@@ -22,6 +22,7 @@ import {
   positionalArgs,
   readExamined,
   recordStub,
+  treeFreshness,
 } from '../allocate-work-item-id.mjs';
 import { makeTemp } from './make-temp.mjs';
 
@@ -173,6 +174,28 @@ describe('the record it writes', () => {
     expect(stub).toContain('status: todo');
     expect(stub).not.toContain('completed:');
   });
+
+  it('carries the User Execution Test Scenarios section the rule requires (issue #2308)', () => {
+    // An author fills in the sections the skeleton gives them: 267 completed records were closed
+    // without this one because nothing emitted it. The section is in the Task's exact
+    // author-verdict form from backlog-execution.md's checkpoint-evidence contract, with the
+    // cheap correct answer (not-applicable + reason) in front of the author.
+    expect(stub).toContain('\n## User Execution Test Scenarios\n');
+    expect(stub).toMatch(/^\*\*Author verdict:\*\* `SCENARIO DRAFTED: not-applicable \| 0`$/m);
+    expect(stub).toMatch(/^\*\*Reason:\*\* /m);
+    // The section comes AFTER Plan, so the record's shape stays Objective → Plan → scenarios.
+    expect(stub.indexOf('## Plan')).toBeLessThan(stub.indexOf('## User Execution Test Scenarios'));
+  });
+
+  it('the spec template carries the same section, in the spec form', () => {
+    const template = readFileSync(
+      path.join(import.meta.dirname, '../../../.agents/templates/spec-template.md'),
+      'utf8',
+    );
+    expect(template).toContain('\n## User Execution Test Scenarios\n');
+    expect(template).toMatch(/^Not applicable\.$/m);
+    expect(template).toMatch(/^\*\*Reason:\*\* /m);
+  });
 });
 
 describe('the arguments it reads', () => {
@@ -297,5 +320,72 @@ describe('the write itself', () => {
     );
     expect(source).toContain("{ flag: 'wx' }");
     expect(source).not.toMatch(/if \(existsSync\(absolute\)\)/);
+  });
+});
+
+describe('a clone behind its upstream is refused, not answered (issue #2184)', () => {
+  // TRANS-005 was allocated, delivered and archived; a clone that had fetched but not
+  // fast-forwarded returned it again minutes later. Every tree-derived source was stale TOGETHER,
+  // so nothing inside the allocator could disagree with itself.
+  function upstreamAndClone() {
+    const upstream = makeTemp('robota-alloc-upstream-');
+    const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+    git(upstream, 'init', '-q', '-b', 'develop');
+    git(upstream, 'config', 'user.email', 'probe@example.invalid');
+    git(upstream, 'config', 'user.name', 'probe');
+    writeFileSync(path.join(upstream, 'a.md'), 'one');
+    git(upstream, 'add', '-A');
+    git(upstream, 'commit', '-qm', 'one');
+    const clone = makeTemp('robota-alloc-clone-');
+    git(clone, 'clone', '-q', upstream, '.');
+    git(clone, 'config', 'user.email', 'probe@example.invalid');
+    git(clone, 'config', 'user.name', 'probe');
+    return { upstream, clone, git };
+  }
+
+  it('is fresh when the clone is at the upstream tip', () => {
+    const { clone } = upstreamAndClone();
+    const result = treeFreshness({ root: clone });
+    expect(result.status).toBe('fresh');
+    expect(result.behind).toBe(0);
+    expect(result.fetched).toBe(true);
+  });
+
+  it('THE CASE: reports stale, naming the gap, once upstream moves — even before a fetch', () => {
+    const { upstream, clone, git } = upstreamAndClone();
+    writeFileSync(path.join(upstream, 'b.md'), 'two');
+    git(upstream, 'add', '-A');
+    git(upstream, 'commit', '-qm', 'two');
+
+    const result = treeFreshness({ root: clone });
+    expect(result.status).toBe('stale');
+    expect(result.behind).toBe(1);
+    expect(result.upstreamSha).toBe(git(upstream, 'rev-parse', 'HEAD').trim());
+  });
+
+  it('offline is not stale: a fetch that fails measures against the local upstream ref', () => {
+    const { upstream, clone, git } = upstreamAndClone();
+    git(clone, 'remote', 'set-url', 'origin', path.join(upstream, 'does-not-exist'));
+    const result = treeFreshness({ root: clone });
+    expect(result.fetched).toBe(false);
+    expect(result.status).toBe('fresh');
+    expect(result.reason).toMatch(/could not be fetched/);
+  });
+
+  it('reports UNKNOWN, never fresh, when the clone has no upstream ref at all', () => {
+    const dir = repoWith({ records: ['INFRA-001-a.md'] });
+    const result = treeFreshness({ root: dir });
+    expect(result.status).toBe('unknown');
+    expect(result.reason).toMatch(/not a ref/);
+  });
+
+  it('main refuses on stale unless --allow-stale, and prints the measurement', () => {
+    // The script has no `--root`; the wiring is asserted on the source, as the `wx` case does.
+    const source = readFileSync(
+      path.join(import.meta.dirname, '../allocate-work-item-id.mjs'),
+      'utf8',
+    );
+    expect(source).toMatch(/freshness\.status === 'stale' && !argv\.includes\('--allow-stale'\)/);
+    expect(source).toContain('::measured::');
   });
 });

@@ -40,6 +40,11 @@
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "the slug of the problem"
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --issue 1916
  *   node scripts/harness/allocate-work-item-id.mjs INFRA --dry-run     # print the ID, write nothing
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --allow-stale  # behind origin/develop, knowingly
+ *
+ * A clone BEHIND `origin/develop` is refused (issue #2184): its records and citations are stale
+ * together, so the answer would be plausible and possibly taken. `--allow-stale` accepts that risk
+ * visibly; an offline clone that cannot fetch still allocates, and says which measurement it lacked.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -237,6 +242,25 @@ export function localDate(date = new Date(), timeZone = undefined) {
   }).format(date);
 }
 
+/**
+ * The `## User Execution Test Scenarios` section `.agents/rules/backlog-execution.md` requires of
+ * every Task record (issue #2308), in the Task's exact author-verdict form from that rule's
+ * checkpoint-evidence contract. Emitted with the cheap correct answer in front of the author —
+ * `not-applicable` plus a reason — because an author fills in the sections the skeleton gives them,
+ * and 267 completed records were closed without this one.
+ */
+export const USER_EXECUTION_SECTION = `## User Execution Test Scenarios
+
+<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
+     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
+     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
+     evidence); otherwise write the scenario a user can run and raise the count. -->
+
+**Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\`
+
+**Reason:** TODO — why no end user can observe this change directly through a runnable surface.
+`;
+
 /** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
 export function recordStub({ id, title, today, issue = null }) {
   return `---
@@ -258,7 +282,8 @@ TODO
 ## Plan
 
 - [ ] TODO
-`;
+
+${USER_EXECUTION_SECTION}`;
 }
 
 /**
@@ -282,11 +307,69 @@ export function positionalArgs(argv, flagsTakingValue = ['--issue']) {
   return positional;
 }
 
+/** The integration branch every allocation must be current with. */
+export const UPSTREAM_REF = 'origin/develop';
+
+/**
+ * Is this clone BEHIND the integration branch? (issue #2184)
+ *
+ * The sources above cover a source being UNREACHABLE. They do not cover every source being stale
+ * TOGETHER: in a clone behind its upstream the records and the citations agree with each other and
+ * the open-issue titles do not contradict them, so the allocator is internally consistent and
+ * externally wrong — it returned `TRANS-005` minutes after PR #2182 had delivered and archived it.
+ * A plausible number is the dangerous answer; a refusal is the honest one.
+ *
+ * Offline is NOT stale. A fetch that fails (no network) falls back to the `origin/develop` the clone
+ * already has, and a clone with no such ref at all reports `unknown` so the caller can say the
+ * measurement was unavailable rather than silently narrow. Only behind-and-knowable refuses.
+ *
+ * Returns `{ status: 'fresh' | 'stale' | 'unknown', behind, upstreamSha, fetched, reason }`.
+ */
+export function treeFreshness({ root = WORKSPACE_ROOT, upstream = UPSTREAM_REF } = {}) {
+  const git = (args, timeout) =>
+    spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout, maxBuffer: 1024 * 1024 });
+  const [remote, ...branchParts] = upstream.split('/');
+  const branch = branchParts.join('/');
+  const fetch = git(['fetch', '--quiet', remote, branch], 30_000);
+  const fetched = fetch.status === 0;
+  const resolved = git(['rev-parse', '--verify', '--quiet', `${upstream}^{commit}`]);
+  if (resolved.status !== 0) {
+    return {
+      status: 'unknown',
+      behind: null,
+      upstreamSha: null,
+      fetched,
+      reason: `${upstream} is not a ref in this clone${fetched ? '' : ' and could not be fetched'}.`,
+    };
+  }
+  const upstreamSha = resolved.stdout.trim();
+  const count = git(['rev-list', '--count', `HEAD..${upstream}`]);
+  if (count.status !== 0) {
+    return {
+      status: 'unknown',
+      behind: null,
+      upstreamSha,
+      fetched,
+      reason: `git rev-list --count HEAD..${upstream} exited ${count.status}.`,
+    };
+  }
+  const behind = Number(count.stdout.trim());
+  return {
+    status: behind > 0 ? 'stale' : 'fresh',
+    behind,
+    upstreamSha,
+    fetched,
+    reason: fetched ? null : `${upstream} could not be fetched; measured against the local copy.`,
+  };
+}
+
 function main(argv) {
   const args = positionalArgs(argv);
   const prefix = args[0];
   if (!prefix || !/^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*$/.test(prefix)) {
-    console.error('usage: allocate-work-item-id.mjs <PREFIX> "<title>" [--issue N] [--dry-run]');
+    console.error(
+      'usage: allocate-work-item-id.mjs <PREFIX> "<title>" [--issue N] [--dry-run] [--allow-stale]',
+    );
     return 2;
   }
   const title = args.slice(1).join(' ');
@@ -297,6 +380,25 @@ function main(argv) {
     console.error('allocate-work-item-id: --issue requires a value');
     return 2;
   }
+
+  // Issue #2184: refuse, rather than answer, when the clone cannot see the current tree.
+  const freshness = treeFreshness();
+  if (freshness.status === 'stale' && !argv.includes('--allow-stale')) {
+    console.error(
+      `allocate-work-item-id: this clone is ${freshness.behind} commit(s) behind ${UPSTREAM_REF} ` +
+        `(${freshness.upstreamSha.slice(0, 9)}). Every tree-derived source — records and citations — ` +
+        'is stale together, so any number allocated here is plausible and possibly taken. ' +
+        'Fast-forward (git pull --ff-only) and re-run, or pass --allow-stale to accept the risk knowingly.',
+    );
+    return 1;
+  }
+  console.log(
+    freshness.status === 'unknown'
+      ? `::measured:: freshness UNKNOWN — ${freshness.reason} Allocating from a tree that may be behind.`
+      : `::measured:: HEAD is ${freshness.behind} commit(s) behind ${UPSTREAM_REF}@${freshness.upstreamSha.slice(0, 9)}` +
+          (freshness.fetched ? '' : ` (${freshness.reason})`) +
+          (freshness.status === 'stale' ? ' — --allow-stale accepted' : ''),
+  );
 
   const records = idsFromRecords();
   const citations = idsFromCitations();
