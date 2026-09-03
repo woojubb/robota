@@ -16,6 +16,7 @@
 
 import { spawn } from 'node:child_process';
 
+import { createBoundedOutput, type IBoundedOutput } from '../../utils/bounded-output.js';
 import { resolvePlatformShell } from '../../utils/platform-shell.js';
 
 import type {
@@ -27,6 +28,8 @@ import type {
 
 /** Default timeout in seconds — matches Claude Code's 600s default */
 const DEFAULT_TIMEOUT_SECONDS = 600;
+/** ARCH-056: most bytes retained per hook stream (stdout head, stderr tail). */
+const MAX_HOOK_OUTPUT_BYTES = 1_000_000;
 
 /**
  * How a finished process maps onto an outcome — a pure function of what the process reported.
@@ -45,17 +48,18 @@ const DEFAULT_TIMEOUT_SECONDS = 600;
 function wireChildIo(
   child: ReturnType<typeof spawn>,
   inputJson: string,
-): { stdoutChunks: Buffer[]; stderrChunks: Buffer[] } {
-  const stdoutChunks: Buffer[] = [];
-  const stderrChunks: Buffer[] = [];
-  child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-  child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+): { stdoutOutput: IBoundedOutput; stderrOutput: IBoundedOutput } {
+  // ARCH-056: bounded while reading; a hook that floods stdout cannot grow the parent's memory.
+  const stdoutOutput = createBoundedOutput({ maxBytes: MAX_HOOK_OUTPUT_BYTES });
+  const stderrOutput = createBoundedOutput({ maxBytes: MAX_HOOK_OUTPUT_BYTES, retain: 'tail' });
+  child.stdout?.on('data', (chunk: Buffer) => stdoutOutput.append(chunk));
+  child.stderr?.on('data', (chunk: Buffer) => stderrOutput.append(chunk));
   child.stdin?.on('error', () => {
     // EPIPE: child closed stdin before we finished writing — safe to ignore
   });
   child.stdin?.write(inputJson);
   child.stdin?.end();
-  return { stdoutChunks, stderrChunks };
+  return { stdoutOutput, stderrOutput };
 }
 
 /** The platform shell's argv for a hook command. */
@@ -120,14 +124,7 @@ export class CommandExecutor implements IHookTypeExecutor {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(
-          outcomeOfExit(
-            code,
-            signal,
-            Buffer.concat(stdoutChunks).toString('utf8'),
-            Buffer.concat(stderrChunks).toString('utf8'),
-          ),
-        );
+        resolve(outcomeOfExit(code, signal, stdoutOutput.toString(), stderrOutput.toString()));
       });
 
       child.on('error', (err: Error) => {
