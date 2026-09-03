@@ -3048,6 +3048,115 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('accepts a pre-checkpoint terminal disposition and leaves nothing pending (issue #2469)', () => {
+    const { root, base } = repository({ taskInBase: true });
+    const draftSpec = `.agents/spec-docs/draft/${TASK_ID}.md`;
+    const rejectedSpec = `.agents/spec-docs/rejected/${TASK_ID}.md`;
+    const completedTask = `.agents/tasks/completed/${TASK_ID}.md`;
+    write(root, draftSpec, ['---', 'status: draft', '---', '', `# ${TASK_ID}`, ''].join('\n'));
+    commit(root, 'draft planning prelude');
+    mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/spec-docs/rejected'), { recursive: true });
+    git(root, ['mv', TASK_PATH, completedTask]);
+    git(root, ['mv', draftSpec, rejectedSpec]);
+    write(
+      root,
+      completedTask,
+      ['---', 'status: wontfix', 'completed: 2026-08-29', '---', '', `# ${TASK_ID}`, ''].join('\n'),
+    );
+    write(
+      root,
+      rejectedSpec,
+      [
+        '---',
+        'status: rejected',
+        '---',
+        '',
+        `# ${TASK_ID}`,
+        '',
+        '## Evidence Log',
+        '',
+        '### [REJECTION] — 2026-08-29',
+        '',
+        'REVIEW VERDICT: REJECT — the motivating premise is disproved by history.',
+        '',
+      ].join('\n'),
+    );
+    git(root, ['add', '-A']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'terminal disposition');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+
+    // The unit is closed: an unrelated later prelude is not "a different pending unit".
+    write(
+      root,
+      '.agents/tasks/HARNESS-901-other.md',
+      ['---', 'status: todo', '---', '', '# HARNESS-901-other', ''].join('\n'),
+    );
+    commit(root, 'next unit prelude');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('refuses a terminal disposition that lands at done, lacks the rejection entry, or carries implementation (issue #2469)', () => {
+    const disposition = (mutate) => {
+      const { root, base } = repository({ taskInBase: true });
+      const draftSpec = `.agents/spec-docs/draft/${TASK_ID}.md`;
+      const rejectedSpec = `.agents/spec-docs/rejected/${TASK_ID}.md`;
+      const completedTask = `.agents/tasks/completed/${TASK_ID}.md`;
+      write(root, draftSpec, ['---', 'status: draft', '---', '', `# ${TASK_ID}`, ''].join('\n'));
+      commit(root, 'draft planning prelude');
+      mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+      mkdirSync(path.join(root, '.agents/spec-docs/rejected'), { recursive: true });
+      git(root, ['mv', TASK_PATH, completedTask]);
+      git(root, ['mv', draftSpec, rejectedSpec]);
+      const files = {
+        task: [
+          '---',
+          'status: wontfix',
+          'completed: 2026-08-29',
+          '---',
+          '',
+          `# ${TASK_ID}`,
+          '',
+        ].join('\n'),
+        spec: [
+          '---',
+          'status: rejected',
+          '---',
+          '',
+          `# ${TASK_ID}`,
+          '',
+          '### [REJECTION] — 2026-08-29',
+          '',
+          'REJECT.',
+          '',
+        ].join('\n'),
+      };
+      mutate(root, files);
+      write(root, completedTask, files.task);
+      write(root, rejectedSpec, files.spec);
+      commit(root, 'terminal disposition');
+      return messages(findHistoryFindings(root, base));
+    };
+
+    expect(
+      disposition((_root, files) => {
+        files.task = files.task.replace('wontfix', 'done');
+      }),
+    ).toMatch(/newly archived at one of/);
+    expect(
+      disposition((_root, files) => {
+        files.spec = files.spec.replace('### [REJECTION]', '### [NOTE]');
+      }),
+    ).toMatch(/\[REJECTION\]/);
+    expect(
+      disposition((root) => {
+        write(root, 'packages/example/src.ts', 'implementation\n');
+      }),
+    ).toMatch(/no planning checkpoint/);
+  });
+
   it('rejects more than one predecessor post-merge prelude', () => {
     const { root, base } = repository();
     write(

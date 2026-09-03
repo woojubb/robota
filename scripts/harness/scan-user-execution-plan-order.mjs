@@ -22,6 +22,10 @@
  * Before either checkpoint only the pair's own planning documents may change, plus a pure append to
  * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
  * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
+ * One further pre-checkpoint shape is accepted: a TERMINAL DISPOSITION (issue #2469) that closes the
+ * unit without a checkpoint — `tasks/<b>` → `tasks/completed/<b>` at `wontfix`/`skipped`/`superseded`
+ * beside `spec-docs/{draft,backlog,todo}/<b>` → `spec-docs/rejected/<b>` at `status: rejected` with a
+ * `[REJECTION]` entry, and no other path. It leaves nothing pending for a later checkpoint.
  *
  * A merge commit is judged by its OWN content — the paths its tree adds beyond Git's automatic merge
  * of its parents — on both paths (issue #2410); a clean merge, back-merge or synthetic PR merge
@@ -85,6 +89,18 @@ const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['backlog', 'review-ready'],
   ['todo', 'approved'],
 ]);
+/**
+ * A pre-checkpoint TERMINAL DISPOSITION (issue #2469): an open Task plus its pre-checkpoint spec are
+ * closed without ever reaching GATE-IMPLEMENT (a REJECT verdict, a false premise). The only accepted
+ * shape is the same-basename move `tasks/<b>` → `tasks/completed/<b>` at a non-done terminal status
+ * together with `spec-docs/{draft,backlog,todo}/<b>` → `spec-docs/rejected/<b>` at `status: rejected`
+ * carrying a `[REJECTION]` evidence entry — and nothing else in the change. `done` is excluded: a
+ * delivered unit needs the checkpoint.
+ */
+const REJECTED_SPEC_FOLDER = 'rejected';
+const REJECTED_SPEC_STATUS = 'rejected';
+const REJECTION_ENTRY_TOKEN = '[REJECTION]';
+const TERMINAL_DISPOSITION_TASK_STATUSES = new Set(['wontfix', 'skipped', 'superseded']);
 const LOOP_TERMINALS = new Set([
   'converged',
   'no-progress',
@@ -1201,7 +1217,94 @@ function isCheckpointNearMiss(problems) {
   return problems.length > 0 && problems.every((problem) => problem.startsWith(NEAR_MISS_PREFIX));
 }
 
+function hasRejectionEntry(text) {
+  return visibleMarkdown(text ?? '')
+    .split('\n')
+    .some((line) => {
+      const heading = atxHeading(line);
+      return heading !== null && heading.content.startsWith(REJECTION_ENTRY_TOKEN);
+    });
+}
+
+/**
+ * The exact path set of a pre-checkpoint terminal disposition for `basename`, or null when `paths`
+ * is any other shape. Membership is decided by paths alone; contents are judged by
+ * `terminalDispositionProblems`.
+ */
+export function terminalDispositionPaths(paths, basename) {
+  const taskSource = `${TASK_PREFIX}${basename}`;
+  const taskDestination = `${TASK_PREFIX}completed/${basename}`;
+  const specDestination = `${SPEC_PREFIX}${REJECTED_SPEC_FOLDER}/${basename}`;
+  const specSources = paths.filter(
+    (file) =>
+      file.startsWith(SPEC_PREFIX) &&
+      specBasename(file) === basename &&
+      PRE_CHECKPOINT_SPEC_STATUS.has(file.slice(SPEC_PREFIX.length).split('/', 1)[0]),
+  );
+  if (specSources.length !== 1) return null;
+  const expected = [taskSource, taskDestination, specSources[0], specDestination].sort();
+  const actual = [...new Set(paths)].sort();
+  if (expected.length !== actual.length || expected.some((file, index) => file !== actual[index])) {
+    return null;
+  }
+  return { taskSource, taskDestination, specSource: specSources[0], specDestination };
+}
+
+export function terminalDispositionProblems(disposition, textForPath, parentTextForPath) {
+  const problems = [];
+  const { taskSource, taskDestination, specSource, specDestination } = disposition;
+  if (
+    textForPath(taskSource) !== null ||
+    frontmatterStatus(parentTextForPath(taskSource)) !== 'todo'
+  ) {
+    problems.push(
+      `terminal disposition must move an open \`status: todo\` Task \`${taskSource}\` out of the queue.`,
+    );
+  }
+  const taskStatus = frontmatterStatus(textForPath(taskDestination));
+  if (
+    parentTextForPath(taskDestination) !== null ||
+    !TERMINAL_DISPOSITION_TASK_STATUSES.has(taskStatus ?? '')
+  ) {
+    problems.push(
+      `terminal disposition Task \`${taskDestination}\` must be newly archived at one of ${[...TERMINAL_DISPOSITION_TASK_STATUSES].map((status) => `\`${status}\``).join(', ')} (got \`${taskStatus ?? '(missing)'}\`).`,
+    );
+  }
+  const specFolder = specSource.slice(SPEC_PREFIX.length).split('/', 1)[0];
+  const parentSpec = parentTextForPath(specSource);
+  if (
+    textForPath(specSource) !== null ||
+    parentSpec === null ||
+    frontmatterStatus(parentSpec) !== PRE_CHECKPOINT_SPEC_STATUS.get(specFolder) ||
+    gateImplementPassCount(parentSpec) > 0
+  ) {
+    problems.push(
+      `terminal disposition must retire a pre-checkpoint spec \`${specSource}\` that never carried GATE-IMPLEMENT PASS.`,
+    );
+  }
+  const rejectedSpec = textForPath(specDestination);
+  if (
+    parentTextForPath(specDestination) !== null ||
+    frontmatterStatus(rejectedSpec) !== REJECTED_SPEC_STATUS ||
+    !hasRejectionEntry(rejectedSpec)
+  ) {
+    problems.push(
+      `terminal disposition spec \`${specDestination}\` must be newly created at \`status: ${REJECTED_SPEC_STATUS}\` with a \`${REJECTION_ENTRY_TOKEN}\` evidence entry.`,
+    );
+  }
+  return problems;
+}
+
+/** True when `paths` is a pre-checkpoint terminal disposition of `basename`: the unit is closed. */
+export function isTerminalDisposition(paths, basename) {
+  return basename !== null && terminalDispositionPaths(paths, basename) !== null;
+}
+
 export function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
+  const disposition = terminalDispositionPaths(paths, basename);
+  if (disposition !== null) {
+    return terminalDispositionProblems(disposition, textForPath, parentTextForPath);
+  }
   const problems = [];
   const ledgerAppend = (file) =>
     isLoopLedgerPath(file) &&
@@ -1856,7 +1959,8 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         continue;
       }
       planningStarted = true;
-      pendingBasename = basename;
+      // A terminal disposition closes the unit: nothing is pending for a later checkpoint.
+      pendingBasename = isTerminalDisposition(entry.paths, basename) ? null : basename;
     }
     return { base, commits, examined, checkpoint: null, pendingBasename, findings };
   }
