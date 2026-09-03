@@ -117,6 +117,8 @@ Reconciliation-only rows are issue #2093 (delivery evidence then COMPLETED closu
 3. Add only the approved single-path/single-count reference baseline entry for active AGREEMENT-008.
 4. Verify the combined staged state and commit it before external mutation.
 
+Implementation batch in progress: the durable manifest and reference baseline are bound to this active spec and paired Task; completion evidence remains pending final verification.
+
 ## Completion Criteria
 
 - [ ] TC-01: Observable: the manifest exactly matches the 48 issue-to-Task rows frozen above and every path exists uniquely.

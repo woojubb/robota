@@ -11,17 +11,27 @@
     "openNativeChildren": 78
   },
   "frozenBatch": {
-    "name": "B2 product prerequisite candidates",
-    "issueIds": [2070, 2085, 2104, 2118],
+    "name": "2026-09-03 approved bulk child-Issue disposition wave",
+    "issueIds": [
+      2061, 2062, 2064, 2065, 2069, 2071, 2072, 2074, 2086, 2087, 2088, 2089, 2090, 2091, 2092,
+      2094, 2095, 2098, 2099, 2100, 2101, 2103, 2105, 2106, 2107, 2114, 2116, 2117, 2119, 2120,
+      2121, 2122, 2123, 2124, 2125, 2126, 2127, 2128, 2129, 2518, 2519, 2521, 2523, 2524, 2528,
+      2530, 2531, 2532
+    ],
+    "retainIssueIds": [
+      1989, 1990, 2066, 2067, 2073, 2075, 2076, 2077, 2078, 2504, 2515, 2516, 2517, 2520, 2522,
+      2525, 2526, 2527, 2533, 2534
+    ],
     "mutationAuthorized": true
   },
   "counts": {
-    "OWNER_REVIEW": 70,
-    "ABSORB": 8,
+    "OWNER_REVIEW": 2,
+    "ABSORB": 56,
     "B3": 17,
     "B2": 51,
     "B1": 4,
-    "B4": 6
+    "B4": 6,
+    "RETAIN": 20
   },
   "batchReviews": {
     "B1": {
@@ -413,6 +423,278 @@
         "beforeFirstMarker": "Restore #2079 and every changed B2 body from the fresh snapshot.",
         "afterAnyMarker": "Preserve append-only markers; reopen premature closures, restore a P label only when finalization did not complete, then idempotently roll forward or return the row to OWNER_REVIEW."
       }
+    },
+    "BULK_2026_09_03": {
+      "base": "59ebe9bed54d7d6c16ca682f6e8de901c2943b4c",
+      "reviewStatus": "APPROVED",
+      "mutationAuthorized": true,
+      "approval": {
+        "date": "2026-09-03",
+        "instruction": "모두 승인함. 모든 너의 제안에 대해 타당한 근거가 있다면 자동으로 사전 승인함",
+        "evidence": "AGREEMENT-007 through AGREEMENT-016 are active on develop with independent GATE-WRITE, GATE-APPROVAL, and GATE-IMPLEMENT evidence."
+      },
+      "absorbIssueIds": [
+        2061, 2062, 2064, 2065, 2069, 2071, 2072, 2074, 2086, 2087, 2088, 2089, 2090, 2091, 2092,
+        2094, 2095, 2098, 2099, 2100, 2101, 2103, 2105, 2106, 2107, 2114, 2116, 2117, 2119, 2120,
+        2121, 2122, 2123, 2124, 2125, 2126, 2127, 2128, 2129, 2518, 2519, 2521, 2523, 2524, 2528,
+        2530, 2531, 2532
+      ],
+      "retainIssueIds": [
+        1989, 1990, 2066, 2067, 2073, 2075, 2076, 2077, 2078, 2504, 2515, 2516, 2517, 2520, 2522,
+        2525, 2526, 2527, 2533, 2534
+      ],
+      "preMutationPopulation": {
+        "openIssues": 272
+      },
+      "expectedPostMutation": {
+        "openIssues": 226,
+        "absorbedClosures": 48,
+        "completedClosureIssue": 2093,
+        "reopenedParentIssues": [1985, 1986, 2512],
+        "formula": "272 - 48 - 1 + 3 = 226"
+      },
+      "taskMappings": [
+        {
+          "issue": 2061,
+          "id": "AGREEMENT-007",
+          "path": ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md"
+        },
+        {
+          "issue": 2062,
+          "id": "AGREEMENT-009",
+          "path": ".agents/tasks/AGREEMENT-009-coordinate-the-kind-safe-background-task-migration.md"
+        },
+        {
+          "issue": 2064,
+          "id": "REFACTOR-027",
+          "path": ".agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md"
+        },
+        {
+          "issue": 2065,
+          "id": "REFACTOR-028",
+          "path": ".agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md"
+        },
+        {
+          "issue": 2069,
+          "id": "TRANS-012",
+          "path": ".agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md"
+        },
+        {
+          "issue": 2071,
+          "id": "AGREEMENT-010",
+          "path": ".agents/tasks/AGREEMENT-010-coordinate-the-remote-control-host-extraction.md"
+        },
+        {
+          "issue": 2072,
+          "id": "CMD-014",
+          "path": ".agents/tasks/CMD-014-coordinate-command-features-as-owner-aligned-vertical-slices.md"
+        },
+        {
+          "issue": 2074,
+          "id": "HOST-015",
+          "path": ".agents/tasks/HOST-015-coordinate-headless-and-programmatic-host-extraction.md"
+        },
+        {
+          "issue": 2086,
+          "id": "REMOTE-015",
+          "path": ".agents/tasks/REMOTE-015-extract-the-pure-remote-control-host-state-reducer.md"
+        },
+        {
+          "issue": 2087,
+          "id": "HOST-016",
+          "path": ".agents/tasks/HOST-016-extract-the-headless-stdio-host-package.md"
+        },
+        {
+          "issue": 2088,
+          "id": "CMD-010",
+          "path": ".agents/tasks/CMD-010-define-the-discriminated-command-definition-and-serializable-descriptor.md"
+        },
+        {
+          "issue": 2089,
+          "id": "DATA-010",
+          "path": ".agents/tasks/DATA-010-define-the-kind-indexed-background-task-contract-map.md"
+        },
+        {
+          "issue": 2090,
+          "id": "HANDOFF-002",
+          "path": ".agents/tasks/HANDOFF-002-move-authority-transitions-into-session-mobility.md"
+        },
+        {
+          "issue": 2091,
+          "id": "TRANS-011",
+          "path": ".agents/tasks/TRANS-011-the-transport-registry-erases-heterogeneous-exact-session-capabilities-into-one-.md"
+        },
+        {
+          "issue": 2092,
+          "id": "CMD-011",
+          "path": ".agents/tasks/CMD-011-derive-command-projections-from-one-definition.md"
+        },
+        {
+          "issue": 2094,
+          "id": "SECURITY-003",
+          "path": ".agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md"
+        },
+        {
+          "issue": 2095,
+          "id": "SECURITY-004",
+          "path": ".agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md"
+        },
+        {
+          "issue": 2098,
+          "id": "TRANS-016",
+          "path": ".agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md"
+        },
+        {
+          "issue": 2099,
+          "id": "SEC-021",
+          "path": ".agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md"
+        },
+        {
+          "issue": 2100,
+          "id": "CMD-012",
+          "path": ".agents/tasks/CMD-012-migrate-skill-and-plugin-commands-to-discriminated-definitions.md"
+        },
+        {
+          "issue": 2101,
+          "id": "ARCH-117",
+          "path": ".agents/tasks/ARCH-117-type-the-runner-registry-and-migrate-background-runners.md"
+        },
+        {
+          "issue": 2103,
+          "id": "HOST-017",
+          "path": ".agents/tasks/HOST-017-extract-the-programmatic-in-process-host-package.md"
+        },
+        {
+          "issue": 2105,
+          "id": "REMOTE-016",
+          "path": ".agents/tasks/REMOTE-016-define-the-remote-control-host-facade-and-effect-ports.md"
+        },
+        {
+          "issue": 2106,
+          "id": "HANDOFF-003",
+          "path": ".agents/tasks/HANDOFF-003-move-inventory-and-refusal-policy-into-session-mobility.md"
+        },
+        {
+          "issue": 2107,
+          "id": "TRANS-013",
+          "path": ".agents/tasks/TRANS-013-bind-http-and-mcp-to-their-exact-session-ports.md"
+        },
+        {
+          "issue": 2114,
+          "id": "DATA-011",
+          "path": ".agents/tasks/DATA-011-migrate-persisted-background-state-and-command-views-to-kind-safe-variants.md"
+        },
+        {
+          "issue": 2116,
+          "id": "TRANS-014",
+          "path": ".agents/tasks/TRANS-014-bind-ws-protocol-and-webrtc-adapters-to-exact-session-ports.md"
+        },
+        {
+          "issue": 2117,
+          "id": "TRANS-015",
+          "path": ".agents/tasks/TRANS-015-remove-iinteractive-session-from-production-transport-seams.md"
+        },
+        {
+          "issue": 2119,
+          "id": "REMOTE-017",
+          "path": ".agents/tasks/REMOTE-017-implement-node-identity-and-trusted-device-repository-adapters.md"
+        },
+        {
+          "issue": 2120,
+          "id": "REMOTE-018",
+          "path": ".agents/tasks/REMOTE-018-wire-the-host-service-into-cli-and-delete-the-controller.md"
+        },
+        {
+          "issue": 2121,
+          "id": "CMD-015",
+          "path": ".agents/tasks/CMD-015-move-execution-background-and-schedule-commands-to-their-owners.md"
+        },
+        {
+          "issue": 2122,
+          "id": "CMD-016",
+          "path": ".agents/tasks/CMD-016-move-session-history-compact-and-rewind-commands-to-their-owners.md"
+        },
+        {
+          "issue": 2123,
+          "id": "CMD-017",
+          "path": ".agents/tasks/CMD-017-move-provider-settings-and-plugin-commands-to-their-owners.md"
+        },
+        {
+          "issue": 2124,
+          "id": "CMD-018",
+          "path": ".agents/tasks/CMD-018-move-help-language-and-permission-commands-to-the-product-shell.md"
+        },
+        {
+          "issue": 2125,
+          "id": "CMD-019",
+          "path": ".agents/tasks/CMD-019-expose-coding-commands-as-leaf-entries-and-remove-umbrella-consumers.md"
+        },
+        {
+          "issue": 2126,
+          "id": "HANDOFF-004",
+          "path": ".agents/tasks/HANDOFF-004-move-source-and-destination-orchestration-into-session-mobility.md"
+        },
+        {
+          "issue": 2127,
+          "id": "HANDOFF-005",
+          "path": ".agents/tasks/HANDOFF-005-reduce-transport-protocol-to-codecs-and-remove-the-cli-bridge.md"
+        },
+        {
+          "issue": 2128,
+          "id": "HOST-018",
+          "path": ".agents/tasks/HOST-018-migrate-consumers-and-remove-the-agent-transport-umbrella.md"
+        },
+        {
+          "issue": 2129,
+          "id": "CMD-013",
+          "path": ".agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md"
+        },
+        {
+          "issue": 2518,
+          "id": "INFRA-154",
+          "path": ".agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md"
+        },
+        {
+          "issue": 2519,
+          "id": "MCP-001",
+          "path": ".agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md"
+        },
+        {
+          "issue": 2521,
+          "id": "MCP-002",
+          "path": ".agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md"
+        },
+        {
+          "issue": 2523,
+          "id": "MCP-003",
+          "path": ".agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md"
+        },
+        {
+          "issue": 2524,
+          "id": "MCP-004",
+          "path": ".agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md"
+        },
+        {
+          "issue": 2528,
+          "id": "MCP-005",
+          "path": ".agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md"
+        },
+        {
+          "issue": 2530,
+          "id": "MCP-006",
+          "path": ".agents/tasks/MCP-006-export-canonical-session-runtime-tools-through-mcp.md"
+        },
+        {
+          "issue": 2531,
+          "id": "MCP-007",
+          "path": ".agents/tasks/MCP-007-ship-robota-mcp-serve-as-a-carrier-owning-stdio-product-mode.md"
+        },
+        {
+          "issue": 2532,
+          "id": "MCP-008",
+          "path": ".agents/tasks/MCP-008-prove-an-mcp-served-session-can-also-consume-mcp-tools.md"
+        }
+      ]
     }
   },
   "batchResults": {
@@ -1736,12 +2018,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Repository-wide permission-policy and security review with an independent operator-security acceptance path.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -1763,7 +2045,8 @@
             "createdAt": "2026-08-29T11:36:47Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -1792,12 +2075,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Independently measurable model-visible tool discovery, token-cost, and provider-degradation capability.",
       "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -1819,7 +2102,8 @@
             "createdAt": "2026-08-29T11:36:48Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -1848,12 +2132,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "AGREEMENT-007",
+        "path": ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -1869,7 +2156,8 @@
             "createdAt": "2026-08-25T13:55:50Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -1898,12 +2186,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "AGREEMENT-009",
+        "path": ".agents/tasks/AGREEMENT-009-coordinate-the-kind-safe-background-task-migration.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -1919,7 +2210,8 @@
             "createdAt": "2026-08-25T13:55:52Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2004,12 +2296,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REFACTOR-027",
+        "path": ".agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2031,7 +2326,8 @@
             "createdAt": "2026-08-25T18:58:08Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2060,12 +2356,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REFACTOR-028",
+        "path": ".agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2081,7 +2380,8 @@
             "createdAt": "2026-08-25T18:37:58Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2112,12 +2412,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Authority-widening metadata trust boundary with an independent fail-closed security decision.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2126,7 +2426,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [ ] #2082 — P1 metadata leaf: define one strict skill and agent frontmatter decoder\n- [ ] #2094 — P1 metadata leaf: migrate skill and plugin discovery to the strict decoder\n- [ ] #2095 — P1 metadata leaf: migrate agent definition loading to the strict decoder\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nSkill and agent definition files cross a filesystem/plugin trust boundary through two permissive hand-written frontmatter parsers. Both cast partial records to typed contracts, silently ignore malformed lines/unknown keys, and accept values that violate downstream invariants.\n\nThis surface is prerelease. Define the correct schema now; do not retain permissive parsing for legacy compatibility.\n\n## Evidence\n\n- [The skill parser declares another local metadata interface](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/commands/skill-source.ts#L9-L20) rather than consuming an owner schema.\n- [Boolean values are parsed as `rawValue === 'true'`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/commands/skill-source.ts#L43-L70), so `disable-model-invocation: treu` becomes `false` and widens model authority instead of failing.\n- [`context`, `model`, and `effort` are copied as unconstrained strings](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/commands/skill-source.ts#L73-L96).\n- [Execution recognizes only the exact `context === 'fork'`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/commands/skill-executor.ts#L86-L113); other values silently become inject mode. Production does not consume the parsed skill `model`/`effort` fields.\n- [Agent files use a second parser and `parseInt` before a cast](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/agents/agent-definition-loader.ts#L39-L83), accepting numeric prefixes and `NaN` for `maxTurns`.\n\n## Proposed direction\n\nCreate one owner-owned decoder for skill/agent definition metadata with explicit variants and field-path diagnostics. Use a closed context union, strict booleans, a positive finite integer for `maxTurns`, and the model-effort SSOT. Reject unsupported keys or report them visibly. Remove unused fields unless they are implemented end to end.\n\n## Acceptance criteria\n\n- Boolean typos, invalid context, invalid `maxTurns`, and wrong field types fail with file/path diagnostics.\n- Native, `.agents`, Claude-compatible, and plugin discovery paths use the same decoder semantics.\n- `model` and `effort` are either honored end to end or removed from the contract.\n- Unknown fields have an explicit reject/warn policy and are never silently cast.\n- A malformed disabling flag can never make a skill model-invocable.\n\n## Non-duplication\n\n#1987 includes the product feature of reasoning effort. This issue owns boundary decoding and invalid metadata behavior across all skill/agent fields.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2159,12 +2460,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Persisted-session corruption and data-loss recovery has an independently testable terminal outcome.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2186,7 +2487,8 @@
             "createdAt": "2026-08-25T13:55:53Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2215,12 +2517,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-012",
+        "path": ".agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2242,7 +2547,8 @@
             "createdAt": "2026-08-29T11:56:35Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2320,12 +2626,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "AGREEMENT-010",
+        "path": ".agents/tasks/AGREEMENT-010-coordinate-the-remote-control-host-extraction.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2334,7 +2643,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [ ] #2086 — P1 remote-control leaf: extract the pure host state reducer\n- [ ] #2105 — P1 remote-control leaf: define the host facade and effect ports\n- [ ] #2119 — P1 remote-control leaf: implement Node identity and trusted-device repository adapters\n- [ ] #2120 — P1 remote-control leaf: wire the host service into CLI presentation and delete the CLI controller\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nThe remote-control host application is owned by the CLI presentation package. `agent-cli` currently owns pairing/reconnect state, trust enrollment/revocation, resume bridges, transport promotion/cleanup, host identity persistence, trusted-device persistence, settings projection, and terminal/QR rendering.\n\nThis is a package-boundary defect, not just a large-file refactor. With no compatibility constraint, extract the application capability and leave the CLI as one presentation adapter.\n\n## Evidence\n\n- [`cli.ts` directly composes the remote-control subsystem](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-cli/src/cli.ts#L203-L209).\n- [`RemoteControlController` owns pairing, reconnect, timers, bridge lifecycle, signaling, transport registration/promotion, trust, and UI reporting](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-cli/src/remote-control/remote-control-controller.ts#L44-L460).\n- [Host identity persistence](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-cli/src/remote-control/host-identity.ts#L11-L102) and [trusted-device persistence](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-cli/src/remote-control/trusted-device-store.ts#L11-L97) also live under CLI.\n- The dependency path is CLI → remote controller → pairing/WebRTC/protocol/registry/framework session. A GUI or headless product cannot reuse this host capability without depending on CLI-owned code.\n\n## Proposed direction\n\nCreate a remote-control-host application owner with a pure transition core and use cases for enable/pair/drop/reconnect/revoke. Inject signaling, peer transport, live session, trust repository, identity repository, clock, and scheduler ports. Keep Node persistence in an adapter. Keep only settings projection, consent/history UI, QR, and terminal messages in `agent-cli`.\n\n## Acceptance criteria\n\n- Remote-control use cases can be driven without importing `agent-cli` or terminal/QR code.\n- State transitions are deterministic and tested separately from sockets/fs/timers.\n- Node identity/trust persistence implements explicit repositories.\n- CLI contains presentation adapters only.\n- Mechanical rules prevent reconnect/trust state machines and persistent identity stores from returning to CLI.\n- No CLI compatibility facade remains as the application owner.\n\n## Non-duplication\n\n#2043 fixes registry identity during reconnect; #2054 addresses oversized coordinators. This ownership problem remains even after both fixes.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2363,12 +2673,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-014",
+        "path": ".agents/tasks/CMD-014-coordinate-command-features-as-owner-aligned-vertical-slices.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2377,7 +2690,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [ ] #2121 — P1 command slice leaf: move execution, background, and schedule command semantics to their owner\n- [ ] #2122 — P1 command slice leaf: move session, history, compact, and rewind command semantics to their owner\n- [ ] #2123 — P1 command slice leaf: move provider, settings, and plugin command semantics to their owners\n- [ ] #2124 — P1 command slice leaf: move help, language, and permission commands to the product shell slice\n- [ ] #2125 — P1 command slice leaf: expose coding commands as leaf entries and remove umbrella consumers\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nCommand features are horizontally split between `agent-command` wrappers and feature-specific logic under `agent-framework/command-api`. The generic framework therefore knows product command descriptions, usage, parsing, formatting, and state operations, while leaf consumers import the broad command package for only a few features.\n\nBecause the packages are prerelease, reorganize by feature/bounded context directly rather than preserving the current umbrella surface.\n\n## Evidence\n\n- [`createDefaultCommandModules` composes the broad command set in `agent-command`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-command/src/default/default-command-modules.ts#L3-L125).\n- Feature-specific logic exists in framework paths such as [background command API](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/command-api/background/background-command-api.ts#L13-L102), [permission command API](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/command-api/permissions/permission-mode-command-api.ts#L6-L95), and [help command API](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/command-api/help/help-command-api.ts#L3-L24).\n- Their command modules remain in `agent-command`, for example [background](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-command/src/background/background-command.ts#L18-L64) and [help](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-command/src/help/help-command-module.ts#L1-L45).\n- `pack-coding` and `agent-server` depend on the umbrella command package while consuming only a small subset of factories.\n\n## Proposed direction\n\nKeep only registry/executor and narrow host-capability ports in the framework command kernel. Move slash-command description, parsing, usage, formatting, and UI intent logic to bounded-context command adapters. Put the default-everything aggregator in the product composition layer, and expose leaf entry points rather than one umbrella dependency.\n\n## Acceptance criteria\n\n- `agent-framework` contains no product slash-command descriptions, usage strings, or command-specific argument parsers.\n- Each command feature changes in one bounded-context owner.\n- Product composition owns the default command set.\n- Production consumers import leaf/bounded-context entry points, not the umbrella root.\n- Dependency and ownership guards enforce the vertical slices.\n- No forwarding compatibility barrel is retained.\n\n## Non-duplication\n\nThe command-definition SSOT issue addresses duplicated descriptor/executor objects. #2053 and #2058 address specific misplaced infrastructure. This issue addresses the package-level horizontal split that remains afterward.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2406,12 +2720,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Cross-device single-authority security boundary remains the external lifecycle owner for its internal handoff leaves.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2420,7 +2734,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [ ] #2090 — P1 handoff leaf: move authority transitions into a session-mobility owner\n- [ ] #2106 — P1 handoff leaf: move inventory and refusal policy into session mobility\n- [ ] #2126 — P1 handoff leaf: move source and destination orchestration to session mobility\n- [ ] #2127 — P1 handoff leaf: reduce transport protocol to codecs and remove the CLI bridge\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nSession-handoff authority policy is implemented in the wire-protocol package. The framework mirrors a composition port for those pure functions and the CLI bridges them back, allowing the one authority state machine to look like a replaceable transport implementation.\n\nThere is no compatibility reason to keep this semantic policy in the protocol package. Move the domain state machine and delete the mirror/bridge.\n\n## Evidence\n\n- [The framework declares and consumes a handoff composition abstraction](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/handoff/handoff-composition.ts#L1-L129).\n- [The CLI composition root adapts that abstraction to protocol functions](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-cli/src/handoff/handoff-composition-root.ts#L1-L56).\n- [`agent-transport-protocol` owns begin/advance/commit/source-ownership state transitions](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport-protocol/src/handoff-ownership.ts#L1-L162).\n- [Manifest inventory/refusal policy is also implemented under protocol](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport-protocol/src/handoff-manifest.ts#L1-L226).\n- Authority ownership, legal phase transitions, settle-before-transfer, and resource classification are session-mobility semantics, not byte/frame encoding.\n\n## Proposed direction\n\nCreate a session-handoff/mobility owner containing semantic contracts, authority state machine, source/destination orchestration, and inventory/refusal policy. Leave only carrier-neutral encode/decode, chunks/reassembly, and integrity envelopes in transport protocol. Inject actual effect boundaries (carrier, persistence, credentials, clock), not the pure domain algorithm.\n\n## Acceptance criteria\n\n- One domain owner defines and implements authority transitions and handoff semantics.\n- Protocol packages contain wire codecs, not ownership policy.\n- Framework-local mirror types and the CLI pure-function bridge are removed.\n- Transition exhaustiveness and authority invariants have direct domain tests.\n- Architecture/SPEC ownership is amended with a mechanical placement guard.\n\n## Non-duplication\n\nClosed #1864 implemented end-to-end handoff phases; #2045 covers message decoding. Neither assesses the semantic owner or removes the mirror contract.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2449,12 +2764,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HOST-015",
+        "path": ".agents/tasks/HOST-015-coordinate-headless-and-programmatic-host-extraction.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2463,7 +2781,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [ ] #2087 — P2 host leaf: extract the headless stdio host package\n- [ ] #2103 — P2 host leaf: extract the programmatic in-process host package\n- [ ] #2128 — P2 host leaf: migrate remaining consumers and remove the agent-transport umbrella\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nAfter protocol-specific transports were extracted, the remaining `agent-transport` package still groups three unrelated change axes: terminal/headless hosting, in-process programmatic driving, and lifecycle registry/testing facades.\n\nPackage weight is not cohesion. Since this is prerelease, complete the decomposition and remove the ambiguous umbrella package rather than preserve its root API.\n\n## Evidence\n\n- [The package exports headless, programmatic, registry, and testing surfaces](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport/package.json#L8-L56).\n- [`HeadlessInteractionChannel`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport/src/headless/HeadlessInteractionChannel.ts#L8-L177) and the [headless runner](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport/src/headless/headless-runner.ts#L1-L121) own stdio/terminal and process-exit semantics.\n- [`ProgrammaticInteractionChannel`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport/src/programmatic/ProgrammaticInteractionChannel.ts#L13-L81) and [`createProgrammaticAgent`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-transport/src/programmatic/createProgrammaticAgent.ts#L12-L70) serve embedded SDK consumers.\n- CLI output/init, embedded/test consumers, product lifecycle, and test fixtures therefore version against one package despite different consumers and reasons to change.\n\n## Proposed direction\n\nSeparate a headless/stdio host from the programmatic in-process host. Move lifecycle registry according to #2050 and testing doubles to their real owners' `/testing` entries. Remove the `agent-transport` root umbrella.\n\n## Acceptance criteria\n\n- One published host package owns one interaction/delivery mode.\n- Production imports of `@robota-sdk/agent-transport` root are eliminated and mechanically forbidden.\n- Headless changes do not version the programmatic host, and vice versa.\n- Registry and testing facades have explicit owners.\n- No compatibility forwarding package remains.\n\n## Sequencing / non-duplication\n\nImplement after or with #2050 and #2052. Those issues remove lifecycle/settings and pass-through problems; this issue owns the remaining headless/programmatic publish-unit split.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2501,12 +2820,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Fail-closed hook enforcement is a distinct security acceptance boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2515,7 +2834,8 @@
         "body": "<!-- granular-tracker:v1 -->\n> [!IMPORTANT]\n> This is a tracking issue only. Implementation PRs must target one leaf below. Do not expand a leaf; file a sibling under this tracker.\n\n## Execution leaves\n\n- [x] #2083 — P1 hook leaf: define decoded allow, deny, and error outcomes — **delivered** in PR #2193 (record closed in PR #2208); the issue closes at develop→main promotion, which `scripts/harness/promotion-closes.mjs` carries\n- [ ] #2093 — P1 hook leaf: enforce per-event fail-closed and advisory policies\n- [ ] #2099 — P1 hook leaf: reject configured hook types without reachable executors\n\n**What the checkbox means, and why it can differ from the issue's state.** A ticked box means the\nleaf is DELIVERED — merged to `develop`. It does not mean the issue is closed. GitHub honours a\nclosing keyword only on a pull request targeting the default branch, so every leaf issue here stays\nopen until the `develop → main` promotion carries it (`scripts/harness/promotion-closes.mjs`,\nINFRA-104). The two facts track different things: the box tracks delivery, the issue state tracks\npromotion. Left unticked, this list reads as \"nothing delivered\" while work sits on `develop`.\n\nThe closure rule below is unaffected — it governs closing the TRACKER, and still requires every\nsub-issue to be closed.\n\nGitHub sub-issue and blocked-by relationships are authoritative for order. The final removal/guard leaf must close last; no compatibility shim or forwarding facade is part of the target state.\n\n## Closure rule\n\nClose this tracker only when every sub-issue is closed and the final leaf proves the obsolete contract/package surface is gone. A partially migrated state does not satisfy this tracker.\n\n<!-- original-audit -->\n\n## Summary\n\nEnforcing hooks fail open. Command/HTTP executor timeout, spawn, HTTP, parse, and unsupported-executor outcomes become a non-0/non-2 exit code or an `unknownHookType`, and the runner/helper continue without blocking `PreToolUse`. Prompt/agent hook types can also be accepted by configuration without the CLI wiring their required factories.\n\nThis is a prerelease security contract: define explicit outcomes and fail closed rather than preserve the existing non-blocking behavior.\n\n## Evidence\n\n- [Command hook failures collapse to exit code 1](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-core/src/hooks/executors/command-executor.ts#L52-L76); [HTTP/network/parse failures do the same](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-core/src/hooks/executors/http-executor.ts#L41-L70).\n- [The HTTP response is bare-cast and checks `ok` by truthiness](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-core/src/hooks/executors/http-executor.ts#L57-L67), so `{ \"ok\": \"false\" }` is treated as allow.\n- [HookRunner only gives special meaning to exit 0 and 2 and records unsupported types](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-core/src/hooks/hook-runner.ts#L156-L180).\n- [The session helper checks only `blocked`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-session/src/tool-hook-helpers.ts#L57-L77), so error/unknown outcomes allow the tool.\n- [Prompt/agent executors are registered only when factories are provided](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/assembly/create-session.ts#L147-L158), while [the CLI projection does not provide them](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-framework/src/interactive/create-session-projection.ts#L29-L132).\n\n## Proposed direction\n\nUse an explicit `allow | deny | error` result and an owner decoder for hook responses. Enforcing events, at minimum `PreToolUse`, must treat error/timeout/unknown executor as deny. Lifecycle/advisory hooks may continue only through an explicit per-event policy. Validate configured hook-type reachability at session startup.\n\n## Acceptance criteria\n\n- Timeout, spawn failure, HTTP error, invalid JSON, non-boolean/missing `ok`, and unknown executor block enforcing hooks.\n- Every accepted hook definition type has a reachable executor or startup fails with a typed diagnostic.\n- Advisory fail-open behavior is explicit and tested separately.\n- Event × outcome table tests and an agent-cli framework-level functional test cover the production composition.\n\n## Non-duplication\n\n#2024 replaces the hook layer and #2025 fixes disabled-plugin reachability. Neither changes enforcing-hook error semantics or validates executor coverage.\n\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2544,12 +2864,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Direct filesystem deletion and overwrite containment is an independently releasable safety boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2565,7 +2885,8 @@
             "createdAt": "2026-08-25T18:38:00Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2609,12 +2930,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Malformed-DAG decoding and diagnostics is an independently user-visible correctness boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2623,7 +2944,8 @@
         "body": "## Summary\n\nThe DAG file import adapter is only a shallow format discriminator, not the total decoder its typed return contract implies. Parseable JSON with missing or wrong nested fields can pass as `IDagDefinition` and crash command paths before semantic validation can report useful diagnostics.\n\nNo legacy compatibility is required: fully decode the accepted disk formats and reject all malformed variants.\n\n## Evidence\n\n- [Workflow/legacy guards check only top-level arrays/version or `dagId` plus `nodes`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/dag-builder/src/dag-workflow-converter.ts#L294-L310).\n- [`parseDagFileContent` uses those predicates to return `IDagDefinition`](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/dag-builder/src/parsed-dag-file.ts#L55-L71).\n- [The canonical type requires version/status/nodes/edges and nested node/edge contracts](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/dag-core/src/types/domain.ts#L97-L109).\n- [The semantic validator assumes typed strings/arrays and calls methods directly](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/dag-core/src/services/definition-validator.ts#L13-L40).\n- [`/workflows validate` immediately iterates definition edges](https://github.com/woojubb/robota/blob/15800bf0f0023406cf06981a7afcc2cfdcd17f63/packages/agent-command-workflows/src/validate-command.ts#L47-L78), so a shallowly accepted legacy object can throw instead of yielding validation errors.\n\n## Proposed direction\n\nMake the DAG-builder boundary perform three explicit stages: total decode of each disk format with field-path diagnostics, conversion to the canonical definition, then semantic validation. The semantic validator should continue to accept only decoded domain values.\n\n## Acceptance criteria\n\n- Every required top-level and nested node/edge field is decoded before returning `IDagDefinition`.\n- Wrong primitives, missing fields, extra/unsupported variants, and malformed nested structures return typed path diagnostics, never `TypeError`.\n- All DAG file readers use the same codec.\n- Property/fuzz and command-level tests cover both supported disk formats.\n- No bare `as IDagDefinition` remains at a JSON boundary.\n\n## Non-duplication\n\nThe local DAG-004 task routes command readers through the owner adapter; it does not make that adapter a total decoder. This issue must be linked into or executed with DAG-004, not hidden by its routing scope.\n\n\n## Scope extension from ACLI-R1-F008 (2026-08-23)\n\nArchitecture-refresh run `r20260822142736` confirmed that the same shallow-cast cause is not limited to DAG files. The canonical decoder must be reachable from packages that depend on `dag-core` without depending on `dag-builder`, and the migration scope must also include:\n\n- independent snapshot parsers in `dag-runtime` and `dag-worker`;\n- local and SQLite definition hydration boundaries;\n- the `dag-framework` catalog boundary;\n- shared malformed-nested-definition corpus tests for file, snapshot, storage, and catalog consumers.\n\nThis extends placement and migration scope; it does not create a separate decoder. DAG-004 remains the local command-reader routing item.\n\n### Instant-node persisted wrapper scope (ACLI-R1-F015)\n\nThe migration must also cover `parsePersistedInstantNode`: compose the canonical DAG decoder for `innerDag`, add a package-owned total decoder for `exposedInputPort`, `exposedOutputPorts`, and nested `mapsTo`, and add malformed persisted-record corpus cases. This is consumer migration under the same canonical decoder, not a second DAG schema owner.\n\n## Backlog conversion (2026-08-23)\n\nCanonical executable Task: `DAG-005` at `.agents/tasks/DAG-005-persisted-definitions-lack-one-total-runtime-decoder.md`. `DAG-004` remains the separate command-reader routing Task. No duplicate issue was filed.",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2669,12 +2991,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Provider-boundary malformed-call isolation and batch continuity has an independent terminal outcome.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2702,7 +3024,8 @@
             "createdAt": "2026-08-25T18:34:16Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -2859,12 +3182,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REMOTE-015",
+        "path": ".agents/tasks/REMOTE-015-extract-the-pure-remote-control-host-state-reducer.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2873,7 +3199,8 @@
         "body": "Parent tracker: #2071\n\n## Outcome\n\nExtract pairing/reconnect/trust/bridge lifecycle transitions into a deterministic, effect-free state reducer outside `agent-cli`.\n\n## In scope\n\n- state and event/command unions\n- transition reducer\n- timer/socket/fs-free unit tests\n\n## Acceptance criteria\n\n- Every current controller state transition is represented exhaustively.\n- The reducer imports no Node, transport, QR, or terminal modules.\n- No production controller wiring changes in this issue.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2071; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2908,12 +3235,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HOST-016",
+        "path": ".agents/tasks/HOST-016-extract-the-headless-stdio-host-package.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2922,7 +3252,8 @@
         "body": "Parent tracker: #2074\n\n## Outcome\n\nMove the headless channel and runner into a package that owns only stdio/terminal headless hosting.\n\n## In scope\n\n- headless interaction channel\n- headless runner and output modes\n- direct CLI consumer migration\n\n## Acceptance criteria\n\n- The new package has no programmatic driver or registry exports.\n- CLI headless consumers import the new package directly.\n- Focused package build/tests pass; the old umbrella is not removed yet.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2074; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -2963,12 +3294,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-010",
+        "path": ".agents/tasks/CMD-010-define-the-discriminated-command-definition-and-serializable-descriptor.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -2984,7 +3318,8 @@
             "createdAt": "2026-08-25T18:40:32Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3025,12 +3360,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "DATA-010",
+        "path": ".agents/tasks/DATA-010-define-the-kind-indexed-background-task-contract-map.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3046,7 +3384,8 @@
             "createdAt": "2026-08-25T18:40:34Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3092,12 +3431,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HANDOFF-002",
+        "path": ".agents/tasks/HANDOFF-002-move-authority-transitions-into-session-mobility.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3119,7 +3461,8 @@
             "createdAt": "2026-08-25T18:42:56Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3190,12 +3533,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-011",
+        "path": ".agents/tasks/TRANS-011-the-transport-registry-erases-heterogeneous-exact-session-capabilities-into-one-.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3229,7 +3575,8 @@
             "createdAt": "2026-08-29T12:40:05Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3295,12 +3642,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-011",
+        "path": ".agents/tasks/CMD-011-derive-command-projections-from-one-definition.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3309,7 +3659,8 @@
         "body": "Parent tracker: #2061\nBlocked by: #2088\n\n## Outcome\n\nImplement total projections from one command definition to palette, model capability, and serializable transport descriptors.\n\n## In scope\n\n- projection functions\n- field-totality tests\n- permission/model/remote parity tests\n\n## Acceptance criteria\n\n- No projection manually selects a drifting subset of policy fields.\n- Restricted commands remain restricted in every projection.\n- Production command modules are not migrated in this issue.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2061; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3419,12 +3770,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "SECURITY-003",
+        "path": ".agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3433,7 +3787,8 @@
         "body": "Parent tracker: #2066\nBlocked by: #2082, #1987\n\n## Outcome\n\nRoute native, `.agents`, Claude-compatible, command-file, and plugin skill discovery through the shared metadata decoder.\n\n## In scope\n\n- skill/command discovery loaders\n- strict boolean/context handling\n- source-path diagnostics\n\n## Acceptance criteria\n\n- A malformed disabling flag cannot widen model authority.\n- Every supported skill discovery root has the same decode behavior.\n- Skill model/effort semantics remain owned by #1987 rather than being invented here.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2066; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3476,12 +3831,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "SECURITY-004",
+        "path": ".agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3490,7 +3848,8 @@
         "body": "Parent tracker: #2066\nBlocked by: #2082\n\n## Outcome\n\nReplace the second hand-written agent frontmatter parser with the shared metadata decoder.\n\n## In scope\n\n- project/user/Claude-compatible agent loaders\n- positive finite integer `maxTurns`\n- tools/disallowed-tools decoding\n\n## Acceptance criteria\n\n- Numeric prefixes, `NaN`, zero/negative values, and wrong types are rejected with file diagnostics.\n- All agent discovery roots behave identically.\n- The local parser and unsafe cast are removed.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2066; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3525,12 +3884,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-016",
+        "path": ".agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3546,7 +3908,8 @@
             "createdAt": "2026-08-25T18:40:37Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3581,12 +3944,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "SEC-021",
+        "path": ".agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3602,7 +3968,8 @@
             "createdAt": "2026-08-25T18:40:39Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3648,12 +4015,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-012",
+        "path": ".agents/tasks/CMD-012-migrate-skill-and-plugin-commands-to-discriminated-definitions.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3662,7 +4032,8 @@
         "body": "Parent tracker: #2061\nBlocked by: #2092, #2094\n\n## Outcome\n\nReplace the skill/plugin optional field bag with the explicit skill/plugin command variants and owner projections.\n\n## In scope\n\n- skill command source/executor\n- plugin command discovery\n- model/user invocation projections\n\n## Acceptance criteria\n\n- Skill/plugin-only fields cannot appear on builtin definitions.\n- Discovery and execution consume the same definition object.\n- Old `ICommand.execute?` and negative/positive dual flags are removed from these paths only.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2061; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3703,12 +4074,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "ARCH-117",
+        "path": ".agents/tasks/ARCH-117-type-the-runner-registry-and-migrate-background-runners.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3717,7 +4091,8 @@
         "body": "Parent tracker: #2062\nBlocked by: #2089\n\n## Outcome\n\nPreserve the task-kind generic through registry lookup and each concrete runner/handle implementation.\n\n## In scope\n\n- runner registry\n- managed process, scheduled task, and subagent runner adapters\n- manager dispatch type tests\n\n## Acceptance criteria\n\n- Registry lookup returns `Runner<K>` for the requested kind.\n- Concrete runners no longer reject a mismatched kind at runtime.\n- Persisted state and command rendering remain for a separate leaf.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2062; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3813,12 +4188,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HOST-017",
+        "path": ".agents/tasks/HOST-017-extract-the-programmatic-in-process-host-package.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3827,7 +4205,8 @@
         "body": "Parent tracker: #2074\n\n## Outcome\n\nMove the programmatic interaction channel and agent driver factory into a package dedicated to embedded SDK use.\n\n## In scope\n\n- programmatic channel\n- `createProgrammaticAgent` and driver surface\n- direct embedded/test consumer migration\n\n## Acceptance criteria\n\n- The new package has no stdio/headless or lifecycle registry exports.\n- Programmatic consumers import it directly.\n- The old umbrella remains until the cleanup leaf.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2074; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3929,12 +4308,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REMOTE-016",
+        "path": ".agents/tasks/REMOTE-016-define-the-remote-control-host-facade-and-effect-ports.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3943,7 +4325,8 @@
         "body": "Parent tracker: #2071\nBlocked by: #2086\n\n## Outcome\n\nDefine the remote-control application facade and ports for signaling, peers, sessions, trust, identity, clock, and scheduling around the pure reducer.\n\n## In scope\n\n- use-case input/output contracts\n- effect port interfaces\n- contract tests with in-memory adapters\n\n## Acceptance criteria\n\n- Enable/pair/drop/reconnect/revoke use cases are invocable without CLI.\n- The application contract contains no QR/terminal or Node filesystem types.\n- Production adapters are not moved in this issue.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2071; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -3984,12 +4367,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HANDOFF-003",
+        "path": ".agents/tasks/HANDOFF-003-move-inventory-and-refusal-policy-into-session-mobility.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -3998,7 +4384,8 @@
         "body": "Parent tracker: #2073\nBlocked by: #2090\n\n## Outcome\n\nMove manifest classification, settle-before-transfer, and refusal semantics beside the authority state machine.\n\n## In scope\n\n- manifest semantic types\n- resource classification\n- in-flight/refusal policy tests\n\n## Acceptance criteria\n\n- Protocol no longer decides credential/worktree/subprocess transfer policy.\n- Policy code imports no wire carrier/codec implementation.\n- Source/destination orchestration is left for the next leaf.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2073; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4049,12 +4436,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-013",
+        "path": ".agents/tasks/TRANS-013-bind-http-and-mcp-to-their-exact-session-ports.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4070,7 +4460,8 @@
             "createdAt": "2026-08-29T11:56:34Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4105,12 +4496,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "DATA-011",
+        "path": ".agents/tasks/DATA-011-migrate-persisted-background-state-and-command-views-to-kind-safe-variants.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4119,7 +4513,8 @@
         "body": "Parent tracker: #2062\nBlocked by: #2101\n\n## Outcome\n\nMigrate persisted background state, manager operations, rearm logic, and schedule/background command views to the kind-indexed union.\n\n## In scope\n\n- background state serialization/restore\n- manager pause/resume/log operations\n- schedule rearm and command rendering\n\n## Acceptance criteria\n\n- Scheduled state cannot lack schedule data.\n- Kind-specific manager operations narrow without optional capability checks.\n- Fallbacks such as `(unknown)` for required variant fields are removed.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2062; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4220,12 +4615,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-014",
+        "path": ".agents/tasks/TRANS-014-bind-ws-protocol-and-webrtc-adapters-to-exact-session-ports.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4234,7 +4632,8 @@
         "body": "Parent tracker: #2069\nBlocked by: #2091\n\n## Outcome\n\nReplace full-session generics/overloads in WS/protocol/WebRTC paths with their exact capability intersections.\n\n## In scope\n\n- configurable WS adapter\n- protocol session binder\n- WebRTC peer transport attachment\n\n## Acceptance criteria\n\n- These adapters do not name `IInteractiveSession`.\n- Each capability intersection is covered by negative type tests.\n- All attach overloads that widen authority are removed.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2069; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4279,12 +4678,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "TRANS-015",
+        "path": ".agents/tasks/TRANS-015-remove-iinteractive-session-from-production-transport-seams.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4293,7 +4695,8 @@
         "body": "Parent tracker: #2069\nBlocked by: #2107, #2116, #2054\n\n## Outcome\n\nDelete or internalize the compatibility aggregate after all transport/TUI consumers use explicit capability ports.\n\n## In scope\n\n- aggregate export and production references\n- remaining adapter/registry type cleanup\n- least-authority import guard\n\n## Acceptance criteria\n\n- No production transport contract names `IInteractiveSession`.\n- The compatibility aggregate is not root-exported.\n- A scan prevents reintroduction at adapter boundaries.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2069; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4408,12 +4811,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REMOTE-017",
+        "path": ".agents/tasks/REMOTE-017-implement-node-identity-and-trusted-device-repository-adapters.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4429,7 +4835,8 @@
             "createdAt": "2026-08-25T18:48:08Z"
           }
         ]
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4469,12 +4876,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "REMOTE-018",
+        "path": ".agents/tasks/REMOTE-018-wire-the-host-service-into-cli-and-delete-the-controller.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4483,7 +4893,8 @@
         "body": "Parent tracker: #2071\nBlocked by: #2119, #2043\n\n## Outcome\n\nCompose existing pairing/WebRTC/protocol adapters with the host facade and leave only QR, consent, history, and terminal presentation in CLI.\n\n## In scope\n\n- remote-control production composition\n- CLI presentation adapters\n- old controller/state/store removal\n\n## Acceptance criteria\n\n- A headless/non-CLI composition can reuse the host service.\n- CLI owns no reconnect/trust state machine or persistence implementation.\n- Reconnect registry identity behavior remains covered by #2043.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2071; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4529,12 +4940,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-015",
+        "path": ".agents/tasks/CMD-015-move-execution-background-and-schedule-commands-to-their-owners.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4543,7 +4957,8 @@
         "body": "Parent tracker: #2072\nBlocked by: #2092, #2108\n\n## Outcome\n\nMove command-specific parsing/formatting/usage for execution, background, and schedule features out of framework and into the execution command slice.\n\n## In scope\n\n- background/schedule/execution command APIs and modules\n- host capability imports\n- leaf exports/tests\n\n## Acceptance criteria\n\n- Framework contains no slash-command semantics for this slice.\n- One owner holds descriptor, parser, formatter, and handler.\n- The slice uses the command definition/projection kernel.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2072; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4589,12 +5004,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-016",
+        "path": ".agents/tasks/CMD-016-move-session-history-compact-and-rewind-commands-to-their-owners.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4603,7 +5021,8 @@
         "body": "Parent tracker: #2072\nBlocked by: #2092, #2108\n\n## Outcome\n\nVertically colocate the session-lifecycle command family outside the generic framework kernel.\n\n## In scope\n\n- session/history/compact/rewind commands\n- descriptions, argument parsing, formatting, UI intents\n- leaf exports/tests\n\n## Acceptance criteria\n\n- Framework exposes only narrow session host capabilities.\n- Command semantics change in one session-owned slice.\n- The slice uses the command definition/projection kernel.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2072; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4649,12 +5068,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-017",
+        "path": ".agents/tasks/CMD-017-move-provider-settings-and-plugin-commands-to-their-owners.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4663,7 +5085,8 @@
         "body": "Parent tracker: #2072\nBlocked by: #2092, #2108\n\n## Outcome\n\nMove provider/configuration/plugin slash-command semantics out of generic framework command APIs.\n\n## In scope\n\n- provider and settings command APIs/modules\n- plugin-management command adapters\n- owner leaf exports/tests\n\n## Acceptance criteria\n\n- Framework has no provider/plugin command descriptions or parsers.\n- Each feature consumes narrow settings/plugin/provider ports.\n- The slice uses the command definition/projection kernel.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2072; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4709,12 +5132,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-018",
+        "path": ".agents/tasks/CMD-018-move-help-language-and-permission-commands-to-the-product-shell.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4723,7 +5149,8 @@
         "body": "Parent tracker: #2072\nBlocked by: #2092, #2108\n\n## Outcome\n\nMove product-basic command semantics and their default selection to a product composition owner.\n\n## In scope\n\n- help/language/permission command APIs/modules\n- product-basic command slice\n- focused help/menu/permission tests\n\n## Acceptance criteria\n\n- Generic framework contains no product-basic slash-command text/parsers.\n- The product shell selects the default set.\n- The slice uses the command definition/projection kernel.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2072; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4769,12 +5196,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-019",
+        "path": ".agents/tasks/CMD-019-expose-coding-commands-as-leaf-entries-and-remove-umbrella-consumers.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4783,7 +5213,8 @@
         "body": "Parent tracker: #2072\nBlocked by: #2092, #2108\n\n## Outcome\n\nMove shell/editor coding adapters to their coding owner and replace broad `agent-command` imports in pack/server/product consumers.\n\n## In scope\n\n- shell/editor and coding-specific command modules\n- pack-coding and server consumer imports\n- default command aggregator placement\n\n## Acceptance criteria\n\n- Consumers import only the leaf slices they use.\n- The default-everything aggregator lives only in product composition.\n- A guard forbids production imports of the command umbrella root.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2072; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4829,12 +5260,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HANDOFF-004",
+        "path": ".agents/tasks/HANDOFF-004-move-source-and-destination-orchestration-into-session-mobility.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4843,7 +5277,8 @@
         "body": "Parent tracker: #2073\nBlocked by: #2106, #2111\n\n## Outcome\n\nMove handoff source/destination application orchestration beside the authority and manifest semantics.\n\n## In scope\n\n- source/destination phase orchestration\n- carrier/persistence/credential/clock ports\n- framework and CLI composition imports\n\n## Acceptance criteria\n\n- Framework no longer mirrors a pure handoff composition contract.\n- CLI injects only real effect adapters.\n- End-to-end handoff state tests pass through the mobility owner.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2073; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4878,12 +5313,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HANDOFF-005",
+        "path": ".agents/tasks/HANDOFF-005-reduce-transport-protocol-to-codecs-and-remove-the-cli-bridge.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4892,7 +5330,8 @@
         "body": "Parent tracker: #2073\nBlocked by: #2126\n\n## Outcome\n\nDelete semantic state/policy exports from protocol and remove the framework mirror plus CLI pure-function bridge.\n\n## In scope\n\n- protocol public exports\n- CLI handoff composition root\n- ownership placement guard and SPEC sync\n\n## Acceptance criteria\n\n- Protocol owns only frame/byte/chunk/integrity encode-decode concerns.\n- No duplicate semantic handoff shape remains in framework.\n- The old bridge/facade is removed without forwarding exports.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2073; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -4942,12 +5381,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "HOST-018",
+        "path": ".agents/tasks/HOST-018-migrate-consumers-and-remove-the-agent-transport-umbrella.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -4956,7 +5398,8 @@
         "body": "Parent tracker: #2074\nBlocked by: #2087, #2103, #2050, #2052\n\n## Outcome\n\nFinish consumer migration after the two host packages, then remove the umbrella root and relocate registry/testing surfaces through their existing owners.\n\n## In scope\n\n- remaining production imports\n- package manifest/export removal\n- root-import guard\n\n## Acceptance criteria\n\n- No production import uses `@robota-sdk/agent-transport` root.\n- Headless and programmatic hosts version independently.\n- Registry/testing cleanup satisfies #2050 and #2052 rather than duplicating them.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2074; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5016,12 +5459,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "CMD-013",
+        "path": ".agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5030,7 +5476,8 @@
         "body": "Parent tracker: #2061\nBlocked by: #2100, #2121, #2122, #2123, #2124, #2125\n\n## Outcome\n\nDelete the dual command contracts, paired registries/factories, and manual projections once every command slice is migrated.\n\n## In scope\n\n- old `ICommand`/`ISystemCommand` exports\n- parallel source/system registry plumbing\n- old projection functions and reintroduction guard\n\n## Acceptance criteria\n\n- A command is registered exactly once.\n- No production paired entry/system factory remains.\n- Model/remote/palette/executor parity tests pass from the single definition.\n\n## Scope boundary\n\nThis is one independently mergeable leaf. New concerns become sibling issues under #2061; they do not expand this issue. The audited API is prerelease, so do not add compatibility shims or forwarding aliases.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5084,12 +5531,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Independent external lifecycle retained by the approved semantic-owner classification.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5098,7 +5545,8 @@
         "body": "Parent initiative: #2512 (reused as cause E; no duplicate child was filed)\n\n## What happened?\n\nThe committed ledger `.agents/loop-runs/backlog-execution-orchestrator.jsonl` contains `r20260829014753` with `closed=null`, `ref=null`, and zero rounds. Running `node scripts/harness/loop-run.mjs open --loop backlog-execution-orchestrator` refuses a new run because the same-day orphan is indistinguishable from a live owner. The loop-run scan still passes because OPEN records are tolerated for seven days.\n\nThe state was introduced by commit `cff8ef9c5c79185e4879e8514c23c418c6a9a38a` immediately after DOCS-039 was closed. History also shows the same class in `r20260822101445`, later abandoned. INFRA-136 commit `8a0781208` did not prevent a newly introduced OPEN record from crossing a commit or merge boundary.\n\n## Reproduction\n\n1. Check out `develop` at or after `cff8ef9c5c79185e4879e8514c23c418c6a9a38a`.\n2. Run `node scripts/harness/loop-run.mjs open --loop backlog-execution-orchestrator`.\n3. Observe refusal naming `r20260829014753`.\n4. Run the loop-run-records scan and observe that the merged OPEN record is tolerated.\n\n## Expected behavior\n\nA newly introduced OPEN loop record without terminal closure or subject binding must not cross the commit/PR merge boundary, while a genuinely live local run remains usable by its owner. Runtime refusal and the scan must share the same validity model so a green merged ledger cannot block every successor.\n\n## Recommended priority and cause\n\n**P1.** Make loop runs transactional across ordinary success, failure, interruption, commit, and merge boundaries. This is an independent foundational defect reused by #2512, not part of SECURITY-002/#2082.\n\n## Acceptance criteria\n\n- A newly introduced unbound OPEN run cannot cross the commit or merge boundary.\n- A genuinely live local owner can continue its own run without being mistaken for an orphan.\n- Runtime open refusal and `loop-run-records` scanning use the same validity semantics.\n- An open/round/close wrapper cannot leave an orphan on ordinary success, failure, or interruption.\n- Recovery is subject-bound, records its disposition, and cannot silently abandon another owner's run.\n- Dedicated tests reproduce the merged-orphan case above and prove a valid successor can open after recovery.\n- Existing historical records are contained explicitly; they are not rewritten to manufacture a green history.\n- Failures and recovery instructions are visible; no command completes quietly after a ledger error.\n\n## Boundary and duplicate audit\n\nThis issue owns transactional loop-run lifecycle only. #2514 owns single-PR conversion/PLAN/implementation; #2515 owns intake metrics; #2516 owns read-only wait overlap; #2517 owns evidence projections; #2518 owns verification receipts. The original #2082 work was correctly kept separate.\n\n## Submission checks\n\n- [x] Existing issue search performed before filing.\n- [x] Reused as #2512 cause E rather than filing a duplicate.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5231,12 +5679,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
-      "candidateDisposition": "ABSORB",
-      "externalLifecycleReason": null,
+      "disposition": "RETAIN",
+      "candidateDisposition": "RETAIN",
+      "externalLifecycleReason": "Independent external lifecycle retained by the approved semantic-owner classification.",
       "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5245,7 +5693,8 @@
         "body": "Parent initiative: #2512\n\n## Problem\n\nIssue intake materially exceeds closure, so optimizing individual delivery alone cannot make the queue converge to zero. In the exact 168-hour revalidation recorded in #2512, 221 issues were created and 90 closed: net **+131/week**. The repository also lacks one canonical, repeatable measurement that prints its query window and a bounded filing policy for non-blocking audit findings.\n\n## Recommended priority and cause\n\n**P0.** Establish one owner command/dashboard for throughput and a bounded, root-cause-oriented intake policy. This is urgent because the measured queue grows even while issues are being closed.\n\n## Expected behavior\n\nOperators can reproduce the same open/created/closed/net metrics for an explicit rolling window, and automated audits slow or group non-blocking findings when the queue is growing. Blockers, security, and data-correctness findings remain immediate-file exceptions.\n\n## Acceptance criteria\n\n- One canonical command reports repository, open count, created count, closed count, net count, UTC start/end, timezone/display semantics, and exact query semantics.\n- Tests cover boundary timestamps, pagination/count correctness, timezone presentation, and API/query failures; failures are visible and fail closed.\n- The measurement can be rerun by another session without relying on `/tmp` or session history.\n- A checked-in policy requires duplicate and root-cause grouping before filing non-blocking manifestations.\n- The policy defines a measurable positive-net threshold and an explicit slow/stop/group response.\n- Blocker, security, and data-correctness findings remain immediate-file exceptions.\n- The rolling seven-day target is negative net growth, and before/after observations are recorded.\n- The implementation does not silently close, suppress, or relabel valid issues merely to improve the metric.\n\n## Non-goals\n\n- Do not count only current open issues; inflow and closure must both be measured.\n- Do not use intake throttling as a substitute for delivery improvements in sibling issues.\n- Do not weaken mandatory defect reporting for high-risk findings.\n\n## Duplicate and boundary audit\n\nThis is cause B from #2512. It does not own delivery-PR consolidation (#2514), wait overlap (#2516), evidence ownership (#2517), transactional loop runs (#2504), or verification receipts (#2518).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5274,12 +5723,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
-      "candidateDisposition": "ABSORB",
-      "externalLifecycleReason": null,
+      "disposition": "RETAIN",
+      "candidateDisposition": "RETAIN",
+      "externalLifecycleReason": "Independent external lifecycle retained by the approved semantic-owner classification.",
       "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5288,7 +5737,8 @@
         "body": "Parent initiative: #2512\n\n## Problem\n\nRemote CI and review waits serialize the queue even though current policy already permits read-only exploration. The allowed seam is informal, so useful preflight is not consistently captured or distinguished from forbidden concurrent implementation.\n\n## Recommended priority and cause\n\n**P1.** Make read-only preflight a named, reusable workflow while retaining exactly one mutable delivery unit. This improves utilization but is secondary to the P0 lifecycle and intake causes.\n\n## Expected behavior\n\nWhile one PR is waiting on CI/review, a disjoint next issue may receive read-only dependency, blocker, source-location, duplicate, premise, lane, and owner analysis. No branch, Task conversion, implementation edit, or second mutable delivery unit is created for that next issue.\n\n## Acceptance criteria\n\n- The workflow defines exactly which operations and artifacts are read-only preflight and which cross into mutation.\n- A reusable preflight output records subject issue, source/base identity, timestamp, evidence, assumptions, and invalidation conditions.\n- The active PR remains the only mutable implementation unit.\n- No second implementation branch is opened and no files for the preflight issue are edited.\n- A mechanical guard or test rejects representative forbidden mutations while allowing the listed read-only checks.\n- Stale preflight is revalidated when its source/base identity or relevant issue state changes.\n- A following session can consume the preflight without treating it as conversion, PLAN approval, or implementation authorization.\n- Before/after idle wait utilization is measured on at least one representative delivery.\n\n## Non-goals\n\n- Do not introduce parallel implementation branches.\n- Do not let preflight reserve priority or bypass blocker/dependency rechecks.\n- Do not duplicate conversion/PLAN consolidation from #2514.\n\n## Duplicate and boundary audit\n\nThis is cause C from #2512. Its boundary is the reusable read-only handoff; workflow gate consolidation is #2514 and verification-stage parallelism is #2518.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5317,12 +5767,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
-      "candidateDisposition": "ABSORB",
-      "externalLifecycleReason": null,
+      "disposition": "RETAIN",
+      "candidateDisposition": "RETAIN",
+      "externalLifecycleReason": "Independent external lifecycle retained by the approved semantic-owner classification.",
       "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5331,7 +5781,8 @@
         "body": "Parent initiative: #2512\n\n## Problem\n\nApproach, architecture, affected files, tests, scenario disposition, and verdict are repeatedly copied across Task, spec, PR, and gate/loop ledgers. Multiple editable copies add authoring/review time and can contradict one another without creating independent evidence.\n\n## Recommended priority and cause\n\n**P1.** Assign one canonical owner per fact and make other artifacts reference that owner. Preserve machine results and historical audit trails rather than deleting evidence.\n\n## Canonical ownership target\n\n- Task: problem, scope, issue linkage, urgency, lifecycle status\n- Spec: accepted design, alternatives, affected files, completion criteria, test plan\n- PR: links plus concise diff and verification summary\n- Gate/loop ledger: machine result, subject identity, timestamps, and terminal status only\n\n## Acceptance criteria\n\n- Each repeated fact category has one documented owner and reference format.\n- Non-owner templates and generators link or project from the owner instead of requiring independently edited prose.\n- Mechanical checks detect missing owner references and stale or contradictory projections where feasible.\n- Machine-generated verdicts and subject identities remain immutable/auditable.\n- Historical records are preserved through prospective migration or explicit containment; no evidence is rewritten or fabricated.\n- A representative work unit demonstrates materially less duplicated prose with no lost acceptance criterion, decision, or verdict.\n- Readers can resolve every reference locally or through a stable repository/GitHub link; `/tmp` and session-only context are not dependencies.\n- Failure to resolve a required owner is visible and cannot quietly pass a completion gate.\n\n## Non-goals\n\n- Do not collapse independent review into author-owned evidence.\n- Do not replace machine receipts with prose links.\n- Do not redesign PR lifecycle ordering (#2514) or receipt identity (#2518) here.\n\n## Duplicate and boundary audit\n\nThis is cause D from #2512. It owns information ownership and projections, not how many PRs execute (#2514) or when a verification receipt may be reused (#2518).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5360,12 +5811,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "INFRA-154",
+        "path": ".agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5374,7 +5828,8 @@
         "body": "Parent initiative: #2512\n\n## Problem\n\nTargeted TDD, source-changing commit verification, post-implementation verification, pre-push checks, and remote CI can recompute overlapping evidence for an unchanged final tree. Existing receipt seams do not consistently prove every relevant input identity, and independent verification stages are not always scheduled as a dependency graph.\n\n## Recommended priority and cause\n\n**P2.** Define safe final-tree receipt identity/invalidation first, then parallelize only genuinely independent gates. This is lower priority because unsafe reuse can create false greens and the P0 causes dominate throughput.\n\n## Expected behavior\n\nTargeted tests run during RED/GREEN. A CI-equivalent final verification runs on the clean final HEAD, produces an identity-bound receipt, and may be reused only when every relevant input is identical. Independent stages execute in parallel where their declared dependencies permit.\n\n## Acceptance criteria\n\n- The receipt schema identifies commit/tree plus relevant source, configuration, dependency/lockfile, toolchain, environment contract, and gate-definition inputs.\n- Any relevant input change invalidates reuse with a visible reason.\n- Partial, failed, stale, dirty-tree, or differently scoped receipts cannot produce a green result.\n- Pre-push and other consumers report whether a receipt was reused and the exact identity decision.\n- The owner of each verification stage and its dependency edges are explicit; only independent stages run concurrently.\n- Failures remain visible and fail closed; parallel execution does not hide or overwrite a failing result.\n- Tests cover valid reuse and invalidation for source, config, dependency, toolchain, and gate-definition changes.\n- Before/after wall time, duplicated-stage count, and cache/reuse hit rate are measured on a representative final HEAD.\n\n## Non-goals\n\n- Do not skip final clean-HEAD verification.\n- Do not infer identity from a similar diff or branch name.\n- Do not weaken remote CI or independent review merely because a local receipt exists.\n- Do not own general evidence prose deduplication; that is #2517.\n\n## Duplicate and boundary audit\n\nThis is cause F from #2512. #2514 owns PR lifecycle count, #2516 owns next-issue read-only preflight, and #2517 owns artifact fact ownership.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5409,12 +5864,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-001",
+        "path": ".agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5423,7 +5881,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\n`agent-cli` has no typed `mcpServers` setting, no canonical resolver, and no MCP management command. `BundlePluginLoader` can read a plugin `.mcp.json`, but exposes it as `mcpConfig?: unknown` and no production consumer resolves or activates it. Local, project, user, and plugin definitions therefore have no single source of truth.\n\n## Recommended priority and cause\n\n**P0 — configuration/control-plane foundation.** Product reachability cannot be implemented safely until every server definition is parsed, resolved, identified by provenance, and managed through one typed owner.\n\n## Scope and ownership\n\n- Define a typed, provider-neutral MCP server configuration contract at the lowest reusable boundary.\n- Reuse the repository's existing layered settings stores and plugin loader as source adapters; do not create a parallel settings system.\n- Resolve local, project, user, and plugin-provided entries with documented whole-entry precedence.\n- Own enable/disable state and the owner APIs used by `agent-command` for add/import/list/get/remove/status operations.\n- Keep activation authorization separate in the project/plugin trust child; resolution must not execute or connect.\n\n## Acceptance criteria\n\n- Local, project, and user scopes plus typed plugin-provided definitions resolve through one canonical API.\n- Duplicate server names use an explicitly documented whole-entry winner; fields from different scopes are never silently merged.\n- `${VAR}` and `${VAR:-default}` expansion is supported only in declared fields. A missing variable without a default produces a visible warning and preserves the literal reference, matching the currently documented reference behavior unless the required AAR records a reasoned adaptation.\n- Foreign-client `mcpServers` JSON can be imported through strict boundary validation with actionable diagnostics.\n- Plugin `.mcp.json` is decoded into the same typed contract; `unknown` passthrough cannot reach execution.\n- A server can be disabled and re-enabled without deleting its definition.\n- `agent-command` exposes typed add/import/list/get/remove/status effects; `agent-cli` only composes and renders them.\n- Secrets and expanded credential values are redacted from diagnostics and status output.\n- Precedence, expansion, malformed input, duplicate names, plugin ingestion, and enable/disable behavior have deterministic tests.\n- Listing or parsing configuration never starts a process or network connection.\n\n## Parent checklist ownership\n\nOwns scopes, whole-entry precedence, environment expansion, missing-variable behavior, JSON import, typed plugin servers, and disable-without-removal. Project/plugin activation approval is intentionally owned by a separate child.\n\n## Non-goals and related issues\n\n- Does not authorize project/plugin execution; see the activation-trust child.\n- Does not implement HTTP/stdio transports or connection lifecycle.\n- Does not create an MCP-specific settings stack beside the existing framework settings owners.\n- #1986 is the opposite MCP-server direction; #2186 owns stale Task lifecycle.\n\n## Moving reference\n\nRe-read and record adopted/adapted/rejected decisions from the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp) before Task approval; this issue is a cause boundary, not a copy order.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5458,12 +5917,12 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Project/plugin activation trust, approve/reject/revoke, and audit form an independent security boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5472,7 +5931,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nA project or plugin MCP definition can ultimately start a local process or connect to a remote authority. Parsing and precedence do not answer whether a cloned repository or installed plugin is trusted to activate that definition. Treating source presence as execution approval would turn checked-in configuration into an implicit code-execution grant.\n\n## Recommended priority and cause\n\n**P0 — independent activation-security boundary.** Unsafe project/plugin activation would make the P0 client foundation unacceptable even if configuration parsing were correct.\n\n## Scope and ownership\n\n- Reuse the framework's workspace-authority/trusted-project seams.\n- Preserve source provenance from configuration resolution through activation admission.\n- Define explicit approve/reject/revoke flows for project- and plugin-provided servers.\n- `agent-command` owns typed approval effects; `agent-cli` renders generic confirmation/status UI.\n- Fail closed in an untrusted workspace and never let repository-tracked settings approve themselves.\n\n## Acceptance criteria\n\n- Project/plugin server definitions remain visible as pending or rejected without connecting or spawning.\n- An untrusted workspace cannot activate its own checked-in approval, server command, helper command, or remote endpoint.\n- Approval identifies the exact server definition, source provenance, and security-relevant identity; material definition changes invalidate prior approval.\n- User/managed authority and local untracked approval sources have explicit precedence and cannot be weakened by project content.\n- Approve, reject, revoke, and status flows are observable and auditable without exposing secrets.\n- Activation admission is a reusable port; transports cannot bypass it by calling lower clients directly.\n- Tests cover cloned/untrusted workspaces, self-approval attempts, plugin provenance, changed definitions, rejection, revocation, and trusted activation.\n- Configuration inspection and health/status commands do not accidentally activate a pending server.\n\n## Parent checklist ownership\n\nOwns the trust decision required when project/plugin-provided configuration becomes executable. It is separated from configuration resolution because it has a different threat model and terminal decision.\n\n## Non-goals and related issues\n\n- Does not define scope parsing or precedence; the configuration/control-plane child supplies typed definitions and provenance.\n- Does not implement stdio subprocess restrictions, OAuth, or `headersHelper`; those remain separate defense layers.\n- Does not allow the CLI presentation package to own trust policy.\n\n## Moving reference\n\nRevalidate project-server approval and workspace-trust behavior in the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp), then record Robota's adopted/adapted/rejected decision.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5507,12 +5967,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-002",
+        "path": ".agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5521,7 +5984,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nRobota has no reusable server-level MCP client or canonical capability catalog. The private `agent-tool-mcp` package calls a predeclared tool over a handwritten Streamable HTTP path, while `dag-node-mcp-tool` separately demonstrates the official SDK. Neither discovers a server's tools/prompts/resources nor composes them into `agent-cli`.\n\n## Recommended priority and cause\n\n**P0 — minimum product-reachable client vertical slice.** Configuration alone does not make any MCP capability callable. A correctly placed shared client plus Streamable HTTP is the first usable end-to-end path.\n\n## Architecture placement\n\n- Reclassify/rename the private `agent-tool-mcp` package into a shared lower MCP client package, or replace it and migrate/remove the old package explicitly.\n- The shared package owns official-SDK protocol mechanics, server capabilities, canonical tools/prompts/resources catalogs, provenance, naming, and transport ports.\n- `agent-framework` owns only generic dynamic-tool/session contracts; `agent-command` owns command effects; `agent-cli` only composes the concrete client manager and renders generic output.\n- DAG and agent products are sibling consumers of the shared seam; neither product depends on the other.\n\n## Acceptance criteria\n\n- A deployable product/workspace manifest gains an intentional dependency edge to the shared MCP client owner.\n- A configured Streamable HTTP server completes initialization and paginated discovery through the official MCP SDK seam.\n- Tools, prompts, and resources each have a canonical typed catalog with server provenance, stable collision-safe naming, capability/version metadata, and explicit adopted/adapted/rejected product exposure.\n- Discovered tools can be registered through the existing generic dynamic-tool/session contract; no MCP-only runtime bypass is added.\n- `agent-cli` composes the manager without owning protocol, catalog, retry, or policy logic.\n- HTTP URL admission reuses a safe network-boundary/SSRF policy.\n- Deprecated SSE and custom WebSocket compatibility receive explicit AAR decisions. They are not treated as mandatory standard transports: the MCP standard transport baseline is stdio plus Streamable HTTP.\n- Initialization, pagination, capability absence, name collisions, malformed server data, provenance, and one end-to-end scripted product path have tests.\n- The old handwritten/predeclared-tool path is migrated, wrapped behind the canonical owner, or removed; two independent MCP client stacks cannot remain authoritative.\n\n## Parent checklist ownership\n\nOwns HTTP, explicit SSE/WebSocket decisions, product composition, and initial discovery/catalog ownership for tools/prompts/resources. Refresh and last-known-good lifecycle are owned by the supervisor child.\n\n## Non-goals and related issues\n\n- Stdio process execution is a separate child.\n- Connection retries/timeouts/state are a separate supervisor child.\n- #1989 owns permission matching; #1990 owns tool-search and model-visible failed-server projection.\n- #1986 owns exposing Robota as an MCP server.\n\n## Moving references\n\nUse the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp), [MCP transports specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports), and official capability specifications. Record a verdict for every capability/transport rather than copying one product.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5550,12 +6014,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Stdio transport and subprocess authority form an independently releasable security boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5564,7 +6028,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nStdio MCP starts a local subprocess and passes arguments, environment, and working-directory authority. This is a different trust and failure boundary from a remote HTTP connection. The repository has an official-SDK stdio precedent in `dag-node-mcp-tool`, but product CLI code must not depend on the DAG product or create a third client implementation.\n\n## Recommended priority and cause\n\n**P1 — safe local transport.** It expands useful protocol coverage after the P0 HTTP vertical slice while requiring independent subprocess-security acceptance.\n\n## Scope and ownership\n\n- Add stdio as a transport adapter behind the shared MCP client transport port.\n- Extract/reuse the official SDK seam at a shared lower owner; keep DAG and agent products as siblings.\n- Apply activation admission before spawn and explicit authority over command, args, cwd, environment, and child lifecycle.\n\n## Acceptance criteria\n\n- `StdioClientTransport` is used through the shared client owner, not reimplemented in CLI code.\n- The command/executable policy is explicit, fail-closed, and independently testable; arbitrary config cannot bypass it.\n- Environment inheritance is allowlisted and secrets are not echoed in diagnostics.\n- CWD/project-root semantics and path authority are explicit and cannot escape allowed roots by traversal or symlink confusion.\n- Spawn, initialization, stderr, exit, cancellation, timeout, and session shutdown have bounded deterministic behavior.\n- Project/plugin definitions cannot spawn before the activation-trust decision succeeds.\n- Tests cover denied commands, dangerous args/env, untrusted source, invalid cwd, early exit, cancellation, timeout, and successful discovery/call.\n- No dependency from agent product packages to DAG product packages is introduced.\n\n## Parent checklist ownership\n\nOwns the stdio transport line and its subprocess security consequences.\n\n## Non-goals and related issues\n\n- Remote HTTP/SSE/WebSocket decisions belong to the client-foundation child.\n- General child-process log retention issue #2161 remains a separate root; reuse it only through an explicit dependency.\n- Does not own OAuth or dynamic header helpers.\n\n## Moving reference\n\nRevalidate stdio and roots behavior against the current [MCP transport specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) and [Claude Code MCP reference](https://code.claude.com/docs/en/mcp).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5593,12 +6058,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-003",
+        "path": ".agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5607,7 +6075,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nNo canonical owner maintains MCP connection state or discovered capability catalogs. The existing predeclared-tool HTTP code has limited per-attempt timeout/retry behavior but does not own server initialization, `list_changed`, last-known-good catalogs, reconnect state, discovery retries, or distinct timeout classes.\n\n## Recommended priority and cause\n\n**P1 — connection/catalog state-machine foundation.** It is independently verifiable after the P0 client vertical slice and is required for reliable multi-server operation.\n\n## Scope and ownership\n\n- The shared MCP client package owns one supervisor per server and canonical state transitions.\n- It produces structured pending/connected/failed/disabled state and capability catalogs.\n- Existing #1990 alone owns projecting failed state to the model and tool-search path.\n\n## Acceptance criteria\n\n- Initialization and capability discovery classify transient, authentication, configuration, and not-found failures explicitly.\n- Initial transient failures and discovery calls use bounded retry; auth/config/not-found failures are not blindly retried.\n- Remote reconnect uses bounded exponential backoff with observable pending/failed/manual-retry states.\n- Tool, prompt, and resource `list_changed` notifications refresh their catalog without reconnecting; a failed refresh preserves the prior last-known-good catalog and exposes stale/error metadata.\n- Startup, per-server/per-call, global-default, and idle timeout semantics are distinct, configurable through typed settings, and tested.\n- Cancellation and session shutdown cannot leave hidden live requests or reconnect loops.\n- State transitions and retry timers are deterministic under a fake clock; no foreground polling or quiet failure.\n- #1990 consumes the canonical failed state rather than deriving a second status model.\n- Cache/persistence, if adopted, has explicit identity/invalidation and is not inferred from stale session data.\n\n## Parent checklist ownership\n\nOwns `list_changed`, last-known-good refresh, reconnect/backoff, initial retry classification, discovery retry, pending/failed/manual retry, startup/per-server/global/idle timeouts. It supplies failed state to #1990 but does not own model projection.\n\n## Non-goals and related issues\n\n- Does not own tool search/model visibility (#1990), permission policy (#1989), long-call background handoff, or result spill.\n- Does not implement a supervisor inside `agent-cli`.\n\n## Moving references\n\nRe-read the lifecycle sections of the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp) and official MCP capability specifications; record adopted/adapted/rejected timing and retry decisions.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5636,12 +6105,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-004",
+        "path": ".agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5650,7 +6122,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nA long-running MCP call can block the interactive session indefinitely from the user's perspective. Robota already has generic background-task orchestration, but MCP calls have no typed handoff into it and no defined completion, cancellation, or session-end behavior.\n\n## Recommended priority and cause\n\n**P2 — long-call UX/lifecycle enhancement.** It is valuable after baseline reachability and supervision, but does not block short MCP calls from working safely.\n\n## Scope and ownership\n\n- Adapt MCP calls into the existing `agent-executor`/`agent-framework` background-task owner.\n- Keep transport/client code responsible only for cancellable operations and result delivery.\n- Keep policy and notification semantics generic rather than building an MCP-only job system.\n\n## Acceptance criteria\n\n- A configurable, documented threshold can hand an eligible main-conversation MCP call to the existing background-task system without duplicating the request.\n- The foreground receives a stable task identifier and a model/user-visible status immediately after handoff.\n- Completion, failure, and cancellation are delivered exactly once through the existing notification path.\n- Permission context, provenance, server/tool identity, timeout budget, and cancellation authority survive the handoff.\n- Session shutdown/restart behavior is explicit; orphaned calls cannot continue silently.\n- Subagent and non-interactive modes have explicit adopted/adapted/rejected behavior rather than inheriting foreground assumptions.\n- Fake-clock tests cover just-under/over threshold, completion race, cancellation race, failure, and shutdown.\n\n## Parent checklist ownership\n\nOwns the “longer than two minutes moves to a background task” line, with Robota's threshold and mode decisions recorded through AAR.\n\n## Non-goals and related issues\n\n- Does not own connection retry, per-call timeout, or background permission grammar.\n- Does not create a second background-task framework.\n\n## Moving reference\n\nRevalidate automatic backgrounding behavior in the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp) and adapt it to Robota's existing task lifecycle.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5679,12 +6152,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Third-party result containment, redaction, retention, and cleanup form an independent data-lifecycle boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5693,7 +6166,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nMCP results can exceed model context and local memory/display bounds. The repository has generic tool-result truncation, external-payload, and path-containment seams, but no single MCP admission policy interprets server/tool annotations, warns, rejects, or securely spills an oversized result.\n\n## Recommended priority and cause\n\n**P1 — bounded result and information-containment policy.** Unbounded third-party output is a reliability and security risk for any usable MCP client.\n\n## Scope and ownership\n\n- Reuse the generic session/tool-result admission owner and secure external-payload/path-containment primitives.\n- The MCP adapter interprets protocol/vendor metadata but does not bypass generic limits.\n- Warning, hard limit, per-tool override cap, spill, reference, retention, and cleanup form one overflow policy.\n\n## Acceptance criteria\n\n- Default warning and hard limits are explicit, configurable, and measured in a documented unit before provider conversion.\n- Per-tool metadata can request a higher limit only within a hard repository cap and after strict type/range validation.\n- Oversized admitted output is stored through a secure external-payload owner and replaced by a stable, non-secret reference.\n- Spill paths are contained, collision-safe, permission-restricted, and cannot be influenced into traversal or symlink escape.\n- Status/log/error output never embeds the spilled secret payload or credential-bearing source metadata.\n- Retention, cleanup, missing-file, partial-write, disk-full, and session-end behavior are explicit and fail visibly.\n- Provider context admission never silently submits content beyond its supported bound.\n- Tests cover warning boundary, hard boundary, annotation cap, malformed metadata, spill/reference, traversal, disk failure, cleanup, and redaction.\n\n## Parent checklist ownership\n\nOwns output warning, default hard limit, per-tool override/cap, disk persistence, and conversation file-reference behavior.\n\n## Non-goals and related issues\n\n- #2153's cross-platform stable external handle and #2161's subprocess incremental retention remain separate root causes; record dependencies if their substrate is required instead of absorbing them.\n- Does not own provider schema projection or long-call backgrounding.\n\n## Moving reference\n\nRevalidate output limits and per-tool metadata in the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp); record Robota-specific adopted/adapted/rejected units and caps.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5722,12 +6196,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Remote OAuth credential lifecycle and protocol interoperability require independent security acceptance.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5736,7 +6210,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nRemote MCP servers commonly require OAuth. Robota has no MCP authorization flow, token store/clear lifecycle, protected-resource discovery, callback policy, client metadata override, scope restriction, or audience-bound token enforcement.\n\n## Recommended priority and cause\n\n**P1 — remote authorization protocol.** Broad remote-server interoperability requires it after the P0 HTTP foundation, and incorrect implementation risks credential disclosure.\n\n## Scope and ownership\n\n- Implement MCP remote authorization through a dedicated port behind the shared client package.\n- Follow current MCP authorization requirements, including OAuth 2.1 security practices, PKCE, protected-resource metadata, audience binding, and secure storage.\n- `agent-command` owns login/status/clear effects; UI only renders.\n\n## Acceptance criteria\n\n- OAuth authorization-code flow uses PKCE and validates state, redirect target, issuer/resource metadata, token audience, and TLS requirements.\n- Protected-resource and authorization-server metadata discovery are bounded, validated, and protected against SSRF/redirect confusion.\n- Fixed callback port, preconfigured client credentials, metadata overrides, and scope restriction are typed options with strict precedence and diagnostics.\n- Access/refresh credentials are stored through a secure owner, keyed to the exact server/resource identity, never logged, and clearable/revocable.\n- Refresh, expiry, invalid grant, reauthentication, cancellation, and partial-flow recovery are deterministic.\n- Tokens cannot be sent to a different origin/resource through redirect, configuration change, or name collision.\n- Tests use deterministic local fixtures for success, PKCE/state failure, metadata failure, audience mismatch, refresh, clear, cancellation, and redaction.\n\n## Parent checklist ownership\n\nOwns OAuth command flow, credential storage/clearing, callback port, client credentials, metadata-discovery override, and scope restriction.\n\n## Non-goals and related issues\n\n- Does not execute dynamic header helper commands; that is a separate trust boundary.\n- Does not let CLI code own token storage or protocol logic.\n\n## Moving references\n\nUse the current [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) and [Claude Code MCP reference](https://code.claude.com/docs/en/mcp). Record any product-specific adaptation explicitly.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5765,12 +6240,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Optional custom-auth command execution has independent operator-trust and secret-handling acceptance.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5779,7 +6254,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nSome non-OAuth servers need headers computed at connection time. A `headersHelper`-style feature executes a local command and turns its output into credentials, which is not an OAuth protocol concern: it introduces command trust, cwd/environment authority, timeout, output-bound, parsing, and redaction risks.\n\n## Recommended priority and cause\n\n**P2 — optional custom-auth execution surface.** It should not block standard HTTP/OAuth reachability and must not be smuggled into the OAuth gate.\n\n## Scope and ownership\n\n- Add an explicit opt-in dynamic-header provider behind the shared client authentication port.\n- Reuse activation trust and subprocess authority primitives without reusing the stdio server process as an auth helper.\n- Keep helper output ephemeral and narrowly scoped to one server connection attempt.\n\n## Acceptance criteria\n\n- A helper cannot run until workspace/source activation trust succeeds and the operator can identify the exact command authority.\n- Command, args, cwd, and environment inheritance are typed and allowlisted; project content cannot silently broaden them.\n- Execution has strict startup/wall-clock/output limits, cancellation, and process cleanup.\n- Stdout is decoded by a strict JSON/header schema; duplicate/forbidden headers, non-string values, trailing junk, stderr confusion, and malformed output fail visibly.\n- Helper output and derived headers are never printed, persisted in ordinary logs, or included in diagnostics; redaction covers failure paths.\n- Results are scoped to the intended server identity and are not reused across a changed endpoint/configuration without an explicit cache contract.\n- Tests cover untrusted source, denied command, env leakage, timeout, oversized output, malformed JSON, forbidden headers, cancellation, and redaction.\n\n## Parent checklist ownership\n\nOwns only dynamic headers from a helper for custom authentication schemes.\n\n## Non-goals and related issues\n\n- Does not implement OAuth, token storage, or stdio MCP server transport.\n- Does not make helper execution a default or prerequisite for ordinary static headers.\n\n## Moving reference\n\nRevalidate `headersHelper` behavior and trust requirements in the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp), then record a reasoned Robota AAR decision.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -5817,12 +6293,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-005",
+        "path": ".agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5831,7 +6310,8 @@
         "body": "Parent initiative: #1985\n\n## Problem\n\nThird-party MCP tool input schemas may contain root `anyOf`/`oneOf`/`allOf` or other constructs rejected by a provider API. Dropping the whole server loses unrelated valid tools, while flattening without a provider-aware contract can misrepresent accepted input. CORE-040 validates runtime schemas but does not own model-facing provider projection.\n\n## Recommended priority and cause\n\n**P1 — provider-safe schema projection boundary.** A multi-provider MCP client needs explicit, testable projection rather than Anthropic-only rewriting or server-wide failure.\n\n## Architecture placement\n\n- Define a provider-neutral projection contract at the shared lower tool/provider boundary.\n- Each provider package owns the strategy for its API constraints and declares unsupported behavior.\n- Reuse CORE-040 runtime validation for untrusted schemas; do not create a second validator.\n\n## Acceptance criteria\n\n- Untrusted MCP schemas are validated before projection and cannot exploit prototype keys, cycles, unsupported references, or unbounded complexity.\n- Provider strategies explicitly adopt, adapt, or reject root `anyOf`/`oneOf`/`allOf` and other unsupported keywords.\n- When a safe semantic projection exists, the callable schema and explanatory description remain consistent and are deterministic.\n- When projection is unsafe/impossible, only that tool is quarantined with a structured diagnostic; other tools and server capabilities remain available.\n- Runtime argument validation remains against the authoritative original/normalized contract so projection cannot widen accepted execution input.\n- Tool provenance and provider/model identity are part of projection diagnostics and cache identity.\n- Anthropic, OpenAI-compatible, Gemini, and any other supported provider have explicit conformance tests or an explicit unsupported verdict.\n- Fuzz/fixture tests cover combinators, nested/ref schemas, malformed input, one-invalid-tool isolation, and description consistency.\n\n## Parent checklist ownership\n\nOwns root-combinator handling, provider-neutral mapping, and single-invalid-tool isolation.\n\n## Non-goals and related issues\n\n- Does not own discovery/catalog refresh or generic result-size admission.\n- Does not preserve a legacy handwritten transformation merely to minimize migration.\n\n## Moving references\n\nRevalidate tool schema and invalid-tool behavior in the current [MCP tools specification](https://modelcontextprotocol.io/specification/draft/server/tools) and [Claude Code MCP reference](https://code.claude.com/docs/en/mcp), then record provider-specific AAR decisions.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5866,12 +6346,15 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-006",
+        "path": ".agents/tasks/MCP-006-export-canonical-session-runtime-tools-through-mcp.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5880,7 +6363,8 @@
         "body": "Parent initiative: #1986\n\n## Problem\n\n`agent-transport-mcp` exposes `submit` and independently synthesized `command_*` tools, but it cannot list or invoke the session's canonical runtime tools. The framework already projects model-invocable commands as canonical `robota_command_*` runtime tools. The MCP path therefore gives commands a second identity and execution path and cannot expose ordinary agent tools without bypassing session policy.\n\n## Recommended priority and cause\n\n**P0 — canonical runtime-capability boundary.** A product server must not become reachable until every direct MCP tool call uses the same permission, hook, result, truncation, event, audit, and cancellation path as normal session execution.\n\n## Architecture ownership\n\n- `agent-interface-session` owns a provider-neutral `ISessionRuntimeTools`-like list/invoke capability.\n- `agent-session` and `agent-framework` implement/expose it over the existing permission-wrapped runtime.\n- `agent-transport-mcp` translates that capability to MCP tools; it does not reach into a tool manager or implement policy.\n- Existing #2091 and #2107 own bound-adapter lifecycle and exact MCP/session-port attachment. This issue supplies the final narrow runtime-tool capability that #2107 binds.\n\n## Acceptance criteria\n\n- The narrow session port lists every canonical runtime tool with its existing name, description, and validated input schema.\n- Invocation by canonical name goes through one session-owned method preserving permission decisions, pre/post hooks, execution events/audit, result envelope, truncation/output admission, errors, and provider-neutral cancellation.\n- MCP cancellation maps to the port's `AbortSignal`/cancellation contract and cannot leave an unobserved execution.\n- Concurrency semantics are explicit for concurrent MCP calls, direct tool calls versus `submit`, queueing, cancellation, and session shutdown.\n- Projected commands appear only as `robota_command_*`; the parallel `command_*` catalog and direct `executeCommand` path are removed without a compatibility shim.\n- Retained `submit` is documented as a Robota extension, uses a reserved collision-safe identity, and fails startup if a collision cannot be resolved safely.\n- A direct call requiring interactive permission fails closed with a visible MCP tool error when the host has no approved noninteractive policy.\n- Prompts and resources are explicitly unsupported in the minimum slice until canonical runtime registries with their distinct control semantics exist.\n- In-memory MCP tests cover canonical listing/invocation, command identity, denied/ask/allowed policy, hooks, truncation, cancellation, concurrency, collision, unknown tools, and one-tool failure isolation.\n\n## Parent checklist ownership\n\nOwns exposure of the agent's own tools, preservation of server-side permissions, and the tools/resources/prompts disposition.\n\n## Dependencies and ordering\n\n- C1 and #2091 can execute independently.\n- Both must complete before #2107 binds the exact MCP capability port.\n- The stdio product child depends on #2107.\n- #1989 may later enrich generic permission grammar but is not a blocker for preserving current fail-closed policy.\n\n## Non-goals\n\n- Does not connect stdio/HTTP carriers or add a CLI process mode.\n- Does not invent prompt/resource registries for parity.\n- Does not keep a prerelease duplicate command identity for compatibility.\n\n## Moving references\n\nRecord adopted/adapted/rejected decisions against the current [Claude Code MCP server reference](https://code.claude.com/docs/en/mcp) and [MCP tools specification](https://modelcontextprotocol.io/specification/2025-11-25/server/tools). Robota intentionally keeps stronger server-side policy even though the reference client also owns user confirmation.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5926,12 +6410,15 @@
         ]
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-007",
+        "path": ".agents/tasks/MCP-007-ship-robota-mcp-serve-as-a-carrier-owning-stdio-product-mode.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -5940,7 +6427,8 @@
         "body": "Parent initiative: #1986\n\n## Problem\n\nThe public MCP server builder is not a deployable product mode. `createMcpTransport.start()` creates an MCP `Server` object but does not connect a carrier, and `agent-cli` has no `mcp serve` route. A local-looking CLI call to the raw SDK would duplicate carrier lifecycle and make an incomplete surface reachable.\n\n## Recommended priority and cause\n\n**P0 — minimum carrier-owning product vertical slice.** This is the first user-reachable server path after the canonical runtime-tool port and exact adapter binding are complete.\n\n## Architecture ownership\n\n- `agent-transport-mcp` owns `StdioServerTransport`, connect/readiness/close semantics, and protocol translation.\n- `agent-cli` owns only the `robota mcp serve` process-mode selection, normal product/session composition, cwd/trust posture, stdout/stderr/signals/exit behavior, and bundled dependency arrangement.\n- `agent-command` does not own this process mode.\n\n## Acceptance criteria\n\n- `robota mcp serve` starts exactly one normal Robota session and connects it to one official SDK stdio carrier.\n- Transport readiness means the carrier is connected and able to serve requests, not merely that a `Server` object exists.\n- The MCP package owns carrier close/idempotency/error semantics; CLI code does not import the raw MCP SDK to recreate them.\n- The process inherits the caller-selected working directory through the normal project-root/access/trust boundary.\n- Stdout is reserved exclusively for MCP protocol frames from process start through shutdown; banners, logs, progress, warnings, and diagnostics go to stderr or a non-stdout sink.\n- SIGINT/SIGTERM, stdin close, client disconnect, startup failure, active request cancellation, and normal exit have deterministic cleanup and exit codes.\n- The published/bundled CLI contains the required MCP implementation without an unresolved workspace-only runtime edge.\n- A real binary-level test launches the CLI, connects an MCP client over stdio, lists canonical tools, invokes one allowed tool, observes one denied/ask failure, and shuts down cleanly.\n- User documentation provides the exact host configuration, executable resolution, working-directory semantics, exposed surface, security model, and troubleshooting.\n\n## Parent checklist ownership\n\nOwns the single-command stdio server, caller-controlled working directory, and documentation of the served surface.\n\n## Dependencies and ordering\n\n- Blocked by #2107, which in turn requires this initiative's canonical-runtime-tool child and existing #2091.\n- #2117 is downstream cleanup and does not block this product slice.\n\n## Non-goals\n\n- Does not add Streamable HTTP, multi-session addressing, or remote authentication.\n- Does not use the generic human headless host issue #2087 as an MCP carrier.\n\n## Moving references\n\nRevalidate `claude mcp serve` behavior in the current [Claude Code MCP reference](https://code.claude.com/docs/en/mcp) and stdio requirements in the [MCP transports specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -5990,12 +6478,15 @@
         "blocking": []
       },
       "securityOrDataCorrectness": false,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "ABSORB",
       "candidateDisposition": "ABSORB",
       "externalLifecycleReason": null,
-      "targetTask": null,
-      "holdReason": "exact canonical Task ownership and batch approval are pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "targetTask": {
+        "id": "MCP-008",
+        "path": ".agents/tasks/MCP-008-prove-an-mcp-served-session-can-also-consume-mcp-tools.md"
+      },
+      "holdReason": null,
+      "reviewerVerdict": "ABSORB — directly approved on 2026-09-03 after independent semantic review",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -6004,7 +6495,8 @@
         "body": "Parent initiative: #1986\n\n## Problem\n\nThe parent requires that a Robota session serving MCP can still consume MCP. Server and client directions have separate implementations and product wiring; without a product-level proof they may compose only in theory or create two incompatible session assemblies.\n\n## Recommended priority and cause\n\n**P1 — bidirectional product integration proof.** It follows first server reachability and the P0 client control plane. It owns evidence and documentation, not another protocol stack.\n\n## Scope and ownership\n\n- Reuse the exact normal product assembly used by `robota mcp serve`.\n- Reuse #2519 (typed client config), #2520 (activation trust), and #2521 (shared client/HTTP product vertical slice).\n- Add only the wiring, scenario artifact, and documentation needed to prove one session can serve canonical tools while its agent turn consumes a configured MCP tool.\n\n## Acceptance criteria\n\n- A deterministic product-level scenario starts the served session through the real product assembly and configures an MCP client server through the canonical client control plane.\n- An external MCP host invokes a served canonical Robota tool while a turn in the same session invokes a discovered external MCP tool; identities, permissions, and results remain distinct and correct.\n- No second configuration resolver, client catalog, trust engine, MCP client, or served-session implementation is introduced.\n- Cancellation, shutdown, and failure on either direction do not corrupt or silently terminate the other direction.\n- The scenario records exact dependencies and may close with integration evidence/documentation if correct shared assembly requires no source change.\n- Documentation distinguishes serving versus consuming roles and shows their simultaneous configuration.\n\n## Parent checklist ownership\n\nOwns only the “a session that serves MCP can still consume MCP” requirement.\n\n## Dependencies\n\n- Blocked by the stdio product child and #2519, #2520, #2521.\n\n## Non-goals\n\n- Does not implement client configuration/auth/catalog or a new server carrier.\n- Does not own tool search (#1990) or inbound channels (#1997).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": true
     },
     {
       "issue": {
@@ -6045,12 +6537,12 @@
         ]
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Authenticated loopback HTTP carrier and session addressing form an independently releasable network boundary.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -6059,7 +6551,8 @@
         "body": "Parent initiative: #1986\n\n## Problem\n\nRemote MCP hosting needs a standard Streamable HTTP carrier plus an explicit mapping between protocol connections and Robota runtime sessions. Reusing `agent-transport-http` or `agent-transport-ws` would be incorrect because they carry Robota protocols, not MCP. Even loopback is a hostile network boundary in this repository.\n\n## Recommended priority and cause\n\n**P2/security — optional authenticated local HTTP carrier and session-addressing boundary.** It follows the stdio product slice and cannot be released non-loopback until the remote authorization child lands.\n\n## Architecture ownership\n\n- `agent-transport-mcp` owns the official Streamable HTTP carrier and protocol-session mapping.\n- Reuse the shared network admission primitive; do not fork URL/Host/Origin/token policy inside CLI code.\n- `Mcp-Session-Id` is a protocol-session mapping key, not a Robota session ID and never an authentication credential.\n\n## Acceptance criteria\n\n- Streamable HTTP implements the current MCP transport requirements, including POST/GET/session lifecycle and protocol-version behavior adopted by the design.\n- The first release binds loopback only and requires an auto-minted, high-entropy bearer credential or equivalently strong shared admission; unauthenticated loopback is rejected.\n- Host and Origin are strictly validated before request/body processing, with DNS rebinding/alternate-host tests.\n- Protocol session identifiers are unguessable mapping keys bound server-side to the intended Robota runtime session and credential context; they cannot authorize access by themselves.\n- Single/multiple runtime-session policy, creation/selection, concurrency, cancellation, resumption, expiry, disconnect, and shutdown are explicit and bounded.\n- C1 remains the owner of transport-neutral execution/cancellation semantics; the carrier only projects wire events.\n- Logs and errors redact bearer/session material and cannot leak response bodies or internal runtime IDs.\n- Real HTTP tests cover valid/invalid Host, Origin, bearer, session mapping, concurrent requests, cancellation/resume, expiry, disconnect, and shutdown.\n- Non-loopback binding is mechanically refused until the remote authorization capability is present and configured.\n\n## Parent checklist ownership\n\nOwns non-stdio standard transport and session addressing/multi-session decisions.\n\n## Dependencies\n\n- Blocked by the stdio product child because it establishes the carrier abstraction and canonical server surface.\n- Blocks the remote resource-server authorization child; that child in turn blocks all non-loopback release.\n\n## Non-goals\n\n- Does not implement custom MCP WebSocket transport.\n- Does not reuse Robota HTTP/WS protocol adapters as MCP carriers.\n- Does not treat `Mcp-Session-Id` as auth.\n\n## Moving reference\n\nRevalidate and record AAR decisions from the current [MCP Streamable HTTP transport specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     },
     {
       "issue": {
@@ -6094,12 +6587,12 @@
         "blocking": []
       },
       "securityOrDataCorrectness": true,
-      "disposition": "OWNER_REVIEW",
+      "disposition": "RETAIN",
       "candidateDisposition": "RETAIN",
-      "externalLifecycleReason": "candidate reason requires batch-specific independent semantic review before RETAIN",
+      "externalLifecycleReason": "Remote resource-server authorization is a separate audience/scope/admission release gate.",
       "targetTask": null,
-      "holdReason": "security/data-correctness semantic owner decision and/or exact Task ownership is pending",
-      "reviewerVerdict": "OWNER_REVIEW unless a later frozen batch supersedes this row",
+      "holdReason": null,
+      "reviewerVerdict": "Semantic review: @woojubb on 2026-09-03 — RETAIN",
       "before": {
         "state": "OPEN",
         "stateReason": null,
@@ -6108,7 +6601,8 @@
         "body": "Parent initiative: #1986\n\n## Problem\n\nExposing the MCP server beyond loopback requires resource-server authorization and admission. Client OAuth issue #2526 acquires credentials for Robota as a client; it does not validate tokens, audience, scopes, or access when Robota is the protected MCP resource.\n\n## Recommended priority and cause\n\n**P2/security — remote protected-resource boundary.** It blocks every non-loopback Streamable HTTP release but is independent of local stdio and authenticated loopback reachability.\n\n## Architecture ownership\n\n- Place generic token-verifier/scope/admission ports in the repository's designated auth owner.\n- `agent-transport-mcp` owns MCP protected-resource metadata/challenges and maps validated claims to runtime/session admission.\n- Product composition selects concrete verifier/storage/network adapters; CLI does not validate tokens itself.\n\n## Acceptance criteria\n\n- Publish standards-compliant protected-resource metadata and `WWW-Authenticate` challenges without leaking internal topology.\n- Validate issuer, signature/algorithm, expiry/not-before, audience/resource, scopes, token type, and replay-relevant identity before session lookup or request execution.\n- Token audience/scope is bound to the exact MCP resource and authorized operations; a valid client token for another resource is rejected.\n- Authentication and authorization failures are rate-limited/audited with redacted diagnostics and do not reveal whether a runtime session exists.\n- Session mapping remains separate from authentication; `Mcp-Session-Id` alone grants no authority.\n- Key/metadata refresh, verifier outage, clock skew, revocation/expiry, malformed challenges, cancellation, and shutdown fail closed.\n- Tests cover valid access, missing/invalid token, wrong audience/scope/resource, expired/not-yet-valid token, algorithm confusion, metadata failure, rate limiting, redaction, and session-enumeration resistance.\n- A mechanical gate prevents non-loopback bind/release unless this admission capability is configured.\n\n## Parent checklist ownership\n\nOwns authentication and authorization for non-stdio MCP server transports.\n\n## Dependencies and related issues\n\n- Blocked by the Streamable HTTP/session-addressing child.\n- #2526 remains the separate MCP client OAuth owner and must not be reused as this implementation item.\n\n## Non-goals\n\n- Does not acquire client credentials or implement authorization-code UI.\n- Does not weaken authenticated loopback admission owned by the HTTP carrier child.\n\n## Moving reference\n\nUse the current [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) and record product-specific AAR decisions before implementation.\n",
         "commentCount": 0,
         "comments": []
-      }
+      },
+      "mutationAuthorized": false
     }
   ]
 }

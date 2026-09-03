@@ -28,6 +28,8 @@ no-issue: This is a repository-local delivery correction for the approved migrat
 - Run default history and staged planning-order scans from current origin/develop.
 - Push the three-commit topic range once, then read back remote develop.
 
+Implementation batch in progress: the four independently reviewed INFRA-155 files are staged with this active Task/spec pair; final verification remains pending.
+
 - Deliver prelude, checkpoint, and implementation in one push batch.
 
 ## User Execution Test Scenarios

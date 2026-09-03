@@ -57,6 +57,8 @@ Commit this prelude, its checkpoint, and the byte-equivalent reviewed implementa
 3. Restore the exact reviewed manifest, baseline, INFRA-155 spec, and INFRA-155 Task as the implementation commit.
 4. Run default history and push the three commits once.
 
+Implementation batch: the reviewed INFRA-155 manifest, baseline, active spec, and Task are bound to this active delivery record; verification remains pending until the complete topic range passes.
+
 ## Completion Criteria
 
 - [ ] TC-01: Observable: the final implementation tree is byte-equivalent to reviewed INFRA-155 head `8c1b6175c` for all four paths.

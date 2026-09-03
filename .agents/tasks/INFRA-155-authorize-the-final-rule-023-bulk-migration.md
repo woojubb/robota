@@ -20,7 +20,7 @@ no-issue: This record closes the administrative migration already authorized by 
 
 - [ ] TC-01 — Record exactly 48 newly authorized ABSORB rows and their unique live Task paths.
 - [ ] TC-02 — Record exactly 20 RETAIN rows with substantive independent-lifecycle reasons and the owner receipt.
-- [ ] TC-03 — Preserve #2093 and #2514 as the only non-ABSORB/non-RETAIN reconciliation rows.
+- [ ] TC-03 — Preserve issue #2093 and issue #2514 as the only non-ABSORB/non-RETAIN reconciliation rows.
 - [ ] TC-04 — Freeze exactly one known reference-kind occurrence in the AGREEMENT-008 active evidence log without rewriting append-only evidence.
 - [ ] TC-05 — Make planning-order, reference-kind, manifest accounting, and diff checks pass together.
 
@@ -29,6 +29,8 @@ no-issue: This record closes the administrative migration already authorized by 
 - Assert exact issue sets, unique Task URLs, counts, approval evidence, and expected population arithmetic from the final manifest.
 - Run the staged planning-order and reference-kind scans after both files are present.
 - Run one affected repository verification after the complete authorization batch.
+
+Implementation batch in progress: `.agents/evidence/RULE-023-child-issue-migration-manifest.json` and `scripts/harness/reference-kind-baseline.json`; verification and completion evidence remain pending.
 
 - Apply the manifest authorization and reference baseline together, then verify the combined final state once.
 
