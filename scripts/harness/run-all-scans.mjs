@@ -1156,6 +1156,15 @@ export const SCAN_COMMANDS = [
     always: true,
   },
   {
+    // Issue #2186 — an open task record whose work-item ID a merged, delivering commit cites is a
+    // reconciliation prompt. Reads git history, so `always`; advisory under `pr` because the history
+    // it grades is moved by OTHER pull requests, not by the change under review.
+    name: 'task-merged-citation',
+    command: ['node', 'scripts/harness/scan-task-merged-citation.mjs'],
+    always: true,
+    advisory: true,
+  },
+  {
     name: 'task-archival',
     command: ['node', 'scripts/harness/check-task-archival.mjs'],
     examines: [AGENTS, REGISTRY, 'scripts/harness/task-lifecycle-legacy-baseline.json'],

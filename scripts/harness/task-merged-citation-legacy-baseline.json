@@ -1,0 +1,22 @@
+{
+  "owner": "issue #2186",
+  "note": "Open task records already cited by a merged, delivering develop commit when the task-merged-citation scan was adopted (measured 2026-09-04). Each is a pending reconciliation: archive or re-scope the record, then remove it here. No additions.",
+  "reconcilePending": [
+    "HARNESS-024",
+    "HARNESS-025",
+    "HARNESS-049",
+    "HARNESS-052",
+    "MOCK-001",
+    "NEUT-009",
+    "NEUT-010",
+    "PROV-004",
+    "REL-023",
+    "RUNTIME-004",
+    "SEC-005",
+    "SEC-007",
+    "SELFHOST-003",
+    "SELFHOST-008",
+    "SELFHOST-011",
+    "WORKFLOW-005"
+  ]
+}
