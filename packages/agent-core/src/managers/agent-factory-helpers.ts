@@ -25,6 +25,11 @@ export interface IAgentFactoryOptions {
   defaultSystemMessage?: string;
   /** Enable strict configuration validation */
   strictValidation?: boolean;
+  /**
+   * ARCH-055: the agent-id source. Injected so a test can drive a deterministic collision corpus;
+   * the factory retries a colliding id, so the source need not be unique on its own.
+   */
+  idFactory?: () => string;
 }
 
 /**
@@ -63,7 +68,10 @@ export interface IAgentLifecycleEvents {
  * the caller supplied them — no vendor model/provider default is injected at this foundation layer.
  */
 export type TResolvedFactoryOptions = Required<
-  Pick<IAgentFactoryOptions, 'maxConcurrentAgents' | 'defaultSystemMessage' | 'strictValidation'>
+  Pick<
+    IAgentFactoryOptions,
+    'maxConcurrentAgents' | 'defaultSystemMessage' | 'strictValidation' | 'idFactory'
+  >
 > &
   Pick<IAgentFactoryOptions, 'defaultModel' | 'defaultProvider'>;
 
@@ -81,6 +89,7 @@ export function resolveFactoryOptions(options: IAgentFactoryOptions): TResolvedF
     // Neutral default: no baked-in persona prompt at this layer (`??` keeps '' expressible).
     defaultSystemMessage: options.defaultSystemMessage ?? '',
     strictValidation: options.strictValidation ?? true,
+    idFactory: options.idFactory ?? generateAgentId,
     ...(options.defaultModel !== undefined && { defaultModel: options.defaultModel }),
     ...(options.defaultProvider !== undefined && { defaultProvider: options.defaultProvider }),
   };
