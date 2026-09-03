@@ -14,6 +14,7 @@ import {
   enforceOnCrash,
   exitCodeFor,
   addedCaseTitleMatchers,
+  applyDeclaredMutants,
   classifyChanges,
   classifyVitestOutcome,
   decidePairVerdict,
@@ -25,6 +26,7 @@ import {
   isDefectFixRange,
   isSourceFile,
   isTestFile,
+  parseDeclaredMutants,
   parseOptOut,
   pkgOf,
   qualifyingPairs,
@@ -1247,5 +1249,110 @@ describe('issue #2263: a run-error downgrade is counted, not silent', () => {
     expect(summary).toContain('| `packages/a/src/x.ts` | inconclusive | run-error |');
     expect(summary).toContain('| `packages/b/src/y.ts` | red-proof-ok | assertion-fail |');
     expect(summary).toContain('1 file(s) downgraded to inconclusive by run-error.');
+  });
+});
+
+describe('issue #2181: an author-declared mutant judges a NEW checker or decoder', () => {
+  const declaration =
+    'feat: a new decoder\n\nred-proof-mutant: packages/x/src/target.ts :: export const t = 1; => export const t = 2;\n';
+
+  it('parseDeclaredMutants reads `path :: needle => replacement` lines, grouped by path', () => {
+    const mutants = parseDeclaredMutants(
+      [
+        'prose that mentions red-proof-mutant: but is not a declaration',
+        'red-proof-mutant: packages/a/src/x.ts :: /\\.js$/ => /\\.(js|ts)$/',
+        '  red-proof-mutant: packages/a/src/x.ts :: KEYS_BY_ROLE => ',
+        'red-proof-mutant: packages/b/src/y.ts :: return a && b; => return a;',
+      ].join('\n'),
+    );
+    expect([...mutants.keys()]).toEqual(['packages/a/src/x.ts', 'packages/b/src/y.ts']);
+    expect(mutants.get('packages/a/src/x.ts')).toEqual([
+      { needle: '/\\.js$/', replacement: '/\\.(js|ts)$/' },
+      { needle: 'KEYS_BY_ROLE', replacement: '' },
+    ]);
+  });
+
+  it('applyDeclaredMutants applies an exactly-once needle and refuses absent or ambiguous ones', () => {
+    expect(applyDeclaredMutants('a b c', [{ needle: 'b', replacement: 'X' }])).toEqual({
+      ok: true,
+      text: 'a X c',
+    });
+    expect(applyDeclaredMutants('a b c', [{ needle: 'b', replacement: '' }])).toEqual({
+      ok: true,
+      text: 'a  c',
+    });
+    expect(applyDeclaredMutants('a b c', [{ needle: 'z', replacement: 'X' }]).reason).toBe(
+      'mutant-not-found',
+    );
+    expect(applyDeclaredMutants('b b', [{ needle: 'b', replacement: 'X' }]).reason).toBe(
+      'mutant-ambiguous',
+    );
+  });
+
+  it('a declared mutant qualifies a range that is not spelled fix: and adds no floor', () => {
+    expect(isDefectFixRange(['feat: new decoder'], [], parseDeclaredMutants(declaration))).toBe(
+      true,
+    );
+    expect(isDefectFixRange(['feat: new decoder'], [], new Map())).toBe(false);
+  });
+
+  it('feat: range + declared mutant: the suite goes red on the mutant → RED_PROOF_OK, no reversal', async () => {
+    let reversed = false;
+    const written = [];
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        commitSubjects: ['feat: new decoder'],
+        declarationText: declaration,
+        reversalBase: () => null, // the file was ADDED in the range — no earlier state
+        reverseApply: () => (reversed = true),
+        writeMutant: (source, text) => written.push({ source, text }),
+        runVitest: () => ({
+          testResults: [
+            { name: abs('packages/x/src/a.test.ts'), assertionResults: [{ status: 'failed' }] },
+          ],
+        }),
+      }),
+    );
+    expect(verdict).toBe(VERDICT.RED_PROOF_OK);
+    expect(decisions[0].mutation).toBe('declared');
+    expect(reversed).toBe(false);
+    expect(written).toEqual([{ source: 'packages/x/src/target.ts', text: 'export const t = 2;' }]);
+  });
+
+  it('feat: range + declared mutant: the suite stays green on the mutant → ACCIDENTAL_GREEN', async () => {
+    const { verdict } = await runRegressionRedProof(
+      baseIo({
+        commitSubjects: ['feat: new decoder'],
+        declarationText: declaration,
+        reversalBase: () => null,
+        writeMutant: () => {},
+        runVitest: () => ({
+          testResults: [
+            { name: abs('packages/x/src/a.test.ts'), assertionResults: [{ status: 'passed' }] },
+          ],
+        }),
+      }),
+    );
+    expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
+  });
+
+  it('a needle the source does not contain is INCONCLUSIVE with its reason, never a guessed mutation', async () => {
+    let written = false;
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        commitSubjects: ['feat: new decoder'],
+        declarationText:
+          'red-proof-mutant: packages/x/src/target.ts :: nothing like this => whatever\n',
+        writeMutant: () => (written = true),
+        runVitest: () => ({
+          testResults: [
+            { name: abs('packages/x/src/a.test.ts'), assertionResults: [{ status: 'failed' }] },
+          ],
+        }),
+      }),
+    );
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+    expect(decisions[0].reason).toBe('mutant-not-found');
+    expect(written).toBe(false);
   });
 });

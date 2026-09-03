@@ -238,8 +238,13 @@ export function qualifyingPairs(byPkg) {
 
 // ── Pure: range + opt-out scoping (C2, opt-out) ─────────────────────────────────────────────────────
 
-/** A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally excluded. */
-export function isDefectFixRange(commitSubjects, addedFiles = []) {
+/**
+ * A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally
+ * excluded. A range that DECLARES a mutant (issue #2181) is judged whatever its subject says: the
+ * author has named what the suite must kill, and the floor's job is to check that it does.
+ */
+export function isDefectFixRange(commitSubjects, addedFiles = [], declaredMutants = new Map()) {
+  if (declaredMutants.size > 0) return true;
   if (commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()))) return true;
 
   // A range that ADDS A FLOOR is judged too, whatever its subject says. Measured 2026-08-01: five
@@ -271,6 +276,55 @@ export function parseOptOut(text) {
   const m = (text || '').match(/allow-green-at-base:\s*(\S.*)/i);
   const reason = m ? m[1].trim() : null;
   return { optedOut: Boolean(reason), reason };
+}
+
+// ── Pure: author-declared mutants (issue #2181) ─────────────────────────────────────────────────────
+
+/**
+ * `red-proof-mutant: <path> :: <needle> => <replacement>` — the mutant a NEW checker, decoder or
+ * parser's suite exists to kill, declared by the author in the pull-request body or a commit body.
+ *
+ * Issue #2181 measured this floor's coverage inverted relative to the risk: reversing a diff needs a
+ * prior behaviour to reverse into, so a brand-new scan, decoder or gate — the case where the suite
+ * is the ONLY definition of correct — was never judged. Both authors, when asked, named the same
+ * technique: state the discriminating element (a regex alternative, a key table, a branch), break
+ * it, and show the suite goes red. This makes that declaration machine-readable and applies it IN
+ * PLACE of the reversal. The needle must occur exactly once in the file: a declaration that names
+ * nothing, or something ambiguous, is INCONCLUSIVE rather than a guessed mutation — a check that
+ * guesses would be worse than none. `<replacement>` may be empty (`=> ` deletes the needle). A
+ * needle cannot itself contain `=>`.
+ *
+ * @returns {Map<string, {needle: string, replacement: string}[]>} declared mutants by source path
+ */
+const DECLARED_MUTANT_RE = /^\s*red-proof-mutant:\s*(\S+)\s*::\s*(.+?)\s*=>\s*(.*?)\s*$/;
+
+export function parseDeclaredMutants(text) {
+  const byPath = new Map();
+  for (const line of String(text ?? '').split('\n')) {
+    const m = DECLARED_MUTANT_RE.exec(line);
+    if (!m) continue;
+    const [, file, needle, replacement] = m;
+    if (!byPath.has(file)) byPath.set(file, []);
+    byPath.get(file).push({ needle, replacement });
+  }
+  return byPath;
+}
+
+/**
+ * Apply a file's declared mutants to its text. `{ ok: true, text }`, or `{ ok: false, reason }` with
+ * `mutant-not-found` / `mutant-ambiguous` — never a partial application.
+ */
+export function applyDeclaredMutants(text, mutants) {
+  let out = String(text ?? '');
+  for (const { needle, replacement } of mutants) {
+    const first = out.indexOf(needle);
+    if (first === -1) return { ok: false, reason: 'mutant-not-found', needle };
+    if (out.indexOf(needle, first + needle.length) !== -1) {
+      return { ok: false, reason: 'mutant-ambiguous', needle };
+    }
+    out = out.slice(0, first) + replacement + out.slice(first + needle.length);
+  }
+  return { ok: true, text: out };
 }
 
 // ── Pure: which cases the range ADDED (INFRA-072) ────────────────────────────────────────────────────
@@ -735,19 +789,40 @@ export async function runRegressionRedProof(io = {}) {
       .split('\n')
       .filter(Boolean);
 
-  if (!isDefectFixRange(commitSubjects, addedFiles)) {
-    log('↩︎  SKIPPED: range has no `fix:` commit and adds no floor (not a defect fix).');
+  // Issue #2181 — declared mutants live in the PR body and the commit BODIES (a subject line is too
+  // short to carry a needle). Synthetic fixtures inject the text; a real range reads `%B`.
+  const declarationText =
+    io.declarationText ??
+    (io.commitSubjects !== undefined
+      ? optOutText
+      : `${process.env.PR_BODY ?? ''}\n${git(['log', '--format=%B', `${base}..HEAD`])}`);
+  const declaredMutants = parseDeclaredMutants(declarationText);
+
+  if (!isDefectFixRange(commitSubjects, addedFiles, declaredMutants)) {
+    log(
+      '↩︎  SKIPPED: range has no `fix:` commit, adds no floor and declares no mutant (not a defect fix).',
+    );
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 
   // Scope by the commit that owns each file. A mixed PR must not turn unrelated `feat:` / `perf:`
   // files into alleged defect fixes merely because another commit in the range is spelled `fix:`.
   // Synthetic fixtures provide range inputs directly and retain whole-range scope.
-  const defectFixFiles =
+  const rangeDefectFixFiles =
     io.defectFixFiles ??
     (io.changedFiles !== undefined || io.commitSubjects !== undefined
       ? changedFiles
       : defaultDefectFixFiles(base, changedFiles));
+  // A declared mutant's source, and the range's changed files in that package, are in scope too —
+  // the declaration is the author's statement that these tests must kill this mutant.
+  const mutantPkgs = new Set([...declaredMutants.keys()].map(pkgOf));
+  const defectFixFiles = [
+    ...new Set([
+      ...rangeDefectFixFiles,
+      ...declaredMutants.keys(),
+      ...changedFiles.filter((f) => mutantPkgs.has(pkgOf(f))),
+    ]),
+  ];
   const pairs = qualifyingPairs(classifyChanges(defectFixFiles));
   if (pairs.length === 0) {
     log('↩︎  SKIPPED: no same-package (source+test) pair to red-prove.');
@@ -762,6 +837,10 @@ export async function runRegressionRedProof(io = {}) {
     io.reverseApply ?? ((srcPaths, from = base) => defaultReverseApply(from, srcPaths));
   const reversalBase = io.reversalBase ?? ((source) => reversalBaseFor(source, base));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
+  // Issue #2181 — writes the declared-mutant text over a tracked source; `restore` undoes it.
+  const writeMutant =
+    io.writeMutant ??
+    ((source, text) => writeFileSync(path.resolve(WORKSPACE_ROOT, source), text, 'utf8'));
   const runVitest = io.runVitest ?? defaultRunVitest;
   const addedTestCaseDiff =
     io.addedTestCaseDiff ??
@@ -858,9 +937,12 @@ export async function runRegressionRedProof(io = {}) {
       let outcome = null;
       let witness = WITNESS.UNKNOWN;
       let runtimeMutation = true;
+      // Issue #2181 — a declared mutant replaces the reversal, so an ADDED file (no earlier state)
+      // is judged against the mutation its author named rather than reported unjudgeable.
+      const mutants = declaredMutants.get(source) ?? null;
       // INFRA-120 — reverse to the earliest state that HAS this file, not to its absence.
       const from = exercised ? reversalBase(source) : base;
-      if (exercised && from === null) {
+      if (exercised && from === null && mutants === null) {
         decisions.push({
           pkg: pair.pkg,
           source,
@@ -885,7 +967,32 @@ export async function runRegressionRedProof(io = {}) {
       if (exercised) {
         let deciders = [];
         const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
-        reverseApply([source], from);
+        if (mutants) {
+          const applied = applyDeclaredMutants(fixedText, mutants);
+          if (!applied.ok) {
+            // Not a guess: a needle that names nothing, or two places, mutates nothing.
+            decisions.push({
+              pkg: pair.pkg,
+              source,
+              verdict: VERDICT.INCONCLUSIVE,
+              outcome: null,
+              witness,
+              importsReversedFile: true,
+              relation: 'executed',
+              runtimeMutation: true,
+              mutation: 'declared',
+              reason: applied.reason,
+            });
+            log(
+              `⚠︎  ${source}: declared mutant \`${applied.needle}\` — ${applied.reason}. INCONCLUSIVE.`,
+            );
+            if (rank[VERDICT.INCONCLUSIVE] > rank[worst]) worst = VERDICT.INCONCLUSIVE;
+            continue;
+          }
+          writeMutant(source, applied.text);
+        } else {
+          reverseApply([source], from);
+        }
         try {
           const sourceAbs = path.resolve(WORKSPACE_ROOT, source);
           const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;
@@ -929,9 +1036,11 @@ export async function runRegressionRedProof(io = {}) {
         importsReversedFile: exercised,
         relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
         runtimeMutation,
+        mutation: mutants ? 'declared' : 'reversal',
       });
       const icon =
         verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
+      const mutantNote = mutants ? ' [author-declared mutant]' : '';
       const note =
         exercised && !runtimeMutation
           ? ' (type/comment-only change; runtime red proof is not applicable)'
@@ -942,7 +1051,7 @@ export async function runRegressionRedProof(io = {}) {
               : outcome
                 ? ` (${outcome})`
                 : '';
-      log(`${icon}  ${source}: ${verdict}${note}`);
+      log(`${icon}  ${source}: ${verdict}${note}${mutantNote}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }
   }
