@@ -3569,7 +3569,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     write(
       seeded.root,
       '.agents/loop-runs/user-execution-scenario.jsonl',
-      `${JSON.stringify(userScenarioRecord('HARNESS-899-prior'))}\n`,
+      `${JSON.stringify(userScenarioRecord('HARNESS-999-prior'))}\n`,
     );
     const base = commit(seeded.root, 'seed prior PLAN ledger');
     git(seeded.root, ['update-ref', 'refs/remotes/origin/develop', base]);
@@ -3579,7 +3579,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     write(
       seeded.root,
       '.agents/loop-runs/user-execution-scenario.jsonl',
-      `${JSON.stringify(userScenarioRecord('HARNESS-899-rewritten'))}\n${JSON.stringify(
+      `${JSON.stringify(userScenarioRecord('HARNESS-999-rewritten'))}\n${JSON.stringify(
         userScenarioRecord(TASK_ID, 'r20260825000001'),
       )}\n`,
     );

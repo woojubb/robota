@@ -79,11 +79,14 @@ export function idsFromRecords(root = WORKSPACE_ROOT) {
  * claim costs a collision. The asymmetry decides it.
  */
 export function idsFromCitations(root = WORKSPACE_ROOT) {
-  const grep = spawnSync(
-    'git',
-    ['grep', '-hoIE', '\\b[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3,}\\b'],
-    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  );
+  // `-w`, not `\b`: Apple Git's `-E` has no `\b`, and the pattern then matched NOTHING — the
+  // citation source came back empty and the run said "0 from citations" as if that were a
+  // measurement (found while fixing issue #2390; the reporter's 1493 was read under GNU git).
+  const grep = spawnSync('git', ['grep', '-hoIwE', '[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3,}'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
   // Exit 1 is "no match", which is a legitimate empty result; anything else means the tree was not
   // read, and an allocator that treats "could not read" as "nothing is claimed" hands out live IDs.
   if (grep.status !== 0 && grep.status !== 1) {
@@ -184,22 +187,36 @@ export const SENTINEL_FLOOR = 900;
  */
 export const RECORD_ID_WIDTH = 3;
 
+function formatId(prefix, number) {
+  return `${prefix}-${String(number).padStart(RECORD_ID_WIDTH, '0')}`;
+}
+
 /**
- * The next ID for `prefix`: one above the highest number any source claims for it.
+ * The next ID for `prefix`: one above the highest number any source claims for it, and never a
+ * number any source claims.
  *
  * Width follows the widest claim already in use, so a repository at `INFRA-099` moves to
  * `INFRA-100` rather than to `INFRA-0100`.
+ *
+ * Issue #2390: the sentinel floor is a convention, and two things met at it — a fixture at
+ * `floor - 1` made `floor` the next allocation, and a live record AT the floor was skipped as
+ * fixture space, so the one number about to be handed out was the one this function could not see
+ * was taken. Two changes: a RECORD claims its number wherever it sits, and the candidate is walked
+ * past anything the union claims (fixture or not) rather than proposed on top of it.
  */
-export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR) {
+export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR, records = new Set()) {
+  const pattern = new RegExp(`^${prefix}-(\\d{3,})$`);
   let highest = 0;
   for (const id of claimed) {
-    const match = new RegExp(`^${prefix}-(\\d{3,})$`).exec(id);
+    const match = pattern.exec(id);
     if (!match) continue;
     const number = Number(match[1]);
-    if (number >= sentinelFloor) continue;
+    if (number >= sentinelFloor && !records.has(id)) continue;
     highest = Math.max(highest, number);
   }
-  return `${prefix}-${String(highest + 1).padStart(RECORD_ID_WIDTH, '0')}`;
+  let candidate = highest + 1;
+  while (claimed.has(formatId(prefix, candidate))) candidate += 1;
+  return formatId(prefix, candidate);
 }
 
 /**
@@ -286,7 +303,7 @@ function main(argv) {
   const issues = idsFromIssueTitles();
 
   const claimed = collectClaimed(records, citations, issues);
-  const id = nextFreeId(prefix, claimed);
+  const id = nextFreeId(prefix, claimed, SENTINEL_FLOOR, records);
 
   console.log(
     `::examined:: ${readExamined()} claimed work-item id(s); ` +

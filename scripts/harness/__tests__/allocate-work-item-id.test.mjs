@@ -14,6 +14,7 @@ import {
   RECORD_ID_WIDTH,
   SENTINEL_FLOOR,
   collectClaimed,
+  idsFromCitations,
   idsFromIssueTitles,
   idsFromRecords,
   localDate,
@@ -47,6 +48,17 @@ describe('the claimed set is wider than the record filenames', () => {
     expect(idsFromRecords(dir)).toEqual(new Set(['INFRA-126', 'ARCH-FIX-020']));
   });
 
+  it('reads a citation out of a tracked non-record file, on this platform', () => {
+    // Apple Git's `grep -E` has no `\b`; the previous pattern matched nothing there and the
+    // citation source silently came back empty. `-w` is the portable word boundary.
+    const dir = repoWith({
+      records: ['INFRA-126-a.md'],
+      files: { 'scripts/x.mjs': '// cites INFRA-127 and HARNESS-899-prior\n' },
+    });
+    // The record's NAME is a record claim, not a citation; only file CONTENT is read here.
+    expect(idsFromCitations(dir)).toEqual(new Set(['INFRA-127', 'HARNESS-899']));
+  });
+
   it('THE CASE THIS EXISTS FOR: a number claimed only by a citation is not free', () => {
     // Exactly what happened. `.agents/tasks` holds 126 as the highest, so counting from records
     // alone hands out 127 — which two scans already cite and no record file holds.
@@ -66,6 +78,37 @@ describe('the claimed set is wider than the record filenames', () => {
   it('skips the fixture band instead of continuing the sequence into it', () => {
     expect(nextFreeId('INFRA', new Set(['INFRA-126', 'INFRA-999']))).toBe('INFRA-127');
     expect(SENTINEL_FLOOR).toBe(900);
+  });
+
+  it('THE CASE OF #2390: a fixture at floor-1 plus a live record at the floor never yields the floor', () => {
+    // Measured on develop: `HARNESS-899` was a test fixture below the floor (counted as the highest
+    // claim) and `HARNESS-900` a live record AT the floor (skipped as fixture space), so the
+    // allocator proposed HARNESS-900 — the one number it could not see was taken.
+    const records = new Set(['HARNESS-125', 'HARNESS-900']);
+    const claimed = new Set([...records, 'HARNESS-899']);
+    const id = nextFreeId('HARNESS', claimed, SENTINEL_FLOOR, records);
+    expect(id).not.toBe('HARNESS-900');
+    expect(claimed.has(id)).toBe(false);
+    expect(id).toBe('HARNESS-901');
+  });
+
+  it('never proposes a number any source claims, whichever side of the floor it sits', () => {
+    // The union alone (no record set): the fixture still drives the candidate to 900, and 900 is
+    // claimed by a citation; the allocator must walk past it rather than hand it out.
+    expect(nextFreeId('HARNESS', new Set(['HARNESS-899', 'HARNESS-900']))).toBe('HARNESS-901');
+    // Below the floor the walk is the same rule: the candidate is claimed, so it is not free.
+    expect(nextFreeId('INFRA', new Set(['INFRA-126', 'INFRA-127']))).toBe('INFRA-128');
+  });
+
+  it('a record at or above the floor is counted as the highest claim', () => {
+    expect(
+      nextFreeId(
+        'INFRA',
+        new Set(['INFRA-126', 'INFRA-901']),
+        SENTINEL_FLOOR,
+        new Set(['INFRA-901']),
+      ),
+    ).toBe('INFRA-902');
   });
 
   it('pads to the measured record width, and a wider CITATION does not change it', () => {
