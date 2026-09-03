@@ -32,8 +32,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 const SERVER_FILE = 'apps/agent-server/src/routes/provider-chat-stream.ts';
 const CLIENT_FILE = 'packages/agent-remote-client/src/client/chat-stream-http.ts';

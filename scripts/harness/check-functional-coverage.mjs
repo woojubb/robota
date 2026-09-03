@@ -18,8 +18,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { blankComments } from './lib/blank-comments.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const MANIFEST_PATH = path.join(import.meta.dirname, 'functional-coverage-manifest.json');
 
 /**

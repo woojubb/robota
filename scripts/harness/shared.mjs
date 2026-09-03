@@ -10,7 +10,49 @@ import {
 
 export { classifyRootManifestChange };
 
-export const WORKSPACE_ROOT = process.cwd();
+export const ROOT_MARKER = '::root::';
+const ROOT_ENV = 'HARNESS_ROOT';
+
+/**
+ * The ONE workspace-root resolver every harness script uses (issue #2413).
+ *
+ * Convention: a scan reads the checkout it LIVES in — `<script dir>/../..` — unless an explicit
+ * override names another root: `HARNESS_ROOT=<path>` in the environment or `--root <path>` /
+ * `--root=<path>` on the command line. Neither `process.cwd()` nor the caller's shell decides.
+ *
+ * Six worktree reproductions once measured the MAIN checkout while standing in a worktree
+ * (`cd <worktree> && node /main/scripts/harness/scan-….mjs`), each reported as "does not reproduce",
+ * because every scan silently read the repository its file lived in and named no root. So when the
+ * calling module IS the process entry, the resolved root is announced once as a `::root:: <path>`
+ * line — the `::examined::` precedent — and a run against the wrong repository names itself. Library
+ * imports (tests, the runner) announce nothing. A script whose stdout IS its payload (a scaffolded
+ * document, an allocated ID) passes `{ stdout: process.stderr }` so the announcement never leads it.
+ *
+ * @param {ImportMeta} meta  the calling script's `import.meta`
+ */
+export function resolveWorkspaceRoot(
+  meta,
+  { env = process.env, argv = process.argv, stdout = process.stdout } = {},
+) {
+  const scriptDir = path.dirname(meta.filename);
+  let override = null;
+  for (let index = 2; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--root' && argv[index + 1]) override = argv[index + 1];
+    else if (arg.startsWith('--root=')) override = arg.slice('--root='.length);
+  }
+  if (override === null && env[ROOT_ENV]) override = env[ROOT_ENV];
+  const root = override === null ? path.resolve(scriptDir, '../..') : path.resolve(override);
+  const isEntry = argv[1] !== undefined && path.resolve(argv[1]) === path.resolve(meta.filename);
+  if (isEntry) {
+    stdout.write(
+      `${ROOT_MARKER} ${root}${override === null ? '' : ` (override: ${env[ROOT_ENV] && override === env[ROOT_ENV] ? ROOT_ENV : '--root'})`}\n`,
+    );
+  }
+  return root;
+}
+
+export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
 
 export async function pathExists(targetPath) {

@@ -46,8 +46,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SHARED_BASENAME = 'vitest.shared';
 const WORKSPACE_DIRS = ['packages', 'apps'];
 const CONFIG_RE = /^vitest\.config\.(ts|mts|cts|js|mjs|cjs)$/;

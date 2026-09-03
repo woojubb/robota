@@ -21,10 +21,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { NO_VOCABULARY, REPO_FILE_PATH_PATTERN, citedRepoPaths } from './cited-paths.mjs';
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const COMPLETED_DIR = '.agents/tasks/completed';
 
 /**

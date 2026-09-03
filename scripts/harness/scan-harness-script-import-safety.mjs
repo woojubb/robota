@@ -55,9 +55,9 @@ import {
   isImportDeclaration,
   isStringLiteral,
 } from './lib/ts-ast.mjs';
-import { harnessScripts } from './shared.mjs';
+import { harnessScripts, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SCRIPT_DIR = 'scripts/harness';
 const IMPORT_TIMEOUT_MS = 30_000;
 const UNTESTED_BASELINE = 'scripts/harness/harness-untested-baseline.json';

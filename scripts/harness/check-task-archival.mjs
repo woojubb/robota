@@ -33,8 +33,9 @@ import { asList, asScalar, splitFrontmatter } from './frontmatter.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { classifyTaskLifecycle } from './task-lifecycle.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_DIR = '.agents/tasks';
 const COMPLETED_DIR = `${TASKS_DIR}/completed`;
 const SPEC_DOCS_DIR = '.agents/spec-docs';

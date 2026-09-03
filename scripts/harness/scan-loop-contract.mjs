@@ -41,8 +41,9 @@ import path from 'node:path';
 
 import { asScalar, splitFrontmatter } from './frontmatter.mjs';
 import { QUANTIFIED_BOUND } from './scan-loopback-bound-ownership.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SKILLS_DIR = '.agents/skills';
 const RULES_DIR = '.agents/rules';
 /** The rule that owns the no-progress escape; every other loop states it or points here. */

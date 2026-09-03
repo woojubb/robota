@@ -48,8 +48,9 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const HARNESS = loadHarnessConfig();
 
 /** The structured Layer field, if the SPEC has one. */

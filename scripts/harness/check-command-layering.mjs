@@ -8,8 +8,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 const TEXT_SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md']);
 

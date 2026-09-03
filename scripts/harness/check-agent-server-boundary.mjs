@@ -28,9 +28,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { escapeForRegExp } from './shared.mjs';
+import { escapeForRegExp, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
 
 const PACKAGE_CHECKS = [

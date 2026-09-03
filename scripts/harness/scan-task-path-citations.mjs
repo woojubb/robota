@@ -29,8 +29,9 @@ import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
 import { classifyCitation, indexRecords, isHistorySource } from './task-path-citation.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Documents and code whose citations are LIVE CLAIMS a reader acts on. */
 const LIVE_SOURCES = [

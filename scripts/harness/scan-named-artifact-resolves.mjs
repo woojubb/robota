@@ -42,8 +42,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { EXTENSIONS, hasStem, isTemplateSlot } from './lib/file-name-shape.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The trees whose prose is governed. Archives are historical and name a tree that has moved on. */
 const ROOTS = ['.agents/rules', '.agents/skills', 'scripts/harness', '.claude/hooks'];

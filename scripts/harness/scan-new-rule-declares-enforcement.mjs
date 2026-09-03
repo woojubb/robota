@@ -36,10 +36,10 @@
  */
 import { execFileSync } from 'node:child_process';
 
-import { resolveGitBaseRef } from './shared.mjs';
+import { resolveGitBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import path from 'node:path';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const RULES_PREFIX = '.agents/rules/';
 
 /** The declaration, in either terminal state. */

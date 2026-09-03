@@ -21,8 +21,9 @@ import { API } from '@typescript/native-preview/unstable/sync';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import * as ts from './lib/ts-ast.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const GOVERNED_TREE = 'packages';
 
 const SCOPE = loadHarnessConfig().npmScopePrefix;

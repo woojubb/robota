@@ -49,9 +49,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { WORKSPACE_WIDE_BUILD_TOOLING_PATHS, createVerificationPlan } from './check-plan.mjs';
-import { listWorkspaceScopes } from './shared.mjs';
+import { listWorkspaceScopes, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * Root scripts whose behaviour IS the per-scope verification verbs. A file one of these invokes

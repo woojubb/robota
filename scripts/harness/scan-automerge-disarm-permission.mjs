@@ -36,8 +36,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listWorkflows, splitWorkflowJobs, stripComments } from './scan-ci-base-history.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Scopes an auto-merge mutation needs. `pull-requests` alone is not enough — that was the defect. */
 export const REQUIRED_SCOPES = ['contents', 'pull-requests'];

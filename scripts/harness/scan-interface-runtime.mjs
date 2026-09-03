@@ -33,8 +33,9 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const PACKAGES_DIR = path.join(WORKSPACE_ROOT, 'packages');
 
 /** A module specifier is "bare" (external) when it is not a relative path. */

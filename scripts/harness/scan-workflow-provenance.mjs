@@ -36,8 +36,9 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { triggersFromPullRequestTarget } from './scan-pull-request-target-promotion-lag.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const REGISTRY_RELATIVE = '.github/required-status-checks.json';
 
 /**

@@ -29,8 +29,9 @@ import path from 'node:path';
 import { globSync } from 'node:fs';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const OUT_DIR = path.join(WORKSPACE_ROOT, 'node_modules/.cache/doc-examples');
 
 // The marker may be separated from its fence by blank lines (prettier reformats it that way).

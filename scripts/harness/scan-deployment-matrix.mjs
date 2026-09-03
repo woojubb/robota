@@ -23,8 +23,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const MATRIX = path.join(WORKSPACE_ROOT, '.agents/specs/deployment-matrix.md');
 
 /** Transport packages that export NO transport `name` (shared protocol lib + React/browser presentation). */

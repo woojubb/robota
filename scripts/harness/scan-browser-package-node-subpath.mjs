@@ -56,8 +56,9 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { listSourceFiles, listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const GOVERNED_TREE = 'packages';
 /** How a package that ships both surfaces declares it. */
 const DECLARATION = /browser-node-subpath:\s*allowed\s*[—-]\s*\S/;

@@ -50,8 +50,11 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+// stdout is the payload here (the allocated ID, and the file it was written to), so the root
+// announcement goes to stderr.
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { stdout: process.stderr });
 const TASKS_DIR = '.agents/tasks';
 
 /** A work-item ID: one or more uppercase segments, then a number. `ARCH-FIX-020` is one. */

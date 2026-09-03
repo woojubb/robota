@@ -19,10 +19,10 @@ import path from 'node:path';
 
 import { classifyRange } from './classify-changed-paths.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
-import { resolveBaseRef } from './shared.mjs';
+import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
  *

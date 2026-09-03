@@ -52,9 +52,9 @@ import path from 'node:path';
 import { ScriptTarget, SyntaxKind, createSourceFile, forEachChild } from './lib/ts-ast.mjs';
 
 import { loadHarnessConfig } from './harness-config.mjs';
-import { harnessScripts } from './shared.mjs';
+import { harnessScripts, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SCRIPT_DIR = 'scripts/harness';
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/scope-literal-baseline.json');
 

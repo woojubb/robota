@@ -32,8 +32,9 @@ import {
   citedRepoPaths,
 } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const HARNESS_DIR = path.join(WORKSPACE_ROOT, 'scripts', 'harness');
 
 const ALLOW_MISSING_MARKER = 'harness-config-path-allow-missing';

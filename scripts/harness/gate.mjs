@@ -189,8 +189,9 @@ import {
 import { vacantAdvanceDestination } from './gate-advance-contract.mjs';
 import { extractExamined } from './run-all-scans.mjs';
 import { AUTO_GENERATED_CHURN } from './verification-receipt-storage.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DEFAULT_CATALOGUE = '.agents/specs/gate-catalogue.md';
 const DEFAULT_RULE = '.agents/rules/spec-workflow.md';
 const DEFAULT_BACKLOG_RULE = '.agents/rules/backlog-execution.md';

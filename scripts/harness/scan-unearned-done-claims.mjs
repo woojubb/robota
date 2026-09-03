@@ -61,8 +61,9 @@ import path from 'node:path';
 import { PATH_PATTERN } from './check-done-evidence.mjs';
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { findU5 } from './unmet-criteria.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * Both halves of the backlog are scanned. `completed/` is where done items live; the root half is

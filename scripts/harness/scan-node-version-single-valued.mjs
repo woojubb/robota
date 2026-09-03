@@ -36,8 +36,9 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const ROOT_MANIFEST = path.join(WORKSPACE_ROOT, 'package.json');
 /** The one place the version literal is allowed to live. */
 export function readRootPin(rootManifestPath = ROOT_MANIFEST) {

@@ -42,8 +42,9 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listSourceFiles } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Bare default-literal return — the high-confidence silent-fallback value shape. */
 const DEFAULT_LITERAL_RETURN =

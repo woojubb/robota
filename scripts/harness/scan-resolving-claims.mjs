@@ -37,7 +37,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const LIVE_ROOT = '.agents';
 
 /** Historical records: their citations describe a tree that has moved on, and that is correct. */
@@ -54,6 +54,7 @@ const ALLOW = /<!--\s*allow-unresolved:\s*([^]*?)-->/;
  * never this scan's subject.
  */
 import { isTemplateSlot } from './lib/file-name-shape.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
 export { isTemplateSlot };
 

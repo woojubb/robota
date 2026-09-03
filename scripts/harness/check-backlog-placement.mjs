@@ -26,8 +26,9 @@ import {
   TERMINAL_TASK_STATUSES,
   classifyTaskLifecycle,
 } from './task-lifecycle.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BACKLOG_DIR = '.agents/tasks';
 const COMPLETED_DIR = '.agents/tasks/completed';
 const SPEC_DOCS_DIR = '.agents/spec-docs';

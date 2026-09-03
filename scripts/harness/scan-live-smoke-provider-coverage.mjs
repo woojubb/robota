@@ -55,8 +55,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { stripComments } from './scan-ci-base-history.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The workflow that must hand the credentials to the smoke script. */
 export const SMOKE_WORKFLOW = '.github/workflows/live-provider-smoke.yml';

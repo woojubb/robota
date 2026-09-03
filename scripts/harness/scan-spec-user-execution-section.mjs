@@ -51,8 +51,9 @@ import {
   strictSpecContractContext,
   userExecutionPlanContractState,
 } from './user-execution-plan-git-contract.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SPEC_RELATIVE = '.agents/spec-docs';
 /** The tree whose absence must fail this scan closed, stated as a path under the root it is given. */
 const GOVERNED_TREE = `${SPEC_RELATIVE}/done`;

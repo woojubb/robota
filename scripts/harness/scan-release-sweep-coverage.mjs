@@ -63,8 +63,9 @@ import {
   collectTestScripts,
   referencedEntryFile,
 } from './release-test-suites.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The release gate's entry point, as `.github/workflows/ci.yml` invokes it. */
 export const RELEASE_SCRIPT = 'harness:verify:release';

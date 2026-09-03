@@ -20,8 +20,9 @@ import path from 'node:path';
 
 import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // "placeholder for actual" caught shipped, consumed storage classes that only
 // logged a warning and returned a stub value (silent data loss) — PLUGIN-001.

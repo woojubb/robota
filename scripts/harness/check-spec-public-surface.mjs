@@ -71,8 +71,9 @@ import * as ts from './lib/ts-ast.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { blankComments } from './scan-hook-enforcement-reachable.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/spec-surface-baseline.json');
 
 /** The two published surfaces the reverse edge ratchets, in report order. */

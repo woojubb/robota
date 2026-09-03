@@ -25,8 +25,9 @@ import {
 import { idOf } from './check-backlog-placement.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { readLedger, readLoopDeclaration } from './loop-run.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const GOVERNED = new Set(['architecture-audit-fanout', 'architecture-refresh']);
 const DIMENSIONS = ['structure', 'design', 'runtime', 'gate'];
 const LEGACY_BASELINE = 'scripts/harness/architecture-refresh-legacy-baseline.json';

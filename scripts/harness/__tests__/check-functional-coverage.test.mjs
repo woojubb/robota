@@ -203,6 +203,17 @@ describe('check-functional-coverage CLI', () => {
       fileURLToPath(new URL('../lib/blank-comments.mjs', import.meta.url)),
       path.join(root, 'scripts/harness/lib/blank-comments.mjs'),
     );
+    // The root resolver is the shared owner too (issue #2413); the copy needs it and what it imports.
+    for (const name of [
+      'shared.mjs',
+      'git-base-ref-resolution.mjs',
+      'manifest-change-classification.mjs',
+    ]) {
+      copyFileSync(
+        fileURLToPath(new URL(`../${name}`, import.meta.url)),
+        path.join(root, 'scripts/harness', name),
+      );
+    }
     return { root, scriptCopy };
   }
 

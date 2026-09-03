@@ -68,8 +68,9 @@ import path from 'node:path';
 
 import { fetchAllPages } from './github-api.mjs';
 import { splitWorkflowJobs, stripComments } from './scan-ci-base-history.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The declaration this scan enforces. */
 export const DECLARATION_FILE = path.join('.github', 'required-status-checks.json');

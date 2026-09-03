@@ -28,8 +28,9 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const MAP_DIR = path.join(WORKSPACE_ROOT, '.agents/specs/architecture-map');
 const SKIP_FILES = new Set(['README.md', 'architecture-lessons.md', 'layering-audit.md']);
 

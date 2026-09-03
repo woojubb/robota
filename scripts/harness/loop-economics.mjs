@@ -49,8 +49,9 @@
 import path from 'node:path';
 
 import { ledgerSkills, readLedger } from './loop-run.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The terminal reason that means the loop finished the job it was driving. */
 export const CONVERGED = 'converged';

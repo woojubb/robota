@@ -16,8 +16,9 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const RETIRED_NAME = ['architecture', 'auditor'].join('-');
 const RETIRED_DEFINITION = `.claude/agents/${RETIRED_NAME}.md`;
 

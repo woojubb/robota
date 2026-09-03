@@ -17,8 +17,9 @@
 import path from 'node:path';
 import { globSync } from 'node:fs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 export const TEMP_PATTERNS = ['*-user-execution.*', '*-proxy.mjs', '*-mode.txt'];
 

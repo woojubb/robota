@@ -42,8 +42,9 @@ import {
   analyzeSpawnTargetsCached,
   classifyExecution,
 } from './lib/spawn-call-graph.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────
 export const VERDICT = Object.freeze({

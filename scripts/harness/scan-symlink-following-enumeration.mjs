@@ -28,8 +28,9 @@ import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
 import { SCRIPT_LANGUAGES, extensionOf, scriptFilters } from './script-language.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 export const HAZARD_TABLE = path.join(
   WORKSPACE_ROOT,

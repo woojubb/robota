@@ -63,8 +63,9 @@ import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
 import { blankComments } from './lib/blank-comments.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * What the last run actually read.

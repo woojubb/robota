@@ -74,9 +74,9 @@ import {
   refreshPhaseIndex,
 } from './architecture-refresh-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 export const LEDGER_DIR = '.agents/loop-runs';
 const SKILLS_DIR = '.agents/skills';
 const ARCHITECTURE_PROTOCOL_SKILLS = new Set(['architecture-audit-fanout', 'architecture-refresh']);

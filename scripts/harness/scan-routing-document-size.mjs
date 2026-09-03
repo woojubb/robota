@@ -32,8 +32,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const RULE_RELATIVE = '.agents/rules/operational.md';
 const BASELINE_FILE = path.join(import.meta.dirname, 'routing-document-size-baseline.json');
 

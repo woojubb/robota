@@ -27,8 +27,9 @@ import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // App-domain identity terms forbidden in the neutral orchestration contracts, held as POLICY DATA in
 // `.agents/harness.config.json` (`neutrality.orchestrationForbiddenTerms` / `orchestrationScanDirs`,

@@ -45,8 +45,9 @@ import path from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
 import * as ts from './lib/ts-ast.mjs';
 import { listSourceFiles } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * Collect all `.ts`/`.tsx` files under a src tree (tests included — the guard is total), relative to root.

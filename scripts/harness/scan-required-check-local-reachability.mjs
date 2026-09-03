@@ -46,8 +46,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DECLARATION = '.github/required-status-checks.json';
 
 /** The branch whose contexts `ci-mirror-map` speaks for. Its `NOT_MIRRORED` says nothing about main. */

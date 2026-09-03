@@ -67,10 +67,10 @@ import { promisify } from 'node:util';
 
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { isRateLimited, retryDelaySeconds } from './github-api.mjs';
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
 const execFileAsync = promisify(execFile);
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const WORKFLOW_DIR = '.github/workflows';
 const MOVING_POINTERS = new Set(['main', 'master', 'HEAD']);
 const SHA_PATTERN = /^[0-9a-f]{40}$/;

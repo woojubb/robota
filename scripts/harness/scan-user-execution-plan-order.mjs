@@ -35,7 +35,7 @@
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */
 
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
@@ -76,7 +76,7 @@ import {
 } from './user-execution-scenario-contract.mjs';
 import { tokenizeCanonicalShell as sharedTokenizeCanonicalShell } from './user-execution-scenario-surface.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASK_PREFIX = '.agents/tasks/';
 const SPEC_PREFIX = '.agents/spec-docs/';
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';

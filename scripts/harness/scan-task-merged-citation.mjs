@@ -35,8 +35,9 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { TERMINAL_TASK_STATUSES, classifyTaskLifecycle } from './task-lifecycle.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_DIR = '.agents/tasks';
 /**
  * Records already in this state when the scan was adopted (16 measured 2026-09-04), frozen so the

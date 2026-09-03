@@ -20,8 +20,9 @@ import path from 'node:path';
 
 import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 const DEPRECATED_MARKER = '@deprecated';
 

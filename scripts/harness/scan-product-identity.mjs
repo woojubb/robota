@@ -45,8 +45,9 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/product-identity-baseline.json');
 
 function sourceFiles(dir, out = []) {

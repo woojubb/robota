@@ -46,8 +46,9 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TESTS_RELATIVE = 'scripts/harness/__tests__';
 
 /** The helper itself is the sanctioned creator, so its own call is the one legitimate direct one. */

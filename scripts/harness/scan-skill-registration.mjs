@@ -38,8 +38,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SOURCE_DIR = path.join(WORKSPACE_ROOT, '.agents/skills');
 const REGISTRY_DIR = path.join(WORKSPACE_ROOT, '.claude/skills');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
