@@ -296,19 +296,26 @@ describe('the merge gate reads the disposition from the PR, from any checkout', 
   });
 
   it('keeps the required check reading the withdrawal without the code/docs classifier', () => {
-    // The withdrawal step must not sit behind `steps.classify.outputs.code`: a docs-only PR can be
+    // The withdrawal step must not sit behind the classifier's verdict: a docs-only PR can be
     // withdrawn exactly like a code one, and #1436 is the measured cost of a gate that treats the
     // classifier's verdict as the question. It is also why the step runs before the checkout — the
     // withdrawal is decided without executing anything from the PR.
+    //
+    // Inside the `review-gate` job that verdict is spelled `needs.classify.outputs.code` — the
+    // form the job's other steps use. `steps.classify` can occur only inside the `classify` job's
+    // own `outputs:` block, so a pin forbidding that string alone could never go red (issue
+    // #2407). Both spellings are forbidden, and the slice is bounded by the first checkout AFTER
+    // the step: an anchor pinned to one checkout major version (`@v4`) silently became -1 when the
+    // action was bumped, which stretched the slice to the end of the file.
     const workflow = readFileSync(WORKFLOW, 'utf8');
-    const step = workflow.slice(
-      workflow.indexOf('Has this change been withdrawn?'),
-      workflow.indexOf('actions/checkout@v4'),
-    );
+    const start = workflow.indexOf('Has this change been withdrawn?');
+    const end = workflow.indexOf('actions/checkout@', start);
+    expect(start, 'the withdrawal step is missing').toBeGreaterThan(-1);
+    expect(end, 'the withdrawal step is not ahead of the checkout').toBeGreaterThan(start);
+    const step = workflow.slice(start, end);
 
-    expect(step, 'the withdrawal step is not ahead of the checkout').not.toBe('');
     expect(step, 'the withdrawal was gated on the code/docs classifier').not.toMatch(
-      /steps\.classify/,
+      /needs\.classify\.outputs\.code|steps\.classify/,
     );
     expect(step).toContain('disposition-re-plan');
   });
