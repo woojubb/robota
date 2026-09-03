@@ -160,6 +160,14 @@ the child was delivered (`done`) or administratively closed. An AGREEMENT may it
 when every declared child is `done`. Its authored Plan and Completion Criteria remain independent
 initiative evidence, not child-state projections.
 
+## Plan Items
+
+`## Plan` holds the work, never its disposition. An item that merges, lands, closes the issue, or
+publishes cannot be `[x]` before GATE-VERIFY — the gate that authorises it — so the gate would be
+unsatisfiable by construction; `scan-task-plan-items.mjs` refuses such an item and reads only this
+section when it checks that a `done` record's Plan is complete (issue #2375). Put the landing
+step in the spec's gate evidence, not in the Plan.
+
 ## Task Requirements
 
 Tasks that change runnable user-facing behavior, command behavior, TUI/browser behavior, or

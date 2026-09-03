@@ -1165,6 +1165,12 @@ export const SCAN_COMMANDS = [
     advisory: true,
   },
   {
+    // Issue #2375: GATE-VERIFY's Plan-checkbox criterion, mechanised over the `## Plan` section.
+    name: 'task-plan-items',
+    command: ['node', 'scripts/harness/scan-task-plan-items.mjs'],
+    examines: [TASKS, 'scripts/harness/task-plan-items-baseline.json'],
+  },
+  {
     name: 'task-archival',
     command: ['node', 'scripts/harness/check-task-archival.mjs'],
     examines: [AGENTS, REGISTRY, 'scripts/harness/task-lifecycle-legacy-baseline.json'],

@@ -57,6 +57,7 @@
     "harness:conformance": "node scripts/harness/check-dependency-direction.mjs --conformance-json",
     "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",
     "harness:scan:task-archival": "node scripts/harness/check-task-archival.mjs",
+    "harness:scan:task-plan-items": "node scripts/harness/scan-task-plan-items.mjs",
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:release-governance": "node scripts/harness/check-release-governance.mjs",
     "harness:scan:deps": "node scripts/harness/check-dependency-direction.mjs",
