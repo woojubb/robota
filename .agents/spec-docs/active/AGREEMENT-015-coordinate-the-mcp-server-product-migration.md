@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [github, migration, batching]
 lane: L2
@@ -75,6 +75,8 @@ Use one atomic AGREEMENT for this group. The larger rollback unit is accepted be
 | TC-04     | automated | one authenticated group read-back plus idempotent replay |
 | TC-05     | automated | GitHub audit, population arithmetic, and affected scans  |
 
+The approved rows are executed as one bounded administrative batch, followed by one complete reconciliation.
+
 ## User Execution Test Scenarios
 
 Not applicable.
@@ -142,3 +144,60 @@ Paired execution record:
 - GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — the user replied `모두 승인함. 모든 너의 제안에 대해 타당한 근거가 있다면 자동으로 사전 승인함` to the current proposal containing AGREEMENT-015, including its explicit owner-approval condition for the security-sensitive row; `모두 승인함` directly approves the presented work, and the stated evidence condition is satisfied by this document's independent GATE-WRITE PASS.
 - GATE-APPROVAL — The item is inside the class as the registry defines it: PASS (N/A) — the newest entry selects the mutually exclusive DIRECT route, so no delegated approval class is asserted and the Route CLASS boundary criterion does not apply.
 - GATE-APPROVAL — Independent architecture validation (conditional): PASS (N/A) — this administrative planning and GitHub migration spec introduces no package, app, product/interface/presentation surface, sibling-product dependency, or layer/product-family reclassification; its GATE-WRITE review records the same N/A boundary.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-03
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-03; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 412 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md",
+    ".agents/tasks/AGREEMENT-015-coordinate-the-mcp-server-product-migration.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
