@@ -44,7 +44,10 @@ export interface IPermissionLists {
  * - "Bash(pnpm *)"     → { toolName: "Bash", argPattern: "pnpm *" }
  * - "Read(/src/**)"    → { toolName: "Read", argPattern: "/src/**" }
  */
-function parsePattern(pattern: string): { toolName: string; argPattern: string | undefined } {
+export function parsePattern(pattern: string): {
+  toolName: string;
+  argPattern: string | undefined;
+} {
   const parenIdx = pattern.indexOf('(');
   if (parenIdx === -1) {
     return { toolName: pattern.trim(), argPattern: undefined };

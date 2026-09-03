@@ -563,6 +563,15 @@ the subagent spawn contract had declared `cwd` required all along.
 `getCwd()` exposes it, because a fork or subagent derived from a session must be able to ask which
 root that session actually uses instead of re-deriving one that can disagree.
 
+### Malformed permission patterns are refused at construction (issue #2428)
+
+`PermissionEnforcer`'s constructor runs agent-core's `findInvalidPermissionPatterns` over
+`permissions.allow` and `permissions.deny` and throws naming every pattern the gate could never
+evaluate and why — a URL pattern the URL grammar rejects, an argument-scoped pattern for a declared
+tool with no argument key, syntactic junk — before any turn runs. A pattern naming a tool with no
+registered profile yet is not refused (a later-loaded pack may declare it); for it the gate's
+unevaluable route (CORE-049) remains the floor.
+
 ### Consent is scoped to the argument, not the tool (issue #2351)
 
 "Allow always" (session or project) used to be keyed on the tool NAME, so approving `Bash` for one

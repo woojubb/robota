@@ -9,6 +9,7 @@
 import {
   applyPresetToolLists,
   evaluatePermission,
+  findInvalidPermissionPatterns,
   matchesAnyPattern,
   resolvePermissionByPolicy,
   runHooks,
@@ -31,6 +32,17 @@ import type { IToolWithEventService, TToolArgs, THooksConfig } from '@robota-sdk
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
+
+/** Throw naming every malformed permission pattern and why (issue #2428). */
+function assertPermissionPatternsEvaluable(patterns: readonly string[]): void {
+  const problems = findInvalidPermissionPatterns(patterns);
+  if (problems.length === 0) return;
+  const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
+  throw new Error(
+    `Invalid permission pattern(s) in permissions.allow/deny: ${listed}. ` +
+      'Fix the pattern where it is configured (issue #2428).',
+  );
+}
 
 export class PermissionEnforcer {
   private readonly sessionId: string;
@@ -67,6 +79,12 @@ export class PermissionEnforcer {
       allow: [...options.config.permissions.allow],
       deny: [...options.config.permissions.deny],
     };
+    // Issue #2428: a pattern the gate could never evaluate is refused HERE, with the pattern and
+    // the reason, before any turn — not discovered one unevaluable prompt at a time at the gate.
+    assertPermissionPatternsEvaluable([
+      ...options.config.permissions.allow,
+      ...options.config.permissions.deny,
+    ]);
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
