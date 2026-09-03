@@ -350,6 +350,16 @@ This rule applies even when:
    override the `branch-guard` hook honors: `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 git checkout -b <type>/<slug>`.
    In the main clone (outside a parallel wave) the rule stands as written. Procedure:
    [`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md).
+3. **An urgent second branch when the open one is neither merged nor abandoned** (the user chose
+   "park it"). The open branch's commits are parked somewhere git TRACKS before the branch is deleted
+   — never as a `git format-patch` file in a session scratchpad, which sits outside every ref,
+   reflog, scan and record, so a session ending in that window loses the work with nothing left to
+   report its absence (issue #2344). The safe form, in this order:
+   `git update-ref refs/holding/<branch> <sha>` (or a scoped `git stash push -- <paths>`), THEN
+   `git branch -D <branch>`; after the urgent work lands, recreate the branch from a freshly-fetched
+   `origin/develop`, restore with `git cherry-pick <sha>` (or `git stash pop`), and drop the holding
+   ref with `git update-ref -d refs/holding/<branch>`. The guard itself gains no override for this:
+   its value is that it refuses; the problem was only where the refusal sent the work.
 
 ### PR Batching — appropriately-sized PRs
 
