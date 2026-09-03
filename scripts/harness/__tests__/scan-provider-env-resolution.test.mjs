@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import { findAmbientEnvReads, NORMALIZATION_MODULES } from '../scan-provider-env-resolution.mjs';
 
@@ -12,7 +13,7 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../scan-provider-env-resolution.mjs',
 const WORKSPACE_ROOT = path.resolve(path.dirname(SCAN_SCRIPT), '../..');
 
 function fixture(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'provider-env-resolution-'));
+  const root = makeTemp('robota-provider-env-resolution-');
   for (const [relative, source] of Object.entries(files)) {
     const full = path.join(root, relative);
     mkdirSync(path.dirname(full), { recursive: true });

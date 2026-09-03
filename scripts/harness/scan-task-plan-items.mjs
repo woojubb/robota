@@ -67,7 +67,9 @@ function readBaseline(root) {
 
 function taskFiles(root) {
   const dir = path.join(root, TASKS_DIR);
-  if (!existsSync(dir)) return [];
+  // Fail closed (HARNESS-052): the task corpus IS the population; over a root without it there is
+  // no plan to judge, and "no findings" would read exactly like "every plan is well-formed".
+  if (!existsSync(dir)) throw new Error(`task-plan-items: ${TASKS_DIR} missing from ${root}`);
   const open = readdirSync(dir)
     .filter((name) => name.endsWith('.md') && name !== 'README.md')
     .map((name) => ({ file: `${TASKS_DIR}/${name}`, name, archived: false }));

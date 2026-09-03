@@ -290,7 +290,9 @@ jobs:
 
           deadline=$(( $(date +%s) + LABEL_POLL_TIMEOUT_SECONDS ))
           analysis_sha=''
-          while :; do
+          # A counted loop, bounded by construction: at most one attempt per poll interval inside
+          # the timeout (plus one), and the deadline check below ends it early.
+          for (( attempt = 0; attempt * LABEL_POLL_INTERVAL_SECONDS <= LABEL_POLL_TIMEOUT_SECONDS; attempt += 1 )); do
             # Read all analysis pages before selecting. `gh --jq` evaluates once per page, so the
             # pages are slurped and merged by jq exactly once.
             if ! analysis_pages="$(gh api --paginate --slurp \

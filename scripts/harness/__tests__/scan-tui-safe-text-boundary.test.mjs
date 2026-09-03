@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   BOUNDARY_MODULE,
@@ -18,7 +19,7 @@ const PACKAGE_SRC = 'packages/agent-transport-tui/src';
 
 /** A tracked scratch checkout: the finder reads `git ls-files`, so the fixture must be committed. */
 function trackedFixture(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'tui-safe-text-boundary-'));
+  const root = makeTemp('robota-tui-safe-text-boundary-');
   for (const [relative, source] of Object.entries(files)) {
     const full = path.join(root, relative);
     mkdirSync(path.dirname(full), { recursive: true });

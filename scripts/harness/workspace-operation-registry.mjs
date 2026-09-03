@@ -193,6 +193,7 @@ export const ROOT_SCRIPT_CLASSES = Object.freeze({
     'harness:scan:stub-markers',
     'harness:scan:symlink-following-enumeration',
     'harness:scan:task-archival',
+    'harness:scan:task-plan-items',
     'harness:scan:test-plans',
     'harness:scan:work-run',
     'harness:scan:workspace-refs',
