@@ -5,12 +5,17 @@
 
 import { parseArgs } from 'node:util';
 
+import { OUTPUT_FORMATS, type TOutputFormat } from '@robota-sdk/agent-transport';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+
+// Issue #2052: the output-format vocabulary is owned by the headless transport; re-exported here so
+// existing CLI imports keep working without a second declaration of the same union.
+export type { TOutputFormat };
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
-const VALID_OUTPUT_FORMATS = ['text', 'json', 'stream-json'] as const;
-export type TOutputFormat = (typeof VALID_OUTPUT_FORMATS)[number];
+const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 
 export interface IParsedCliArgs {
   positional: string[];

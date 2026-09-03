@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { toChannelOptions, type IRenderOptions } from '../render.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 

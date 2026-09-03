@@ -18,7 +18,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { useSideEffects } from '../hooks/useSideEffects.js';
 import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';

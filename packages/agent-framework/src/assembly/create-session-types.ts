@@ -33,10 +33,12 @@ import type {
   TPermissionHandler,
   TPermissionResult,
   ISessionLogger,
+  TAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
-export type TAutoCompactThreshold = number | false;
+// Issue #2052: owned by agent-session; re-exported so framework consumers keep their import path.
+export type { TAutoCompactThreshold };
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
   autoCompactThreshold?: TAutoCompactThreshold;
 };

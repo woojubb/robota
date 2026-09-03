@@ -10,13 +10,13 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdtempSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startCli } from '../../cli.js';
 import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
 
-import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-transport/testing';
+import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-scripted-e2e-'));

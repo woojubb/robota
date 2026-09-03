@@ -2,7 +2,7 @@
 
 ## Transport Admission (SEC-008)
 
-transport-admission: none — this package is the transport REGISTRY plus a headless in-process adapter and testing fixtures. Nothing here accepts a peer over a wire, so there is no admission decision to make; the transports it registers each make their own.
+transport-admission: none — this package is the transport REGISTRY plus a headless in-process adapter. Nothing here accepts a peer over a wire, so there is no admission decision to make; the transports it registers each make their own.
 
 ## 1. Scope
 
@@ -16,7 +16,7 @@ split by concern; this package owns only the **dependency-free core**:
   (`ProgrammaticInteractionChannel`) + `createProgrammaticAgent` driver — drive the real agent
   structurally (`start`/`send`/`stop`, read assistant replies / tool calls / errors as data) with no
   terminal, no PTY, no scraping.
-- Testing fixtures (`/testing`): `createScriptedProvider` deterministic provider for transport/CLI tests.
+- Scripted-provider testing fixtures live in `@robota-sdk/agent-core/testing` (issue #2052 removed the `/testing` pass-through here; import the owner).
 
 The per-concern transport implementations live in their own packages: `@robota-sdk/agent-transport-tui`
 (React/Ink), `-ws` (WebSocket), `-http` (Hono), `-mcp` (MCP). This package has **zero external runtime
@@ -43,8 +43,6 @@ agent-transport/src
     headless-transport.ts       ← createHeadlessTransport (ITransportAdapter wrapper)
     headless-stream-json.ts     ← stream-json framing
     print-terminal.ts           ← PrintTerminal, promptInput
-  testing/
-    scripted-provider.ts        ← createScriptedProvider (test-only, via /testing subpath)
   programmatic/
     ProgrammaticInteractionChannel.ts ← in-process IInteractionChannel adapter (event buffer + action queue)
     createProgrammaticAgent.ts  ← driver over createInteractiveRuntime (start/send/stop + accessors)

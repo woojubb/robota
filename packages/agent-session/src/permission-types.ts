@@ -10,18 +10,20 @@ import type {
   ITerminalOutput,
   TBackgroundPermissionPolicy,
 } from '@robota-sdk/agent-core';
+import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 export type { ISpinner, ITerminalOutput };
 
 /**
- * Permission handler result:
+ * Permission handler result (issue #2052: the union is OWNED by `agent-interface-session` as
+ * `TPermissionResultValue`; this name is the session-layer alias, not a second declaration):
  * - true: allow this invocation
  * - false: deny this invocation
  * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
  * - 'allow-project': allow this invocation and persist the approval to the project's local
  *   settings; the storage location is owned by the consuming layer (via `onProjectAllowTool`)
  */
-export type TPermissionResult = boolean | 'allow-session' | 'allow-project';
+export type TPermissionResult = TPermissionResultValue;
 
 /**
  * Custom permission handler — called when a tool needs user approval.
