@@ -2277,7 +2277,9 @@ The `.claude/settings.json` layers provide Claude Code compatibility — setting
 
 **`hooks` is the exception, and it is a security boundary rather than a merge preference (CONFIG-003).** Hooks are merged **per lifecycle event**, with each layer's groups appended in layer order. A higher layer can therefore ADD hooks and can never REMOVE one it did not declare. Without this, a project `.robota/settings.json` declaring any single hook replaced the entire user-global `hooks` object — a repository could disable a user's `PreToolUse` guard by declaring an unrelated `PostToolUse` automation. Project layers are read only for a workspace the user has marked trusted, but trusting a workspace is not the same as intending it to remove your own guards.
 
-Deliberate user-level disable semantics are NOT defined: there is no way to express "turn that hook off from a later layer", and the merge deliberately does not invent one.
+**Every `THookEvent` is a settings key (issue #2430).** The `hooks` schema names each event of agent-core's `THookEvent` union, and `config/__tests__/hooks-schema-event-parity.test.ts` fails when the two drift. The schema strips keys it does not name rather than refusing them, so an event missing from it was a hook silently discarded at load — `hooks.PermissionDecision` never fired while `permissions` from the same file took effect.
+
+**Deliberate disable (issue #2320).** A hook group may carry an optional `id`, and a layer may list ids in `disabledHooks`. A disable removes only groups declared by LATER layers — lower in trust, since layers are read user-then-project — so a user layer can turn off a named project hook while a project layer naming a user's guard changes nothing (the guard was merged before the disable was read). Groups without an `id` cannot be named and therefore cannot be disabled; disabled ids accumulate across layers and are never un-disabled by a later layer. `id` is optional so existing settings files need no migration.
 
 Provider resolution order:
 
