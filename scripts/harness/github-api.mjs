@@ -243,6 +243,78 @@ export function fetchAllPages(endpoint, { perPage = DEFAULT_PER_PAGE, runner = g
   return { records, total, pages: pageSizes.length, itemsKey };
 }
 
+// ── Check-runs: the latest run per NAME, not per row (issue #2237) ───────────────────────────────
+
+/**
+ * `GET /repos/{o}/{r}/commits/{sha}/check-runs` returns EVERY check-run ever created for the
+ * commit, superseded ones included. When a workflow re-triggers (a PR-body edit fires
+ * `pull_request: edited`) and its concurrency group cancels the in-flight wave, the cancelled jobs
+ * stay in the response as `status=completed, conclusion=cancelled` — rows that answer "has this
+ * check concluded?" with YES about a check that never ran against the tree.
+ *
+ * Measured on PR #2235 at head `b43e87ae0`: `quality` and `review-gate` were reported concluded
+ * (cancelled) while their real runs were `in_progress`. A per-row reading cannot tell those apart;
+ * only the LATEST run per `name` speaks for that check.
+ *
+ * Ordering: GitHub check-run ids are monotonic, so the higher id is the newer run — and unlike
+ * `started_at`, an id exists on a run that is still `queued`. `started_at` is the tiebreak for
+ * records that carry no numeric id (a hand-built fixture, a projection). A record with no `name`
+ * cannot be keyed, so it throws rather than being dropped — a dropped row is a check this never
+ * reports on, which is the silent-narrowing shape this repo's scans refuse.
+ */
+export function latestCheckRunsByName(checkRuns, { endpoint = 'check-runs' } = {}) {
+  if (!Array.isArray(checkRuns)) {
+    throw new Error(`${endpoint}: expected an array of check-run records, got ${typeof checkRuns}`);
+  }
+  const latest = new Map();
+  for (const run of checkRuns) {
+    if (!run || typeof run.name !== 'string' || run.name.length === 0) {
+      throw new Error(
+        `${endpoint}: a check-run record has no \`name\`; refusing to dedupe what cannot be keyed`,
+      );
+    }
+    const previous = latest.get(run.name);
+    if (!previous || isNewerRun(run, previous)) latest.set(run.name, run);
+  }
+  return [...latest.values()];
+}
+
+function isNewerRun(candidate, incumbent) {
+  const idA = Number(candidate.id);
+  const idB = Number(incumbent.id);
+  if (Number.isFinite(idA) && Number.isFinite(idB) && idA !== idB) return idA > idB;
+  const startA = Date.parse(candidate.started_at ?? '');
+  const startB = Date.parse(incumbent.started_at ?? '');
+  if (Number.isFinite(startA) && Number.isFinite(startB)) return startA > startB;
+  // One side has a start time and the other does not: the one still waiting to start is newer.
+  return Number.isFinite(startB) && !Number.isFinite(startA);
+}
+
+/** Conclusions that are a verdict on the tree. Everything else is the ABSENCE of one. */
+const CHECK_RUN_FAILURE = new Set(['failure', 'timed_out', 'action_required', 'stale']);
+
+/**
+ * What one (already-deduped) check-run is evidence OF: `'success'`, `'failure'`, or `'none'`.
+ *
+ * `cancelled` is `'none'` in BOTH directions. A cancelled run is not a check that failed and not a
+ * check that passed — it is a check that has not spoken, and the only correct response is to wait
+ * for or trigger a run that does. The same holds for `skipped` (the `not-required-skipped` trap
+ * git-branch.md already names), `neutral`, an incomplete `status`, and a missing conclusion.
+ */
+export function checkRunEvidence(run) {
+  if (!run || run.status !== 'completed') return 'none';
+  if (run.conclusion === 'success') return 'success';
+  if (CHECK_RUN_FAILURE.has(run.conclusion)) return 'failure';
+  return 'none';
+}
+
+/** The checked, paginated read of a commit's check-runs, reduced to the latest run per name. */
+export function fetchLatestCheckRuns(repo, sha, options = {}) {
+  const endpoint = `repos/${repo}/commits/${sha}/check-runs`;
+  const { records } = fetchAllPages(endpoint, options);
+  return latestCheckRunsByName(records, { endpoint });
+}
+
 function main(argv) {
   const endpoint = argv.find((arg) => !arg.startsWith('--'));
   if (!endpoint) {

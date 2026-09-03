@@ -382,6 +382,13 @@ in the post-merge sequence, before any branch deletion.
   hop, not only the last.
 - A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
   **never treat "pending" or "not-required-skipped" as pass**.
+- **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
+  returns every run ever created for the commit, so a re-triggered workflow leaves superseded rows
+  behind as `completed`/`cancelled` — rows that say "concluded" about a check that never ran on the
+  tree (issue #2237, measured on PR #2235). `latestCheckRunsByName` in
+  `scripts/harness/github-api.mjs` is the one place that dedupe lives; every gate or script reading
+  check state goes through it. And `cancelled` is **evidence in neither direction** — not a failure,
+  not a pass, but the absence of a result: wait for or trigger a real run (`checkRunEvidence`).
 
 **Why:** a merge that lands past a red required gate ships the failure to the integration branch, and
 nothing after the merge announces it — only an independent landing check sees it.
