@@ -1,9 +1,5 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type {
-  IAgentDefinition,
-  IResolvedConfig,
-  ISubagentParentContext,
-} from '@robota-sdk/agent-framework';
+import type { IResolvedConfig } from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
@@ -12,6 +8,13 @@ import type {
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
+
+import {
+  decodeAgentDefinitionDto,
+  decodeParentContextDto,
+  type ISubagentWorkerAgentDefinitionDto,
+  type ISubagentWorkerParentContextDto,
+} from './subagent-worker-start-dto.js';
 
 import type { ISandboxProjection } from './worker-composition.js';
 
@@ -36,7 +39,8 @@ export interface ISubagentWorkerStartPayload {
    * reason other than the absence of a present-day consumer.
    */
   worktree?: { readonly path: string; readonly branch?: string };
-  agentDefinition: IAgentDefinition;
+  /** ARCH-044 (issue #2047): a JSON-safe DTO owned here, projected from `IAgentDefinition` by the parent. */
+  agentDefinition: ISubagentWorkerAgentDefinitionDto;
   /**
    * ARCH-044 (issue #2047): the config members the child reads, declared here rather than indexed
    * out of the runtime type.
@@ -49,13 +53,12 @@ export interface ISubagentWorkerStartPayload {
    */
   parentConfig: ISubagentWorkerParentConfig;
   /**
-   * Issue #2317: the two context members the child reads, declared rather than indexed out of the
-   * runtime type. It was `IInProcessSubagentRunnerDeps['context']` — the parent's whole
-   * `ILoadedContext`, whose `agentsFileEntries` / `projectNotesFileEntries` carry the full text of
-   * every AGENTS.md and CLAUDE.md the parent loaded — and the child read two of its seven members.
-   * `projectParentContext` is what enforces it at runtime, for the same reason as `parentConfig`.
+   * ARCH-044 (issue #2047): a JSON-safe DTO owned here, decoded totally on the child side. The parent
+   * fills it from `projectParentContext` (issue #2317): the two context members the child reads —
+   * `agentsMd` and `projectNotesMd` — and never the parent's whole `ILoadedContext`, whose file
+   * entries carry the full text of every AGENTS.md and CLAUDE.md the parent loaded.
    */
-  parentContext: ISubagentParentContext;
+  parentContext: ISubagentWorkerParentContextDto;
   providerProfile: ISerializableProviderProfile;
   /**
    * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
@@ -233,11 +236,11 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
     if (!isRecord(value.worktree)) return false;
     if (!hasString(value.worktree, 'path')) return false;
   }
-  if (!isRecord(value.agentDefinition)) return false;
-  if (!hasString(value.agentDefinition, 'name')) return false;
-  if (!hasString(value.agentDefinition, 'systemPrompt')) return false;
+  // ARCH-044 (issue #2047): both DTOs are decoded totally — every declared field, arrays rejected
+  // where a record is required — instead of being accepted as any `object`.
+  if (!decodeAgentDefinitionDto(value.agentDefinition).ok) return false;
   if (!isRecord(value.parentConfig)) return false;
-  if (!isRecord(value.parentContext)) return false;
+  if (!decodeParentContextDto(value.parentContext).ok) return false;
   if (!isRecord(value.providerProfile)) return false;
   if (!hasString(value.providerProfile, 'type')) return false;
   return hasString(value.providerProfile, 'model');

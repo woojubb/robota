@@ -8,6 +8,19 @@ export {
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
 } from './child-process-subagent-ipc.js';
+export {
+  decodeAgentDefinitionDto,
+  decodeParentContextDto,
+  encodeAgentDefinition,
+  encodeParentContext,
+  restoreAgentDefinition,
+  restoreParentContext,
+} from './subagent-worker-start-dto.js';
+export type {
+  ISubagentWorkerAgentDefinitionDto,
+  ISubagentWorkerContextFileEntryDto,
+  ISubagentWorkerParentContextDto,
+} from './subagent-worker-start-dto.js';
 export type {
   ISubagentWorkerStartPayload,
   TSubagentWorkerChildMessage,
