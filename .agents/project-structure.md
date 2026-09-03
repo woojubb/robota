@@ -175,7 +175,7 @@ without a CLI, a network or a live model.
 
 `agent-core` MUST NOT depend on any `@robota-sdk/agent-*` package. It is the bottom of the layer
 diagram above, and a dependency from it to a package that sits on top of it is a cycle through the
-foundation. Enforced by rule 3 of the `deps` scan (`check-dependency-direction.mjs`) — not `dep-kind`, which
+foundation. Enforced by rule 3 of the `deps` scan (`check-dependency-direction.mjs`, as `CORE-ZERO-DEPS`; every identifier that scan family emits is stated in [ARCHITECTURE.md § Dependency and interface rule identifiers](../ARCHITECTURE.md#dependency-and-interface-rule-identifiers)) — not `dep-kind`, which
 checks a different class: a runtime value import resolving to a devDependencies-only declaration.
 
 Stated here rather than in the mistakes catalogue: that catalogue now carries the

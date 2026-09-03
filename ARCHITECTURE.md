@@ -82,6 +82,58 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 - **Spec-first development** — Every contract boundary change requires a SPEC.md update before implementation.
 - **No fallback policy** — Terminal failures stay terminal. No silent recovery or degraded modes.
 
+## Dependency and interface rule identifiers
+
+Each identifier below is the tag a harness scan prints in its finding (`[FORBIDDEN-DEP] …`). A rule
+that is enforced and stated nowhere can only be tripped over — never complied with deliberately,
+cited, or amended — so every emitted identifier has exactly one normative sentence here. The
+`rule-statement-floor` scan (`scan-rule-statement-floor.mjs`) fails when a scan emits an identifier
+no normative document states. Package placement and the layer diagram these rules police are owned
+by [`.agents/project-structure.md`](.agents/project-structure.md); this list states the rules only.
+
+- `FORBIDDEN-DEP` — a production dependency edge listed as forbidden (each entry carries its reason)
+  may not appear in the depending package's `dependencies`; the list is empty today, and the rule
+  exists so that a future entry is refused by the scan rather than by review.
+  Enforced by: `deps` (`check-dependency-direction.mjs`)
+- `CORE-ZERO-DEPS` — the foundation package (`agent-core`) has no production dependency on any other
+  `@robota-sdk/agent-*` package; a dependency from the bottom of the layer diagram to a package above
+  it is a cycle through the foundation.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 3)
+- `PLUGIN-LAYER` — an `agent-plugin-*` package may depend, among `@robota-sdk/*` packages, only on the
+  set `internalDeps.pluginLayerAllowed` declares in `.agents/harness.config.json` (today:
+  `agent-core`): plugins register with the foundation and never reach into the framework above it.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 4)
+- `INTERFACE-DEPS` — an `agent-interface-*` package depends only on `agent-core` and on a LOWER-layer
+  peer interface package, never on an implementation package; the layer table is
+  `.agents/specs/contract-family-owner-map.md` and the full statement is
+  `.agents/project-structure.md` § Interface Package Rule.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 5)
+- `DAG-NODES-LEAF` — a `dag-node-*` leaf package may depend, among `dag-*` packages, only on the
+  node-contract owners `dag-core` and `dag-node` — never on an orchestrator/runtime/adapter layer
+  and never on a sibling `dag-node-*`, so a node stays composable by any orchestrator.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 7)
+- `DEV-CYCLE` — the full workspace graph over `dependencies` + `devDependencies` +
+  `peerDependencies` is acyclic; a dev-only edge that closes a cycle is refused because the build
+  order it implies has no valid topological sort.
+  Enforced by: `deps` (`check-dependency-direction.mjs`)
+- `ENTRY-POINT-ONLY` — a guarded composition aggregator (a package whose entry statically pulls a
+  whole catalog, e.g. the default DAG node set or the default tool set) may be imported STATICALLY only
+  by an application entry point (`apps/*`) or a package sanctioned by name in the scan's
+  `GUARDED_AGGREGATORS` table; a mid-layer library reaches it only through a dynamic `import()`.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 8)
+- `PACKAGE-NAME` — the canonical architecture documents (`architectureDocs` in
+  `.agents/harness.config.json`, plus every `packages/*/docs/SPEC.md`) reference only real workspace
+  package names; a scoped name that resolves to no package is drift unless its line is marked
+  "planned".
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 9)
+- `RE-EXPORT` — no package barrel re-exports another workspace package wholesale
+  (`export * from '<scope>/<other>'`); a public surface is owned, not forwarded.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 2)
+- `INTERFACE-IMPORT` — an implementation package imports a contract the interface package exports
+  from that interface package, never through `@robota-sdk/agent-framework`; the full statement is
+  `.agents/project-structure.md` § Interface Package Rule.
+  Enforced by: `interface-imports` (`check-interface-imports.mjs`)
+
 ## Detailed Documentation
 
 | Topic                                | Document                                                       |
