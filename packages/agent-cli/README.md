@@ -655,19 +655,15 @@ bin.ts → cli.ts (arg parsing)
 
 ## Dependencies
 
-| Package                                      | Purpose                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-framework`                | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`                     | Types (TPermissionMode, TToolArgs)         |
-| `@robota-sdk/agent-transport` (`./headless`) | Headless runner for print mode (`-p`)      |
-| `ink` 7, `react` 19.2+                       | TUI rendering                              |
-| `ink-select-input`                           | Arrow-key selection (permission prompt)    |
-| `ink-spinner`                                | Loading spinner                            |
-| `chalk`                                      | Terminal colors                            |
-| `ink-text-input`                             | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal`                  | Markdown parsing and terminal rendering    |
-| `cli-highlight`                              | Syntax highlighting for code blocks        |
-| `string-width`                               | Unicode-aware string width (CJK support)   |
+| Package                                      | Purpose                                  |
+| -------------------------------------------- | ---------------------------------------- |
+| `@robota-sdk/agent-framework`                | Session factory, query, config, context  |
+| `@robota-sdk/agent-core`                     | Types (TPermissionMode, TToolArgs)       |
+| `@robota-sdk/agent-transport` (`./headless`) | Headless runner for print mode (`-p`)    |
+| `ink` 7, `react` 19.2+                       | TUI rendering                            |
+| `chalk`                                      | Terminal colors                          |
+| `marked`, `marked-terminal`                  | Markdown parsing and terminal rendering  |
+| `string-width`                               | Unicode-aware string width (CJK support) |
 
 ## Documentation
 

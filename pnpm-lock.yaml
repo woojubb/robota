@@ -1114,9 +1114,6 @@ importers:
       chalk:
         specifier: ^5.6.2
         version: 5.6.2
-      cli-highlight:
-        specifier: ^2.1.11
-        version: 2.1.11
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -1126,15 +1123,6 @@ importers:
       ink:
         specifier: ^7.1.1
         version: 7.1.1(@types/react@19.2.17)(react@19.2.8)
-      ink-select-input:
-        specifier: ^6.2.0
-        version: 6.2.0(ink@7.1.1)(react@19.2.8)
-      ink-spinner:
-        specifier: ^5.0.0
-        version: 5.0.0(ink@7.1.1)(react@19.2.8)
-      ink-text-input:
-        specifier: ^6.0.0
-        version: 6.0.0(ink@7.1.1)(react@19.2.8)
       jssha:
         specifier: ^3.3.2
         version: 3.3.2
@@ -2486,15 +2474,6 @@ importers:
       ink:
         specifier: ^7.1.1
         version: 7.1.1(@types/react@19.2.17)(react@19.2.8)
-      ink-select-input:
-        specifier: ^6.2.0
-        version: 6.2.0(ink@7.1.1)(react@19.2.8)
-      ink-spinner:
-        specifier: ^5.0.0
-        version: 5.0.0(ink@7.1.1)(react@19.2.8)
-      ink-text-input:
-        specifier: ^6.0.0
-        version: 6.0.0(ink@7.1.1)(react@19.2.8)
       marked:
         specifier: ^9.1.6
         version: 9.1.6
@@ -11464,7 +11443,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
@@ -12866,11 +12845,6 @@ packages:
       parse5: 5.1.1
       parse5-htmlparser2-tree-adapter: 6.0.1
       yargs: 16.2.0
-    dev: false
-
-  /cli-spinners@2.9.2:
-    resolution: {integrity: sha512-ywqV+5MmyL4E7ybXgKys4DugZbX0FC6LnwrhjuykIjnK9k8OQacQ7axGKnjDXWNhns0xot3bZI5h55H8yo9cJg==}
-    engines: {node: '>=6'}
     dev: false
 
   /cli-table3@0.6.5:
@@ -15281,6 +15255,7 @@ packages:
     engines: {node: '>=18'}
     dependencies:
       is-unicode-supported: 2.1.0
+    dev: true
 
   /file-entry-cache@6.0.1:
     resolution: {integrity: sha512-7Gps/XWymbLk2QLYK4NzpMOrYjMhdIxXuIvy2QBsLE6ljuodKvdkWs/cpyJJ3CVIVpH0Oi1Hvg1ovbMzLdFBBg==}
@@ -16559,31 +16534,6 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     dev: true
 
-  /ink-select-input@6.2.0(ink@7.1.1)(react@19.2.8):
-    resolution: {integrity: sha512-304fZXxkpYxJ9si5lxRCaX01GNlmPBgOZumXXRnPYbHW/iI31cgQynqk2tRypGLOF1cMIwPUzL2LSm6q4I5rQQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      ink: '>=5.0.0'
-      react: '>=18.0.0'
-    dependencies:
-      figures: 6.1.0
-      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
-      react: 19.2.8
-      to-rotated: 1.0.0
-    dev: false
-
-  /ink-spinner@5.0.0(ink@7.1.1)(react@19.2.8):
-    resolution: {integrity: sha512-EYEasbEjkqLGyPOUc8hBJZNuC5GvXGMLu0w5gdTNskPc7Izc5vO3tdQEYnzvshucyGCBXc86ig0ujXPMWaQCdA==}
-    engines: {node: '>=14.16'}
-    peerDependencies:
-      ink: '>=4.0.0'
-      react: '>=18.0.0'
-    dependencies:
-      cli-spinners: 2.9.2
-      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
-      react: 19.2.8
-    dev: false
-
   /ink-testing-library@4.0.0(@types/react@19.2.17):
     resolution: {integrity: sha512-yF92kj3pmBvk7oKbSq5vEALO//o7Z9Ck/OaLNlkzXNeYdwfpxMQkSowGTFUCS5MSu9bWfSZMewGpp7bFc66D7Q==}
     engines: {node: '>=18'}
@@ -16595,19 +16545,6 @@ packages:
     dependencies:
       '@types/react': 19.2.17
     dev: true
-
-  /ink-text-input@6.0.0(ink@7.1.1)(react@19.2.8):
-    resolution: {integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      ink: '>=5'
-      react: '>=18'
-    dependencies:
-      chalk: 5.6.2
-      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
-      react: 19.2.8
-      type-fest: 4.41.0
-    dev: false
 
   /ink@7.1.1(@types/react@19.2.17)(react@19.2.8):
     resolution: {integrity: sha512-Y43xxa1ZSPvpmfLHcN5o+OdP8Rf8ykkNJEuKYOUNZKT8wXVNLFTtEm1nSDMQkfBH+YANF4Xuu0hhZ4ejqAtN2w==}
@@ -17025,6 +16962,7 @@ packages:
   /is-unicode-supported@2.1.0:
     resolution: {integrity: sha512-mE00Gnza5EEB3Ds0HfMyllZzbBrmLOX3vfWoj9A9PEnTfratQ/BcaJOuMhnkhjXvb2+FkY3VuHqtAGpTPmglFQ==}
     engines: {node: '>=18'}
+    dev: true
 
   /is-weakmap@2.0.2:
     resolution: {integrity: sha512-K5pXYOm9wqY1RgjpL3YTkF39tni1XajUIkawTLUo9EZEVUFga5gSQJF8nNS7ZwJQ02y+1YCNYcMh+HIf1ZqE+w==}
@@ -22365,11 +22303,6 @@ packages:
     dependencies:
       is-number: 7.0.0
 
-  /to-rotated@1.0.0:
-    resolution: {integrity: sha512-KsEID8AfgUy+pxVRLsWp0VzCa69wxzUDZnzGbyIST/bcgcrMvTYoFBX/QORH4YApoD89EDuUovx4BTdpOn319Q==}
-    engines: {node: '>=18'}
-    dev: false
-
   /toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
@@ -22641,11 +22574,6 @@ packages:
     resolution: {integrity: sha512-t0rzBq87m3fVcduHDUFhKmyyX+9eo6WQjZvf51Ea/M0Q7+T374Jp1aUiyUl0GKxp8M/OETVHSDvmkyPgvX+X2w==}
     engines: {node: '>=10'}
     dev: true
-
-  /type-fest@4.41.0:
-    resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
-    engines: {node: '>=16'}
-    dev: false
 
   /type-fest@5.8.0:
     resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
@@ -23584,8 +23512,8 @@ packages:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.23.1)
-      vite-node: 3.2.4(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.23.1)
+      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - '@vitejs/devtools'
