@@ -562,6 +562,15 @@ the subagent spawn contract had declared `cwd` required all along.
 `getCwd()` exposes it, because a fork or subagent derived from a session must be able to ask which
 root that session actually uses instead of re-deriving one that can disagree.
 
+### Path arguments are canonicalised before the gate (issue #2429)
+
+`wrapToolWithPermission` resolves a relative value of a tool's `path`-kind argument (per its
+registered permission profile) against the session `cwd` — `tool-argument-canonicalisation.ts` —
+before the permission gate, the hooks, the log and the tool see it. An absolute pattern such as
+`Read(<cwd>/secrets/**)` therefore judges `secrets/key` rather than reporting it unevaluable, and the
+tool receives exactly the path the gate judged. Absolute values, non-path kinds and tools with no
+profile pass through unchanged.
+
 ### Turn Identity (RUNTIME-003)
 
 `TurnClaim` (`src/turn-claim.ts`) owns the unit of work. Before RUNTIME-003 a bare

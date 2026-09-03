@@ -9,7 +9,7 @@ import { readFile, stat } from 'node:fs/promises';
 
 import { z } from 'zod';
 
-import { checkPathWithinCwd } from './path-guard.js';
+import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
@@ -102,7 +102,11 @@ function formatReadResult(
 }
 
 async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Promise<string> {
-  const { filePath, offset, limit = DEFAULT_LIMIT } = args;
+  const { offset, limit = DEFAULT_LIMIT } = args;
+  // A relative path anchors to the containment root before it is confined or opened (issue #2429).
+  const filePath = options.sandboxClient
+    ? args.filePath
+    : resolveHostPath(args.filePath, options.cwd);
   const startLine = offset !== undefined && offset > 0 ? offset : 1;
 
   if (options.sandboxClient) {

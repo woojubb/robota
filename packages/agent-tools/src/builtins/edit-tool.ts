@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
-import { checkPathWithinCwd } from './path-guard.js';
+import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
@@ -41,7 +41,11 @@ const EditSchema = z.object({
 type TEditArgs = z.infer<typeof EditSchema>;
 
 async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Promise<string> {
-  const { filePath, oldString, newString, replaceAll = false } = args;
+  const { oldString, newString, replaceAll = false } = args;
+  // A relative path anchors to the containment root before it is confined or edited (issue #2429).
+  const filePath = options.sandboxClient
+    ? args.filePath
+    : resolveHostPath(args.filePath, options.cwd);
 
   if (!options.sandboxClient) {
     const pathError = checkPathWithinCwd(filePath, options.cwd);

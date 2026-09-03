@@ -53,6 +53,19 @@ export function isWithinCwd(filePath: string, cwd: string | undefined): boolean 
   return isPathInside(cwd, filePath);
 }
 
+/**
+ * Where a RELATIVE host path the model supplied is anchored: the containment root, never
+ * `process.cwd()` (issue #2429). `Read`/`Write`/`Edit` declare `filePath` absolute, but nothing
+ * makes the model comply, and `isPathInside` canonicalises a relative candidate against the PROCESS
+ * directory — so a relative path was confined to one root and judged against another. Same rule as
+ * `resolveSearchRoot` for the enumerating tools. With no root there is nothing to anchor to; the path
+ * is returned as written and `checkPathWithinCwd` refuses it (ARCH-010).
+ */
+export function resolveHostPath(filePath: string, cwd: string | undefined): string {
+  if (cwd === undefined) return filePath;
+  return resolve(cwd, filePath);
+}
+
 export function checkPathWithinCwd(filePath: string, cwd: string | undefined): string | undefined {
   if (cwd === undefined) {
     const result: IToolInvocationResult = {
