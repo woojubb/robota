@@ -13,7 +13,9 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
  */
 function configurableTransport(
   name: string,
-  over: Partial<IConfigurableTransport<IInteractiveSession>> = {},
+  over: Partial<Omit<IConfigurableTransport<IInteractiveSession>, 'configure'>> & {
+    configure?: ReturnType<typeof vi.fn>;
+  } = {},
 ): IConfigurableTransport<IInteractiveSession> & { configure: ReturnType<typeof vi.fn> } {
   return {
     name,

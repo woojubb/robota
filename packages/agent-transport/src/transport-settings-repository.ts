@@ -37,7 +37,11 @@ export function createFileTransportSettingsRepository(
     },
     write(name: string, saved: ITransportSavedConfig): void {
       const settings = readSettings(settingsPath);
-      const transports = isRecord(settings.transports) ? settings.transports : {};
+      // A fresh, widely-typed copy: the settings value type is the universal value union, which an
+      // `ITransportSavedConfig` (its `options` is an open record) is not assignable to.
+      const transports: Record<string, unknown> = {
+        ...(isRecord(settings.transports) ? settings.transports : {}),
+      };
       transports[name] = { ...(isRecord(transports[name]) ? transports[name] : {}), ...saved };
       settings.transports = transports as TSettingsData;
       writeSettings(settingsPath, settings);

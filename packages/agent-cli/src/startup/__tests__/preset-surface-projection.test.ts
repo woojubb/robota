@@ -37,6 +37,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // these assignments stop compiling — which is the failure this case exists to cause.
     const everyField: Required<IPresetSurfaceOptions> = {
       model: 'some-model',
+      responseFormat: { type: 'json_object' },
       agentName: 'acme-bot',
       activePresetId: 'acme',
       persona: 'be brief',
