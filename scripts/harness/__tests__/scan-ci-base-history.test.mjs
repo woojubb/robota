@@ -9,9 +9,11 @@ import {
   baseHistorySignals,
   fetchDepths,
   findBaseHistoryFindings,
+  perCommitSignals,
   splitWorkflowJobs,
   staleInvocations,
   stripComments,
+  triggersOnPullRequest,
 } from '../scan-ci-base-history.mjs';
 
 async function createWorkflowFixture(files) {
@@ -129,6 +131,79 @@ describe('findBaseHistoryFindings (INFRA-050)', () => {
       'ci.yml': 'jobs:\n  x:\n    steps:\n      - run: git rev-list origin/develop..HEAD\n',
     });
     expect(findBaseHistoryFindings(root)[0].detail).toContain('declares no `fetch-depth`');
+  });
+});
+
+describe('rule 3 — a per-commit history scan under pull_request names its head (issue #2412)', () => {
+  const perCommitJob = (env) => `name: CI
+on:
+  pull_request:
+jobs:
+  scans:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: scans
+        env:
+          HARNESS_BASE_REF: origin/\${{ github.base_ref }}
+${env}        run: pnpm harness:scan -- --affected --base "\${HARNESS_BASE_REF}"
+`;
+
+  it('flags the scans job that runs harness:scan with no PR_HEAD_SHA — the shape ci.yml had', async () => {
+    const root = await createWorkflowFixture({ 'ci.yml': perCommitJob('') });
+    const findings = findBaseHistoryFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].job).toBe('scans');
+    expect(findings[0].detail).toContain('PR_HEAD_SHA');
+    expect(findings[0].detail).toContain('refs/pull/N/merge');
+  });
+
+  it('passes once the job exports PR_HEAD_SHA', async () => {
+    const root = await createWorkflowFixture({
+      'ci.yml': perCommitJob('          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n'),
+    });
+    expect(findBaseHistoryFindings(root)).toEqual([]);
+  });
+
+  it('a PR_HEAD_SHA mentioned only in a comment does not satisfy it', async () => {
+    const root = await createWorkflowFixture({
+      'ci.yml': perCommitJob('          # PR_HEAD_SHA: would go here\n'),
+    });
+    expect(findBaseHistoryFindings(root)).toHaveLength(1);
+  });
+
+  it('does not apply to a workflow that never runs on pull_request (HEAD is a real commit there)', async () => {
+    const root = await createWorkflowFixture({
+      'ci.yml': perCommitJob('').replace('  pull_request:', '  push:\n    branches: [develop]'),
+    });
+    expect(findBaseHistoryFindings(root)).toEqual([]);
+  });
+
+  it('recognises each per-commit consumer, and not the build-contracts sub-command', () => {
+    expect(perCommitSignals('      - run: pnpm harness:scan -- --context pr')).toHaveLength(1);
+    expect(perCommitSignals('        run: pnpm harness:verify:release')).toHaveLength(1);
+    expect(perCommitSignals('      - run: pnpm harness:scan:build-contracts')).toEqual([]);
+    expect(perCommitSignals('run: node scripts/harness/scan-promotion-ancestry.mjs')).toEqual([
+      'scan-promotion-ancestry.mjs',
+    ]);
+    expect(perCommitSignals('run: node scripts/harness/check-regression-red-proof.mjs')).toEqual([
+      'check-regression-red-proof.mjs',
+    ]);
+  });
+
+  it('reads the trigger block, including the flow-sequence and _target spellings', () => {
+    expect(triggersOnPullRequest('on:\n  pull_request:\n    branches: [develop]\njobs:\n')).toBe(
+      true,
+    );
+    expect(triggersOnPullRequest('on: [push, pull_request]\njobs:\n')).toBe(true);
+    expect(triggersOnPullRequest('on:\n  pull_request_target:\njobs:\n')).toBe(true);
+    expect(
+      triggersOnPullRequest(
+        'on:\n  push:\njobs:\n  x:\n    if: github.event_name == "pull_request"\n',
+      ),
+    ).toBe(false);
   });
 });
 

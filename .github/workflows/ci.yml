@@ -657,6 +657,12 @@ jobs:
           HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
           BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}
           RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
+          # Issue #2412: `harness:scan` runs per-commit history scans (user-execution-plan-order,
+          # promotion-ancestry). On a pull_request event HEAD is refs/pull/N/merge, a synthetic merge
+          # whose first parent is the base — so the head those scans end at is exported ONCE here,
+          # the way release-grade-verify already does. `scan-ci-base-history` refuses a per-commit
+          # job without it.
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set +e
@@ -1391,6 +1397,9 @@ jobs:
           # else the run found. `inconclusive`, `skipped` and `red-proof-unreached` still pass, so a
           # verdict the checker could not reach never blocks a pull request.
           REGRESSION_RED_PROOF_ENFORCE: '1'
+          # Issue #2412: a per-commit history consumer (`log base..HEAD`, then `diff-tree` per commit)
+          # is handed the pull request's head, not the synthetic merge ref.
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/harness/check-regression-red-proof.mjs
 
   # INFRA-041: PR patch (diff) coverage — the lines a PR adds/changes in package/app `src` must

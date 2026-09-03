@@ -141,6 +141,51 @@ export function resolveBaseRef({ explicitBaseRef = null, env = process.env, refE
   return null;
 }
 
+/**
+ * The HEAD a per-commit history scan evaluates — the sibling of `resolveBaseRef` (issue #2412).
+ *
+ * `resolveBaseRef` owns the base of every scan; nothing owned the head, so each per-commit consumer
+ * discovered the same trap in production and patched it differently: on a `pull_request` event
+ * `actions/checkout` leaves HEAD at GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is
+ * the base, so a range ending there is not the pull request's commits. The `scans` job exports
+ * `PR_HEAD_SHA` (ci.yml) for exactly this reason, and `scan-ci-base-history` refuses a per-commit
+ * job that does not.
+ *
+ * Resolution: `--head <sha>` in `argv`, else `PR_HEAD_SHA` / `GITHUB_PR_HEAD_SHA`, else `HEAD` — but
+ * NEVER `HEAD` under a `pull_request` event, where it is the merge ref. Returns `{ head, error }`;
+ * a caller that gets `error` must refuse rather than fall back, because a scan over the wrong
+ * commit reads as a scan that passed.
+ */
+export function resolveHeadSha({ argv = [], env = process.env } = {}) {
+  const flagIndex = argv.indexOf('--head');
+  if (
+    flagIndex >= 0 &&
+    (argv[flagIndex + 1] === undefined || argv[flagIndex + 1].startsWith('--'))
+  ) {
+    return { head: undefined, error: '`--head` was passed with no value.' };
+  }
+  const explicit = (flagIndex >= 0 ? argv[flagIndex + 1] : undefined) ?? '';
+  const fromEnv = (env.PR_HEAD_SHA ?? env.GITHUB_PR_HEAD_SHA ?? '').trim();
+  const head = explicit.trim() || fromEnv;
+  if (head) {
+    if (/^refs\/pull\/\d+\/merge$/.test(head)) {
+      return {
+        head: undefined,
+        error: `refusing \`${head}\`: it is GitHub's synthetic merge ref, not the pull request's head.`,
+      };
+    }
+    return { head, error: undefined };
+  }
+  if (env.GITHUB_EVENT_NAME === 'pull_request' || env.GITHUB_EVENT_NAME === 'pull_request_target') {
+    return {
+      head: undefined,
+      error:
+        "refusing to evaluate `HEAD` on a `pull_request` event: it is GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch. Pass `--head ${{ github.event.pull_request.head.sha }}` or export PR_HEAD_SHA in the job.",
+    };
+  }
+  return { head: 'HEAD', error: undefined };
+}
+
 export async function listWorkspaceScopes() {
   const scopes = [];
   const patterns = await readWorkspacePatterns();
