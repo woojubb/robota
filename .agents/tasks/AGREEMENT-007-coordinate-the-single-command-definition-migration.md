@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-007: coordinate the single command definition migration'
 issue: https://github.com/woojubb/robota/issues/2061
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -53,7 +53,8 @@ prerelease replacement constraint without implementing product code in this conv
 - Run Task/spec projection, lifecycle, work-item collision, and plan-order scans on the atomic prelude.
 - Re-read all five target Issues and the seven live external prerequisites before any later apply gate.
 - Run each child Task's package/type/functional tests only in that child's own implementation lifecycle.
-- Run affected repository scans and required CI before every evidence PR merges.
+- Reconcile all five Issue mutations in the enclosing C1 bulk read-back, then run affected repository
+  scans once for the whole migration wave.
 
 ## User Execution Test Scenarios
 

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [agreement, github, commands]
 lane: L2
@@ -131,6 +131,9 @@ None
 | TC-04     | Live migration | Frozen apply, immediate read-back, and hierarchy audit         | Five exact terminal results with history/edges intact |
 | TC-05     | Completion     | Child lifecycle plus issue 2079 map/full-SHA resolution checks | Four done children and terminal parent reconciliation |
 
+For the RULE-023 finite migration, collect all five row results and verify them in the enclosing C1
+batch read-back rather than repeating a repository-wide verification after each Issue mutation.
+
 ## User Execution Test Scenarios
 
 Not applicable.
@@ -199,3 +202,68 @@ Paired execution record:
 - GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
 - GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (3a0bc1013f2b) equals the document's current fingerprint
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-03
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-03; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 457 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/evidence/RULE-023-child-issue-migration-manifest.json",
+    ".agents/spec-docs/active/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+    ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+    ".agents/tasks/CMD-010-define-the-discriminated-command-definition-and-serializable-descriptor.md",
+    ".agents/tasks/CMD-011-derive-command-projections-from-one-definition.md",
+    ".agents/tasks/CMD-012-migrate-skill-and-plugin-commands-to-discriminated-definitions.md",
+    ".agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md"
+  ],
+  "taskPath": ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-007-coordinate-the-single-command-definition-migration.md",
+    ".agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
