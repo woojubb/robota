@@ -268,6 +268,27 @@ graph. The import path is where the Node dependency becomes legible.
 | `canonicalizePath`            | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve                               |
 | `resolveTrustedExecutionRoot` | function | `@robota-sdk/agent-core/node` | Validate that an execution authority is a non-empty absolute, existing, traversable directory and return its canonical real path |
 
+### Egress Policy (#2026)
+
+`utils/egress-policy.ts`, exported from **`@robota-sdk/agent-core/node`** (it needs `node:dns` and
+`node:net`). The ONE outbound boundary for every caller- or model-supplied URL — `WebFetch`, the Gemini
+image-edit input fetch, and any future HTTP client a built-in or node runtime adds.
+
+| Export                  | Kind      | Description                                                                                                                                                                                                                             |
+| ----------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fetchWithEgressPolicy` | function  | `fetch(url, options, policy, deps)`: validates the destination, follows redirects manually re-validating each hop, composes the caller signal with a deadline, caps the body from `Content-Length` and while streaming                  |
+| `rejectDestination`     | function  | `http(s)` only; refuses loopback / private / link-local / CGNAT / multicast / reserved for IPv4, IPv6, IPv4-mapped and NAT64 forms, plus `BLOCKED_HOSTNAMES` and `*.localhost`; resolves hostnames and refuses if ANY answer is private |
+| `isPrivateAddress`      | function  | The address classifier above, for one literal                                                                                                                                                                                           |
+| `BLOCKED_HOSTNAMES`     | const     | `localhost`, `metadata`, `metadata.google.internal`, `metadata.goog`, `instance-data`, `instance-data.ec2.internal`                                                                                                                     |
+| `IEgressPolicy`         | interface | Escape hatches a composition root declares: `allowedHosts` (exact hostnames), `allowPrivateAddresses` (explicit opt-out), `maxRedirects` (5)                                                                                            |
+| `IEgressDeps`           | interface | Injected `fetch` and DNS `lookup` — how a test stays hermetic                                                                                                                                                                           |
+
+Policy outcomes are RETURNED (`{ ok: false, rejection }` with a `reason`); transport errors are thrown as
+`fetch` throws them. On a cross-origin redirect every caller-supplied header except `User-Agent` is
+dropped. Known gap, recorded here: the connection is not pinned to the validated address (Node's global
+`fetch` offers no connect-time hook without `undici`), so resolve-then-validate per hop narrows the
+DNS-rebinding window rather than closing it.
+
 ### Owner-Only Store Public API (SEC-020)
 
 The SSOT for "create this directory or file so only its owner can read it", for every host store
@@ -494,13 +515,20 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 Zero-dependency utilities for the `$ENV:<name>` environment variable reference format. This is the
 canonical location for env-ref logic; all higher layers import from here.
 
-| Export                     | Kind     | Description                                                               |
-| -------------------------- | -------- | ------------------------------------------------------------------------- |
-| `ENV_REFERENCE_PREFIX`     | const    | `'$ENV:'` — the canonical prefix for environment variable references      |
-| `isEnvReference`           | function | Return true when a string starts with `$ENV:`                             |
-| `formatEnvReference`       | function | Return the `$ENV:<name>` formatted string for the given variable name     |
-| `resolveEnvReference`      | function | Resolve `$ENV:<name>` → `process.env[name]`; return value or `undefined`  |
-| `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value |
+| Export                     | Kind     | Description                                                                                                              |
+| -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `ENV_REFERENCE_PREFIX`     | const    | `'$ENV:'` — the canonical prefix for environment variable references                                                     |
+| `isEnvReference`           | function | Return true when a string starts with `$ENV:`                                                                            |
+| `formatEnvReference`       | function | Return the `$ENV:<name>` formatted string for the given variable name                                                    |
+| `resolveEnvReference`      | function | Resolve `$ENV:<name>` through the injected `TEnvResolver` (default: host env); value or `undefined`                      |
+| `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value (same injected resolver)                       |
+| `TEnvResolver`             | type     | #2347: `(name) => string \| undefined` — the injected environment; the ONLY way normalization sees it                    |
+| `processEnvResolver`       | const    | #2347: the host `process.env` as a `TEnvResolver`; defined in `utils/env-resolver.ts`, the one module allowed to read it |
+| `createRecordEnvResolver`  | function | #2347: a `TEnvResolver` over a fixed record — what tests inject instead of mutating `process.env`                        |
+
+`normalizeProviderConfig(settings, providerDefinitions, resolve = processEnvResolver)` is
+deterministic from its arguments and `resolve`; the `provider-env-resolution` scan refuses
+`process.env` in `utils/env-ref.ts` and `providers/provider-factory.ts` (and the executor's).
 
 ### Cross-platform Shell Resolution Public API
 
@@ -738,12 +766,14 @@ Provider response usage is normalized before assistant messages are committed:
 
 ### Managers
 
-| Export                | Kind  | Description                   |
-| --------------------- | ----- | ----------------------------- |
-| `AgentFactory`        | class | Agent creation and lifecycle  |
-| `AgentTemplates`      | class | Template-based agent creation |
-| `ConversationHistory` | class | History management            |
-| `ConversationStore`   | class | Session management            |
+| Export                                    | Kind                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentFactory`                            | class                | Agent creation and lifecycle — ARCH-055 (#2159): `createAgent` is ONE transaction. Admission (limit check over active + pending, collision-safe id from `IAgentFactoryOptions.idFactory`, pending slot) happens before the first `await`; then `beforeCreate` → construct → `initialize` → commit (pending → active, stats) → `afterCreate` via `runRegistryTransaction`, with reverse rollback (`cleanup`, unregister, stats reversed) and the primary error preserved. `destroyAgent` uses `lifecycleOf`, not duck typing |
+| `runRegistryTransaction`                  | function             | ARCH-055: ordered steps with reverse `undo` on failure; the failing step's error is rethrown with `failedStep` and `rollbackErrors` attached (`IRegistryTransactionError`). The contract `ModuleRegistry`/`Plugins` adopt next                                                                                                                                                                                                                                                                                              |
+| `lifecycleOf` / `IRegistryOwnedLifecycle` | function / interface | ARCH-055: the one type guard for a registry-owned instance's declared `initialize`/`cleanup`                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `AgentTemplates`                          | class                | Template-based agent creation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `ConversationHistory`                     | class                | History management                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `ConversationStore`                       | class                | Session management                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### Services
 
@@ -946,10 +976,20 @@ interface IHookTypeExecutor {
 
 **Built-in executors (agent-core):**
 
-| Executor          | Hook Type | Behavior                                                                 |
-| ----------------- | --------- | ------------------------------------------------------------------------ |
-| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, maps its exit to an outcome |
-| `HttpExecutor`    | `http`    | Sends HTTP request, decodes the response body into an outcome            |
+| Executor          | Hook Type | Behavior                                                                                                                                                                                                                              |
+| ----------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, maps its exit to an outcome. ARCH-056 (#2161): stdout/stderr are read into `createBoundedOutput` buffers (1 MB each; stdout head, stderr tail), so memory is bounded while the hook runs |
+
+**Bounded output retention (ARCH-056, #2161).** `createBoundedOutput({ maxBytes, retain, truncationMarker })`
+(`utils/bounded-output.ts`, main barrel) is the one contract every child-process reader uses: bytes
+past the budget are dropped AS THEY ARRIVE (memory is bounded by the budget, not the child's
+lifetime), `retain: 'head'` keeps the first bytes (a tool result) and `'tail'` the last (a
+diagnostic), `truncated` / `droppedBytes` and a marker in `toString()` make the drop visible, there
+is no disk spill, and termination stays with CORE-023. Adopters: `CommandExecutor`, `agent-tools`
+`shell-tool` (2 MB head per stream), `agent-subagent-runner`'s stderr tail (4 KiB tail).
+`agent-executor`'s `createLimitedOutputCapture` (string head + marker for background-task logs) is
+the same policy on the string side and is the next to converge on it.
+| `HttpExecutor` | `http` | Sends HTTP request, decodes the response body into an outcome |
 
 **Extended executors (agent-framework):**
 

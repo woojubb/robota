@@ -133,6 +133,14 @@ export {
   resolveEnvReference,
   hasUsableSecretReference,
 } from './utils/env-ref.js';
+export { createRecordEnvResolver, processEnvResolver } from './utils/env-resolver.js';
+export { createBoundedOutput } from './utils/bounded-output.js';
+export type {
+  IBoundedOutput,
+  IBoundedOutputOptions,
+  TOutputRetention,
+} from './utils/bounded-output.js';
+export type { TEnvResolver } from './utils/env-resolver.js';
 
 // Logger
 export { logger, SilentLogger, createLogger, type ILogger } from './utils/logger';
@@ -161,6 +169,16 @@ export {
   type IAgentCreationStats,
   type IAgentLifecycleEvents,
 } from './managers/agent-factory';
+export {
+  isRegistryTransactionError,
+  lifecycleOf,
+  runRegistryTransaction,
+} from './managers/registry-transaction';
+export type {
+  IRegistryOwnedLifecycle,
+  IRegistryTransactionError,
+  IRegistryTransactionStep,
+} from './managers/registry-transaction';
 export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
 export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
 export {

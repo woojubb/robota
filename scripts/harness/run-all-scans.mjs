@@ -663,6 +663,22 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
     examines: [SCRIPTS, CLAUDE, under('.husky')],
   },
+  // #2222: a TUI render site reaches the terminal only through SafeText; raw ink Text imports refused.
+  {
+    name: 'tui-safe-text-boundary',
+    command: ['node', 'scripts/harness/scan-tui-safe-text-boundary.mjs'],
+    examines: [under('packages/agent-transport-tui/src')],
+  },
+  // #2347 / #2051: provider normalization resolves the environment only through an injected resolver.
+  {
+    name: 'provider-env-resolution',
+    command: ['node', 'scripts/harness/scan-provider-env-resolution.mjs'],
+    examines: [
+      'packages/agent-core/src/utils/env-ref.ts',
+      'packages/agent-core/src/providers/provider-factory.ts',
+      'packages/agent-executor/src/providers/provider-factory.ts',
+    ],
+  },
   // issue #1916. Reads only the tracked tree, so it is hermetic and a clone can judge it offline.
   {
     name: 'work-item-id-collision',
