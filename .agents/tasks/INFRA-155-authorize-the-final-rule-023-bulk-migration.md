@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-155: authorize the final RULE-023 bulk migration'
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: now
@@ -29,6 +29,8 @@ no-issue: This record closes the administrative migration already authorized by 
 - Assert exact issue sets, unique Task URLs, counts, approval evidence, and expected population arithmetic from the final manifest.
 - Run the staged planning-order and reference-kind scans after both files are present.
 - Run one affected repository verification after the complete authorization batch.
+
+- Apply the manifest authorization and reference baseline together, then verify the combined final state once.
 
 ## User Execution Test Scenarios
 
