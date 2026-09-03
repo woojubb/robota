@@ -59,6 +59,7 @@ import path from 'node:path';
 import * as ts from './lib/ts-ast.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { blankComments } from './scan-hook-enforcement-reachable.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/spec-surface-baseline.json');
@@ -79,13 +80,18 @@ const FIRST_BACKTICK_TOKEN = /`([^`]+)`/;
 // Identifiers that are language/spec vocabulary, not package exports.
 const VOCAB = new Set(['Export', 'Symbol', 'Kind', 'Type', 'Name', 'Component', 'Hook']);
 
-function collectSrcText(srcDir) {
+/**
+ * The package's CODE, comments blanked (issue #2228). A comment is the one part of a source file
+ * that is free to be ABOUT a symbol rather than to be it — including a comment that says the symbol
+ * is NOT here, which this corpus once accepted as proof that it was.
+ */
+function collectSrcCode(srcDir) {
   let text = '';
   for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
     const full = path.join(srcDir, entry.name);
-    if (entry.isDirectory()) text += collectSrcText(full);
+    if (entry.isDirectory()) text += collectSrcCode(full);
     else if (entry.isFile() && /\.(tsx|ts|mjs|cjs)$/.test(entry.name)) {
-      text += readFileSync(full, 'utf8');
+      text += blankComments(readFileSync(full, 'utf8'));
       text += '\n';
     }
   }
@@ -163,6 +169,16 @@ function resolveModuleFile(fromFile, spec) {
  * Type-only exports are excluded. `seen` guards against `export *` cycles.
  */
 function effectiveRuntimeExports(file, seen = new Set()) {
+  return effectiveExports(file, { includeTypes: false }, seen);
+}
+
+/**
+ * Every name a module DECLARES as exported — runtime and, with `includeTypes`, type-only — resolved
+ * through its re-export edges. This is the positive evidence the forward edge needs (issue #2228):
+ * a table row is real when it resolves to a genuine export, not when its name is mentioned
+ * somewhere in `src/`. Prose is free to be ABOUT a symbol; an export statement has to BE one.
+ */
+function effectiveExports(file, { includeTypes }, seen = new Set()) {
   const names = new Set();
   if (!file || seen.has(file) || !existsSync(file)) return names;
   seen.add(file);
@@ -172,12 +188,15 @@ function effectiveRuntimeExports(file, seen = new Set()) {
     readFileSync(file, 'utf8'),
     ts.ScriptTarget.Latest,
     /* setParentNodes */ true,
-    ts.ScriptKind.TS,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
 
   for (const stmt of sourceFile.statements) {
     // Type-only declarations never contribute a runtime export.
-    if (ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)) continue;
+    if (ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)) {
+      if (includeTypes && hasExportModifier(stmt) && stmt.name) names.add(stmt.name.text);
+      continue;
+    }
 
     if (
       (ts.isFunctionDeclaration(stmt) ||
@@ -200,33 +219,49 @@ function effectiveRuntimeExports(file, seen = new Set()) {
     }
 
     if (ts.isExportDeclaration(stmt)) {
-      if (stmt.isTypeOnly) continue; // `export type { … }`
+      if (stmt.isTypeOnly && !includeTypes) continue; // `export type { … }` / `export type * from`
       const modSpec =
         stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)
           ? stmt.moduleSpecifier.text
           : null;
 
       if (!stmt.exportClause) {
-        // `export * from './x'` — enumerate the target's own runtime exports.
+        // `export * from './x'` — enumerate the target's own exports.
         if (modSpec) {
-          for (const name of effectiveRuntimeExports(resolveModuleFile(file, modSpec), seen)) {
-            names.add(name);
-          }
+          const target = resolveModuleFile(file, modSpec);
+          for (const name of effectiveExports(target, { includeTypes }, seen)) names.add(name);
         }
         continue;
       }
 
       if (ts.isNamedExports(stmt.exportClause)) {
         // `export { A, B as C }` / `export { A } from './x'` — surfaced (exported) names,
-        // excluding inline `type`-qualified specifiers.
+        // excluding inline `type`-qualified specifiers unless types are wanted.
         for (const el of stmt.exportClause.elements) {
-          if (el.isTypeOnly) continue;
+          if (el.isTypeOnly && !includeTypes) continue;
           names.add(el.name.text);
         }
       }
     }
   }
   return names;
+}
+
+/**
+ * The surface a package really declares: every export — runtime AND type — reachable from every
+ * entry `package.json` names (issue #2228). Reading only the root entry would trade the wide-corpus
+ * defect for the narrow one: a `./testing` subpath is part of the published surface too.
+ *
+ * @returns {{ entries: string[], names: Set<string> }} — `entries` is reported so a package whose
+ *   entries could not be found is a loud finding rather than a table judged against nothing.
+ */
+export function declaredSurface(pkgDir) {
+  const entries = entrySourceFiles(pkgDir);
+  const names = new Set();
+  for (const entry of entries) {
+    for (const name of effectiveExports(entry, { includeTypes: true })) names.add(name);
+  }
+  return { entries, names };
 }
 
 /** Entry source files a package actually ships (package.json exports/main + src/index.ts). */
@@ -349,7 +384,15 @@ export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT, options =
   const notices = options.notices ?? [];
   const findings = [];
 
-  // FORWARD edge: every advertised identifier must appear in src/.
+  // FORWARD edge: every advertised identifier must be real (issue #2228).
+  //
+  // Two tiers, in order of evidence strength. A row that resolves to a genuine export — runtime or
+  // type — reachable from any entry `package.json` declares is proved positively and needs nothing
+  // else. A row that does not (measured 2026-09-04: 77 rows across 5 packages list session METHODS,
+  // slash commands and config fields in the same table, which no export resolver can see) must at
+  // least appear in the package's CODE. Comments are blanked from that corpus: the defect this
+  // closes was a comment saying "`x` is NOT here" counting as proof that it was.
+  //
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
   for (const pkgDir of listSpecPackageDirs(root)) {
     const specPath = path.join(pkgDir, 'docs', 'SPEC.md');
@@ -360,14 +403,17 @@ export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT, options =
     const idents = publicApiIdentifiers(specText);
     if (idents.length === 0) continue;
 
-    const srcText = collectSrcText(srcDir);
+    const { names: declared } = declaredSurface(pkgDir);
+    let srcCode = null;
     for (const ident of idents) {
-      const present = new RegExp(`\\b${ident}\\b`).test(srcText);
-      if (!present) {
+      if (declared.has(ident)) continue;
+      srcCode ??= collectSrcCode(srcDir);
+      const mentionedInCode = new RegExp(`\\b${ident}\\b`).test(srcCode);
+      if (!mentionedInCode) {
         findings.push({
           file: path.relative(root, specPath),
           type: 'spec-phantom-export',
-          detail: `\`${ident}\` is advertised in the public-API table but appears nowhere in ${path.relative(root, srcDir)}.`,
+          detail: `\`${ident}\` is advertised in the public-API table but is neither a declared export of any package.json entry nor mentioned in the code (comments excluded) under ${path.relative(root, srcDir)}.`,
         });
       }
     }
