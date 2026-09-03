@@ -107,6 +107,15 @@ INFRA-017) is an internal test-harness provider loaded via a guarded `createRequ
 NOT bundled (not an end-user feature); absent in published installs it yields a clear error only when
 `--session-log` is used.
 
+**What a replay executes (issue #2302).** The replay substitutes the MODEL, never the tools: a
+`toolCalls` entry in a recorded response is dispatched against the session's live tool set, the
+tool's result is appended to the conversation, and the next recorded response is consumed
+(`agent-provider-replay/src/__tests__/replayed-tool-call-executes.test.ts`). In `-p` print mode only
+the final assistant text reaches stdout, so a tool's RESULT is invisible there by design — observe
+it through a side effect, the session record, or the server log. A call naming a tool the session
+does not have produces an error tool result and the run advances, which is why an unknown-tool probe
+and a `Read` probe print the same final text.
+
 ### AI Workflow Control Surface
 
 Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
