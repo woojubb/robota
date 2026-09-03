@@ -22,19 +22,19 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
 import '../tool-permission-profiles.js';
 
 const DEFAULT_EDIT_DESCRIPTION =
-  "Performs exact string replacements in files.\n\noldString must exactly match the file's current content, including whitespace and indentation — reading the file first (e.g. with a file-read tool) is the reliable way to copy exact text.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.";
+  "Performs exact string replacements in files.\n\noldString must exactly match the file's current content, including whitespace and indentation — reading the file first (e.g. with a file-read tool) is the reliable way to copy exact text.\n\nThe edit will FAIL if oldString is not unique in the file. Either provide more surrounding context to make it unique, or set replaceAll to change every instance.";
 
 const EditSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to modify'),
   oldString: z
     .string()
     .describe('The text to replace (must be an exact match of existing content)'),
-  newString: z.string().describe('The text to replace it with (must be different from old_string)'),
+  newString: z.string().describe('The text to replace it with (must be different from oldString)'),
   replaceAll: z
     .boolean()
     .optional()
     .describe(
-      'Replace all occurrences of old_string (default: false). Useful for renaming variables',
+      'Replace all occurrences of oldString (default: false). Useful for renaming variables',
     ),
 });
 
