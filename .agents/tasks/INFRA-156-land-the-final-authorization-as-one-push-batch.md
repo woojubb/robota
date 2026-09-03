@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-156: land the final authorization as one push batch'
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: now
@@ -27,6 +27,8 @@ no-issue: This is a repository-local delivery correction for the approved migrat
 - Compare the implementation files byte-for-byte with the independently reviewed INFRA-155 implementation.
 - Run default history and staged planning-order scans from current origin/develop.
 - Push the three-commit topic range once, then read back remote develop.
+
+- Deliver prelude, checkpoint, and implementation in one push batch.
 
 ## User Execution Test Scenarios
 
