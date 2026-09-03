@@ -7,7 +7,7 @@ packages/
 ├── agent-session/               # Session lifecycle and persistence
 ├── agent-session-analytics/     # Session-log timing analysis + reporting (pure; depends on agent-interface-transport + agent-core)
 ├── agent-tools/                 # Tool factories (createFunctionTool/createZodFunctionTool → core's FunctionTool), built-ins, sandbox ports/manifests
-├── agent-tool-defaults/         # Default tool-set aggregator (composition leaf): createDefaultTools(); deps agent-core + agent-tools only. ARCH-035 — see its docs/SPEC.md
+├── agent-tool-defaults/         # The SDK's own built-in default tool set (composition leaf): createDefaultTools(); composes agent-tools only, bundles no agent-tool-* siblings (#2202). ARCH-035 — see its docs/SPEC.md
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
