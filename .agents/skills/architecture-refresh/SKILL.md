@@ -100,7 +100,11 @@ The nested `architecture-audit-fanout` skill dispatches the four mutually blind 
    Low findings remain in the report but do not keep the loop alive. If any prior final material finding set
    recurs, stop as no-progress and escalate. The outer loop is capped at three rounds; if distinct material
    sets remain after round three, close `bound-reached` and escalate. A re-plan or UNSURE route closes
-   `halted-for-user`; an interrupted run closes `abandoned` rather than disappearing.
+   `halted-for-user`; an interrupted run closes `abandoned` rather than disappearing — and records a
+   `checkpoint` naming the last phase it COMPLETED first, or the floor waives nothing. An audit-only run
+   (not authorized to implement) stops after reconciliation: record `checkpoint --phase reconcile` and
+   close `halted-for-user`; depth and reconciliation are then validated in full and only dispositions
+   are waived. Every other terminal claims the whole loop and takes no checkpoint.
 
 ## Record the run
 
@@ -121,6 +125,7 @@ node scripts/harness/loop-run.mjs disposition --loop architecture-refresh --run 
 node scripts/harness/loop-run.mjs disposition --loop architecture-refresh --run <id> --id <finding-id> --outcome contained --target <root-id> --site <claim-site-path> --evidence '<exact-claim-anchor>'
 node scripts/harness/loop-run.mjs disposition --loop architecture-refresh --run <id> --id <finding-id> --outcome invalid --site <source-path> --evidence '<exact-source-fact>'
 node scripts/harness/loop-run.mjs link --loop architecture-refresh --run <id> --nested-run <fanout-run-id>
+node scripts/harness/loop-run.mjs checkpoint --loop architecture-refresh --run <id> --phase <opened|conformance|synthesize-draft|verify|synthesize-final|depth|reconcile|disposition>
 node scripts/harness/loop-run.mjs round --loop architecture-refresh --run <id> --findings <final-material-count>
 node scripts/harness/loop-run.mjs close --loop architecture-refresh --run <id> --terminal <converged|no-progress|bound-reached|halted-for-user|abandoned>
 ```

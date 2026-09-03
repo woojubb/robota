@@ -7,6 +7,44 @@
 
 export const ARCHITECTURE_REFRESH_EXTENSION = 'architectureRefresh';
 
+/**
+ * Issue #2170 — the protocol's phase order, as the scan binds partial validation to it.
+ *
+ * `abandoned` used to be a whole-run waiver: every LOCAL correction and INVALID disposition check was
+ * skipped on the terminal string alone, so a fully synthesized and depth-classified run could omit
+ * its dispositions by choosing the word. A partial run now records a CHECKPOINT — the last phase it
+ * completed — and the scan validates every phase at or before it exactly, allows the phases after it
+ * to be partial, and fails closed on evidence the checkpoint says cannot exist.
+ *
+ * The first four phases are sequential per round. From `depth` on the protocol is per finding
+ * (depth → reconcile → disposition, finding by finding), so once the routing tier is reached its
+ * three phases may all be partial together; a checkpoint INSIDE that tier still makes the phases up
+ * to it exact — `reconcile` is the audit-through-reconciliation shape: depth and reconciliation
+ * complete for every finding, no disposition applied.
+ */
+export const REFRESH_PHASE_ORDER = Object.freeze([
+  'conformance',
+  'synthesize-draft',
+  'verify',
+  'synthesize-final',
+  'depth',
+  'reconcile',
+  'disposition',
+]);
+
+/** A checkpoint before any phase completed. */
+export const REFRESH_CHECKPOINT_OPENED = 'opened';
+
+/** The terminals a checkpoint may accompany: a run that stopped short, never one claiming completion. */
+export const REFRESH_CHECKPOINT_TERMINALS = Object.freeze(['abandoned', 'halted-for-user']);
+
+/** Index of a phase in the protocol order; `opened` is -1, an unknown phase is `null`. */
+export function refreshPhaseIndex(phase) {
+  if (phase === REFRESH_CHECKPOINT_OPENED) return -1;
+  const index = REFRESH_PHASE_ORDER.indexOf(phase);
+  return index === -1 ? null : index;
+}
+
 export const ARCHITECTURE_REFRESH_ARRAY_FIELDS = Object.freeze([
   'signalExpectations',
   'signalObservations',
@@ -91,6 +129,7 @@ export function normalizeArchitectureRefreshMetadata(entry) {
       dispositions: (entry.dispositions ?? []).map(withRound),
       nestedRuns:
         typeof entry.nestedRunId === 'string' ? [{ round: 1, runId: entry.nestedRunId }] : [],
+      checkpoint: null,
     };
     entry.extensions[ARCHITECTURE_REFRESH_EXTENSION] = metadata;
     delete entry.signalExpectations;
@@ -101,5 +140,7 @@ export function normalizeArchitectureRefreshMetadata(entry) {
     delete entry.nestedRunId;
   }
   for (const field of ARCHITECTURE_REFRESH_ARRAY_FIELDS) metadata[field] ??= [];
+  // `{ round, phase }` — the last completed phase of a run that stopped short (issue #2170).
+  metadata.checkpoint ??= null;
   return metadata;
 }

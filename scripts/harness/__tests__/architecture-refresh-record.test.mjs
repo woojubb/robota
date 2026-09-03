@@ -16,7 +16,11 @@ describe('architecture refresh record contract', () => {
 
     const metadata = normalizeArchitectureRefreshMetadata(entry);
 
-    expect(Object.keys(metadata).sort()).toEqual([...ARCHITECTURE_REFRESH_ARRAY_FIELDS].sort());
+    // The array fields plus the one scalar: `checkpoint` (issue #2170), null until a run stops short.
+    expect(Object.keys(metadata).sort()).toEqual(
+      [...ARCHITECTURE_REFRESH_ARRAY_FIELDS, 'checkpoint'].sort(),
+    );
+    expect(metadata.checkpoint).toBe(null);
     expect(metadata.signalExpectations).toEqual([
       { round: 1, phase: 'verify', agent: 'finding-verifier', subject: 'F-1' },
     ]);

@@ -1001,7 +1001,11 @@ export const SCAN_COMMANDS = [
   {
     name: 'architecture-refresh-signals',
     command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
-    examines: [AGENTS, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
+    examines: [
+      AGENTS,
+      'scripts/harness/task-lifecycle-legacy-baseline.json',
+      'scripts/harness/architecture-refresh-legacy-baseline.json',
+    ],
   },
   {
     name: 'retired-agent-references',

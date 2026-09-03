@@ -46,6 +46,7 @@
  *   node scripts/harness/loop-run.mjs reconcile-route --loop <skill> --run <id> --id <finding-id> --action <filed|reused|updated> --target <root-id> [--site <task-path>] [--evidence <text>]
  *   node scripts/harness/loop-run.mjs disposition --loop <skill> --run <id> --id <finding-id> --outcome <outcome> [--target <id>] [--site <path>] [--evidence <text>]
  *   node scripts/harness/loop-run.mjs link --loop <skill> --run <id> --nested-run <id>
+ *   node scripts/harness/loop-run.mjs checkpoint --loop <skill> --run <id> --phase <last completed phase>   (before closing `abandoned` / an audit-only `halted-for-user`)
  *   node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
  *   node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason> [--ref <text>]
  *   node scripts/harness/loop-run.mjs show  --loop <skill>
@@ -64,8 +65,11 @@ import {
 import path from 'node:path';
 
 import {
+  REFRESH_CHECKPOINT_OPENED,
+  REFRESH_PHASE_ORDER,
   architectureExpectationError,
   normalizeArchitectureRefreshMetadata,
+  refreshPhaseIndex,
 } from './architecture-refresh-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
 
@@ -568,6 +572,32 @@ export function recordDisposition({
   return entries[index];
 }
 
+/**
+ * Issue #2170 — record the last phase a run COMPLETED before it stops short of the full loop, so a
+ * later `abandoned` or `halted-for-user` close is bound to a protocol phase rather than waiving every
+ * check on the terminal string. Recorded once: a run is interrupted at one place.
+ */
+export function recordCheckpoint({ root, skill, runId, phase }) {
+  requireArchitectureProtocolSkill(skill, new Set(['architecture-refresh']));
+  const normalizedPhase = requireText(phase, 'phase');
+  if (refreshPhaseIndex(normalizedPhase) === null) {
+    throw new Error(
+      `loop-run: checkpoint phase must be ${REFRESH_CHECKPOINT_OPENED} or one of ${REFRESH_PHASE_ORDER.join(', ')}, got \`${normalizedPhase}\`.`,
+    );
+  }
+  const entries = readLedger(root, skill);
+  const index = requireOpen(entries, skill, runId);
+  const metadata = architectureMetadata(entries[index]);
+  if (metadata.checkpoint !== null) {
+    throw new Error(
+      `loop-run: run \`${runId}\` already records checkpoint ${metadata.checkpoint.phase} in round ${metadata.checkpoint.round}.`,
+    );
+  }
+  metadata.checkpoint = { round: currentRound(entries[index]), phase: normalizedPhase };
+  writeLedger(root, skill, entries);
+  return entries[index];
+}
+
 export function linkNestedRun({ root, skill, runId, nestedRunId }) {
   requireArchitectureProtocolSkill(skill, new Set(['architecture-refresh']));
   const entries = readLedger(root, skill);
@@ -777,6 +807,18 @@ export function main(
         evidence: args.evidence,
       });
       out(`loop-run: ${args.loop} run ${entry.runId} records ${args.id} as ${args.outcome}.`);
+      return 0;
+    }
+    case 'checkpoint': {
+      const entry = recordCheckpoint({
+        root,
+        skill: args.loop,
+        runId: args.run,
+        phase: args.phase,
+      });
+      out(
+        `loop-run: ${args.loop} run ${entry.runId} records checkpoint ${args.phase} in round ${entry.roundFindings.length + 1}.`,
+      );
       return 0;
     }
     case 'link': {

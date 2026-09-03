@@ -21,6 +21,7 @@ import {
   openRun,
   permitsTerminal,
   readLedger,
+  recordCheckpoint,
   recordRound,
   recordDisposition,
   recordFoundationalId,
@@ -641,5 +642,57 @@ describe('the CLI', () => {
     expect(() =>
       main(['frobnicate', '--loop', 'looper'], { root, now: NOW, out: () => {} }),
     ).toThrow(/unknown command/);
+  });
+});
+
+describe('recordCheckpoint (issue #2170)', () => {
+  it('records the last completed phase in the current round, once', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET });
+    const { runId } = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    recordRound({ root, skill: 'architecture-refresh', runId, findings: 2 });
+    const entry = recordCheckpoint({
+      root,
+      skill: 'architecture-refresh',
+      runId,
+      phase: 'reconcile',
+    });
+    expect(entry.extensions.architectureRefresh.checkpoint).toEqual({
+      round: 2,
+      phase: 'reconcile',
+    });
+    expect(() =>
+      recordCheckpoint({ root, skill: 'architecture-refresh', runId, phase: 'depth' }),
+    ).toThrow(/already records checkpoint reconcile in round 2/);
+  });
+
+  it('refuses a phase outside the protocol order and a loop that does not own the protocol', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET, looper: FINDING_SET });
+    const refresh = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    expect(() =>
+      recordCheckpoint({
+        root,
+        skill: 'architecture-refresh',
+        runId: refresh.runId,
+        phase: 'apply',
+      }),
+    ).toThrow(/checkpoint phase must be opened or one of conformance/);
+    const other = openRun({ root, skill: 'looper', now: NOW });
+    expect(() =>
+      recordCheckpoint({ root, skill: 'looper', runId: other.runId, phase: 'depth' }),
+    ).toThrow();
+  });
+
+  it('CLI `checkpoint` records the phase and says so', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET });
+    const { runId } = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    const lines = [];
+    const exit = main(
+      ['checkpoint', '--loop', 'architecture-refresh', '--run', runId, '--phase', 'opened'],
+      { root, now: NOW, out: (line) => lines.push(line) },
+    );
+    expect(exit).toBe(0);
+    expect(lines[0]).toMatch(/records checkpoint opened in round 1/);
+    const [entry] = readLedger(root, 'architecture-refresh');
+    expect(entry.extensions.architectureRefresh.checkpoint).toEqual({ round: 1, phase: 'opened' });
   });
 });
