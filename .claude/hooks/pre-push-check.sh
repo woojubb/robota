@@ -7,6 +7,7 @@
 # gates on, and a push that proceeds on that is the one nobody looks at again.
 # 1. Branch-base hygiene (no foreign merge commits over origin/develop)
 # 2. Verify pnpm-lock.yaml is committed and in sync
+# A push that only DELETES remote branches carries no diff and is exempt from all of it (issue #2310).
 # The heavy typecheck/lint/test re-runs were removed (HARNESS-DIET-006):
 # .husky/pre-push (harness:pre-push) and CI already own those gates.
 # Runs as a PreToolUse hook on Bash tool calls.
@@ -108,6 +109,18 @@ fi
 # to disagree (#1667 review; lib/command-scan.sh carries this file's history of exactly that).
 RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 printf '%s' "$COMMAND_VERBS" | grep -qE "$RE_PUSH_STMT" || exit 0
+
+# A DELETION carries no diff (issue #2310). `git push origin --delete <merged-branch>` — the step
+# post-merge-cycle mandates after every merge — was refused against the review record of whatever
+# branch the checkout happened to be on ("the diff has changed since"), so a required hook refused a
+# required step and the only way through was PRE_PUSH_ALLOW_UNREVIEWED=1. An override spent on a
+# routine step is an override that stops being a signal. Three spellings delete a remote ref:
+# `--delete`, `-d`, and a refspec with an EMPTY local side (`:<ref>`, optionally `+:<ref>`). A
+# refspec like `HEAD:refs/heads/x` has a local side and is a content push — the colon must start
+# the token. Judged on the statement's MASK, so a flag hidden inside quotes is not read as one and
+# that push falls through to the full gate rather than being waved.
+RE_PUSH_DELETE='push[[:space:]]+(.*[[:space:]]+)?(--delete|-d|\+?:[^[:space:]]+)([[:space:]]|$)'
+PUSH_DELETIONS=0
 
 # Worktree-aware context resolution — the repository the push will ACTUALLY act on (#1662).
 #
@@ -249,6 +262,13 @@ while read -r PS_START PS_LEN; do
   # chain while leaving the exact grep engine to DECIDE the statements that could be pushes.
   # (HARNESS-083)
   if [[ "$PS_MASK" == *push* ]] && printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
+    # A deletion statement contributes no repository to judge and is counted, not resolved. The
+    # content pushes beside it (if any) are judged exactly as before — the exemption is per
+    # statement, and the command is waved only when NO content push remains (issue #2310).
+    if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_DELETE"; then
+      PUSH_DELETIONS=$((PUSH_DELETIONS + 1))
+      continue
+    fi
     # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
     # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
     # turns out not to be a work tree is refused below; the fallback keeps its existing handling.
@@ -598,6 +618,12 @@ while read -r PS_START PS_LEN; do
     fi
   fi
 done <<< "$STATEMENT_RANGES"
+# Only when EVERY push statement was a deletion: PUSH_SEEN is set by the content pushes alone, so a
+# deletion chained to a content push still meets the full gate below (issue #2310).
+if (( PUSH_DELETIONS > 0 )) && [[ "$PUSH_SEEN" != "true" ]]; then
+  echo "[pre-push-check] Deletion-only push: it carries no diff, so hygiene, lockfile and review-record checks do not apply." >&2
+  exit 0
+fi
 if [[ "$PUSH_DIR_CONFLICT" == "true" ]]; then
   echo "[pre-push-check] Blocked: this command pushes from two different repositories, and one" >&2
   echo "[pre-push-check] verdict cannot be about both. Split the pushes into separate commands." >&2

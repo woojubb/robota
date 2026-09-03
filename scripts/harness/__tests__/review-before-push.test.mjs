@@ -184,6 +184,38 @@ describe('a feature-branch push carries a reviewed diff', () => {
     expect(push(dir).status, 'a record with no findings field passed as clean').toBe(2);
   });
 
+  it('does not demand a review for a push that only deletes remote branches (issue #2310)', () => {
+    // `post-merge-cycle` mandates `git push origin --delete <merged-branch>`, and this hook refused
+    // it against the review record of whatever branch the checkout was parked on — "the diff has
+    // changed since" — for a push that carries no diff. Every spelling of a deletion is exempt.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git push origin --delete feat/old',
+      'git push --delete origin feat/old',
+      'git push -d origin feat/old',
+      'git push origin :feat/old',
+      'git push origin --delete feat/old && git push origin --delete feat/older',
+    ]) {
+      const verdict = push(dir, command);
+      expect(verdict.status, `a deletion was refused: ${command}\n${verdict.output}`).toBe(0);
+      expect(verdict.output).toMatch(/Deletion-only push/);
+    }
+  });
+
+  it('still demands a review when a deletion is chained with a content push', () => {
+    // The exemption is per statement. A content push beside a deletion carries a diff someone
+    // should have reviewed, and a refspec WITH a local side (`HEAD:refs/heads/x`) is not a deletion.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git push origin --delete feat/old && git push -u origin feat/probe',
+      'git push origin HEAD:refs/heads/feat/probe',
+    ]) {
+      const verdict = push(dir, command);
+      expect(verdict.status, `an unreviewed content push was waved: ${command}`).toBe(2);
+      expect(verdict.output).toMatch(/no local review recorded/);
+    }
+  });
+
   it('refuses a push from a detached HEAD', () => {
     // No branch means no key for a record, and falling through produced one shared filename that
     // every detached push would satisfy for every other. The hygiene check above exempts the empty
