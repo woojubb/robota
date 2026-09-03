@@ -261,10 +261,20 @@ export const USER_EXECUTION_SECTION = `## User Execution Test Scenarios
 **Reason:** TODO — why no end user can observe this change directly through a runnable surface.
 `;
 
+/**
+ * A YAML single-quoted scalar. The only escape the form has is the doubled quote: `it's` is written
+ * `'it''s'`. Interpolating the text raw let an apostrophe in the title terminate the scalar early
+ * (issue #2298) — `.agents/tasks/README.md` declares the frontmatter to be YAML, so the generator
+ * has to emit YAML, whatever the in-repo reader happens to tolerate.
+ */
+export function yamlSingleQuoted(text) {
+  return `'${String(text).replace(/'/g, "''")}'`;
+}
+
 /** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
 export function recordStub({ id, title, today, issue = null }) {
   return `---
-title: '${id}: ${title}'
+title: ${yamlSingleQuoted(`${id}: ${title}`)}
 ${issue === null ? '' : `issue: https://github.com/woojubb/robota/issues/${issue}\n`}status: todo
 created: ${today}
 priority: medium

@@ -23,7 +23,9 @@ import {
   readExamined,
   recordStub,
   treeFreshness,
+  yamlSingleQuoted,
 } from '../allocate-work-item-id.mjs';
+import { frontmatterObject } from '../frontmatter.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 function repoWith({ records = [], files = {} }) {
@@ -195,6 +197,21 @@ describe('the record it writes', () => {
     expect(template).toContain('\n## User Execution Test Scenarios\n');
     expect(template).toMatch(/^Not applicable\.$/m);
     expect(template).toMatch(/^\*\*Reason:\*\* /m);
+  });
+
+  it('writes a title carrying an apostrophe as valid YAML, and reads it back whole (#2298)', () => {
+    // Raw interpolation into a single-quoted scalar let `an issue's` close the scalar after `issue`.
+    // YAML's only escape inside single quotes is the doubled quote, so that is what must be emitted —
+    // and the repo's own frontmatter reader must give the title back intact, not truncated and not
+    // with the escape still in it.
+    const title = "an issue's resolution is delegated to a host feature";
+    const withApostrophe = recordStub({ id: 'PROC-015', title, today: '2026-08-25' });
+
+    expect(withApostrophe).toContain(
+      "title: 'PROC-015: an issue''s resolution is delegated to a host feature'",
+    );
+    expect(frontmatterObject(withApostrophe).title).toBe(`PROC-015: ${title}`);
+    expect(yamlSingleQuoted("a'b'c")).toBe("'a''b''c'");
   });
 });
 

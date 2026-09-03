@@ -46,12 +46,20 @@ export function parseGitTrailerLine(line) {
  * Strip ONE layer of surrounding quotes: `"draft"` → `draft`.
  *
  * Conservative on purpose — a value that merely CONTAINS the quote character (`"a" and "b"`) is
- * returned untouched, so a quoted phrase inside a prose value is never mangled.
+ * returned untouched, so a quoted phrase inside a prose value is never mangled. The one interior
+ * quote that IS understood is YAML's single-quoted escape, the doubled apostrophe: `'it''s'` reads
+ * as `it's`, which is what `allocate-work-item-id.mjs` writes for a title carrying one (issue
+ * #2298). An interior apostrophe that is not doubled still leaves the value untouched.
  */
 export function unquote(text) {
   const trimmed = String(text).trim();
   const match = /^(['"])([\s\S]*)\1$/.exec(trimmed);
-  if (match && !match[2].includes(match[1])) return match[2].trim();
+  if (!match) return trimmed;
+  const [, quote, inner] = match;
+  if (!inner.includes(quote)) return inner.trim();
+  if (quote === "'" && !inner.replace(/''/g, '').includes("'")) {
+    return inner.replace(/''/g, "'").trim();
+  }
   return trimmed;
 }
 
