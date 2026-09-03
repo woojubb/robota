@@ -930,7 +930,12 @@ jobs:
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
-    if: (github.base_ref || inputs.base_ref) != 'main'
+    # `merged != true`: a body edit AFTER the merge re-dispatches this workflow against the closed PR
+    # (`edited` is subscribed for INFRA-055), and on a merged PR the range `origin/<base>..<head>` is
+    # empty by construction — so this job failed closed and repainted the merged head's required
+    # projection red 12 minutes after a green landing (issue #2424, PRs #2414/#2417). A closed PR has
+    # nothing left for this gate to decide; skip rather than fail. Open-PR behaviour is unchanged.
+    if: (github.base_ref || inputs.base_ref) != 'main' && github.event.pull_request.merged != true
 
     steps:
       - name: Refuse unsafe benchmark check attachment

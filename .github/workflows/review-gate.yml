@@ -109,8 +109,11 @@ jobs:
     name: review-gate
     needs: [classify, analyze]
     # A failed prerequisite must produce a blocking gate verdict. Cancellation is the only state
-    # that must not start new work.
-    if: ${{ !cancelled() && needs.classify.result != 'cancelled' && needs.analyze.result != 'cancelled' }}
+    # that must not start new work. `merged != true`: a post-merge body edit re-dispatches this
+    # workflow against the closed PR, where the verdict is unavailable by construction, and the
+    # resulting `BLOCK (verdict-unavailable)` repainted an already-landed head red (issue #2424).
+    # A merged PR has nothing left for this gate to decide; skip rather than fail.
+    if: ${{ !cancelled() && github.event.pull_request.merged != true && needs.classify.result != 'cancelled' && needs.analyze.result != 'cancelled' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
