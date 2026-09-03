@@ -1081,7 +1081,13 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
   `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
   `completed/`, or any terminal status without a valid `completed:` date. The `task-archival` scan
   additionally validates AGREEMENT child projections and fails a fully-checked task file whose spec
-  never reached `spec-docs/done/` (gates overdue). These
+  never reached `spec-docs/done/` (gates overdue) — **over un-archived task files only.** It reads
+  `.agents/tasks/` and not `completed/`, so the `git mv` that archives a record also removes it from
+  the scan's population, and the act the invariant gates is the act that ends its enforcement
+  (issue #2265). Refusing to archive a fully-checked record whose spec is still outside
+  `spec-docs/done/` is therefore the contributor's responsibility, not something the scan will catch
+  afterwards; widening the scan to the archived population (~900 records, ~80 of which would go red
+  on the first run) is a separate decision with its own baseline. These
   invariants held only as prose until they were mechanized, and the sweep that mechanized them found
   eight shipped items with stale placement.
 
