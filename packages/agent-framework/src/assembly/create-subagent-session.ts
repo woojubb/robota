@@ -39,6 +39,21 @@ const MODEL_SHORTCUTS: Record<string, string> = {
 };
 const LEGACY_AGENT_TOOL_NAME = 'Agent';
 
+/**
+ * Issue #2317: the context members a subagent assembly READS, and no others.
+ *
+ * `parentContext` demanded the parent's whole `ILoadedContext` — seven members, two of them
+ * (`agentsFileEntries`, `projectNotesFileEntries`) carrying the full text of every AGENTS.md and
+ * CLAUDE.md the parent loaded — while this assembly reads exactly two. Declared structurally, as
+ * ARCH-044 did for `parentConfig`: the in-process runner passes its full `ILoadedContext` and
+ * satisfies it, and the child-process runner passes a projection carrying only these two, which is
+ * what keeps the file contents off the wire.
+ */
+export interface ISubagentParentContext {
+  readonly agentsMd: ILoadedContext['agentsMd'];
+  readonly projectNotesMd: ILoadedContext['projectNotesMd'];
+}
+
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
   /** Agent definition (built-in or custom). */
@@ -57,8 +72,8 @@ export interface ISubagentOptions {
     readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
     readonly hooks?: IResolvedConfig['hooks'];
   };
-  /** Parent's loaded context (CLAUDE.md, AGENTS.md). */
-  parentContext: ILoadedContext;
+  /** The two members of the parent's loaded context this assembly reads (issue #2317). */
+  parentContext: ISubagentParentContext;
   /** Parent session's available tools (to inherit/filter). */
   parentTools: IToolWithEventService[];
   /** AI provider instance. */

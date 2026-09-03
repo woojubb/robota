@@ -1,8 +1,8 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
-  IInProcessSubagentRunnerDeps,
   IResolvedConfig,
+  ISubagentParentContext,
 } from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
@@ -48,7 +48,14 @@ export interface ISubagentWorkerStartPayload {
    * because structural typing would accept the whole config here.
    */
   parentConfig: ISubagentWorkerParentConfig;
-  parentContext: IInProcessSubagentRunnerDeps['context'];
+  /**
+   * Issue #2317: the two context members the child reads, declared rather than indexed out of the
+   * runtime type. It was `IInProcessSubagentRunnerDeps['context']` — the parent's whole
+   * `ILoadedContext`, whose `agentsFileEntries` / `projectNotesFileEntries` carry the full text of
+   * every AGENTS.md and CLAUDE.md the parent loaded — and the child read two of its seven members.
+   * `projectParentContext` is what enforces it at runtime, for the same reason as `parentConfig`.
+   */
+  parentContext: ISubagentParentContext;
   providerProfile: ISerializableProviderProfile;
   /**
    * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.

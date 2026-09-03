@@ -469,6 +469,7 @@ export {
 export type {
   ISubagentPromptOptions,
   ISubagentOptions,
+  ISubagentParentContext,
   TSubagentSuffix,
 } from './assembly/index.js';
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
