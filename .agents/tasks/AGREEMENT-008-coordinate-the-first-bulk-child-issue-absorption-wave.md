@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-008: coordinate the first bulk child-Issue absorption wave'
 issue: https://github.com/woojubb/robota/issues/2079
-status: todo
+status: in-progress
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -72,6 +72,7 @@ frontmatter, and the fact that none of the product outcomes has been delivered y
 
 ## Test Plan
 
+- Execute the administrative migration as one bounded batch and reconcile it once after all authorized writes.
 - Validate Task/spec projections and source Issue identities across the complete 19-file prelude.
 - Validate the exact C1 manifest and all 22 readable Task paths before the first GitHub write.
 - Perform one complete post-write read-back covering bodies, marker authors, labels, states, reasons, and
