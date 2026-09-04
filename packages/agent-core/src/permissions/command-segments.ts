@@ -67,75 +67,135 @@ export function hasUnquotedCommandSeparator(command: string): boolean {
  * with. Empty segments are dropped.
  */
 export function splitCommandSegments(command: string): string[] {
-  const segments: string[] = [];
-  let current = '';
-  let quote: "'" | '"' | undefined;
-  let substitutionDepth = 0;
-  const cut = (): void => {
-    const trimmed = current.trim();
-    if (trimmed !== '') segments.push(trimmed);
-    current = '';
-  };
+  const scan: IScanState = { segments: [], current: '', quote: undefined, substitutionDepth: 0 };
   for (let index = 0; index < command.length; index += 1) {
-    const char = command[index]!;
-    if (quote === "'") {
-      current += char;
-      if (char === "'") quote = undefined;
+    // The order below IS the rule: single-quoted text and backslash escapes are literal first, a
+    // substitution runs whatever quoting surrounds it next, double quotes only then suppress the
+    // remaining separators. `hasUnquotedCommandSeparator` asks the same questions in the same order.
+    const literal = consumeLiteralText(scan, command, index);
+    if (literal !== undefined) {
+      index = literal;
       continue;
     }
-    if (char === '\\') {
-      const escaped = command[index + 1];
-      current += escaped === undefined ? char : char + escaped;
-      index += 1;
+    const substitution = consumeSubstitutionOpen(scan, command, index);
+    if (substitution !== undefined) {
+      index = substitution;
       continue;
     }
-    const next = command[index + 1];
-    // A substitution runs its contents whatever quoting surrounds it — `"$(…)"` included.
-    if (char === '`') {
-      cut();
+    if (consumeQuote(scan, command[index]!)) continue;
+    const separator = consumeSeparator(scan, command, index);
+    if (separator !== undefined) {
+      index = separator;
       continue;
     }
-    if (char === '$' && next === '(') {
-      cut();
-      substitutionDepth += 1;
-      index += 1;
-      continue;
-    }
-    if (quote === '"') {
-      current += char;
-      if (char === '"') quote = undefined;
-      continue;
-    }
-    if (char === "'" || char === '"') {
-      quote = char;
-      current += char;
-      continue;
-    }
-    if ((char === '<' || char === '>') && next === '(') {
-      cut();
-      substitutionDepth += 1;
-      index += 1;
-      continue;
-    }
-    if (char === ')' && substitutionDepth > 0) {
-      cut();
-      substitutionDepth -= 1;
-      continue;
-    }
-    if (char === ';' || char === '|' || char === '\n') {
-      cut();
-      continue;
-    }
-    if (char === '&') {
-      const previous = command[index - 1];
-      // `2>&1`, `<&0` and `&>log` are redirections, not a second command.
-      if (previous !== '>' && previous !== '<' && next !== '>') {
-        cut();
-        continue;
-      }
-    }
-    current += char;
+    scan.current += command[index]!;
   }
-  cut();
-  return segments;
+  cut(scan);
+  return scan.segments;
+}
+
+/** The scanner's whole state: what has been cut off, what is being accumulated, and where it is. */
+interface IScanState {
+  segments: string[];
+  current: string;
+  quote: "'" | '"' | undefined;
+  substitutionDepth: number;
+}
+
+/** End the segment under construction. An empty one is dropped, so `a ;; b` is two commands. */
+function cut(scan: IScanState): void {
+  const trimmed = scan.current.trim();
+  if (trimmed !== '') scan.segments.push(trimmed);
+  scan.current = '';
+}
+
+/**
+ * Text that cannot be a boundary whatever follows: the body of a single-quoted run, and a
+ * backslash with the character it escapes (which the shell honours inside double quotes too).
+ * Returns the last index consumed, or `undefined` when this character is not literal text.
+ */
+function consumeLiteralText(scan: IScanState, command: string, index: number): number | undefined {
+  const char = command[index]!;
+  if (scan.quote === "'") {
+    scan.current += char;
+    if (char === "'") scan.quote = undefined;
+    return index;
+  }
+  if (char === '\\') {
+    const escaped = command[index + 1];
+    scan.current += escaped === undefined ? char : char + escaped;
+    return index + 1;
+  }
+  return undefined;
+}
+
+/**
+ * A substitution runs its contents whatever quoting surrounds it — `"$(…)"` included — so it cuts
+ * before the double-quote rule is consulted. Returns the last index consumed, else `undefined`.
+ */
+function consumeSubstitutionOpen(
+  scan: IScanState,
+  command: string,
+  index: number,
+): number | undefined {
+  const char = command[index]!;
+  if (char === '`') {
+    cut(scan);
+    return index;
+  }
+  if (char === '$' && command[index + 1] === '(') {
+    cut(scan);
+    scan.substitutionDepth += 1;
+    return index + 1;
+  }
+  return undefined;
+}
+
+/** Enter or leave a quoted run, keeping the quote character in the segment text. */
+function consumeQuote(scan: IScanState, char: string): boolean {
+  if (scan.quote === '"') {
+    scan.current += char;
+    if (char === '"') scan.quote = undefined;
+    return true;
+  }
+  if (char === "'" || char === '"') {
+    scan.quote = char;
+    scan.current += char;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The boundaries that only apply outside quotes: process substitution (`<(`, `>(`), the `)` that
+ * closes one, and the plain separators `;` `|` `&` and newline. Returns the last index consumed,
+ * else `undefined`.
+ */
+function consumeSeparator(scan: IScanState, command: string, index: number): number | undefined {
+  const char = command[index]!;
+  if ((char === '<' || char === '>') && command[index + 1] === '(') {
+    cut(scan);
+    scan.substitutionDepth += 1;
+    return index + 1;
+  }
+  if (char === ')' && scan.substitutionDepth > 0) {
+    cut(scan);
+    scan.substitutionDepth -= 1;
+    return index;
+  }
+  if (char === ';' || char === '|' || char === '\n') {
+    cut(scan);
+    return index;
+  }
+  if (char === '&' && startsASecondCommand(command, index)) {
+    cut(scan);
+    return index;
+  }
+  return undefined;
+}
+
+/** `2>&1`, `<&0` and `&>log` are redirections, not a second command. */
+function startsASecondCommand(command: string, index: number): boolean {
+  const previous = command[index - 1];
+  return previous !== '>' && previous !== '<' && command[index + 1] !== '>';
 }

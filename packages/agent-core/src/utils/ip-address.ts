@@ -16,11 +16,18 @@
 
 import { isIP } from 'node:net';
 
+/** What `isIP` answers: 4 for an IPv4 literal, 6 for an IPv6 one, 0 for text that is neither. */
+const IP_VERSION_V4 = 4;
+const IP_VERSION_V6 = 6;
+/** An IPv6 group is two octets wide, and is written in hex once a dotted quad is folded into one. */
+const OCTET_BITS = 8;
+const HEX_RADIX = 16;
+
 /** True when `ip` (v4 or v6 text) is not a public unicast address. */
 export function isPrivateAddress(ip: string): boolean {
   const version = isIP(ip);
-  if (version === 4) return isPrivateIpv4(ip.split('.').map(Number));
-  if (version === 6) return isPrivateIpv6(ip);
+  if (version === IP_VERSION_V4) return isPrivateIpv4(ip.split('.').map(Number));
+  if (version === IP_VERSION_V6) return isPrivateIpv6(ip);
   return true; // not an address at all: never treat it as public
 }
 
@@ -73,10 +80,10 @@ function withoutDottedQuadTail(ip: string): string | undefined {
   const lastColon = ip.lastIndexOf(':');
   const tail = ip.slice(lastColon + 1);
   if (!tail.includes('.')) return ip;
-  if (lastColon < 0 || isIP(tail) !== 4) return undefined;
+  if (lastColon < 0 || isIP(tail) !== IP_VERSION_V4) return undefined;
   const [a = 0, b = 0, c = 0, d = 0] = tail.split('.').map(Number);
-  const high = ((a << 8) | b).toString(16);
-  const low = ((c << 8) | d).toString(16);
+  const high = ((a << OCTET_BITS) | b).toString(HEX_RADIX);
+  const low = ((c << OCTET_BITS) | d).toString(HEX_RADIX);
   return `${ip.slice(0, lastColon + 1)}${high}:${low}`;
 }
 
