@@ -655,9 +655,9 @@ export { createInteractiveRuntime } from './interaction/createInteractiveRuntime
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';
 
 // ── Permissions ─────────────────────────────────────────────
-export { promptForApproval } from './permissions/permission-prompt.js';
-// Issue #2351: what "allow always" grants, so every prompt surface prints the same scope.
-export { consentScopeFor } from '@robota-sdk/agent-session';
+// Issue #2351: `consentScopeFor` is what "allow always" grants, so every prompt surface prints the
+// same scope — the framework's own facade over agent-session's rule (see permission-prompt.ts).
+export { consentScopeFor, promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 // Test-only fixtures (the functional session harness + stub session) are exported from the

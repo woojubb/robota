@@ -73,6 +73,9 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 | `issueRootRotation`         | function | SEC-011: sign a root handover with BOTH roots — the old to say it succeeds, the new to prove it exists and consents.                                     |
 | `verifyRootRotation`        | function | SEC-011: verify a rotation against the root this machine trusts today. HYGIENE only — a compromised root is abandoned, not rotated.                      |
 | `previousRootStillAccepted` | function | SEC-011: is a certificate from the retiring root still acceptable? Takes the VERDICT, so the bound cannot be read off an unverified statement.           |
+| `IEnrollFrame`              | type     | The identity-exchange frame (`t: 'enroll-key'`, `spki`) both sides send after a first-pair accept (E3 enrollment)                                        |
+| `TPreAuthFrame`             | type     | Every frame a carrier admits before the session is exposed — `TPairingFrame \| TReconnectFrame \| IEnrollFrame`                                          |
+| `TFrameDecodeResult`        | type     | `{ ok: true, frame } \| { ok: false, reason }` — the total result of decoding a pre-auth frame; a malformed frame is a reason, never a throw             |
 
 ### SEC-011 — same USER, across two computers (#1812)
 

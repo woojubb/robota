@@ -141,17 +141,22 @@ Hook event types and hook execution are owned by `agent-core`.
 
 ### Public API: Background Tasks
 
-| Export                                  | Kind     | Description                                          |
-| --------------------------------------- | -------- | ---------------------------------------------------- |
-| `BackgroundTaskManager`                 | class    | In-memory task registry and scheduler                |
-| `BackgroundTaskError`                   | class    | Typed runtime error with category and recoverability |
-| `transitionBackgroundTaskStatus`        | function | Pure state transition function                       |
-| `isTerminalBackgroundTaskStatus`        | function | Terminal-state predicate                             |
-| `getBackgroundTaskTransitions`          | function | Transition table snapshot for tests/audits           |
-| `createLimitedOutputCapture`            | function | UTF-8-safe bounded output capture helper             |
-| `appendPrefixedLogLines`                | function | Append source-prefixed non-empty log lines           |
-| `createBackgroundTaskLogPage`           | function | Cursor-based log pagination helper                   |
-| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant | Default page size (200 lines) for log pagination     |
+| Export                                  | Kind      | Description                                                                                                                                |
+| --------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                      |
+| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                       |
+| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                             |
+| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                   |
+| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                 |
+| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                   |
+| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                 |
+| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                         |
+| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                           |
+| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count |
+| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                  |
+| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                         |
+| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                |
+| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                        |
 
 ### Public API: Background Task Runners (Concrete — default implementations)
 

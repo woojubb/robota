@@ -16,8 +16,8 @@
     "type": 26
   },
   "@robota-sdk/agent-framework": {
-    "runtime": 151,
-    "type": 292
+    "runtime": 149,
+    "type": 291
   },
   "@robota-sdk/agent-interface-analytics": {
     "type": 7
@@ -74,9 +74,6 @@
   },
   "@robota-sdk/agent-tools": {
     "type": 49
-  },
-  "@robota-sdk/agent-transport": {
-    "type": 1
   },
   "@robota-sdk/agent-transport-gui": {
     "type": 3

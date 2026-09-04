@@ -110,21 +110,23 @@ the other.
 
 ## Public API Surface
 
-| Export                             | Kind      | Description                                                                            |
-| ---------------------------------- | --------- | -------------------------------------------------------------------------------------- |
-| `createTransportFailedOutcome`     | Function  | builds a failed run outcome from a non-zero exit code, refusing anything outside 1–255 |
-| `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator    |
-| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                           |
-| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                             |
-| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection        |
-| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                               |
-| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                      |
-| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                            |
-| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                            |
-| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                             |
-| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract               |
-| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`   |
-| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                   |
+| Export                             | Kind      | Description                                                                                                                                             |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createTransportFailedOutcome`     | Function  | builds a failed run outcome from a non-zero exit code, refusing anything outside 1–255                                                                  |
+| `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator                                                                     |
+| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                                                                            |
+| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                                                                              |
+| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                                                                         |
+| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                                                                                |
+| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                                                                                       |
+| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                                                                             |
+| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                                                                                             |
+| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                                                                              |
+| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract                                                                                |
+| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`                                                                    |
+| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                                                                                    |
+| `ITransportSavedConfig`            | Interface | TRANS-010 (issue #2480): what is persisted for one transport — `enabled?` and `options?`                                                                |
+| `ITransportSettingsRepository`     | Interface | TRANS-010: the storage port (`readAll`/`write`) the registry's settings view goes through, so no transport package owns a settings file, path or format |
 
 **This package exports what it declares, and nothing else.** Until ARCH-108 (issue #2113) this
 section carried a second table listing fourteen re-exported "contract groups" — command, session,

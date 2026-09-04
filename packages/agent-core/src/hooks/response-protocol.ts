@@ -111,7 +111,7 @@ export function interpretAllowOutcome(stdout: string, event: THookEvent): IAllow
 }
 
 /** Parse hook stdout as JSON if it starts with '{', otherwise return null. */
-export function parseHookJson(stdout: string): Record<string, unknown> | null {
+function parseHookJson(stdout: string): Record<string, unknown> | null {
   const trimmed = stdout.trim();
   if (!trimmed.startsWith('{')) return null;
   try {

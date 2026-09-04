@@ -11,6 +11,10 @@
 - Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
 - Delegates AI provider calls to `@robota-sdk/agent-provider-gemini` (subpath `/google`, `GoogleProvider`). Does not own provider implementation.
 - Binary port definitions use `BINARY_PORT_PRESETS.IMAGE_COMMON` from `@robota-sdk/dag-node`.
+- Node-only by declaration as well as by fact (CORE-028): since #2026 a model-provided HTTP image
+  source is fetched through `@robota-sdk/agent-core/node`'s egress boundary, so the package
+  declares no `browser` export condition — like the other Node-only nodes (`file-read`,
+  `file-write`, `skill`) — rather than a nominal one that resolved to the Node bundle anyway.
 - Config validation through Zod schemas (`GeminiImageEditConfigSchema`, `GeminiImageComposeConfigSchema`).
 - Input validation uses `NodeIoAccessor` helpers (`requireInputBinary`, `requireInputBinaryList`, `requireInputString`).
 

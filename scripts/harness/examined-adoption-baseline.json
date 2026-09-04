@@ -53,6 +53,7 @@
     "preset-projection",
     "product-identity",
     "progress-report-quantification",
+    "provider-env-resolution",
     "public-project-authority",
     "publish-registry",
     "pull-request-target-promotion-lag",
@@ -86,6 +87,7 @@
     "symlink-following-enumeration",
     "task-archival",
     "task-frontmatter-fields",
+    "task-merged-citation",
     "task-path-citations",
     "task-plan-items",
     "temp-dir-owner",
@@ -94,11 +96,13 @@
     "tool-classification",
     "transport-admission",
     "transport-conformance",
+    "tui-safe-text-boundary",
     "user-execution-plan-order",
     "vitest-resource-ceiling",
     "work-item-id-collision",
     "workflow-permissions",
     "workflow-provenance",
+    "workspace-import-integrity",
     "workspace-refs"
   ]
 }

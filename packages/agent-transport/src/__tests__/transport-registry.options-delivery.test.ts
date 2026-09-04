@@ -1,3 +1,4 @@
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry.js';
@@ -31,7 +32,9 @@ function configurableTransport(
   };
 }
 
-const session = {} as IInteractiveSession;
+// The published conformant double, not a bare cast: the registry only hands the session through to
+// `attach`, but a cast is what the contract-cast ratchet exists to refuse.
+const session = createTestInteractiveSession();
 
 describe('TransportRegistry option delivery (TRANS-002) over an injected repository (TRANS-010)', () => {
   it('delivers persisted options through configure() before attach/start', async () => {

@@ -34,7 +34,7 @@ import type {
   TPermissionHandler,
   TPermissionResult,
   ISessionLogger,
-  TAutoCompactThreshold,
+  TAutoCompactThreshold as TSessionAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
@@ -45,8 +45,13 @@ import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools'
  */
 export type TSessionResponseFormat = IResponseFormatConfig;
 
-// Issue #2052: owned by agent-session; re-exported so framework consumers keep their import path.
-export type { TAutoCompactThreshold };
+/**
+ * Issue #2052: the threshold vocabulary is owned by agent-session. This is the framework's OWN name
+ * for it — an SDK-owned facade, not a pass-through re-export of the owner's binding — because
+ * `agent-command` reads it and depends on this package alone, never on agent-session
+ * (`sdk-public-surface` refuses the public graph passing through the owner directly).
+ */
+export type TAutoCompactThreshold = TSessionAutoCompactThreshold;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
   autoCompactThreshold?: TAutoCompactThreshold;
 };

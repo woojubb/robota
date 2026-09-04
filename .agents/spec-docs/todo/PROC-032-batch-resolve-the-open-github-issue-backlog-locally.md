@@ -2,7 +2,7 @@
 status: approved
 type: INFRA
 tags: [process, github, batching]
-lane: L1
+lane: L2
 ---
 
 # PROC-032: batch-resolve the open GitHub issue backlog locally

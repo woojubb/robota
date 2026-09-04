@@ -1295,8 +1295,8 @@ describe('issue #2263: a run-error downgrade is counted, not silent', () => {
       verdict: VERDICT.INCONCLUSIVE,
       decisions: [runError, proven],
     });
-    expect(summary).toContain('| `packages/a/src/x.ts` | inconclusive | run-error |');
-    expect(summary).toContain('| `packages/b/src/y.ts` | red-proof-ok | assertion-fail |');
+    expect(summary).toContain('| `packages/a/src/x.ts` | inconclusive | run-error |'); // allow-missing-artifact: illustrative fixture path in an expected summary row
+    expect(summary).toContain('| `packages/b/src/y.ts` | red-proof-ok | assertion-fail |'); // allow-missing-artifact: illustrative fixture path in an expected summary row
     expect(summary).toContain('1 file(s) downgraded to inconclusive by run-error.');
   });
 });

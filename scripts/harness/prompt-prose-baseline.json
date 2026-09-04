@@ -27,6 +27,10 @@
     "count": 1,
     "hashes": ["9c786864fd71"]
   },
+  "packages/agent-core/src/permissions/pattern-validation.ts": {
+    "count": 2,
+    "hashes": ["b585f2841deb", "09c566fab5b0"]
+  },
   "packages/agent-core/src/utils/platform-shell.ts": {
     "count": 3,
     "hashes": ["40d51af82f93", "757a8fad0315", "f7d4d1c79eb6"]
@@ -85,7 +89,7 @@
   },
   "packages/agent-tools/src/builtins/read-tool.ts": {
     "count": 1,
-    "hashes": ["abaac560ee66"]
+    "hashes": ["ce963a6db86a"]
   },
   "packages/agent-tools/src/builtins/web-fetch-tool.ts": {
     "count": 3,

@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
-
 import {
   BOUNDARY_MODULE,
   findBoundaryViolations,

@@ -102,19 +102,20 @@ The in-process driver surface itself is `IAgentDriver`, owned by
 
 ### `/headless`
 
-| Export                               | Kind       | Description                                                                                              |
-| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------- |
-| `HeadlessInteractionChannel`         | class      | Owns session creation + runner for non-interactive (print) mode; call `run(prompt)` then `getExitCode()` |
-| `IHeadlessInteractionChannelOptions` | interface  | Constructor options for `HeadlessInteractionChannel`                                                     |
-| `PrintTerminal`                      | class      | Utility for formatted terminal output in headless mode                                                   |
-| `promptInput`                        | function   | Reads a single line from stdin                                                                           |
-| `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes               |
-| `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                       |
-| `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                      |
-| `createHeadlessTransport`            | function   | Returns legacy-compatible `IHeadlessTransport` wrapping `createHeadlessRunner`                           |
-| `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                    |
-| `IHeadlessSession`                   | interface  | Narrow session-role aggregate accepted by headless runner and transport                                  |
-| `IHeadlessTransport`                 | interface  | Legacy `ITransportAdapter<IInteractiveSession>` declaration with `attach(IHeadlessSession)` overload     |
+| Export                               | Kind       | Description                                                                                                                        |
+| ------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `HeadlessInteractionChannel`         | class      | Owns session creation + runner for non-interactive (print) mode; call `run(prompt)` then `getExitCode()`                           |
+| `IHeadlessInteractionChannelOptions` | interface  | Constructor options for `HeadlessInteractionChannel`                                                                               |
+| `PrintTerminal`                      | class      | Utility for formatted terminal output in headless mode                                                                             |
+| `promptInput`                        | function   | Reads a single line from stdin                                                                                                     |
+| `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes                                         |
+| `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                                                 |
+| `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                                                |
+| `createHeadlessTransport`            | function   | Returns legacy-compatible `IHeadlessTransport` wrapping `createHeadlessRunner`                                                     |
+| `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                                              |
+| `IHeadlessSession`                   | interface  | Narrow session-role aggregate accepted by headless runner and transport                                                            |
+| `IHeadlessTransport`                 | interface  | Legacy `ITransportAdapter<IInteractiveSession>` declaration with `attach(IHeadlessSession)` overload                               |
+| `OUTPUT_FORMATS`                     | constant   | Issue #2052: `['text', 'json', 'stream-json']` — the ONE owner of the output-format vocabulary; `TOutputFormat` is derived from it |
 
 ### `/programmatic`
 
@@ -128,19 +129,18 @@ The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (own
 `@robota-sdk/agent-interface-transport`, not re-exported here): `events`, `start`, `send`,
 `queueUserAction`, `assistantReplies`, `lastAssistantText`, `toolCalls`, `errors`, `stop`.
 
-### `/testing`
-
-| Export                                | Kind     | Description                                                      |
-| ------------------------------------- | -------- | ---------------------------------------------------------------- |
-| `createScriptedProvider`              | function | Deterministic `IAIProvider` for transport/CLI tests (no network) |
-| `IScriptedProvider` / `TScriptedTurn` | types    | Scripted-provider contract + turn shape                          |
+The scripted provider (`createScriptedProvider`, `IScriptedProvider`, `TScriptedTurn`) is no longer
+a `/testing` subpath of this package: it is owned by `@robota-sdk/agent-core/testing`, and this
+package declares no `./testing` entry.
 
 ### Root (`@robota-sdk/agent-transport`)
 
-| Export                                          | Kind  | Description                                                                |
-| ----------------------------------------------- | ----- | -------------------------------------------------------------------------- |
-| `TransportRegistry`                             | class | Base adapter lifecycle registry with configurable-only settings projection |
-| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces       |
+| Export                                          | Kind     | Description                                                                                                                                                              |
+| ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `TransportRegistry`                             | class    | Base adapter lifecycle registry with configurable-only settings projection                                                                                               |
+| `createFileTransportSettingsRepository`         | function | TRANS-010 (issue #2480): an `ITransportSettingsRepository` over the `transports` section of one settings file — the shell composes it, the registry never touches a path |
+| `createMemoryTransportSettingsRepository`       | function | TRANS-010: an `ITransportSettingsRepository` held in memory — tests, and hosts with no settings file                                                                     |
+| (plus `/headless` + `/programmatic` re-exports) |          | The root barrel also re-exports the headless + programmatic surfaces                                                                                                     |
 
 ## 6. Extension Points
 

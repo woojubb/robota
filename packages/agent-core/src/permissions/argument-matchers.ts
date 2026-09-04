@@ -65,7 +65,7 @@ export function globToRegex(glob: string): RegExp {
  * characters in the glob — `*` in a pattern still stands for any run of characters, so the
  * pattern's author keeps writing `git *` and the gate keeps `git commit -m "a; b"` matchable.
  */
-export function hasUnquotedCommandSeparator(command: string): boolean {
+function hasUnquotedCommandSeparator(command: string): boolean {
   let quote: "'" | '"' | undefined;
   for (let index = 0; index < command.length; index += 1) {
     const char = command[index]!;

@@ -14,9 +14,6 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       },
-      "browser": {
-        "import": "./dist/node/index.js"
-      },
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"

@@ -153,7 +153,7 @@ export function applyAgentDefaults(
 /**
  * Generate a unique agent ID.
  */
-export function generateAgentId(): string {
+function generateAgentId(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(ID_RADIX).substring(2, AGENT_ID_SUBSTR_END);
   return `agent_${timestamp}_${random}`;

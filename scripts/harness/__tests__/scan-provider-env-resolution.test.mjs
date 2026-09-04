@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
-
 import { findAmbientEnvReads, NORMALIZATION_MODULES } from '../scan-provider-env-resolution.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-provider-env-resolution.mjs', import.meta.url));

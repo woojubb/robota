@@ -61,7 +61,7 @@ export function examinedCommitCount() {
   return examinedCommits;
 }
 
-/** `ARCH-100` from `ARCH-100-some-slug.md`; null when the name carries no work-item ID. */
+/** `ARCH-100` from `ARCH-100-some-slug.md`; null when the name carries no work-item ID. (allow-missing-artifact: illustrative file name) */
 export function workItemIdOf(fileName) {
   const match = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)(?=-|\.md$)/.exec(fileName);
   return match ? match[1] : null;

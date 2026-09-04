@@ -399,7 +399,11 @@ const FROZEN_FINDING_COUNTS = {
   'agent-provider-openai': 4,
   'agent-provider-openai-compatible': 21,
   'agent-session': 1,
-  'agent-transport': 4,
+  // 4 → 2 (issue #2512 sweep): the `/testing` subpath — `src/testing/index.ts`, whose two
+  // pass-throughs of `@robota-sdk/agent-core/testing` were half of this count — was retired when
+  // the scripted provider moved to its owner. The two `export *` barrels in `src/index.ts` remain.
+  // Re-frozen in the same change, per this ratchet's own instruction.
+  'agent-transport': 2,
   'agent-transport-tui': 1,
 };
 

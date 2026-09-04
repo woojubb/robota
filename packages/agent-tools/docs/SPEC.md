@@ -2,7 +2,7 @@
 
 ## Browser Surface (CORE-028)
 
-browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry whose graph does not reach the file-tool sandbox. Measured rather than assumed — the built browser bundle contains no `node:` builtin and no `isPathInside`.
+browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, `src/builtins/web-fetch-tool.ts` imports it for `fetchWithEgressPolicy` (#2026), and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry (`src/browser.ts`) whose only imports are `./types/tool-result` and `./implementations/function-tool` — it excludes every Node-only builtin (bash, read, write, edit, glob, grep, web-fetch, web-search) by construction, so neither file is in that graph. Measured rather than assumed — for `path-guard.ts` the built browser bundle was checked to contain no `node:` builtin and no `isPathInside`; for `web-fetch-tool.ts` the browser entry's import graph was read and reaches no builtin.
 
 ## Scope
 
@@ -196,19 +196,20 @@ Every builtin has a factory; the singleton exports above are the factories' zero
 All factories accept `IBuiltinToolDescriptionOptions.description` (NEUT-002 override seam — see
 "Tool Descriptions" below).
 
-| Export                      | Kind     | Description                                                                                                                |
-| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `createShellTool`           | Function | Creates `Shell` (sandbox-aware); `availableTools` restricts sibling routing hints to the registered tool set               |
-| `createBashTool`            | Function | Creates `Bash`, the model-familiar alias of the same OS-aware shell tool                                                   |
-| `createReadTool`            | Function | Creates `Read` (sandbox-aware)                                                                                             |
-| `createWriteTool`           | Function | Creates `Write` (sandbox-aware)                                                                                            |
-| `createEditTool`            | Function | Creates `Edit` (sandbox-aware)                                                                                             |
-| `createGlobTool`            | Function | Creates `Glob`                                                                                                             |
-| `createGrepTool`            | Function | Creates `Grep`; `shellToolName` derives the shell-tool reference in the default description (default `Shell`)              |
-| `createWebFetchTool`        | Function | Creates `WebFetch`                                                                                                         |
-| `createWebSearchTool`       | Function | Creates `WebSearch` over an injected `IWebSearchProvider` (NEUT-008; default: the Brave Search adapter)                    |
-| `createBraveSearchProvider` | Function | The default `IWebSearchProvider` adapter — the only module holding the vendor endpoint; reads `BRAVE_API_KEY` at call time |
-| `createAskUserQuestionTool` | Function | Creates `AskUserQuestion` (binds the `IToolExecutionContext.ask` port)                                                     |
+| Export                      | Kind      | Description                                                                                                                                                           |
+| --------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createShellTool`           | Function  | Creates `Shell` (sandbox-aware); `availableTools` restricts sibling routing hints to the registered tool set                                                          |
+| `createBashTool`            | Function  | Creates `Bash`, the model-familiar alias of the same OS-aware shell tool                                                                                              |
+| `createReadTool`            | Function  | Creates `Read` (sandbox-aware)                                                                                                                                        |
+| `createWriteTool`           | Function  | Creates `Write` (sandbox-aware)                                                                                                                                       |
+| `createEditTool`            | Function  | Creates `Edit` (sandbox-aware)                                                                                                                                        |
+| `createGlobTool`            | Function  | Creates `Glob`                                                                                                                                                        |
+| `createGrepTool`            | Function  | Creates `Grep`; `shellToolName` derives the shell-tool reference in the default description (default `Shell`)                                                         |
+| `IWebFetchToolOptions`      | Interface | `createWebFetchTool` options — the `IBuiltinToolDescriptionOptions` description seam plus `egress?` (#2026 policy deps); exported so a caller can name what it passes |
+| `createWebFetchTool`        | Function  | Creates `WebFetch`                                                                                                                                                    |
+| `createWebSearchTool`       | Function  | Creates `WebSearch` over an injected `IWebSearchProvider` (NEUT-008; default: the Brave Search adapter)                                                               |
+| `createBraveSearchProvider` | Function  | The default `IWebSearchProvider` adapter — the only module holding the vendor endpoint; reads `BRAVE_API_KEY` at call time                                            |
+| `createAskUserQuestionTool` | Function  | Creates `AskUserQuestion` (binds the `IToolExecutionContext.ask` port)                                                                                                |
 
 When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
 

@@ -225,7 +225,7 @@ function hasExportModifier(node) {
   return node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) === true;
 }
 
-/** Resolve a relative specifier (`./x.js`, `./x`, `./dir`) to the `.ts` file it names, or null. */
+/** Resolve a relative specifier (`./x.js`, `./x`, `./dir`) to the `.ts` file it names, or null. (allow-missing-artifact: illustrative specifiers) */
 function resolveRelativeModule(fromFile, spec) {
   const base = path.resolve(path.dirname(fromFile), spec.replace(/\.(js|ts)$/, ''));
   for (const candidate of [`${base}.ts`, path.join(base, 'index.ts')]) {

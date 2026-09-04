@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint . --max-warnings 0"
   },

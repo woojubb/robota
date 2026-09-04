@@ -231,7 +231,7 @@ six floors, one at a time, because nothing listed them in advance.
    to a package entry, that export is a row in the package SPEC's Public API table; the per-package
    undocumented count in `spec-surface-baseline.json` may not rise.
 5. **`named-artifact-resolves`** (`scan-named-artifact-resolves.mjs`) — every filename the scan's
-   docblock, test or rule text names (`foo.test.mjs`, `ci.yml`) resolves to a file in the tree. Name
+   docblock, test or rule text names (`foo.test.mjs`, `ci.yml`) resolves to a file in the tree. Name <!-- allow-missing-artifact: illustrative names in a rule statement, not files this tree carries -->
    a file after it exists, or not at all.
 6. **`examined-size` adoption** (`run-all-scans.mjs`, `examined-adoption-baseline.json`) — a scan
    that emits `::examined::` is added to the frozen set in the SAME change (or via

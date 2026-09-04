@@ -125,6 +125,15 @@ package carries no concrete git/filesystem dependency.
 | `TSubagentWorkerParentMessage`            | type alias | Union of all parent → child message types.                                                                                      |
 | `TSubagentWorkerChildMessage`             | type alias | Union of all child → parent message types.                                                                                      |
 | `TSubagentWorkerWireValue`                | type alias | Union of all IPC message types for wire-level validation.                                                                       |
+| `ISubagentWorkerAgentDefinitionDto`       | interface  | The wire shape of an `IAgentDefinition` in the worker start message — declared fields only, no runtime aliasing.                |
+| `ISubagentWorkerContextFileEntryDto`      | interface  | One context file (`filePath`, `content`) carried inside the parent-context DTO.                                                 |
+| `ISubagentWorkerParentContextDto`         | interface  | The wire shape of the issue #2317 parent-context projection (`agentsMd`, `projectNotesMd`, …) the worker receives.              |
+| `encodeAgentDefinition`                   | function   | Project an `IAgentDefinition` onto its DTO; only declared fields cross the process boundary.                                    |
+| `decodeAgentDefinitionDto`                | function   | Total decode of an unknown value as `ISubagentWorkerAgentDefinitionDto` — a result, never a cast or a throw.                    |
+| `restoreAgentDefinition`                  | function   | Explicit restore in the worker: builds the runtime `IAgentDefinition` from the DTO's fields (copied, not aliased).              |
+| `encodeParentContext`                     | function   | Project the issue #2317 parent-context projection (or anything structurally wider) onto `ISubagentWorkerParentContextDto`.      |
+| `decodeParentContextDto`                  | function   | Total decode of an unknown value as `ISubagentWorkerParentContextDto`.                                                          |
+| `restoreParentContext`                    | function   | Explicit restore in the worker: builds the runtime parent-context model from the DTO's fields.                                  |
 
 ## Extension Points
 
