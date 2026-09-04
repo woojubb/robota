@@ -18,9 +18,11 @@
  *               query and fragment never participate; only special schemes are comparable.
  * - `path`    — separators normalised, both sides lexically normalised; `*` stays inside one
  *               segment, `**` crosses.
- * - `command` — a shell-style glob (`*` any run of characters) over ONE command: an argument that
- *               carries a separator (`;` `&` `|` newline) or a substitution (`$(` backtick `<(`
- *               `>(`) outside single quotes is not a command the pattern names (issue #2427).
+ * - `command` — a shell-style glob (`*` any run of characters) over ONE command: on the ALLOW side
+ *               an argument that carries a separator (`;` `&` `|` newline) or a substitution (`$(`
+ *               backtick `<(` `>(`) outside single quotes is not a command the pattern names
+ *               (issue #2427); on the DENY side the same line is cut at those boundaries and every
+ *               command it runs is judged, so a chained command cannot walk past a deny entry.
  * - `text`    — today's glob, for arguments that are neither (a search query, a glob pattern).
  *
  * A bare `*` or `**` argument pattern matches ANY invocation of the tool, for every kind and for a
@@ -39,6 +41,21 @@ export type TArgumentKind = 'path' | 'url' | 'command' | 'text';
  * allow list and the mode policy, which for an `inspect` tool is `auto` in every mode.
  */
 export type TPatternMatch = 'match' | 'no-match' | 'unevaluable';
+
+/**
+ * Which LIST the pattern being evaluated came from — because for the `command` kind the two lists
+ * are not mirror images of each other, and treating them as one is a permission bypass.
+ *
+ * An allow pattern answers "is THIS the command I blessed?", so a line carrying a second command is
+ * not it (issue #2427). A deny pattern answers "does this line RUN the command I forbade?", and
+ * there the same rule reads "not denied": `deny: ['Bash(rm *)']` stopped matching
+ * `rm -rf / ; echo done`, which then fell through to `allow: ['Bash']` or to the mode policy and
+ * was auto-approved. Appending `; echo done` to walk past a deny entry is precisely what a deny
+ * list exists to stop, so the deny direction looks INSIDE the line instead of refusing to judge it.
+ *
+ * Every other kind (`path`, `url`, `text`) matches identically in both directions and ignores this.
+ */
+export type TMatchDirection = 'allow' | 'deny';
 
 const REGEX_SPECIALS = /[.+^${}()|[\]\\]/g;
 
@@ -99,13 +116,119 @@ function hasUnquotedCommandSeparator(command: string): boolean {
 }
 
 /**
- * The `command` matcher: the glob decides whether the pattern names this command; a separator or
- * substitution outside quotes decides that it is not ONE command. A pattern without a wildcard is
- * the exact line and matches it — an operator who allowed `git status && git push` verbatim wrote
- * the whole line, and only the whole line is allowed.
+ * Cut a command line into the individual commands it runs: at every unquoted separator, and at
+ * every substitution boundary — `$(…)`, `` `…` ``, `<(…)`, `>(…)` — whose contents are a command of
+ * their own even inside double quotes. The quoting rules are `hasUnquotedCommandSeparator`'s, so
+ * the two functions agree on what a separator IS; a separator the shell would treat as literal text
+ * (single- or double-quoted, or backslash-escaped) does not cut, and a redirection (`2>&1`, `&>log`)
+ * is not a cut either.
+ *
+ * Segment text is kept RAW (quotes included, ends trimmed): the pattern glob is written against the
+ * command line as the caller wrote it, so unquoting here would change what `Bash(rm *)` compares
+ * with. Empty segments are dropped.
  */
-export function matchCommand(pattern: string, argument: string): TPatternMatch {
-  if (!globToRegex(pattern).test(argument)) return 'no-match';
+function splitCommandSegments(command: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quote: "'" | '"' | undefined;
+  let substitutionDepth = 0;
+  const cut = (): void => {
+    const trimmed = current.trim();
+    if (trimmed !== '') segments.push(trimmed);
+    current = '';
+  };
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]!;
+    if (quote === "'") {
+      current += char;
+      if (char === "'") quote = undefined;
+      continue;
+    }
+    if (char === '\\') {
+      const escaped = command[index + 1];
+      current += escaped === undefined ? char : char + escaped;
+      index += 1;
+      continue;
+    }
+    const next = command[index + 1];
+    // A substitution runs its contents whatever quoting surrounds it — `"$(…)"` included.
+    if (char === '`') {
+      cut();
+      continue;
+    }
+    if (char === '$' && next === '(') {
+      cut();
+      substitutionDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (quote === '"') {
+      current += char;
+      if (char === '"') quote = undefined;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if ((char === '<' || char === '>') && next === '(') {
+      cut();
+      substitutionDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (char === ')' && substitutionDepth > 0) {
+      cut();
+      substitutionDepth -= 1;
+      continue;
+    }
+    if (char === ';' || char === '|' || char === '\n') {
+      cut();
+      continue;
+    }
+    if (char === '&') {
+      const previous = command[index - 1];
+      // `2>&1`, `<&0` and `&>log` are redirections, not a second command.
+      if (previous !== '>' && previous !== '<' && next !== '>') {
+        cut();
+        continue;
+      }
+    }
+    current += char;
+  }
+  cut();
+  return segments;
+}
+
+/**
+ * The `command` matcher. The glob decides whether the pattern names this command; what a separator
+ * or substitution outside quotes MEANS depends on which list the pattern came from
+ * ({@link TMatchDirection}).
+ *
+ * ALLOW (issue #2427): a line carrying a second command is not the one command the pattern named,
+ * so it is `no-match` and the invocation goes on to be judged by the mode. A pattern without a
+ * wildcard is the exact line and matches it — an operator who allowed `git status && git push`
+ * verbatim wrote the whole line, and only the whole line is allowed.
+ *
+ * DENY: refusing to judge a chained line would answer "not denied", which auto-approves it. So the
+ * glob is tried against the whole line AND against each command the line runs: `deny: ['Bash(rm *)']`
+ * catches `rm -rf / ; echo done`, `git status; rm -rf /` and `echo $(rm -rf /tmp/x)` alike. Quoting
+ * is still honoured, so `echo "rm -rf /"` — which runs no `rm` — is not denied.
+ */
+export function matchCommand(
+  pattern: string,
+  argument: string,
+  direction: TMatchDirection,
+): TPatternMatch {
+  const regex = globToRegex(pattern);
+  if (direction === 'deny') {
+    if (regex.test(argument)) return 'match';
+    return splitCommandSegments(argument).some((segment) => regex.test(segment))
+      ? 'match'
+      : 'no-match';
+  }
+  if (!regex.test(argument)) return 'no-match';
   if (!pattern.includes('*')) return 'match';
   return hasUnquotedCommandSeparator(argument) ? 'no-match' : 'match';
 }

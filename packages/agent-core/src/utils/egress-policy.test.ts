@@ -41,6 +41,16 @@ describe('isPrivateAddress (#2026)', () => {
     '::ffff:7f00:1', // IPv4-mapped 127.0.0.1 as URL normalizes it
     '::ffff:c0a8:101', // IPv4-mapped 192.168.1.1
     '64:ff9b::a9fe:a9fe', // NAT64-embedded 169.254.169.254
+    // The DOTTED-QUAD spelling of the same mapped addresses. `URL` never produces it, but
+    // `dns.lookup` does — `inet_ntop` renders an IPv4-mapped AAAA answer this way — so this is the
+    // form that actually arrives on the resolution path, and it was classified PUBLIC.
+    '::ffff:127.0.0.1',
+    '::ffff:169.254.169.254', // cloud metadata, mapped
+    '::ffff:192.168.1.1',
+    '::ffff:10.0.0.1',
+    '0:0:0:0:0:ffff:127.0.0.1', // the same, written out in full
+    '64:ff9b::169.254.169.254', // NAT64-embedded metadata, dotted
+    '::127.0.0.1', // deprecated IPv4-compatible form
   ])('%s is private', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -57,6 +67,11 @@ describe('rejectDestination (#2026)', () => {
   const lookup = tableLookup({
     'intranet.corp': ['10.1.2.3'],
     'rebind.example': ['1.2.3.4', '127.0.0.1'],
+    // An attacker-controlled AAAA record. `dns.lookup` renders an IPv4-mapped answer through
+    // `inet_ntop`, which prints the dotted-quad form — the literal-URL path never produces it, so
+    // only a resolution fixture reaches this branch.
+    'mapped-loopback.example': ['::ffff:127.0.0.1'],
+    'mapped-metadata.example': ['::ffff:169.254.169.254'],
   });
 
   it.each([
@@ -75,6 +90,26 @@ describe('rejectDestination (#2026)', () => {
   ])('refuses %s', async (url) => {
     const rejection = await rejectDestination(new URL(url), {}, lookup);
     expect(rejection).toBeDefined();
+  });
+
+  it.each(['http://mapped-loopback.example/', 'http://mapped-metadata.example/'])(
+    'refuses %s — a DNS answer in the dotted IPv4-mapped form is not a public address',
+    async (url) => {
+      const rejection = await rejectDestination(new URL(url), {}, lookup);
+      expect(rejection?.reason).toBe('private_destination');
+    },
+  );
+
+  it('refuses a redirect onto a host whose AAAA answer is a dotted IPv4-mapped address', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
+      textResponse('', {
+        status: 302,
+        headers: { location: 'http://mapped-metadata.example/latest/meta-data/' },
+      }),
+    );
+    const result = await fetchWithEgressPolicy('https://example.com/', {}, {}, { fetch, lookup });
+    expect(result).toMatchObject({ ok: false, rejection: { reason: 'private_destination' } });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('allows a public destination, an allowlisted host, and the explicit private opt-out', async () => {

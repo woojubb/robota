@@ -6,8 +6,11 @@
  *
  * - DESTINATION safety: only `http:`/`https:`; literal and RESOLVED addresses are refused when they are
  *   loopback, private, link-local, multicast, unspecified or reserved — for IPv4, IPv6, and IPv4-mapped /
- *   NAT64-embedded forms — plus the well-known cloud metadata hostnames. `URL` normalization is what
- *   collapses alternate encodings (`2130706433`, `0x7f.1`, `[::ffff:7f00:1]`) into one hostname.
+ *   IPv4-compatible / NAT64-embedded forms — plus the well-known cloud metadata hostnames. `URL`
+ *   normalization is what collapses alternate encodings (`2130706433`, `0x7f.1`, `[::ffff:7f00:1]`)
+ *   into one hostname on the LITERAL path; the RESOLVED path has no such normalizer, and an embedded
+ *   IPv4 arrives from `dns.lookup` in the dotted spelling `inet_ntop` prints (`::ffff:127.0.0.1`), so
+ *   the classifier accepts both spellings rather than trusting `URL` to have canonicalised anything.
  * - REDIRECTS: followed manually, every hop re-validated, and caller-supplied plus credential-bearing
  *   headers dropped on a cross-origin hop.
  * - RESOURCE policy: the caller's `AbortSignal` composed with an explicit deadline, and the response
@@ -125,9 +128,10 @@ function isPrivateIpv6(ip: string): boolean {
   if (isMapped || isNat64) {
     return isPrivateIpv4([g6 >> 8, g6 & 0xff, g7 >> 8, g7 & 0xff]);
   }
-  const allZero = groups.every((g) => g === 0);
-  if (allZero) return true; // ::
-  if (groups.slice(0, 7).every((g) => g === 0) && g7 === 1) return true; // ::1
+  // ::/96 in one rule: the unspecified address `::`, loopback `::1`, and the DEPRECATED
+  // IPv4-compatible form (`::127.0.0.1`, which `URL` renders as `::7f00:1`) — which embeds an IPv4
+  // address just as a mapped one does. None of that range is public unicast.
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return true;
   if ((g0 & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
   if ((g0 & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
   if ((g0 & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated, still routable)
@@ -135,9 +139,31 @@ function isPrivateIpv6(ip: string): boolean {
   return false;
 }
 
-/** Expand an IPv6 literal (as `URL` normalizes it, brackets removed) into 8 16-bit groups. */
+/**
+ * Rewrite a trailing dotted-quad (`::ffff:127.0.0.1`) into the two hex groups it stands for, so the
+ * rest of the expansion only ever sees colon groups. `undefined` when the tail is not a valid IPv4
+ * address — a refusal, never a guess, because {@link isPrivateIpv6} reads `undefined` as private.
+ *
+ * This form is not exotic: `URL` normalizes a literal to `[::ffff:7f00:1]`, but `dns.lookup` renders
+ * an IPv4-mapped AAAA answer through `inet_ntop`, which prints the dotted form — so it is exactly
+ * what arrives on the RESOLUTION path, where an attacker controls the record.
+ */
+function withoutDottedQuadTail(ip: string): string | undefined {
+  const lastColon = ip.lastIndexOf(':');
+  const tail = ip.slice(lastColon + 1);
+  if (!tail.includes('.')) return ip;
+  if (lastColon < 0 || isIP(tail) !== 4) return undefined;
+  const [a = 0, b = 0, c = 0, d = 0] = tail.split('.').map(Number);
+  const high = ((a << 8) | b).toString(16);
+  const low = ((c << 8) | d).toString(16);
+  return `${ip.slice(0, lastColon + 1)}${high}:${low}`;
+}
+
+/** Expand an IPv6 literal (as `URL` or a resolver renders it, brackets removed) into 8 16-bit groups. */
 function expandIpv6(ip: string): number[] | undefined {
-  const withoutZone = ip.split('%')[0] ?? ip;
+  const zoneless = ip.split('%')[0] ?? ip;
+  const withoutZone = withoutDottedQuadTail(zoneless);
+  if (withoutZone === undefined) return undefined;
   const halves = withoutZone.split('::');
   if (halves.length > 2) return undefined;
   const parse = (part: string): number[] =>

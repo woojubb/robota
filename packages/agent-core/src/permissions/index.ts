@@ -19,6 +19,7 @@ export type {
   IToolPermissionProfile,
   IToolPermissionArgument,
   TArgumentKind,
+  TMatchDirection,
 } from './permission-gate.js';
 export { resolvePermissionByPolicy } from './permission-policy.js';
 export { validatePermissionPattern, findInvalidPermissionPatterns } from './pattern-validation.js';

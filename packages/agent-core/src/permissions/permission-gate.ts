@@ -17,7 +17,7 @@
 import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 
-import type { TArgumentKind, TPatternMatch } from './argument-matchers.js';
+import type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 import type { TToolRiskClass } from './permission-mode.js';
 import type { TPermissionMode, TPermissionDecision } from './types.js';
 
@@ -70,7 +70,7 @@ export function parsePattern(pattern: string): {
  * object, so a key cannot be declared without its kind — a key alone would leave the tool on the
  * string glob that matched a URL's query as its host (CORE-049).
  */
-export type { TArgumentKind, TPatternMatch } from './argument-matchers.js';
+export type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 
 export interface IToolPermissionArgument {
   /** `Shell(rm *)` matches against `command`; `Read(/src/**)` against `filePath`. */
@@ -143,13 +143,21 @@ function primaryArg(toolName: string, args: TToolArgs): string | undefined {
 /**
  * Test whether a tool invocation matches ANY pattern in a list (allow or deny).
  * Shared by `evaluatePermission` and the CORE-025 policy resolver so pattern semantics stay in one place.
+ *
+ * `direction` says which list these patterns came from. It defaults to `'allow'`, the narrower
+ * reading, so a caller that forgets it never widens what a deny entry lets through — a DENY list
+ * must pass `'deny'` explicitly, because for a `command` argument the two directions differ (see
+ * {@link TMatchDirection}).
  */
 export function matchesAnyPattern(
   toolName: string,
   args: TToolArgs,
   patterns: readonly string[],
+  direction: TMatchDirection = 'allow',
 ): boolean {
-  return patterns.some((pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'match');
+  return patterns.some(
+    (pattern) => evaluateArgumentPattern(toolName, args, pattern, direction) === 'match',
+  );
 }
 
 /**
@@ -170,17 +178,21 @@ export function hasUnevaluableArgumentPattern(
   // pattern is about `path`, there is no path, so there is nothing to deny — and it goes back to
   // the allow list. (Review of #1596 caught those two conditions collapsing into one.)
   return patterns.some(
-    (pattern) => evaluateArgumentPattern(toolName, args, pattern) === 'unevaluable',
+    (pattern) => evaluateArgumentPattern(toolName, args, pattern, 'deny') === 'unevaluable',
   );
 }
 
 /**
  * One invocation against one permission pattern entry: `match`, `no-match`, or `unevaluable`.
+ *
+ * `direction` reaches only the `command` matcher, the one kind whose answer depends on which list
+ * the pattern came from (see {@link TMatchDirection}).
  */
 function evaluateArgumentPattern(
   toolName: string,
   args: TToolArgs,
   pattern: string,
+  direction: TMatchDirection,
 ): TPatternMatch {
   const parsed = parsePattern(pattern);
 
@@ -212,7 +224,7 @@ function evaluateArgumentPattern(
     case 'path':
       return matchPath(parsed.argPattern, primary);
     case 'command':
-      return matchCommand(parsed.argPattern, primary);
+      return matchCommand(parsed.argPattern, primary, direction);
     case 'text':
       return globToRegex(parsed.argPattern).test(primary) ? 'match' : 'no-match';
     default: {
@@ -241,7 +253,7 @@ export function evaluatePermission(
   const { allow = [], deny = [] } = permissions;
 
   // Step 1: deny list — if any deny pattern matches, block immediately
-  if (matchesAnyPattern(toolName, toolArgs, deny)) {
+  if (matchesAnyPattern(toolName, toolArgs, deny, 'deny')) {
     return 'deny';
   }
 
