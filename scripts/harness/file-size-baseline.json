@@ -123,7 +123,7 @@
   "scripts/harness/scan-composition-neutrality.mjs": 529,
   "scripts/harness/scan-consistency.mjs": 438,
   "scripts/harness/scan-dist-freshness.mjs": 387,
-  "scripts/harness/scan-guard-scope-fail-closed.mjs": 1400,
+  "scripts/harness/scan-guard-scope-fail-closed.mjs": 1436,
   "scripts/harness/scan-hook-catalog.mjs": 307,
   "scripts/harness/scan-hook-enforcement-reachable.mjs": 609,
   "scripts/harness/scan-interface-family-owner.mjs": 509,
