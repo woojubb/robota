@@ -115,7 +115,7 @@ reset, exit/restart, rename, statusline patch, remote control. The renderer only
 - `ITuiCliAdapter` is **read-only toward settings** (`readSettings`/`getUserSettingsPath`); the
   write/delete/statusline-apply members were removed with the legacy effect handler.
 
-## Terminal Text Boundary (#2222)
+## Terminal Text Boundary (issue #2222)
 
 `src/SafeText.tsx` is the ONLY module in this package that imports `Text` from `ink`. It exports
 `SafeText` (and the alias `Text` every render site imports from `./SafeText.js`), which passes every

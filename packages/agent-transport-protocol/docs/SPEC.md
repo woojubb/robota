@@ -187,9 +187,9 @@ once and the carriers stay dumb.
 | `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                                            |
 | `isOverPendingBudget`                   | function  | ARCH-030: is a carrier holding more than the budget allows — `undefined` is never over                              |
 | `DEFAULT_MAX_PENDING_BYTES`             | constant  | ARCH-030: the outbound backpressure budget, in carrier-pending bytes                                                |
-| `createPendingStallClock`               | function  | #2306: the drain-time clock a boundary consults — starts non-empty, resets only at zero                             |
-| `IPendingStallClock`                    | interface | #2306: `observe(pending)` → stalled ms when over the drain budget, else `undefined`                                 |
-| `DEFAULT_MAX_PENDING_MS`                | constant  | #2306: the outbound drain budget, in ms a carrier may stay continuously non-empty (120 s)                           |
+| `createPendingStallClock`               | function  | issue #2306: the drain-time clock a boundary consults — starts non-empty, resets only at zero                       |
+| `IPendingStallClock`                    | interface | issue #2306: `observe(pending)` → stalled ms when over the drain budget, else `undefined`                           |
+| `DEFAULT_MAX_PENDING_MS`                | constant  | issue #2306: the outbound drain budget, in ms a carrier may stay continuously non-empty (120 s)                     |
 | `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`                                 |
 | `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary                                  |
 | `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                                               |

@@ -315,7 +315,7 @@ agent-core and propagates unchanged before spawn so callers can identify and cor
 
 Events contain cloned task snapshots or primitive progress data. Consumers may project these events into TUI rows, transport messages, or logs, but event listeners must not mutate manager state directly.
 
-**Observer-failure contract (ARCH-053, #2157).** Events are emitted only after the authoritative
+**Observer-failure contract (ARCH-053, issue #2157).** Events are emitted only after the authoritative
 state transition is committed, so an observer that throws must never unwind the emitter. `emit`
 delivers through `deliverToObservers` (`background-tasks/observer-delivery.ts`): every observer —
 the `eventSink` first, then listeners in registration order — is isolated, delivery continues past a
@@ -418,7 +418,7 @@ Pure helper contracts:
 
 This package's provider factory functions are `resolveProfileApiKey` and `createProviderFromProfile`; they depend on the executor-owned `ISerializableProviderProfile` and delegate normalization to `agent-core`.
 
-Since #2347 they are deterministic from their arguments and an injected `TEnvResolver` (`resolve`, defaulting to `processEnvResolver` from `agent-core`): `resolveProfileApiKey(profile, resolve)` routes BOTH its `apiKey` (`$ENV:` reference) and `apiKeyEnv` (variable name) branches through `resolve`, and `createProviderFromProfile(profile, model, definitions, resolve)` hands the same resolver to `normalizeProviderConfig`. None of them reads `process.env`; the `provider-env-resolution` scan refuses it in `agent-executor/src/providers/provider-factory.ts`, `agent-core/src/utils/env-ref.ts` and `agent-core/src/providers/provider-factory.ts`. A unit test injects `createRecordEnvResolver({...})` instead of mutating the process environment.
+Since issue #2347 they are deterministic from their arguments and an injected `TEnvResolver` (`resolve`, defaulting to `processEnvResolver` from `agent-core`): `resolveProfileApiKey(profile, resolve)` routes BOTH its `apiKey` (`$ENV:` reference) and `apiKeyEnv` (variable name) branches through `resolve`, and `createProviderFromProfile(profile, model, definitions, resolve)` hands the same resolver to `normalizeProviderConfig`. None of them reads `process.env`; the `provider-env-resolution` scan refuses it in `agent-executor/src/providers/provider-factory.ts`, `agent-core/src/utils/env-ref.ts` and `agent-core/src/providers/provider-factory.ts`. A unit test injects `createRecordEnvResolver({...})` instead of mutating the process environment.
 
 Cross-package port consumers:
 

@@ -3,14 +3,14 @@
 ## Overview
 
 Composition leaf that assembles the **SDK's own built-in default tool set** — whose defaults: the
-Robota SDK's, applied to every product session whose composition root supplies no tool list (#2202).
+Robota SDK's, applied to every product session whose composition root supplies no tool list (issue #2202).
 `createDefaultTools()` returns the ten
 always-present tools — Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch,
 AskUserQuestion — and gates two more on the adapters the caller supplies: `CodebaseRetrieval` when a
 `retrievalAdapter` is given (SELFHOST-003), and the Computer tools when a `computerDriver` is
 (SELFHOST-010). There is no host fallback for either; absent adapter means absent tool.
 
-**Measurement (#2202).** This package composes one lower-layer package, `agent-tools`; it does not
+**Measurement (issue #2202).** This package composes one lower-layer package, `agent-tools`; it does not
 bundle same-level `agent-tool-*` siblings (`agent-tool-mcp` is not a dependency). The STRUCT-011
 prefix rule for aggregators-inside-their-family therefore does not apply, and the name stays; the
 "whose defaults" half is answered in the description and here.
