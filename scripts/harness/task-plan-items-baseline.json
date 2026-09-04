@@ -1,5 +1,5 @@
 {
-  "$comment": "Issue #2375 containment: Tasks whose Plan predates the floor. disposition = open Tasks whose Plan names its own landing (AGREEMENT plans written before the rule); unchecked = done records that reached a terminal status with an unchecked Plan item. Each entry is a name \u2192 reason; the scan fails on an entry nothing uses, so the list only shrinks.",
+  "$comment": "Issue #2375 containment: Tasks whose Plan predates the floor. disposition = open Tasks whose Plan names its own landing (AGREEMENT plans written before the rule); unchecked = done records that reached a terminal status with an unchecked Plan item. Each entry is a name → reason; the scan fails on an entry nothing uses, so the list only shrinks.",
   "disposition": {
     "AGREEMENT-005-coordinate-the-sessionrecipe-child-issue-absorption-pilot.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
     "AGREEMENT-006-coordinate-productplan-and-runtime-bindings-migration.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
@@ -9,6 +9,10 @@
     "AGREEMENT-010-coordinate-the-remote-control-host-extraction.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
     "AGREEMENT-011-coordinate-the-session-mobility-handoff-migration.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
     "AGREEMENT-012-coordinate-strict-metadata-decoder-adoption.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
+    "AGREEMENT-013-coordinate-the-remaining-correctness-leaf-absorption.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
+    "AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
+    "AGREEMENT-015-coordinate-the-mcp-server-product-migration.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
+    "AGREEMENT-016-coordinate-the-throughput-child-issue-dispositions.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
     "PROC-032-batch-resolve-the-open-github-issue-backlog-locally.md": "authored before #2375; its landing items are checked at GATE-COMPLETE, not GATE-VERIFY",
     "RULE-022-require-english-github-issues.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY",
     "RULE-023-make-child-issues-exception-only-and-migrate-internal-decomposition-to-tasks.md": "authored before #2375; its landing item is checked at GATE-COMPLETE, not GATE-VERIFY"
