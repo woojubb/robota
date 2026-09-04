@@ -8,6 +8,20 @@ import { EditCheckpointStore, createWorkspaceProjectMutation } from '@robota-sdk
 import { createSessionEventRenderingProjectAccess } from './session-event-rendering-project-access.js';
 import { TuiInteractionChannel } from '../src/index.js';
 
+// Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
+// available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
+// scenario cannot run here. It says so explicitly instead of failing on a refusal it cannot influence.
+if (process.platform !== 'linux') {
+  console.log(
+    JSON.stringify({
+      notApplicable: true,
+      reason: 'ARCH-047: project mutation is Linux-only; checkpoint scenario skipped on this host',
+      platform: process.platform,
+    }),
+  );
+  process.exit(0);
+}
+
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
