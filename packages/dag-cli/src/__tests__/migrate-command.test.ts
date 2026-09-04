@@ -75,9 +75,12 @@ describe('runMigrateCommand', () => {
   });
 
   it('informs user when file is already in workflow format', async () => {
-    // isWorkflowFileFormat requires: nodes[], links[], version (number), and no dagId
+    // isWorkflowFileFormat is a total decode of IDagWorkflowFile (#2077): last_node_id, last_link_id,
+    // nodes[], links[], version (number), and no dagId
     const workflowFile = JSON.stringify({
       version: 1,
+      last_node_id: 0,
+      last_link_id: 0,
       nodes: [],
       links: [],
     });

@@ -83,9 +83,15 @@ function runWorker(options: {
             prompt: 'do work',
           },
           ...(options.start.worktree ? { worktree: { path: options.start.worktree } } : {}),
-          agentDefinition: { name: 'general-purpose', systemPrompt: 'Run tasks.' },
+          // ARCH-044: both DTOs are decoded totally at the worker, so the fixture carries every
+          // required field — a payload the guard refuses never reaches `createTools` at all.
+          agentDefinition: {
+            name: 'general-purpose',
+            description: 'Scratch agent',
+            systemPrompt: 'Run tasks.',
+          },
           parentConfig: {},
-          parentContext: {},
+          parentContext: { agentsMd: '', projectNotesMd: '' },
           providerProfile: { type: 'arch021-scratch-provider', model: 'scratch-model' },
         },
       });

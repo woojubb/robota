@@ -417,6 +417,8 @@ dag:
     // Workflow file format: has nodes, links, version (number), no dagId
     const workflowDag = JSON.stringify({
       version: 0.4,
+      last_node_id: 2,
+      last_link_id: 0,
       nodes: [
         { id: 1, type: 'RobotaInput', pos: [0, 0], outputs: [], inputs: [] },
         { id: 2, type: 'RobotaTextOutput', pos: [250, 0], outputs: [], inputs: [] },

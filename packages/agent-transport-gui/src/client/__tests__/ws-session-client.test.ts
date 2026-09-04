@@ -51,7 +51,7 @@ describe('createWsSessionClient (WEBUI-002)', () => {
     // A non-JSON frame must not throw.
     expect(() => lastSocket!.onmessage?.({ data: 'not json {{' })).not.toThrow();
     expect(messages).toEqual([
-      { type: 'protocol_error', message: 'Malformed message from server (invalid JSON)' },
+      { type: 'protocol_error', message: 'Malformed message from server (Invalid JSON)' },
     ]);
   });
 

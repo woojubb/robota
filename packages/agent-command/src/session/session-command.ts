@@ -144,6 +144,15 @@ export function executeCostCommand(context: TCostCommandContext, args: string): 
 
   if (trimmed.startsWith('budget')) {
     const budgetArg = trimmed.slice('budget'.length).trim();
+    // Argument shape is judged before the host is asked for persistence: a malformed amount is a
+    // usage error on every host, not a symptom of the adapter that would have stored it.
+    const amount = budgetArg === 'clear' || budgetArg === '' ? undefined : parseFloat(budgetArg);
+    if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
+      return {
+        success: false,
+        message: 'Usage: /cost budget <amount>  (e.g. /cost budget 5.00)',
+      };
+    }
     const adapter = costBudgetAdapter(context);
     if (adapter === undefined) return { success: false, message: BUDGET_UNAVAILABLE_MESSAGE };
 
@@ -167,13 +176,7 @@ export function executeCostCommand(context: TCostCommandContext, args: string): 
       return { success: true, message: `Monthly budget: ${formatUsd(current.monthly)}` };
     }
 
-    const amount = parseFloat(budgetArg);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return {
-        success: false,
-        message: 'Usage: /cost budget <amount>  (e.g. /cost budget 5.00)',
-      };
-    }
+    if (amount === undefined) return { success: false, message: BUDGET_UNAVAILABLE_MESSAGE };
     try {
       adapter.write({ monthly: amount });
     } catch (error) {

@@ -39,7 +39,9 @@ describe('readDagFileArg', () => {
   });
 
   it('reads a workflow file, converting it', async () => {
-    const file = fileWith(JSON.stringify({ nodes: [], links: [], version: 0.4 }));
+    const file = fileWith(
+      JSON.stringify({ nodes: [], links: [], version: 0.4, last_node_id: 0, last_link_id: 0 }),
+    );
     const result = await readDagFileArg(file);
     expect(result.ok).toBe(true);
   });
