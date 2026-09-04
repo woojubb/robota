@@ -289,13 +289,24 @@ describe('the examined count is what was read, not what was declared', () => {
 
     // The script resolves its workspace root from its own location, not from `cwd`, so it has to be
     // copied INTO the fixture — running it in place would read the real repository and assert
-    // nothing about this tree. It has no local imports, so the copy is the whole dependency.
-    // ...and at the depth it expects: it resolves the workspace root as `../..` from its own
-    // directory, so a copy dropped at the fixture root would judge the fixture's PARENT. Placed a
-    // level too high, it reported "the workflow directory does not exist" over a tree that has one.
+    // nothing about this tree. ...and at the depth it expects: it resolves the workspace root as
+    // `../..` from its own directory, so a copy dropped at the fixture root would judge the
+    // fixture's PARENT. Placed a level too high, it reported "the workflow directory does not
+    // exist" over a tree that has one.
     const copied = path.join(tree, 'scripts/harness/scan-workflow-permissions.mjs');
     fs.mkdirSync(path.dirname(copied), { recursive: true });
     fs.copyFileSync(SCAN_SCRIPT_PATH, copied);
+    // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
+    for (const shared of [
+      'shared.mjs',
+      'git-base-ref-resolution.mjs',
+      'manifest-change-classification.mjs',
+    ]) {
+      fs.copyFileSync(
+        path.join(path.dirname(SCAN_SCRIPT_PATH), shared),
+        path.join(path.dirname(copied), shared),
+      );
+    }
     const printed = execFileSync('node', [copied], { cwd: tree, encoding: 'utf8' });
     expect(printed, 'a clean zero was printed with no reason attached').toMatch(
       /::examined:: 0 write scopes ::expected-empty::/,
