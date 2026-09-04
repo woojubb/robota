@@ -4474,7 +4474,10 @@ describe('the finders read only the root they are given (PROC-016)', () => {
         ],
         { cwd: real },
       );
-      expect(result.stderr).toBe('');
+      // This scan reads the checkout it LIVES in, so running it with the fixture as cwd makes the
+      // root differ from cwd and the #2413 resolver announces `::root:: <path>` on stderr. That
+      // diagnostic is the point of the announcement here; nothing else may be written.
+      expect(result.stderr.replace(/^::root:: .*\n?/gm, '')).toBe('');
       expect(result.stdout).toMatch(/::examined:: \d+ topic commit\(s\)/);
     } finally {
       if (saved === undefined) delete process.env.GIT_DIR;
