@@ -46,79 +46,106 @@ afterEach(() => {
 });
 
 describe('SELFHOST-008 TC-01 — durable round-trip across sessions (async port)', () => {
-  it('recalls a fact written in one store from a FRESH store over the same workspace', async () => {
-    const cwd = makeWorkspace();
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'recalls a fact written in one store from a FRESH store over the same workspace',
+    async () => {
+      const cwd = makeWorkspace();
 
-    const writer = await createMemoryStore(cwd);
-    await writer.append({
-      type: 'project',
-      topic: 'build',
-      text: 'run pnpm build:deps before tests',
-    });
+      const writer = await createMemoryStore(cwd);
+      await writer.append({
+        type: 'project',
+        topic: 'build',
+        text: 'run pnpm build:deps before tests',
+      });
 
-    const reader = await createMemoryStore(cwd);
-    const recalled = await reader.recall('build deps tests', { maxTopics: 5, maxTopicChars: 500 });
+      const reader = await createMemoryStore(cwd);
+      const recalled = await reader.recall('build deps tests', {
+        maxTopics: 5,
+        maxTopicChars: 500,
+      });
 
-    expect(recalled.content).toContain('build:deps');
-    expect(recalled.references.map((r) => r.topic)).toContain('build');
-    expect((await reader.loadStartupMemory()).content).toContain('build:deps');
-  });
+      expect(recalled.content).toContain('build:deps');
+      expect(recalled.references.map((r) => r.topic)).toContain('build');
+      expect((await reader.loadStartupMemory()).content).toContain('build:deps');
+    },
+  );
 });
 
 describe('SELFHOST-008 TC-02 — budgeted recall (ranked, never over budget)', () => {
-  it('returns at most maxTopics and truncates each topic to maxTopicChars', async () => {
-    const cwd = makeWorkspace();
-    const store = await createMemoryStore(cwd);
-    await store.append({ type: 'project', topic: 'alpha-one', text: `alpha ${'x'.repeat(400)}` });
-    await store.append({ type: 'project', topic: 'alpha-two', text: `alpha ${'y'.repeat(400)}` });
-    await store.append({ type: 'project', topic: 'alpha-three', text: `alpha ${'z'.repeat(400)}` });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'returns at most maxTopics and truncates each topic to maxTopicChars',
+    async () => {
+      const cwd = makeWorkspace();
+      const store = await createMemoryStore(cwd);
+      await store.append({ type: 'project', topic: 'alpha-one', text: `alpha ${'x'.repeat(400)}` });
+      await store.append({ type: 'project', topic: 'alpha-two', text: `alpha ${'y'.repeat(400)}` });
+      await store.append({
+        type: 'project',
+        topic: 'alpha-three',
+        text: `alpha ${'z'.repeat(400)}`,
+      });
 
-    const budget: IMemoryBudget = { maxTopics: 2, maxTopicChars: 50 };
-    const result = await store.recall('alpha', budget);
+      const budget: IMemoryBudget = { maxTopics: 2, maxTopicChars: 50 };
+      const result = await store.recall('alpha', budget);
 
-    expect(result.references.length).toBe(2);
-    for (const ref of result.references) {
-      expect((await store.readTopic(ref.topic)).length).toBeGreaterThan(budget.maxTopicChars);
-    }
-    expect(result.truncated).toBe(true);
-  });
+      expect(result.references.length).toBe(2);
+      for (const ref of result.references) {
+        expect((await store.readTopic(ref.topic)).length).toBeGreaterThan(budget.maxTopicChars);
+      }
+      expect(result.truncated).toBe(true);
+    },
+  );
 
-  it('returns empty for a query with no matching topics', async () => {
-    const store = await createMemoryStore(makeWorkspace());
-    await store.append({ type: 'project', topic: 'build', text: 'pnpm' });
-    expect(
-      (await store.recall('nonmatchingtoken', { maxTopics: 5, maxTopicChars: 100 })).references,
-    ).toEqual([]);
-  });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'returns empty for a query with no matching topics',
+    async () => {
+      const store = await createMemoryStore(makeWorkspace());
+      await store.append({ type: 'project', topic: 'build', text: 'pnpm' });
+      expect(
+        (await store.recall('nonmatchingtoken', { maxTopics: 5, maxTopicChars: 100 })).references,
+      ).toEqual([]);
+    },
+  );
 });
 
 describe('SELFHOST-008 TC-05 (P1R) — recall seam cleaned: injected clock reaches the recall read path', () => {
-  it('FileSystemMemoryStore holds one ProjectMemoryStore honoring the injected now', async () => {
-    const cwd = makeWorkspace();
-    const fixed = new Date('2026-07-18T09:00:00.000Z');
-    const store = await createMemoryStore(cwd, () => fixed);
-    await store.append({ type: 'project', topic: 'clock', text: 'injected-clock-entry' });
-    // the recalled entry is date-stamped with the injected clock (2026-07-18), proving the recall read
-    // path uses the same injected-clock ProjectMemoryStore (not a second default-clock instance).
-    const recalled = await store.recall('clock injected entry', {
-      maxTopics: 3,
-      maxTopicChars: 500,
-    });
-    expect(recalled.content).toContain('2026-07-18');
-    expect(recalled.content).toContain('injected-clock-entry');
-  });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'FileSystemMemoryStore holds one ProjectMemoryStore honoring the injected now',
+    async () => {
+      const cwd = makeWorkspace();
+      const fixed = new Date('2026-07-18T09:00:00.000Z');
+      const store = await createMemoryStore(cwd, () => fixed);
+      await store.append({ type: 'project', topic: 'clock', text: 'injected-clock-entry' });
+      // the recalled entry is date-stamped with the injected clock (2026-07-18), proving the recall read
+      // path uses the same injected-clock ProjectMemoryStore (not a second default-clock instance).
+      const recalled = await store.recall('clock injected entry', {
+        maxTopics: 3,
+        maxTopicChars: 500,
+      });
+      expect(recalled.content).toContain('2026-07-18');
+      expect(recalled.content).toContain('injected-clock-entry');
+    },
+  );
 });
 
 describe('SELFHOST-008 TC-04 — curate queue + sensitive-content refusal', () => {
-  it('queues and transitions pending candidates through the port', async () => {
-    const store = await createMemoryStore(makeWorkspace());
-    await store.upsertPending(candidate(), 'pending', 'queued for review');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'queues and transitions pending candidates through the port',
+    async () => {
+      const store = await createMemoryStore(makeWorkspace());
+      await store.upsertPending(candidate(), 'pending', 'queued for review');
 
-    expect((await store.listPending('pending')).map((r) => r.id)).toContain('cand-1');
-    const marked = await store.markPending('cand-1', 'approved', 'looks good');
-    expect(marked.status).toBe('approved');
-    expect((await store.getPending('cand-1'))?.status).toBe('approved');
-  });
+      expect((await store.listPending('pending')).map((r) => r.id)).toContain('cand-1');
+      const marked = await store.markPending('cand-1', 'approved', 'looks good');
+      expect(marked.status).toBe('approved');
+      expect((await store.getPending('cand-1'))?.status).toBe('approved');
+    },
+  );
 
   it('the neutral default policy REFUSES sensitive content (skip / sensitive-content)', () => {
     const evaluator = new MemoryPolicyEvaluator();
@@ -178,86 +205,98 @@ describe('SELFHOST-008 TC-02 (P1R) — async adapter swap needs no library chang
     expect(recalls).toEqual(['q']);
   });
 
-  it('an IMemoryStore backed by a fake async ISemanticMemoryAdapter is injectable (ghost-seam closed)', async () => {
-    // A surface can back the async port with a semantic adapter — the whole point of the async remediation.
-    const semantic: ISemanticMemoryAdapter = {
-      index: async () => undefined,
-      query: async (text) => ({ content: `semantic:${text}`, references: [] }),
-    };
-    const base = await createMemoryStore(makeWorkspace());
-    const semanticBacked: IMemoryStore = {
-      ...base,
-      loadStartupMemory: () => base.loadStartupMemory(),
-      list: () => base.list(),
-      readTopic: (t) => base.readTopic(t),
-      append: async (input) => {
-        await semantic.index(input); // dual-write to the vector backend
-        return base.append(input);
-      },
-      recall: async (query, budget) => ({
-        ...(await semantic.query(query, budget)),
-        truncated: false,
-      }), // semantic recall
-      getPending: (id) => base.getPending(id),
-      listPending: (s) => base.listPending(s),
-      markPending: (id, s, r) => base.markPending(id, s, r),
-      upsertPending: (c, s, r) => base.upsertPending(c, s, r),
-    };
-    await semanticBacked.append({ type: 'project', topic: 't', text: 'x' });
-    expect((await semanticBacked.recall('q', { maxTopics: 1, maxTopicChars: 1 })).content).toBe(
-      'semantic:q',
-    );
-  });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'an IMemoryStore backed by a fake async ISemanticMemoryAdapter is injectable (ghost-seam closed)',
+    async () => {
+      // A surface can back the async port with a semantic adapter — the whole point of the async remediation.
+      const semantic: ISemanticMemoryAdapter = {
+        index: async () => undefined,
+        query: async (text) => ({ content: `semantic:${text}`, references: [] }),
+      };
+      const base = await createMemoryStore(makeWorkspace());
+      const semanticBacked: IMemoryStore = {
+        ...base,
+        loadStartupMemory: () => base.loadStartupMemory(),
+        list: () => base.list(),
+        readTopic: (t) => base.readTopic(t),
+        append: async (input) => {
+          await semantic.index(input); // dual-write to the vector backend
+          return base.append(input);
+        },
+        recall: async (query, budget) => ({
+          ...(await semantic.query(query, budget)),
+          truncated: false,
+        }), // semantic recall
+        getPending: (id) => base.getPending(id),
+        listPending: (s) => base.listPending(s),
+        markPending: (id, s, r) => base.markPending(id, s, r),
+        upsertPending: (c, s, r) => base.upsertPending(c, s, r),
+      };
+      await semanticBacked.append({ type: 'project', topic: 't', text: 'x' });
+      expect((await semanticBacked.recall('q', { maxTopics: 1, maxTopicChars: 1 })).content).toBe(
+        'semantic:q',
+      );
+    },
+  );
 });
 
 describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes through the injected port', () => {
-  it('an injected IMemoryStore receives the capture write', async () => {
-    const { AutomaticMemoryController } = await import('../automatic-memory-controller.js');
-    const appended: string[] = [];
-    const pending: string[] = [];
-    const base = await createMemoryStore(makeWorkspace());
-    const spy: IMemoryStore = {
-      loadStartupMemory: () => base.loadStartupMemory(),
-      list: () => base.list(),
-      readTopic: (topic) => base.readTopic(topic),
-      recall: (query, budget) => base.recall(query, budget),
-      getPending: (id) => base.getPending(id),
-      listPending: (status) => base.listPending(status),
-      markPending: (id, status, reason) => base.markPending(id, status, reason),
-      append: async (input) => {
-        appended.push(input.text);
-        return base.append(input);
-      },
-      upsertPending: async (c, status, reason) => {
-        pending.push(`${c.id}:${status}`);
-        await base.upsertPending(c, status, reason);
-      },
-    };
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'an injected IMemoryStore receives the capture write',
+    async () => {
+      const { AutomaticMemoryController } = await import('../automatic-memory-controller.js');
+      const appended: string[] = [];
+      const pending: string[] = [];
+      const base = await createMemoryStore(makeWorkspace());
+      const spy: IMemoryStore = {
+        loadStartupMemory: () => base.loadStartupMemory(),
+        list: () => base.list(),
+        readTopic: (topic) => base.readTopic(topic),
+        recall: (query, budget) => base.recall(query, budget),
+        getPending: (id) => base.getPending(id),
+        listPending: (status) => base.listPending(status),
+        markPending: (id, status, reason) => base.markPending(id, status, reason),
+        append: async (input) => {
+          appended.push(input.text);
+          return base.append(input);
+        },
+        upsertPending: async (c, status, reason) => {
+          pending.push(`${c.id}:${status}`);
+          await base.upsertPending(c, status, reason);
+        },
+      };
 
-    const controller = new AutomaticMemoryController({
-      config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
-      memoryStore: spy,
-      extractor: { extract: () => [candidate({ confidence: 0.99, text: 'stored via port' })] },
-    });
+      const controller = new AutomaticMemoryController({
+        config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        memoryStore: spy,
+        extractor: { extract: () => [candidate({ confidence: 0.99, text: 'stored via port' })] },
+      });
 
-    const result = await controller.capture({
-      sessionId: 's1',
-      turnId: 't1',
-      userMessage: 'u',
-      assistantMessage: 'a',
-    });
+      const result = await controller.capture({
+        sessionId: 's1',
+        turnId: 't1',
+        userMessage: 'u',
+        assistantMessage: 'a',
+      });
 
-    expect(result.saved).toContain('cand-1');
-    expect(appended).toContain('stored via port');
-    expect(pending).toContain('cand-1:saved');
-  });
+      expect(result.saved).toContain('cand-1');
+      expect(appended).toContain('stored via port');
+      expect(pending).toContain('cand-1:saved');
+    },
+  );
 });
 
 describe('SELFHOST-008 — WorkspaceMemoryStore is the authority-backed reference adapter', () => {
-  it('is an IMemoryStore and composes the existing fs mechanisms without new behavior', async () => {
-    const storage = await createTrustedProjectStateFixture(makeWorkspace(), 'memory');
-    const store = new WorkspaceMemoryStore(storage);
-    await store.append({ type: 'reference', topic: 'docs', text: 'see AGENTS.md' });
-    expect((await store.list()).topics.map((t) => t.name)).toContain('docs');
-  });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'is an IMemoryStore and composes the existing fs mechanisms without new behavior',
+    async () => {
+      const storage = await createTrustedProjectStateFixture(makeWorkspace(), 'memory');
+      const store = new WorkspaceMemoryStore(storage);
+      await store.append({ type: 'reference', topic: 'docs', text: 'see AGENTS.md' });
+      expect((await store.list()).topics.map((t) => t.name)).toContain('docs');
+    },
+  );
 });

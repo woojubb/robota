@@ -199,6 +199,45 @@ These scripts are the executable layer of the Robota harness.
   `.github`, `.agents`, hooks, packages, apps, or unrelated root files. Unlisted tests never enter
   this tier implicitly.
 
+## Adding a scan
+
+A new `scripts/harness/scan-*.mjs` or `check-*.mjs` is refused by the floors below, **in the order
+they will refuse it**. Read the list before writing the file: each floor constrains a design decision
+— what to name a function, where a counter lives, how a test makes a temp directory — that is cheaper
+to take before the code exists than to redo after the rejection. None of the floors is optional and
+none has a new-scan exemption; this section changes the sequencing, not the bar. Measured on one
+change (SEC-016, issue #2093; filed as issue #2226): one added scan met seven rejections across these
+six floors, one at a time, because nothing listed them in advance.
+
+1. **`fixture-floor`** (`check-fixture-floor.mjs`, HARNESS-098) — a same-named test exists at
+   `__tests__/<scan-name>.test.mjs`. The floor decides existence only; the rule behind it
+   (`lesson-to-harness` step 9) asks the test to show the scan going RED on the condition it names,
+   not only green on a clean tree. `fixture-floor-baseline.json` is prior debt and takes no new entry.
+   Exemplar: `scan-hook-enforcement-reachable.mjs` with `scan-hook-enforcement-reachable.test.mjs`.
+2. **`measurement-provenance`** (`scan-measurement-provenance.mjs`) — if the scan prints
+   `::examined::`, four requirements land together, and each is a separate rejection when met one at
+   a time: (a) an exported size reader named `examined…Count` or `readExamined…`; (b) an exported
+   finder named `find*`, `collect*`, `check*` or `scan*` that a test can RUN to move the counter — a
+   `parse*` is invisible to the floor; (c) the fixture test asserts the reader against an EXACT number,
+   not a lower bound; (d) a reset case asserts the count after a SECOND run of the finder, so the
+   counter is shown to reset rather than accumulate. Then classify the module in
+   `measurement-provenance-pending.json` under `covered` — a declaring module in neither list is
+   itself a finding. Exemplar: `scan-workflow-provenance.mjs` (`readExaminedWorkflowCount`,
+   `findWorkflowProvenanceFindings`).
+3. **`temp-dir-owner`** (`scan-temp-dir-owner.mjs`, INFRA-126) — the fixture test creates its temp
+   directory through `__tests__/make-temp.mjs`. A direct `mkdtemp`/`mkdtempSync` is refused even in a
+   file that cleans up.
+4. **`spec-public-surface`** (`check-spec-public-surface.mjs`) — if the change adds a runtime export
+   to a package entry, that export is a row in the package SPEC's Public API table; the per-package
+   undocumented count in `spec-surface-baseline.json` may not rise.
+5. **`named-artifact-resolves`** (`scan-named-artifact-resolves.mjs`) — every filename the scan's
+   docblock, test or rule text names (`foo.test.mjs`, `ci.yml`) resolves to a file in the tree. Name <!-- allow-missing-artifact: illustrative names in a rule statement, not files this tree carries -->
+   a file after it exists, or not at all.
+6. **`examined-size` adoption** (`run-all-scans.mjs`, `examined-adoption-baseline.json`) — a scan
+   that emits `::examined::` is added to the frozen set in the SAME change (or via
+   `--write-adoption-baseline`), or the runner reports it as ROSE and the gain is a licence to slide
+   back.
+
 ## Design Notes
 
 - Commands are intentionally narrow and explicit.

@@ -5,7 +5,7 @@
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
-import { checkPathWithinCwd } from './path-guard.js';
+import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
@@ -27,7 +27,11 @@ const WriteSchema = z.object({
 type TWriteArgs = z.infer<typeof WriteSchema>;
 
 async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Promise<string> {
-  const { filePath, content } = args;
+  const { content } = args;
+  // A relative path anchors to the containment root before it is confined or written (issue #2429).
+  const filePath = options.sandboxClient
+    ? args.filePath
+    : resolveHostPath(args.filePath, options.cwd);
 
   if (!options.sandboxClient) {
     const pathError = checkPathWithinCwd(filePath, options.cwd);

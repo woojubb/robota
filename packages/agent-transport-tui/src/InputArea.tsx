@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 
 const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
-import { Box, Text, useInput, useWindowSize } from 'ink';
+import { Box, useInput, useWindowSize } from 'ink';
 
 import CjkTextInput from './CjkTextInput.js';
 import {
@@ -20,6 +20,7 @@ import {
   shouldSubmitInput,
 } from './flows/input-area-flow.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
+import { Text } from './SafeText.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
 import { PALETTE } from './tui-palette.js';
 import { buildInputTopBorder } from './utils/input-top-border.js';

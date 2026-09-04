@@ -23,9 +23,8 @@ export function buildAppendSystemPrompt(cwd: string, args: IParsedCliArgs): stri
       process.exit(1);
     }
   }
-  if (args.jsonSchema)
-    appendParts.push(
-      `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,
-    );
+  // Issue #2056: `--json-schema` is NOT prompt text. It is routed as the session's structured
+  // `responseFormat` (see `json-schema-response-format.ts`); the provider layer owns capability
+  // selection, fallback and validation (CORE-043), so no CLI-authored instruction is appended here.
   return appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
 }

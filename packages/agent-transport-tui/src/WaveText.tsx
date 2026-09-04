@@ -5,9 +5,9 @@
  * wide enough to be perceptible (#555→#bbb) at an unhurried 400ms cadence.
  */
 
-import { Text } from 'ink';
 import React, { useState, useEffect } from 'react';
 
+import { Text } from './SafeText.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { MOTION, PALETTE } from './tui-palette.js';
 

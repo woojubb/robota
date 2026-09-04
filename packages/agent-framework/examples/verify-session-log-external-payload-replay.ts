@@ -17,6 +17,21 @@ interface IExternalReferenceView {
   readonly relativePath: string;
 }
 
+// Contained — ARCH-049. Stable no-follow external-payload reads exist only on Linux
+// (session-log-sources.ts refuses other hosts by design), so this scenario cannot run here.
+// It says so explicitly instead of failing on a refusal it cannot influence.
+if (process.platform !== 'linux') {
+  console.log(
+    JSON.stringify({
+      notApplicable: true,
+      reason:
+        'ARCH-049: stable external-payload reads are Linux-only; scenario skipped on this host',
+      platform: process.platform,
+    }),
+  );
+  process.exit(0);
+}
+
 let sourceSession: InteractiveSession | undefined;
 let sourceWorkspace: string | undefined;
 let replaySession: InteractiveSession | undefined;

@@ -41,8 +41,9 @@ import {
   renderBlock,
   resolveRepository,
 } from './promotion-closes.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 export const DEFAULT_BRANCH = 'release/promote-develop-to-main';
 
 /** Thrown for a handled, explained failure. `main()` turns it into a non-zero exit code. */

@@ -96,21 +96,25 @@ describe('SessionStore', () => {
       expect(loaded).toEqual(record);
     });
 
-    it('persists project session CRUD only through minted project state facets', async () => {
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
-      try {
-        const project = await projectStore(cwd);
-        const record = makeRecord({ id: 'authority-session', cwd });
+    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'persists project session CRUD only through minted project state facets',
+      async () => {
+        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+        try {
+          const project = await projectStore(cwd);
+          const record = makeRecord({ id: 'authority-session', cwd });
 
-        project.save(record);
-        expect(loadedRecordOrMissing(project, record.id)).toEqual(record);
-        expect(listedRecords(project)).toEqual([record]);
-        project.delete(record.id);
-        expect(loadedRecordOrMissing(project, record.id)).toBeUndefined();
-      } finally {
-        rmSync(cwd, { recursive: true, force: true });
-      }
-    });
+          project.save(record);
+          expect(loadedRecordOrMissing(project, record.id)).toEqual(record);
+          expect(listedRecords(project)).toEqual([record]);
+          project.delete(record.id);
+          expect(loadedRecordOrMissing(project, record.id)).toBeUndefined();
+        } finally {
+          rmSync(cwd, { recursive: true, force: true });
+        }
+      },
+    );
 
     it('rejects session and log facets derived from different authority instances', async () => {
       const left = mkdtempSync(join(tmpdir(), 'robota-project-session-left-'));
@@ -185,127 +189,135 @@ describe('SessionStore', () => {
       expect(result).toBeUndefined();
     });
 
-    it('falls back to append-only replay logs when project session json is missing', async () => {
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
-      const access = await createTrustedProjectAccessFixture(cwd);
-      if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
-      const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
-      const sink = new WorkspaceSessionLogSink(logStorage);
-      sink.append(
-        'log-only-session',
-        [
-          JSON.stringify({
-            timestamp: '2026-05-05T00:00:00.000Z',
-            sessionId: 'log-only-session',
-            event: 'session_init',
-            cwd,
-          }),
-          JSON.stringify({
-            timestamp: '2026-05-05T00:00:01.000Z',
-            sessionId: 'log-only-session',
-            event: 'history_mutation',
-            mutation: 'append_message',
-            message: {
-              id: 'u1',
-              role: 'user',
-              content: 'hello',
-              state: 'complete',
+    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'falls back to append-only replay logs when project session json is missing',
+      async () => {
+        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+        const access = await createTrustedProjectAccessFixture(cwd);
+        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+        const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
+        const sink = new WorkspaceSessionLogSink(logStorage);
+        sink.append(
+          'log-only-session',
+          [
+            JSON.stringify({
+              timestamp: '2026-05-05T00:00:00.000Z',
+              sessionId: 'log-only-session',
+              event: 'session_init',
+              cwd,
+            }),
+            JSON.stringify({
               timestamp: '2026-05-05T00:00:01.000Z',
-            },
-          }),
-          JSON.stringify({
-            timestamp: '2026-05-05T00:00:02.000Z',
-            sessionId: 'log-only-session',
-            event: 'history_mutation',
-            mutation: 'append_message',
-            message: {
-              id: 'a1',
-              role: 'assistant',
-              content: 'hi',
-              state: 'complete',
+              sessionId: 'log-only-session',
+              event: 'history_mutation',
+              mutation: 'append_message',
+              message: {
+                id: 'u1',
+                role: 'user',
+                content: 'hello',
+                state: 'complete',
+                timestamp: '2026-05-05T00:00:01.000Z',
+              },
+            }),
+            JSON.stringify({
               timestamp: '2026-05-05T00:00:02.000Z',
-            },
-          }),
-          JSON.stringify({
-            timestamp: '2026-05-05T00:00:03.000Z',
-            sessionId: 'log-only-session',
-            event: 'background_task_event',
-            backgroundEvent: {
-              type: 'background_task_completed',
-              task: {
-                id: 'task-1',
-                kind: 'process',
-                label: 'Replay task',
-                status: 'completed',
-                mode: 'background',
-                parentSessionId: 'log-only-session',
-                depth: 0,
-                cwd,
-                updatedAt: '2026-05-05T00:00:03.000Z',
-                unread: false,
+              sessionId: 'log-only-session',
+              event: 'history_mutation',
+              mutation: 'append_message',
+              message: {
+                id: 'a1',
+                role: 'assistant',
+                content: 'hi',
+                state: 'complete',
+                timestamp: '2026-05-05T00:00:02.000Z',
               },
-            },
-          }),
-          JSON.stringify({
-            timestamp: '2026-05-05T00:00:04.000Z',
-            sessionId: 'log-only-session',
-            event: 'background_job_group_event',
-            backgroundJobGroupEvent: {
-              type: 'background_job_group_completed',
-              group: {
-                id: 'group-1',
-                parentSessionId: 'log-only-session',
-                waitPolicy: 'wait_all',
-                taskIds: ['task-1'],
-                status: 'completed',
-                createdAt: '2026-05-05T00:00:03.000Z',
-                updatedAt: '2026-05-05T00:00:04.000Z',
-                results: [],
+            }),
+            JSON.stringify({
+              timestamp: '2026-05-05T00:00:03.000Z',
+              sessionId: 'log-only-session',
+              event: 'background_task_event',
+              backgroundEvent: {
+                type: 'background_task_completed',
+                task: {
+                  id: 'task-1',
+                  kind: 'process',
+                  label: 'Replay task',
+                  status: 'completed',
+                  mode: 'background',
+                  parentSessionId: 'log-only-session',
+                  depth: 0,
+                  cwd,
+                  updatedAt: '2026-05-05T00:00:03.000Z',
+                  unread: false,
+                },
               },
-            },
-          }),
-        ].join('\n') + '\n',
-      );
+            }),
+            JSON.stringify({
+              timestamp: '2026-05-05T00:00:04.000Z',
+              sessionId: 'log-only-session',
+              event: 'background_job_group_event',
+              backgroundJobGroupEvent: {
+                type: 'background_job_group_completed',
+                group: {
+                  id: 'group-1',
+                  parentSessionId: 'log-only-session',
+                  waitPolicy: 'wait_all',
+                  taskIds: ['task-1'],
+                  status: 'completed',
+                  createdAt: '2026-05-05T00:00:03.000Z',
+                  updatedAt: '2026-05-05T00:00:04.000Z',
+                  results: [],
+                },
+              },
+            }),
+          ].join('\n') + '\n',
+        );
 
-      try {
-        const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
-        const store = createProjectSessionStore(sessionStorage, logStorage);
-        const loaded = loadedRecordOrMissing(store, 'log-only-session');
+        try {
+          const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
+          const store = createProjectSessionStore(sessionStorage, logStorage);
+          const loaded = loadedRecordOrMissing(store, 'log-only-session');
 
-        expect(loaded?.cwd).toBe(cwd);
-        expect(loaded?.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
-        expect(loaded?.history).toHaveLength(2);
-        expect(loaded?.backgroundTasks?.map((task) => task.id)).toEqual(['task-1']);
-        expect(loaded?.backgroundJobGroups?.map((group) => group.id)).toEqual(['group-1']);
-      } finally {
-        rmSync(cwd, { recursive: true, force: true });
-      }
-    });
+          expect(loaded?.cwd).toBe(cwd);
+          expect(loaded?.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
+          expect(loaded?.history).toHaveLength(2);
+          expect(loaded?.backgroundTasks?.map((task) => task.id)).toEqual(['task-1']);
+          expect(loaded?.backgroundJobGroups?.map((group) => group.id)).toEqual(['group-1']);
+        } finally {
+          rmSync(cwd, { recursive: true, force: true });
+        }
+      },
+    );
   });
 
   describe('project session log degradation', () => {
-    it('enforces the caller-supplied payload read budget', async () => {
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-budget-'));
-      try {
-        const access = await createTrustedProjectAccessFixture(cwd);
-        if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
-        const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
-        const serialized = JSON.stringify('larger than one byte');
-        const sha256 = createHash('sha256').update(serialized).digest('hex');
-        const sink = new WorkspaceSessionLogSink(storage);
-        const reference = sink.writeJson('safe-session', sha256, serialized);
-        const source = new WorkspaceSessionLogSource(storage, 'safe-session');
+    // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+    it.runIf(process.platform === 'linux')(
+      'enforces the caller-supplied payload read budget',
+      async () => {
+        const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-budget-'));
+        try {
+          const access = await createTrustedProjectAccessFixture(cwd);
+          if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+          const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
+          const serialized = JSON.stringify('larger than one byte');
+          const sha256 = createHash('sha256').update(serialized).digest('hex');
+          const sink = new WorkspaceSessionLogSink(storage);
+          const reference = sink.writeJson('safe-session', sha256, serialized);
+          const source = new WorkspaceSessionLogSource(storage, 'safe-session');
 
-        expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
-          expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
-        );
-        expect(() => source.readBytes(reference.relativePath, -1)).toThrowError(
-          expect.objectContaining({ code: 'INVALID_LIMIT' }),
-        );
-      } finally {
-        rmSync(cwd, { recursive: true, force: true });
-      }
-    });
+          expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
+            expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
+          );
+          expect(() => source.readBytes(reference.relativePath, -1)).toThrowError(
+            expect.objectContaining({ code: 'INVALID_LIMIT' }),
+          );
+        } finally {
+          rmSync(cwd, { recursive: true, force: true });
+        }
+      },
+    );
 
     it('rejects a mismatched payload digest before authority-backed I/O', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'robota-project-log-digest-'));

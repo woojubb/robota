@@ -1,6 +1,9 @@
 import {
+  deliverToObservers,
   isTerminalBackgroundTaskStatus,
+  reportObserverFailureAsWarning,
   type IBackgroundTaskManager,
+  type TObserverFailureReporter,
 } from '@robota-sdk/agent-executor';
 
 // Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
@@ -38,6 +41,8 @@ export interface IBackgroundJobOrchestratorOptions {
   now?: () => string;
   idFactory?: TBackgroundJobGroupIdFactory;
   initialGroups?: readonly IBackgroundJobGroupState[];
+  /** ARCH-053: observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
+  onObserverFailure?: TObserverFailureReporter<TBackgroundJobGroupEvent>;
 }
 
 interface IBackgroundJobGroupRecord {
@@ -52,6 +57,7 @@ export class BackgroundJobOrchestrator {
   private readonly idFactory: TBackgroundJobGroupIdFactory;
   private readonly unsubscribeManager: () => void;
   private readonly listeners = new Set<TBackgroundJobGroupEventListener>();
+  private readonly onObserverFailure: TObserverFailureReporter<TBackgroundJobGroupEvent>;
   private readonly groups = new Map<string, IBackgroundJobGroupRecord>();
   private sequence = 0;
 
@@ -59,6 +65,7 @@ export class BackgroundJobOrchestrator {
     this.manager = options.manager;
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? (() => this.nextGroupId());
+    this.onObserverFailure = options.onObserverFailure ?? reportObserverFailureAsWarning;
     this.sequence = options.initialGroups?.length ?? 0;
     for (const group of options.initialGroups ?? []) this.restoreGroup(group);
     this.unsubscribeManager = this.manager.subscribe((event) => this.handleTaskEvent(event));
@@ -171,8 +178,9 @@ export class BackgroundJobOrchestrator {
     this.emit({ type: 'background_job_group_completed', group: completed });
   }
 
+  /** ARCH-053: same isolated, continued, reported delivery as `BackgroundTaskManager`. */
   private emit(event: TBackgroundJobGroupEvent): void {
-    for (const listener of this.listeners) listener(event);
+    deliverToObservers(event, this.listeners, this.onObserverFailure);
   }
 }
 

@@ -24,6 +24,7 @@ import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
 import { collectAcceptedForms, examinedHookCount } from './hook-overrides.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
 /**
  * The size this scan reports, re-exported so the declaration and the reader are one symbol.
@@ -36,7 +37,7 @@ import { collectAcceptedForms, examinedHookCount } from './hook-overrides.mjs';
  */
 export { collectAcceptedForms, examinedHookCount };
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // INFRA-121 — through the shared owner, so a hook or rule written and not yet staged is judged.
 const trackedFiles = () => enumerateFiles();

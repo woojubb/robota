@@ -33,8 +33,9 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const PACKAGES_DIR = path.join(WORKSPACE_ROOT, 'packages');
 
 /** A module specifier is "bare" (external) when it is not a relative path. */
@@ -216,23 +217,106 @@ export function loadEntryBaseline(baselinePath = ENTRY_BASELINE_PATH) {
   return JSON.parse(readFileSync(baselinePath, 'utf8'));
 }
 
-/** Names a module re-exports as RUNTIME values (`export { a } from './x'`), with their source. */
-function entryRuntimeReExports(sourceText, fileName) {
-  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
-  const out = [];
+function parseSource(fileName, sourceText) {
+  return ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+}
+
+function hasExportModifier(node) {
+  return node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) === true;
+}
+
+/** Resolve a relative specifier (`./x.js`, `./x`, `./dir`) to the `.ts` file it names, or null. (allow-missing-artifact: illustrative specifiers) */
+function resolveRelativeModule(fromFile, spec) {
+  const base = path.resolve(path.dirname(fromFile), spec.replace(/\.(js|ts)$/, ''));
+  for (const candidate of [`${base}.ts`, path.join(base, 'index.ts')]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Top-level VALUE declarations of a module (const/let/function/class/enum), exported or not. */
+function localValueDeclarations(sf) {
+  const exported = new Set();
+  const all = new Set();
   for (const st of sf.statements) {
-    if (!ts.isExportDeclaration(st) || st.isTypeOnly) continue;
-    if (!st.moduleSpecifier || !ts.isStringLiteral(st.moduleSpecifier)) continue;
-    const spec = st.moduleSpecifier.text;
-    if (isBareSpecifier(spec)) continue;
-    const named = st.exportClause;
-    if (!named || !ts.isNamedExports(named)) continue;
-    for (const el of named.elements) {
-      if (el.isTypeOnly) continue;
-      out.push({ name: (el.propertyName ?? el.name).text, source: spec });
+    let names = [];
+    if (ts.isVariableStatement(st)) {
+      names = st.declarationList.declarations
+        .filter((d) => d.name && ts.isIdentifier(d.name))
+        .map((d) => d.name.text);
+    } else if (
+      (ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st) || ts.isEnumDeclaration(st)) &&
+      st.name
+    ) {
+      names = [st.name.text];
+    }
+    for (const n of names) {
+      all.add(n);
+      if (hasExportModifier(st)) exported.add(n);
     }
   }
-  return out;
+  return { all, exported };
+}
+
+/**
+ * Every RUNTIME value a module publishes, with the file and local name to classify it from: its own
+ * exported declarations, its relative named re-exports, and — recursively — everything behind a
+ * relative `export *`.
+ *
+ * Issue #2221: a star re-export names nothing, so an enumerator that reads only named clauses
+ * produced, for a barrel over a sub-barrel, output identical to a package that publishes no
+ * runtime values at all. What cannot be followed (a target that does not exist, a namespace
+ * re-export) is returned in `unresolved` rather than dropped — a guard that says nothing about
+ * what it could not see is indistinguishable from a guard that found nothing.
+ */
+function moduleRuntimeExports(file, seen = new Set()) {
+  const exports = [];
+  const unresolved = [];
+  if (seen.has(file)) return { exports, unresolved };
+  seen.add(file);
+  const sf = parseSource(file, readFileSync(file, 'utf8'));
+  const local = localValueDeclarations(sf);
+  for (const name of local.exported) exports.push({ name, file, localName: name });
+  for (const st of sf.statements) {
+    if (!ts.isExportDeclaration(st) || st.isTypeOnly) continue;
+    const spec =
+      st.moduleSpecifier && ts.isStringLiteral(st.moduleSpecifier) ? st.moduleSpecifier.text : null;
+    if (spec !== null && isBareSpecifier(spec)) continue; // the source edge owns bare re-exports
+    const target = spec === null ? file : resolveRelativeModule(file, spec);
+    const clause = st.exportClause;
+    if (!clause) {
+      if (!target) {
+        unresolved.push({ name: '*', source: spec, reason: 'target not found' });
+        continue;
+      }
+      const inner = moduleRuntimeExports(target, seen);
+      exports.push(...inner.exports);
+      unresolved.push(...inner.unresolved);
+      continue;
+    }
+    if (!ts.isNamedExports(clause)) {
+      unresolved.push({
+        name: clause.name?.text ?? '*',
+        source: spec,
+        reason: 'namespace re-export',
+      });
+      continue;
+    }
+    for (const el of clause.elements) {
+      if (el.isTypeOnly) continue;
+      const localName = (el.propertyName ?? el.name).text;
+      if (spec === null) {
+        if (local.all.has(localName)) exports.push({ name: el.name.text, file, localName });
+        continue; // a local `export { T }` of a type is not a runtime value
+      }
+      if (!target) {
+        unresolved.push({ name: el.name.text, source: spec, reason: 'target not found' });
+        continue;
+      }
+      exports.push({ name: el.name.text, file: target, localName });
+    }
+  }
+  return { exports, unresolved };
 }
 
 /**
@@ -247,9 +331,16 @@ function classifyFunctionLike(node) {
   return / is /.test(ret) ? 'discriminator' : 'mechanism';
 }
 
-/** Is this exported declaration contract-shaped (const vocabulary, or a type-predicate function)? */
-function classifyDeclaration(sourceText, fileName, name) {
-  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+/**
+ * Classify the value `name` as published by `file`, following `export { a as name } from` and
+ * `export *` chains to the DECLARING file rather than stopping one hop in (issue #2221). Returns
+ * 'vocabulary' | 'discriminator' | 'mechanism' | 'unresolved'.
+ */
+function classifyExport(file, name, seen = new Set()) {
+  const key = `${file}::${name}`;
+  if (seen.has(key)) return 'unresolved';
+  seen.add(key);
+  const sf = parseSource(file, readFileSync(file, 'utf8'));
   for (const st of sf.statements) {
     if (ts.isVariableStatement(st)) {
       for (const d of st.declarationList.declarations) {
@@ -268,30 +359,60 @@ function classifyDeclaration(sourceText, fileName, name) {
     if (ts.isFunctionDeclaration(st) && st.name && st.name.text === name) {
       return classifyFunctionLike(st);
     }
+    if ((ts.isClassDeclaration(st) || ts.isEnumDeclaration(st)) && st.name?.text === name) {
+      return 'mechanism';
+    }
   }
-  return 'mechanism';
+  // Not declared here: follow the relative re-exports that could carry it.
+  for (const st of sf.statements) {
+    if (!ts.isExportDeclaration(st) || st.isTypeOnly) continue;
+    if (!st.moduleSpecifier || !ts.isStringLiteral(st.moduleSpecifier)) continue;
+    if (isBareSpecifier(st.moduleSpecifier.text)) continue;
+    const target = resolveRelativeModule(file, st.moduleSpecifier.text);
+    if (!target) continue;
+    const clause = st.exportClause;
+    if (!clause) {
+      const kind = classifyExport(target, name, seen);
+      if (kind !== 'unresolved') return kind;
+      continue;
+    }
+    if (!ts.isNamedExports(clause)) continue;
+    for (const el of clause.elements) {
+      if (el.isTypeOnly || el.name.text !== name) continue;
+      const kind = classifyExport(target, (el.propertyName ?? el.name).text, seen);
+      if (kind !== 'unresolved') return kind;
+    }
+  }
+  return 'unresolved';
 }
 
 export function findEntryRuntimeMechanisms(packagesDir = PACKAGES_DIR) {
   const byPackage = {};
+  const unresolvedByPackage = {};
   let entriesScanned = 0;
+  let exportsExamined = 0;
   for (const srcDir of findInterfacePackages(packagesDir)) {
     const pkg = path.basename(path.dirname(srcDir));
     const entry = path.join(srcDir, 'index.ts');
     if (!existsSync(entry)) continue;
     entriesScanned += 1;
-    const names = [];
-    for (const { name, source } of entryRuntimeReExports(readFileSync(entry, 'utf8'), entry)) {
+    const { exports, unresolved } = moduleRuntimeExports(entry);
+    const mechanisms = new Set();
+    const unresolvedNames = unresolved.map((u) => `${u.name} from '${u.source}' (${u.reason})`);
+    const seenNames = new Set();
+    for (const { name, file, localName } of exports) {
+      if (seenNames.has(name)) continue;
+      seenNames.add(name);
+      exportsExamined += 1;
+      const kind = classifyExport(file, localName);
       // `testing/` is the sanctioned home for doubles; the entry must not route around that.
-      const target = path.resolve(path.dirname(entry), source.replace(/\.js$/, '.ts'));
-      if (!existsSync(target)) continue;
-      if (classifyDeclaration(readFileSync(target, 'utf8'), target, name) === 'mechanism') {
-        names.push(name);
-      }
+      if (kind === 'mechanism') mechanisms.add(name);
+      else if (kind === 'unresolved') unresolvedNames.push(`${name} (declaration not found)`);
     }
-    byPackage[pkg] = names.sort();
+    byPackage[pkg] = [...mechanisms].sort();
+    unresolvedByPackage[pkg] = unresolvedNames.sort();
   }
-  return { byPackage, entriesScanned };
+  return { byPackage, unresolvedByPackage, entriesScanned, exportsExamined };
 }
 
 /** Exported so a test can read the size this scan reports (measurement-provenance.md). */
@@ -303,13 +424,28 @@ export function findEntryBaselineFindings(
   packagesDir = PACKAGES_DIR,
   baseline = loadEntryBaseline(),
 ) {
-  const { byPackage, entriesScanned } = findEntryRuntimeMechanisms(packagesDir);
+  const { byPackage, unresolvedByPackage, entriesScanned, exportsExamined } =
+    findEntryRuntimeMechanisms(packagesDir);
   const findings = [];
+  // Issue #2221: what the entry publishes but the scan could not classify is a FINDING, not a
+  // silence — otherwise an unfollowable re-export reads exactly like an inert package.
+  for (const [pkg, names] of Object.entries(unresolvedByPackage)) {
+    if (names.length === 0) continue;
+    findings.push({
+      pkg,
+      kind: 'unresolved-export',
+      problem:
+        `entry publishes ${names.length} export(s) this scan could not resolve to a declaration ` +
+        `(${names.join(', ')}). Fix the re-export so the declaring file is reachable; an ` +
+        `unclassifiable export is not a clean one.`,
+    });
+  }
   for (const [pkg, names] of Object.entries(byPackage)) {
     const allowed = baseline[pkg] ?? 0;
     if (names.length > allowed) {
       findings.push({
         pkg,
+        kind: 'entry-mechanism',
         problem:
           `entry publishes ${names.length} runtime mechanism(s) (${names.join(', ')}) but the ` +
           `frozen allowance is ${allowed}. An agent-interface-* package publishes contracts, its ` +
@@ -318,7 +454,7 @@ export function findEntryBaselineFindings(
       });
     }
   }
-  return { findings, byPackage, entriesScanned };
+  return { findings, byPackage, unresolvedByPackage, entriesScanned, exportsExamined };
 }
 
 export function scanInterfaceRuntime() {
@@ -343,11 +479,14 @@ function main() {
   // package PUBLISH a mechanism" — and the second is the one the rule's words actually cover.
   const entry = findEntryBaselineFindings();
   if (entry.findings.length > 0) {
-    console.error('❌ Interface-package entry publishes a runtime mechanism:\n');
-    for (const f of entry.findings) console.error(`  [entry-mechanism] ${f.pkg} — ${f.problem}`);
+    console.error(
+      '❌ Interface-package entry publishes a runtime mechanism or an unresolved export:\n',
+    );
+    for (const f of entry.findings) console.error(`  [${f.kind}] ${f.pkg} — ${f.problem}`);
     console.error('');
     console.error(
-      `interface-runtime summary: entry-violations=${entry.findings.length} entries=${entry.entriesScanned} result=FAIL`,
+      `interface-runtime summary: entry-violations=${entry.findings.length} entries=${entry.entriesScanned} ` +
+        `entry-exports=${entry.exportsExamined} result=FAIL`,
     );
     process.exit(1);
   }
@@ -370,6 +509,7 @@ function main() {
   console.log('✅ No interface-package purity violations found.');
   console.log(`::examined:: ${filesScanned} source files`);
   console.log(`::examined:: ${entry.entriesScanned} package entries`);
+  console.log(`::examined:: ${entry.exportsExamined} entry exports (0 unresolved)`);
   console.log(`interface-runtime summary: violations=0 scanned=${filesScanned} result=PASS`);
   process.exit(0);
 }

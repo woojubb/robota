@@ -19,10 +19,10 @@ import path from 'node:path';
 
 import { classifyRange } from './classify-changed-paths.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
-import { resolveBaseRef } from './shared.mjs';
+import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
  *
@@ -663,6 +663,22 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-symlink-following-enumeration.mjs'],
     examines: [SCRIPTS, CLAUDE, under('.husky')],
   },
+  // #2222: a TUI render site reaches the terminal only through SafeText; raw ink Text imports refused.
+  {
+    name: 'tui-safe-text-boundary',
+    command: ['node', 'scripts/harness/scan-tui-safe-text-boundary.mjs'],
+    examines: [under('packages/agent-transport-tui/src')],
+  },
+  // #2347 / #2051: provider normalization resolves the environment only through an injected resolver.
+  {
+    name: 'provider-env-resolution',
+    command: ['node', 'scripts/harness/scan-provider-env-resolution.mjs'],
+    examines: [
+      'packages/agent-core/src/utils/env-ref.ts',
+      'packages/agent-core/src/providers/provider-factory.ts',
+      'packages/agent-executor/src/providers/provider-factory.ts',
+    ],
+  },
   // issue #1916. Reads only the tracked tree, so it is hermetic and a clone can judge it offline.
   {
     name: 'work-item-id-collision',
@@ -969,8 +985,8 @@ export const SCAN_COMMANDS = [
   // enforcing, on the release path where that script already runs. This keeps the number from
   // becoming a hand-maintained second source — present, matching its baseline, and falling only.
   {
-    name: 'lint-warning-ratchet',
-    command: ['node', 'scripts/harness/scan-lint-warning-ratchet.mjs'],
+    name: 'lint-ceiling-declared-vs-frozen',
+    command: ['node', 'scripts/harness/scan-lint-ceiling-declared-vs-frozen.mjs'],
     examines: ['scripts/harness/lint-warning-baseline.json', 'package.json'],
   },
   {
@@ -1001,7 +1017,11 @@ export const SCAN_COMMANDS = [
   {
     name: 'architecture-refresh-signals',
     command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
-    examines: [AGENTS, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
+    examines: [
+      AGENTS,
+      'scripts/harness/task-lifecycle-legacy-baseline.json',
+      'scripts/harness/architecture-refresh-legacy-baseline.json',
+    ],
   },
   {
     name: 'retired-agent-references',
@@ -1152,6 +1172,21 @@ export const SCAN_COMMANDS = [
     always: true,
   },
   {
+    // Issue #2186 — an open task record whose work-item ID a merged, delivering commit cites is a
+    // reconciliation prompt. Reads git history, so `always`; advisory under `pr` because the history
+    // it grades is moved by OTHER pull requests, not by the change under review.
+    name: 'task-merged-citation',
+    command: ['node', 'scripts/harness/scan-task-merged-citation.mjs'],
+    always: true,
+    advisory: true,
+  },
+  {
+    // Issue #2375: GATE-VERIFY's Plan-checkbox criterion, mechanised over the `## Plan` section.
+    name: 'task-plan-items',
+    command: ['node', 'scripts/harness/scan-task-plan-items.mjs'],
+    examines: [TASKS, 'scripts/harness/task-plan-items-baseline.json'],
+  },
+  {
     name: 'task-archival',
     command: ['node', 'scripts/harness/check-task-archival.mjs'],
     examines: [AGENTS, REGISTRY, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
@@ -1199,6 +1234,14 @@ export const SCAN_COMMANDS = [
   {
     name: 'interface-imports',
     command: ['node', 'scripts/harness/check-interface-imports.mjs'],
+    examines: [...WORKSPACE],
+  },
+  {
+    // Issue #2230 — every source file's workspace imports (tests included) against the importer's
+    // declared dependencies and the named package's real exports; the gap between `deps` and
+    // `interface-imports`.
+    name: 'workspace-import-integrity',
+    command: ['node', 'scripts/harness/scan-workspace-import-integrity.mjs'],
     examines: [...WORKSPACE],
   },
   {

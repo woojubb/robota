@@ -10,6 +10,7 @@ import {
   findBarrelParameterTypeFindings,
   parameterTypeNames,
   readBarrel,
+  ungovernedBarrels,
 } from '../scan-barrel-parameter-types.mjs';
 
 /**
@@ -157,6 +158,25 @@ describe('the floor fails closed rather than measuring nothing', () => {
     const { findings } = findBarrelParameterTypeFindings(process.cwd(), { barrels: [] });
 
     expect(findings.map((f) => f.rule)).toEqual(['barrel-scope-empty']);
+  });
+
+  it('flags a package root barrel on disk that the configured list omits (#2457)', () => {
+    const root = fixture('robota-barrel-scope-', {
+      [BARREL]: 'export function f(): void {}\n',
+      'packages/q/src/index.ts': 'export function g(): void {}\n',
+    });
+
+    expect(ungovernedBarrels(root, [BARREL])).toEqual(['packages/q/src/index.ts']);
+    const { findings, examined } = findBarrelParameterTypeFindings(root, settings());
+    expect(findings.map((f) => f.rule)).toEqual(['barrel-scope-incomplete']);
+    expect(findings[0].detail).toContain('packages/q/src/index.ts');
+    expect(examined).toBe(1);
+
+    const governed = findBarrelParameterTypeFindings(root, {
+      barrels: [BARREL, 'packages/q/src/index.ts'],
+    });
+    expect(governed.findings).toEqual([]);
+    expect(governed.examined).toBe(2);
   });
 });
 

@@ -25,7 +25,7 @@ import {
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
-import { createHostBundlePluginLoader } from '../plugins/index.js';
+import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 
 import type {
@@ -88,15 +88,17 @@ export async function createInteractiveSession(
     ? { ...config, language: options.language }
     : config;
 
-  const pluginsDir = join(homedir(), '.robota', 'plugins');
+  // Issue #2487: a project-scope install lives under the project's own plugin directory; both
+  // scopes load, the project copy winning by manifest name when a plugin is present in both.
+  const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
+  const pluginsDirs = [pluginsDirUnder(cwd), pluginsDirUnder(homedir())];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
-  // disabled" — indistinguishable from a user who disabled nothing. `pluginsDir` stays a local
+  // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
-  const pluginLoader = createHostBundlePluginLoader({ pluginsDir });
   if (!options.bare) {
     try {
-      const plugins = pluginLoader.loadPluginsSync();
+      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs);
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooks(plugins);
         mergedConfig = {
@@ -114,7 +116,7 @@ export async function createInteractiveSession(
       // hooks stopped running had nothing to look at. The loader now reports and skips per plugin,
       // so reaching here at all means discovery itself failed.
       logger.warn('plugin discovery failed — no bundle plugin hooks are active this session', {
-        pluginsDir,
+        pluginsDirs,
         error: error instanceof Error ? error.message : String(error),
       });
     }

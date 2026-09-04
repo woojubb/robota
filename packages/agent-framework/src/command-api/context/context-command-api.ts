@@ -22,7 +22,10 @@ export type {
   IContextReferenceRemoveResult,
 } from '../../context/context-reference-inventory.js';
 
-export type TAutoCompactThreshold = number | false;
+// Issue #2052: owned by agent-session (`ContextWindowTracker`), not redeclared here.
+import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
+
+export type { TAutoCompactThreshold };
 
 export const DEFAULT_AUTO_COMPACT_THRESHOLD = AUTO_COMPACT_THRESHOLD;
 export const AUTO_COMPACT_THRESHOLD_SETTINGS_KEY = 'autoCompactThreshold';

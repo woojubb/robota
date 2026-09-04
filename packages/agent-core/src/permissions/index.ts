@@ -8,6 +8,7 @@ export type {
 export { TRUST_TO_MODE, DEFAULT_BACKGROUND_PERMISSION_POLICY } from './types.js';
 export {
   evaluatePermission,
+  matchesAnyPattern,
   registerToolPermissionProfile,
   clearRegisteredToolProfiles,
   getToolPermissionProfile,
@@ -18,8 +19,11 @@ export type {
   IToolPermissionProfile,
   IToolPermissionArgument,
   TArgumentKind,
+  TMatchDirection,
 } from './permission-gate.js';
 export { resolvePermissionByPolicy } from './permission-policy.js';
+export { validatePermissionPattern, findInvalidPermissionPatterns } from './pattern-validation.js';
+export type { IPermissionPatternProblem } from './pattern-validation.js';
 export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';
 export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 export type { TToolRiskClass } from './permission-mode.js';

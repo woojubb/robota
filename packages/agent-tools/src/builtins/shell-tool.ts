@@ -30,7 +30,7 @@
 
 import { spawn } from 'node:child_process';
 
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { createBoundedOutput, resolvePlatformShell } from '@robota-sdk/agent-core';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
@@ -49,6 +49,8 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
 import '../tool-permission-profiles.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
+/** ARCH-056: most bytes retained per stream while the child runs (head); the rest is dropped. */
+const MAX_CAPTURED_OUTPUT_BYTES = 2_000_000;
 
 const ShellSchema = z.object({
   command: z.string().describe('The shell command to execute'),
@@ -139,8 +141,9 @@ async function runShell(
   }
 
   return new Promise<string>((resolve) => {
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
+    // ARCH-056: memory is bounded WHILE the child writes, not capped after a ten-minute buffer.
+    const stdoutOutput = createBoundedOutput({ maxBytes: MAX_CAPTURED_OUTPUT_BYTES });
+    const stderrOutput = createBoundedOutput({ maxBytes: MAX_CAPTURED_OUTPUT_BYTES });
 
     let timedOut = false;
     let settled = false;
@@ -157,11 +160,11 @@ async function runShell(
     child.stdin?.end();
 
     child.stdout.on('data', (chunk: Buffer) => {
-      stdoutChunks.push(chunk);
+      stdoutOutput.append(chunk);
     });
 
     child.stderr.on('data', (chunk: Buffer) => {
-      stderrChunks.push(chunk);
+      stderrOutput.append(chunk);
     });
 
     const timer = setTimeout(() => {
@@ -171,7 +174,7 @@ async function runShell(
       void killProcessTree(child, { processGroup: SPAWN_DETACHED });
       settle({
         success: false,
-        output: Buffer.concat(stdoutChunks).toString('utf8'),
+        output: stdoutOutput.toString(),
         error: `Command timed out after ${timeout}ms`,
       });
     }, timeout);
@@ -191,7 +194,7 @@ async function runShell(
       void killProcessTree(child, { processGroup: SPAWN_DETACHED });
       settle({
         success: false,
-        output: Buffer.concat(stdoutChunks).toString('utf8'),
+        output: stdoutOutput.toString(),
         error: 'Aborted',
       });
     }
@@ -209,15 +212,15 @@ async function runShell(
       if (timedOut) {
         settle({
           success: false,
-          output: Buffer.concat(stdoutChunks).toString('utf8'),
+          output: stdoutOutput.toString(),
           error: `Command timed out after ${timeout}ms`,
           exitCode: code ?? undefined,
         });
         return;
       }
 
-      const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-      const stderr = Buffer.concat(stderrChunks).toString('utf8');
+      const stdout = stdoutOutput.toString();
+      const stderr = stderrOutput.toString();
 
       const exitCode = code ?? 0;
       const output = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;

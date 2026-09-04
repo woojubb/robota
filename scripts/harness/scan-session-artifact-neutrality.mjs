@@ -17,8 +17,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // The envelope file under scan + its forbidden tokens are POLICY DATA in `.agents/harness.config.json`
 // (`neutrality.sessionArtifactTarget` / `sessionArtifactForbiddenTokens`, HARNESS-DIET-002), not hardcoded

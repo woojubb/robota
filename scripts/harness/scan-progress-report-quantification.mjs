@@ -72,8 +72,9 @@ import readline from 'node:readline';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * What an acknowledgment entry can assert. Both are true statements about a finding; they differ in
  * what is true. `violation` — it happened, the transcript is append-only, it is recorded rather than

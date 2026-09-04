@@ -270,6 +270,19 @@ describe('HARNESS-046 SSOT parser — the forms this repo produces', () => {
     expect(frontmatterObject('---\npath: ".agents/x.md"\n---\n').path).toBe('.agents/x.md');
   });
 
+  it("reads YAML's doubled-apostrophe escape inside a single-quoted scalar (#2298)", () => {
+    // `'it''s'` is the only way YAML spells an apostrophe inside single quotes, and it is what the
+    // task allocator writes. A lone interior apostrophe is not an escape and stays untouched.
+    expect(unquote("'PROC-015: an issue''s resolution'")).toBe("PROC-015: an issue's resolution");
+    expect(unquote("'a''b''c'")).toBe("a'b'c");
+    expect(unquote("'it's'")).toBe("'it's'");
+    // The escape belongs to single quotes only: inside double quotes a doubled apostrophe is text.
+    expect(unquote('"it\'\'s"')).toBe("it''s");
+    expect(frontmatterObject("---\ntitle: 'X-001: an issue''s fix'\n---\n").title).toBe(
+      "X-001: an issue's fix",
+    );
+  });
+
   it('returns null / {} for text with no frontmatter block', () => {
     expect(parseFrontmatterBlock('# just a heading\n')).toBeNull();
     expect(frontmatterObject('# just a heading\n')).toEqual({});

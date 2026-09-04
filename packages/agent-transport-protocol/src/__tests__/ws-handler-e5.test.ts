@@ -53,11 +53,15 @@ describe('ws-handler E5 driver attribution (REMOTE-014)', () => {
     onMessage(JSON.stringify({ type: 'permission-response', id: 'p1', result: true }));
     expect(session.resolvePermission).toHaveBeenCalledWith('p1', true, 'device-42');
     onMessage(
-      JSON.stringify({ type: 'ask-response', id: 'a1', response: { type: 'answer', answer: 'y' } }),
+      JSON.stringify({
+        type: 'ask-response',
+        id: 'a1',
+        response: { type: 'answer', values: ['y'] },
+      }),
     );
     expect(session.resolveAsk).toHaveBeenCalledWith(
       'a1',
-      { type: 'answer', answer: 'y' },
+      { type: 'answer', values: ['y'] },
       'device-42',
     );
   });

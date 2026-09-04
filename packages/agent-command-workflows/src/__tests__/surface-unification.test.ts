@@ -103,25 +103,41 @@ function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
 }
 
 describe('P3-A: one node catalog across subcommands', () => {
-  it('validates a workflow that `build` authored with a new prompt node', async () => {
-    const built = await executeWorkflowsBuild('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    expect(built.success).toBe(true);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'validates a workflow that `build` authored with a new prompt node',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"rewrite as a pirate"',
+        dir,
+        baseDeps(PIRATE_SPEC),
+      );
+      expect(built.success).toBe(true);
 
-    // `build` tells the user to run exactly this; it must not fail on the node build just saved.
-    const savedPath = join('.workflows', 'pirate-rewrite.json');
-    const validated = await executeWorkflowsValidate(savedPath, dir);
-    expect(validated.message).not.toContain('unknown node type');
-    expect(validated.success).toBe(true);
-  });
+      // `build` tells the user to run exactly this; it must not fail on the node build just saved.
+      const savedPath = join('.workflows', 'pirate-rewrite.json');
+      const validated = await executeWorkflowsValidate(savedPath, dir);
+      expect(validated.message).not.toContain('unknown node type');
+      expect(validated.success).toBe(true);
+    },
+  );
 
-  it('lists workspace-saved instant nodes alongside the built-in node catalog', async () => {
-    const built = await executeWorkflowsBuild('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    expect(built.success).toBe(true);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'lists workspace-saved instant nodes alongside the built-in node catalog',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"rewrite as a pirate"',
+        dir,
+        baseDeps(PIRATE_SPEC),
+      );
+      expect(built.success).toBe(true);
 
-    const listed = await executeWorkflowsList(dir);
-    expect(listed.success).toBe(true);
-    expect(listed.message).toContain('pirate-speak');
-  });
+      const listed = await executeWorkflowsList(dir);
+      expect(listed.success).toBe(true);
+      expect(listed.message).toContain('pirate-speak');
+    },
+  );
 
   it('still lists the built-in nodes when the workspace has no saved nodes', async () => {
     const listed = await executeWorkflowsList(dir);
@@ -131,22 +147,26 @@ describe('P3-A: one node catalog across subcommands', () => {
 });
 
 describe('P3-B: one argument grammar across subcommands', () => {
-  it('accepts a quoted file argument for `validate` and `run` (same tokenizer as create/build)', async () => {
-    const built = await executeWorkflowsBuild(
-      '"uppercase the text" --input text=hi',
-      dir,
-      baseDeps(UPPERCASE_SPEC),
-    );
-    expect(built.success).toBe(true);
-    const savedPath = join('.workflows', 'uppercase-it.json');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'accepts a quoted file argument for `validate` and `run` (same tokenizer as create/build)',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"uppercase the text" --input text=hi',
+        dir,
+        baseDeps(UPPERCASE_SPEC),
+      );
+      expect(built.success).toBe(true);
+      const savedPath = join('.workflows', 'uppercase-it.json');
 
-    const validated = await executeWorkflowsValidate(`"${savedPath}"`, dir);
-    expect(validated.success).toBe(true);
+      const validated = await executeWorkflowsValidate(`"${savedPath}"`, dir);
+      expect(validated.success).toBe(true);
 
-    const ran = await executeWorkflowsRun(`"${savedPath}"`, dir);
-    expect(ran.success).toBe(true);
-    expect(ran.message).toContain('HI');
-  });
+      const ran = await executeWorkflowsRun(`"${savedPath}"`, dir);
+      expect(ran.success).toBe(true);
+      expect(ran.message).toContain('HI');
+    },
+  );
 
   it('rejects surplus arguments instead of folding them into the file path', async () => {
     const validated = await executeWorkflowsValidate('a.json b.json', dir);

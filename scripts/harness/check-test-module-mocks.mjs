@@ -49,9 +49,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
-import { escapeForRegExp } from './shared.mjs';
+import { escapeForRegExp, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Test globs are approximated by a directory walk filtered to *.test.ts / *.test.tsx. */
 const SCAN_ROOTS = ['packages', 'apps'];

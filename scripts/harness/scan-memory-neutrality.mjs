@@ -39,8 +39,9 @@ import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { listPackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // Robota-specific POLICY DATA lives in `.agents/harness.config.json` (`neutrality.*`, HARNESS-DIET-002):
 // the library root under scan, the corpus artifact names (index filename + topics path segment — anchored to

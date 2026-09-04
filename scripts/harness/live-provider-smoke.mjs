@@ -54,8 +54,9 @@ import { appendFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Packages the smoke loads at runtime, by manifest name — never by build-output path. */
 const PROVIDER_DEFAULTS_PACKAGE = '@robota-sdk/agent-builtin-providers';

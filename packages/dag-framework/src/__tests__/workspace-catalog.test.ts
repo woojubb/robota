@@ -8,7 +8,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { scanWorkspaceCatalog } from '../workspace-catalog.js';
 
-const DAG = { dagId: 'x', version: 1, status: 'draft', nodes: [{ nodeId: 'a' }], edges: [] };
+const DAG = {
+  dagId: 'x',
+  version: 1,
+  status: 'draft',
+  nodes: [{ nodeId: 'a', nodeType: 'input', dependsOn: [], config: {} }],
+  edges: [],
+};
 
 describe('scanWorkspaceCatalog (FLOW-007 C3)', () => {
   let dir: string;

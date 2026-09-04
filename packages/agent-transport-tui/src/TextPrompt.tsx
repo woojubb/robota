@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React, { useState, useRef, useCallback } from 'react';
 
 import {
@@ -9,6 +9,7 @@ import {
   type TTextPromptInputAction,
 } from './flows/text-prompt-flow.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 /** Footer for the free-text prompt. */

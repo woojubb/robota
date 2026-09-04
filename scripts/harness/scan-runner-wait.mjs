@@ -32,8 +32,9 @@
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const WORKFLOW_DIR = '.github/workflows';
 
 /** A `sleep` shorter than this is a settle, not a wait held on a runner. */

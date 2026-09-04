@@ -23,8 +23,9 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DEFAULT_INDEX = path.join(WORKSPACE_ROOT, '.agents/specs/document-standards/index.md');
 
 const LINK_PATTERN = /\[[^\]]*\]\(([^)]+)\)/g;

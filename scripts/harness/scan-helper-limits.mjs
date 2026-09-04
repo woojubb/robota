@@ -62,8 +62,9 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Subjects scanned. Shell hooks have no import graph, so this is the JS side of the harness. */
 export const SUBJECT_DIRS = ['scripts/harness'];

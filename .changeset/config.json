@@ -9,6 +9,7 @@
       "@robota-sdk/agent-core",
       "@robota-sdk/agent-executor",
       "@robota-sdk/agent-framework",
+      "@robota-sdk/agent-interface-session",
       "@robota-sdk/agent-interface-transport",
       "@robota-sdk/agent-interface-tui",
       "@robota-sdk/agent-plugin",

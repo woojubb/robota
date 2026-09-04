@@ -14,7 +14,8 @@ import {
 } from '../session-persistence.js';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 
-describe('session persistence facade', () => {
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-store-'));
     mkdirSync(join(cwd, '.robota'), { recursive: true });

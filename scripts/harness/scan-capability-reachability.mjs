@@ -37,8 +37,9 @@ import path from 'node:path';
 // fully-evidenced capability spec into a false "dodged the user-execution gate" failure.
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DONE_DIR = '.agents/spec-docs/done';
 
 /**

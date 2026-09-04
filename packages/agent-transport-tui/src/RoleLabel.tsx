@@ -1,7 +1,7 @@
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
-import { Text } from 'ink';
 import React from 'react';
 
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';

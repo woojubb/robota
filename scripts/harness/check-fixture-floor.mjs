@@ -22,8 +22,11 @@
  * green path satisfies this floor and still leaves the check unfalsifiable. Detecting the red
  * direction textually was considered and rejected — a heuristic over assertion shapes would itself be
  * a check that cannot reliably fail, which is the defect this file exists to close, committed by the
- * file closing it. The both-directions half is tracked in HARNESS-098 as the mechanism's second stage
- * rather than approximated here. This floor is the exactly-decidable part, and it is stated as that.
+ * file closing it. That prediction has since been measured: PR #2235 built exactly that heuristic and
+ * needed three revisions in three review rounds, each defeated by a mutant the previous one could not
+ * see (issue #2264). The both-directions half is NOT tracked under HARNESS-098 — that Task is closed
+ * at this stage — but under its successor `.agents/tasks/HARNESS-101-*.md`, the live owner of the
+ * mechanism's second stage. This floor is the exactly-decidable part, and it is stated as that.
  *
  * Baselined entries are pre-existing debt, ratcheted: a baselined check that GAINS a fixture is
  * removed from the baseline, and nothing may be added to it.
@@ -33,8 +36,9 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const HARNESS_DIR = path.join(WORKSPACE_ROOT, 'scripts/harness');
 const TESTS_DIR = path.join(HARNESS_DIR, '__tests__');
 const BASELINE = path.join(HARNESS_DIR, 'fixture-floor-baseline.json');

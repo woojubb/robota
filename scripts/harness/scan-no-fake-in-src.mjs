@@ -29,8 +29,9 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * Documented allowlist of PRE-EXISTING test-double-named shipped files (mirrors the `conflict-markers` scan's

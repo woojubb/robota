@@ -21,7 +21,7 @@ import type {
   TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
@@ -159,8 +159,11 @@ export interface ISessionOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /**
+   * Request structured output from the provider for this session. Issue #2056: the agent config's
+   * own shape (`json_schema` included), so a schema request reaches the provider intact.
+   */
+  responseFormat?: IResponseFormatConfig;
   /**
    * Reasoning-effort dial threaded to the Robota agent config and on to the provider
    * request builder. When unset, the framework→provider seam defaults it to `'high'`.

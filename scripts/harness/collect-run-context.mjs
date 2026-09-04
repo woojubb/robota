@@ -14,9 +14,15 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { listWorkspaceScopes, pathExists, readText, readJson } from './shared.mjs';
+import {
+  listWorkspaceScopes,
+  pathExists,
+  readText,
+  readJson,
+  resolveWorkspaceRoot,
+} from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 function parseArgs(argv) {
   const options = { scope: null, reportFile: null };

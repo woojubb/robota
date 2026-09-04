@@ -4,7 +4,7 @@
  * Shows a limited number of items at a time; scrolls as the cursor moves.
  */
 
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React, { useState, useRef, useCallback } from 'react';
 
 import {
@@ -16,6 +16,7 @@ import {
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 
 /** Default number of visible items */
 const DEFAULT_MAX_VISIBLE = 3;

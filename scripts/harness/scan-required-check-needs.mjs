@@ -55,8 +55,9 @@ import path from 'node:path';
 
 import { splitWorkflowJobs, stripComments } from './scan-ci-base-history.mjs';
 import { DECLARATION_FILE, jobNeeds } from './scan-main-required-checks.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * A GitHub job-status check function. Its PRESENCE in an `if:` is what removes the implicit

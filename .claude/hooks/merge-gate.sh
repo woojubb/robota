@@ -191,13 +191,50 @@ fi
 # --- 2. Review --------------------------------------------------------------------------------
 # The review identity is the ordered current base/head pair. A timestamp can say when somebody
 # wrote a comment; it cannot say which base comparison they reviewed.
-OID_PAIR=$(bounded_gh pr view "$PR" --json baseRefOid,headRefOid --jq '"\(.baseRefOid) \(.headRefOid)"' || echo "")
-CURRENT_BASE_OID="${OID_PAIR%% *}"
-CURRENT_HEAD_OID="${OID_PAIR##* }"
+OID_PAIR=$(bounded_gh pr view "$PR" --json baseRefOid,headRefOid,baseRefName --jq '"\(.baseRefOid) \(.headRefOid) \(.baseRefName)"' || echo "")
+# `|| true`: on an empty answer `read` returns non-zero at EOF, and under `set -e` a bare failing
+# builtin ends the hook with exit 1 — which the protocol reads as NOT blocking. The validation
+# below is what refuses an unreadable answer, and it must be reached.
+read -r CURRENT_BASE_OID CURRENT_HEAD_OID BASE_REF_NAME _ <<< "$OID_PAIR" || true
 if [[ ! "$CURRENT_BASE_OID" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$CURRENT_HEAD_OID" =~ ^[0-9a-f]{40}$ ]]; then
   echo "[merge-gate] Blocked: could not read PR #$PR's current 40-hex base/head OIDs." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
   exit 2
+fi
+
+# --- the base is the BRANCH, not the API's cached field (issue #2309) ---------------------------
+# `baseRefOid` is what GitHub last recorded for the pull request, and it LAGS the branch. Measured
+# on an open PR with its head untouched: develop moved twice while the field sat unchanged for 1542
+# seconds, then jumped straight to current when a push landed. PR #2307 merged on a verdict whose
+# REVIEWED BASE matched that field exactly — while origin/develop was one commit ahead. Two values
+# that move together can agree with each other and still disagree with the branch the change lands
+# on, and a gate comparing them enforces exactly what it claims and not what the reader assumes.
+#
+# So the branch is asked directly. `git ls-remote origin refs/heads/<base>` is one round-trip that
+# needs no fetch and reads the ref as GitHub serves it now. It is bounded the way the moved-base
+# fetch below is, and an unreadable answer REFUSES: "could not read the tip" is not "the tip did not
+# move", and falling back to the lagging field would reinstall the defect on the path where the
+# network is flaky — the one where a stale read is likeliest. The live OID then feeds the
+# interaction judgement below unchanged: a base that moved is judged by what it moved over.
+if [[ -z "$BASE_REF_NAME" || "$BASE_REF_NAME" == "null" ]]; then
+  echo "[merge-gate] Blocked: could not read PR #$PR's base branch name, so its live tip cannot be read." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+REPO_DIR="${CLAUDE_PROJECT_DIR:-.}"
+LIVE_BASE_OID=$(hook_git_in "$REPO_DIR" -c http.lowSpeedLimit=1000 -c "http.lowSpeedTime=$HOOK_GH_DEADLINE_SECONDS" \
+  ls-remote --quiet --exit-code origin "refs/heads/$BASE_REF_NAME" 2>/dev/null | awk 'NR == 1 { print $1 }' || true)
+if [[ ! "$LIVE_BASE_OID" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "[merge-gate] Blocked: could not read the live tip of origin/$BASE_REF_NAME (git ls-remote), so the" >&2
+  echo "[merge-gate] base this PR lands on is unknown — and GitHub's baseRefOid is not it (it lags the" >&2
+  echo "[merge-gate] branch by minutes; issue #2309). Verify by hand, then override inline:" >&2
+  echo "[merge-gate]   MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+if [[ "$LIVE_BASE_OID" != "$CURRENT_BASE_OID" ]]; then
+  echo "[merge-gate] Note: GitHub's baseRefOid for #$PR is $CURRENT_BASE_OID; origin/$BASE_REF_NAME is at $LIVE_BASE_OID." >&2
+  echo "[merge-gate] The branch is what this PR lands on, so the branch is what the review is judged against." >&2
+  CURRENT_BASE_OID="$LIVE_BASE_OID"
 fi
 
 # The newest comment BY THE REVIEWER, not the newest comment. Reading `comments[-1]` unconditionally
@@ -396,7 +433,6 @@ COUNT=$(printf '%s\n' "$BODY" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p'
 # The `__files__` sentinel line is the `__labels__` construction: a readable answer with no files
 # still answers one line, an unreadable one answers nothing.
 if [[ "$REVIEWED_BASE" != "$CURRENT_BASE_OID" ]]; then
-  REPO_DIR="${CLAUDE_PROJECT_DIR:-.}"
   # The fetch is bounded the way the gh calls are: a transfer that stalls below 1 KB/s for the same
   # deadline is abandoned, and an abandoned fetch is a refusal below, not a silent "nothing moved".
   for _OID in "$CURRENT_BASE_OID" "$REVIEWED_BASE"; do

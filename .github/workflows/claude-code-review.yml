@@ -31,8 +31,14 @@ on:
     # must land first so the current integration child can receive any review.
     types: [opened, synchronize, reopened, edited]
 
+# Two lanes per PR, not one. `edited` is subscribed only for the base-retarget case and the job
+# below skips every other edit — but a skipped run in the SAME concurrency group still cancels the
+# in-flight review of the head that was just pushed, and nothing re-triggers it (issue #2250:
+# PR #2244, `synchronize` cancelled at 14:46:42, `edited` skipped 17 s later, the PR left carrying
+# the verdict for the previous head). Head-changing events share the `head` lane so a newer push
+# still supersedes an older review; `edited` gets its own lane so it can cancel only another edit.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && 'edited' || 'head' }}
   cancel-in-progress: true
 
 # Exactly what the reviewer does, and nothing more: it reads the checkout and the diff

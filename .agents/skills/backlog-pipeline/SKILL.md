@@ -163,8 +163,15 @@ Look up the folder the rule maps the **next** status to.
 **FAIL:**
 
 - Do NOT update frontmatter status or move the file
-- Surface the failed criteria to the user
-- STOP. Do not attempt to fix or implement. Wait for user direction.
+- Surface the failed criteria (the guardian's exact named criteria)
+- Under a **recorded standing authorization**, apply a **bounded gate-FAIL correction** as
+  `backlog-execution.md` § "Validated recommendations and bounded gate-FAIL corrections" defines it —
+  limited to the named failed criteria, preserving the approved scope and design — then re-run the
+  SAME gate through `backlog-gate-guard`; nothing advances until that re-run returns PASS. Record the
+  authorization verbatim and the correction's grounds in the Evidence Log.
+- Without a recorded standing authorization, or when the repair would widen scope or change a gate,
+  policy, contract, product direction, or user-authored document: STOP. Do not fix or implement.
+  Wait for user direction.
 
 **NON-COMPLIANCE:**
 
@@ -202,14 +209,14 @@ Note: GATE FAIL is NOT a rejection. FAIL means the item can be fixed and re-run.
 
 ## Anti-Patterns
 
-| Anti-pattern                                            | Correct behavior                                                                 |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Moving to next gate without Evidence Log entry          | STOP. Write NON-COMPLIANCE.                                                      |
-| Skipping GATE-APPROVAL because "it's implied"           | STOP. User must explicitly approve. Quote required.                              |
-| Running gate guard inline instead of as subagent        | Always spawn as Agent subagent for isolation.                                    |
-| Fixing FAIL items and immediately re-running the gate   | Surface the failure to the user first. Re-run only after user confirms fix.      |
-| Setting status to `done` before GATE-COMPLETE           | Status changes only follow gate PASS results.                                    |
-| Moving the file or editing `status:` by hand            | `gate.mjs advance` does both in one step; a half-done move is NON-COMPLIANCE.    |
-| Dispatching the guard before `gate.mjs judge` has run   | The script judges the mechanical set first; the guard sees only the residue.     |
-| Running an L2 gate set on an L1 document, or vice versa | Read `lane:`; the state-machine table is keyed on it.                            |
-| `judge --gate PLAN` before `approve` on an L1 document  | `approve` first; PLAN reports the approval criteria PENDING (exit 2) until then. |
+| Anti-pattern                                            | Correct behavior                                                                                   |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Moving to next gate without Evidence Log entry          | STOP. Write NON-COMPLIANCE.                                                                        |
+| Skipping GATE-APPROVAL because "it's implied"           | STOP. User must explicitly approve. Quote required.                                                |
+| Running gate guard inline instead of as subagent        | Always spawn as Agent subagent for isolation.                                                      |
+| Widening a FAIL fix past the guardian's named criteria  | A bounded gate-FAIL correction touches only the named criteria; anything wider is a user decision. |
+| Setting status to `done` before GATE-COMPLETE           | Status changes only follow gate PASS results.                                                      |
+| Moving the file or editing `status:` by hand            | `gate.mjs advance` does both in one step; a half-done move is NON-COMPLIANCE.                      |
+| Dispatching the guard before `gate.mjs judge` has run   | The script judges the mechanical set first; the guard sees only the residue.                       |
+| Running an L2 gate set on an L1 document, or vice versa | Read `lane:`; the state-machine table is keyed on it.                                              |
+| `judge --gate PLAN` before `approve` on an L1 document  | `approve` first; PLAN reports the approval criteria PENDING (exit 2) until then.                   |

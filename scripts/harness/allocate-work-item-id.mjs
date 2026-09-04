@@ -24,8 +24,8 @@
  * highest and the next allocation walked straight into a live number. That happened while writing
  * this file's own sibling, which is why the citation half is here rather than deferred.
  *
- * Issue titles are the third source and the one the original three collisions came from. They are
- * read when the network and `gh` are both available, and their ABSENCE is reported rather than
+ * Issues — titles AND bodies — are the third source and the one the original three collisions came
+ * from. They are read when the network and `gh` are both available, and their ABSENCE is reported rather than
  * assumed away — an allocator that quietly skips a source allocates from a smaller set than it
  * claims to, which is the failure it exists to prevent.
  *
@@ -40,13 +40,21 @@
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "the slug of the problem"
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --issue 1916
  *   node scripts/harness/allocate-work-item-id.mjs INFRA --dry-run     # print the ID, write nothing
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --allow-stale  # behind origin/develop, knowingly
+ *
+ * A clone BEHIND `origin/develop` is refused (issue #2184): its records and citations are stale
+ * together, so the answer would be plausible and possibly taken. `--allow-stale` accepts that risk
+ * visibly; an offline clone that cannot fetch still allocates, and says which measurement it lacked.
  */
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+// stdout is the payload here (the allocated ID, and the file it was written to), so the root
+// announcement goes to stderr.
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_DIR = '.agents/tasks';
 
 /** A work-item ID: one or more uppercase segments, then a number. `ARCH-FIX-020` is one. */
@@ -79,11 +87,14 @@ export function idsFromRecords(root = WORKSPACE_ROOT) {
  * claim costs a collision. The asymmetry decides it.
  */
 export function idsFromCitations(root = WORKSPACE_ROOT) {
-  const grep = spawnSync(
-    'git',
-    ['grep', '-hoIE', '\\b[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3,}\\b'],
-    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  );
+  // `-w`, not `\b`: Apple Git's `-E` has no `\b`, and the pattern then matched NOTHING — the
+  // citation source came back empty and the run said "0 from citations" as if that were a
+  // measurement (found while fixing issue #2390; the reporter's 1493 was read under GNU git).
+  const grep = spawnSync('git', ['grep', '-hoIwE', '[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3,}'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
   // Exit 1 is "no match", which is a legitimate empty result; anything else means the tree was not
   // read, and an allocator that treats "could not read" as "nothing is claimed" hands out live IDs.
   if (grep.status !== 0 && grep.status !== 1) {
@@ -102,26 +113,44 @@ export function idsFromCitations(root = WORKSPACE_ROOT) {
 }
 
 /**
- * Every ID named by an issue title, or `null` when the source could not be read.
+ * Every ID named by an issue — its title OR its body — or `null` when the source could not be read.
+ *
+ * Bodies are read as well as titles because an ID is declared there too: issue #2049's body named
+ * `ARCH-050` and `ARCH-060` with no record and no tracked citation, and a body is the one place an
+ * ID can be claimed that no scan over the tree will ever reach (issue #2322). The source is one
+ * field away from the titles this already read, and the reasoning for reading titles applies
+ * unchanged.
  *
  * `null` is not an empty set and the two must not be conflated: an empty set says no issue claims
  * an ID, and `null` says nobody asked. The caller reports which one it got.
  */
-export function idsFromIssueTitles({ run = defaultGh } = {}) {
+export function idsFromIssues({ run = defaultGh } = {}) {
   const result = run();
   if (result === null) return null;
   const ids = new Set();
-  for (const title of result) {
-    for (const match of title.matchAll(WORK_ITEM_ID)) ids.add(match[0]);
+  for (const text of result) {
+    for (const match of text.matchAll(WORK_ITEM_ID)) ids.add(match[0]);
   }
   return ids;
 }
 
+/** One line per issue title and per body line; the ID pattern never spans a line. */
 function defaultGh() {
   const listed = spawnSync(
     'gh',
-    ['issue', 'list', '--state', 'all', '--limit', '1000', '--json', 'title', '-q', '.[].title'],
-    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
+    [
+      'issue',
+      'list',
+      '--state',
+      'all',
+      '--limit',
+      '1000',
+      '--json',
+      'title,body',
+      '-q',
+      '.[] | .title, .body',
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
   );
   if (listed.status !== 0) return null;
   return (listed.stdout ?? '').split('\n').filter((line) => line.trim() !== '');
@@ -184,22 +213,36 @@ export const SENTINEL_FLOOR = 900;
  */
 export const RECORD_ID_WIDTH = 3;
 
+function formatId(prefix, number) {
+  return `${prefix}-${String(number).padStart(RECORD_ID_WIDTH, '0')}`;
+}
+
 /**
- * The next ID for `prefix`: one above the highest number any source claims for it.
+ * The next ID for `prefix`: one above the highest number any source claims for it, and never a
+ * number any source claims.
  *
  * Width follows the widest claim already in use, so a repository at `INFRA-099` moves to
  * `INFRA-100` rather than to `INFRA-0100`.
+ *
+ * Issue #2390: the sentinel floor is a convention, and two things met at it — a fixture at
+ * `floor - 1` made `floor` the next allocation, and a live record AT the floor was skipped as
+ * fixture space, so the one number about to be handed out was the one this function could not see
+ * was taken. Two changes: a RECORD claims its number wherever it sits, and the candidate is walked
+ * past anything the union claims (fixture or not) rather than proposed on top of it.
  */
-export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR) {
+export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR, records = new Set()) {
+  const pattern = new RegExp(`^${prefix}-(\\d{3,})$`);
   let highest = 0;
   for (const id of claimed) {
-    const match = new RegExp(`^${prefix}-(\\d{3,})$`).exec(id);
+    const match = pattern.exec(id);
     if (!match) continue;
     const number = Number(match[1]);
-    if (number >= sentinelFloor) continue;
+    if (number >= sentinelFloor && !records.has(id)) continue;
     highest = Math.max(highest, number);
   }
-  return `${prefix}-${String(highest + 1).padStart(RECORD_ID_WIDTH, '0')}`;
+  let candidate = highest + 1;
+  while (claimed.has(formatId(prefix, candidate))) candidate += 1;
+  return formatId(prefix, candidate);
 }
 
 /**
@@ -220,10 +263,39 @@ export function localDate(date = new Date(), timeZone = undefined) {
   }).format(date);
 }
 
+/**
+ * The `## User Execution Test Scenarios` section `.agents/rules/backlog-execution.md` requires of
+ * every Task record (issue #2308), in the Task's exact author-verdict form from that rule's
+ * checkpoint-evidence contract. Emitted with the cheap correct answer in front of the author —
+ * `not-applicable` plus a reason — because an author fills in the sections the skeleton gives them,
+ * and 267 completed records were closed without this one.
+ */
+export const USER_EXECUTION_SECTION = `## User Execution Test Scenarios
+
+<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
+     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
+     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
+     evidence); otherwise write the scenario a user can run and raise the count. -->
+
+**Author verdict:** \`SCENARIO DRAFTED: not-applicable | 0\`
+
+**Reason:** TODO — why no end user can observe this change directly through a runnable surface.
+`;
+
+/**
+ * A YAML single-quoted scalar. The only escape the form has is the doubled quote: `it's` is written
+ * `'it''s'`. Interpolating the text raw let an apostrophe in the title terminate the scalar early
+ * (issue #2298) — `.agents/tasks/README.md` declares the frontmatter to be YAML, so the generator
+ * has to emit YAML, whatever the in-repo reader happens to tolerate.
+ */
+export function yamlSingleQuoted(text) {
+  return `'${String(text).replace(/'/g, "''")}'`;
+}
+
 /** The stub a fresh record starts as — every field `.agents/tasks/README.md` declares required. */
 export function recordStub({ id, title, today, issue = null }) {
   return `---
-title: '${id}: ${title}'
+title: ${yamlSingleQuoted(`${id}: ${title}`)}
 ${issue === null ? '' : `issue: https://github.com/woojubb/robota/issues/${issue}\n`}status: todo
 created: ${today}
 priority: medium
@@ -241,7 +313,8 @@ TODO
 ## Plan
 
 - [ ] TODO
-`;
+
+${USER_EXECUTION_SECTION}`;
 }
 
 /**
@@ -265,11 +338,69 @@ export function positionalArgs(argv, flagsTakingValue = ['--issue']) {
   return positional;
 }
 
+/** The integration branch every allocation must be current with. */
+export const UPSTREAM_REF = 'origin/develop';
+
+/**
+ * Is this clone BEHIND the integration branch? (issue #2184)
+ *
+ * The sources above cover a source being UNREACHABLE. They do not cover every source being stale
+ * TOGETHER: in a clone behind its upstream the records and the citations agree with each other and
+ * the open-issue titles do not contradict them, so the allocator is internally consistent and
+ * externally wrong — it returned `TRANS-005` minutes after PR #2182 had delivered and archived it.
+ * A plausible number is the dangerous answer; a refusal is the honest one.
+ *
+ * Offline is NOT stale. A fetch that fails (no network) falls back to the `origin/develop` the clone
+ * already has, and a clone with no such ref at all reports `unknown` so the caller can say the
+ * measurement was unavailable rather than silently narrow. Only behind-and-knowable refuses.
+ *
+ * Returns `{ status: 'fresh' | 'stale' | 'unknown', behind, upstreamSha, fetched, reason }`.
+ */
+export function treeFreshness({ root = WORKSPACE_ROOT, upstream = UPSTREAM_REF } = {}) {
+  const git = (args, timeout) =>
+    spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout, maxBuffer: 1024 * 1024 });
+  const [remote, ...branchParts] = upstream.split('/');
+  const branch = branchParts.join('/');
+  const fetch = git(['fetch', '--quiet', remote, branch], 30_000);
+  const fetched = fetch.status === 0;
+  const resolved = git(['rev-parse', '--verify', '--quiet', `${upstream}^{commit}`]);
+  if (resolved.status !== 0) {
+    return {
+      status: 'unknown',
+      behind: null,
+      upstreamSha: null,
+      fetched,
+      reason: `${upstream} is not a ref in this clone${fetched ? '' : ' and could not be fetched'}.`,
+    };
+  }
+  const upstreamSha = resolved.stdout.trim();
+  const count = git(['rev-list', '--count', `HEAD..${upstream}`]);
+  if (count.status !== 0) {
+    return {
+      status: 'unknown',
+      behind: null,
+      upstreamSha,
+      fetched,
+      reason: `git rev-list --count HEAD..${upstream} exited ${count.status}.`,
+    };
+  }
+  const behind = Number(count.stdout.trim());
+  return {
+    status: behind > 0 ? 'stale' : 'fresh',
+    behind,
+    upstreamSha,
+    fetched,
+    reason: fetched ? null : `${upstream} could not be fetched; measured against the local copy.`,
+  };
+}
+
 function main(argv) {
   const args = positionalArgs(argv);
   const prefix = args[0];
   if (!prefix || !/^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*$/.test(prefix)) {
-    console.error('usage: allocate-work-item-id.mjs <PREFIX> "<title>" [--issue N] [--dry-run]');
+    console.error(
+      'usage: allocate-work-item-id.mjs <PREFIX> "<title>" [--issue N] [--dry-run] [--allow-stale]',
+    );
     return 2;
   }
   const title = args.slice(1).join(' ');
@@ -281,21 +412,42 @@ function main(argv) {
     return 2;
   }
 
+  // Issue #2184: refuse, rather than answer, when the clone cannot see the current tree.
+  const freshness = treeFreshness();
+  if (freshness.status === 'stale' && !argv.includes('--allow-stale')) {
+    console.error(
+      `allocate-work-item-id: this clone is ${freshness.behind} commit(s) behind ${UPSTREAM_REF} ` +
+        `(${freshness.upstreamSha.slice(0, 9)}). Every tree-derived source — records and citations — ` +
+        'is stale together, so any number allocated here is plausible and possibly taken. ' +
+        'Fast-forward (git pull --ff-only) and re-run, or pass --allow-stale to accept the risk knowingly.',
+    );
+    return 1;
+  }
+  console.log(
+    freshness.status === 'unknown'
+      ? `::measured:: freshness UNKNOWN — ${freshness.reason} Allocating from a tree that may be behind.`
+      : `::measured:: HEAD is ${freshness.behind} commit(s) behind ${UPSTREAM_REF}@${freshness.upstreamSha.slice(0, 9)}` +
+          (freshness.fetched ? '' : ` (${freshness.reason})`) +
+          (freshness.status === 'stale' ? ' — --allow-stale accepted' : ''),
+  );
+
   const records = idsFromRecords();
   const citations = idsFromCitations();
-  const issues = idsFromIssueTitles();
+  const issues = idsFromIssues();
 
   const claimed = collectClaimed(records, citations, issues);
-  const id = nextFreeId(prefix, claimed);
+  const id = nextFreeId(prefix, claimed, SENTINEL_FLOOR, records);
 
   console.log(
     `::examined:: ${readExamined()} claimed work-item id(s); ` +
       `${records.size} from records, ${citations.size} from citations, ` +
-      (issues === null ? 'issue titles UNREAD' : `${issues.size} from issue titles`),
+      (issues === null
+        ? 'issue titles and bodies UNREAD'
+        : `${issues.size} from issue titles and bodies`),
   );
   if (issues === null) {
     console.log(
-      '  issue titles could not be read (no `gh`, no network, or not authenticated). The three ' +
+      '  issue titles and bodies could not be read (no `gh`, no network, or not authenticated). The three ' +
         'collisions this allocator exists for were all between a record and an issue title, so ' +
         'this run allocated from a SMALLER set than the one that matters. Re-check before pushing.',
     );

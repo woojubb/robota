@@ -7,7 +7,7 @@ packages/
 ├── agent-session/               # Session lifecycle and persistence
 ├── agent-session-analytics/     # Session-log timing analysis + reporting (pure; depends on agent-interface-transport + agent-core)
 ├── agent-tools/                 # Tool factories (createFunctionTool/createZodFunctionTool → core's FunctionTool), built-ins, sandbox ports/manifests
-├── agent-tool-defaults/         # Default tool-set aggregator (composition leaf): createDefaultTools(); deps agent-core + agent-tools only. ARCH-035 — see its docs/SPEC.md
+├── agent-tool-defaults/         # The SDK's own built-in default tool set (composition leaf): createDefaultTools(); composes agent-tools only, bundles no agent-tool-* siblings (#2202). ARCH-035 — see its docs/SPEC.md
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
@@ -173,9 +173,8 @@ without a CLI, a network or a live model.
 
 ### Dependency direction — the foundation depends on nothing above it
 
-`agent-core` MUST NOT depend on any `@robota-sdk/agent-*` package. It is the bottom of the layer
-diagram above, and a dependency from it to a package that sits on top of it is a cycle through the
-foundation. Enforced by rule 3 of the `deps` scan (`check-dependency-direction.mjs`) — not `dep-kind`, which
+`agent-core` MUST NOT depend on any `@robota-sdk/agent-*` package: it is the bottom of the layer
+diagram above, and a dependency upward from it is a cycle through the foundation. Enforced by rule 3 of the `deps` scan (`check-dependency-direction.mjs`, as `CORE-ZERO-DEPS`; every identifier that scan family emits is stated in [ARCHITECTURE.md § Dependency and interface rule identifiers](../ARCHITECTURE.md#dependency-and-interface-rule-identifiers)) — not `dep-kind`, which
 checks a different class: a runtime value import resolving to a devDependencies-only declaration.
 
 Stated here rather than in the mistakes catalogue: that catalogue now carries the
@@ -306,22 +305,23 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic. **Mechanized on two
-  edges by `scripts/harness/scan-interface-runtime.mjs` (HARNESS-103).** SOURCE: no `class`/`enum`
-  declaration and no bare value import. ENTRY: the package's `src/index.ts` may publish its
-  contracts' VOCABULARY (a `const` holding a VALUE) and their DISCRIMINATORS (a function returning
-  a type predicate `x is T`, however it is declared) — anything else exported as a runtime value is
-  a mechanism and belongs in an
-  owner package, or under `testing/` if it is a double (`contracts→agent-interface-*,
-doubles→owner /testing`). Pre-existing mechanisms are frozen per package in
-  `scripts/harness/interface-entry-baseline.json` and the count may only shrink. The entry edge
-  exists because the source edge alone measured something narrower than this rule's words, so a
-  100-line prototype-walking forwarder sat outside the rule and inside the green.
+  edges by `scripts/harness/scan-interface-runtime.mjs` (HARNESS-103)** — SOURCE (no `class`/`enum`
+  declaration, no bare value import) and ENTRY (`src/index.ts` may publish only a contract's
+  VOCABULARY `const` or a type-predicate DISCRIMINATOR; any other runtime value is a mechanism that
+  belongs in an owner package, or under its `testing/` if it is a double). Pre-existing mechanisms
+  are frozen per package in `scripts/harness/interface-entry-baseline.json`; the count may only shrink.
 - An `agent-interface-*` package depends on `{agent-core}`, and on a PEER `agent-interface-*` package
   only DOWNWARD across the declared layers, one-directionally. Same-layer and upward are refused, as
   is any implementation package — contracts never depend on implementations (INFRA-025; ARCH-101;
   mechanized as the `INTERFACE-DEPS` rule in the `deps` scan). The layer that authorizes an edge is
   declared once in [`specs/contract-family-owner-map.md`](specs/contract-family-owner-map.md) and read
   by both guards through `scripts/harness/interface-layers.mjs`. Do not restate a layer elsewhere.
+- **A package's layer is the HIGHEST of what it holds, not the lowest** — determined from its
+  current contents, `/testing` subpaths included, never from what a planned change will leave behind
+  (issue #2218). Both measured instances and the evidence live in the owner map's subsection "A layer
+  declares where a package IS, not where it is going". Enforced by: `interface-family-owner` (LAYER
+  condition) and `deps` (INTERFACE-DEPS), both reading
+  [`specs/contract-family-owner-map.md`](specs/contract-family-owner-map.md).
 - Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
@@ -371,15 +371,15 @@ Consequence: adding a family member = one more package (split families) or one m
 
 ## Composition-Root Exemption (Import-Layering Scans)
 
-`agent-cli` must not import `@robota-sdk/agent-executor` directly — it consumes SDK
-workspace projections through `agent-framework`. The single permitted exception is the
-**composition root**: the app assembly point may wire concrete implementations (e.g.
-`cli.ts` wiring `createDefaultBackgroundTaskRunners`, `modes/print-mode.ts` consuming the
-type-only `IBackgroundTaskRunner` contract). Routing these through an `agent-framework`
-re-export is NOT an alternative — it would violate the no-pass-through-re-exports rule
-above.
+`agent-cli` must not import `@robota-sdk/agent-executor` directly — it consumes SDK workspace
+projections through `agent-framework`. The single permitted exception is the **composition root**:
+the app assembly point may wire concrete implementations (e.g. `cli.ts` wiring
+`createDefaultBackgroundTaskRunners`). An `agent-framework` re-export is NOT an alternative — it
+would violate the no-pass-through-re-exports rule above.
 
 Enforced by the `cli-agent-executor-import` rule in
-`scripts/harness/check-background-workspace-conformance.mjs`. Every exemption entry MUST
-carry a reason string and is reported (never silent) on each scan run; composition-root
-wiring is the only valid exemption category. (HARNESS-011)
+`scripts/harness/check-background-workspace-conformance.mjs`. Every exemption entry MUST name one
+of the sanctioned composition-root categories — `entrypoint`, `type-only-contract`, `host-adapter` —
+plus a reason string, and is reported (never silent) on each scan run. Membership is verified
+STRUCTURALLY by the guard against the boundary its header defines for each category; a listing
+with a reason admits nothing on its own (`…-category-mismatch`). (HARNESS-011, CLI-080)

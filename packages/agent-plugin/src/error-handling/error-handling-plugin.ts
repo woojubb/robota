@@ -21,6 +21,7 @@ import type {
   IErrorHandlingPluginOptions,
   IErrorHandlingPluginStats,
 } from './types';
+import type { IPluginErrorContext } from '@robota-sdk/agent-core';
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 1000;
@@ -140,6 +141,19 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
         // Silent mode - do nothing
         break;
     }
+  }
+
+  /**
+   * PLG-020 (issue #2460): the production dispatcher's error hook. A run that fails is recorded and
+   * routed by the configured strategy without any caller wrapping it in `executeWithRetry`.
+   */
+  override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
+    await this.handleError(error, {
+      ...(context?.executionId !== undefined ? { executionId: context.executionId } : {}),
+      ...(context?.sessionId !== undefined ? { sessionId: context.sessionId } : {}),
+      ...(context?.userId !== undefined ? { userId: context.userId } : {}),
+      finalAttempt: true,
+    });
   }
 
   /**

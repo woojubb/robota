@@ -21,8 +21,8 @@ standalone packages.
 | MCP       | `@robota-sdk/agent-transport-mcp`      | Model Context Protocol server adapter                   |
 | WebRTC    | `@robota-sdk/agent-transport-webrtc`   | Peer-to-peer data-channel adapter                       |
 
-This package also exposes the `./testing` (scripted-provider fixtures) and
-`./programmatic` sub-paths.
+This package also exposes the `./programmatic` sub-path. Scripted-provider test fixtures live in
+`@robota-sdk/agent-core/testing` (the former `./testing` pass-through was removed, issue #2052).
 
 All session-owning entry points treat `cwd` as provenance, not project trust. Pass a host-issued
 `TWorkspaceProjectAccess` decision through `projectAccess`; omitting it creates a Restricted session

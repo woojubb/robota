@@ -42,8 +42,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { EXTENSIONS, hasStem, isTemplateSlot } from './lib/file-name-shape.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * A token shaped like an abbreviated or full object name.

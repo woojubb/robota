@@ -63,7 +63,7 @@ export class PromptExecutor implements IHookTypeExecutor {
       const rawResponse = await provider.complete(prompt);
       const jsonStr = extractJson(rawResponse);
 
-      return decodeHookVerdict(jsonStr, 'prompt');
+      return decodeHookVerdict(jsonStr, 'prompt', input.hook_event_name);
     } catch (err: unknown) {
       return {
         outcome: 'error',

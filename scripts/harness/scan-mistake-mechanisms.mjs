@@ -41,8 +41,9 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { SCAN_COMMANDS } from './run-all-scans.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const CATALOGUE = '.agents/rules/common-mistakes.md';
 
 const ENTRY = /^\|\s*(\d+)\s*\|/;

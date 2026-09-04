@@ -1,6 +1,7 @@
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 interface IProps {

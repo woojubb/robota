@@ -42,8 +42,9 @@ import {
   analyzeSpawnTargetsCached,
   classifyExecution,
 } from './lib/spawn-call-graph.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────
 export const VERDICT = Object.freeze({
@@ -238,8 +239,13 @@ export function qualifyingPairs(byPkg) {
 
 // ── Pure: range + opt-out scoping (C2, opt-out) ─────────────────────────────────────────────────────
 
-/** A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally excluded. */
-export function isDefectFixRange(commitSubjects, addedFiles = []) {
+/**
+ * A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally
+ * excluded. A range that DECLARES a mutant (issue #2181) is judged whatever its subject says: the
+ * author has named what the suite must kill, and the floor's job is to check that it does.
+ */
+export function isDefectFixRange(commitSubjects, addedFiles = [], declaredMutants = new Map()) {
+  if (declaredMutants.size > 0) return true;
   if (commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()))) return true;
 
   // A range that ADDS A FLOOR is judged too, whatever its subject says. Measured 2026-08-01: five
@@ -273,12 +279,62 @@ export function parseOptOut(text) {
   return { optedOut: Boolean(reason), reason };
 }
 
+// ── Pure: author-declared mutants (issue #2181) ─────────────────────────────────────────────────────
+
+/**
+ * `red-proof-mutant: <path> :: <needle> => <replacement>` — the mutant a NEW checker, decoder or
+ * parser's suite exists to kill, declared by the author in the pull-request body or a commit body.
+ *
+ * Issue #2181 measured this floor's coverage inverted relative to the risk: reversing a diff needs a
+ * prior behaviour to reverse into, so a brand-new scan, decoder or gate — the case where the suite
+ * is the ONLY definition of correct — was never judged. Both authors, when asked, named the same
+ * technique: state the discriminating element (a regex alternative, a key table, a branch), break
+ * it, and show the suite goes red. This makes that declaration machine-readable and applies it IN
+ * PLACE of the reversal. The needle must occur exactly once in the file: a declaration that names
+ * nothing, or something ambiguous, is INCONCLUSIVE rather than a guessed mutation — a check that
+ * guesses would be worse than none. `<replacement>` may be empty (`=> ` deletes the needle). A
+ * needle cannot itself contain `=>`.
+ *
+ * @returns {Map<string, {needle: string, replacement: string}[]>} declared mutants by source path
+ */
+const DECLARED_MUTANT_RE = /^\s*red-proof-mutant:\s*(\S+)\s*::\s*(.+?)\s*=>\s*(.*?)\s*$/;
+
+export function parseDeclaredMutants(text) {
+  const byPath = new Map();
+  for (const line of String(text ?? '').split('\n')) {
+    const m = DECLARED_MUTANT_RE.exec(line);
+    if (!m) continue;
+    const [, file, needle, replacement] = m;
+    if (!byPath.has(file)) byPath.set(file, []);
+    byPath.get(file).push({ needle, replacement });
+  }
+  return byPath;
+}
+
+/**
+ * Apply a file's declared mutants to its text. `{ ok: true, text }`, or `{ ok: false, reason }` with
+ * `mutant-not-found` / `mutant-ambiguous` — never a partial application.
+ */
+export function applyDeclaredMutants(text, mutants) {
+  let out = String(text ?? '');
+  for (const { needle, replacement } of mutants) {
+    const first = out.indexOf(needle);
+    if (first === -1) return { ok: false, reason: 'mutant-not-found', needle };
+    if (out.indexOf(needle, first + needle.length) !== -1) {
+      return { ok: false, reason: 'mutant-ambiguous', needle };
+    }
+    out = out.slice(0, first) + replacement + out.slice(first + needle.length);
+  }
+  return { ok: true, text: out };
+}
+
 // ── Pure: which cases the range ADDED (INFRA-072) ────────────────────────────────────────────────────
 
 // `it('…')`, `it.only('…')`, and the table form `it.each(rows)('…')` — the intervening call is what
-// makes the last one a separate shape rather than a suffix.
+// makes the last one a separate shape rather than a suffix. The modifier chain is captured because
+// `.each` changes what the title MEANS: its `%s` is a placeholder, not two characters.
 const CASE_TITLE_RE =
-  /\b(?:it|test|bench)(?:\.[A-Za-z]+)*(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  /\b(?:it|test|bench)((?:\.[A-Za-z]+)*)(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\2)[^\\])*)\2/g;
 
 /**
  * Title matchers for the test cases a diff ADDED.
@@ -293,6 +349,14 @@ const CASE_TITLE_RE =
  * the matcher and the interpolations become wildcards — a wider match is a weaker check, never a
  * wrong verdict. A title this cannot read at all yields no matcher, and a file with no matchers
  * falls back to file granularity rather than failing something it cannot see.
+ *
+ * An `it.each` title is the third form (issue #2216): `'removes %s'` is a literal `%s` in the source
+ * and `removes DCS` at runtime, so the exact matcher anchored it and matched nothing. Every such
+ * case then fell into "a case failed, but not one this range added", and a table-driven suite whose
+ * rows went red exactly as designed was reported ACCIDENTAL_GREEN — the failure verdict, inverted.
+ * Measured on PR #2212: five red rows, reported `added-cases-pass`; two literal-title cases asserting
+ * the same thing flipped it to `red-proof-ok`. The printf tokens and `$key` references become the
+ * same wildcards a template's interpolations do.
  */
 export function addedCaseTitleMatchers(diffText) {
   const matchers = [];
@@ -300,8 +364,8 @@ export function addedCaseTitleMatchers(diffText) {
     if (!line.startsWith('+') || line.startsWith('+++')) continue;
     CASE_TITLE_RE.lastIndex = 0;
     for (const m of line.slice(1).matchAll(CASE_TITLE_RE)) {
-      const [, quote, raw] = m;
-      matchers.push(quote === '`' ? templateTitleMatcher(raw) : exactTitleMatcher(raw));
+      const [, modifiers, quote, raw] = m;
+      matchers.push(titleMatcher(raw, quote, /\.each\b/.test(modifiers)));
     }
   }
   return matchers;
@@ -311,19 +375,35 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function exactTitleMatcher(raw) {
+/**
+ * The placeholders vitest's `.each` formats into a title: printf tokens (`%s %d %i %f %j %o %# %$`)
+ * and, for object tables, `$key` / `$key.path` references. `%%` is a literal percent and is split
+ * out before this runs so the token pass cannot see it. Measured twice (issues #2216 and #2358):
+ * `'%s does not re-export …'` in the source, `provider-factory.ts does not re-export …` at run time,
+ * and a case that FAILED under reversal reported as `added-cases-pass` — a case that passed.
+ */
+const EACH_TOKEN_RE = /%[sdifjo#$]|\$(?:#|[A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
+
+/** One anchored matcher for a title in any of the three forms; statics escaped, placeholders `.*`. */
+function titleMatcher(raw, quote, isEach) {
+  // A template's `${…}` interpolations are wildcards; a quoted title is one static after decoding.
+  const statics = quote === '`' ? raw.split(/\$\{[^}]*\}/) : [decodeQuoted(raw)];
+  const parts = statics.map((text) => (isEach ? eachStatic(text) : escapeRegExp(text)));
+  return new RegExp(`^${parts.join('.*')}$`);
+}
+
+function eachStatic(text) {
+  return text
+    .split('%%')
+    .map((chunk) => chunk.split(EACH_TOKEN_RE).map(escapeRegExp).join('.*'))
+    .join('%');
+}
+
+function decodeQuoted(raw) {
   // The source spelling is escaped; the runtime title is not. Left un-decoded, a title containing
   // `\'` or `\n` would never match its own case, and the file would then report its added case as
   // passing — a false accidental-green from a quoting detail.
-  const decoded = raw.replace(/\\(['"\\nt])/g, (_, ch) =>
-    ch === 'n' ? '\n' : ch === 't' ? '\t' : ch,
-  );
-  return new RegExp(`^${escapeRegExp(decoded)}$`);
-}
-
-function templateTitleMatcher(raw) {
-  const statics = raw.split(/\$\{[^}]*\}/).map(escapeRegExp);
-  return new RegExp(`^${statics.join('.*')}$`);
+  return raw.replace(/\\(['"\\nt])/g, (_, ch) => (ch === 'n' ? '\n' : ch === 't' ? '\t' : ch));
 }
 
 /** Did any matcher name this case? Both the bare title and the describe-qualified name are tried. */
@@ -438,6 +518,46 @@ export function decidePairVerdict({ importsReversedFile, outcome, witness = WITN
   // already there. That is an accidental-green regression test wearing a sibling's proof.
   if (outcome === 'added-cases-pass') return VERDICT.ACCIDENTAL_GREEN;
   return VERDICT.INCONCLUSIVE;
+}
+
+// ── Pure: run-error visibility + per-file summary (issue #2263) ──────────────────────────────────────
+
+/**
+ * The decisions a run-error DOWNGRADED to inconclusive.
+ *
+ * Issue #2263: on one commit, CI reported a file `inconclusive (run-error)` where the same checker run
+ * locally reported it `red-proof-ok`. A run-error is the right classification (C1: a case that never
+ * ran has not been shown to pass) but it is a PERMISSIVE one — a real accidental-green in that file
+ * goes unreported — and until now the downgrade was one `⚠︎` line among the others, invisible in the
+ * summary. Named here so the count is a first-class output rather than something read off the log.
+ */
+export function runErrorDowngrades(decisions) {
+  return decisions.filter((decision) => decision.outcome === 'run-error');
+}
+
+/**
+ * The per-file verdict table as markdown, for a surface a reader can compare WITHOUT pulling raw
+ * job logs. Issue #2263 found the CI and local runs disagreeing on two files in opposite directions,
+ * and the disagreement was only visible by diffing the two consoles by hand: the check-run's own
+ * summary was empty. The CLI writes this to `GITHUB_STEP_SUMMARY` when it is set.
+ */
+export function renderDecisionSummary({ verdict, decisions }) {
+  const downgraded = runErrorDowngrades(decisions);
+  const rows = decisions.map((decision) => {
+    const subject = decision.source ?? decision.pkg;
+    const detail = decision.outcome ?? decision.reason ?? '';
+    return `| \`${subject}\` | ${decision.verdict} | ${detail} |`;
+  });
+  return [
+    `### regression-red-proof: \`${verdict}\``,
+    '',
+    '| file | verdict | outcome |',
+    '| --- | --- | --- |',
+    ...rows,
+    '',
+    `${downgraded.length} file(s) downgraded to inconclusive by run-error.`,
+    '',
+  ].join('\n');
 }
 
 // ── Pure: relative-import module graph (C3) ─────────────────────────────────────────────────────────
@@ -658,6 +778,13 @@ export async function runRegressionRedProof(io = {}) {
       .filter(Boolean);
   const optOutText = io.optOutText ?? `${process.env.PR_BODY ?? ''}\n${commitSubjects.join('\n')}`;
 
+  // Issue #2358 (2): the checker judges the COMMIT RANGE, and said so nowhere — so "you have not fixed
+  // it" and "you fixed it but have not committed" printed the same verdict. Say which tree was read.
+  log(
+    `regression-red-proof: judging committed range ${base}..HEAD ` +
+      `(${commitSubjects.length} commit(s)); uncommitted working-tree changes are NOT read.`,
+  );
+
   const decisions = [];
 
   const { optedOut, reason } = parseOptOut(optOutText);
@@ -672,19 +799,40 @@ export async function runRegressionRedProof(io = {}) {
       .split('\n')
       .filter(Boolean);
 
-  if (!isDefectFixRange(commitSubjects, addedFiles)) {
-    log('↩︎  SKIPPED: range has no `fix:` commit and adds no floor (not a defect fix).');
+  // Issue #2181 — declared mutants live in the PR body and the commit BODIES (a subject line is too
+  // short to carry a needle). Synthetic fixtures inject the text; a real range reads `%B`.
+  const declarationText =
+    io.declarationText ??
+    (io.commitSubjects !== undefined
+      ? optOutText
+      : `${process.env.PR_BODY ?? ''}\n${git(['log', '--format=%B', `${base}..HEAD`])}`);
+  const declaredMutants = parseDeclaredMutants(declarationText);
+
+  if (!isDefectFixRange(commitSubjects, addedFiles, declaredMutants)) {
+    log(
+      '↩︎  SKIPPED: range has no `fix:` commit, adds no floor and declares no mutant (not a defect fix).',
+    );
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 
   // Scope by the commit that owns each file. A mixed PR must not turn unrelated `feat:` / `perf:`
   // files into alleged defect fixes merely because another commit in the range is spelled `fix:`.
   // Synthetic fixtures provide range inputs directly and retain whole-range scope.
-  const defectFixFiles =
+  const rangeDefectFixFiles =
     io.defectFixFiles ??
     (io.changedFiles !== undefined || io.commitSubjects !== undefined
       ? changedFiles
       : defaultDefectFixFiles(base, changedFiles));
+  // A declared mutant's source, and the range's changed files in that package, are in scope too —
+  // the declaration is the author's statement that these tests must kill this mutant.
+  const mutantPkgs = new Set([...declaredMutants.keys()].map(pkgOf));
+  const defectFixFiles = [
+    ...new Set([
+      ...rangeDefectFixFiles,
+      ...declaredMutants.keys(),
+      ...changedFiles.filter((f) => mutantPkgs.has(pkgOf(f))),
+    ]),
+  ];
   const pairs = qualifyingPairs(classifyChanges(defectFixFiles));
   if (pairs.length === 0) {
     log('↩︎  SKIPPED: no same-package (source+test) pair to red-prove.');
@@ -699,6 +847,10 @@ export async function runRegressionRedProof(io = {}) {
     io.reverseApply ?? ((srcPaths, from = base) => defaultReverseApply(from, srcPaths));
   const reversalBase = io.reversalBase ?? ((source) => reversalBaseFor(source, base));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
+  // Issue #2181 — writes the declared-mutant text over a tracked source; `restore` undoes it.
+  const writeMutant =
+    io.writeMutant ??
+    ((source, text) => writeFileSync(path.resolve(WORKSPACE_ROOT, source), text, 'utf8'));
   const runVitest = io.runVitest ?? defaultRunVitest;
   const addedTestCaseDiff =
     io.addedTestCaseDiff ??
@@ -795,9 +947,12 @@ export async function runRegressionRedProof(io = {}) {
       let outcome = null;
       let witness = WITNESS.UNKNOWN;
       let runtimeMutation = true;
+      // Issue #2181 — a declared mutant replaces the reversal, so an ADDED file (no earlier state)
+      // is judged against the mutation its author named rather than reported unjudgeable.
+      const mutants = declaredMutants.get(source) ?? null;
       // INFRA-120 — reverse to the earliest state that HAS this file, not to its absence.
       const from = exercised ? reversalBase(source) : base;
-      if (exercised && from === null) {
+      if (exercised && from === null && mutants === null) {
         decisions.push({
           pkg: pair.pkg,
           source,
@@ -822,7 +977,32 @@ export async function runRegressionRedProof(io = {}) {
       if (exercised) {
         let deciders = [];
         const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
-        reverseApply([source], from);
+        if (mutants) {
+          const applied = applyDeclaredMutants(fixedText, mutants);
+          if (!applied.ok) {
+            // Not a guess: a needle that names nothing, or two places, mutates nothing.
+            decisions.push({
+              pkg: pair.pkg,
+              source,
+              verdict: VERDICT.INCONCLUSIVE,
+              outcome: null,
+              witness,
+              importsReversedFile: true,
+              relation: 'executed',
+              runtimeMutation: true,
+              mutation: 'declared',
+              reason: applied.reason,
+            });
+            log(
+              `⚠︎  ${source}: declared mutant \`${applied.needle}\` — ${applied.reason}. INCONCLUSIVE.`,
+            );
+            if (rank[VERDICT.INCONCLUSIVE] > rank[worst]) worst = VERDICT.INCONCLUSIVE;
+            continue;
+          }
+          writeMutant(source, applied.text);
+        } else {
+          reverseApply([source], from);
+        }
         try {
           const sourceAbs = path.resolve(WORKSPACE_ROOT, source);
           const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;
@@ -866,9 +1046,11 @@ export async function runRegressionRedProof(io = {}) {
         importsReversedFile: exercised,
         relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
         runtimeMutation,
+        mutation: mutants ? 'declared' : 'reversal',
       });
       const icon =
         verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
+      const mutantNote = mutants ? ' [author-declared mutant]' : '';
       const note =
         exercised && !runtimeMutation
           ? ' (type/comment-only change; runtime red proof is not applicable)'
@@ -879,12 +1061,22 @@ export async function runRegressionRedProof(io = {}) {
               : outcome
                 ? ` (${outcome})`
                 : '';
-      log(`${icon}  ${source}: ${verdict}${note}`);
+      log(`${icon}  ${source}: ${verdict}${note}${mutantNote}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }
   }
 
-  return { verdict: worst, decisions };
+  // Issue #2263 — a silent downgrade is the permissive direction. Say how many files it took, so a
+  // summary reading `inconclusive` can be told apart from one where every pair was actually judged.
+  const downgraded = runErrorDowngrades(decisions);
+  if (downgraded.length > 0) {
+    log(
+      `⚠︎  ${downgraded.length} file(s) downgraded to inconclusive by run-error — a real ` +
+        `accidental-green there would go unreported: ${downgraded.map((d) => d.source ?? d.pkg).join(', ')}`,
+    );
+  }
+
+  return { verdict: worst, decisions, runErrorDowngrades: downgraded.length };
 }
 
 /**
@@ -1021,8 +1213,17 @@ export function exitCodeFor(verdict, enforce) {
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   runRegressionRedProof()
-    .then(({ verdict }) => {
+    .then(({ verdict, decisions }) => {
       const enforce = process.env.REGRESSION_RED_PROOF_ENFORCE === '1';
+      // Issue #2263 — publish the per-file table where the check-run shows it, so a CI verdict and a
+      // local one can be compared file by file without pulling raw job logs.
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        fs.appendFileSync(
+          process.env.GITHUB_STEP_SUMMARY,
+          renderDecisionSummary({ verdict, decisions }),
+          'utf8',
+        );
+      }
       if (verdict === VERDICT.ACCIDENTAL_GREEN) {
         log(
           '\n❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.\n' +

@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React, { useState, useCallback, useRef } from 'react';
 
 import {
@@ -15,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 /** Footer for the interactive menu state. */

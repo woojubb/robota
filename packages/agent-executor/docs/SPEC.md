@@ -141,17 +141,22 @@ Hook event types and hook execution are owned by `agent-core`.
 
 ### Public API: Background Tasks
 
-| Export                                  | Kind     | Description                                          |
-| --------------------------------------- | -------- | ---------------------------------------------------- |
-| `BackgroundTaskManager`                 | class    | In-memory task registry and scheduler                |
-| `BackgroundTaskError`                   | class    | Typed runtime error with category and recoverability |
-| `transitionBackgroundTaskStatus`        | function | Pure state transition function                       |
-| `isTerminalBackgroundTaskStatus`        | function | Terminal-state predicate                             |
-| `getBackgroundTaskTransitions`          | function | Transition table snapshot for tests/audits           |
-| `createLimitedOutputCapture`            | function | UTF-8-safe bounded output capture helper             |
-| `appendPrefixedLogLines`                | function | Append source-prefixed non-empty log lines           |
-| `createBackgroundTaskLogPage`           | function | Cursor-based log pagination helper                   |
-| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant | Default page size (200 lines) for log pagination     |
+| Export                                  | Kind      | Description                                                                                                                                |
+| --------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                      |
+| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                       |
+| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                             |
+| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                   |
+| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                 |
+| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                   |
+| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                 |
+| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                         |
+| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                           |
+| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count |
+| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                  |
+| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                         |
+| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                |
+| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                        |
 
 ### Public API: Background Task Runners (Concrete — default implementations)
 
@@ -310,6 +315,14 @@ agent-core and propagates unchanged before spawn so callers can identify and cor
 
 Events contain cloned task snapshots or primitive progress data. Consumers may project these events into TUI rows, transport messages, or logs, but event listeners must not mutate manager state directly.
 
+**Observer-failure contract (ARCH-053, issue #2157).** Events are emitted only after the authoritative
+state transition is committed, so an observer that throws must never unwind the emitter. `emit`
+delivers through `deliverToObservers` (`background-tasks/observer-delivery.ts`): every observer —
+the `eventSink` first, then listeners in registration order — is isolated, delivery continues past a
+throwing one, and each failure is passed to `IBackgroundTaskManagerOptions.onObserverFailure`
+(default: a `process.emitWarning` with code `ROBOTA_BACKGROUND_OBSERVER_FAILURE`). The sibling
+lifecycle owner `BackgroundJobOrchestrator` (agent-framework) uses the same helper and option.
+
 ## Watchdog and Shutdown Contract
 
 `BackgroundTaskManager` owns provider-neutral watchdog semantics for long-running agent tasks:
@@ -405,7 +418,7 @@ Pure helper contracts:
 
 This package's provider factory functions are `resolveProfileApiKey` and `createProviderFromProfile`; they depend on the executor-owned `ISerializableProviderProfile` and delegate normalization to `agent-core`.
 
-They are **not pure**: `resolveProfileApiKey` reads `process.env` for the `apiKeyEnv` branch, and the `agent-core` normalization it delegates to resolves `$ENV:` references ambiently. This paragraph previously called all four functions "pure utilities", which was a claim about a property the code does not have; issue #2347 is the item that would make it true.
+Since issue #2347 they are deterministic from their arguments and an injected `TEnvResolver` (`resolve`, defaulting to `processEnvResolver` from `agent-core`): `resolveProfileApiKey(profile, resolve)` routes BOTH its `apiKey` (`$ENV:` reference) and `apiKeyEnv` (variable name) branches through `resolve`, and `createProviderFromProfile(profile, model, definitions, resolve)` hands the same resolver to `normalizeProviderConfig`. None of them reads `process.env`; the `provider-env-resolution` scan refuses it in `agent-executor/src/providers/provider-factory.ts`, `agent-core/src/utils/env-ref.ts` and `agent-core/src/providers/provider-factory.ts`. A unit test injects `createRecordEnvResolver({...})` instead of mutating the process environment.
 
 Cross-package port consumers:
 

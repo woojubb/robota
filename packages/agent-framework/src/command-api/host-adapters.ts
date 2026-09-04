@@ -201,8 +201,31 @@ export interface ICommandHandoffAdapter {
   status(): IHandoffProgress;
 }
 
+/** The persisted `/cost budget` document. */
+export interface ICommandCostBudget {
+  monthly: number;
+}
+
+/**
+ * CMD-007 (issue #2058): the narrow storage port `/cost budget` reads and writes through.
+ *
+ * The command used to own the budget file's location and the filesystem calls itself, which made a
+ * reusable command package responsible for a product's storage location and symlink policy. The
+ * shell now composes an adapter (agent-cli: a file under the workspace, written atomically and never
+ * through a symlink); the command sees `read/write/clear` and nothing else, so another product can
+ * store the budget wherever it likes. `write`/`clear` throw a typed failure the command renders.
+ */
+export interface ICommandCostBudgetAdapter {
+  /** `undefined` when no budget is set (absent, empty or unreadable document alike). */
+  read(): ICommandCostBudget | undefined;
+  write(budget: ICommandCostBudget): void;
+  clear(): void;
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
+  /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
+  costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
   plugin?: ICommandPluginAdapter;

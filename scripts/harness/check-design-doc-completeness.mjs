@@ -23,8 +23,9 @@ import path from 'node:path';
 
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 const MUST_SECTIONS = [
   { label: 'Context & Goal', re: /^##\s+Context\b/im },

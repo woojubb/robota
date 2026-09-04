@@ -193,22 +193,27 @@ describe('executeMemoryCommand', () => {
     expect(result?.message).toContain(join('.robota', 'memory', 'MEMORY.md'));
   });
 
-  it('persists index and topic entries through slash invocation', async () => {
-    const cwd = makeProject();
-    const session = await createInteractiveSession(cwd);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'persists index and topic entries through slash invocation',
+    async () => {
+      const cwd = makeProject();
+      const session = await createInteractiveSession(cwd);
 
-    const result = await session.executeCommand(
-      'memory',
-      'add project build Use pnpm for scripts.',
-    );
+      const result = await session.executeCommand(
+        'memory',
+        'add project build Use pnpm for scripts.',
+      );
 
-    expect(result?.success).toBe(true);
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '(project/build) Use pnpm for scripts.',
-    );
-  });
+      expect(result?.success).toBe(true);
+      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+        '(project/build) Use pnpm for scripts.',
+      );
+    },
+  );
 
-  it('uses the same handler for model invocation', async () => {
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')('uses the same handler for model invocation', async () => {
     const cwd = makeProject();
     const session = await createInteractiveSession(cwd);
 
@@ -237,7 +242,8 @@ describe('executeMemoryCommand', () => {
     expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
   });
 
-  it('lists queued automatic memory candidates', async () => {
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')('lists queued automatic memory candidates', async () => {
     const cwd = makeProject();
     await seedPendingMemory(cwd);
     const session = await createInteractiveSession(cwd);
@@ -250,43 +256,51 @@ describe('executeMemoryCommand', () => {
     expect(result?.message).toContain('Use pnpm for package scripts.');
   });
 
-  it('approves and saves a pending candidate while recording audit events', async () => {
-    const cwd = makeProject();
-    await seedPendingMemory(cwd);
-    const session = await createInteractiveSession(cwd);
-    const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'approves and saves a pending candidate while recording audit events',
+    async () => {
+      const cwd = makeProject();
+      await seedPendingMemory(cwd);
+      const session = await createInteractiveSession(cwd);
+      const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
-    const result = await session.executeCommand('memory', 'approve mem_123');
+      const result = await session.executeCommand('memory', 'approve mem_123');
 
-    expect(result?.success).toBe(true);
-    expect(result?.message).toContain('Saved memory candidate mem_123');
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '(project/build) Use pnpm for package scripts.',
-    );
-    expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('saved');
-    expect(recordMemoryEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'memory_candidate_approved', candidateId: 'mem_123' }),
-    );
-    expect(recordMemoryEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'memory_candidate_saved', candidateId: 'mem_123' }),
-    );
-  });
+      expect(result?.success).toBe(true);
+      expect(result?.message).toContain('Saved memory candidate mem_123');
+      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+        '(project/build) Use pnpm for package scripts.',
+      );
+      expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('saved');
+      expect(recordMemoryEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'memory_candidate_approved', candidateId: 'mem_123' }),
+      );
+      expect(recordMemoryEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'memory_candidate_saved', candidateId: 'mem_123' }),
+      );
+    },
+  );
 
-  it('rejects a pending candidate while recording an audit event', async () => {
-    const cwd = makeProject();
-    await seedPendingMemory(cwd);
-    const session = await createInteractiveSession(cwd);
-    const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'rejects a pending candidate while recording an audit event',
+    async () => {
+      const cwd = makeProject();
+      await seedPendingMemory(cwd);
+      const session = await createInteractiveSession(cwd);
+      const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
-    const result = await session.executeCommand('memory', 'reject mem_123');
+      const result = await session.executeCommand('memory', 'reject mem_123');
 
-    expect(result?.success).toBe(true);
-    expect(result?.message).toContain('Rejected memory candidate mem_123');
-    expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('rejected');
-    expect(recordMemoryEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'memory_candidate_rejected', candidateId: 'mem_123' }),
-    );
-  });
+      expect(result?.success).toBe(true);
+      expect(result?.message).toContain('Rejected memory candidate mem_123');
+      expect((await (await createMemoryStore(cwd)).getPending('mem_123'))?.status).toBe('rejected');
+      expect(recordMemoryEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'memory_candidate_rejected', candidateId: 'mem_123' }),
+      );
+    },
+  );
 
   it('reports references from the current turn', async () => {
     const cwd = makeProject();

@@ -27,6 +27,13 @@ Exceptions (both layers): a merge in progress (`.git/MERGE_HEAD`), or the explic
 user-approved release automation. Branch-first applies even to one-line doc commits — always
 branch → commit → PR.
 
+If the hook refuses a NEW branch because another local branch is still open (one-branch-at-a-time)
+and the user wants the open work parked rather than merged or abandoned: park it in a tracked ref
+(`git update-ref refs/holding/<branch> <sha>` or a scoped `git stash push`) BEFORE `git branch -D`,
+and restore it later with `git cherry-pick` / `git stash pop`. A `git format-patch` file in a
+scratchpad is not a holding place — the exact form is exception 3 of
+[git-branch.md](../../rules/git-branch.md) § One-Branch-At-A-Time Rule (issue #2344).
+
 If the hook fires (or you notice you are on a protected branch): stop, propose a conventional
 branch name (`feat|fix|refactor|docs|chore/<scope>-<desc>`), get user approval, then
 `git checkout -b` and continue — subsequent commits in the same task stay on that branch without

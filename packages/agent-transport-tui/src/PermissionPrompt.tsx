@@ -1,10 +1,11 @@
-import { Box, Text, useInput } from 'ink';
+import { consentScopeFor } from '@robota-sdk/agent-framework';
+import { Box, useInput } from 'ink';
 import React from 'react';
 
 import {
   applyPermissionPromptInput,
   getPermissionPromptInputAction,
-  PERMISSION_PROMPT_OPTIONS,
+  permissionPromptOptionsFor,
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
@@ -14,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IPendingPermissionRequest } from './types.js';
@@ -89,18 +91,22 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
         </Text>
       </Text>
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
-      <Box marginTop={1}>
-        {PERMISSION_PROMPT_OPTIONS.map((opt, i) => (
-          <Box key={opt} marginRight={2}>
-            <Text
-              color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
-              bold={i === state.selectedIndex}
-            >
-              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-              {opt}
-            </Text>
-          </Box>
-        ))}
+      {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
+          of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
+      <Box marginTop={1} flexDirection="column">
+        {permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs)).map(
+          (opt, i) => (
+            <Box key={opt}>
+              <Text
+                color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
+                bold={i === state.selectedIndex}
+              >
+                {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+                {opt}
+              </Text>
+            </Box>
+          ),
+        )}
       </Box>
       <KeyHintFooter hints={PERMISSION_PROMPT_FOOTER_HINTS} />
     </Box>

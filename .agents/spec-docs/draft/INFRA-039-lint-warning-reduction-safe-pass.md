@@ -161,7 +161,7 @@ mechanism, no second implementation. That script is part of `harness:verify:rele
 `check-release-governance.mjs`, and `release-grade verification` is a REQUIRED context on every pull
 request to `main`. So the ceiling is enforced by the tool, on the promotion path.
 
-`scan-lint-warning-ratchet` keeps the NUMBER honest rather than re-measuring it: the flag must be
+`scan-lint-ceiling-declared-vs-frozen` keeps the NUMBER honest rather than re-measuring it: the flag must be
 present, the ceiling must match `lint-warning-baseline.json`, and the baseline may fall and never
 rise without a deliberate re-freeze. It does not run eslint — a full workspace lint is minutes and
 `harness:scan` runs on every pre-push.

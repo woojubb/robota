@@ -13,7 +13,7 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 const READY_DEADLINE_MS = 10_000;

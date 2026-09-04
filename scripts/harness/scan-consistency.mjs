@@ -30,9 +30,15 @@ import {
   validateScenarioRecordArtifact,
 } from './scenario-records.mjs';
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
-import { listWorkspaceScopes, pathExists, readJson, readWorkspacePatterns } from './shared.mjs';
+import {
+  listWorkspaceScopes,
+  pathExists,
+  readJson,
+  readWorkspacePatterns,
+  resolveWorkspaceRoot,
+} from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const AGENTS_PATH = path.join(WORKSPACE_ROOT, 'AGENTS.md');
 const ROOT_PACKAGE_JSON_PATH = path.join(WORKSPACE_ROOT, 'package.json');
 const RULES_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'rules');

@@ -9,7 +9,7 @@ import { readFile, stat } from 'node:fs/promises';
 
 import { z } from 'zod';
 
-import { checkPathWithinCwd } from './path-guard.js';
+import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
@@ -21,7 +21,7 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
 import '../tool-permission-profiles.js';
 
 const DEFAULT_READ_DESCRIPTION =
-  'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.';
+  'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe filePath parameter must be an absolute path, not a relative path.';
 
 const DEFAULT_LIMIT = 2000;
 
@@ -102,7 +102,11 @@ function formatReadResult(
 }
 
 async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Promise<string> {
-  const { filePath, offset, limit = DEFAULT_LIMIT } = args;
+  const { offset, limit = DEFAULT_LIMIT } = args;
+  // A relative path anchors to the containment root before it is confined or opened (issue #2429).
+  const filePath = options.sandboxClient
+    ? args.filePath
+    : resolveHostPath(args.filePath, options.cwd);
   const startLine = offset !== undefined && offset > 0 ? offset : 1;
 
   if (options.sandboxClient) {

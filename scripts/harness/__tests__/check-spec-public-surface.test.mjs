@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -38,6 +38,7 @@ function spec(exports) {
 }
 
 const EMPTY = { baseline: {} };
+const BASELINE_FILE = path.resolve(import.meta.dirname, '../spec-surface-baseline.json');
 
 describe('check-spec-public-surface', () => {
   it('forward: flags a table identifier that appears nowhere in src (phantom regression)', async () => {
@@ -50,6 +51,64 @@ describe('check-spec-public-surface', () => {
     const phantom = findings.filter((f) => f.type === 'spec-phantom-export');
     expect(phantom).toHaveLength(1);
     expect(phantom[0].detail).toContain('phantomThing');
+  });
+
+  it('forward (RED, issue #2228): a comment naming a deleted export is not evidence the export exists', async () => {
+    // The measured instance: transport's index.ts carried
+    //   `// HARNESS-103: \`createSessionCapabilityHost\` / \`readSessionCapability\` are NOT here.`
+    // and both names were table rows. The old corpus concatenated raw source, so the sentence
+    // written to say the symbols were gone passed both of them.
+    const root = await createFixture({
+      'packages/foo/package.json': JSON.stringify({ name: '@robota-sdk/foo' }),
+      'packages/foo/docs/SPEC.md': spec(['documentedFn', 'movedAway']),
+      'packages/foo/src/index.ts': [
+        '// `movedAway` is NOT here. It moved to @robota-sdk/bar in ARCH-106.',
+        '/* movedAway was also once mentioned in a block comment. */',
+        'export function documentedFn(): void {}',
+        '',
+      ].join('\n'),
+    });
+    const findings = await findPublicSurfaceFindings(root, EMPTY);
+    const phantom = findings.filter((f) => f.type === 'spec-phantom-export');
+    expect(phantom).toHaveLength(1);
+    expect(phantom[0].detail).toContain('movedAway');
+  });
+
+  it('forward (issue #2228): a type-only export and a `/testing` subpath export both resolve positively', async () => {
+    // The corpus must cover EVERY declared entry, not only the root — transport publishes a
+    // `./testing` subpath, and reading only `src/index.ts` would trade the wide-corpus defect for
+    // the narrow one. Type exports are surface too, so they resolve without a text fallback.
+    const root = await createFixture({
+      'packages/foo/package.json': JSON.stringify({
+        name: '@robota-sdk/foo',
+        exports: {
+          '.': { source: './src/index.ts' },
+          './testing': { source: './src/testing/index.ts' },
+        },
+      }),
+      'packages/foo/docs/SPEC.md': spec(['documentedFn', 'IShape', 'TAlias', 'makeFakeThing']),
+      'packages/foo/src/shape.ts':
+        'export interface IShape { x: number }\nexport type TAlias = string;\n',
+      'packages/foo/src/index.ts':
+        "export function documentedFn(): void {}\nexport type { IShape, TAlias } from './shape.js';\n",
+      'packages/foo/src/testing/index.ts': 'export function makeFakeThing(): void {}\n',
+    });
+    const findings = await findPublicSurfaceFindings(root, EMPTY);
+    expect(findings.filter((f) => f.type === 'spec-phantom-export')).toEqual([]);
+  });
+
+  it('forward: a table row that is a member, not an export, still passes when the CODE names it', async () => {
+    // The live tables list session methods and slash commands beside exports; those are not
+    // resolvable as exports and must not go red merely for being members. They pass on the code
+    // corpus — but only the code, never a comment.
+    const root = await createFixture({
+      'packages/foo/package.json': JSON.stringify({ name: '@robota-sdk/foo' }),
+      'packages/foo/docs/SPEC.md': spec(['Session', 'getSessionId']),
+      'packages/foo/src/index.ts':
+        'export class Session {\n  getSessionId(): string {\n    return "s";\n  }\n}\n',
+    });
+    const findings = await findPublicSurfaceFindings(root, EMPTY);
+    expect(findings.filter((f) => f.type === 'spec-phantom-export')).toEqual([]);
   });
 
   it('reverse (RED): a new undocumented entry export FAILS when the package has no baseline allowance', async () => {
@@ -78,7 +137,7 @@ describe('check-spec-public-surface', () => {
       ].join('\n'),
     });
     const findings = await findPublicSurfaceFindings(root, {
-      baseline: { '@robota-sdk/foo': 1 },
+      baseline: { '@robota-sdk/foo': { runtime: 1 } },
     });
     const reverse = findings.filter((f) => f.type === 'spec-undocumented-export');
     expect(reverse).toHaveLength(1);
@@ -94,12 +153,12 @@ describe('check-spec-public-surface', () => {
         'export function documentedFn(): void {}\nexport function frozenDebtFn(): void {}\n',
     });
     const findings = await findPublicSurfaceFindings(root, {
-      baseline: { '@robota-sdk/foo': 1 },
+      baseline: { '@robota-sdk/foo': { runtime: 1 } },
     });
     expect(findings.filter((f) => f.type === 'spec-undocumented-export')).toHaveLength(0);
   });
 
-  it('reverse: dropping below the baseline passes and emits a ratchet-tighten notice', async () => {
+  it('reverse: dropping below the baseline passes and emits a ratchet-tighten notice naming the surface', async () => {
     const root = await createFixture({
       'packages/foo/package.json': JSON.stringify({ name: '@robota-sdk/foo' }),
       'packages/foo/docs/SPEC.md': spec(['documentedFn']),
@@ -107,32 +166,65 @@ describe('check-spec-public-surface', () => {
     });
     const notices = [];
     const findings = await findPublicSurfaceFindings(root, {
-      baseline: { '@robota-sdk/foo': 3 },
+      baseline: { '@robota-sdk/foo': { runtime: 3 } },
       notices,
     });
     expect(findings).toHaveLength(0);
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain('@robota-sdk/foo');
+    expect(notices[0]).toContain('@robota-sdk/foo (runtime)');
     expect(notices[0]).toContain('tighten');
   });
 
-  it('reverse: ignores type-only entry exports (export type / interface / export { type })', async () => {
+  // Issue #2331 — the type surface is ratcheted on its own, not skipped.
+  it('reverse (RED): type-only entry exports (export type / interface / export { type }) count on the TYPE surface', async () => {
     const root = await createFixture({
       'packages/foo/package.json': JSON.stringify({ name: '@robota-sdk/foo' }),
-      'packages/foo/docs/SPEC.md': spec(['documentedFn']),
+      'packages/foo/docs/SPEC.md': spec(['documentedFn', 'Bar']),
       'packages/foo/src/model.ts':
-        'export interface Hidden {}\nexport type HiddenAlias = string;\n',
+        'export interface Hidden {}\nexport type HiddenAlias = string;\nexport function surfaced(): void {}\n',
       'packages/foo/src/index.ts': [
         'export function documentedFn(): void {}',
         'export type Foo = string;',
         'export interface Bar {}',
         "export type { Hidden } from './model.js';",
         "export { type HiddenAlias } from './model.js';",
+        "export type * from './model.js';",
         '',
       ].join('\n'),
     });
     const findings = await findPublicSurfaceFindings(root, EMPTY);
     expect(findings.filter((f) => f.type === 'spec-undocumented-export')).toHaveLength(0);
+    const typeFindings = findings.filter((f) => f.type === 'spec-undocumented-type-export');
+    expect(typeFindings).toHaveLength(1);
+    // `Bar` is documented; `surfaced` reaches the entry only through `export type *`, so it is a type.
+    expect(typeFindings[0].detail).toContain('4 undocumented type entry export(s)');
+    expect(typeFindings[0].detail).toContain('`Foo`');
+    expect(typeFindings[0].detail).toContain('`Hidden`');
+    expect(typeFindings[0].detail).toContain('`HiddenAlias`');
+    expect(typeFindings[0].detail).toContain('`surfaced`');
+    expect(typeFindings[0].detail).not.toContain('`Bar`');
+    expect(typeFindings[0].detail).toContain('type baseline of 0');
+  });
+
+  it('reverse: a runtime allowance never covers a type export, and a bare-number baseline is runtime-only', async () => {
+    const root = await createFixture({
+      'packages/foo/package.json': JSON.stringify({ name: '@robota-sdk/foo' }),
+      'packages/foo/docs/SPEC.md': spec(['documentedFn']),
+      'packages/foo/src/index.ts':
+        'export function documentedFn(): void {}\nexport interface ICreateSessionResult {}\n',
+    });
+    const findings = await findPublicSurfaceFindings(root, {
+      baseline: { '@robota-sdk/foo': { runtime: 5 } },
+    });
+    expect(findings.map((f) => f.type)).toEqual(['spec-undocumented-type-export']);
+    expect(findings[0].detail).toContain('`ICreateSessionResult`');
+    // The pre-#2331 shape reads as a runtime count only, so its type surface fails closed.
+    expect(
+      evaluateUndocumentedExports(
+        { '@robota-sdk/foo': { specPath: 'x', runtime: [], type: ['ICreateSessionResult'] } },
+        { '@robota-sdk/foo': { runtime: 5, type: 0 } },
+      ).findings.map((f) => f.type),
+    ).toEqual(['spec-undocumented-type-export']);
   });
 
   it('reverse: enumerates symbols surfaced through an `export * from` barrel', async () => {
@@ -149,10 +241,27 @@ describe('check-spec-public-surface', () => {
     expect(reverse[0].detail).toContain('surfacedFn');
   });
 
-  it('evaluateUndocumentedExports: a stale baseline entry (package fully documented) is tightenable', () => {
-    const { findings, tightenable } = evaluateUndocumentedExports({}, { '@robota-sdk/gone': 5 });
+  it('evaluateUndocumentedExports: a stale baseline entry (package fully documented) is tightenable per surface', () => {
+    const { findings, tightenable } = evaluateUndocumentedExports(
+      {},
+      { '@robota-sdk/gone': { runtime: 5, type: 2 }, '@robota-sdk/half': { runtime: 1, type: 0 } },
+    );
     expect(findings).toHaveLength(0);
-    expect(tightenable).toEqual(['@robota-sdk/gone']);
+    expect(tightenable).toEqual([
+      '@robota-sdk/gone (runtime)',
+      '@robota-sdk/gone (type)',
+      '@robota-sdk/half (runtime)',
+    ]);
+  });
+
+  it('loadUndocumentedExportBaseline: a bare-number entry is a runtime count with a type allowance of 0', async () => {
+    const root = await createFixture({
+      'legacy.json': JSON.stringify({ '@robota-sdk/old': 7, '@robota-sdk/new': { type: 2 } }),
+    });
+    expect(loadUndocumentedExportBaseline(path.join(root, 'legacy.json'))).toEqual({
+      '@robota-sdk/old': { runtime: 7, type: 0 },
+      '@robota-sdk/new': { runtime: 0, type: 2 },
+    });
   });
 
   it('passes on the live repository with its frozen baseline (exit 0) and needs no tightening', async () => {
@@ -162,12 +271,17 @@ describe('check-spec-public-surface', () => {
     expect(notices).toEqual([]);
   });
 
-  it('live baseline entries are all positive integers (a 0-count entry is dead weight)', () => {
-    const baseline = loadUndocumentedExportBaseline();
-    expect(Object.keys(baseline).length).toBeGreaterThan(0);
-    for (const count of Object.values(baseline)) {
-      expect(Number.isInteger(count)).toBe(true);
-      expect(count).toBeGreaterThan(0);
+  it('live baseline entries are per-surface positive integers (a 0-count surface is dead weight)', () => {
+    const raw = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+    expect(Object.keys(raw).length).toBeGreaterThan(0);
+    for (const entry of Object.values(raw)) {
+      expect(typeof entry).toBe('object');
+      expect(Object.keys(entry).length).toBeGreaterThan(0);
+      for (const [surface, count] of Object.entries(entry)) {
+        expect(['runtime', 'type']).toContain(surface);
+        expect(Number.isInteger(count)).toBe(true);
+        expect(count).toBeGreaterThan(0);
+      }
     }
   });
 });

@@ -21,6 +21,7 @@ import {
   openRun,
   permitsTerminal,
   readLedger,
+  recordCheckpoint,
   recordRound,
   recordDisposition,
   recordFoundationalId,
@@ -30,6 +31,7 @@ import {
   recordVerificationPassThrough,
   linkNestedRun,
   terminalReasonNames,
+  voidRun,
 } from '../loop-run.mjs';
 
 /** A throwaway workspace whose only content is the skills this case needs. */
@@ -119,6 +121,55 @@ describe('openRun', () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatch(new RegExp(`closed run \`${stale.runId}\` .*abandoned.*superseded`));
     expect(lines[1]).toMatch(/OPEN — record each round/);
+  });
+});
+
+describe('openRun across the commit boundary (#2504)', () => {
+  const asCommitted = (root, skill) => () =>
+    readLedger(root, skill)
+      .map((entry) => JSON.stringify(entry))
+      .join('\n') + '\n';
+
+  it('recovers a same-day OPEN run that is unbound AND committed, recording its disposition', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const orphan = openRun({ root, skill: 'looper', now: NOW, committed: () => null });
+    const next = openRun({
+      root,
+      skill: 'looper',
+      now: NOW + 60_000,
+      committed: asCommitted(root, 'looper'),
+    });
+    expect(next.superseded).toBe(orphan.runId);
+    const [sealed, live] = readLedger(root, 'looper');
+    expect(sealed.terminal).toBe('abandoned');
+    expect(sealed.ref).toMatch(/orphaned: committed while OPEN and unbound; superseded by/);
+    expect(live.terminal).toBeNull();
+  });
+
+  it('still refuses a same-day OPEN run that is uncommitted (live) or bound (owned)', () => {
+    const root = workspace({ looper: FINDING_SET });
+    openRun({ root, skill: 'looper', now: NOW, committed: () => null });
+    expect(() =>
+      openRun({ root, skill: 'looper', now: NOW + 60_000, committed: () => null }),
+    ).toThrow(/already has run/);
+
+    const bound = workspace({ looper: FINDING_SET });
+    const owned = openRun({
+      root: bound,
+      skill: 'looper',
+      now: NOW,
+      ref: 'HARNESS-900',
+      committed: () => null,
+    });
+    expect(owned.ref).toBe('HARNESS-900');
+    expect(() =>
+      openRun({
+        root: bound,
+        skill: 'looper',
+        now: NOW + 60_000,
+        committed: asCommitted(bound, 'looper'),
+      }),
+    ).toThrow(/already has run/);
   });
 });
 
@@ -382,6 +433,75 @@ describe('closeRun', () => {
   });
 });
 
+describe('voidRun (#2438)', () => {
+  const sealWrongRef = (root) => {
+    const { runId } = openRun({ root, skill: 'looper', now: NOW });
+    recordRound({ root, skill: 'looper', runId, findings: 0 });
+    closeRun({ root, skill: 'looper', runId, terminal: 'converged', ref: 'DOCS-031', now: NOW });
+    return runId;
+  };
+
+  it('voids an uncommitted sealed record in place, keeping the refused ref as evidence', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const runId = sealWrongRef(root);
+    const voided = voidRun({
+      root,
+      skill: 'looper',
+      runId,
+      reason: 'ref named DOCS-031, not the exact Task basename',
+      now: NOW + 1000,
+      committed: () => null,
+    });
+    expect(voided.terminal).toBe('voided');
+    expect(voided.ref).toBe('DOCS-031');
+    expect(voided.extensions.void).toEqual({
+      reason: 'ref named DOCS-031, not the exact Task basename',
+      at: new Date(NOW + 1000).toISOString(),
+      priorTerminal: 'converged',
+    });
+    expect(readLedger(root, 'looper')).toHaveLength(1);
+    expect(() =>
+      voidRun({ root, skill: 'looper', runId, reason: 'again', now: NOW, committed: () => null }),
+    ).toThrow(/already voided/);
+  });
+
+  it('refuses a committed record, an OPEN record, a missing reason, and `close --terminal voided`', () => {
+    const root = workspace({ looper: FINDING_SET });
+    const runId = sealWrongRef(root);
+    const committedLine = JSON.stringify(readLedger(root, 'looper')[0]);
+    expect(() =>
+      voidRun({
+        root,
+        skill: 'looper',
+        runId,
+        reason: 'x',
+        now: NOW,
+        committed: () => `${committedLine}\n`,
+      }),
+    ).toThrow(/already committed/);
+    expect(() =>
+      voidRun({ root, skill: 'looper', runId, reason: '', now: NOW, committed: () => null }),
+    ).toThrow(/--reason/);
+    expect(() => voidRun({ root, skill: 'looper', runId, reason: 'x', now: NOW })).toThrow(
+      /no HEAD/,
+    );
+    const open = openRun({ root, skill: 'looper', now: NOW + 86_400_000 * 2 });
+    expect(() =>
+      voidRun({
+        root,
+        skill: 'looper',
+        runId: open.runId,
+        reason: 'x',
+        now: NOW,
+        committed: () => null,
+      }),
+    ).toThrow(/OPEN/);
+    expect(() =>
+      closeRun({ root, skill: 'looper', runId: open.runId, terminal: 'voided', now: NOW }),
+    ).toThrow(/not a way to close/);
+  });
+});
+
 describe('permitsTerminal', () => {
   it('holds every vocabulary member reachable for some declaration', () => {
     expect(terminalReasonNames()).toEqual([
@@ -390,6 +510,7 @@ describe('permitsTerminal', () => {
       'bound-reached',
       'halted-for-user',
       'abandoned',
+      'voided',
     ]);
     for (const name of terminalReasonNames()) {
       const permitted =
@@ -641,5 +762,57 @@ describe('the CLI', () => {
     expect(() =>
       main(['frobnicate', '--loop', 'looper'], { root, now: NOW, out: () => {} }),
     ).toThrow(/unknown command/);
+  });
+});
+
+describe('recordCheckpoint (issue #2170)', () => {
+  it('records the last completed phase in the current round, once', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET });
+    const { runId } = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    recordRound({ root, skill: 'architecture-refresh', runId, findings: 2 });
+    const entry = recordCheckpoint({
+      root,
+      skill: 'architecture-refresh',
+      runId,
+      phase: 'reconcile',
+    });
+    expect(entry.extensions.architectureRefresh.checkpoint).toEqual({
+      round: 2,
+      phase: 'reconcile',
+    });
+    expect(() =>
+      recordCheckpoint({ root, skill: 'architecture-refresh', runId, phase: 'depth' }),
+    ).toThrow(/already records checkpoint reconcile in round 2/);
+  });
+
+  it('refuses a phase outside the protocol order and a loop that does not own the protocol', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET, looper: FINDING_SET });
+    const refresh = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    expect(() =>
+      recordCheckpoint({
+        root,
+        skill: 'architecture-refresh',
+        runId: refresh.runId,
+        phase: 'apply',
+      }),
+    ).toThrow(/checkpoint phase must be opened or one of conformance/);
+    const other = openRun({ root, skill: 'looper', now: NOW });
+    expect(() =>
+      recordCheckpoint({ root, skill: 'looper', runId: other.runId, phase: 'depth' }),
+    ).toThrow();
+  });
+
+  it('CLI `checkpoint` records the phase and says so', () => {
+    const root = workspace({ 'architecture-refresh': FINDING_SET });
+    const { runId } = openRun({ root, skill: 'architecture-refresh', now: NOW });
+    const lines = [];
+    const exit = main(
+      ['checkpoint', '--loop', 'architecture-refresh', '--run', runId, '--phase', 'opened'],
+      { root, now: NOW, out: (line) => lines.push(line) },
+    );
+    expect(exit).toBe(0);
+    expect(lines[0]).toMatch(/records checkpoint opened in round 1/);
+    const [entry] = readLedger(root, 'architecture-refresh');
+    expect(entry.extensions.architectureRefresh.checkpoint).toEqual({ round: 1, phase: 'opened' });
   });
 });

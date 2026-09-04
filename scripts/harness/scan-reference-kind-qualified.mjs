@@ -22,8 +22,9 @@ import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
 import { unqualifiedReferences } from './reference-kind.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/reference-kind-baseline.json');
 
 /**

@@ -96,7 +96,9 @@ must be removed from the baseline — the check fails if it is not, so the gain 
 QUALITY. A test asserting only the green path satisfies this floor and still leaves the check
 unfalsifiable. Detecting the red direction textually was considered and rejected — a heuristic over
 assertion shapes would itself be a check that cannot reliably fail, which is this item's own defect
-committed by the file closing it. The both-directions half stays open under this Task, with the
+committed by the file closing it. The both-directions half does NOT stay open under this Task — a
+`done` record cannot be the thing an undelivered half stays open under (issue #2264). It was split out
+to `.agents/tasks/HARNESS-101-fixture-existence-is-not-fixture-quality.md`, which owns it, with the
 obstacle written above rather than "hard to check".
 
 **Related mechanism found during the work, not duplicated:** `check-regression-red-proof.mjs`

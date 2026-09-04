@@ -1,3 +1,4 @@
+import { fetchWithEgressPolicy } from '@robota-sdk/agent-core/node';
 import { MediaReference } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
@@ -191,6 +192,8 @@ async function fetchAssetInlineImage(
       ),
     };
   }
+  // The DAG runtime's own asset store is loopback BY DESIGN; it is not model-supplied and stays
+  // outside the egress policy (#2026), which exists for URIs the model or a caller chose.
   const arrayBuffer = await response.arrayBuffer();
   return {
     ok: true,
@@ -220,9 +223,24 @@ function parseDataUriInlineImage(uri: string): TResult<IInlineImageSource, IDagE
   };
 }
 
+/** Whole-body image retrieval budget: enforced while streaming by the egress boundary (#2026). */
+const MAX_INPUT_IMAGE_BYTES = 25_000_000;
+
 async function fetchHttpInlineImage(uri: string): Promise<TResult<IInlineImageSource, IDagError>> {
-  const response = await fetch(uri);
-  if (!response.ok || !response.body) {
+  // #2026: a model-provided URI goes through the SAME egress boundary as WebFetch — private, loopback
+  // and metadata destinations refused, redirects re-validated, bytes capped while streaming.
+  const response = await fetchWithEgressPolicy(uri, { maxResponseBytes: MAX_INPUT_IMAGE_BYTES });
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: buildValidationError(
+        'DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE',
+        `Gemini image input URI refused by egress policy: ${response.rejection.message}`,
+        { uri, reason: response.rejection.reason },
+      ),
+    };
+  }
+  if (response.status < 200 || response.status >= 300 || response.body.byteLength === 0) {
     return {
       ok: false,
       error: buildValidationError(
@@ -243,13 +261,12 @@ async function fetchHttpInlineImage(uri: string): Promise<TResult<IInlineImageSo
       ),
     };
   }
-  const arrayBuffer = await response.arrayBuffer();
   return {
     ok: true,
     value: {
       kind: 'inline',
       mimeType: mediaType,
-      data: Buffer.from(arrayBuffer).toString('base64'),
+      data: Buffer.from(response.body).toString('base64'),
     },
   };
 }

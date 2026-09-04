@@ -75,8 +75,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const HARNESS_DIR = path.join('scripts', 'harness');
 const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
 
@@ -86,6 +87,42 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  * when handed a root without that tree.
  */
 export const MANDATORY_TREE_GUARDS = [
+  // The five scans the issue sweep registered after this ledger was last reconciled. Each was
+  // measured 2026-09-04 by executing the finder against a bare temporary root: every one throws
+  // before reading anything (a missing module, `.agents/tasks missing`, a failed tracked-file
+  // listing, `packages missing`), so none can answer "clean" over a tree it could not see.
+  {
+    file: 'scan-provider-env-resolution.mjs',
+    finder: 'findAmbientEnvReads',
+    tree: 'packages/agent-core/src/utils',
+    why: 'the normalization modules are the whole subject; over a root without them there is no environment read to refuse, and an empty pass would certify the #2347 bypass as absent',
+  },
+  {
+    file: 'scan-task-merged-citation.mjs',
+    finder: 'findTaskMergedCitationFindings',
+    tree: '.agents/tasks',
+    why: 'the open task records are the population; over a root without them no merged citation can be matched, and "nothing to reconcile" would read exactly like "every record is reconciled"',
+  },
+  {
+    // Returned `[]` over a bare root when first measured; `taskFiles` now throws
+    // `task-plan-items: .agents/tasks missing` instead, re-measured the same day.
+    file: 'scan-task-plan-items.mjs',
+    finder: 'findTaskPlanItemFindings',
+    tree: '.agents/tasks',
+    why: 'the task corpus is the population; over a root without it there is no `## Plan` to judge, and "no findings" would read exactly like "every plan is well-formed"',
+  },
+  {
+    file: 'scan-tui-safe-text-boundary.mjs',
+    finder: 'findBoundaryViolations',
+    tree: 'packages/agent-transport-tui/src',
+    why: 'the TUI package source is the whole subject; a root without it lists no render site, and "only SafeText imports Text" over zero modules is a pass over nothing',
+  },
+  {
+    file: 'scan-workspace-import-integrity.mjs',
+    finder: 'findWorkspaceImportIntegrityFindings',
+    tree: 'packages',
+    why: 'the workspace packages are the population whose imports are checked; over a root without them there is no import to resolve, and an empty pass would certify every import as satisfiable',
+  },
   {
     // RULE-012. Measured as `findEvidenceFindings(bare)` over a root carrying the rule but no
     // spec-doc tree: throws `.agents/spec-docs/done missing from <root>` before a single approval is

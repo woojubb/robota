@@ -99,9 +99,9 @@ import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/legacy-typescript-baseline.json');
 
 /** The frozen set of manifests that already declared the dependency when this guard was adopted. */

@@ -10,8 +10,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs']);
 const PRODUCT_SHELL_DIRS = loadHarnessConfig().productShellDirs;

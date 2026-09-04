@@ -42,14 +42,23 @@
  * lint script itself, on the release path AND on every develop pull request; this scan governs the
  * CEILING that script carries.
  *
+ * NAMED FOR WHAT IT CHECKS (issue #2255). This file was `scan-lint-warning-ratchet` — a name that
+ * promised a count. Measured on `c1dd93768`: the scan reported "passed (ceiling 2092, at baseline)"
+ * while the workspace carried 2203 warnings, 111 over its own ceiling — green by construction,
+ * because both of its inputs are declared numbers and neither is a measurement. The passing
+ * message said so; the name and the registration, which are what a reader trusts, did not. So the
+ * name now says exactly what is compared: the DECLARED ceiling against the FROZEN one. The count
+ * itself is enforced where the passing message says it is.
+ *
  * Exit code 0 = the ceiling is present and matches its baseline, 1 = otherwise.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/lint-warning-baseline.json');
 
 /** The ceiling the root `lint` script carries, or null when it carries none. */
@@ -74,18 +83,19 @@ function loadBaseline() {
 }
 
 export function judge(ceiling, reason, baseline) {
-  if (ceiling === null) return { ok: false, message: `lint-warning-ratchet: ${reason}.` };
+  if (ceiling === null)
+    return { ok: false, message: `lint-ceiling-declared-vs-frozen: ${reason}.` };
   if (baseline === undefined) {
     return {
       ok: false,
-      message: 'lint-warning-ratchet: no frozen baseline — run --write-baseline.',
+      message: 'lint-ceiling-declared-vs-frozen: no frozen baseline — run --write-baseline.',
     };
   }
   if (ceiling > baseline.warnings) {
     return {
       ok: false,
       message:
-        `lint-warning-ratchet ROSE: the \`lint\` script allows ${ceiling} warning(s), up from a ` +
+        `lint-ceiling-declared-vs-frozen ROSE: the \`lint\` script allows ${ceiling} warning(s), up from a ` +
         `frozen ${baseline.warnings}. A ceiling that rises is not a ratchet. Reduce the warnings, ` +
         'or re-freeze deliberately with --write-baseline.',
     };
@@ -94,7 +104,7 @@ export function judge(ceiling, reason, baseline) {
     return {
       ok: false,
       message:
-        `lint-warning-ratchet FELL (${baseline.warnings} → ${ceiling}). Re-freeze it in the SAME ` +
+        `lint-ceiling-declared-vs-frozen FELL (${baseline.warnings} → ${ceiling}). Re-freeze it in the SAME ` +
         'change — --write-baseline — or the gain is a licence to grow back.',
     };
   }
@@ -103,7 +113,7 @@ export function judge(ceiling, reason, baseline) {
 
 function main() {
   requireGovernedTree(WORKSPACE_ROOT, ['package.json'], {
-    scan: 'lint-warning-ratchet',
+    scan: 'lint-ceiling-declared-vs-frozen',
     why: 'the ceiling is read from the root manifest; with no manifest there is no ceiling to judge and a pass would mean nothing',
   });
   const { ceiling, reason } = ceilingIn(
@@ -125,7 +135,7 @@ function main() {
   // the provenance scan detects it in the SOURCE, so mentioning it is enough to be judged as
   // declaring one. Found by doing exactly that.
   console.log(
-    `lint-warning-ratchet scan passed (ceiling ${ceiling}, at baseline; enforced by ` +
+    `lint-ceiling-declared-vs-frozen scan passed (ceiling ${ceiling}, at baseline; enforced by ` +
       '`--max-warnings` on the release path and on every develop pull request, not by this scan).',
   );
 }
@@ -135,12 +145,12 @@ function writeBaseline() {
     readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8'),
   );
   if (ceiling === null) {
-    console.error(`lint-warning-ratchet: cannot freeze — ${reason}.`);
+    console.error(`lint-ceiling-declared-vs-frozen: cannot freeze — ${reason}.`);
     process.exitCode = 1;
     return;
   }
   writeFileSync(BASELINE_PATH, `${JSON.stringify({ warnings: ceiling }, null, 2)}\n`);
-  console.log(`lint-warning-ratchet baseline frozen: ${ceiling} warning(s)`);
+  console.log(`lint-ceiling-declared-vs-frozen baseline frozen: ${ceiling} warning(s)`);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

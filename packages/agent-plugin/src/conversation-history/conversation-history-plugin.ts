@@ -150,6 +150,15 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   }
 
   /**
+   * PLG-020 (issue #2460): the production dispatcher's message hook. A conversation is opened lazily
+   * from the run's message, so registering the plugin is enough — no explicit `addMessage` calls.
+   */
+  override async onMessageAdded(message: TUniversalMessage): Promise<void> {
+    if (!this.currentConversationId) await this.startConversation(`conversation-${Date.now()}`);
+    await this.addMessage(message);
+  }
+
+  /**
    * Appends a message to the active conversation, trimming to the maximum
    * message limit if exceeded.
    * @throws PluginError if no conversation is active or the storage write fails

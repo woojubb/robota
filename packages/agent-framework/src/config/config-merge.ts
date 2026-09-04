@@ -25,15 +25,24 @@ import type { TEnvResolvedSettings } from './config-types.js';
  * event's groups in layer order keeps the user's guards present and first; `runHooks` returns on the
  * first `deny`, so a surviving guard still blocks whatever a later group would have permitted.
  *
- * A project layer can therefore ADD hooks and can never REMOVE one it did not declare. Deliberate
- * user-level disable semantics are not part of this: there is no way to express "turn that off" yet,
- * and inventing one here would be a policy decision made inside a merge function.
+ * A project layer can therefore ADD hooks and can never REMOVE one it did not declare.
+ *
+ * **A deliberate disable is order-scoped (issue #2320).** A layer's `disabledHooks` names hook-group
+ * `id`s, and it removes only groups declared by LATER layers — the ones below it in trust, since the
+ * layers are read user-then-project. So a user layer can turn off a named project hook, and a
+ * project layer naming a user's guard changes nothing: the guard was merged before the disable was
+ * read. Groups without an `id` cannot be named and so cannot be disabled. The set of disabled ids
+ * accumulates across layers (a later layer cannot un-disable an earlier layer's decision).
  */
 export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
+  const disabledHookIds = new Set<string>();
   return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
+    const layerHooks = withoutDisabledGroups(layer.hooks, disabledHookIds);
+    for (const id of layer.disabledHooks ?? []) disabledHookIds.add(id);
     return {
       ...merged,
       ...layer,
+      disabledHooks: disabledHookIds.size > 0 ? [...disabledHookIds] : undefined,
       provider:
         merged.provider !== undefined || layer.provider !== undefined
           ? { ...merged.provider, ...layer.provider }
@@ -63,8 +72,8 @@ export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSetti
       extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
       autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
       hooks:
-        merged.hooks !== undefined || layer.hooks !== undefined
-          ? mergeHooks(merged.hooks, layer.hooks)
+        merged.hooks !== undefined || layerHooks !== undefined
+          ? mergeHooks(merged.hooks, layerHooks)
           : undefined,
       taskContext:
         merged.taskContext !== undefined || layer.taskContext !== undefined
@@ -90,6 +99,20 @@ export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSetti
  * are kept and both run — a repeated guard costs an extra execution, while dropping one on a
  * key-collision guess would be this defect again in a smaller form.
  */
+function mergeHooks(
+  base: TEnvResolvedSettings['hooks'],
+  override: TEnvResolvedSettings['hooks'],
+): TEnvResolvedSettings['hooks'] {
+  const result: NonNullable<TEnvResolvedSettings['hooks']> = { ...(base ?? {}) };
+  for (const [event, groups] of Object.entries(override ?? {})) {
+    if (groups === undefined) continue;
+    const key = event as keyof NonNullable<TEnvResolvedSettings['hooks']>;
+    const existing = result[key];
+    result[key] = existing === undefined ? [...groups] : [...existing, ...groups];
+  }
+  return result;
+}
+
 /**
  * Combine two denylists.
  *
@@ -120,16 +143,17 @@ function unionDeny(
   return [...new Set([...base, ...layer])];
 }
 
-function mergeHooks(
-  base: TEnvResolvedSettings['hooks'],
-  override: TEnvResolvedSettings['hooks'],
+/** This layer's hooks minus the groups an EARLIER layer disabled by id (issue #2320). */
+function withoutDisabledGroups(
+  hooks: TEnvResolvedSettings['hooks'],
+  disabledIds: ReadonlySet<string>,
 ): TEnvResolvedSettings['hooks'] {
-  const result: NonNullable<TEnvResolvedSettings['hooks']> = { ...(base ?? {}) };
-  for (const [event, groups] of Object.entries(override ?? {})) {
+  if (hooks === undefined || disabledIds.size === 0) return hooks;
+  const result: NonNullable<TEnvResolvedSettings['hooks']> = {};
+  for (const [event, groups] of Object.entries(hooks)) {
     if (groups === undefined) continue;
     const key = event as keyof NonNullable<TEnvResolvedSettings['hooks']>;
-    const existing = result[key];
-    result[key] = existing === undefined ? [...groups] : [...existing, ...groups];
+    result[key] = groups.filter((group) => group.id === undefined || !disabledIds.has(group.id));
   }
   return result;
 }

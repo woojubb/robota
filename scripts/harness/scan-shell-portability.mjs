@@ -36,8 +36,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { extensionOf, scriptFilters } from './script-language.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Script trees whose contents this repo actually executes. */
 const SCAN_ROOTS = ['scripts', '.husky', '.claude/hooks'];

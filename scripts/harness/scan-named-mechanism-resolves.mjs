@@ -32,8 +32,9 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Documents whose statements bind. Skills and tasks describe work; rules and routing bind it. */
 const SCOPE = [{ dir: '.agents/rules', suffix: '.md' }, { file: 'AGENTS.md' }];

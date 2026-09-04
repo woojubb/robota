@@ -12,13 +12,19 @@ const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_BAD_REQUEST = 400;
 const HTTP_INTERNAL_ERROR = 500;
 
-/** Sends an HTTP request to the Bytedance API and returns the parsed JSON response. */
+/**
+ * Sends an HTTP request to the Bytedance API and returns the DECODED 2xx response. A 2xx body is
+ * `unknown` until `decode` has checked it (issue #2166): the endpoint owns which fields make a valid
+ * DTO, and a body that does not qualify is a `PROVIDER_UPSTREAM_ERROR` here rather than a
+ * `TypeError` in the caller.
+ */
 export async function requestJson<TResponse>(
   options: IBytedanceProviderOptions,
   request: {
     path: string;
     method: 'GET' | 'POST' | 'DELETE';
     body?: string;
+    decode: (value: unknown) => TProviderMediaResult<TResponse>;
   },
 ): Promise<TProviderMediaResult<TResponse>> {
   const controller = new AbortController();
@@ -42,14 +48,11 @@ export async function requestJson<TResponse>(
       return mapHttpError(response.status, responseText);
     }
 
-    const parsedResult = parseJsonRecord(responseText);
+    const parsedResult = parseJson(responseText);
     if (!parsedResult.ok) {
       return parsedResult;
     }
-    return {
-      ok: true,
-      value: parsedResult.value as TResponse,
-    };
+    return request.decode(parsedResult.value);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return {
@@ -75,14 +78,9 @@ function buildUrl(baseUrl: string, path: string): string {
   return `${sanitizedBaseUrl}${sanitizedPath}`;
 }
 
-function parseJsonRecord(
-  responseText: string,
-): TProviderMediaResult<Record<string, string | number | boolean | undefined>> {
+function parseJson(responseText: string): TProviderMediaResult<unknown> {
   try {
-    const parsedValue = JSON.parse(responseText) as Record<
-      string,
-      string | number | boolean | undefined
-    >;
+    const parsedValue: unknown = JSON.parse(responseText);
     return { ok: true, value: parsedValue };
   } catch {
     return {

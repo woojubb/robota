@@ -42,8 +42,9 @@
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /**
  * Frozen adoption baseline: `origin/main` at the moment this gate was installed (the merge commit

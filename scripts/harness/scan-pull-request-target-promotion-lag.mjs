@@ -59,8 +59,9 @@
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const WORKFLOWS_PREFIX = '.github/workflows/';
 
 /** Where a promoted workflow runs FROM — the repository's default branch. */

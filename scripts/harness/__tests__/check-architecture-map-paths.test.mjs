@@ -96,6 +96,17 @@ describe('check-architecture-map-paths CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/check-architecture-map-paths.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
+    for (const shared of [
+      'shared.mjs',
+      'git-base-ref-resolution.mjs',
+      'manifest-change-classification.mjs',
+    ]) {
+      copyFileSync(
+        fileURLToPath(new URL(`../${shared}`, import.meta.url)),
+        path.join(path.dirname(scriptCopy), shared),
+      );
+    }
     copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     copyFileSync(CITED_PATHS_MODULE, path.join(path.dirname(scriptCopy), 'cited-paths.mjs'));
     return { root, scriptCopy };

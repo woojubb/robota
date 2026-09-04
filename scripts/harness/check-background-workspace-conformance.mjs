@@ -6,8 +6,9 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs']);
 
 const REQUIRED_FILES = [
@@ -64,18 +65,119 @@ const REQUIRED_FILES = [
   },
 ];
 
+/** The one spelling of the executor module specifier; every pattern below is built from it. */
+const EXECUTOR_MODULE_SOURCE = /['"]@robota-sdk\/agent-executor(?:\/[^'"]*)?['"]/.source;
+const EXECUTOR_IMPORT_PATTERN = new RegExp(
+  `import\\s+(type\\s+)?\\{([^}]*)\\}\\s+from\\s+${EXECUTOR_MODULE_SOURCE}`,
+  'g',
+);
+const CLI_SOURCE_ROOT = 'packages/agent-cli/src';
+const ENTRYPOINT_LAUNCH_SURFACES = new Set([
+  `${CLI_SOURCE_ROOT}/bin.ts`,
+  `${CLI_SOURCE_ROOT}/index.ts`,
+]);
+
+/** Every named binding a file imports from agent-executor, with whether it is type-only. */
+function executorImportBindings(content) {
+  const bindings = [];
+  for (const match of content.matchAll(EXECUTOR_IMPORT_PATTERN)) {
+    const statementTypeOnly = match[1] !== undefined;
+    for (const raw of match[2].split(',')) {
+      const entry = raw.trim();
+      if (entry === '') continue;
+      const inlineType = /^type\s+/.test(entry);
+      const name = entry
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)[0]
+        .trim();
+      bindings.push({ name, typeOnly: statementTypeOnly || inlineType });
+    }
+  }
+  return bindings;
+}
+
+function importsWithinCli(content) {
+  return [...content.matchAll(/from\s+['"](\.{1,2}\/[^'"]+)['"]/g)].map((match) => match[1]);
+}
+
+function stripSourceExtension(file) {
+  return file.replace(/\.(?:[cm]?[jt]sx?)$/, '');
+}
+
+/**
+ * CLI-080: the sanctioned composition-root categories, each with a STRUCTURAL membership test.
+ * A file's exemption names a category; the guard verifies the file actually has that shape, so a
+ * free-text reason can no longer admit an import by self-description (.agents/project-structure.md
+ * § Composition-Root Exemption owns the definitions).
+ */
+const COMPOSITION_ROOT_CATEGORIES = {
+  // The assembly point: only the package's launch surfaces — the process shim `bin.ts` and the
+  // barrel `index.ts` — import it; nothing inside the package composes on top of it.
+  entrypoint: {
+    boundary:
+      'only packages/agent-cli/src/bin.ts and packages/agent-cli/src/index.ts import the file',
+    verify: ({ file, cliSources }) => {
+      const target = stripSourceExtension(file);
+      return cliSources.every(
+        ({ file: importer, content }) =>
+          importer === file ||
+          ENTRYPOINT_LAUNCH_SURFACES.has(importer) ||
+          !importsWithinCli(content).some(
+            (specifier) =>
+              stripSourceExtension(path.join(path.dirname(importer), specifier)) === target,
+          ),
+      );
+    },
+  },
+  // A consumer of an executor CONTRACT only: every executor import is type-only.
+  'type-only-contract': {
+    boundary: 'every agent-executor import in the file is `import type`',
+    verify: ({ content }) => {
+      const bindings = executorImportBindings(content);
+      return bindings.length > 0 && bindings.every((binding) => binding.typeOnly);
+    },
+  },
+  // A concrete host adapter: a class that `implements` an executor-owned interface, with executor
+  // VALUE imports limited to the contract's error classes (the type-imported interface is the
+  // contract; everything else it needs comes from the host).
+  'host-adapter': {
+    boundary:
+      'a class `implements` an interface imported as a type from agent-executor, and the only value imports from agent-executor are `*Error` classes',
+    verify: ({ content }) => {
+      const bindings = executorImportBindings(content);
+      const interfaces = bindings.filter((binding) => binding.typeOnly).map((b) => b.name);
+      const implementsContract = interfaces.some((name) =>
+        new RegExp(`\\bimplements\\s+(?:[\\w.]+\\s*,\\s*)*${name}\\b`).test(content),
+      );
+      const valuesAreErrors = bindings
+        .filter((binding) => !binding.typeOnly)
+        .every((binding) => /Error$/.test(binding.name));
+      return implementsContract && valuesAreErrors;
+    },
+  },
+};
+
 const CLI_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-agent-executor-import',
-    pattern: /from\s+['"]@robota-sdk\/agent-executor(?:\/[^'"]*)?['"]/,
+    pattern: new RegExp(`from\\s+${EXECUTOR_MODULE_SOURCE}`),
     detail: 'agent-cli must not import agent-executor directly; consume SDK workspace projections.',
-    // HARNESS-011: composition-root exemptions — the app assembly point may wire
-    // concrete runners; every entry requires a reason string (.agents/project-structure.md).
+    // HARNESS-011 / CLI-080: composition-root exemptions. Every entry names a sanctioned category
+    // (verified structurally by COMPOSITION_ROOT_CATEGORIES) plus a reason string; both are reported.
     exemptions: {
-      'packages/agent-cli/src/cli.ts': 'composition root — concrete runner wiring',
-      'packages/agent-cli/src/modes/print-mode.ts': 'composition root — type-only runner contract',
-      'packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts':
-        'composition root — concrete worktree adapter wiring',
+      'packages/agent-cli/src/cli.ts': {
+        category: 'entrypoint',
+        reason: 'composition root — concrete runner wiring',
+      },
+      'packages/agent-cli/src/modes/print-mode.ts': {
+        category: 'type-only-contract',
+        reason: 'composition root — type-only runner contract',
+      },
+      'packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts': {
+        category: 'host-adapter',
+        reason:
+          'composition root — concrete worktree adapter implementing ISubagentWorktreeAdapter',
+      },
     },
   },
   {
@@ -172,15 +274,40 @@ async function findRequiredFileFindings(root) {
 async function findCliForbiddenFindings(root) {
   const findings = [];
   const exemptionsUsed = [];
-  for (const file of await walkFiles(root, 'packages/agent-cli/src')) {
-    const content = await fs.readFile(path.join(root, file), 'utf8');
+  const cliSources = [];
+  for (const file of await walkFiles(root, CLI_SOURCE_ROOT)) {
+    cliSources.push({ file, content: await fs.readFile(path.join(root, file), 'utf8') });
+  }
+  for (const { file, content } of cliSources) {
     for (const check of CLI_FORBIDDEN_PATTERNS) {
       if (!check.pattern.test(content)) {
         continue;
       }
-      const exemptionReason = check.exemptions?.[file];
-      if (exemptionReason !== undefined) {
-        exemptionsUsed.push({ file, type: check.type, reason: exemptionReason });
+      const exemption = check.exemptions?.[file];
+      if (exemption !== undefined) {
+        const category = COMPOSITION_ROOT_CATEGORIES[exemption.category];
+        if (category === undefined) {
+          findings.push({
+            file,
+            type: `${check.type}-category-unknown`,
+            detail: `exemption names category \`${exemption.category}\`, which is not a sanctioned composition-root category (${Object.keys(COMPOSITION_ROOT_CATEGORIES).join(', ')}).`,
+          });
+          continue;
+        }
+        if (!category.verify({ file, content, cliSources })) {
+          findings.push({
+            file,
+            type: `${check.type}-category-mismatch`,
+            detail: `exemption claims category \`${exemption.category}\` but the file does not have its shape: ${category.boundary}.`,
+          });
+          continue;
+        }
+        exemptionsUsed.push({
+          file,
+          type: check.type,
+          category: exemption.category,
+          reason: exemption.reason,
+        });
         continue;
       }
       findings.push({
@@ -209,7 +336,7 @@ export async function main() {
     const exemptions = await findUsedExemptions(WORKSPACE_ROOT);
     for (const exemption of exemptions) {
       process.stdout.write(
-        `  exempted: ${exemption.file} [${exemption.type}] — ${exemption.reason}\n`,
+        `  exempted: ${exemption.file} [${exemption.type}: ${exemption.category}] — ${exemption.reason}\n`,
       );
     }
     process.stdout.write('background workspace conformance scan passed.\n');

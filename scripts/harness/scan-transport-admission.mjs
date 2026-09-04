@@ -44,8 +44,9 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TRANSPORT_PREFIX = 'agent-transport';
 /** The workspace-relative tree this scan cannot judge without. */
 const GOVERNED_TREE = 'packages';

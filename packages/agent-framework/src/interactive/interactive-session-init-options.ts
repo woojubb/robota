@@ -10,26 +10,21 @@
  * Re-exported from the original module, so no consumer has to know it moved.
  */
 
-import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
-import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
-  ICommandHostAdapters,
   ICommandModule,
   ICommandResult,
-  IRemoteCommandPolicy,
   ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
-import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
-import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
+import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
@@ -40,9 +35,7 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
-import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
@@ -157,6 +150,6 @@ export interface IInitOptions {
   guardrails?: Record<string, TGuardrail>;
   /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
   retrievalAdapter?: IRetrievalAdapter;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }

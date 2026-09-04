@@ -79,6 +79,33 @@ describe('extractSinkLiterals', () => {
     ]);
   });
 
+  it('issue #2056: sees an instruction literal PUSHED into a prompt-parts array (red-first fixture)', () => {
+    // `buildAppendSystemPrompt` pushed `Respond with valid JSON only…` into `appendParts` and no
+    // configured sink matched a `.push(` call, so the scan never saw the one prose literal the
+    // CLI authored. The `prompt-parts-push` sink (harness.config.json) closes that shape.
+    const src = [
+      'function buildAppendSystemPrompt(args) {',
+      '  const appendParts = [];',
+      '  if (args.jsonSchema)',
+      '    appendParts.push(',
+      '      `Respond with valid JSON only, matching this JSON schema: ${args.jsonSchema}`,',
+      '    );',
+      '  return appendParts.join("");',
+      '}',
+    ].join('\n');
+    const withoutSink = extractSinkLiterals(
+      src,
+      SINKS.map((p) => new RegExp(p, 'g')),
+    );
+    expect(withoutSink).toEqual([]);
+    const withSink = extractSinkLiterals(src, [
+      ...SINKS.map((p) => new RegExp(p, 'g')),
+      new RegExp('\\b[A-Za-z_$]*[Pp]arts\\.push\\(\\s*', 'g'),
+    ]).map((l) => l.text);
+    expect(withSink).toHaveLength(1);
+    expect(withSink[0]).toMatch(/^Respond with valid JSON only/);
+  });
+
   it('captures every element of a returned literal ARRAY (the [...].join prompt-builder shape)', () => {
     const src = [
       'function buildToolDescription() {',

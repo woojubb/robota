@@ -1,17 +1,10 @@
-import {
-  constants,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { describe, expect, it, vi } from 'vitest';
-import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
+import type {
+  ICommandCostBudget,
+  ICommandCostBudgetAdapter,
+  ICommandHostContext,
+  ICommandSessionRuntime,
+} from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
 import {
@@ -389,74 +382,94 @@ describe('createSessionCommandModule', () => {
     expect((result?.data as Record<string, unknown>)?.estimatedCostUsd).toBeDefined();
   });
 
-  it('sets a monthly budget via /cost budget subcommand', async () => {
+  /**
+   * CMD-007 (issue #2058): the command talks to an injected `ICommandCostBudgetAdapter` and never to
+   * the filesystem — so the tests hold the budget in memory, with no casts and no temp directory.
+   * The file adapter's own policy (atomic write, symlink refusal) is tested where it lives, in agent-cli.
+   */
+  function memoryBudgetAdapter(initial?: ICommandCostBudget): ICommandCostBudgetAdapter & {
+    writes: string[];
+  } {
+    let stored = initial;
+    const adapter = {
+      writes: [] as string[],
+      read: () => stored,
+      write: (budget: ICommandCostBudget) => {
+        adapter.writes.push(`write:${budget.monthly}`);
+        stored = budget;
+      },
+      clear: () => {
+        adapter.writes.push('clear');
+        stored = undefined;
+      },
+    };
+    return adapter;
+  }
+
+  function budgetContext(adapter: ICommandCostBudgetAdapter | undefined) {
+    return {
+      ...createCommandContext(),
+      getCommandHostAdapters: () => (adapter ? { costBudget: adapter } : {}),
+    };
+  }
+
+  it('sets a monthly budget via /cost budget subcommand through the injected adapter', async () => {
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
     ]);
-    const context = { ...createCommandContext(), getCwd: () => '/tmp/robota-test-budget' };
+    const adapter = memoryBudgetAdapter();
 
-    const result = await executor.execute('cost', context, 'budget 5.00');
+    const result = await executor.execute('cost', budgetContext(adapter), 'budget 5.00');
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('$5.00');
+    expect(adapter.read()).toEqual({ monthly: 5 });
   });
 
-  it('clearing a budget writes an empty document without checking first (CodeQL js/file-system-race)', async () => {
-    // The `existsSync` this replaced was a check-then-use window: swapping the path for a symlink
-    // between the check and the write made the write land on the symlink's target. There is no
-    // window now because there is no check — and no check is safe to remove here precisely because
-    // `readBudget` reads an absent file and an empty document identically.
+  it('reads back a persisted budget and clears it through the adapter (set → restart → read)', async () => {
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
     ]);
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-budget-clear-'));
-    try {
-      const context = { ...createCommandContext(), getCwd: () => cwd };
+    // "restart": a fresh context over the same stored document
+    const adapter = memoryBudgetAdapter({ monthly: 5 });
+    const shown = await executor.execute('cost', budgetContext(adapter), 'budget');
+    expect(shown?.message).toContain('Monthly budget: $5.00');
 
-      // clearing a project that never had the file must succeed, not throw on the missing path
-      const first = await executor.execute('cost', context, 'budget clear');
-      expect(first?.success).toBe(true);
-      expect(readFileSync(join(cwd, '.robota/budget.json'), 'utf-8')).toBe('{}');
+    const cleared = await executor.execute('cost', budgetContext(adapter), 'budget clear');
+    expect(cleared?.success).toBe(true);
+    expect(adapter.writes).toEqual(['clear']);
+    const after = await executor.execute('cost', budgetContext(adapter), 'budget');
+    expect(after?.message).toContain('No budget set');
+  });
 
-      await executor.execute('cost', context, 'budget 5.00');
-      const second = await executor.execute('cost', context, 'budget clear');
-      expect(second?.success).toBe(true);
-      expect(readFileSync(join(cwd, '.robota/budget.json'), 'utf-8')).toBe('{}');
-    } finally {
-      rmSync(cwd, { recursive: true, force: true });
+  it("surfaces the adapter's typed write failure instead of a filesystem error", async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const refusing: ICommandCostBudgetAdapter = {
+      read: () => undefined,
+      write: () => {
+        throw new Error('Refused: budget.json is a symbolic link');
+      },
+      clear: () => {
+        throw new Error('Refused: budget.json is a symbolic link');
+      },
+    };
+    for (const args of ['budget clear', 'budget 5.00']) {
+      const result = await executor.execute('cost', budgetContext(refusing), args);
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('symbolic link');
     }
   });
 
-  it.skipIf(constants.O_NOFOLLOW === undefined)(
-    'refuses to write the budget through a symbolic link, naming why',
-    async () => {
-      // Removing the race is not the same as removing the redirection: a symlink planted BEFORE the
-      // call is still followed by a plain write. This is the case that pins the second half — and it
-      // is skipped rather than silently weakened on a platform with no O_NOFOLLOW, because a test
-      // that passes by not testing is worse than one that says it did not run.
-      const executor = new SystemCommandExecutor([
-        ...(createSessionCommandModule().systemCommands ?? []),
-      ]);
-      const cwd = mkdtempSync(join(tmpdir(), 'robota-budget-symlink-'));
-      try {
-        const outside = join(cwd, 'outside.txt');
-        writeFileSync(outside, 'ORIGINAL');
-        mkdirSync(join(cwd, '.robota'), { recursive: true });
-        symlinkSync(outside, join(cwd, '.robota/budget.json'));
-        const context = { ...createCommandContext(), getCwd: () => cwd };
-
-        for (const args of ['budget clear', 'budget 5.00']) {
-          const result = await executor.execute('cost', context, args);
-          expect(result?.success).toBe(false);
-          expect(result?.message).toContain('symbolic link');
-          // the point of the whole change: the target is untouched
-          expect(readFileSync(outside, 'utf-8')).toBe('ORIGINAL');
-        }
-      } finally {
-        rmSync(cwd, { recursive: true, force: true });
-      }
-    },
-  );
+  it('says budget persistence is unavailable when the host composed no adapter', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const result = await executor.execute('cost', budgetContext(undefined), 'budget 5.00');
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('not available');
+  });
 
   it('rejects invalid budget amount', async () => {
     const executor = new SystemCommandExecutor([

@@ -31,6 +31,9 @@ import {
   isProductionSource,
   examinedRowCount,
   examinedFireSiteCount,
+  examinedDerivedCount,
+  examinedReadCount,
+  unclassifiedEntries,
 } from '../scan-hook-enforcement-reachable.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -93,7 +96,7 @@ describe('scan-hook-enforcement-reachable', () => {
     // `::examined::` is the harness's provenance convention: "checked and clean" must be
     // distinguishable from "found nothing to check" in the scan's own output.
     expect(output).toMatch(
-      /::examined:: \d+ policy row\(s\), \d+ non-test runHooks fire site\(s\)/,
+      /::examined:: \d+ policy row\(s\), \d+ non-test runHooks fire site\(s\) across \d+ read of \d+ derived production file\(s\)/,
     );
     expect(output).toContain('enforcing: PreToolUse');
   });
@@ -122,6 +125,48 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(examinedFireSiteCount()).toBe(5);
     });
 
+    it('reads every TypeScript flavour the derivation admits, and reports derived vs read (issue #2242)', () => {
+      // `isProductionSource` admitted a `.tsx`/`.mts`/`.cts` fire site and a `.ts`-only filter then
+      // discarded it — a denylist wearing the derivation's clothes. For an `enforcing` row that miss
+      // is loud; for the `[stale-reachability]` arm it was silent.
+      const corpus = [
+        { relative: 'packages/p/src/a.ts', source: 'runHooks(one);\n' },
+        { relative: 'packages/p/src/b.tsx', source: 'runHooks(two);\n' },
+        { relative: 'packages/p/src/c.mts', source: 'runHooks(three);\n' },
+        { relative: 'packages/p/src/d.cts', source: 'runHooks(four);\n' },
+        // Derived (it is under src/) but not code: counted as derived, never read.
+        { relative: 'packages/p/src/styles.css', source: null },
+        { relative: 'packages/p/src/README.md', source: '# runHooks(\n' },
+        // Gated OUT by the derivation, so it appears in neither count.
+        { relative: 'scripts/harness/not-production.tsx', source: 'runHooks(gated);\n' },
+      ];
+      const sites = findFireSites(null, corpus);
+      expect(sites.map((site) => site.file)).toEqual([
+        'packages/p/src/a.ts',
+        'packages/p/src/b.tsx',
+        'packages/p/src/c.mts',
+        'packages/p/src/d.cts',
+      ]);
+      expect(examinedFireSiteCount()).toBe(4);
+      expect(examinedDerivedCount()).toBe(6);
+      expect(examinedReadCount()).toBe(4);
+      expect(unclassifiedEntries()).toEqual([]);
+    });
+
+    it('an entry the derivation admits but the reader cannot classify is reported, not passed over', () => {
+      const corpus = [
+        { relative: 'packages/p/src/a.ts', source: 'runHooks(one);\n' },
+        { relative: 'packages/p/src/blob.unknown-ext', source: null },
+      ];
+      findFireSites(null, corpus);
+      expect(examinedDerivedCount()).toBe(2);
+      expect(examinedReadCount()).toBe(1);
+      expect(unclassifiedEntries()).toEqual(['packages/p/src/blob.unknown-ext']);
+      // And the list is reset by the next walk rather than accumulating.
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(unclassifiedEntries()).toEqual([]);
+    });
+
     it('examinedRowCount resets on a SECOND run rather than accumulating', () => {
       // A counter that sums across runs reports a number that grows every time the scan is invoked,
       // which reads as a widening traversal and is the opposite. Two identical runs must agree.
@@ -138,6 +183,22 @@ describe('scan-hook-enforcement-reachable', () => {
       findFireSites(null, FIXTURE_CORPUS);
       expect(examinedFireSiteCount()).toBe(first);
       expect(examinedFireSiteCount()).toBe(5);
+    });
+
+    it('examinedDerivedCount resets on a SECOND run rather than accumulating', () => {
+      findFireSites(null, FIXTURE_CORPUS);
+      const first = examinedDerivedCount();
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(examinedDerivedCount()).toBe(first);
+      expect(examinedDerivedCount()).toBe(3);
+    });
+
+    it('examinedReadCount resets on a SECOND run rather than accumulating', () => {
+      findFireSites(null, FIXTURE_CORPUS);
+      const first = examinedReadCount();
+      findFireSites(null, FIXTURE_CORPUS);
+      expect(examinedReadCount()).toBe(first);
+      expect(examinedReadCount()).toBe(3);
     });
 
     it('the counters move with the input rather than being constants', () => {
@@ -290,6 +351,62 @@ describe('scan-hook-enforcement-reachable', () => {
       expect(code).not.toBe(0);
       expect(output).toContain('[stale-reachability]');
       expect(output).toContain('PreToolUse');
+    });
+
+    it('fails when only the POSTURE is flipped to advisory and the site still enforces (issue #2259)', () => {
+      // The one-field disarm: `posture: 'advisory'`, `enforcementReachable: true` left as it was,
+      // the enforcing code untouched. Before the mirror arm this was caught by `[no-enforcing-rows]`
+      // alone — an accident of PreToolUse being the ONLY enforcing row.
+      const mutant = realPolicy.replace(
+        "      posture: 'enforcing',\n      enforcementReachable: true,",
+        "      posture: 'advisory',\n      enforcementReachable: true,",
+      );
+      expect(mutant, 'mutation did not apply').not.toBe(realPolicy);
+
+      const { code, output } = runScan(mutant);
+      expect(code).not.toBe(0);
+      expect(output).toContain('[enforcing-advisory-row]');
+      expect(output).toContain('PreToolUse');
+    });
+
+    it('the mirror arm fires with a SECOND enforcing row present, so [no-enforcing-rows] is not what catches it', () => {
+      // Two enforcing rows; PreToolUse flipped to advisory while its site awaits and reads
+      // `.blocked`. The table now has an enforcing row, so arm 2 stays quiet — and before #2259
+      // nothing else said anything.
+      const honouring = (event) => ({
+        file: 'x.ts',
+        line: 1,
+        events: [event],
+        awaited: true,
+        readsBlocked: true,
+      });
+      const findings = evaluate(
+        new Map([
+          ['PreToolUse', { posture: 'advisory', reachable: true }],
+          ['PostToolUse', { posture: 'enforcing', reachable: true }],
+        ]),
+        [honouring('PreToolUse'), honouring('PostToolUse')],
+        ['PreToolUse', 'PostToolUse'],
+      );
+      const text = findings.join('\n');
+      expect(text).not.toContain('[no-enforcing-rows]');
+      expect(text).toContain('[enforcing-advisory-row] PreToolUse');
+      expect(text).not.toContain('[enforcing-advisory-row] PostToolUse');
+    });
+
+    it('does not fire for an advisory row whose site fires and forgets (the honest advisory case)', () => {
+      const findings = evaluate(
+        new Map([
+          ['PreToolUse', { posture: 'enforcing', reachable: true }],
+          ['PostToolUse', { posture: 'advisory', reachable: false }],
+        ]),
+        [
+          { file: 'x.ts', line: 1, events: ['PreToolUse'], awaited: true, readsBlocked: true },
+          { file: 'x.ts', line: 2, events: ['PostToolUse'], awaited: false, readsBlocked: false },
+        ],
+        ['PreToolUse', 'PostToolUse'],
+      );
+      expect(findings.join('\n')).not.toContain('[enforcing-advisory-row]');
     });
 
     it('fails when a row claims enforcing AND records unreachable', () => {
@@ -904,6 +1021,7 @@ describe('scan-hook-enforcement-reachable', () => {
       // compared only against other derivations can shrink silently; compared against a literal it
       // cannot, because data does not narrow itself and losing an entry is a visible edit.
       const EXPECTED_CODES = [
+        'enforcing-advisory-row',
         'inert-enforcing-row',
         'no-enforcing-rows',
         'policy-row-not-parsed',

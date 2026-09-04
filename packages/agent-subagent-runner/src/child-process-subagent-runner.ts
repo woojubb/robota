@@ -26,6 +26,8 @@ import {
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
 import { projectParentConfig } from './parent-config-projection.js';
+import { projectParentContext } from './parent-context-projection.js';
+import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-start-dto.js';
 import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
@@ -193,9 +195,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       taskId: job.taskId,
       request: job.request,
       ...(job.worktree ? { worktree: job.worktree } : {}),
-      agentDefinition: applyRequestOverrides(definition, job),
+      agentDefinition: encodeAgentDefinition(applyRequestOverrides(definition, job)),
       parentConfig: projectParentConfig(this.deps.config),
-      parentContext: this.deps.context,
+      // Issue #2317 narrows to the two members the child reads; ARCH-044 (issue #2047) encodes them.
+      parentContext: encodeParentContext(projectParentContext(this.deps.context)),
       providerProfile: createProviderProfile(this.providerConfig, this.deps, job),
       permissionMode: this.deps.permissionMode,
       ...projectSessionTiers(this.deps),

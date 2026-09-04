@@ -10,7 +10,60 @@ import {
 
 export { classifyRootManifestChange };
 
-export const WORKSPACE_ROOT = process.cwd();
+export const ROOT_MARKER = '::root::';
+const ROOT_ENV = 'HARNESS_ROOT';
+
+/**
+ * The ONE workspace-root resolver every harness script uses (issue #2413).
+ *
+ * Convention: a scan reads the checkout it LIVES in — `<script dir>/../..` — unless an explicit
+ * override names another root: `HARNESS_ROOT=<path>` in the environment or `--root <path>` /
+ * `--root=<path>` on the command line. A fixture-driven script — one its tests spawn INSIDE a
+ * scratch workspace — passes `{ fromCwd: true }` and reads the checkout it is RUN in instead;
+ * that is the convention its callers already hold, and the override still wins over it.
+ *
+ * Six worktree reproductions once measured the MAIN checkout while standing in a worktree
+ * (`cd <worktree> && node /main/scripts/harness/scan-….mjs`), each reported as "does not reproduce",
+ * because every scan silently read the repository its file lived in and named no root. So when the
+ * calling module IS the process entry and the root it resolved is NOT the directory the caller
+ * stands in — or an override applied — the root is announced once on STDERR as a `::root:: <path>`
+ * line (the `examined`-count precedent), and a run against the wrong repository names itself.
+ * Stderr, because a script's stdout is its verdict or its payload (a scaffolded document, an
+ * allocated ID) and every consumer of that stdout parses it. A run whose root IS its cwd has
+ * nothing to disambiguate and stays silent. Library imports (tests, the runner) announce nothing.
+ *
+ * @param {ImportMeta} meta  the calling script's `import.meta`
+ */
+export function resolveWorkspaceRoot(
+  meta,
+  {
+    env = process.env,
+    argv = process.argv,
+    cwd = process.cwd(),
+    fromCwd = false,
+    out = process.stderr,
+  } = {},
+) {
+  const scriptDir = path.dirname(meta.filename);
+  let override = null;
+  for (let index = 2; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--root' && argv[index + 1]) override = argv[index + 1];
+    else if (arg.startsWith('--root=')) override = arg.slice('--root='.length);
+  }
+  if (override === null && env[ROOT_ENV]) override = env[ROOT_ENV];
+  const defaultRoot = fromCwd ? path.resolve(cwd) : path.resolve(scriptDir, '../..');
+  const root = override === null ? defaultRoot : path.resolve(override);
+  const isEntry = argv[1] !== undefined && path.resolve(argv[1]) === path.resolve(meta.filename);
+  if (isEntry && (override !== null || root !== path.resolve(cwd))) {
+    out.write(
+      `${ROOT_MARKER} ${root}${override === null ? '' : ` (override: ${env[ROOT_ENV] && override === env[ROOT_ENV] ? ROOT_ENV : '--root'})`}\n`,
+    );
+  }
+  return root;
+}
+
+export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
 
 export async function pathExists(targetPath) {
@@ -139,6 +192,51 @@ export function resolveBaseRef({ explicitBaseRef = null, env = process.env, refE
   }
 
   return null;
+}
+
+/**
+ * The HEAD a per-commit history scan evaluates — the sibling of `resolveBaseRef` (issue #2412).
+ *
+ * `resolveBaseRef` owns the base of every scan; nothing owned the head, so each per-commit consumer
+ * discovered the same trap in production and patched it differently: on a `pull_request` event
+ * `actions/checkout` leaves HEAD at GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is
+ * the base, so a range ending there is not the pull request's commits. The `scans` job exports
+ * `PR_HEAD_SHA` (ci.yml) for exactly this reason, and `scan-ci-base-history` refuses a per-commit
+ * job that does not.
+ *
+ * Resolution: `--head <sha>` in `argv`, else `PR_HEAD_SHA` / `GITHUB_PR_HEAD_SHA`, else `HEAD` — but
+ * NEVER `HEAD` under a `pull_request` event, where it is the merge ref. Returns `{ head, error }`;
+ * a caller that gets `error` must refuse rather than fall back, because a scan over the wrong
+ * commit reads as a scan that passed.
+ */
+export function resolveHeadSha({ argv = [], env = process.env } = {}) {
+  const flagIndex = argv.indexOf('--head');
+  if (
+    flagIndex >= 0 &&
+    (argv[flagIndex + 1] === undefined || argv[flagIndex + 1].startsWith('--'))
+  ) {
+    return { head: undefined, error: '`--head` was passed with no value.' };
+  }
+  const explicit = (flagIndex >= 0 ? argv[flagIndex + 1] : undefined) ?? '';
+  const fromEnv = (env.PR_HEAD_SHA ?? env.GITHUB_PR_HEAD_SHA ?? '').trim();
+  const head = explicit.trim() || fromEnv;
+  if (head) {
+    if (/^refs\/pull\/\d+\/merge$/.test(head)) {
+      return {
+        head: undefined,
+        error: `refusing \`${head}\`: it is GitHub's synthetic merge ref, not the pull request's head.`,
+      };
+    }
+    return { head, error: undefined };
+  }
+  if (env.GITHUB_EVENT_NAME === 'pull_request' || env.GITHUB_EVENT_NAME === 'pull_request_target') {
+    return {
+      head: undefined,
+      error:
+        "refusing to evaluate `HEAD` on a `pull_request` event: it is GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch. Pass `--head ${{ github.event.pull_request.head.sha }}` or export PR_HEAD_SHA in the job.",
+    };
+  }
+  return { head: 'HEAD', error: undefined };
 }
 
 export async function listWorkspaceScopes() {

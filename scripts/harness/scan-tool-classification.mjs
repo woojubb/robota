@@ -27,8 +27,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listSourceFiles } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SCAN_DIRS = ['packages'];
 
 const PRODUCED_RE = /createZodFunctionTool\(\s*'([A-Za-z_][A-Za-z0-9_]*)'/g;

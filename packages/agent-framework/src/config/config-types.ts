@@ -92,11 +92,23 @@ const HookDefinitionSchema = z.discriminatedUnion('type', [
 ]);
 
 const HookGroupSchema = z.object({
+  /**
+   * Optional identity, so a hook group can be REFERRED TO — which is what `disabledHooks` needs
+   * (issue #2320). Optional so every settings file already in the wild stays valid; a group without
+   * an id simply cannot be disabled from another layer.
+   */
+  id: z.string().optional(),
   matcher: z.string(),
   hooks: z.array(HookDefinitionSchema),
 });
 
-/** Supported hook events */
+/**
+ * Supported hook events — every member of agent-core's `THookEvent`, and kept that way by
+ * `config/__tests__/hooks-schema-event-parity.test.ts` (issue #2430). A `z.object` STRIPS keys it
+ * does not name, so an event missing here is not refused, it is silently discarded at settings load:
+ * a `hooks.PermissionDecision` command hook never fired while the `permissions` block beside it in
+ * the same file took effect, in every mode.
+ */
 const HooksSchema = z
   .object({
     PreToolUse: z.array(HookGroupSchema).optional(),
@@ -112,6 +124,9 @@ const HooksSchema = z
     SubagentStop: z.array(HookGroupSchema).optional(),
     WorktreeCreate: z.array(HookGroupSchema).optional(),
     WorktreeRemove: z.array(HookGroupSchema).optional(),
+    PreModelCall: z.array(HookGroupSchema).optional(),
+    PostModelCall: z.array(HookGroupSchema).optional(),
+    PermissionDecision: z.array(HookGroupSchema).optional(),
   })
   .optional();
 
@@ -152,6 +167,12 @@ export const SettingsSchema = z.object({
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
   hooks: HooksSchema,
+  /**
+   * Hook-group ids this layer turns off (issue #2320). Applies only to groups declared by LATER
+   * (lower-trust) layers — a user layer may disable a project hook; a project layer can never
+   * disable a user's guard. See `mergeSettings`.
+   */
+  disabledHooks: z.array(z.string()).optional(),
   /** Plugin enablement map: plugin name -> enabled/disabled */
   enabledPlugins: EnabledPluginsSchema,
   /** Extra marketplace URLs for BundlePlugin discovery */

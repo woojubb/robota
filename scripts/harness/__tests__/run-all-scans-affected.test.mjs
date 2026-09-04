@@ -209,10 +209,13 @@ describe('the live registry declares what every scan reads', () => {
     expect(lane.command).toEqual(['node', 'scripts/harness/scan-lane-declaration.mjs']);
   });
 
-  it('marks exactly the prose/transcript graders advisory, and every advisory scan is always-run', () => {
+  it('marks exactly the prose/transcript graders and the history grader advisory, and every advisory scan is always-run', () => {
+    // task-merged-citation (issue #2186) grades git history that OTHER pull requests move, so it
+    // prompts a reconciliation rather than blocking the change under review.
     expect([...advisoryScanNames()].sort()).toEqual([
       'progress-report-quantification',
       'reference-kind-qualified',
+      'task-merged-citation',
     ]);
     for (const scan of SCAN_COMMANDS) {
       if (scan.advisory) expect(scan.always, `${scan.name} is advisory but not always`).toBe(true);

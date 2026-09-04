@@ -29,8 +29,9 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { REPO_SOURCE_PATH_PATTERN, citedRepoPaths } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const MAP_DIR_RELATIVE = '.agents/specs/architecture-map';
 
 function walkMarkdown(dir) {

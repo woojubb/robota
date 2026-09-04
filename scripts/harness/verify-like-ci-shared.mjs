@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 export function parseGitFileList(stdout) {
   return (stdout ?? '')

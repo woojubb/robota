@@ -622,6 +622,29 @@ describe('changing a verification hook is deliberate', () => {
           edits: [{ new_string: '', old_string: 'x' }],
         },
       },
+      // The PreToolUse gates live in `.claude/hooks/`, not `.husky/`. The guard matched only the
+      // latter, so the merge/push/branch gates — and this guard itself — were editable in passing
+      // while git-branch.md promised otherwise (#2405). A worktree path and a lib helper included.
+      {
+        tool_name: 'Write',
+        tool_input: { file_path: '/r/.claude/hooks/merge-gate.sh', content: 'exit 0\n' },
+      },
+      {
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: '/r/.claude/worktrees/a/.claude/hooks/pre-push-check.sh',
+          old_string: 'exit 2',
+          new_string: 'exit 0',
+        },
+      },
+      {
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: '.claude/hooks/lib/hook-facts.sh',
+          old_string: 'x',
+          new_string: 'true',
+        },
+      },
     ];
     for (const payload of cases) {
       expect(
@@ -643,6 +666,20 @@ describe('changing a verification hook is deliberate', () => {
     expect(
       runTool(ack, { HOOK_EDIT_ACK: '1' }).status,
       'an acknowledged hook edit was refused',
+    ).toBe(0);
+    expect(
+      runTool(
+        {
+          tool_name: 'Edit',
+          tool_input: {
+            file_path: '/r/.claude/hooks/merge-gate.sh',
+            old_string: 'x',
+            new_string: 'y',
+          },
+        },
+        { HOOK_EDIT_ACK: '1' },
+      ).status,
+      'an acknowledged PreToolUse-hook edit was refused',
     ).toBe(0);
     expect(
       runTool({ tool_name: 'Write', tool_input: { file_path: '/r/src/index.ts', content: '' } })

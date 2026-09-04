@@ -3,10 +3,16 @@ export type { IWsHandlerOptions } from './ws-handler.js';
 // ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
 export {
   createOutboundDelivery,
+  createPendingStallClock,
   isOverPendingBudget,
   DEFAULT_MAX_PENDING_BYTES,
+  DEFAULT_MAX_PENDING_MS,
 } from './outbound-delivery.js';
-export type { TDeliveryErrorHandler, TOutboundDeliver } from './outbound-delivery.js';
+export type {
+  IPendingStallClock,
+  TDeliveryErrorHandler,
+  TOutboundDeliver,
+} from './outbound-delivery.js';
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
 // `ISubscribeSessionEventsOptions` is NOT here (ARCH-030): it is the options bag of
 // `subscribeSessionEvents`, which is package-internal, and a barrel that exports the options of a
@@ -15,6 +21,14 @@ export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './ws-session-events.js';
 export type { TProtocolSessionEventClassification } from './ws-session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type { TClientMessage, TServerMessage, TSeqServerMessage } from './ws-protocol.js';
+// Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
+export {
+  MAX_INBOUND_FRAME_BYTES,
+  decodeClientMessage,
+  decodeFrame,
+  decodeServerMessage,
+} from './message-decoders.js';
+export type { TMessageDecodeResult } from './message-decoders.js';
 export { ResumeBuffer } from './resume-buffer.js';
 export type { IResumeBufferOptions, IBufferedFrame, TResumeTail } from './resume-buffer.js';
 // TRANS-001 — payload-agnostic channel frame codec (transport-neutral, body-opaque).

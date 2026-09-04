@@ -140,7 +140,9 @@ export function parameterTypeNames(fn) {
  * A REAL limit, stated because it is the half of the round-3 collision fix that is still open:
  * `exportedNames` is a flat set of names, so a barrel that publishes its own `IThing` silences a
  * finding about a DIFFERENT `IThing` reaching the signature from a submodule. Closing it needs
- * declaration identity (`file#name`) rather than a name set; it is HARNESS-108's TC-01.
+ * declaration identity (`file#name`) rather than a name set. NOT contained: it is open under
+ * issue #2457 (HARNESS-108 was skipped without delivering it); the barrel-list completeness guard
+ * below is the part of that item this revision does deliver.
  *
  * `starExports` is tracked rather than ignored for the same reason, and it cut BOTH ways before it
  * was: a function published by `export *` was never checked, and a TYPE published by `export *` was
@@ -406,6 +408,7 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
   const settings = settingsOverride ?? loadHarnessConfig().barrelParameterTypes ?? {};
   const barrels = settings.barrels ?? [];
 
+  const findings = [];
   // Fail CLOSED on an empty scope: a floor that examines nothing prints what a clean tree prints.
   if (barrels.length === 0) {
     return {
@@ -421,18 +424,24 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
     };
   }
 
-  // Contained — HARNESS-108. This floor reads 2 of the workspace's 55 package barrels; the other 53
-  // hold 16 findings, and widening before the declaration-identity limit above is closed would
-  // redden CI on correct code. The label lives here rather than beside the list in
-  // `.agents/harness.config.json`, because no label reader scans JSON — a containment nobody can
-  // verify is the shape this whole item is about.
+  // The list must be COMPLETE, not merely present (#2457): six package barrels were added after
+  // #1851 froze 55 and sat ungoverned — clean, but unread — until counted by hand. A root barrel on
+  // disk that the list omits is a finding, so adding a package without governing it fails here
+  // rather than shrinking the floor's coverage silently.
+  for (const barrel of ungovernedBarrels(root, barrels)) {
+    findings.push({
+      rule: 'barrel-scope-incomplete',
+      detail:
+        `${barrel} exists but is not listed in barrelParameterTypes.barrels, so this floor never ` +
+        'reads it. Add it to `.agents/harness.config.json` (the scope IS the check).',
+    });
+  }
   requireGovernedTree(root, barrels, {
     scan: 'barrel-parameter-types',
     why: 'each configured barrel is a package entry point this floor reads to decide whether a published function names a type the barrel withholds; a barrel missing from the tree means that package went unchecked, not that it is clean',
   });
 
   examinedBarrels = 0;
-  const findings = [];
 
   const readCache = new Map();
   const readFile = (file) => {
@@ -486,6 +495,18 @@ export function findBarrelParameterTypeFindings(root = process.cwd(), settingsOv
   }
 
   return { findings, examined: examinedBarrels };
+}
+
+/** Every `packages/<name>/src/index.ts` on disk under `root` that `barrels` does not list. */
+export function ungovernedBarrels(root, barrels) {
+  const packagesDir = join(root, 'packages');
+  if (!existsSync(packagesDir)) return [];
+  const governed = new Set(barrels);
+  return readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `packages/${entry.name}/src/index.ts`)
+    .filter((barrel) => existsSync(join(root, barrel)) && !governed.has(barrel))
+    .sort();
 }
 
 /**

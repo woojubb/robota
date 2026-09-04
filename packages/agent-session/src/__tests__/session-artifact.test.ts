@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { scrubSensitiveKeys } from '../scrub-sensitive.js';
 import { deserializeSessionArtifact, serializeSessionArtifact } from '../session-artifact.js';
-import { SESSION_ARTIFACT_SCHEMA_VERSION } from '../session-record-codec/index.js';
+import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
@@ -127,7 +127,7 @@ describe('session artifact — round-trip fidelity (TC-01)', () => {
 describe('session artifact — schema-version guard (TC-02)', () => {
   it('carries a schema-version header and imports a same-version artifact cleanly', () => {
     const bytes = serializeSessionArtifact(fullRecord());
-    expect(JSON.parse(bytes).schemaVersion).toBe(SESSION_ARTIFACT_SCHEMA_VERSION);
+    expect(JSON.parse(bytes).schemaVersion).toBe(SESSION_RECORD_ENVELOPE_VERSION);
     expect(deserializeSessionArtifact(bytes).id).toBe('sess_1');
   });
 
@@ -239,7 +239,7 @@ describe('session artifact — a REDACTED artifact still resumes on B with impor
  */
 describe('session artifact — the record is decoded, not cast (TRANS-006)', () => {
   function artifactOf(record: unknown): string {
-    return JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record });
+    return JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record });
   }
 
   it.each([
@@ -306,9 +306,9 @@ describe('session artifact — the record is decoded, not cast (TRANS-006)', () 
 
 describe('session artifact — one version constant, not two (TRANS-006)', () => {
   it('keeps the incumbent name and value on the public surface', () => {
-    expect(SESSION_ARTIFACT_SCHEMA_VERSION).toBe(1);
+    expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(1);
     expect(JSON.parse(serializeSessionArtifact(fullRecord())).schemaVersion).toBe(
-      SESSION_ARTIFACT_SCHEMA_VERSION,
+      SESSION_RECORD_ENVELOPE_VERSION,
     );
   });
 });

@@ -10,13 +10,13 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdtempSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createScriptedProvider } from '@robota-sdk/agent-transport/testing';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startCli } from '../../cli.js';
 import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
 
-import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-transport/testing';
+import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-scripted-e2e-'));
@@ -194,61 +194,69 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     );
   });
 
-  it('TC-04: -c resume feeds the prior conversation into the next scripted request', async () => {
-    const first = createScriptedProvider([{ text: 'noted: 42' }]);
-    const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
-    expect(firstRun.exitCode).toBe(0);
-    expect(sessionFiles(project)).toHaveLength(1);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'TC-04: -c resume feeds the prior conversation into the next scripted request',
+    async () => {
+      const first = createScriptedProvider([{ text: 'noted: 42' }]);
+      const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
+      expect(firstRun.exitCode).toBe(0);
+      expect(sessionFiles(project)).toHaveLength(1);
 
-    const second = createScriptedProvider([{ text: 'it was 42' }]);
-    const secondRun = await runScripted(project, ['-p', 'What number?', '-c'], second);
+      const second = createScriptedProvider([{ text: 'it was 42' }]);
+      const secondRun = await runScripted(project, ['-p', 'What number?', '-c'], second);
 
-    expect(secondRun.exitCode).toBe(0);
-    const request = second.requests[0] ?? [];
-    const contents = request.map((message) => String(message.content));
-    expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
-    expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
-    expect(sessionFiles(project)).toHaveLength(1);
-  });
+      expect(secondRun.exitCode).toBe(0);
+      const request = second.requests[0] ?? [];
+      const contents = request.map((message) => String(message.content));
+      expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
+      expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
+      expect(sessionFiles(project)).toHaveLength(1);
+    },
+  );
 
-  it('CLI-073: --fork-session restores the prior conversation into a NEW session', async () => {
-    const first = createScriptedProvider([{ text: 'noted: 42' }]);
-    const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
-    expect(firstRun.exitCode).toBe(0);
-    const [sourceFile] = sessionFiles(project);
-    expect(sourceFile).toBeDefined();
-    const sourceRaw = readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8');
-    // TRANS-007: the persisted shape is `{ schemaVersion, record }`, so the id is one level down.
-    const sourceId = (JSON.parse(sourceRaw) as { record: { id: string } }).record.id;
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'CLI-073: --fork-session restores the prior conversation into a NEW session',
+    async () => {
+      const first = createScriptedProvider([{ text: 'noted: 42' }]);
+      const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
+      expect(firstRun.exitCode).toBe(0);
+      const [sourceFile] = sessionFiles(project);
+      expect(sourceFile).toBeDefined();
+      const sourceRaw = readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8');
+      // TRANS-007: the persisted shape is `{ schemaVersion, record }`, so the id is one level down.
+      const sourceId = (JSON.parse(sourceRaw) as { record: { id: string } }).record.id;
 
-    const second = createScriptedProvider([{ text: 'it was 42' }]);
-    const secondRun = await runScripted(
-      project,
-      ['-p', 'What number?', '-r', sourceId, '--fork-session'],
-      second,
-    );
-    expect(secondRun.exitCode).toBe(0);
+      const second = createScriptedProvider([{ text: 'it was 42' }]);
+      const secondRun = await runScripted(
+        project,
+        ['-p', 'What number?', '-r', sourceId, '--fork-session'],
+        second,
+      );
+      expect(secondRun.exitCode).toBe(0);
 
-    // TC-04: the forked session's first request carries the source conversation.
-    const request = second.requests[0] ?? [];
-    const contents = request.map((message) => String(message.content));
-    expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
-    expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
+      // TC-04: the forked session's first request carries the source conversation.
+      const request = second.requests[0] ?? [];
+      const contents = request.map((message) => String(message.content));
+      expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
+      expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
 
-    // TC-02: fresh UUID — a second session file exists with a different id.
-    const files = sessionFiles(project);
-    expect(files).toHaveLength(2);
-    // TC-03 corroboration: the source CONTENT is unchanged (append-only).
-    // (A pre-existing init-time persist refreshes the source file's updatedAt
-    // metadata on any resume/fork run; the restore path itself never writes —
-    // proven byte-identical at the unit level in fork-restores-context.test.ts.)
-    const sourceAfter = JSON.parse(
-      readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8'),
-    ) as { id: string; messages: unknown[]; history?: unknown[] };
-    const sourceBefore = JSON.parse(sourceRaw) as { id: string; messages: unknown[] };
-    expect(sourceAfter.id).toBe(sourceBefore.id);
-    expect(sourceAfter.messages).toEqual(sourceBefore.messages);
-  });
+      // TC-02: fresh UUID — a second session file exists with a different id.
+      const files = sessionFiles(project);
+      expect(files).toHaveLength(2);
+      // TC-03 corroboration: the source CONTENT is unchanged (append-only).
+      // (A pre-existing init-time persist refreshes the source file's updatedAt
+      // metadata on any resume/fork run; the restore path itself never writes —
+      // proven byte-identical at the unit level in fork-restores-context.test.ts.)
+      const sourceAfter = JSON.parse(
+        readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8'),
+      ) as { id: string; messages: unknown[]; history?: unknown[] };
+      const sourceBefore = JSON.parse(sourceRaw) as { id: string; messages: unknown[] };
+      expect(sourceAfter.id).toBe(sourceBefore.id);
+      expect(sourceAfter.messages).toEqual(sourceBefore.messages);
+    },
+  );
 
   it('TC-05: output contracts — text, json, stream-json, --bare', async () => {
     const textRun = await runScripted(

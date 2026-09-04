@@ -74,8 +74,13 @@ fi
 # So the property is deliberateness. A hook may be changed; it may not be changed by accident or in
 # passing. `HOOK_EDIT_ACK=1` in the environment is the acknowledgement, in the same spirit as the
 # other documented overrides — this one is not an escape from a check, it IS the check.
+#
+# BOTH hook directories, not one (#2405). `.husky/` holds the git-level hooks; `.claude/hooks/` holds
+# every PreToolUse gate — merge, push, branch, and this guard itself. git-branch.md promised the
+# acknowledgement for "a hook" without qualifying which, while this pattern asked for it only under
+# `.husky/`, so the gates that matter most were the ones editable in passing.
 case "$FILE_PATH" in
-  */.husky/*|.husky/*)
+  */.husky/*|.husky/*|*/.claude/hooks/*|.claude/hooks/*)
     if [ "${HOOK_EDIT_ACK:-0}" != "1" ]; then
       echo "[check-forbidden-patterns] Blocked: '$FILE_PATH' is a verification hook." >&2
       echo "[check-forbidden-patterns] Changing one is deliberate work, not a passing edit — a hook" >&2

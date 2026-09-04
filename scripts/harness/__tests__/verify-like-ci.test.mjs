@@ -26,9 +26,11 @@ import {
   parseGitFileList,
   readDistIndependentScanSkips,
   readLintStagedExtensions,
+  readsDistTypes,
   selectFormatTargets,
   stageBlockCause,
   stageGate,
+  staleDistHint,
   summarize,
 } from '../verify-like-ci.mjs';
 
@@ -752,6 +754,33 @@ describe('summarize', () => {
     expect(text).toContain('dist missing');
     // The failing stage points at the CI definition it mirrors, so the fix target is unambiguous.
     expect(text).toContain('harness-self-test covers ci.yml');
+  });
+});
+
+describe('the stale-dist hint on a failed typecheck (issue #2200)', () => {
+  // Three cross-package type errors in one session, each in a package the branch never touched,
+  // each a dist/ older than a commit that landed on develop while the branch was open. The `dist`
+  // scan's advisory already said so — among ~140 scan results, at another moment. The hint belongs
+  // in the failing stage's own output, and only when something is actually stale.
+  it('names the stale packages and the rebuild command when a dist/ is older than its src/', () => {
+    const hint = staleDistHint(['@robota-sdk/agent-core', '@robota-sdk/agent-session']);
+
+    expect(hint).toMatch(/^stale dist: @robota-sdk\/agent-core, @robota-sdk\/agent-session/);
+    expect(hint).toMatch(/pnpm build/);
+  });
+
+  it('does not fire when dist/ is current, so it stays a signal rather than boilerplate', () => {
+    expect(staleDistHint([])).toBeNull();
+    expect(staleDistHint(undefined)).toBeNull();
+  });
+
+  it('applies to exactly the stages whose typecheck reads dist types', () => {
+    expect(
+      CI_STAGES.map((stage) => stage.name)
+        .filter(readsDistTypes)
+        .sort(),
+    ).toEqual(['examples-typecheck', 'package-quality']);
+    expect(readsDistTypes('format-check')).toBe(false);
   });
 });
 

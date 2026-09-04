@@ -45,9 +45,9 @@ import path from 'node:path';
 
 import { splitJobSteps } from './scan-main-required-checks.mjs';
 import { splitWorkflowJobs, stripComments } from './scan-ci-base-history.mjs';
-import { listWorkspaceScopes } from './shared.mjs';
+import { listWorkspaceScopes, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const WORKFLOW_DIR = path.join('.github', 'workflows');
 
 /** Runner flags that turn "no test file matched the selector" into a PASS. */

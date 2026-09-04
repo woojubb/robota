@@ -1015,7 +1015,22 @@ describe('architecture-refresh runtime signal floor', () => {
     writeLedger(root, 'architecture-refresh', [foundationalUnsure]);
     expect(findArchitectureRefreshSignalFindings(root)).toEqual([]);
 
-    const abandonedMidDepth = structuredClone(outer);
+    // Issue #2170 — a run that stopped short is validated against the phase it stopped at, never
+    // against the terminal string alone.
+    const stripToRound = (record, keepRound) => {
+      const partial = record.extensions.architectureRefresh;
+      for (const field of Object.keys(partial)) {
+        if (Array.isArray(partial[field])) {
+          partial[field] = partial[field].filter((item) => item.round <= keepRound);
+        }
+      }
+      record.roundFindings = record.roundFindings.slice(0, keepRound);
+      return record;
+    };
+    const detailMatching = (pattern) =>
+      findArchitectureRefreshSignalFindings(root).some((finding) => pattern.test(finding.detail));
+
+    const abandonedMidDepth = stripToRound(structuredClone(outer), 1);
     abandonedMidDepth.terminal = 'abandoned';
     abandonedMidDepth.extensions.architectureRefresh.signalObservations =
       abandonedMidDepth.extensions.architectureRefresh.signalObservations.filter(
@@ -1025,8 +1040,92 @@ describe('architecture-refresh runtime signal floor', () => {
       abandonedMidDepth.extensions.architectureRefresh.dispositions.filter(
         (item) => item.id !== 'F-1',
       );
+    // No checkpoint: `abandoned` waives nothing, and the record says why.
+    writeLedger(root, 'architecture-refresh', [abandonedMidDepth]);
+    expect(detailMatching(/abandoned run records no checkpoint/)).toBe(true);
+    expect(detailMatching(/DEPTH identities do not equal the final material ID set/)).toBe(true);
+    // Interrupted during per-finding routing, after final synthesis: depth may be partial.
+    abandonedMidDepth.extensions.architectureRefresh.checkpoint = {
+      round: 1,
+      phase: 'synthesize-final',
+    };
     writeLedger(root, 'architecture-refresh', [abandonedMidDepth]);
     expect(findArchitectureRefreshSignalFindings(root)).toEqual([]);
+
+    // Claimed interruption BEFORE synthesis, while carrying draft/verify/final evidence: fail
+    // closed. Draft synthesis is the phase in progress after `conformance`, so it may be partial;
+    // verification and everything after it cannot exist.
+    const claimedEarlier = structuredClone(abandonedMidDepth);
+    claimedEarlier.extensions.architectureRefresh.checkpoint = { round: 1, phase: 'conformance' };
+    writeLedger(root, 'architecture-refresh', [claimedEarlier]);
+    expect(detailMatching(/verify evidence beyond checkpoint conformance/)).toBe(true);
+    expect(detailMatching(/depth evidence beyond checkpoint conformance/)).toBe(true);
+    // A run that honestly stopped there — only conformance evidence — passes.
+    const stoppedBeforeSynthesis = structuredClone(claimedEarlier);
+    const stoppedMetadata = stoppedBeforeSynthesis.extensions.architectureRefresh;
+    stoppedMetadata.signalExpectations = stoppedMetadata.signalExpectations.filter(
+      (item) => item.phase === 'conformance',
+    );
+    stoppedMetadata.signalObservations = stoppedMetadata.signalObservations.filter(
+      (item) => item.phase === 'conformance',
+    );
+    for (const field of [
+      'draftFindings',
+      'finalFindings',
+      'foundationalIds',
+      'reconciliationRoutes',
+      'dispositions',
+      'verificationPassThroughIds',
+    ]) {
+      stoppedMetadata[field] = [];
+    }
+    stoppedBeforeSynthesis.roundFindings = [];
+    writeLedger(root, 'architecture-refresh', [stoppedBeforeSynthesis]);
+    expect(findArchitectureRefreshSignalFindings(root)).toEqual([]);
+
+    // Audit-through-reconciliation: every finding judged and routed, nothing applied, escalated.
+    const auditOnly = stripToRound(structuredClone(outer), 1);
+    auditOnly.terminal = 'halted-for-user';
+    auditOnly.extensions.architectureRefresh.dispositions = [];
+    auditOnly.extensions.architectureRefresh.checkpoint = { round: 1, phase: 'reconcile' };
+    writeLedger(root, 'architecture-refresh', [auditOnly]);
+    expect(findArchitectureRefreshSignalFindings(root)).toEqual([]);
+    // ...and that checkpoint does not waive a DEPTH verdict, which sits at or before it.
+    const auditOnlyShortOfDepth = structuredClone(auditOnly);
+    auditOnlyShortOfDepth.extensions.architectureRefresh.signalObservations =
+      auditOnlyShortOfDepth.extensions.architectureRefresh.signalObservations.filter(
+        (item) => !item.signal.startsWith('DEPTH: id=F-1 '),
+      );
+    writeLedger(root, 'architecture-refresh', [auditOnlyShortOfDepth]);
+    expect(detailMatching(/DEPTH identities do not equal the final material ID set/)).toBe(true);
+    // The exploit the issue measured: the same omission under `abandoned`, by the word alone.
+    const dispositionsOmitted = structuredClone(auditOnly);
+    dispositionsOmitted.terminal = 'abandoned';
+    dispositionsOmitted.extensions.architectureRefresh.checkpoint = null;
+    writeLedger(root, 'architecture-refresh', [dispositionsOmitted]);
+    expect(detailMatching(/records no checkpoint/)).toBe(true);
+    expect(detailMatching(/LOCAL F-1 must be corrected/)).toBe(true);
+    expect(detailMatching(/FOUNDATIONAL F-3 must be contained/)).toBe(true);
+
+    // A checkpoint on a run that claims the whole loop is a contradiction.
+    const convergedWithCheckpoint = structuredClone(outer);
+    convergedWithCheckpoint.extensions.architectureRefresh.checkpoint = {
+      round: 1,
+      phase: 'disposition',
+    };
+    writeLedger(root, 'architecture-refresh', [convergedWithCheckpoint]);
+    expect(detailMatching(/checkpoint disposition is recorded on a run closed `converged`/)).toBe(
+      true,
+    );
+    // Evidence in a round after the checkpoint's proves the run continued past it.
+    const continuedPastCheckpoint = structuredClone(outer);
+    continuedPastCheckpoint.terminal = 'abandoned';
+    continuedPastCheckpoint.extensions.architectureRefresh.checkpoint = {
+      round: 1,
+      phase: 'disposition',
+    };
+    writeLedger(root, 'architecture-refresh', [continuedPastCheckpoint]);
+    expect(detailMatching(/round 2 carries .* evidence beyond checkpoint round 1/)).toBe(true);
 
     const downgradedLow = structuredClone(outer);
     const downgradedMetadata = downgradedLow.extensions.architectureRefresh;

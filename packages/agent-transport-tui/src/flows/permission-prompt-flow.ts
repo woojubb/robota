@@ -13,6 +13,19 @@ export const PERMISSION_PROMPT_OPTIONS = [
   'Deny [n]',
 ] as const;
 
+/**
+ * Issue #2351: the "always" options name the SCOPE they grant — the consent pattern the enforcer
+ * remembers (`Bash(git *)`, `Read(/w/src/**)`, `WebFetch(https://h/**)`), not the whole tool.
+ */
+export function permissionPromptOptionsFor(scope: string): readonly string[] {
+  return [
+    PERMISSION_PROMPT_OPTIONS[0],
+    `Allow ${scope} always (this session) [s]`,
+    `Allow ${scope} always (this project) [p]`,
+    PERMISSION_PROMPT_OPTIONS[3],
+  ];
+}
+
 export type TPermissionPromptDecision = true | 'allow-session' | 'allow-project' | false;
 export type TPermissionPromptInputAction =
   TSelectionInputAction | { type: 'shortcut'; index: number };

@@ -14,14 +14,18 @@ import {
   RECORD_ID_WIDTH,
   SENTINEL_FLOOR,
   collectClaimed,
-  idsFromIssueTitles,
+  idsFromCitations,
+  idsFromIssues,
   idsFromRecords,
   localDate,
   nextFreeId,
   positionalArgs,
   readExamined,
   recordStub,
+  treeFreshness,
+  yamlSingleQuoted,
 } from '../allocate-work-item-id.mjs';
+import { frontmatterObject } from '../frontmatter.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 function repoWith({ records = [], files = {} }) {
@@ -47,6 +51,17 @@ describe('the claimed set is wider than the record filenames', () => {
     expect(idsFromRecords(dir)).toEqual(new Set(['INFRA-126', 'ARCH-FIX-020']));
   });
 
+  it('reads a citation out of a tracked non-record file, on this platform', () => {
+    // Apple Git's `grep -E` has no `\b`; the previous pattern matched nothing there and the
+    // citation source silently came back empty. `-w` is the portable word boundary.
+    const dir = repoWith({
+      records: ['INFRA-126-a.md'],
+      files: { 'scripts/x.mjs': '// cites INFRA-127 and HARNESS-899-prior\n' },
+    });
+    // The record's NAME is a record claim, not a citation; only file CONTENT is read here.
+    expect(idsFromCitations(dir)).toEqual(new Set(['INFRA-127', 'HARNESS-899']));
+  });
+
   it('THE CASE THIS EXISTS FOR: a number claimed only by a citation is not free', () => {
     // Exactly what happened. `.agents/tasks` holds 126 as the highest, so counting from records
     // alone hands out 127 — which two scans already cite and no record file holds.
@@ -68,6 +83,37 @@ describe('the claimed set is wider than the record filenames', () => {
     expect(SENTINEL_FLOOR).toBe(900);
   });
 
+  it('THE CASE OF #2390: a fixture at floor-1 plus a live record at the floor never yields the floor', () => {
+    // Measured on develop: `HARNESS-899` was a test fixture below the floor (counted as the highest
+    // claim) and `HARNESS-900` a live record AT the floor (skipped as fixture space), so the
+    // allocator proposed HARNESS-900 — the one number it could not see was taken.
+    const records = new Set(['HARNESS-125', 'HARNESS-900']);
+    const claimed = new Set([...records, 'HARNESS-899']);
+    const id = nextFreeId('HARNESS', claimed, SENTINEL_FLOOR, records);
+    expect(id).not.toBe('HARNESS-900');
+    expect(claimed.has(id)).toBe(false);
+    expect(id).toBe('HARNESS-901');
+  });
+
+  it('never proposes a number any source claims, whichever side of the floor it sits', () => {
+    // The union alone (no record set): the fixture still drives the candidate to 900, and 900 is
+    // claimed by a citation; the allocator must walk past it rather than hand it out.
+    expect(nextFreeId('HARNESS', new Set(['HARNESS-899', 'HARNESS-900']))).toBe('HARNESS-901');
+    // Below the floor the walk is the same rule: the candidate is claimed, so it is not free.
+    expect(nextFreeId('INFRA', new Set(['INFRA-126', 'INFRA-127']))).toBe('INFRA-128');
+  });
+
+  it('a record at or above the floor is counted as the highest claim', () => {
+    expect(
+      nextFreeId(
+        'INFRA',
+        new Set(['INFRA-126', 'INFRA-901']),
+        SENTINEL_FLOOR,
+        new Set(['INFRA-901']),
+      ),
+    ).toBe('INFRA-902');
+  });
+
   it('pads to the measured record width, and a wider CITATION does not change it', () => {
     expect(nextFreeId('INFRA', new Set(['INFRA-099']))).toBe('INFRA-100');
     // Inferring the width from the claimed set let prose set it: `idsFromCitations` reads the
@@ -87,18 +133,26 @@ describe('the claimed set is wider than the record filenames', () => {
   });
 });
 
-describe('the issue-title source', () => {
+describe('the issue source', () => {
   it('reads every ID a title names', () => {
-    expect(
-      idsFromIssueTitles({ run: () => ['INFRA-126 something', 'fix ARCH-FIX-020 too'] }),
-    ).toEqual(new Set(['INFRA-126', 'ARCH-FIX-020']));
+    expect(idsFromIssues({ run: () => ['INFRA-126 something', 'fix ARCH-FIX-020 too'] })).toEqual(
+      new Set(['INFRA-126', 'ARCH-FIX-020']),
+    );
+  });
+
+  it('reads an ID declared only in an issue BODY (#2322)', () => {
+    // Issue #2049's body declared ARCH-050 and ARCH-060; neither had a record or a tracked citation,
+    // and a title-only read allocated from a set that did not contain them. The source hands the
+    // allocator one line per title and per body line, so a body-only claim is in the union.
+    const lines = ['a title naming nothing', 'body line: this splits into ARCH-050 and ARCH-060.'];
+    expect(idsFromIssues({ run: () => lines })).toEqual(new Set(['ARCH-050', 'ARCH-060']));
   });
 
   it('returns null — NOT an empty set — when the source could not be read', () => {
     // The distinction the whole script turns on. An empty set says no issue claims an ID; null says
     // nobody asked. Conflating them makes an unreachable network read as a clean allocation, which
     // is the exact failure the three original collisions were.
-    expect(idsFromIssueTitles({ run: () => null })).toBeNull();
+    expect(idsFromIssues({ run: () => null })).toBeNull();
   });
 });
 
@@ -129,6 +183,43 @@ describe('the record it writes', () => {
   it('opens at a non-terminal status, so nothing reads it as finished work', () => {
     expect(stub).toContain('status: todo');
     expect(stub).not.toContain('completed:');
+  });
+
+  it('carries the User Execution Test Scenarios section the rule requires (issue #2308)', () => {
+    // An author fills in the sections the skeleton gives them: 267 completed records were closed
+    // without this one because nothing emitted it. The section is in the Task's exact
+    // author-verdict form from backlog-execution.md's checkpoint-evidence contract, with the
+    // cheap correct answer (not-applicable + reason) in front of the author.
+    expect(stub).toContain('\n## User Execution Test Scenarios\n');
+    expect(stub).toMatch(/^\*\*Author verdict:\*\* `SCENARIO DRAFTED: not-applicable \| 0`$/m);
+    expect(stub).toMatch(/^\*\*Reason:\*\* /m);
+    // The section comes AFTER Plan, so the record's shape stays Objective → Plan → scenarios.
+    expect(stub.indexOf('## Plan')).toBeLessThan(stub.indexOf('## User Execution Test Scenarios'));
+  });
+
+  it('the spec template carries the same section, in the spec form', () => {
+    const template = readFileSync(
+      path.join(import.meta.dirname, '../../../.agents/templates/spec-template.md'),
+      'utf8',
+    );
+    expect(template).toContain('\n## User Execution Test Scenarios\n');
+    expect(template).toMatch(/^Not applicable\.$/m);
+    expect(template).toMatch(/^\*\*Reason:\*\* /m);
+  });
+
+  it('writes a title carrying an apostrophe as valid YAML, and reads it back whole (#2298)', () => {
+    // Raw interpolation into a single-quoted scalar let `an issue's` close the scalar after `issue`.
+    // YAML's only escape inside single quotes is the doubled quote, so that is what must be emitted —
+    // and the repo's own frontmatter reader must give the title back intact, not truncated and not
+    // with the escape still in it.
+    const title = "an issue's resolution is delegated to a host feature";
+    const withApostrophe = recordStub({ id: 'PROC-015', title, today: '2026-08-25' });
+
+    expect(withApostrophe).toContain(
+      "title: 'PROC-015: an issue''s resolution is delegated to a host feature'",
+    );
+    expect(frontmatterObject(withApostrophe).title).toBe(`PROC-015: ${title}`);
+    expect(yamlSingleQuoted("a'b'c")).toBe("'a''b''c'");
   });
 });
 
@@ -254,5 +345,72 @@ describe('the write itself', () => {
     );
     expect(source).toContain("{ flag: 'wx' }");
     expect(source).not.toMatch(/if \(existsSync\(absolute\)\)/);
+  });
+});
+
+describe('a clone behind its upstream is refused, not answered (issue #2184)', () => {
+  // TRANS-005 was allocated, delivered and archived; a clone that had fetched but not
+  // fast-forwarded returned it again minutes later. Every tree-derived source was stale TOGETHER,
+  // so nothing inside the allocator could disagree with itself.
+  function upstreamAndClone() {
+    const upstream = makeTemp('robota-alloc-upstream-');
+    const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+    git(upstream, 'init', '-q', '-b', 'develop');
+    git(upstream, 'config', 'user.email', 'probe@example.invalid');
+    git(upstream, 'config', 'user.name', 'probe');
+    writeFileSync(path.join(upstream, 'a.md'), 'one');
+    git(upstream, 'add', '-A');
+    git(upstream, 'commit', '-qm', 'one');
+    const clone = makeTemp('robota-alloc-clone-');
+    git(clone, 'clone', '-q', upstream, '.');
+    git(clone, 'config', 'user.email', 'probe@example.invalid');
+    git(clone, 'config', 'user.name', 'probe');
+    return { upstream, clone, git };
+  }
+
+  it('is fresh when the clone is at the upstream tip', () => {
+    const { clone } = upstreamAndClone();
+    const result = treeFreshness({ root: clone });
+    expect(result.status).toBe('fresh');
+    expect(result.behind).toBe(0);
+    expect(result.fetched).toBe(true);
+  });
+
+  it('THE CASE: reports stale, naming the gap, once upstream moves — even before a fetch', () => {
+    const { upstream, clone, git } = upstreamAndClone();
+    writeFileSync(path.join(upstream, 'b.md'), 'two');
+    git(upstream, 'add', '-A');
+    git(upstream, 'commit', '-qm', 'two');
+
+    const result = treeFreshness({ root: clone });
+    expect(result.status).toBe('stale');
+    expect(result.behind).toBe(1);
+    expect(result.upstreamSha).toBe(git(upstream, 'rev-parse', 'HEAD').trim());
+  });
+
+  it('offline is not stale: a fetch that fails measures against the local upstream ref', () => {
+    const { upstream, clone, git } = upstreamAndClone();
+    git(clone, 'remote', 'set-url', 'origin', path.join(upstream, 'does-not-exist'));
+    const result = treeFreshness({ root: clone });
+    expect(result.fetched).toBe(false);
+    expect(result.status).toBe('fresh');
+    expect(result.reason).toMatch(/could not be fetched/);
+  });
+
+  it('reports UNKNOWN, never fresh, when the clone has no upstream ref at all', () => {
+    const dir = repoWith({ records: ['INFRA-001-a.md'] });
+    const result = treeFreshness({ root: dir });
+    expect(result.status).toBe('unknown');
+    expect(result.reason).toMatch(/not a ref/);
+  });
+
+  it('main refuses on stale unless --allow-stale, and prints the measurement', () => {
+    // The script has no `--root`; the wiring is asserted on the source, as the `wx` case does.
+    const source = readFileSync(
+      path.join(import.meta.dirname, '../allocate-work-item-id.mjs'),
+      'utf8',
+    );
+    expect(source).toMatch(/freshness\.status === 'stale' && !argv\.includes\('--allow-stale'\)/);
+    expect(source).toContain('::measured::');
   });
 });

@@ -145,6 +145,9 @@ function demoSessionLog() {
         id: 'demo-assistant-1',
         timestamp: '2026-07-26T00:00:01.000Z',
         content: "Let me read the project's entry point.",
+        // Issue #2302: this recorded call EXECUTES on replay (replay substitutes the model, not
+        // the tools); its result reaches stdout only because the demo runs interactively, where
+        // tool output is rendered — under `-p` only the final assistant text is printed.
         toolCalls: [
           { id: 'demo-call-1', type: 'function', function: { name: 'Read', arguments: readArgs } },
         ],

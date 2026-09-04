@@ -110,6 +110,7 @@ export { createGlobTool } from './builtins/glob-tool';
 export { createGrepTool } from './builtins/grep-tool';
 export type { IGrepToolOptions } from './builtins/grep-tool';
 export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
+export type { IWebFetchToolOptions } from './builtins/web-fetch-tool';
 export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';
 export type { IWebSearchToolOptions } from './builtins/web-search-tool';
 export { createBraveSearchProvider } from './builtins/brave-search-provider';

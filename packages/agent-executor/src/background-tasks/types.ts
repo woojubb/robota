@@ -21,6 +21,8 @@ import type {
   TBackgroundPrimitive,
   TBackgroundTaskErrorCategory,
   TBackgroundTaskKind,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
   TBackgroundTaskRequest,
 } from '@robota-sdk/agent-interface-execution';
 
@@ -50,7 +52,7 @@ export type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
 } from '@robota-sdk/agent-interface-execution';
-import type { TBackgroundTaskEventListener } from '@robota-sdk/agent-interface-execution';
+import type { TObserverFailureReporter } from './observer-delivery.js';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {
   readonly category: TBackgroundTaskErrorCategory;
@@ -111,6 +113,8 @@ export interface IScheduleEditPatch {
   cronExpression?: string;
   agentInstruction?: string;
   command?: string;
+  /** CMD-009: the list-view label summarizes the instruction, so an edit may refresh it too. */
+  label?: string;
 }
 
 export interface IBackgroundTaskRunner {
@@ -144,6 +148,11 @@ export interface IBackgroundTaskManagerOptions {
   now?: () => string;
   idFactory?: TBackgroundTaskIdFactory;
   eventSink?: TBackgroundTaskEventListener;
+  /**
+   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a process warning;
+   * never invoked from inside the failing observer's own delivery, never allowed to be silent.
+   */
+  onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent>;
   agentIdleTimeoutMs?: number;
   agentMaxRuntimeMs?: number;
   agentOutputLimitBytes?: number;

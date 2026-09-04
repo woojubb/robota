@@ -19,7 +19,8 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 const SOURCE_ID = 'cli-073-source-session';
 
-describe('fork restores conversation context (CLI-073)', () => {
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('fork restores conversation context (CLI-073)', () => {
   let cwd: string;
   let store: IInteractiveSessionStore;
   let storeFilePath: string | undefined;

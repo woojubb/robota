@@ -17,6 +17,7 @@ import {
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
+import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
 import {
@@ -30,9 +31,7 @@ import type {
   TSessionConstructorWithAutoCompact,
 } from './create-session-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IToolWithEventService, THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
+import type { THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -146,6 +145,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   // declared a guardrail hook.
   const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
 
+  // Issue #2245: a declared hook type with no executor would validate and then deny every tool
+  // call (SEC-016). Refuse it here, before any turn, naming the type and the option it needs.
+  assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors);
+
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
     options,
     sessionId,
@@ -201,8 +204,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
-  function onProjectAllowTool(toolName: string): void {
-    const pattern = `${toolName}(*)`;
+  // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
+  // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.
+  function onProjectAllowTool(scope: string): void {
+    const pattern = scope.includes('(') ? scope : `${scope}(*)`;
     const settings = readSettings(projectSettingsPath);
     const currentAllow = Array.isArray(settings.permissions)
       ? []

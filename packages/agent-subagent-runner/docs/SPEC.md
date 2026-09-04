@@ -125,6 +125,15 @@ package carries no concrete git/filesystem dependency.
 | `TSubagentWorkerParentMessage`            | type alias | Union of all parent → child message types.                                                                                      |
 | `TSubagentWorkerChildMessage`             | type alias | Union of all child → parent message types.                                                                                      |
 | `TSubagentWorkerWireValue`                | type alias | Union of all IPC message types for wire-level validation.                                                                       |
+| `ISubagentWorkerAgentDefinitionDto`       | interface  | The wire shape of an `IAgentDefinition` in the worker start message — declared fields only, no runtime aliasing.                |
+| `ISubagentWorkerContextFileEntryDto`      | interface  | One context file (`filePath`, `content`) carried inside the parent-context DTO.                                                 |
+| `ISubagentWorkerParentContextDto`         | interface  | The wire shape of the issue #2317 parent-context projection (`agentsMd`, `projectNotesMd`, …) the worker receives.              |
+| `encodeAgentDefinition`                   | function   | Project an `IAgentDefinition` onto its DTO; only declared fields cross the process boundary.                                    |
+| `decodeAgentDefinitionDto`                | function   | Total decode of an unknown value as `ISubagentWorkerAgentDefinitionDto` — a result, never a cast or a throw.                    |
+| `restoreAgentDefinition`                  | function   | Explicit restore in the worker: builds the runtime `IAgentDefinition` from the DTO's fields (copied, not aliased).              |
+| `encodeParentContext`                     | function   | Project the issue #2317 parent-context projection (or anything structurally wider) onto `ISubagentWorkerParentContextDto`.      |
+| `decodeParentContextDto`                  | function   | Total decode of an unknown value as `ISubagentWorkerParentContextDto`.                                                          |
+| `restoreParentContext`                    | function   | Explicit restore in the worker: builds the runtime parent-context model from the DTO's fields.                                  |
 
 ## Extension Points
 
@@ -160,17 +169,17 @@ package carries no concrete git/filesystem dependency.
 
 ## Error Taxonomy
 
-| Error scenario                         | Behavior                                                                                                                                                                                       |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worker sends `error` message           | `result` rejects with `BackgroundTaskError('runner', message)` using the worker error message string                                                                                           |
-| Worker sends `cancelled` message       | `result` rejects with `BackgroundTaskError('runner', reason)`; parent-side cancellation promise also rejects                                                                                   |
-| IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                        |
-| IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                       |
-| Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms   |
-| Spawn failure                          | `child_process.spawn()` emits `'error'` and no `'exit'`; `onError` rejects with `error.message` only — an ENOENT `execPath` never produced output to append                                    |
-| Child exited before a result           | `onExit` rejects with the exit code/signal **and the captured stderr tail appended**, so the cause is in the message rather than only in a stream nothing read (DIST-006)                      |
-| Worker never signalled ready           | `BackgroundTaskError('runner', 'Subagent worker never signalled ready within …ms')` after `handshakeBudgetMs` (default 30s) — guards an entry wired to something that never enters worker mode |
-| IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                       |
+| Error scenario                         | Behavior                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker sends `error` message           | `result` rejects with `BackgroundTaskError('runner', message)` using the worker error message string                                                                                                                                                                                                            |
+| Worker sends `cancelled` message       | `result` rejects with `BackgroundTaskError('runner', reason)`; parent-side cancellation promise also rejects                                                                                                                                                                                                    |
+| IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                                                                                                                                         |
+| IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                                                                                                                                        |
+| Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms                                                                                                                    |
+| Spawn failure                          | `child_process.spawn()` emits `'error'` and no `'exit'`; `onError` rejects with `error.message` only — an ENOENT `execPath` never produced output to append                                                                                                                                                     |
+| Child exited before a result           | `onExit` rejects with the exit code/signal **and the captured stderr tail appended**, so the cause is in the message rather than only in a stream nothing read (DIST-006). The tail is agent-core's `createBoundedOutput` in `tail` mode, 4 KiB (ARCH-056 issue #2161) — the shared contract, not a local slice |
+| Worker never signalled ready           | `BackgroundTaskError('runner', 'Subagent worker never signalled ready within …ms')` after `handshakeBudgetMs` (default 30s) — guards an entry wired to something that never enters worker mode                                                                                                                  |
+| IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                                                                                                                                        |
 
 ## Test Strategy
 

@@ -3,11 +3,12 @@
  * Displayed during session.run() execution.
  */
 
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
+import { RenderedText, Text } from './SafeText.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import { PALETTE } from './tui-palette.js';
@@ -86,7 +87,8 @@ export default function StreamingIndicator({
           </Text>
           <Text> </Text>
           <Box marginLeft={2}>
-            <Text wrap="wrap">{renderMarkdown(text)}</Text>
+            {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
+            <RenderedText wrap="wrap">{renderMarkdown(text)}</RenderedText>
           </Box>
         </Box>
       )}

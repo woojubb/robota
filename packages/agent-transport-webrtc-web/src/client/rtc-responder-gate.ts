@@ -16,13 +16,19 @@
  */
 
 import {
+  decodeEnrollFrame,
+  decodePairingFrame,
+  decodeReconnectFrame,
   importPublicKey,
   startDeviceReconnect,
   startPairingHandshake,
+  type IEnrollFrame,
   type IPairingResult,
   type TPairingFrame,
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
+
+import { decodeServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
 
@@ -67,24 +73,21 @@ export interface IResponderGateOptions {
   readonly startReconnect?: typeof startDeviceReconnect;
 }
 
+// Issue #2046: the pre-auth frame vocabulary is decoded by its OWNER (`agent-remote-pairing`), totally —
+// required fields, base64url, length ceilings — and this carrier shares that codec with the Node gate
+// instead of keeping a second discriminator-only copy.
 function isPairingFrame(value: unknown): value is TPairingFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'pair-nonce' || t === 'pair-confirm';
+  return decodePairingFrame(value).ok;
 }
 
-function isReconnectFrame(value: unknown): value is TReconnectFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  return (value as { t?: unknown }).t === 'rc-host';
+/** The device side consumes only `rc-host`; the other reconnect variants are its own outbound frames. */
+function isHostReconnectFrame(value: unknown): value is Extract<TReconnectFrame, { t: 'rc-host' }> {
+  const decoded = decodeReconnectFrame(value);
+  return decoded.ok && decoded.frame.t === 'rc-host';
 }
 
-function isEnrollFrame(value: unknown): value is { t: 'enroll-key'; spki: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { t?: unknown }).t === 'enroll-key' &&
-    typeof (value as { spki?: unknown }).spki === 'string'
-  );
+function isEnrollFrame(value: unknown): value is IEnrollFrame {
+  return decodeEnrollFrame(value).ok;
 }
 
 type TGateState = 'pairing' | 'enrolling' | 'reconnecting' | 'accepted' | 'closed';
@@ -115,7 +118,14 @@ export class ResponderGate {
       return;
     }
     if (this.state === 'accepted') {
-      this.options.onMessage(parsed as TServerMessage);
+      // Issue #2045: post-accept frames go through the protocol owner's decoder; an invalid shape is
+      // surfaced as the protocol's own client error rather than cast into `TServerMessage`.
+      const decoded = decodeServerMessage(parsed);
+      this.options.onMessage(
+        decoded.ok
+          ? decoded.message
+          : { type: 'protocol_error', message: `Malformed message from host (${decoded.reason})` },
+      );
       return;
     }
     if (this.state === 'pairing') {
@@ -123,7 +133,7 @@ export class ResponderGate {
       return;
     }
     if (this.state === 'reconnecting') {
-      if (isReconnectFrame(parsed)) this.reconnectController?.onFrame(parsed);
+      if (isHostReconnectFrame(parsed)) this.reconnectController?.onFrame(parsed);
       return;
     }
     if (this.state === 'enrolling') {

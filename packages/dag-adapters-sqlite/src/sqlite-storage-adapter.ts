@@ -2,6 +2,7 @@ import DatabaseConstructor from 'better-sqlite3';
 import { listStaleRunningTaskRunRows, setTaskRunLeaseRow } from './task-run-recovery-queries.js';
 import { type ITaskRunRow, rowToTaskRun } from './task-run-row.js';
 import type Database from 'better-sqlite3';
+import { decodeDagDefinition, formatDagDecodeIssues } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagError,
@@ -34,8 +35,19 @@ interface IDagRunRow {
   ended_at: string | null;
 }
 
+/**
+ * Issue #2077: a stored row is decoded totally, never cast. A row this adapter wrote always decodes;
+ * one that does not is corruption, and that is terminal rather than a definition with holes in it.
+ */
 function rowToDefinition(row: IDefinitionRow): IDagDefinition {
-  return JSON.parse(row.definition_json) as IDagDefinition;
+  const result = decodeDagDefinition(JSON.parse(row.definition_json));
+  if (!result.ok) {
+    throw new Error(
+      `Malformed DAG definition row (dagId=${row.dag_id}, version=${row.version}): ` +
+        formatDagDecodeIssues(result.error),
+    );
+  }
+  return result.value;
 }
 
 function rowToDagRun(row: IDagRunRow): IDagRun {

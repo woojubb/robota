@@ -43,6 +43,17 @@
 
 {Current test files, scenario verification, coverage gaps.}
 
+## User Execution Test Scenarios
+
+<!-- Required by .agents/rules/backlog-execution.md § User Execution Test Scenario Rule for work that
+     changes runnable user-facing, command, TUI/browser or workflow behavior. Either write the
+     scenario a user can personally run, or keep the exact not-applicable form below with a real
+     product-surface reason (at least 50 characters; build/typecheck evidence does not count). -->
+
+Not applicable.
+
+**Reason:** {why no end user can observe this change directly through a runnable surface}
+
 ## User-Facing Contract
 
 <!-- Optional. Only when an END USER (not calling code) directly observes and depends on this

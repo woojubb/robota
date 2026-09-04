@@ -199,14 +199,11 @@ export class ToolExecutionService {
     },
   ): IToolExecutionRequest[] {
     return toolCalls.map((toolCall) => {
-      let parsedParameters: TToolParameters;
-      try {
-        parsedParameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
-      } catch {
-        throw new ValidationError(
-          `Failed to parse arguments for tool "${toolCall.function.name}" (call ${toolCall.id}): invalid JSON`,
-        );
-      }
+      const parsedParameters = decodeToolCallArguments(
+        toolCall.id,
+        toolCall.function.name,
+        toolCall.function.arguments,
+      );
       return {
         toolName: toolCall.function.name,
         parameters: parsedParameters,
@@ -230,6 +227,30 @@ export class ToolExecutionService {
   ): Promise<{ results: IToolExecutionResult[]; errors: Error[] }> {
     return executeBatch(batchContext, this, this.logger);
   }
+}
+
+/**
+ * Issue #2078: `TToolParameters` is a record contract, so a syntactically valid JSON body whose root
+ * is `null`, a scalar, or an array is refused HERE. The parameter validator downstream enumerates
+ * fields with `in` and assumes a non-null object; the former bare cast let those roots reach it.
+ */
+function decodeToolCallArguments(callId: string, toolName: string, raw: string): TToolParameters {
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    throw new ValidationError(
+      `Failed to parse arguments for tool "${toolName}" (call ${callId}): invalid JSON`,
+    );
+  }
+  if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+    const root =
+      decoded === null ? 'null' : Array.isArray(decoded) ? 'an array' : `a ${typeof decoded}`;
+    throw new ValidationError(
+      `Failed to parse arguments for tool "${toolName}" (call ${callId}): expected a JSON object at the root, got ${root}`,
+    );
+  }
+  return decoded as TToolParameters;
 }
 
 function formatUnknownToolError(toolName: string, availableTools: string[]): string {

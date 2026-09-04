@@ -12,8 +12,13 @@ export {
   createBackgroundTaskLogPage,
   createLimitedOutputCapture,
   DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
+  deliverToObservers,
+  OBSERVER_FAILURE_WARNING_CODE,
+  reportObserverFailureAsWarning,
 } from './background-tasks/index.js';
 export type {
+  IObserverFailure,
+  TObserverFailureReporter,
   IBackgroundTaskHandle,
   IBackgroundTaskShellCommand,
   IBackgroundTaskShellResolutionOptions,

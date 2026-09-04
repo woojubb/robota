@@ -45,8 +45,9 @@ import { requireGovernedTree } from './governed-tree.mjs';
 import { ADVISORY_MARKER, EXAMINED_MARKER } from './run-all-scans.mjs';
 import { normalizeSpecHeading, readSpecSectionContract } from './spec-sections.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** Both conditions must hold for a row to become a finding. See THRESHOLD above. */
 const MIN_LINES = 300;

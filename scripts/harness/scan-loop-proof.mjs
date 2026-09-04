@@ -58,8 +58,9 @@ import { requireGovernedTree } from './governed-tree.mjs';
 import { frontmatterObject } from './frontmatter.mjs';
 import { readLedger } from './loop-run.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SKILLS_DIR = '.agents/skills';
 export const BASELINE_FILE = path.join(WORKSPACE_ROOT, 'scripts/harness/loop-proof-baseline.json');
 

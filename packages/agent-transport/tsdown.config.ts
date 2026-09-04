@@ -17,7 +17,6 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'headless/index': 'src/headless/index.ts',
-    'testing/index': 'src/testing/index.ts',
     'programmatic/index': 'src/programmatic/index.ts',
   },
   format: ['esm', 'cjs'],

@@ -57,6 +57,17 @@ labelled containment naming a filed root item — is the caller's routing decisi
 6. **Maintainability** — public-API test coverage, naming clarity, file/function size and
    complexity limits (per code-quality), SPEC accuracy, dead code, magic values.
 
+**One more question, asked once per security- or correctness-relevant fix (under 1 and 4):**
+_what else carries this value, and does the fix reach it?_ An issue names a site; the scope of the
+issue is not the extent of the value, and a fix scoped to the named site reads as complete while
+the other paths stay defective. Three instances in one day (issue #2314): the restored `orgPolicy`
+loader reached four sites and not the fifth, a hand-maintained projection in `print-mode.ts`; a
+decoder for two named `JSON.parse(...) as T` sites would have missed a third in a package the issue
+never mentioned (`rtc-responder-gate.ts`); and SEC-009 hardened `providerProfile` to carry only an
+env name while `parentConfig`, two lines above in the same literal, still carried the resolved
+secret. Each answer was one search away. A fix that reaches one of several paths carrying the value
+is a **SHOULD** until the other paths are named — fixed, or filed and linked.
+
 ## Execution Steps
 
 1. **Scope** the target package(s)/file set; read SPEC.md, package.json, index.ts for the boundary.

@@ -50,8 +50,9 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { frontmatterObject, isBlank } from './frontmatter.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The seven `.agents/tasks/README.md` § "File Format" declares required. */
 const REQUIRED = ['title', 'status', 'created', 'priority', 'urgency', 'area', 'depends_on'];

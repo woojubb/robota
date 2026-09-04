@@ -107,6 +107,15 @@ INFRA-017) is an internal test-harness provider loaded via a guarded `createRequ
 NOT bundled (not an end-user feature); absent in published installs it yields a clear error only when
 `--session-log` is used.
 
+**What a replay executes (issue #2302).** The replay substitutes the MODEL, never the tools: a
+`toolCalls` entry in a recorded response is dispatched against the session's live tool set, the
+tool's result is appended to the conversation, and the next recorded response is consumed
+(`agent-provider-replay/src/__tests__/replayed-tool-call-executes.test.ts`). In `-p` print mode only
+the final assistant text reaches stdout, so a tool's RESULT is invisible there by design — observe
+it through a side effect, the session record, or the server log. A call naming a tool the session
+does not have produces an error tool result and the run advances, which is why an unknown-tool probe
+and a `Read` probe print the same final text.
+
 ### AI Workflow Control Surface
 
 Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
@@ -153,7 +162,12 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 3. Calls `assembleProduct(createRobotaProfile(…))` once. The kernel constructs the provider from the
    resolved settings + the injected `IProviderDefinition[]`, merges the capability packs onto the base
    (base ⊕ packs, with a rejection channel), and ADOPTS the instance-scoped preset registry the shell
-   already resolved over (ARCH-008) instead of building a second one.
+   already resolved over (ARCH-008) instead of building a second one. The shell-built
+   `backgroundTaskRunners` and `subagentRunnerFactory` are fold INPUTS whose returned identities every
+   mode binds to (`bindAssembledCollaborators`, CLI-078 / issue #2443). **Documented exception:**
+   `robota eval` does not pass through the fold — it shares the settings sources and the default
+   provider-definition set with the fold and nothing else (no preset, packs, replay or session); the
+   boundary is recorded at `src/eval/eval-command.ts`.
 4. Applies the preset's `enabledCommandModules`/`disabledCommandModules` delta to that merged superset,
    then appends the fixed modules the delta never filters (`/workflows`, caller-injected).
 5. Resolves one host-owned `TWorkspaceProjectAccess` decision, derives the allowed project sources and
@@ -620,12 +634,8 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-session-analytics`   | `robota session analyze` command implementation                                                                                                                                                                                 |
 | `@robota-sdk/agent-provider-replay`     | Dev-only `--session-log` replay provider (guarded dynamic require; not bundled in the published CLI)                                                                                                                            |
 | `ink` 7, `react` 19.2+                  | TUI rendering                                                                                                                                                                                                                   |
-| `ink-select-input`                      | Arrow-key selection (permission prompt)                                                                                                                                                                                         |
-| `ink-spinner`                           | Loading spinner                                                                                                                                                                                                                 |
 | `chalk`                                 | Terminal colors                                                                                                                                                                                                                 |
-| `ink-text-input`                        | Base text input (extended by CjkTextInput)                                                                                                                                                                                      |
 | `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                                                                                                         |
-| `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                                                                                                             |
 | `string-width`                          | Unicode-aware string width calculation                                                                                                                                                                                          |
 | `qrcode`                                | Terminal QR rendering for remote-control pairing                                                                                                                                                                                |
 
@@ -1030,7 +1040,7 @@ The `/provider switch <profile>` command is provided by the `@robota-sdk/agent-c
 
 From the TUI's `/provider list` menu, selecting a profile and choosing the **switch** action triggers the same hot-swap path.
 
-The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI does not compose `/mode`; permission-mode changes belong under `/permissions`.
+The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI composes `/mode` (the `agent-command-mode` module of `@robota-sdk/agent-command`) alongside `/permissions` (CLI-079, issue #2444): `/mode` is the inline permission-mode switch and `/permissions [mode]` the fuller surface, both routed through the same generic command execution path and the same SDK permission APIs. `robota-assembly-equivalence.test.ts` pins `agent-command-mode` present in the default composition; removing it from the default set is a product decision that changes that baseline, this paragraph, and `.agents/specs/command-inventory.md` together.
 
 The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `language-change` host action; the SESSION applies settings persistence and requests the restart through `ICommandHostAdapters` (CMD-004) — the CLI only renders the result.
 

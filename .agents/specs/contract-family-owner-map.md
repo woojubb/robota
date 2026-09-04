@@ -104,7 +104,10 @@ looks like a slip while two look like a defect in the rule's wording.
 The shared cause: **the rule states an AGGREGATION — take the maximum — and does not state the
 DOMAIN it aggregates over.** Both predictions computed a maximum; both computed it over too small a
 set. The rule's wording admits that reading, which makes this the rule's defect rather than the
-author's, and the amendment is filed as issue #2218.
+author's. The amendment (issue #2218) is stated where rules of its kind live — the "highest of what
+it holds" bullet under Interface Package Rule in
+[`.agents/project-structure.md`](../project-structure.md); this subsection is the projection that
+carries the evidence, not the rule's home.
 
 The same applies in reverse to a package that has not been created yet: an owner's row is declared
 when its package exists, not when its leaf is planned.

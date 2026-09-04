@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { createHostBundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-framework';
+import { loadHostBundlePluginsFromScopes, PluginCommandSource } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
@@ -11,14 +11,27 @@ function getHomeDir(): string {
   return process.env.HOME ?? homedir();
 }
 
-export function reloadPluginCommandSource(registry: CommandRegistry): number {
-  const home = getHomeDir();
-  // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
-  // commands came back with them, because the bare loader defaults its enablement map to `{}`.
-  const loader = createHostBundlePluginLoader({ pluginsDir: join(home, '.robota', 'plugins') });
+/**
+ * Issue #2487 (PLG-021 residual): `install --scope project` writes under the project's own plugin
+ * directory, but this loader read only the user-level one, so a project-scope install was invisible
+ * to the session that made it. Project scope is listed first — the more specific one wins when a
+ * plugin is present in both.
+ */
+function pluginsDirUnder(base: string): string {
+  return join(base, '.robota', 'plugins');
+}
+
+function pluginScopeDirs(cwd: string | undefined): string[] {
+  const user = pluginsDirUnder(getHomeDir());
+  return cwd === undefined ? [user] : [pluginsDirUnder(cwd), user];
+}
+
+export function reloadPluginCommandSource(registry: CommandRegistry, cwd?: string): number {
   try {
+    // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
+    // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
-    const plugins = loader.loadPluginsSync();
+    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd));
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);
       return 0;

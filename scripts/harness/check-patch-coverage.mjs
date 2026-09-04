@@ -38,8 +38,9 @@
 import { execFileSync } from 'node:child_process';
 import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DEFAULT_TARGET = 80;
 
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────

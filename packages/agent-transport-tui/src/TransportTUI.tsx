@@ -14,9 +14,10 @@
  * with the row unchanged.
  */
 
-import { Box, Text, useInput } from 'ink';
+import { Box, useInput } from 'ink';
 import React, { useState, useCallback } from 'react';
 
+import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';

@@ -1,0 +1,5 @@
+{
+  "owner": "issue #2170",
+  "note": "Architecture-refresh runs closed `abandoned` before a checkpoint could be recorded. A sealed ledger record is not amended, so these are validated with a boundary DERIVED from their furthest evidence instead of failing closed. No additions: every later abandoned run records `loop-run checkpoint --phase <last completed phase>` before it closes.",
+  "uncheckpointedAbandonedRuns": ["r20260822105817"]
+}

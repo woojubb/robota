@@ -239,6 +239,34 @@ instruction **verbatim** in the work item, and state which decisions it covered.
 that is paraphrased cannot be checked against what the user actually said, and a session summary is
 not the user.
 
+#### Validated recommendations and bounded gate-FAIL corrections
+
+<!-- standing-authorization-contract: bounded gate-FAIL correction -->
+
+Under a **recorded** standing authorization, two further routes are automatically approved
+— the owner granted both explicitly: _"앞으로 모든 제안이 타당한 근거와 함께 추천안이
+제시되었을 때 타당하면 자동승인 하겠습니다"_ and _"Fail후 수정도 동일하게 타당한 근거를 제시하고 그게
+타당하다면 자동승인합니다"_:
+
+- a **validated recommendation** — one that carries its grounds and an independent `ENDORSE`; and
+- a **bounded gate-FAIL correction** — a repair of a gate `FAIL` that
+  1. is limited to the guardian's **named failed criteria**,
+  2. **preserves the already approved scope and design**,
+  3. is **independently re-judged** by the guardian (never by its author), and
+  4. **cannot advance until the re-run returns PASS**.
+
+Both are recorded the way every standing-authorization act is: the instruction quoted verbatim, the
+grounds stated, the guardian's verdict cited. A correction that widens scope, changes a policy or
+gate definition, touches product direction, a published contract, a user-authored document, or a
+protected-branch merge is outside every standing authorization and is a direct-user decision — the
+four classes above and `git-branch.md` still bind. Independent `ENDORSE` remains "not approval" for
+anything outside this route: it is the **validation** the recorded authorization requires, not a
+substitute for it.
+
+Routing consumers — `backlog-pipeline` (gate FAIL handling) and `backlog-execution-orchestrator`
+(GATE-IMPLEMENT FAIL) — cite this section and may not restate it; the
+`standing-authorization-contract` test holds the three surfaces to one owner.
+
 Enforced by: nothing — whether an
 utterance is a standing authorization, and whether a given decision already sits inside agent
 authority, are both judgements about intent; a check that guessed either would be wrong in exactly
@@ -1081,7 +1109,13 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
   `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
   `completed/`, or any terminal status without a valid `completed:` date. The `task-archival` scan
   additionally validates AGREEMENT child projections and fails a fully-checked task file whose spec
-  never reached `spec-docs/done/` (gates overdue). These
+  never reached `spec-docs/done/` (gates overdue) — **over un-archived task files only.** It reads
+  `.agents/tasks/` and not `completed/`, so the `git mv` that archives a record also removes it from
+  the scan's population, and the act the invariant gates is the act that ends its enforcement.
+  Refusing to archive a fully-checked record whose spec is still outside
+  `spec-docs/done/` is therefore the contributor's responsibility, not something the scan will catch
+  afterwards; widening the scan to the archived population (~900 records, ~80 of which would go red
+  on the first run) is a separate decision with its own baseline. These
   invariants held only as prose until they were mechanized, and the sweep that mechanized them found
   eight shipped items with stale placement.
 

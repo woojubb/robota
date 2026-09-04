@@ -14,7 +14,7 @@ import { decodeHookVerdict } from '../verdict-decoder.js';
 
 describe('decodeHookVerdict', () => {
   it('ok === true is allow, carrying the raw text as stdout', () => {
-    expect(decodeHookVerdict('{"ok":true}', 'http')).toEqual({
+    expect(decodeHookVerdict('{"ok":true}', 'http', 'PreToolUse')).toEqual({
       outcome: 'allow',
       source: 'http',
       stdout: '{"ok":true}',
@@ -22,7 +22,7 @@ describe('decodeHookVerdict', () => {
   });
 
   it('ok === false is deny with the endpoint reason', () => {
-    expect(decodeHookVerdict('{"ok":false,"reason":"because"}', 'prompt')).toEqual({
+    expect(decodeHookVerdict('{"ok":false,"reason":"because"}', 'prompt', 'PreToolUse')).toEqual({
       outcome: 'deny',
       source: 'prompt',
       reason: 'because',
@@ -30,19 +30,19 @@ describe('decodeHookVerdict', () => {
   });
 
   it('ok === false with no usable reason denies with a source-named default', () => {
-    expect(decodeHookVerdict('{"ok":false}', 'agent')).toEqual({
+    expect(decodeHookVerdict('{"ok":false}', 'agent', 'PreToolUse')).toEqual({
       outcome: 'deny',
       source: 'agent',
       reason: 'Blocked by agent hook',
     });
     // An empty string is not a reason; it must not become the message a user sees.
-    expect(decodeHookVerdict('{"ok":false,"reason":""}', 'agent')).toEqual({
+    expect(decodeHookVerdict('{"ok":false,"reason":""}', 'agent', 'PreToolUse')).toEqual({
       outcome: 'deny',
       source: 'agent',
       reason: 'Blocked by agent hook',
     });
     // Nor is a non-string.
-    expect(decodeHookVerdict('{"ok":false,"reason":42}', 'agent')).toEqual({
+    expect(decodeHookVerdict('{"ok":false,"reason":42}', 'agent', 'PreToolUse')).toEqual({
       outcome: 'deny',
       source: 'agent',
       reason: 'Blocked by agent hook',
@@ -58,7 +58,7 @@ describe('decodeHookVerdict', () => {
       ['object', { ok: {} }],
       ['array', { ok: [] }],
     ])('%s', (_label, body) => {
-      const outcome = decodeHookVerdict(JSON.stringify(body), 'http');
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('error');
       expect(outcome.outcome === 'error' && outcome.kind).toBe('malformed-response');
       expect(outcome.outcome === 'error' && outcome.reason).toContain('not boolean');
@@ -75,7 +75,7 @@ describe('decodeHookVerdict', () => {
       ['empty string', { ok: '' }],
       ['undefined ok', { ok: undefined }],
     ])('%s', (_label, body) => {
-      const outcome = decodeHookVerdict(JSON.stringify(body), 'http');
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('error');
       expect(outcome.outcome).not.toBe('deny');
       expect(outcome.outcome === 'error' && outcome.kind).toBe('malformed-response');
@@ -89,7 +89,7 @@ describe('decodeHookVerdict', () => {
       ['null', 'null'],
       ['an array', '[]'],
     ])('%s', (_label, raw) => {
-      const outcome = decodeHookVerdict(raw, 'http');
+      const outcome = decodeHookVerdict(raw, 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('error');
       expect(outcome.outcome === 'error' && outcome.kind).toBe('malformed-response');
       expect(outcome.outcome === 'error' && outcome.reason).toContain('not a JSON object');
@@ -98,7 +98,7 @@ describe('decodeHookVerdict', () => {
 
   it('text that is not JSON at all is error/malformed-response', () => {
     // Folded in from the executors, which each carried their own copy of this branch.
-    const outcome = decodeHookVerdict('<html>gateway timeout</html>', 'http');
+    const outcome = decodeHookVerdict('<html>gateway timeout</html>', 'http', 'PreToolUse');
     expect(outcome.outcome).toBe('error');
     if (outcome.outcome !== 'error') return;
     expect(outcome.kind).toBe('malformed-response');
@@ -108,7 +108,7 @@ describe('decodeHookVerdict', () => {
 
   it('quotes the payload back, collapsed and length-capped', () => {
     const noisy = `{\n  "ok":   "maybe",\n  "pad": "${'x'.repeat(500)}"\n}`;
-    const outcome = decodeHookVerdict(noisy, 'http');
+    const outcome = decodeHookVerdict(noisy, 'http', 'PreToolUse');
     expect(outcome.outcome).toBe('error');
     if (outcome.outcome !== 'error') return;
     expect(outcome.reason).not.toContain('\n');
@@ -126,7 +126,7 @@ describe('decodeHookVerdict', () => {
   describe('an explicit block directive is a verdict even when `ok` is undecodable', () => {
     it('continue: false blocks, carrying stopReason', () => {
       const body = { ok: 'false', continue: false, stopReason: 'nope' };
-      expect(decodeHookVerdict(JSON.stringify(body), 'http')).toEqual({
+      expect(decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse')).toEqual({
         outcome: 'deny',
         source: 'http',
         reason: 'nope',
@@ -135,21 +135,21 @@ describe('decodeHookVerdict', () => {
 
     it('continue: false blocks with a default reason when stopReason is absent', () => {
       const body = { ok: 1, continue: false };
-      const outcome = decodeHookVerdict(JSON.stringify(body), 'http');
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('deny');
       expect(outcome.outcome === 'deny' && outcome.reason).toContain('continue: false');
     });
 
     it('hookSpecificOutput.permissionDecision: "deny" blocks', () => {
       const body = { ok: 1, hookSpecificOutput: { permissionDecision: 'deny' } };
-      const outcome = decodeHookVerdict(JSON.stringify(body), 'http');
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('deny');
       expect(outcome.outcome === 'deny' && outcome.reason).toContain('permissionDecision: deny');
     });
 
-    it('decision: "block" blocks, carrying its reason', () => {
+    it('decision: "block" blocks on UserPromptSubmit, carrying its reason', () => {
       const body = { ok: {}, decision: 'block', reason: 'policy' };
-      expect(decodeHookVerdict(JSON.stringify(body), 'prompt')).toEqual({
+      expect(decodeHookVerdict(JSON.stringify(body), 'prompt', 'UserPromptSubmit')).toEqual({
         outcome: 'deny',
         source: 'prompt',
         reason: 'policy',
@@ -160,22 +160,55 @@ describe('decodeHookVerdict', () => {
       // The other truthiness direction: `{}`-shaped bodies used to block by accident. With a real
       // directive present they must block on purpose.
       const body = { ok: null, continue: false };
-      expect(decodeHookVerdict(JSON.stringify(body), 'agent').outcome).toBe('deny');
+      expect(decodeHookVerdict(JSON.stringify(body), 'agent', 'PreToolUse').outcome).toBe('deny');
     });
 
     it('a directive that does NOT request a block leaves the body undecodable', () => {
       // permissionDecision: "allow" is not a block directive, and must not be read as one — nor may
       // its presence rescue a malformed `ok` into an approval.
       const body = { ok: 'maybe', hookSpecificOutput: { permissionDecision: 'allow' } };
-      const outcome = decodeHookVerdict(JSON.stringify(body), 'http');
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
       expect(outcome.outcome).toBe('error');
       expect(outcome.outcome === 'error' && outcome.kind).toBe('malformed-response');
     });
   });
 
+  // ── Issue #2196: the decoder scopes directives by event exactly as `runHooks` does ──────────
+  //
+  // `{"ok": "maybe", "decision": "block"}` on PreToolUse used to DENY here while the runner reads
+  // `decision` only on UserPromptSubmit — one vocabulary, two sets of rules, and the decoder's
+  // broader reading escaped the runner's narrower one because a `deny` outcome is never re-scoped.
+  describe('block directives are scoped by event, as the runner scopes them (issue #2196)', () => {
+    it('decision: "block" is not a PreToolUse directive — the body stays undecodable', () => {
+      const body = { ok: 'maybe', decision: 'block' };
+      const outcome = decodeHookVerdict(JSON.stringify(body), 'http', 'PreToolUse');
+      expect(outcome.outcome).toBe('error');
+      expect(outcome.outcome === 'error' && outcome.kind).toBe('malformed-response');
+    });
+
+    it('permissionDecision: "deny" is not a UserPromptSubmit directive', () => {
+      const body = { ok: 'maybe', hookSpecificOutput: { permissionDecision: 'deny' } };
+      expect(decodeHookVerdict(JSON.stringify(body), 'http', 'UserPromptSubmit').outcome).toBe(
+        'error',
+      );
+    });
+
+    it('continue: false blocks on every event', () => {
+      for (const event of ['PreToolUse', 'UserPromptSubmit', 'Stop', 'SessionStart'] as const) {
+        const body = { ok: 'maybe', continue: false };
+        expect(decodeHookVerdict(JSON.stringify(body), 'http', event).outcome).toBe('deny');
+      }
+    });
+
+    it('a well-formed `ok` is decoded whatever the event', () => {
+      expect(decodeHookVerdict('{"ok":false}', 'http', 'Stop').outcome).toBe('deny');
+      expect(decodeHookVerdict('{"ok":true}', 'http', 'Stop').outcome).toBe('allow');
+    });
+  });
+
   it('carries the source it was given, unchanged', () => {
     for (const source of ['http', 'prompt', 'agent', 'command', 'guardrail'] as const) {
-      expect(decodeHookVerdict('{}', source).source).toBe(source);
+      expect(decodeHookVerdict('{}', source, 'PreToolUse').source).toBe(source);
     }
   });
 });

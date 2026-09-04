@@ -78,6 +78,15 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   Before ARCH-030 the fan-out had its own guard and the eleven reply families had none — five of
   them resolving from a Promise continuation, which is the shape WS-001 recorded and half-fixed.
 
+  **Drain budget (issue #2306).** The byte budget bounds how MUCH a peer holds; a peer reading just
+  slowly enough to stay under it is never over it. The boundary therefore also keeps one
+  `IPendingStallClock` (`createPendingStallClock(maxPendingMs, now)`): the clock starts on the first
+  send that finds `pendingBytes > 0`, resets only when a send finds it `0` (draining to one byte is
+  not draining), is consulted synchronously before each send (no timer), and a reading of
+  `undefined` neither starts nor resets it. Exceeding `DEFAULT_MAX_PENDING_MS` (120 s, `Infinity`
+  disables) latches the boundary exactly like the byte budget. `WsSessionDelivery` shares ONE clock
+  between its text boundary and `deliverBinary`, since `bufferedAmount` covers both halves.
+
 - **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
   SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
   `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
@@ -153,35 +162,38 @@ once and the carriers stay dumb.
 
 | Export                                  | Kind      |
 | --------------------------------------- | --------- |
-| `resolveAdmission`                      | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default)    |
-| `createPeerMessageLedger`               | Function  | PEER-001: fresh per-connection receive state for peer messaging                            |
-| `admitPeerMessage`                      | Function  | PEER-001: record a peer message and decide deliver / duplicate / refused, reporting gaps   |
-| `acknowledgePeerMessage`                | Function  | PEER-001: promote a delivered message to acknowledged (a different question from delivery) |
-| `forgetPeerOrigin`                      | Function  | PEER-001: drop one peer's sequence space on disconnect, so a reconnect starts fresh        |
-| `beginHandoff`                          | Function  | HANDOFF-001: open an ownership transaction from a manifest                                 |
-| `advanceHandoff`                        | Function  | HANDOFF-001: move a phase, or REFUSE and say why — never ignore                            |
-| `commitHandoff`                         | Function  | HANDOFF-001: the only path to `committed`, and only on a durable acknowledgement           |
-| `sourceStillOwns`                       | Function  | HANDOFF-001: is the source authoritative? Delegates to the contract's predicate            |
-| `handoffOutcome`                        | Function  | HANDOFF-001: the reportable outcome, derived rather than assembled per call site           |
-| `buildHandoffManifest`                  | Function  | HANDOFF-001: classify the inventory and seal the payload, or REFUSE on in-flight work      |
-| `sealHandoffRecord`                     | Function  | HANDOFF-001: serialize once and describe those exact bytes, so send and digest agree       |
-| `verifyHandoffPayload`                  | Function  | HANDOFF-001: length before digest — a truncation must not be reported as tampering         |
-| `chunkHandoffPayload`                   | Function  | HANDOFF-001: cut a sealed payload on BYTES, so the channel's byte budget is exact          |
-| `HandoffChunkAssembler`                 | Class     | HANDOFF-001: reassemble one transfer under reordering and retries; refuse inconsistency    |
-| `chunkCountFor`                         | Function  | HANDOFF-001: how many chunks a payload takes, from the manifest, without building them     |
-| `DEFAULT_MAX_CHUNK_BYTES`               | const     | 16 KiB — what every SCTP implementation carries without negotiation                        |
-| `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one             |
-| `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one       |
-| `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                  |
+| `resolveAdmission`                      | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default)                             |
+| `createPeerMessageLedger`               | Function  | PEER-001: fresh per-connection receive state for peer messaging                                                     |
+| `admitPeerMessage`                      | Function  | PEER-001: record a peer message and decide deliver / duplicate / refused, reporting gaps                            |
+| `acknowledgePeerMessage`                | Function  | PEER-001: promote a delivered message to acknowledged (a different question from delivery)                          |
+| `forgetPeerOrigin`                      | Function  | PEER-001: drop one peer's sequence space on disconnect, so a reconnect starts fresh                                 |
+| `beginHandoff`                          | Function  | HANDOFF-001: open an ownership transaction from a manifest                                                          |
+| `advanceHandoff`                        | Function  | HANDOFF-001: move a phase, or REFUSE and say why — never ignore                                                     |
+| `commitHandoff`                         | Function  | HANDOFF-001: the only path to `committed`, and only on a durable acknowledgement                                    |
+| `sourceStillOwns`                       | Function  | HANDOFF-001: is the source authoritative? Delegates to the contract's predicate                                     |
+| `handoffOutcome`                        | Function  | HANDOFF-001: the reportable outcome, derived rather than assembled per call site                                    |
+| `buildHandoffManifest`                  | Function  | HANDOFF-001: classify the inventory and seal the payload, or REFUSE on in-flight work                               |
+| `sealHandoffRecord`                     | Function  | HANDOFF-001: serialize once and describe those exact bytes, so send and digest agree                                |
+| `verifyHandoffPayload`                  | Function  | HANDOFF-001: length before digest — a truncation must not be reported as tampering                                  |
+| `chunkHandoffPayload`                   | Function  | HANDOFF-001: cut a sealed payload on BYTES, so the channel's byte budget is exact                                   |
+| `HandoffChunkAssembler`                 | Class     | HANDOFF-001: reassemble one transfer under reordering and retries; refuse inconsistency                             |
+| `chunkCountFor`                         | Function  | HANDOFF-001: how many chunks a payload takes, from the manifest, without building them                              |
+| `DEFAULT_MAX_CHUNK_BYTES`               | const     | 16 KiB — what every SCTP implementation carries without negotiation                                                 |
+| `mintTransportToken`                    | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one                                      |
+| `credentialMatches`                     | Function  | SEC-008: constant-time comparison of a presented credential against the required one                                |
+| `bearerCredential`                      | Function  | SEC-008: extract a bearer credential from an `Authorization` header value                                           |
 | `createWsHandler`                       | function  |
 | `IWsHandlerOptions`                     | interface |
-| `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                   |
-| `isOverPendingBudget`                   | function  | ARCH-030: is a carrier holding more than the budget allows — `undefined` is never over     |
-| `DEFAULT_MAX_PENDING_BYTES`             | constant  | ARCH-030: the outbound backpressure budget, in carrier-pending bytes                       |
-| `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`        |
-| `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary         |
-| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                      |
-| `TProtocolSessionEventClassification`   | type      | The classification vocabulary the constant is keyed by                                     |
+| `createOutboundDelivery`                | function  | ARCH-030: the ONLY producer of a connection's outbound delivery boundary                                            |
+| `isOverPendingBudget`                   | function  | ARCH-030: is a carrier holding more than the budget allows — `undefined` is never over                              |
+| `DEFAULT_MAX_PENDING_BYTES`             | constant  | ARCH-030: the outbound backpressure budget, in carrier-pending bytes                                                |
+| `createPendingStallClock`               | function  | issue #2306: the drain-time clock a boundary consults — starts non-empty, resets only at zero                       |
+| `IPendingStallClock`                    | interface | issue #2306: `observe(pending)` → stalled ms when over the drain budget, else `undefined`                           |
+| `DEFAULT_MAX_PENDING_MS`                | constant  | issue #2306: the outbound drain budget, in ms a carrier may stay continuously non-empty (120 s)                     |
+| `TOutboundDeliver`                      | type      | ARCH-030: the branded boundary a carrier passes down as `IWsHandlerOptions.deliver`                                 |
+| `TDeliveryErrorHandler`                 | type      | ARCH-030: a carrier's failure policy — required, invoked at most once per boundary                                  |
+| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | Exhaustive protocol surface policy for every shared session-event key                                               |
+| `TProtocolSessionEventClassification`   | type      | The classification vocabulary the constant is keyed by                                                              |
 | `TClientMessage`                        | type      |
 | `TServerMessage`                        | type      |
 | `TSeqServerMessage`                     | type      |
@@ -199,6 +211,11 @@ once and the carriers stay dumb.
 | `isChannelFrame`                        | function  |
 | `CHANNEL_FRAME_MAGIC`                   | constant  |
 | `CHANNEL_FRAME_VERSION`                 | constant  |
+| `MAX_INBOUND_FRAME_BYTES`               | constant  | Serialized frames larger than this (4 MiB) are refused before any parse — a bounded inbound budget                  |
+| `decodeClientMessage`                   | function  | Total decode of a parsed client frame into `TClientMessage`; malformed input is a `reason`, never a cast or a throw |
+| `decodeServerMessage`                   | function  | Variant-level decode of a parsed server frame into `TServerMessage` (foreign-owned payloads stay records)           |
+| `decodeFrame`                           | function  | `raw string → JSON → owner decoder`, the one inbound path a carrier implements; enforces `MAX_INBOUND_FRAME_BYTES`  |
+| `TMessageDecodeResult`                  | type      | `{ ok: true, message } \| { ok: false, reason }` — the result every decoder above returns                           |
 
 ## Type Ownership
 

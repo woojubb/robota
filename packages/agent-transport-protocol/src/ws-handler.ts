@@ -12,6 +12,7 @@ import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './ws-background-messages.js';
+import { decodeClientMessage, decodeFrame } from './message-decoders.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
@@ -88,15 +89,13 @@ function createWsMessageHandler(
 
 /** Parse a client JSON frame; on invalid JSON it emits `protocol_error` and returns null. Exported for E4. */
 export function parseClientMessage(data: string, deliver: TOutboundDeliver): TClientMessage | null {
-  try {
-    return JSON.parse(data) as TClientMessage;
-  } catch {
-    // allow-fallback: a malformed client frame is answered on the wire with `protocol_error`, which is
-    // the protocol's stated response — not a swallowed failure. Nothing upstream can act on the parse
-    // error itself, and throwing here would take down the carrier's inbound listener.
-    deliver({ type: 'protocol_error', message: 'Invalid JSON' });
-    return null;
-  }
+  // Issue #2045: `raw string → owner decoder → typed message`. A malformed frame — invalid JSON OR
+  // valid JSON of an invalid shape — is answered on the wire with `protocol_error`, the protocol's
+  // stated response, rather than cast onward as a `TClientMessage` it never was.
+  const decoded = decodeFrame(data, decodeClientMessage);
+  if (decoded.ok) return decoded.message;
+  deliver({ type: 'protocol_error', message: decoded.reason });
+  return null;
 }
 
 /**

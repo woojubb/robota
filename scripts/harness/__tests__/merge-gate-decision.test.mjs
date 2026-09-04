@@ -54,6 +54,11 @@ function stubbedPath({
   ancestor = true,
   absentLocally = [],
   fetchFails = false,
+  // issue #2309: the base branch's LIVE tip, as `git ls-remote` answers it. Absent, the branch
+  // agrees with the API's `baseRefOid`; set, the two disagree and the hook must judge the branch.
+  liveBaseOid,
+  lsRemoteFails = false,
+  baseRefName = 'develop',
 }) {
   const dir = makeTemp('merge-gate-');
   scratch.push(dir);
@@ -80,6 +85,9 @@ function stubbedPath({
       ancestor,
       absentLocally,
       fetchFails,
+      liveBaseOid,
+      lsRemoteFails,
+      baseRefName,
     }),
   );
 
@@ -114,6 +122,13 @@ function stubbedPath({
       '  fs.writeFileSync(FIXTURE, JSON.stringify(f));',
       '  process.exit(0);',
       '}',
+      "// issue #2309: the hook reads the base branch's LIVE tip from the remote, not from the",
+      "// API's `baseRefOid`. `liveBaseOid` states the branch; absent, the branch agrees with the API.",
+      'if (sub === "ls-remote") {',
+      '  if (f.lsRemoteFails) { console.error("fatal: stub refused ls-remote"); process.exit(128); }',
+      '  console.log(`${f.liveBaseOid ?? f.baseOid}\\t${rest[rest.length - 1]}`);',
+      '  process.exit(0);',
+      '}',
       'if (sub === "merge-base" && rest[0] === "--is-ancestor") {',
       '  process.exit(f.ancestor === false ? 1 : 0);',
       '}',
@@ -124,7 +139,7 @@ function stubbedPath({
       '  // answering the same list for any pair would let a hook diffing the wrong commits pass.',
       '  if (!f.movedFiles) { console.error("fatal: bad object"); process.exit(128); }',
       '  const oids = rest.filter(isOid);',
-      '  if (oids.length !== 2 || oids[1] !== f.baseOid) process.exit(1);',
+      '  if (oids.length !== 2 || oids[1] !== (f.liveBaseOid ?? f.baseOid)) process.exit(1);',
       '  if (f.reviewedBase && oids[0] !== f.reviewedBase) process.exit(1);',
       '  const renames = rest.includes("-M");',
       '  const lines = [];',
@@ -202,7 +217,8 @@ function stubbedPath({
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(f.state); process.exit(0); }',
       'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
-      '  console.log(`${f.baseOid ?? ""} ${f.headOid ?? ""}`);',
+      '  // issue #2309: the base branch NAME rides along, so the hook can read the branch itself.',
+      '  console.log(`${f.baseOid ?? ""} ${f.headOid ?? ""} ${f.baseRefName ?? "develop"}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("--json commits")) { console.log(f.headAt ?? ""); process.exit(0); }',
@@ -816,6 +832,35 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
 
     expect(verdict.status, 'the interaction rule leaked onto the head').toBe(2);
     expect(verdict.output).toMatch(/head.*does not match/i);
+  });
+
+  it("judges the base by the branch's live tip, not GitHub's lagging baseRefOid (issue #2309)", () => {
+    // Measured on PR #2307: the verdict's REVIEWED BASE matched `baseRefOid` exactly, both 1542 s
+    // behind origin/develop, and the gate passed a review of a base that had moved over another
+    // commit. Here the API still reports the reviewed base — identity would pass — while the
+    // branch has moved over a file the PR touches: the merge must be refused on the LIVE tip.
+    const verdict = judge(
+      world({ baseOid: MOVED_BASE, liveBaseOid: BASE_OID, movedFiles: [BRANCH_FILES[0]] }),
+    );
+
+    expect(verdict.status, 'a lagging baseRefOid that matched the verdict was accepted').toBe(2);
+    expect(verdict.output).toMatch(new RegExp(`origin/develop is at ${BASE_OID}`));
+    expect(verdict.output).toMatch(/moved over 1 of the 2 file\(s\)/);
+  });
+
+  it('accepts a live tip that moved disjointly, even though the API field still lags', () => {
+    const verdict = judge(world({ baseOid: MOVED_BASE, liveBaseOid: BASE_OID }));
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/base moved disjointly/);
+  });
+
+  it('refuses when the live base tip cannot be read, rather than trusting the API field', () => {
+    const verdict = judge(world({ lsRemoteFails: true }));
+
+    expect(verdict.status, 'an unreadable branch tip fell back to baseRefOid').toBe(2);
+    expect(verdict.output).toMatch(/live tip of origin\/develop/);
+    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
   });
 
   it('does not consult git or the file list at all when the bases are identical', () => {

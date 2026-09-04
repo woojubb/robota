@@ -31,8 +31,9 @@ import path from 'node:path';
 // array, and prettier reflows a long one onto several indented lines — which the hand-rolled per-line
 // regex this replaced read as '', blinding the read-only/edit-tool check entirely.
 import { asScalar, isBlank, splitFrontmatter } from './frontmatter.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
 const SKILLS_INDEX = path.join(WORKSPACE_ROOT, '.agents/skills/index.md');
 

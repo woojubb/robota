@@ -58,7 +58,10 @@ other fifteen could not honour an enforcing posture even if one were declared. T
 row's `enforcementReachable` field records, and what
 `scripts/harness/scan-hook-enforcement-reachable.mjs` refuses to let drift. A body
 whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
-`error` — the hook said so outright.
+`error` — the hook said so outright. Which directives count is scoped by event, and the decoder
+(`decodeHookVerdict`) and the runner apply the SAME scoping (issue #2196): `continue: false` on every
+event, `decision: "block"` only on `UserPromptSubmit`, `permissionDecision: "deny"` only on
+`PreToolUse`.
 
 ## Events
 

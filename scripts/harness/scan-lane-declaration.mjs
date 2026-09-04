@@ -60,8 +60,9 @@ import path from 'node:path';
 
 import { frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The rule that owns both tables this scan derives its criteria from. */
 export const RULE_FILE = '.agents/rules/spec-workflow.md';
@@ -651,9 +652,26 @@ function argValue(argv, flag) {
   return index === -1 ? undefined : argv[index + 1];
 }
 
+/**
+ * `maxBuffer` is raised well past Node's 1 MiB default: a full-branch `git diff` over a long-lived
+ * branch is routinely larger, and an overflow surfaces as `status: null` with EMPTY stderr — which
+ * this wrapper used to report as a bare "git diff failed: " nobody could act on. A spawn-level error
+ * is now named in `stderr` so the refusal says what actually happened.
+ */
+const GIT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
+
 function runGit(root, args) {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
-  return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: GIT_MAX_BUFFER_BYTES,
+  });
+  const stderr = result.stderr ?? '';
+  return {
+    code: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.error ? `${stderr}${stderr ? '\n' : ''}${result.error.message}` : stderr,
+  };
 }
 
 function resolveMergeBase(root, requested, env) {

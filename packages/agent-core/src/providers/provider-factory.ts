@@ -4,6 +4,7 @@ import {
   getProviderCredentialRequirement,
 } from '../interfaces/provider-definition.js';
 import { resolveEnvReference } from '../utils/env-ref.js';
+import { processEnvResolver, type TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
   IProviderDefinition,
@@ -22,6 +23,10 @@ import type { TUniversalValue } from '../interfaces/types.js';
  * {@link resolveEnvReference}. This resolver lives in `agent-core` (it imports only `agent-core` symbols)
  * so any consumer — including the `dag-node-llm-text` leaf, which depends on `agent-core` alone — reuses
  * the one credential-resolution path instead of re-reading `process.env` (ARCH-PROVIDER-003).
+ *
+ * #2347: the environment is INJECTED as `resolve`. This function is deterministic from its arguments
+ * and that resolver; it never reads `process.env` itself (guarded by the `provider-env-resolution`
+ * scan). The default is the host environment so composition roots need not pass one.
  */
 export function normalizeProviderConfig(
   settings: {
@@ -33,6 +38,7 @@ export function normalizeProviderConfig(
     options?: Record<string, TUniversalValue>;
   },
   providerDefinitions: readonly IProviderDefinition[],
+  resolve: TEnvResolver = processEnvResolver,
 ): IProviderDefinitionConfig {
   const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
   const model = settings.model ?? defaults.model;
@@ -44,7 +50,8 @@ export function normalizeProviderConfig(
   return {
     name: settings.name,
     model,
-    apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
+    apiKey:
+      apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference, resolve) : undefined,
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
     ...(options !== undefined && { options }),

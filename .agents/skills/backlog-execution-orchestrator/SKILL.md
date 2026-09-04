@@ -96,12 +96,12 @@ ran; enter here. Cut the branch from a base that contains the preceding PR's mer
 `backlog-pipeline` for GATE-IMPLEMENT (continuation), and commit the guardian's entry alone with the
 pair as the branch's first commit — the continuation checkpoint. Then Phase 3.
 
-| Outcome                              | Route                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| PASS committed as exact checkpoint   | Advance to Phase 3.                                                                                                       |
-| `FAIL`                               | Correct only the planning artifacts the guardian named, then re-run GATE-IMPLEMENT; do not implement.                     |
-| `NON-COMPLIANCE`                     | **Terminate.** Report the implementation or retrospective-PLAN path that crossed the gate.                                |
-| PASS exists only in the working tree | **Terminate.** A mutable PASS is not the ancestor Phase 3 requires; commit the exact planning checkpoint before resuming. |
+| Outcome                              | Route                                                                                                                                                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PASS committed as exact checkpoint   | Advance to Phase 3.                                                                                                                                                                                                            |
+| `FAIL`                               | A bounded gate-FAIL correction (`backlog-execution.md` § "Validated recommendations and bounded gate-FAIL corrections"): correct only the planning artifacts the guardian named, then re-run GATE-IMPLEMENT; do not implement. |
+| `NON-COMPLIANCE`                     | **Terminate.** Report the implementation or retrospective-PLAN path that crossed the gate.                                                                                                                                     |
+| PASS exists only in the working tree | **Terminate.** A mutable PASS is not the ancestor Phase 3 requires; commit the exact planning checkpoint before resuming.                                                                                                      |
 
 ### Phase 3 — Implementation
 

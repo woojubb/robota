@@ -27,7 +27,7 @@ Two cross-cutting subdirectories:
 - `src/default/` — `createDefaultCommandModules` assembles all 25 standard command modules and returns `IDefaultCommandModulesResult` (`{ modules, unknownModuleNames }`, INFRA-032). Consumers pass `cwd`, explicit `contributionSources`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). Skills discovery consumes only those sources; it never reconstructs project reads from `cwd`. The allow-then-deny filtering is delegated to agent-framework's `selectCommandModules` (the single filter implementation — the local `applyModuleSelection` is a thin delegator, INFRA-032), and `unknownModuleNames` is computed via the framework's `findUnknownModuleNames(builtModuleNames, enabled, disabled)`: any `enabled`/`disabled` name that matched no built module (a short form like `editor` instead of `agent-command-editor`, or a typo) is returned as data — not silently dropped — so the CLI startup path can surface a non-fatal notice. `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
 - `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
-The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which signals to the session layer that this module must only be registered when an agent runtime is available.
+The `agent` and `schedule` command modules set `sessionRequirements: ['agent-runtime']`, a demand switch (CMD-008): composing either module makes the session layer enable the agent runtime; it is not a gate on the runtime being available beforehand.
 
 ## Dependencies
 
@@ -71,17 +71,17 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 ### Assembly helpers
 
-| Export                              | Kind     | Description                                                                                              |
-| ----------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `createDefaultCommandModules`       | function | Assembles all 28 standard command modules; returns `{ modules, unknownModuleNames }`                     |
-| `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                                      |
-| `IDefaultCommandModulesResult`      | type     | Return shape of `createDefaultCommandModules` (`modules` + INFRA-032 `unknownModuleNames`)               |
-| `createHandoffCommandModule`        | function | HANDOFF-001 (issue #1864) — the `/handoff` module: move this session to another machine                  |
-| `createHandoffCommandEntry`         | function | The `/handoff` command entry; `modelInvocable: false` — giving a session away is the operator's decision |
-| `HandoffCommandSource`              | class    | Command source exposing `/handoff`                                                                       |
-| `executeHandoffCommand`             | function | Runs `/handoff`: names what stays behind, asks, and always states where the session is now               |
-| `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure                   |
-| `reloadPluginCommandSource`         | function | Synchronously reloads plugin commands into a `CommandRegistry`                                           |
+| Export                              | Kind     | Description                                                                                                                                                                         |
+| ----------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createDefaultCommandModules`       | function | Assembles all 28 standard command modules; returns `{ modules, unknownModuleNames }`                                                                                                |
+| `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                                                                                                                 |
+| `IDefaultCommandModulesResult`      | type     | Return shape of `createDefaultCommandModules` (`modules` + INFRA-032 `unknownModuleNames`)                                                                                          |
+| `createHandoffCommandModule`        | function | HANDOFF-001 (issue #1864) — the `/handoff` module: move this session to another machine                                                                                             |
+| `createHandoffCommandEntry`         | function | The `/handoff` command entry; `modelInvocable: false` — giving a session away is the operator's decision                                                                            |
+| `HandoffCommandSource`              | class    | Command source exposing `/handoff`                                                                                                                                                  |
+| `executeHandoffCommand`             | function | Runs `/handoff`: names what stays behind, asks, and always states where the session is now                                                                                          |
+| `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure                                                                                              |
+| `reloadPluginCommandSource`         | function | Synchronously reloads plugin commands into a `CommandRegistry` from `~/.robota/plugins` and, when `cwd` is given, `<cwd>/.robota/plugins` (project scope wins by name; issue #2487) |
 
 ### Command module factories and sources
 

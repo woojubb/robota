@@ -71,29 +71,34 @@ Types imported from `@robota-sdk/dag-core` (not owned):
 
 ## Public API Surface
 
-| Export                             | Kind           | Description                                                                                                 |
-| ---------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------- |
-| `AbstractNodeDefinition<TSchema>`  | Abstract class | Base class for all node implementations; parses config via Zod, delegates to `*WithConfig` template methods |
-| `NodeIoAccessor`                   | Class          | Typed accessor for reading input values and building output payloads within node execution                  |
-| `RegisteredNodeLifecycle`          | Class          | Wraps an `INodeTaskHandler` into a full `INodeLifecycle` with base port validation                          |
-| `StaticNodeLifecycleFactory`       | Class          | Creates `INodeLifecycle` instances from a static handler registry                                           |
-| `StaticNodeTaskHandlerRegistry`    | Class          | In-memory registry of `INodeTaskHandler` by node type                                                       |
-| `StaticNodeManifestRegistry`       | Class          | In-memory registry of `INodeManifest` by node type                                                          |
-| `MediaReference`                   | Value object   | Immutable media reference with factory methods and conversion helpers                                       |
-| `MediaReferenceSchema`             | Zod schema     | Zod validation schema for media reference config                                                            |
-| `createMediaReferenceConfigSchema` | Function       | Creates a Zod schema wrapping `MediaReferenceSchema` under an `asset` key                                   |
-| `parseBinaryValue`                 | Function       | Parses and validates a raw port value as a binary payload                                                   |
-| `createBinaryPortDefinition`       | Function       | Creates an `IPortDefinition` for binary ports using a preset                                                |
-| `BINARY_PORT_PRESETS`              | Constant       | Predefined binary port presets (IMAGE_PNG, IMAGE_COMMON, VIDEO_MP4, etc.)                                   |
-| `buildNodeDefinitionAssembly`      | Function       | Builds manifests and handler registry from an array of `IDagNodeDefinition`                                 |
-| `buildConfigSchema`                | Function       | Converts a Zod schema to JSON Schema 7 for node config                                                      |
-| `createStaticNodeLifecycleFactory` | Function       | Factory function that creates a `StaticNodeLifecycleFactory` from a handler map                             |
-| `defineDagNode`                    | Function       | Declarative helper that builds a node definition from options without subclassing `AbstractNodeDefinition`  |
-| `DefineDagNodeOptions`             | Interface      | Options accepted by `defineDagNode`                                                                         |
-| `IMediaReferenceCandidate`         | Interface      | Loosely-typed input for creating a `MediaReference`                                                         |
-| `IParsedBinaryValue`               | Interface      | Validated binary port value with kind, MIME type, and URI                                                   |
-| `IBinaryPortPreset`                | Interface      | Pre-configured binary kind and MIME type combination                                                        |
-| `IBinaryPortDefinitionInput`       | Interface      | Input for the `createBinaryPortDefinition` factory                                                          |
+| Export                             | Kind           | Description                                                                                                                                                |
+| ---------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AbstractNodeDefinition<TSchema>`  | Abstract class | Base class for all node implementations; parses config via Zod, delegates to `*WithConfig` template methods                                                |
+| `NodeIoAccessor`                   | Class          | Typed accessor for reading input values and building output payloads within node execution                                                                 |
+| `RegisteredNodeLifecycle`          | Class          | Wraps an `INodeTaskHandler` into a full `INodeLifecycle` with base port validation                                                                         |
+| `StaticNodeLifecycleFactory`       | Class          | Creates `INodeLifecycle` instances from a static handler registry                                                                                          |
+| `StaticNodeTaskHandlerRegistry`    | Class          | In-memory registry of `INodeTaskHandler` by node type                                                                                                      |
+| `StaticNodeManifestRegistry`       | Class          | In-memory registry of `INodeManifest` by node type                                                                                                         |
+| `MediaReference`                   | Value object   | Immutable media reference with factory methods and conversion helpers                                                                                      |
+| `MediaReferenceSchema`             | Zod schema     | Zod validation schema for media reference config                                                                                                           |
+| `normalizeProviderMediaOutput`     | Function       | issue #2168: provider-neutral projection of a provider media output onto `IPortBinaryValue` under a node policy                                            |
+| `IProviderMediaOutputPolicy`       | Interface      | issue #2168: node-specific kind / MIME family / default MIME / data-URI policy for `normalizeProviderMediaOutput`                                          |
+| `TProviderMediaOutputRejection`    | Type           | issue #2168: rejection reason the leaf decorates into its own DAG error code                                                                               |
+| `createMediaReferenceConfigSchema` | Function       | Creates a Zod schema wrapping `MediaReferenceSchema` under an `asset` key                                                                                  |
+| `parseBinaryValue`                 | Function       | Parses and validates a raw port value as a binary payload                                                                                                  |
+| `createBinaryPortDefinition`       | Function       | Creates an `IPortDefinition` for binary ports using a preset                                                                                               |
+| `BINARY_PORT_PRESETS`              | Constant       | Predefined binary port presets (IMAGE_PNG, IMAGE_COMMON, VIDEO_MP4, etc.)                                                                                  |
+| `buildNodeDefinitionAssembly`      | Function       | Builds manifests and handler registry from an array of `IDagNodeDefinition`                                                                                |
+| `buildConfigSchema`                | Function       | Converts a Zod schema to JSON Schema 7 for node config                                                                                                     |
+| `createStaticNodeLifecycleFactory` | Function       | Factory function that creates a `StaticNodeLifecycleFactory` from a handler map                                                                            |
+| `defineDagNode`                    | Function       | Declarative helper that builds a node definition from options without subclassing `AbstractNodeDefinition`                                                 |
+| `DefineDagNodeOptions`             | Interface      | Options accepted by `defineDagNode`                                                                                                                        |
+| `IMediaReferenceCandidate`         | Interface      | Loosely-typed input for creating a `MediaReference`                                                                                                        |
+| `IParsedBinaryValue`               | Interface      | Validated binary port value with kind, MIME type, and URI                                                                                                  |
+| `IBinaryPortPreset`                | Interface      | Pre-configured binary kind and MIME type combination                                                                                                       |
+| `IBinaryPortDefinitionInput`       | Interface      | Input for the `createBinaryPortDefinition` factory                                                                                                         |
+| `IProviderMediaOutputCandidate`    | Interface      | Structural view of a provider media output reference (`kind: 'asset' \| 'uri'`, `assetId?`, …); `IMediaOutputRef` (agent-core) satisfies it                |
+| `TProviderMediaOutputResult`       | Type           | `{ ok: true, value: IPortBinaryValue } \| { ok: false, rejection: TProviderMediaOutputRejection }` — the total result of resolving a provider media output |
 
 ## Extension Points
 

@@ -35,8 +35,9 @@ import path from 'node:path';
 import { TOKEN_PATTERN, listWorkspacePackageNames } from './check-workspace-refs.mjs';
 import { ABSENCE_VOCABULARY } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 // Bare `packages/<name>` first-segment directory token. The leading lookbehind rejects
 // mid-prose enumerations like "paths/packages/tokens" (where `packages` is preceded by a

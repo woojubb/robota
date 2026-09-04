@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { resolveProfileApiKey, createProviderFromProfile } from './provider-factory.js';
 // ARCH-111: these two are `agent-core`'s, and this file names their owner like every other consumer.
 // Importing them from the module under test was how the duplicate surface stayed reachable.
-import { normalizeProviderConfig, createProviderFromConfig } from '@robota-sdk/agent-core';
+import {
+  normalizeProviderConfig,
+  createProviderFromConfig,
+  createRecordEnvResolver,
+} from '@robota-sdk/agent-core';
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 
@@ -174,5 +178,52 @@ describe('createProviderFromProfile', () => {
     };
     const result = createProviderFromProfile(profile, undefined, stubDefs);
     expect(result).toBeDefined();
+  });
+});
+
+describe('#2347: both profile branches resolve through the injected resolver', () => {
+  const resolve = createRecordEnvResolver({ INJECTED_KEY: 'from-injected-resolver' });
+
+  it('resolves an $ENV: apiKey reference through the resolver, not the process environment', () => {
+    expect(process.env.INJECTED_KEY).toBeUndefined();
+    expect(
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKey: '$ENV:INJECTED_KEY' },
+        resolve,
+      ),
+    ).toBe('from-injected-resolver');
+  });
+
+  it('resolves an apiKeyEnv name through the SAME resolver', () => {
+    expect(
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'INJECTED_KEY' },
+        resolve,
+      ),
+    ).toBe('from-injected-resolver');
+    expect(
+      resolveProfileApiKey(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'MISSING' },
+        resolve,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('createProviderFromProfile hands the resolver to normalization', () => {
+    const provider = createProviderFromProfile(
+      { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'INJECTED_KEY' },
+      undefined,
+      stubDefs,
+      resolve,
+    );
+    expect(provider).toBeDefined();
+    expect(() =>
+      createProviderFromProfile(
+        { type: 'anthropic', model: 'claude-3-sonnet', apiKeyEnv: 'MISSING' },
+        undefined,
+        stubDefs,
+        resolve,
+      ),
+    ).toThrow(/requires apiKey/);
   });
 });

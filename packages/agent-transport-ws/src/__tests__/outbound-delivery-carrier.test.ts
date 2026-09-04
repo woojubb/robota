@@ -12,7 +12,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { WsSessionDelivery } from '../ws-session-delivery.js';
-import { DEFAULT_MAX_PENDING_BYTES } from '@robota-sdk/agent-transport-protocol';
+import {
+  DEFAULT_MAX_PENDING_BYTES,
+  DEFAULT_MAX_PENDING_MS,
+} from '@robota-sdk/agent-transport-protocol';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
@@ -123,6 +126,29 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
     delivery.deliver({ type: 'protocol_error', message: 'third' });
 
     expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('#2306: one drain clock governs both halves of the socket', () => {
+  it('a peer under the byte budget that never drains is closed, from either half', () => {
+    vi.useFakeTimers();
+    try {
+      const { socket, setBuffered } = createControllableSocket();
+      const delivery = new WsSessionDelivery(socket);
+
+      setBuffered(1_048_576); // 1 MiB: far under 8 MiB, and it never reaches zero
+      delivery.deliverBinary(new Uint8Array([1])); // the clock starts on the binary half
+      expect(socket.send).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(DEFAULT_MAX_PENDING_MS + 1);
+      setBuffered(1_048_000);
+      delivery.deliver({ type: 'protocol_error', message: 'judged on the text half' });
+
+      expect(socket.send).toHaveBeenCalledTimes(1); // not sent
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

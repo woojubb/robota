@@ -163,7 +163,48 @@ describe('executeScheduleCommand — management subcommands (SELFHOST-012)', () 
     expect(editSchedule).toHaveBeenCalledWith('sched_1', {
       cronExpression: '*/5 * * * *',
       agentInstruction: 'ping',
+      label: 'Scheduled: ping',
     });
+  });
+
+  // CMD-009: create → edit → list must render the EDITED instruction. The host double applies the
+  // patch the way `BackgroundTaskManager.editScheduledTask` does (pinned in agent-executor), so a
+  // command that omits `label` from the patch leaves the list showing the creation-time text.
+  it('list renders the edited instruction, not the one captured at creation (CMD-009)', async () => {
+    const schedules: Array<Record<string, unknown>> = [];
+    const host = createTestAgentJobHost({
+      spawnScheduledWake: vi.fn().mockImplementation((input: Record<string, unknown>) => {
+        const task = {
+          id: 'sched_x',
+          status: 'sleeping',
+          kind: 'scheduled',
+          label: input['label'],
+          schedule: {
+            cronExpression: input['cronExpression'],
+            agentInstruction: input['agentInstruction'],
+          },
+        };
+        schedules.push(task);
+        return Promise.resolve(task);
+      }),
+      listSchedules: vi.fn().mockImplementation(() => schedules),
+      editSchedule: vi.fn().mockImplementation((id: string, patch: Record<string, unknown>) => {
+        const { label, ...schedulePatch } = patch;
+        const task = schedules.find((s) => s['id'] === id);
+        if (task === undefined) throw new Error(`no schedule ${id}`);
+        task['schedule'] = { ...(task['schedule'] as Record<string, unknown>), ...schedulePatch };
+        if (label !== undefined) task['label'] = label;
+        return Promise.resolve();
+      }),
+    });
+
+    await executeScheduleCommand(host, 'cron "0 9 * * *" write the standup', 0);
+    await executeScheduleCommand(host, 'edit sched_x cron "0 10 * * *" file the report', 0);
+    const listed = await executeScheduleCommand(host, 'list', 0);
+
+    expect(listed.message).toContain('file the report');
+    expect(listed.message).not.toContain('write the standup');
+    expect(listed.message).toContain('0 10 * * *');
   });
 
   it('pause/resume/edit without an id is a usage error (no host call)', async () => {

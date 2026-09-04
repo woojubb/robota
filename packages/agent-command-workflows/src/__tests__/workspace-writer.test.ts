@@ -81,50 +81,61 @@ afterEach(async () => {
 });
 
 describe('DATA-003 saveInstantNodeFile', () => {
-  it('persists a prompt node and reloads it via the owner round-trip', async () => {
-    const node = createPromptBackedNodeDefinition({
-      nodeType: 'pirate',
-      displayName: 'Pirate',
-      systemPromptTemplate: 'Rewrite: {{text}}',
-      inputPorts: [{ key: 'text' }],
-      outputPort: { key: 'text' },
-      provider: 'anthropic',
-    });
-    const path = await saveInstantNodeFile(dir, node, AT);
-    expect(path).toContain('pirate.node.json');
-    await expect(stat(join(dir, path as string))).resolves.toBeDefined();
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'persists a prompt node and reloads it via the owner round-trip',
+    async () => {
+      const node = createPromptBackedNodeDefinition({
+        nodeType: 'pirate',
+        displayName: 'Pirate',
+        systemPromptTemplate: 'Rewrite: {{text}}',
+        inputPorts: [{ key: 'text' }],
+        outputPort: { key: 'text' },
+        provider: 'anthropic',
+      });
+      const path = await saveInstantNodeFile(dir, node, AT);
+      expect(path).toContain('pirate.node.json');
+      await expect(stat(join(dir, path as string))).resolves.toBeDefined();
 
-    const reloaded = await loadInstantNodes(dir);
-    expect(reloaded.map((n) => n.nodeType)).toContain('pirate');
-  });
+      const reloaded = await loadInstantNodes(dir);
+      expect(reloaded.map((n) => n.nodeType)).toContain('pirate');
+    },
+  );
 
-  it('WORKFLOW-005 P2: persists a composite node, then reloads AND runs it (no drop)', async () => {
-    const composite = createCompositeInstantNodeDefinition({
-      nodeType: 'echo-composite',
-      displayName: 'Echo Composite',
-      innerDag: INNER_DAG,
-      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'echo', portKey: 'text' } },
-      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'echo', portKey: 'text' } }],
-      runner: RUNNER,
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'WORKFLOW-005 P2: persists a composite node, then reloads AND runs it (no drop)',
+    async () => {
+      const composite = createCompositeInstantNodeDefinition({
+        nodeType: 'echo-composite',
+        displayName: 'Echo Composite',
+        innerDag: INNER_DAG,
+        exposedInputPort: { key: 'text', mapsTo: { nodeId: 'echo', portKey: 'text' } },
+        exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'echo', portKey: 'text' } }],
+        runner: RUNNER,
+      });
 
-    // 1. Persist the composite (no longer refused) → a manifest is written.
-    const path = await saveInstantNodeFile(dir, composite, AT);
-    expect(path).toContain('echo-composite.node.json');
-    await expect(stat(join(dir, path as string))).resolves.toBeDefined();
+      // 1. Persist the composite (no longer refused) → a manifest is written.
+      const path = await saveInstantNodeFile(dir, composite, AT);
+      expect(path).toContain('echo-composite.node.json');
+      await expect(stat(join(dir, path as string))).resolves.toBeDefined();
 
-    // 2. Simulate restart: a fresh load reconstructs the composite (with an injected sub-runner).
-    const reloaded = await loadInstantNodes(dir);
-    const node = reloaded.find((n) => n.nodeType === 'echo-composite');
-    expect(node, 'composite must survive reload (not be dropped)').toBeDefined();
+      // 2. Simulate restart: a fresh load reconstructs the composite (with an injected sub-runner).
+      const reloaded = await loadInstantNodes(dir);
+      const node = reloaded.find((n) => n.nodeType === 'echo-composite');
+      expect(node, 'composite must survive reload (not be dropped)').toBeDefined();
 
-    // 3. The reloaded composite RUNS its inner DAG for real and flows its exposed output out.
-    const runResult = await node!.taskHandler.execute({ text: 'trigger' }, makeExecContext(node!));
-    expect(runResult.ok).toBe(true);
-    if (runResult.ok) {
-      expect(runResult.value['result']).toBe('from-inner-dag');
-    }
-  });
+      // 3. The reloaded composite RUNS its inner DAG for real and flows its exposed output out.
+      const runResult = await node!.taskHandler.execute(
+        { text: 'trigger' },
+        makeExecContext(node!),
+      );
+      expect(runResult.ok).toBe(true);
+      if (runResult.ok) {
+        expect(runResult.value['result']).toBe('from-inner-dag');
+      }
+    },
+  );
 
   it('skips a non-instant (built-in) node', async () => {
     const notInstant = { nodeType: 'plain' } as unknown as Parameters<

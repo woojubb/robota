@@ -9,12 +9,13 @@
  * It always resolves the caller's `onAnswer` with a `TActionResponse` (answer or cancelled).
  */
 
-import { Box, Text } from 'ink';
+import { Box } from 'ink';
 import React, { useState } from 'react';
 
 import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
 import MultiSelectList from './MultiSelectList.js';
+import { Text } from './SafeText.js';
 import TextPrompt from './TextPrompt.js';
 import { PALETTE } from './tui-palette.js';
 

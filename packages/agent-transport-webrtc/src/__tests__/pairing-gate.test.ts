@@ -92,6 +92,21 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     expect(() => gate.onInbound('not json')).not.toThrow();
   });
 
+  it.each([
+    ['an empty mac', { t: 'pair-confirm', mac: '' }],
+    ['a numeric nonce', { t: 'pair-nonce', nonce: 7 }],
+    ['a padded (non-base64url) mac', { t: 'pair-confirm', mac: 'bWFj==' }],
+    ['a mac over the ceiling', { t: 'pair-confirm', mac: 'A'.repeat(129) }],
+  ])(
+    'issue #2046: a pairing frame with the right discriminator but %s never reaches the handshake',
+    (_label, frame) => {
+      // Against the old discriminator-only predicate every one of these was handed to the controller.
+      const { gate, hs } = makeGate();
+      gate.onInbound(JSON.stringify(frame));
+      expect(hs.received).toEqual([]);
+    },
+  );
+
   it('on ACCEPT: builds the session bridge and routes subsequent frames to it', async () => {
     const { gate, hs, sessionOnMessage } = makeGate();
     hs.accept();

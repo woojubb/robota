@@ -37,10 +37,10 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-import { resolveGitBaseRef } from './shared.mjs';
+import { resolveGitBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import { findUnlinkedRecords, linkCoverage } from './task-record-issue-link.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_PREFIX = '.agents/tasks/';
 
 /**

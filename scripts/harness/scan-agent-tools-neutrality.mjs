@@ -23,8 +23,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const PKG = path.join(WORKSPACE_ROOT, 'packages/agent-tools/package.json');
 
 /**

@@ -45,6 +45,14 @@ verify the git graph directly.
    projection in either direction. Acknowledgement is consumed only through the required `review-gate`;
    it is never a blanket bypass, and the verifier does not independently reinterpret a label as permission
    to ignore a current required failure.
+   **Post-merge re-runs are not the merge's CI.** A PR body/title edit AFTER `mergedAt` re-dispatches the
+   `pull_request` workflows against the closed PR (`edited` is subscribed for base retargets); the jobs
+   that cannot decide anything on a merged PR now skip, but any run whose `startedAt` is later than
+   `mergedAt` is a post-merge artifact either way (issue #2424). When a required check reads red or
+   skipped, compare its run's `createdAt` with `mergedAt`
+   (`gh run list --commit <headRefOid> --json name,conclusion,createdAt,event`): judge the merge on
+   the attempts that completed BEFORE `mergedAt`, and report a post-merge `edited` re-run as a finding
+   about the workflow, not about the landing.
 5. **No unrelated drift.** The merge did not sweep in unexpected commits or files beyond the PR's stated
    scope (compare the PR's file list / diffstat to what actually landed). Flag surprises — this catches
    the "branched off the wrong base and swept in old commits" class of error.

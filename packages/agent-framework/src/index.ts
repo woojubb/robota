@@ -103,6 +103,7 @@ export {
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export type { ICommandCostBudget, ICommandCostBudgetAdapter } from './command-api/index.js';
 export {
   loadOrgPolicy,
   formatOrgPolicyViolationMessage,
@@ -431,6 +432,7 @@ export {
   NodeHostPluginSettingsStore,
   BundlePluginLoader,
   createHostBundlePluginLoader,
+  loadHostBundlePluginsFromScopes,
 } from './plugins/index.js';
 export type { IHostBundlePluginLoaderOptions } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
@@ -468,6 +470,7 @@ export {
 export type {
   ISubagentPromptOptions,
   ISubagentOptions,
+  ISubagentParentContext,
   TSubagentSuffix,
 } from './assembly/index.js';
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
@@ -497,7 +500,7 @@ export type {
 // The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
 // about a public surface at any count. It is the return type of a factory that is no longer public,
 // so it describes nothing a consumer can obtain.
-export type { ICreateSessionOptions } from './assembly/index.js';
+export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';
@@ -652,7 +655,9 @@ export { createInteractiveRuntime } from './interaction/createInteractiveRuntime
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';
 
 // ── Permissions ─────────────────────────────────────────────
-export { promptForApproval } from './permissions/permission-prompt.js';
+// Issue #2351: `consentScopeFor` is what "allow always" grants, so every prompt surface prints the
+// same scope — the framework's own facade over agent-session's rule (see permission-prompt.ts).
+export { consentScopeFor, promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 // Test-only fixtures (the functional session harness + stub session) are exported from the
@@ -686,6 +691,7 @@ export {
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
+export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 

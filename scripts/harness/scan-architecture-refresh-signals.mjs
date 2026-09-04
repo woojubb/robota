@@ -16,16 +16,25 @@ import path from 'node:path';
 
 import {
   ARCHITECTURE_REFRESH_ARRAY_FIELDS,
+  REFRESH_CHECKPOINT_TERMINALS,
+  REFRESH_PHASE_ORDER,
   architectureExpectationError,
   normalizeArchitectureRefreshMetadata,
+  refreshPhaseIndex,
 } from './architecture-refresh-record.mjs';
 import { idOf } from './check-backlog-placement.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { readLedger, readLoopDeclaration } from './loop-run.mjs';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const GOVERNED = new Set(['architecture-audit-fanout', 'architecture-refresh']);
 const DIMENSIONS = ['structure', 'design', 'runtime', 'gate'];
+const LEGACY_BASELINE = 'scripts/harness/architecture-refresh-legacy-baseline.json';
+/** From `depth` on the protocol runs per finding, so the three routing phases interleave. */
+const ROUTING_TIER_INDEX = refreshPhaseIndex('depth');
+const LAST_PHASE_INDEX = REFRESH_PHASE_ORDER.length - 1;
+const FULL_POLICY = Object.freeze({ waived: () => false, beyond: () => false });
 
 let examinedRuns = 0;
 
@@ -468,15 +477,108 @@ function validateSynthCounts(stage, findings, at, round) {
   }
 }
 
+/** Runs sealed `abandoned` before checkpoints existed (issue #2170); a sealed record is not amended. */
+function legacyUncheckpointedRuns(root) {
+  const file = path.join(root, LEGACY_BASELINE);
+  if (!existsSync(file)) return new Set();
+  return new Set(JSON.parse(readFileSync(file, 'utf8')).uncheckpointedAbandonedRuns ?? []);
+}
+
+/** The protocol phases a round carries ANY evidence for — expectations, observations or metadata. */
+function evidencePhases(metadata, expectations, observations, round) {
+  const phases = new Set();
+  for (const item of [...expectations, ...observations]) {
+    if (refreshPhaseIndex(item.phase) !== null) phases.add(item.phase);
+  }
+  const byField = {
+    nestedRuns: 'conformance',
+    draftFindings: 'synthesize-draft',
+    verificationPassThroughIds: 'verify',
+    finalFindings: 'synthesize-final',
+    foundationalIds: 'depth',
+    reconciliationRoutes: 'reconcile',
+    dispositions: 'disposition',
+  };
+  for (const [field, phase] of Object.entries(byField)) {
+    if (values(metadata, field, round).length > 0) phases.add(phase);
+  }
+  return phases;
+}
+
+/**
+ * Issue #2170 — which phases of `round` may be PARTIAL, and which may carry no evidence at all.
+ *
+ * Bound to the recorded checkpoint (the last phase the run completed), never to the terminal string:
+ *   - phases at or before the checkpoint are validated exactly;
+ *   - the phase after it was in progress and may be partial — and once the routing tier is reached,
+ *     depth / reconcile / disposition may all be partial together, because they run per finding;
+ *   - any phase beyond that carries evidence the checkpoint says cannot exist → finding;
+ *   - a later round than the checkpoint's carrying evidence → finding.
+ * An `abandoned` run with no checkpoint waives NOTHING (fail closed), except the sealed legacy runs
+ * listed in the baseline, whose boundary is derived from their furthest evidence.
+ */
+function partialPolicy(root, run, metadata, round, expectations, observations, at) {
+  const present = evidencePhases(metadata, expectations, observations, round);
+  const policyFrom = (completedIndex) => {
+    const inProgress = completedIndex + 1;
+    const limit = inProgress >= ROUTING_TIER_INDEX ? LAST_PHASE_INDEX : inProgress;
+    return {
+      waived: (phase) => refreshPhaseIndex(phase) > completedIndex,
+      beyond: (phase) => refreshPhaseIndex(phase) > limit,
+    };
+  };
+  const checkpoint = metadata.checkpoint;
+  if (checkpoint !== null && checkpoint !== undefined) {
+    const index = refreshPhaseIndex(checkpoint.phase);
+    if (index === null) {
+      at(`checkpoint names an unknown phase ${checkpoint.phase}`);
+      return FULL_POLICY;
+    }
+    if (run.terminal !== null && !REFRESH_CHECKPOINT_TERMINALS.includes(run.terminal)) {
+      at(
+        `checkpoint ${checkpoint.phase} is recorded on a run closed \`${run.terminal}\`, which claims a completed loop`,
+      );
+      return FULL_POLICY;
+    }
+    if (round < checkpoint.round) return FULL_POLICY;
+    if (round > checkpoint.round) {
+      if (present.size > 0) {
+        at(
+          `round ${round} carries ${[...present].sort().join(', ')} evidence beyond checkpoint round ${checkpoint.round}`,
+        );
+      }
+      return { waived: () => true, beyond: () => true };
+    }
+    const policy = policyFrom(index);
+    for (const phase of [...present].sort()) {
+      if (policy.beyond(phase)) {
+        at(
+          `round ${round} carries ${phase} evidence beyond checkpoint ${checkpoint.phase}; a run interrupted there cannot have continued`,
+        );
+      }
+    }
+    return policy;
+  }
+  if (run.terminal !== 'abandoned') return FULL_POLICY;
+  if (!legacyUncheckpointedRuns(root).has(run.runId)) {
+    at(
+      'abandoned run records no checkpoint, so nothing is waived — record `loop-run checkpoint --phase <last completed phase>` before closing abandoned',
+    );
+    return FULL_POLICY;
+  }
+  const furthest = Math.max(-1, ...[...present].map((phase) => refreshPhaseIndex(phase)));
+  return policyFrom(Math.min(furthest - 1, ROUTING_TIER_INDEX - 1));
+}
+
 function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
   // Contained — INFRA-133. Aggregate source signals cannot prove that raw finding identities survive
   // draft synthesis; the root item owns the identity/provenance contract instead of a count-only patch.
   const expectations = values(metadata, 'signalExpectations', round);
   const observations = values(metadata, 'signalObservations', round);
   const nested = values(metadata, 'nestedRuns', round);
-  const allowPartial = run.terminal === 'abandoned';
+  const { waived } = partialPolicy(root, run, metadata, round, expectations, observations, at);
   if (nested.length !== 1) {
-    if (!allowPartial)
+    if (!waived('conformance'))
       at(`round ${round} requires exactly one nested fanout link, found ${nested.length}`);
   } else if (!fanoutRuns.has(nested[0].runId)) {
     at(`round ${round} nested run ${nested[0].runId} does not exist`);
@@ -490,7 +592,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
       item.agent === 'architecture-conformance-auditor' &&
       item.token === 'ACTIONABLE FINDINGS',
   );
-  if (conformance.length !== 1 && !allowPartial) {
+  if (conformance.length !== 1 && !waived('conformance')) {
     at(`round ${round} requires exactly one conformance expectation, found ${conformance.length}`);
   }
 
@@ -560,7 +662,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
 
   const drafts = synths.filter((item) => item.stage === 'draft');
   if (drafts.length !== 1) {
-    if (!allowPartial)
+    if (!waived('synthesize-draft'))
       at(`round ${round} requires exactly one draft SYNTH, found ${drafts.length}`);
     return;
   }
@@ -596,7 +698,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
     return;
   }
   if (finals.length !== 1) {
-    if (!allowPartial)
+    if (!waived('synthesize-final'))
       at(`round ${round} material draft requires one final SYNTH, found ${finals.length}`);
     return;
   }
@@ -611,7 +713,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
   if (
     routed.size !== verifyExpected.length + passThrough.length ||
     invalidPartialRoute ||
-    (!allowPartial && !sameSet(routed, draftIds))
+    (!waived('verify') && !sameSet(routed, draftIds))
   ) {
     at(`round ${round} verifier/pass-through IDs do not equal the draft material ID set`);
   }
@@ -686,7 +788,8 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
     [...observedDepthIds].some((id) => !depthExpected.has(id));
   if (
     invalidPartialDepth ||
-    (!allowPartial && (!sameSet(depthExpected, finalIds) || !sameSet(observedDepthIds, finalIds)))
+    (!waived('depth') &&
+      (!sameSet(depthExpected, finalIds) || !sameSet(observedDepthIds, finalIds)))
   ) {
     at(`round ${round} DEPTH identities do not equal the final material ID set`);
   }
@@ -706,7 +809,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
     [...observedReconcileIds].some((id) => !reconcileExpected.has(id));
   if (
     invalidPartialReconcile ||
-    (!allowPartial &&
+    (!waived('reconcile') &&
       (!sameSet(reconcileExpected, foundational) || !sameSet(observedReconcileIds, foundational)))
   ) {
     at(`round ${round} RECONCILE identities do not equal FOUNDATIONAL IDs`);
@@ -733,10 +836,18 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
       if (run.terminal !== 'halted-for-user') at(`round ${round} UNDETERMINED ${id} must halt`);
       continue;
     }
-    if (depth.outcome === 'LOCAL' && disposition?.outcome !== 'corrected' && !allowPartial) {
+    if (
+      depth.outcome === 'LOCAL' &&
+      disposition?.outcome !== 'corrected' &&
+      !waived('disposition')
+    ) {
       at(`round ${round} LOCAL ${id} must be corrected`);
     }
-    if (depth.outcome === 'INVALID' && disposition?.outcome !== 'invalid' && !allowPartial) {
+    if (
+      depth.outcome === 'INVALID' &&
+      disposition?.outcome !== 'invalid' &&
+      !waived('disposition')
+    ) {
       at(`round ${round} INVALID ${id} must be recorded invalid`);
     }
     if (depth.outcome === 'INVALID' && disposition?.outcome === 'invalid') {
@@ -752,7 +863,7 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
     }
     if (depth.outcome !== 'FOUNDATIONAL') continue;
     const reconcile = reconciles.get(id);
-    if (allowPartial && reconcile === undefined) continue;
+    if (waived('reconcile') && reconcile === undefined) continue;
     if (reconcile?.outcome === 'UNSURE') {
       const candidates = reconcile.target.split(',').filter(Boolean);
       if (
@@ -803,6 +914,10 @@ function validateRefreshRound(root, run, metadata, round, fanoutRuns, at) {
     if (disposition === undefined && run.terminal === 'halted-for-user') {
       continue;
     }
+    // Same waiver LOCAL and INVALID get above: the disposition phase was never reached. A checkpoint
+    // at `reconcile` is the audit-through-reconciliation shape — every finding judged and routed,
+    // nothing applied — and it waives containment and correction together, not one of them.
+    if (disposition === undefined && waived('disposition')) continue;
     if (disposition?.outcome !== 'contained') {
       at(`round ${round} FOUNDATIONAL ${id} must be contained or halt for re-plan`);
       continue;

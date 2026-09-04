@@ -3,7 +3,9 @@ import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headl
 import type { IHeadlessSession } from './headless-session.js';
 import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
 
-export type TOutputFormat = 'text' | 'json' | 'stream-json';
+/** Issue #2052: the ONE owner of the output-format vocabulary — type and runtime constant together. */
+export const OUTPUT_FORMATS = ['text', 'json', 'stream-json'] as const;
+export type TOutputFormat = (typeof OUTPUT_FORMATS)[number];
 
 /** RUNTIME-36: normalize a caught unknown into an Error for the error/exit-code handlers. */
 function toError(error: unknown): Error {

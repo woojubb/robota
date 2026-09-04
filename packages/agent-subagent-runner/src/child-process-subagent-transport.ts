@@ -1,3 +1,4 @@
+import { createBoundedOutput } from '@robota-sdk/agent-core';
 import {
   BackgroundTaskError,
   type ISubagentJobStart,
@@ -33,7 +34,7 @@ import type {
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
 } from './child-process-subagent-ipc.js';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { IBoundedOutput, TToolArgs } from '@robota-sdk/agent-core';
 import type { ChildProcess } from 'node:child_process';
 
 export interface IChildProcessRuntime {
@@ -47,25 +48,28 @@ export interface IChildProcessRuntime {
  * WHY. Bounded — a runaway child must not be able to grow the parent's memory through this.
  */
 const STDERR_TAIL_LIMIT = 4096;
-const stderrTails = new WeakMap<ChildProcess, string>();
+// ARCH-056: the shared bounded-output contract in tail mode, not a locally rediscovered slice.
+const stderrTails = new WeakMap<ChildProcess, IBoundedOutput>();
 
 /** Attach a bounded stderr reader. Without it a failed start reports only an exit code. */
 export function captureChildStderr(child: ChildProcess): void {
   const stream = child.stderr;
   if (!stream) return;
-  stream.setEncoding('utf8');
+  const tail = createBoundedOutput({
+    maxBytes: STDERR_TAIL_LIMIT,
+    retain: 'tail',
+    truncationMarker: () => '',
+  });
+  stderrTails.set(child, tail);
   // A stream error here is not the subagent's result; without a listener it would reach the
   // parent's `uncaughtException` handler.
   stream.on('error', () => {});
-  stream.on('data', (chunk: string) => {
-    const next = (stderrTails.get(child) ?? '') + chunk;
-    stderrTails.set(child, next.slice(-STDERR_TAIL_LIMIT));
-  });
+  stream.on('data', (chunk: Buffer) => tail.append(chunk));
 }
 
 /** What the child wrote to stderr, trimmed; empty when it wrote nothing. */
 export function readChildStderrTail(child: ChildProcess): string {
-  return (stderrTails.get(child) ?? '').trim();
+  return (stderrTails.get(child)?.toString() ?? '').trim();
 }
 
 export function handleWorkerMessage(

@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
+import { AUTO_GENERATED_CHURN } from '../verification-receipt-storage.mjs';
 import {
   formatCheckpointEvidence,
   parseCheckpointEvidenceContract,
@@ -1661,6 +1662,41 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, advanced)).toEqual([]);
   });
 
+  it('judges a merge by its own content: an evil merge before the checkpoint is refused, a clean two-hunk merge is not (issue #2410)', () => {
+    const backMerge = ({ evil }) => {
+      const { root } = repository({ taskInBase: true });
+      const seedTask = readOptional(root, TASK_PATH);
+      git(root, ['switch', '-q', 'develop']);
+      write(root, TASK_PATH, `${seedTask}\n\n\n\ndevelop note at the tail\n`);
+      commit(root, 'develop moves on (#2)');
+      const advanced = git(root, ['rev-parse', 'HEAD']);
+      git(root, ['update-ref', 'refs/remotes/origin/develop', advanced]);
+      git(root, ['switch', '-q', 'feature']);
+      write(root, TASK_PATH, seedTask.replace(`# ${TASK_ID}`, `# ${TASK_ID}\n\nfeature note`));
+      commit(root, 'planning prelude touching the Task head');
+      // Both sides changed one file at different hunks: Git merges it cleanly.
+      git(root, ['merge', '--no-ff', '--no-commit', '-q', advanced]);
+      if (evil) write(root, 'scripts/harness/evil.mjs', 'present in neither parent\n');
+      git(root, ['add', '-A']);
+      const staged = messages(findStagedFindings(root, advanced));
+      commit(root, 'merge develop into feature');
+      expect(git(root, ['rev-list', '--parents', '-n', '1', 'HEAD']).split(' ')).toHaveLength(3);
+      checkpoint(root);
+      write(root, 'scripts/harness/change.mjs', 'implementation\n');
+      commit(root, 'implementation');
+      return { staged, history: messages(findHistoryFindings(root, advanced)) };
+    };
+
+    const clean = backMerge({ evil: false });
+    expect(clean.staged).toBe('');
+    expect(clean.history).toBe('');
+
+    const evil = backMerge({ evil: true });
+    expect(evil.staged).toMatch(/no planning checkpoint ancestor/);
+    expect(evil.history).toContain('scripts/harness/evil.mjs');
+    expect(evil.history).not.toContain('README.md');
+  });
+
   it('accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)', () => {
     const { root, base } = sequencedRepository();
     continuation(root);
@@ -1703,6 +1739,25 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(firstForm.root, firstForm.base))).toMatch(
       /implementation exists with no planning checkpoint/,
     );
+  });
+
+  it('names the failed criterion for a near-miss checkpoint instead of "implementation exists" (#2420)', () => {
+    // The change set is the active spec alone — a planning document — and the entry is in the
+    // first form on a pair already in-progress. The refusal must say which criterion of the form
+    // failed, the way a recognised candidate is refused, not call a spec path "non-planning".
+    const { root, base } = sequencedRepository();
+    continuation(root, { statusLine: '**Status upgrade:** approved → in-progress' });
+    write(root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(root, 'implementation');
+    const found = findHistoryFindings(root, base);
+    expect(found).toHaveLength(2);
+    expect(found[1].problem).toMatch(/^implementation exists with no planning checkpoint: /);
+    expect(found[0].problem).toMatch(/^planning checkpoint not recognised: /);
+    expect(found[0].problem).toContain(`checkpoint-form near miss for \`${TASK_ID}.md\``);
+    expect(found[0].problem).toMatch(
+      /checkpoint is neither the first GATE-IMPLEMENT PASS|GATE-IMPLEMENT checkpoint binding failed/,
+    );
+    expect(found[0].problem).not.toMatch(/implementation exists|non-planning prelude path/);
 
     // A continuation whose Task changes the PLAN signal re-plans the outcome; the prior PASS is
     // bound to another signal, so it is not a continuation.
@@ -2993,6 +3048,115 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('accepts a pre-checkpoint terminal disposition and leaves nothing pending (issue #2469)', () => {
+    const { root, base } = repository({ taskInBase: true });
+    const draftSpec = `.agents/spec-docs/draft/${TASK_ID}.md`;
+    const rejectedSpec = `.agents/spec-docs/rejected/${TASK_ID}.md`;
+    const completedTask = `.agents/tasks/completed/${TASK_ID}.md`;
+    write(root, draftSpec, ['---', 'status: draft', '---', '', `# ${TASK_ID}`, ''].join('\n'));
+    commit(root, 'draft planning prelude');
+    mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/spec-docs/rejected'), { recursive: true });
+    git(root, ['mv', TASK_PATH, completedTask]);
+    git(root, ['mv', draftSpec, rejectedSpec]);
+    write(
+      root,
+      completedTask,
+      ['---', 'status: wontfix', 'completed: 2026-08-29', '---', '', `# ${TASK_ID}`, ''].join('\n'),
+    );
+    write(
+      root,
+      rejectedSpec,
+      [
+        '---',
+        'status: rejected',
+        '---',
+        '',
+        `# ${TASK_ID}`,
+        '',
+        '## Evidence Log',
+        '',
+        '### [REJECTION] — 2026-08-29',
+        '',
+        'REVIEW VERDICT: REJECT — the motivating premise is disproved by history.',
+        '',
+      ].join('\n'),
+    );
+    git(root, ['add', '-A']);
+
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'terminal disposition');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+
+    // The unit is closed: an unrelated later prelude is not "a different pending unit".
+    write(
+      root,
+      '.agents/tasks/HARNESS-901-other.md',
+      ['---', 'status: todo', '---', '', '# HARNESS-901-other', ''].join('\n'),
+    );
+    commit(root, 'next unit prelude');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('refuses a terminal disposition that lands at done, lacks the rejection entry, or carries implementation (issue #2469)', () => {
+    const disposition = (mutate) => {
+      const { root, base } = repository({ taskInBase: true });
+      const draftSpec = `.agents/spec-docs/draft/${TASK_ID}.md`;
+      const rejectedSpec = `.agents/spec-docs/rejected/${TASK_ID}.md`;
+      const completedTask = `.agents/tasks/completed/${TASK_ID}.md`;
+      write(root, draftSpec, ['---', 'status: draft', '---', '', `# ${TASK_ID}`, ''].join('\n'));
+      commit(root, 'draft planning prelude');
+      mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+      mkdirSync(path.join(root, '.agents/spec-docs/rejected'), { recursive: true });
+      git(root, ['mv', TASK_PATH, completedTask]);
+      git(root, ['mv', draftSpec, rejectedSpec]);
+      const files = {
+        task: [
+          '---',
+          'status: wontfix',
+          'completed: 2026-08-29',
+          '---',
+          '',
+          `# ${TASK_ID}`,
+          '',
+        ].join('\n'),
+        spec: [
+          '---',
+          'status: rejected',
+          '---',
+          '',
+          `# ${TASK_ID}`,
+          '',
+          '### [REJECTION] — 2026-08-29',
+          '',
+          'REJECT.',
+          '',
+        ].join('\n'),
+      };
+      mutate(root, files);
+      write(root, completedTask, files.task);
+      write(root, rejectedSpec, files.spec);
+      commit(root, 'terminal disposition');
+      return messages(findHistoryFindings(root, base));
+    };
+
+    expect(
+      disposition((_root, files) => {
+        files.task = files.task.replace('wontfix', 'done');
+      }),
+    ).toMatch(/newly archived at one of/);
+    expect(
+      disposition((_root, files) => {
+        files.spec = files.spec.replace('### [REJECTION]', '### [NOTE]');
+      }),
+    ).toMatch(/\[REJECTION\]/);
+    expect(
+      disposition((root) => {
+        write(root, 'packages/example/src.ts', 'implementation\n');
+      }),
+    ).toMatch(/no planning checkpoint/);
+  });
+
   it('rejects more than one predecessor post-merge prelude', () => {
     const { root, base } = repository();
     write(
@@ -3515,6 +3679,36 @@ describe('user-execution PLAN order — staged transaction', () => {
     }
   });
 
+  it('does not count the auto-generated churn as worktree residue (#2376)', () => {
+    // `.agents/evals/lessons/*` is regenerated by any scan run — including the one judging this
+    // gate — and the pre-commit hook refuses to stage it, so no tree can be both clean of it and
+    // committable. `AUTO_GENERATED_CHURN` is the single owner of that exemption; it must hold here
+    // for a planning prelude and for a proposed checkpoint alike, while a real path is still refused.
+    for (const stage of ['prelude', 'checkpoint']) {
+      const { root, base } = repository();
+      if (stage === 'prelude') {
+        write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
+        write(
+          root,
+          `.agents/spec-docs/todo/${TASK_ID}.md`,
+          specText()
+            .replace('status: in-progress', 'status: approved')
+            .replace('### [GATE-IMPLEMENT] — ✅ PASS | 2026-08-25', 'Planning evidence pending.'),
+        );
+        git(root, ['add', TASK_PATH, `.agents/spec-docs/todo/${TASK_ID}.md`]);
+      } else {
+        writeCheckpoint(root);
+        git(root, ['add', TASK_PATH, SPEC_PATH]);
+      }
+      for (const churn of AUTO_GENERATED_CHURN) write(root, churn, 'regenerated by a scan\n');
+
+      expect(findStagedFindings(root, base)).toEqual([]);
+
+      write(root, 'packages/example/hidden.ts', 'untracked implementation\n');
+      expect(messages(findStagedFindings(root, base))).toContain('packages/example/hidden.ts');
+    }
+  });
+
   it('rejects a proposed checkpoint with hidden unstaged or untracked implementation', () => {
     const { root, base } = repository();
     writeCheckpoint(root);
@@ -3563,13 +3757,59 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(messages(findStagedFindings(root, base))).toMatch(/ledger|subject-bound/i);
   });
 
+  it('accepts voided predecessors ahead of the one bound PLAN record, and nothing less (#2438)', () => {
+    const voided = (runId) => ({
+      ...userScenarioRecord('DOCS-031', runId),
+      terminal: 'voided',
+      extensions: {
+        void: {
+          reason: 'ref named DOCS-031 only',
+          at: '2026-08-25T00:02:00.000Z',
+          priorTerminal: 'converged',
+        },
+      },
+    });
+    const stage = (records) => {
+      const { root, base } = repository();
+      writeCheckpoint(root);
+      git(root, ['add', TASK_PATH, SPEC_PATH]);
+      write(
+        root,
+        '.agents/loop-runs/user-execution-scenario.jsonl',
+        records.map((record) => `${JSON.stringify(record)}\n`).join(''),
+      );
+      git(root, ['add', '.agents/loop-runs/user-execution-scenario.jsonl']);
+      return messages(findStagedFindings(root, base));
+    };
+
+    expect(
+      stage([
+        voided('r20260825000001'),
+        voided('r20260825000002'),
+        userScenarioRecord(TASK_ID, 'r20260825000003'),
+      ]),
+    ).toBe('');
+    // Voided alone is not a checkpoint; a voided record without its reason is a deletion in disguise.
+    expect(stage([voided('r20260825000001')])).toMatch(/ledger|subject-bound/i);
+    expect(
+      stage([
+        { ...voided('r20260825000001'), extensions: {} },
+        userScenarioRecord(TASK_ID, 'r20260825000003'),
+      ]),
+    ).toMatch(/ledger|subject-bound/i);
+    // The bound record must be LAST: a voided record after it is not the run the checkpoint records.
+    expect(
+      stage([userScenarioRecord(TASK_ID, 'r20260825000003'), voided('r20260825000004')]),
+    ).toMatch(/ledger|subject-bound/i);
+  });
+
   it('rejects rewriting an existing PLAN ledger line while appending a bound record', () => {
     const seeded = repository();
     git(seeded.root, ['switch', 'develop']);
     write(
       seeded.root,
       '.agents/loop-runs/user-execution-scenario.jsonl',
-      `${JSON.stringify(userScenarioRecord('HARNESS-899-prior'))}\n`,
+      `${JSON.stringify(userScenarioRecord('HARNESS-999-prior'))}\n`,
     );
     const base = commit(seeded.root, 'seed prior PLAN ledger');
     git(seeded.root, ['update-ref', 'refs/remotes/origin/develop', base]);
@@ -3579,7 +3819,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     write(
       seeded.root,
       '.agents/loop-runs/user-execution-scenario.jsonl',
-      `${JSON.stringify(userScenarioRecord('HARNESS-899-rewritten'))}\n${JSON.stringify(
+      `${JSON.stringify(userScenarioRecord('HARNESS-999-rewritten'))}\n${JSON.stringify(
         userScenarioRecord(TASK_ID, 'r20260825000001'),
       )}\n`,
     );
@@ -4079,6 +4319,29 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('refuses committing an unbound OPEN run, and accepts a bound one (#2504)', () => {
+    const openRecord = (ref) =>
+      `${JSON.stringify({
+        runId: 'r20260827000009',
+        opened: '2026-08-27T00:00:00.000Z',
+        closed: null,
+        roundFindings: [],
+        extensions: {},
+        terminal: null,
+        ref,
+      })}\n`;
+    const { root, base } = repository();
+    write(root, USER_REQUEST_LEDGER, ledgerRecord());
+    commit(root, 'ledger-only prelude');
+    write(root, USER_REQUEST_LEDGER, `${ledgerRecord()}${openRecord(null)}`);
+    git(root, ['add', USER_REQUEST_LEDGER]);
+    expect(messages(findStagedFindings(root, base))).toMatch(/no planning checkpoint/);
+
+    write(root, USER_REQUEST_LEDGER, `${ledgerRecord()}${openRecord(TASK_ID)}`);
+    git(root, ['add', USER_REQUEST_LEDGER]);
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
   it('refuses a prelude that rewrites an existing ledger line (TC-e)', () => {
     const { root, base } = repository();
     write(root, USER_REQUEST_LEDGER, ledgerRecord());
@@ -4211,7 +4474,10 @@ describe('the finders read only the root they are given (PROC-016)', () => {
         ],
         { cwd: real },
       );
-      expect(result.stderr).toBe('');
+      // This scan reads the checkout it LIVES in, so running it with the fixture as cwd makes the
+      // root differ from cwd and the #2413 resolver announces `::root:: <path>` on stderr. That
+      // diagnostic is the point of the announcement here; nothing else may be written.
+      expect(result.stderr.replace(/^::root:: .*\n?/gm, '')).toBe('');
       expect(result.stdout).toMatch(/::examined:: \d+ topic commit\(s\)/);
     } finally {
       if (saved === undefined) delete process.env.GIT_DIR;

@@ -16,12 +16,16 @@
  * report `skipping`, and GitHub accepts a skipped required check — so a code PR merges having
  * never been built or tested, with nothing red on the PR.
  *
- * Two rules, both mechanical:
+ * Three rules, all mechanical:
  *
  *   1. No `git fetch … --depth` / `--shallow-since` / `--shallow-exclude` in any workflow. The
  *      graft is repository-wide, so even a job that "only" wanted a cheap base ref corrupts every
  *      history read that follows it in the same checkout.
  *   2. A job that reads base-relative history must check out with `fetch-depth: 0`.
+ *   3. (issue #2412) A job in a `pull_request`-triggered workflow that runs a PER-COMMIT history
+ *      consumer must export `PR_HEAD_SHA`. On that event `actions/checkout` leaves HEAD at the
+ *      synthetic `refs/pull/N/merge`, whose first parent is the base, so a range ending at HEAD is
+ *      not the pull request's commits. `resolveHeadSha` in `shared.mjs` owns reading it.
  *
  * Findings are reported per job with the signal that classified it, so the fix is unambiguous.
  *
@@ -30,8 +34,9 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const WORKFLOW_DIR = path.join('.github', 'workflows');
 
 /** A depth-limited fetch: the graft itself. Banned outright in workflows. */
@@ -83,6 +88,45 @@ export const BASE_HISTORY_INVOCATIONS = [
 
 /** How a script proves it still reads base-relative history. */
 const BASE_HISTORY_READ = /merge-base|\.\.\.?HEAD/;
+
+/**
+ * Invocations that walk the range COMMIT BY COMMIT (issue #2412). A base-relative diff survives the
+ * synthetic merge ref by accident (`diff-tree` suppresses merge diffs); a per-commit walk does not —
+ * it ends at whatever HEAD is, and under `pull_request` that is `refs/pull/N/merge`. Each of these
+ * therefore needs the pull request's head handed to it as `PR_HEAD_SHA`.
+ */
+export const PER_COMMIT_HISTORY_INVOCATIONS = [
+  {
+    name: 'pnpm harness:scan / harness:verify (user-execution-plan-order, promotion-ancestry)',
+    pattern: /\bpnpm\s+harness:(?:scan|verify)(?::release)?(?![\w-]*:)/,
+  },
+  { name: 'scan-promotion-ancestry.mjs', pattern: /scan-promotion-ancestry\.mjs/ },
+  { name: 'check-regression-red-proof.mjs', pattern: /check-regression-red-proof\.mjs/ },
+];
+
+/** The env key a job exports to name the pull request's head; `resolveHeadSha` reads it. */
+export const HEAD_SHA_EXPORT = /^\s+PR_HEAD_SHA:\s*\S/m;
+
+/** Does the workflow run on a pull_request event? Read from the trigger block above `jobs:`. */
+export function triggersOnPullRequest(yamlText) {
+  const text = stripComments(yamlText);
+  const jobsIndex = text.search(/^jobs:\s*$/m);
+  const triggers = jobsIndex === -1 ? text : text.slice(0, jobsIndex);
+  return /(^|[\s\[,])pull_request(?:_target)?\b/.test(triggers);
+}
+
+/** The per-commit invocations a job text performs. */
+export function perCommitSignals(jobText) {
+  const text = stripComments(jobText);
+  return PER_COMMIT_HISTORY_INVOCATIONS.filter((invocation) => invocation.pattern.test(text)).map(
+    (invocation) => invocation.name,
+  );
+}
+
+/** Does the job export `PR_HEAD_SHA` (outside comments)? */
+export function exportsHeadSha(jobText) {
+  return HEAD_SHA_EXPORT.test(stripComments(jobText));
+}
 
 /**
  * Drop whole-line comments (YAML `#` and the shell `#` inside `run:` blocks alike). Without this a
@@ -178,7 +222,20 @@ export function findBaseHistoryFindings(root = WORKSPACE_ROOT) {
       });
       continue;
     }
+    const onPullRequest = triggersOnPullRequest(text);
     for (const job of jobs) {
+      // Rule 3 (issue #2412): a per-commit walk under pull_request must be told which head it ends at.
+      const perCommit = onPullRequest ? perCommitSignals(job.text) : [];
+      if (perCommit.length > 0 && !exportsHeadSha(job.text)) {
+        findings.push({
+          workflow,
+          job: job.name,
+          detail:
+            `runs a per-commit history scan (${perCommit.join(', ')}) in a pull_request workflow ` +
+            'but exports no `PR_HEAD_SHA` — on that event HEAD is the synthetic refs/pull/N/merge, ' +
+            'whose first parent is the base. Add `PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}` to the step env.',
+        });
+      }
       if (SHALLOW_FETCH_PATTERN.test(stripComments(job.text))) {
         findings.push({
           workflow,

@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
@@ -11,7 +11,6 @@ import { DISPOSITION_LABELS } from '../record-local-review.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
 const WORKFLOW = path.join(WORKSPACE_ROOT, '.github/workflows/review-gate.yml');
-const BASE_OID = '1111111111111111111111111111111111111111';
 const HEAD_OID = '2222222222222222222222222222222222222222';
 
 /**
@@ -27,9 +26,62 @@ const HEAD_OID = '2222222222222222222222222222222222222222';
  * disposition.
  *
  * Every case here therefore runs the hook from a directory that recorded nothing, and states the
- * world only through `gh`. A test that passed only where the record lives would prove nothing.
+ * world through `gh` — and, for the one fact `gh` is no longer trusted for, through `origin`. A test
+ * that passed only where the record lives would prove nothing.
+ *
+ * Since issue #2309 the hook reads the base branch's tip from the branch itself (`git ls-remote
+ * origin refs/heads/<baseRefName>`), because GitHub's `baseRefOid` lags it by minutes. So the
+ * checkout that recorded nothing is a CLONE of a bare origin whose `develop` holds one commit, and
+ * the base OID every case states through `gh` is that commit: the branch and the API agree, the
+ * moved-base path stays out of these cases, and the hook's live read is exercised as written rather
+ * than stubbed around. A clone with no `.agents/local-reviews` is still the orchestrator's position.
  */
 const scratch = [];
+
+/** The base branch's tip as `origin` serves it — fixed in `beforeAll`, once the fixture exists. */
+let BASE_OID = '';
+/** The clone the hook is judged from. */
+let ELSEWHERE = '';
+/** A review as the reviewer is contracted to write one — enough for the later checks to pass. */
+let CLEARED = {};
+
+function gitIn(dir, ...args) {
+  return execFileSync('git', ['-C', dir, '-c', 'commit.gpgsign=false', ...args], {
+    encoding: 'utf8',
+  }).trim();
+}
+
+beforeAll(() => {
+  const origin = scratchDir('merge-gate-disp-origin-');
+  execFileSync('git', ['init', '--quiet', '--bare', '--initial-branch=develop', origin]);
+
+  const seed = scratchDir('merge-gate-disp-seed-');
+  execFileSync('git', ['init', '--quiet', '--initial-branch=develop', seed]);
+  gitIn(seed, 'config', 'user.email', 'proc007@example.test');
+  gitIn(seed, 'config', 'user.name', 'PROC-007');
+  writeFileSync(path.join(seed, 'README.md'), 'base\n');
+  gitIn(seed, 'add', 'README.md');
+  gitIn(seed, 'commit', '--quiet', '-m', 'develop base');
+  BASE_OID = gitIn(seed, 'rev-parse', 'HEAD');
+  gitIn(seed, 'push', '--quiet', origin, 'develop');
+
+  ELSEWHERE = scratchDir('merge-gate-elsewhere-');
+  execFileSync('git', ['clone', '--quiet', origin, ELSEWHERE]);
+
+  CLEARED = {
+    state: 'CLEAN',
+    headAt: '2026-08-01T10:00:00Z',
+    baseOid: BASE_OID,
+    headOid: HEAD_OID,
+    comments: [
+      {
+        author: { login: 'github-actions' },
+        createdAt: '2026-08-01T10:05:00Z',
+        body: `REVIEWED BASE: ${BASE_OID}\nREVIEWED HEAD: ${HEAD_OID}\nfine\nACTIONABLE FINDINGS: 0`,
+      },
+    ],
+  };
+});
 
 afterAll(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
@@ -95,7 +147,8 @@ function stubbedPath(prs) {
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(pr.state ?? "CLEAN"); process.exit(0); }',
       'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
-      '  console.log(`${pr.baseOid ?? ""} ${pr.headOid ?? ""}`);',
+      '  // issue #2309: the base branch NAME rides along, so the hook can read the branch itself.',
+      '  console.log(`${pr.baseOid ?? ""} ${pr.headOid ?? ""} ${pr.baseRefName ?? "develop"}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("--json commits")) { console.log(pr.headAt ?? ""); process.exit(0); }',
@@ -134,26 +187,12 @@ function stubbedPath(prs) {
   return `${dir}:${process.env.PATH}`;
 }
 
-/** A review as the reviewer is contracted to write one — enough for the later checks to pass. */
-const CLEARED = {
-  state: 'CLEAN',
-  headAt: '2026-08-01T10:00:00Z',
-  baseOid: BASE_OID,
-  headOid: HEAD_OID,
-  comments: [
-    {
-      author: { login: 'github-actions' },
-      createdAt: '2026-08-01T10:05:00Z',
-      body: `REVIEWED BASE: ${BASE_OID}\nREVIEWED HEAD: ${HEAD_OID}\nfine\nACTIONABLE FINDINGS: 0`,
-    },
-  ],
-};
-
 /**
  * Judge a merge FROM A CHECKOUT THAT RECORDED NOTHING.
  *
- * `cwd` is a bare temp directory and `CLAUDE_PROJECT_DIR` is removed, so no `.agents/local-reviews`
- * is reachable from here at all. That is the orchestrator's position, and the whole defect.
+ * `cwd` is the bare clone of the fixture origin and `CLAUDE_PROJECT_DIR` is removed, so no
+ * `.agents/local-reviews` is reachable from here at all. That is the orchestrator's position, and
+ * the whole defect.
  */
 function judgeFromElsewhere(prs, command) {
   const env = { ...process.env, PATH: stubbedPath(prs) };
@@ -162,7 +201,7 @@ function judgeFromElsewhere(prs, command) {
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
     encoding: 'utf8',
-    cwd: scratchDir('merge-gate-elsewhere-'),
+    cwd: ELSEWHERE,
     env,
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
@@ -296,19 +335,26 @@ describe('the merge gate reads the disposition from the PR, from any checkout', 
   });
 
   it('keeps the required check reading the withdrawal without the code/docs classifier', () => {
-    // The withdrawal step must not sit behind `steps.classify.outputs.code`: a docs-only PR can be
+    // The withdrawal step must not sit behind the classifier's verdict: a docs-only PR can be
     // withdrawn exactly like a code one, and #1436 is the measured cost of a gate that treats the
     // classifier's verdict as the question. It is also why the step runs before the checkout — the
     // withdrawal is decided without executing anything from the PR.
+    //
+    // Inside the `review-gate` job that verdict is spelled `needs.classify.outputs.code` — the
+    // form the job's other steps use. `steps.classify` can occur only inside the `classify` job's
+    // own `outputs:` block, so a pin forbidding that string alone could never go red (issue
+    // #2407). Both spellings are forbidden, and the slice is bounded by the first checkout AFTER
+    // the step: an anchor pinned to one checkout major version (`@v4`) silently became -1 when the
+    // action was bumped, which stretched the slice to the end of the file.
     const workflow = readFileSync(WORKFLOW, 'utf8');
-    const step = workflow.slice(
-      workflow.indexOf('Has this change been withdrawn?'),
-      workflow.indexOf('actions/checkout@v4'),
-    );
+    const start = workflow.indexOf('Has this change been withdrawn?');
+    const end = workflow.indexOf('actions/checkout@', start);
+    expect(start, 'the withdrawal step is missing').toBeGreaterThan(-1);
+    expect(end, 'the withdrawal step is not ahead of the checkout').toBeGreaterThan(start);
+    const step = workflow.slice(start, end);
 
-    expect(step, 'the withdrawal step is not ahead of the checkout').not.toBe('');
     expect(step, 'the withdrawal was gated on the code/docs classifier').not.toMatch(
-      /steps\.classify/,
+      /needs\.classify\.outputs\.code|steps\.classify/,
     );
     expect(step).toContain('disposition-re-plan');
   });

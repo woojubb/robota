@@ -54,31 +54,35 @@ describe('session log replay support', () => {
     expect(JSON.parse(payload)).toBe('x'.repeat(128));
   });
 
-  it('ARCH-014: loadSessionLogEntries hydrates externalized values before replay', () => {
-    const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
-    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
-      externalPayloadThresholdBytes: 32,
-    });
+  // ARCH-049 containment: external-payload reads refuse off Linux (see external-payload-resolver.test.ts).
+  it.skipIf(process.platform !== 'linux')(
+    'ARCH-014: loadSessionLogEntries hydrates externalized values before replay',
+    () => {
+      const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
+      const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+        externalPayloadThresholdBytes: 32,
+      });
 
-    logger.log('hydrated_session', 'history_mutation', {
-      mutation: 'append_message',
-      message: {
-        id: 'a1',
-        role: 'assistant',
-        content: 'x'.repeat(128),
-        state: 'complete',
-        timestamp: '2026-08-15T00:00:00.000Z',
-      },
-    });
+      logger.log('hydrated_session', 'history_mutation', {
+        mutation: 'append_message',
+        message: {
+          id: 'a1',
+          role: 'assistant',
+          content: 'x'.repeat(128),
+          state: 'complete',
+          timestamp: '2026-08-15T00:00:00.000Z',
+        },
+      });
 
-    const [entry] = loadSessionLogEntries(
-      new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
-    );
+      const [entry] = loadSessionLogEntries(
+        new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
+      );
 
-    expect(entry?.message).toEqual(
-      expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),
-    );
-  });
+      expect(entry?.message).toEqual(
+        expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),
+      );
+    },
+  );
 
   it('replays append-only history mutation events into messages and chat history', () => {
     const entries: ISessionLogEntry[] = [

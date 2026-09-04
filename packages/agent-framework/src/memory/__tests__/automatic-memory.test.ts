@@ -86,154 +86,178 @@ describe('automatic memory pipeline', () => {
     expect(decision).toEqual({ action: 'skip', reason: 'sensitive-content' });
   });
 
-  it('Given disabled policy When capture runs Then no pending or saved entries are created', async () => {
-    const cwd = makeProject();
-    const store = await projectStore(cwd);
-    const controller = new AutomaticMemoryController({
-      now: () => NOW,
-      config: { policy: 'disabled', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
-      memoryStore: createWorkspaceMemoryStore(
-        await createTrustedProjectStateFixture(cwd, 'memory'),
-        () => NOW,
-      ),
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given disabled policy When capture runs Then no pending or saved entries are created',
+    async () => {
+      const cwd = makeProject();
+      const store = await projectStore(cwd);
+      const controller = new AutomaticMemoryController({
+        now: () => NOW,
+        config: { policy: 'disabled', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        memoryStore: createWorkspaceMemoryStore(
+          await createTrustedProjectStateFixture(cwd, 'memory'),
+          () => NOW,
+        ),
+      });
 
-    const result = await controller.capture({
-      sessionId: 'session-1',
-      turnId: 'turn-1',
-      userMessage: 'remember that this project uses pnpm',
-      assistantMessage: 'ok',
-    });
+      const result = await controller.capture({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        userMessage: 'remember that this project uses pnpm',
+        assistantMessage: 'ok',
+      });
 
-    expect(result.saved).toEqual([]);
-    expect(result.queued).toEqual([]);
-    expect(result.events.map((event) => event.type)).toContain('memory_candidate_skipped');
-    expect(store.loadStartupMemory().content).toBe('');
-  });
+      expect(result.saved).toEqual([]);
+      expect(result.queued).toEqual([]);
+      expect(result.events.map((event) => event.type)).toContain('memory_candidate_skipped');
+      expect(store.loadStartupMemory().content).toBe('');
+    },
+  );
 
-  it('Given approval required policy When capture runs Then candidates are queued instead of saved', async () => {
-    const cwd = makeProject();
-    const store = await projectStore(cwd);
-    const controller = new AutomaticMemoryController({
-      now: () => NOW,
-      config: {
-        policy: 'approval_required',
-        retrieval: { maxTopics: 3, maxTopicChars: 3000 },
-      },
-      memoryStore: createWorkspaceMemoryStore(
-        await createTrustedProjectStateFixture(cwd, 'memory'),
-        () => NOW,
-      ),
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given approval required policy When capture runs Then candidates are queued instead of saved',
+    async () => {
+      const cwd = makeProject();
+      const store = await projectStore(cwd);
+      const controller = new AutomaticMemoryController({
+        now: () => NOW,
+        config: {
+          policy: 'approval_required',
+          retrieval: { maxTopics: 3, maxTopicChars: 3000 },
+        },
+        memoryStore: createWorkspaceMemoryStore(
+          await createTrustedProjectStateFixture(cwd, 'memory'),
+          () => NOW,
+        ),
+      });
 
-    const result = await controller.capture({
-      sessionId: 'session-1',
-      turnId: 'turn-1',
-      userMessage: 'remember that this project uses pnpm',
-      assistantMessage: 'ok',
-    });
+      const result = await controller.capture({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        userMessage: 'remember that this project uses pnpm',
+        assistantMessage: 'ok',
+      });
 
-    expect(result.saved).toEqual([]);
-    expect(result.queued).toHaveLength(1);
-    expect(result.queued[0]?.status).toBe('pending');
-    expect(store.loadStartupMemory().content).toBe('');
-  });
+      expect(result.saved).toEqual([]);
+      expect(result.queued).toHaveLength(1);
+      expect(result.queued[0]?.status).toBe('pending');
+      expect(store.loadStartupMemory().content).toBe('');
+    },
+  );
 
-  it('Given auto save policy When a high confidence candidate is captured Then memory is saved', async () => {
-    const cwd = makeProject();
-    const controller = new AutomaticMemoryController({
-      now: () => NOW,
-      config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
-      memoryStore: createWorkspaceMemoryStore(
-        await createTrustedProjectStateFixture(cwd, 'memory'),
-        () => NOW,
-      ),
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given auto save policy When a high confidence candidate is captured Then memory is saved',
+    async () => {
+      const cwd = makeProject();
+      const controller = new AutomaticMemoryController({
+        now: () => NOW,
+        config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        memoryStore: createWorkspaceMemoryStore(
+          await createTrustedProjectStateFixture(cwd, 'memory'),
+          () => NOW,
+        ),
+      });
 
-    const result = await controller.capture({
-      sessionId: 'session-1',
-      turnId: 'turn-1',
-      userMessage: 'remember that this project uses pnpm',
-      assistantMessage: 'ok',
-    });
+      const result = await controller.capture({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        userMessage: 'remember that this project uses pnpm',
+        assistantMessage: 'ok',
+      });
 
-    expect(result.queued).toEqual([]);
-    expect(result.saved).toHaveLength(1);
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '(project/project) this project uses pnpm',
-    );
-  });
+      expect(result.queued).toEqual([]);
+      expect(result.saved).toHaveLength(1);
+      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+        '(project/project) this project uses pnpm',
+      );
+    },
+  );
 
-  it('Given a duplicate memory candidate When saving runs Then the topic entry is not repeated', async () => {
-    const cwd = makeProject();
-    const store = await projectStore(cwd);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given a duplicate memory candidate When saving runs Then the topic entry is not repeated',
+    async () => {
+      const cwd = makeProject();
+      const store = await projectStore(cwd);
 
-    const first = store.append({
-      type: 'project',
-      topic: 'build',
-      text: 'Use pnpm for package scripts.',
-    });
-    const second = store.append({
-      type: 'project',
-      topic: 'build',
-      text: 'Use pnpm for package scripts.',
-    });
-
-    const topicFile = readFileSync(join(cwd, first.topicPath), 'utf8');
-    expect(first.deduplicated).toBe(false);
-    expect(second.deduplicated).toBe(true);
-    expect(topicFile.match(/Use pnpm for package scripts\./g)).toHaveLength(1);
-  });
-
-  it('Given a topic-related query When retrieval runs Then matching topics and provenance are returned', async () => {
-    const cwd = makeProject();
-    const store = await projectStore(cwd);
-    store.append({
-      type: 'project',
-      topic: 'build',
-      text: 'Use pnpm for package scripts.',
-    });
-    store.append({
-      type: 'project',
-      topic: 'release',
-      text: 'Publish with changesets.',
-    });
-
-    const retrieval = new MemoryRetrievalService(store).retrieve(
-      'How should I run package scripts?',
-      {
-        maxTopics: 1,
-        maxTopicChars: 1000,
-      },
-    );
-
-    expect(retrieval.references).toEqual([
-      expect.objectContaining({
+      const first = store.append({
+        type: 'project',
         topic: 'build',
-        path: join('.robota', 'memory', 'topics', 'build.md'),
-      }),
-    ]);
-    expect(retrieval.content).toContain('Use pnpm for package scripts.');
-    expect(renderRetrievedMemory(retrieval)).toContain('<project-memory>');
-  });
+        text: 'Use pnpm for package scripts.',
+      });
+      const second = store.append({
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+      });
 
-  it('Given no relevant topics When retrieval runs Then no memory is injected', async () => {
-    const cwd = makeProject();
-    const store = await projectStore(cwd);
-    store.append({
-      type: 'project',
-      topic: 'release',
-      text: 'Publish with changesets.',
-    });
+      const topicFile = readFileSync(join(cwd, first.topicPath), 'utf8');
+      expect(first.deduplicated).toBe(false);
+      expect(second.deduplicated).toBe(true);
+      expect(topicFile.match(/Use pnpm for package scripts\./g)).toHaveLength(1);
+    },
+  );
 
-    const retrieval = new MemoryRetrievalService(store).retrieve('unrelated database question', {
-      maxTopics: 3,
-      maxTopicChars: 1000,
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given a topic-related query When retrieval runs Then matching topics and provenance are returned',
+    async () => {
+      const cwd = makeProject();
+      const store = await projectStore(cwd);
+      store.append({
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+      });
+      store.append({
+        type: 'project',
+        topic: 'release',
+        text: 'Publish with changesets.',
+      });
 
-    expect(retrieval.references).toEqual([]);
-    expect(renderRetrievedMemory(retrieval)).toBe('');
-  });
+      const retrieval = new MemoryRetrievalService(store).retrieve(
+        'How should I run package scripts?',
+        {
+          maxTopics: 1,
+          maxTopicChars: 1000,
+        },
+      );
+
+      expect(retrieval.references).toEqual([
+        expect.objectContaining({
+          topic: 'build',
+          path: join('.robota', 'memory', 'topics', 'build.md'),
+        }),
+      ]);
+      expect(retrieval.content).toContain('Use pnpm for package scripts.');
+      expect(renderRetrievedMemory(retrieval)).toContain('<project-memory>');
+    },
+  );
+
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given no relevant topics When retrieval runs Then no memory is injected',
+    async () => {
+      const cwd = makeProject();
+      const store = await projectStore(cwd);
+      store.append({
+        type: 'project',
+        topic: 'release',
+        text: 'Publish with changesets.',
+      });
+
+      const retrieval = new MemoryRetrievalService(store).retrieve('unrelated database question', {
+        maxTopics: 3,
+        maxTopicChars: 1000,
+      });
+
+      expect(retrieval.references).toEqual([]);
+      expect(renderRetrievedMemory(retrieval)).toBe('');
+    },
+  );
 });
 
 /** NEUT-007 — locale/domain heuristics are an injectable policy, not baked-in library text. */

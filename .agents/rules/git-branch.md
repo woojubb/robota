@@ -142,11 +142,12 @@ Reading, listing and editing a hook are untouched; only destroying one is refuse
 through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
 left with nothing to run is a removal wearing an edit's clothes.
 
-Changing a hook through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`. That is not an escape
-from a check — it IS the check: a hook may be changed, it may not be changed in passing. A content
-test ("is the new body empty?") is wrong in both directions — it refuses an ordinary partial
-deletion and passes a body of `exit 0` — which is why the check demands the acknowledgement instead
-of judging the edit.
+Changing a hook — any file under `.husky/` (the git-level hooks) or `.claude/hooks/` (the PreToolUse
+gates, the guard itself included) — through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`.
+That is not an escape from a check — it IS the check: a hook may be changed, it may not be changed
+in passing. A content test ("is the new body empty?") is wrong in both directions — it refuses an
+ordinary partial deletion and passes a body of `exit 0` — which is why the check demands the
+acknowledgement instead of judging the edit.
 
 **One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
 that apart from an ordinary substitution means evaluating the editor's program, and being wrong
@@ -349,6 +350,16 @@ This rule applies even when:
    override the `branch-guard` hook honors: `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 git checkout -b <type>/<slug>`.
    In the main clone (outside a parallel wave) the rule stands as written. Procedure:
    [`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md).
+3. **An urgent second branch when the open one is neither merged nor abandoned** (the user chose
+   "park it"). The open branch's commits are parked somewhere git TRACKS before the branch is deleted
+   — never as a `git format-patch` file in a session scratchpad, which sits outside every ref,
+   reflog, scan and record, so a session ending in that window loses the work with nothing left to
+   report its absence. The safe form, in this order:
+   `git update-ref refs/holding/<branch> <sha>` (or a scoped `git stash push -- <paths>`), THEN
+   `git branch -D <branch>`; after the urgent work lands, recreate the branch from a freshly-fetched
+   `origin/develop`, restore with `git cherry-pick <sha>` (or `git stash pop`), and drop the holding
+   ref with `git update-ref -d refs/holding/<branch>`. The guard itself gains no override for this:
+   its value is that it refuses; the problem was only where the refusal sent the work.
 
 ### PR Batching — appropriately-sized PRs
 
@@ -381,6 +392,13 @@ in the post-merge sequence, before any branch deletion.
   hop, not only the last.
 - A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
   **never treat "pending" or "not-required-skipped" as pass**.
+- **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
+  returns every run ever created for the commit, so a re-triggered workflow leaves superseded rows
+  behind as `completed`/`cancelled` — rows that say "concluded" about a check that never ran on the
+  tree. `latestCheckRunsByName` in
+  `scripts/harness/github-api.mjs` is the one place that dedupe lives; every gate or script reading
+  check state goes through it. And `cancelled` is **evidence in neither direction** — not a failure,
+  not a pass, but the absence of a result: wait for or trigger a real run (`checkRunEvidence`).
 
 **Why:** a merge that lands past a red required gate ships the failure to the integration branch, and
 nothing after the merge announces it — only an independent landing check sees it.
@@ -496,6 +514,38 @@ comment (or the PR description):
 
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
+
+### Landing a control-plane change (a workflow that provides a required check)
+
+`workflow provenance` is a required context on both protected branches, and it refuses any pull
+request that edits a workflow file providing a required check — BY DESIGN, because the edited
+definition is what would judge that pull request, so the change could move its own gate. The
+context stays red for the life of the pull request, so the ordinary merge path cannot land it. That
+is the correct property. This section is the other half: how a legitimate control-plane change
+lands, written once so it is not re-decided from scratch each time.
+
+1. **State the reason in the PR body.** Which workflow file changes, and why the control plane has
+   to change rather than the code under it. The scan's finding names the required context(s) the
+   edited file provides; that list goes in the body verbatim.
+2. **A reviewer reads the JOB, not the diff.** For every context the scan listed, the reviewer opens
+   the job that reports it in the edited file and confirms what the edit does to that context's
+   verdict — moved deliberately (say how) or untouched. Recorded as a review comment naming each
+   context; an approval with no context named is not this confirmation.
+3. **The owner lands it.** A required context that is red by design cannot be satisfied, so the
+   landing is the owner's bypass merge over that one red context, taken only after steps 1 and 2
+   are on the pull request. Nobody else lands one, and no local hatch substitutes for it — the
+   override forms below excuse local hooks, not a branch ruleset.
+4. **Leave the record beside the red check.** One PR comment: control-plane change; approved by
+   whom; contexts moved, or "none". A red required check with a bypass merge behind it and no such
+   comment is indistinguishable from a gate that was ignored.
+
+The first such edit — the lint-warning ceiling step in the required `quality` job of `ci.yml` —
+landed on an owner decision taken in conversation, because none of the above was written; this
+section is that decision written down so the next one costs a read.
+
+Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
+path, and its finding points here. Whether steps 1–4 were performed is judged by the human reader
+of the pull request; no scan reads a PR's comments for them.
 
 ### One issue, one PR, one session (mandatory)
 
@@ -773,8 +823,9 @@ An unreadable count is not zero — the exemption stands, because a refusal on a
 blocks correct work on no evidence. Deliberate exception: `PRE_PUSH_ALLOW_UNREVIEWED=1` inline.
 
 **Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
-and carries a review naming the exact current `headRefOid` and a `baseRefOid` that is either current or
-moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
+and carries a review naming the exact current `headRefOid` and a base that is either the base branch's
+live tip — read with `git ls-remote`, because GitHub's `baseRefOid` lags the branch by minutes
+(issue #2309) — or moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
 when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not
 review identity: a base can change while the child head does not. The hook fails closed on missing,
 malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE_GATE_ACK=1` **inline
@@ -805,7 +856,7 @@ opposite lifetime from inline and the reason this form is worth naming rather th
 | `BRANCH_GUARD_ALLOW_DELETE`, `_BASE`, `_BRANCH_COPY`, `_OPEN_BRANCHES`, `_BADNAME`, `_MAIN_MERGE` | `branch-guard.sh`             | either      |
 | `BULK_EDIT_ACK`                                                                                   | `bulk-edit-guard.sh`          | either      |
 | `FOREGROUND_WAIT_ACK`                                                                             | `no-foreground-wait.sh`       | either      |
-| `HOOK_EDIT_ACK`                                                                                   | `check-forbidden-patterns.sh` | environment |
+| `HOOK_EDIT_ACK` — any file under `.husky/` or `.claude/hooks/`                                    | `check-forbidden-patterns.sh` | environment |
 | `LOCKFILE_CHURN_ACK`                                                                              | `pre-push-check.sh`           | environment |
 
 `BRANCH_GUARD_ALLOW_BADNAME` exempts a branch name from the naming convention, and

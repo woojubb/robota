@@ -22,12 +22,20 @@
  * Before either checkpoint only the pair's own planning documents may change, plus a pure append to
  * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
  * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
+ * One further pre-checkpoint shape is accepted: a TERMINAL DISPOSITION (issue #2469) that closes the
+ * unit without a checkpoint — `tasks/<b>` → `tasks/completed/<b>` at `wontfix`/`skipped`/`superseded`
+ * beside `spec-docs/{draft,backlog,todo}/<b>` → `spec-docs/rejected/<b>` at `status: rejected` with a
+ * `[REJECTION]` entry, and no other path. It leaves nothing pending for a later checkpoint.
+ *
+ * A merge commit is judged by its OWN content — the paths its tree adds beyond Git's automatic merge
+ * of its parents — on both paths (issue #2410); a clean merge, back-merge or synthetic PR merge
+ * contributes nothing.
  *
  *   - default: replay every commit after the topic merge base (CI / harness scan);
  *   - --staged: reject the proposed commit before Git creates it (Husky pre-commit).
  */
 
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
@@ -60,6 +68,7 @@ import {
   validateTaskUserExecutionPlan,
 } from './user-execution-plan-contract.mjs';
 import { userExecutionPlanContractState } from './user-execution-plan-git-contract.mjs';
+import { AUTO_GENERATED_CHURN } from './verification-receipt-storage.mjs';
 import {
   normalizedScenarioLines as sharedNormalizedScenarioLines,
   scenarioContract as sharedScenarioContract,
@@ -67,7 +76,7 @@ import {
 } from './user-execution-scenario-contract.mjs';
 import { tokenizeCanonicalShell as sharedTokenizeCanonicalShell } from './user-execution-scenario-surface.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASK_PREFIX = '.agents/tasks/';
 const SPEC_PREFIX = '.agents/spec-docs/';
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
@@ -80,6 +89,18 @@ const PRE_CHECKPOINT_SPEC_STATUS = new Map([
   ['backlog', 'review-ready'],
   ['todo', 'approved'],
 ]);
+/**
+ * A pre-checkpoint TERMINAL DISPOSITION (issue #2469): an open Task plus its pre-checkpoint spec are
+ * closed without ever reaching GATE-IMPLEMENT (a REJECT verdict, a false premise). The only accepted
+ * shape is the same-basename move `tasks/<b>` → `tasks/completed/<b>` at a non-done terminal status
+ * together with `spec-docs/{draft,backlog,todo}/<b>` → `spec-docs/rejected/<b>` at `status: rejected`
+ * carrying a `[REJECTION]` evidence entry — and nothing else in the change. `done` is excluded: a
+ * delivered unit needs the checkpoint.
+ */
+const REJECTED_SPEC_FOLDER = 'rejected';
+const REJECTED_SPEC_STATUS = 'rejected';
+const REJECTION_ENTRY_TOKEN = '[REJECTION]';
+const TERMINAL_DISPOSITION_TASK_STATUSES = new Set(['wontfix', 'skipped', 'superseded']);
 const LOOP_TERMINALS = new Set([
   'converged',
   'no-progress',
@@ -213,21 +234,70 @@ function changedPaths(root, from, to) {
   return nulPaths(result.stdout);
 }
 
+/**
+ * The tree Git itself would produce by merging `ours` and `theirs` (issue #2410). Conflicted paths
+ * are written with their markers, so a resolution differs from this tree at exactly those paths.
+ */
+function automaticMergeTree(root, ours, theirs) {
+  const result = runGit(root, ['merge-tree', '--write-tree', ours, theirs]);
+  // 0: clean, 1: conflicts (the tree is still on the first line), anything else: not a merge result.
+  if (result.code !== 0 && result.code !== 1) {
+    throw new Error(
+      `git merge-tree ${ours} ${theirs} failed: ${result.stderr || '(no stderr)'} — a merge's own content cannot be attributed`,
+    );
+  }
+  const tree = result.stdout.split('\n', 1)[0].trim();
+  if (!/^[0-9a-f]{40,64}$/.test(tree)) {
+    throw new Error(`git merge-tree ${ours} ${theirs} wrote no tree: ${result.stdout.trim()}`);
+  }
+  return tree;
+}
+
+/**
+ * A merge commit's OWN content (issue #2410): the paths at which the merge's tree differs from the
+ * automatic merge of its two parents. A clean merge — including one where both sides changed
+ * different hunks of one file, which `diff-tree --cc` would list — has none; a conflict resolution
+ * and an evil merge (a path present in neither parent) are exactly what remains. An octopus merge
+ * has no single automatic result to compare against and is refused rather than guessed.
+ */
+function mergeOwnPaths(root, commit, parents) {
+  if (parents.length !== 2) {
+    throw new Error(
+      `${commit} is a ${parents.length}-parent merge; its own content cannot be attributed`,
+    );
+  }
+  return changedPaths(root, automaticMergeTree(root, parents[0], parents[1]), commit);
+}
+
 function stagedPaths(root) {
   requireWorktreeTopLevel(root);
+  // A merge in progress (issue #2410): the index against HEAD is the whole other side. The proposed
+  // merge's own content is what the index adds beyond Git's automatic merge of HEAD and MERGE_HEAD.
+  const mergeHead = runGit(root, ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD^{commit}']);
+  const against =
+    mergeHead.code === 0 ? automaticMergeTree(root, 'HEAD', mergeHead.stdout.trim()) : 'HEAD';
   const result = runGit(root, [
-    'diff',
+    'diff-index',
     '--cached',
     '--name-only',
     '-z',
     '--no-renames',
-    'HEAD',
+    against,
     '--',
   ]);
   if (result.code !== 0) throw new Error(`staged diff failed: ${result.stderr || '(no stderr)'}`);
   return nulPaths(result.stdout);
 }
 
+/**
+ * Unstaged and untracked paths, minus the auto-generated churn `AUTO_GENERATED_CHURN` names.
+ *
+ * Those files are regenerated by any scan run — including the run that judges this gate — and the
+ * pre-commit hook refuses to stage them, so a tree can never be both "clean of them" and
+ * committable. `verification-receipt-storage.mjs` is the single owner of which dirt does not count
+ * and `pre-push.mjs` already honours it; this scan and the catalogue criterion were the two consumers
+ * that did not (issue #2376).
+ */
 function worktreePaths(root) {
   const unstaged = runGit(root, ['diff', '--name-only', '-z', '--no-renames', '--']);
   const untracked = runGit(root, ['ls-files', '--others', '--exclude-standard', '-z']);
@@ -236,7 +306,9 @@ function worktreePaths(root) {
       `worktree query failed: ${unstaged.stderr || untracked.stderr || '(no stderr)'}`,
     );
   }
-  return [...new Set([...nulPaths(unstaged.stdout), ...nulPaths(untracked.stdout)])];
+  return [...new Set([...nulPaths(unstaged.stdout), ...nulPaths(untracked.stdout)])].filter(
+    (file) => !AUTO_GENERATED_CHURN.has(file),
+  );
 }
 
 function taskBasename(file) {
@@ -1010,6 +1082,16 @@ function validLoopRecord(record) {
   );
 }
 
+/** A record `loop-run void` wrote: sealed, `terminal: voided`, and it says why. */
+function voidedLoopRecord(record) {
+  return (
+    validLoopRecord({ ...record, terminal: 'converged' }) &&
+    record.terminal === 'voided' &&
+    typeof record.extensions?.void?.reason === 'string' &&
+    record.extensions.void.reason.trim() !== ''
+  );
+}
+
 function successfulLoopRecord(record) {
   return (
     validLoopRecord(record) && record.terminal === 'converged' && record.roundFindings.at(-1) === 0
@@ -1068,12 +1150,34 @@ function appendedLedgerLines(before, after) {
 function validateLedgerAppend(file, before, after, basename) {
   if (file === POST_MERGE_LEDGER || !isLoopLedgerPath(file)) return false;
   if (file === UES_LEDGER) {
-    const record = appendedRecord(before, after);
+    // Issue #2438: a PLAN run sealed with a malformed `ref` could not be recovered — the gate wants
+    // exactly one bound record, the ledger rule forbids rewriting a sealed one. `loop-run void`
+    // marks such an UNCOMMITTED record `voided` in place; the append may then carry voided records
+    // ahead of the ONE closed record bound to the exact Task, and nothing else.
+    const appended = appendedLedgerLines(before, after);
+    if (appended === null || basename === null) return false;
+    const records = appended.map((line) => JSON.parse(line));
+    const last = records.at(-1);
     return (
-      basename !== null && successfulLoopRecord(record) && exactSubjectRef(record.ref, basename)
+      records.slice(0, -1).every((record) => voidedLoopRecord(record)) &&
+      successfulLoopRecord(last) &&
+      exactSubjectRef(last.ref, basename)
     );
   }
-  return appendedLedgerLines(before, after) !== null;
+  const appended = appendedLedgerLines(before, after);
+  // Issue #2504: an OPEN record with no subject (`terminal: null`, `ref: null`) must not cross the
+  // commit boundary — once committed it is indistinguishable from a live owner and blocks every
+  // same-day successor. A bound OPEN run (`open --ref <subject>`) names its owner and may.
+  return (
+    appended !== null &&
+    !appended.some((line) => {
+      const record = JSON.parse(line);
+      return (
+        (record.terminal === null || record.terminal === undefined) &&
+        (record.ref === null || record.ref === undefined)
+      );
+    })
+  );
 }
 
 function validateLedgerAppendBetween(root, from, to, file, basename) {
@@ -1110,7 +1214,129 @@ function correctionClosureOnly(paths, textForPath, parentTextForPath) {
   );
 }
 
+const NEAR_MISS_PREFIX = 'checkpoint-form near miss';
+
+/**
+ * A commit whose only unexpected paths are the exact checkpoint pair — or the active spec alone —
+ * is not implementation: it is a checkpoint whose entry failed the form (a typo in the status line,
+ * a missing binding, an entry appended without its pair). Refusing it as "non-planning prelude
+ * path" names a planning document and hides which criterion failed (issue #2420). So the
+ * checkpoint-form checks are run and their own words reported, the way a recognised candidate
+ * already is, and the refusal carries this prefix so the caller can lead with it.
+ */
+function checkpointNearMissProblem(basename, textForPath, parentTextForPath) {
+  const taskPath = `${TASK_PREFIX}${basename}`;
+  const specPath = `${SPEC_PREFIX}active/${basename}`;
+  const task = textForPath(taskPath);
+  const spec = textForPath(specPath);
+  const criteria =
+    task === null || spec === null
+      ? [
+          `paired ${task === null ? 'Task' : 'active spec'} \`${basename}\` is missing from the tree this commit leaves.`,
+        ]
+      : evaluatePlanTexts({
+          basename,
+          parentTask: parentTextForPath(taskPath),
+          parentSpec: parentTextForPath(specPath),
+          task,
+          spec,
+          ruleText: textForPath(BACKLOG_RULE_PATH),
+        });
+  return `${NEAR_MISS_PREFIX} for \`${basename}\`: the change set is the Task/spec pair or the active spec alone, but the entry does not meet the checkpoint form — ${criteria.join(' ')}`;
+}
+
+function isCheckpointNearMiss(problems) {
+  return problems.length > 0 && problems.every((problem) => problem.startsWith(NEAR_MISS_PREFIX));
+}
+
+function hasRejectionEntry(text) {
+  return visibleMarkdown(text ?? '')
+    .split('\n')
+    .some((line) => {
+      const heading = atxHeading(line);
+      return heading !== null && heading.content.startsWith(REJECTION_ENTRY_TOKEN);
+    });
+}
+
+/**
+ * The exact path set of a pre-checkpoint terminal disposition for `basename`, or null when `paths`
+ * is any other shape. Membership is decided by paths alone; contents are judged by
+ * `terminalDispositionProblems`.
+ */
+export function terminalDispositionPaths(paths, basename) {
+  const taskSource = `${TASK_PREFIX}${basename}`;
+  const taskDestination = `${TASK_PREFIX}completed/${basename}`;
+  const specDestination = `${SPEC_PREFIX}${REJECTED_SPEC_FOLDER}/${basename}`;
+  const specSources = paths.filter(
+    (file) =>
+      file.startsWith(SPEC_PREFIX) &&
+      specBasename(file) === basename &&
+      PRE_CHECKPOINT_SPEC_STATUS.has(file.slice(SPEC_PREFIX.length).split('/', 1)[0]),
+  );
+  if (specSources.length !== 1) return null;
+  const expected = [taskSource, taskDestination, specSources[0], specDestination].sort();
+  const actual = [...new Set(paths)].sort();
+  if (expected.length !== actual.length || expected.some((file, index) => file !== actual[index])) {
+    return null;
+  }
+  return { taskSource, taskDestination, specSource: specSources[0], specDestination };
+}
+
+export function terminalDispositionProblems(disposition, textForPath, parentTextForPath) {
+  const problems = [];
+  const { taskSource, taskDestination, specSource, specDestination } = disposition;
+  if (
+    textForPath(taskSource) !== null ||
+    frontmatterStatus(parentTextForPath(taskSource)) !== 'todo'
+  ) {
+    problems.push(
+      `terminal disposition must move an open \`status: todo\` Task \`${taskSource}\` out of the queue.`,
+    );
+  }
+  const taskStatus = frontmatterStatus(textForPath(taskDestination));
+  if (
+    parentTextForPath(taskDestination) !== null ||
+    !TERMINAL_DISPOSITION_TASK_STATUSES.has(taskStatus ?? '')
+  ) {
+    problems.push(
+      `terminal disposition Task \`${taskDestination}\` must be newly archived at one of ${[...TERMINAL_DISPOSITION_TASK_STATUSES].map((status) => `\`${status}\``).join(', ')} (got \`${taskStatus ?? '(missing)'}\`).`,
+    );
+  }
+  const specFolder = specSource.slice(SPEC_PREFIX.length).split('/', 1)[0];
+  const parentSpec = parentTextForPath(specSource);
+  if (
+    textForPath(specSource) !== null ||
+    parentSpec === null ||
+    frontmatterStatus(parentSpec) !== PRE_CHECKPOINT_SPEC_STATUS.get(specFolder) ||
+    gateImplementPassCount(parentSpec) > 0
+  ) {
+    problems.push(
+      `terminal disposition must retire a pre-checkpoint spec \`${specSource}\` that never carried GATE-IMPLEMENT PASS.`,
+    );
+  }
+  const rejectedSpec = textForPath(specDestination);
+  if (
+    parentTextForPath(specDestination) !== null ||
+    frontmatterStatus(rejectedSpec) !== REJECTED_SPEC_STATUS ||
+    !hasRejectionEntry(rejectedSpec)
+  ) {
+    problems.push(
+      `terminal disposition spec \`${specDestination}\` must be newly created at \`status: ${REJECTED_SPEC_STATUS}\` with a \`${REJECTION_ENTRY_TOKEN}\` evidence entry.`,
+    );
+  }
+  return problems;
+}
+
+/** True when `paths` is a pre-checkpoint terminal disposition of `basename`: the unit is closed. */
+export function isTerminalDisposition(paths, basename) {
+  return basename !== null && terminalDispositionPaths(paths, basename) !== null;
+}
+
 export function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
+  const disposition = terminalDispositionPaths(paths, basename);
+  if (disposition !== null) {
+    return terminalDispositionProblems(disposition, textForPath, parentTextForPath);
+  }
   const problems = [];
   const ledgerAppend = (file) =>
     isLoopLedgerPath(file) &&
@@ -1131,7 +1357,11 @@ export function planningPreludeProblems(paths, basename, textForPath, parentText
       !rewrittenLedgers.includes(file),
   );
   if (unexpected.length > 0) {
-    problems.push(`non-planning prelude path(s): ${unexpected.join(', ')}.`);
+    problems.push(
+      unexpected.every((file) => isExactCheckpointPairPath(file, basename))
+        ? checkpointNearMissProblem(basename, textForPath, parentTextForPath)
+        : `non-planning prelude path(s): ${unexpected.join(', ')}.`,
+    );
   }
   for (const file of paths) {
     if (!isPreCheckpointPlanningPath(file, basename)) continue;
@@ -1624,39 +1854,40 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       findings: [finding('checkpoint correction form is missing or invalid after its cutover.')],
     };
   }
-  // Contained — HARNESS-130. `--no-merges`: this scan attributes a commit's content by diffing it
-  // against its parent, which is defined for a single-parent commit and undefined for a merge —
-  // `commit^` is the FIRST parent, so a merge whose first parent is the base diffs as the other
-  // side's whole history. CI evaluates `refs/pull/N/merge`, exactly that shape: the checkpoint's
-  // todo → active transition inside the merge's diff read as a second candidate and refused every
-  // PR whose spec was still in-progress (issue #2373); on the branch tip a back-merge carrying the
-  // base's content was refused the same way. Fail direction, stated: merges are EXCLUDED, so a
-  // merge's OWN pre-checkpoint content — a conflict resolution introducing a path in neither
-  // parent — is not judged on this path. That residual, and the staged path's mirror of it, is
-  // HARNESS-130's.
+  // Attribution (issue #2410, formerly `--no-merges` under HARNESS-129/130): a single-parent commit
+  // is judged by its diff against that parent. A merge commit is judged by its OWN content — what its
+  // tree adds beyond Git's automatic merge of its parents (`mergeOwnPaths`) — never by its
+  // first-parent diff, which for `refs/pull/N/merge` or a back-merge of the base is the whole other
+  // side's history (issue #2373). A clean merge therefore contributes nothing and is not an entry;
+  // a conflict resolution or an evil merge is an entry at exactly the paths it introduced.
   const listed = runGit(root, [
     'rev-list',
     '--reverse',
     '--topo-order',
-    '--no-merges',
+    '--parents',
     `${base}..HEAD`,
   ]);
   if (listed.code !== 0) {
     throw new Error(`git rev-list failed: ${listed.stderr || '(no stderr)'}`);
   }
-  const commits = lines(listed.stdout);
   let examined = 0;
-  const entries = commits.map((commit) => {
-    examined += 1;
-    const parentResult = runGit(root, ['rev-parse', `${commit}^`]);
-    if (parentResult.code !== 0) {
-      throw new Error(
-        `cannot resolve parent of ${commit}: ${parentResult.stderr || '(no stderr)'}`,
-      );
+  const entries = [];
+  for (const row of lines(listed.stdout)) {
+    const [commit, ...parents] = row.split(' ');
+    if (parents.length === 0) {
+      throw new Error(`cannot resolve parent of ${commit}: it is a root commit`);
     }
-    const parent = parentResult.stdout.trim();
-    return { commit, parent, paths: changedPaths(root, parent, commit) };
-  });
+    if (parents.length === 1) {
+      examined += 1;
+      entries.push({ commit, parent: parents[0], paths: changedPaths(root, parents[0], commit) });
+      continue;
+    }
+    const own = mergeOwnPaths(root, commit, parents);
+    if (own.length === 0) continue;
+    examined += 1;
+    entries.push({ commit, parent: parents[0], paths: own, merge: true });
+  }
+  const commits = entries.map((entry) => entry.commit);
 
   const textIn = (revision) => (file) => gitText(root, revision, file);
   const candidates = [];
@@ -1748,16 +1979,20 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         preludeProblems.length > 0 ||
         (pendingBasename !== null && pendingBasename !== basename)
       ) {
+        const lead = isCheckpointNearMiss(preludeProblems)
+          ? 'planning checkpoint not recognised'
+          : 'implementation exists with no planning checkpoint';
         findings.push(
           finding(
-            `implementation exists with no planning checkpoint: ${entry.paths.join(', ') || '(empty commit)'}${preludeProblems.length > 0 ? ` (${preludeProblems.join(' ')})` : ''}.`,
+            `${lead}: ${entry.paths.join(', ') || '(empty commit)'}${preludeProblems.length > 0 ? ` (${preludeProblems.join(' ')})` : ''}.`,
             entry.commit,
           ),
         );
         continue;
       }
       planningStarted = true;
-      pendingBasename = basename;
+      // A terminal disposition closes the unit: nothing is pending for a later checkpoint.
+      pendingBasename = isTerminalDisposition(entry.paths, basename) ? null : basename;
     }
     return { base, commits, examined, checkpoint: null, pendingBasename, findings };
   }
@@ -1921,7 +2156,7 @@ function stagedLedgerProblems(root, paths, basename) {
     problems.push(
       file === UES_LEDGER
         ? 'proposed PLAN ledger is not one append-only closed record subject-bound to the exact Task.'
-        : `proposed ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, or a record is malformed).`,
+        : `proposed ledger \`${file}\` is not a pure append of JSON records (an existing line was rewritten, a record is malformed, or an unbound OPEN run is being committed — #2504).`,
     );
   }
   return problems;
@@ -2127,7 +2362,13 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
           history.pendingBasename !== null &&
           history.pendingBasename !== basename)
       ) {
-        findings.push(finding('staged implementation has no planning checkpoint ancestor.'));
+        findings.push(
+          finding(
+            isCheckpointNearMiss(preludeProblems)
+              ? `staged planning checkpoint not recognised: ${preludeProblems.join(' ')}`
+              : 'staged implementation has no planning checkpoint ancestor.',
+          ),
+        );
       }
       const residue = worktreePaths(root);
       if (residue.length > 0) {

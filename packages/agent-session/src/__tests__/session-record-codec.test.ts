@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from '../session-record-codec/index.js';
@@ -508,7 +508,7 @@ describe('decodeInteractiveSessionRecord — TC-06 unknown keys', () => {
 describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () => {
   it('decodes an envelope at the current version', () => {
     const outcome = decodeVersionedInteractiveSessionRecord({
-      schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
       record: persisted(),
     });
     expect(outcome.status).toBe('valid');
@@ -551,7 +551,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
 
   it('reports a valid envelope carrying a corrupt record as corrupt', () => {
     const outcome = decodeVersionedInteractiveSessionRecord({
-      schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
       record: persistedWith('id', 42),
     });
     expect(outcome.status).toBe('corrupt');
@@ -607,6 +607,6 @@ describe('TC-09 key parity between the contract and the decoder', () => {
   });
 
   it('exports a schema version', () => {
-    expect(Number.isInteger(SESSION_ARTIFACT_SCHEMA_VERSION)).toBe(true);
+    expect(Number.isInteger(SESSION_RECORD_ENVELOPE_VERSION)).toBe(true);
   });
 });

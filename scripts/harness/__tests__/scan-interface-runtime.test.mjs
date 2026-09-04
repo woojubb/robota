@@ -201,3 +201,64 @@ describe('interface-package ENTRY surface (HARNESS-103)', () => {
     expect(readExaminedEntryCount(root)).toBe(1);
   });
 });
+
+describe('interface-package ENTRY surface — re-export chains (issue #2221)', () => {
+  // `export *` names nothing, so an enumerator that reads only named clauses produced, for a barrel
+  // over a sub-barrel, output identical to a package that publishes no runtime values at all. And
+  // a named re-export resolved exactly one hop, so a declaration two hops away read as a mechanism.
+  const root = makeTemp('issue-2221-');
+  const pkgSrc = path.join(root, 'agent-interface-chain', 'src');
+
+  const write = (rel, text) => {
+    mkdirSync(path.dirname(path.join(pkgSrc, rel)), { recursive: true });
+    writeFileSync(path.join(pkgSrc, rel), text);
+  };
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it('sees the mechanism behind a relative `export *` over a sub-barrel', () => {
+    write(
+      'leaf.ts',
+      [
+        'export function isLeaf(x: unknown): x is string { return typeof x === "string"; }',
+        'export function buildLeaf(): string { return "x"; }',
+        'export const LEAF_VOCAB = Object.freeze({ a: 1 });',
+      ].join('\n'),
+    );
+    write('sub-barrel.ts', "export * from './leaf.js';\nexport type { T } from './leaf.js';\n");
+    write('index.ts', "export * from './sub-barrel.js';\n");
+
+    const { byPackage, unresolvedByPackage, exportsExamined } = findEntryRuntimeMechanisms(root);
+
+    expect(byPackage['agent-interface-chain']).toEqual(['buildLeaf']);
+    expect(unresolvedByPackage['agent-interface-chain']).toEqual([]);
+    expect(exportsExamined).toBe(3);
+  });
+
+  it('follows a two-hop named re-export (with rename) to the declaring file', () => {
+    write('sub-barrel.ts', "export { isLeaf as isLeafRenamed, buildLeaf } from './leaf.js';\n");
+    write('index.ts', "export { isLeafRenamed, buildLeaf } from './sub-barrel.js';\n");
+
+    const { byPackage, unresolvedByPackage } = findEntryRuntimeMechanisms(root);
+
+    // The predicate two hops away is a discriminator, not a mechanism; only the factory counts.
+    expect(byPackage['agent-interface-chain']).toEqual(['buildLeaf']);
+    expect(unresolvedByPackage['agent-interface-chain']).toEqual([]);
+  });
+
+  it('reports an export it cannot resolve as a finding rather than dropping it', () => {
+    write('index.ts', "export { ghost } from './sub-barrel.js';\nexport * from './missing.js';\n");
+    write('sub-barrel.ts', "export { ghost } from './leaf.js';\n");
+
+    const { unresolvedByPackage } = findEntryRuntimeMechanisms(root);
+    expect(unresolvedByPackage['agent-interface-chain']).toEqual([
+      "* from './missing.js' (target not found)",
+      'ghost (declaration not found)',
+    ]);
+
+    const { findings } = findEntryBaselineFindings(root, { 'agent-interface-chain': 99 });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].kind).toBe('unresolved-export');
+    expect(findings[0].problem).toMatch(/ghost/);
+  });
+});

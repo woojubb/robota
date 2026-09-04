@@ -109,37 +109,41 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     ).toBe(projectAccess);
   });
 
-  it('inherits the runtime default store and resumes through it', async () => {
-    const cwd = scratchDir();
-    const projectStore = await createTrustedProjectSessionStoreFixture(cwd);
-    const firstProvider = createScriptedProvider([{ text: 'stored context' }]);
-    const firstRuntime = createAgentRuntime({
-      cwd,
-      provider: firstProvider.provider,
-      sessionStore: projectStore,
-    });
-    const first = track(firstRuntime.createSession({ bare: true }));
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'inherits the runtime default store and resumes through it',
+    async () => {
+      const cwd = scratchDir();
+      const projectStore = await createTrustedProjectSessionStoreFixture(cwd);
+      const firstProvider = createScriptedProvider([{ text: 'stored context' }]);
+      const firstRuntime = createAgentRuntime({
+        cwd,
+        provider: firstProvider.provider,
+        sessionStore: projectStore,
+      });
+      const first = track(firstRuntime.createSession({ bare: true }));
 
-    await expect(completeTurn(first, 'remember ARCH-023')).resolves.toBe('stored context');
-    const sessionId = first.getSession().getSessionId();
-    await first.shutdown();
+      await expect(completeTurn(first, 'remember ARCH-023')).resolves.toBe('stored context');
+      const sessionId = first.getSession().getSessionId();
+      await first.shutdown();
 
-    expect(existsSync(join(cwd, '.robota', 'sessions', `${sessionId}.json`))).toBe(true);
+      expect(existsSync(join(cwd, '.robota', 'sessions', `${sessionId}.json`))).toBe(true);
 
-    const secondProvider = createScriptedProvider([{ text: 'restored context' }]);
-    const secondRuntime = createAgentRuntime({
-      cwd,
-      provider: secondProvider.provider,
-      sessionStore: projectStore,
-    });
-    const second = track(secondRuntime.createSession({ bare: true, resumeSessionId: sessionId }));
+      const secondProvider = createScriptedProvider([{ text: 'restored context' }]);
+      const secondRuntime = createAgentRuntime({
+        cwd,
+        provider: secondProvider.provider,
+        sessionStore: projectStore,
+      });
+      const second = track(secondRuntime.createSession({ bare: true, resumeSessionId: sessionId }));
 
-    await expect(completeTurn(second, 'recall ARCH-023')).resolves.toBe('restored context');
-    const requestContents = (secondProvider.requests[0] ?? []).map((message) => message.content);
-    expect(requestContents).toContain('remember ARCH-023');
-    expect(requestContents).toContain('stored context');
-    expect(second.getSession().getSessionId()).toBe(sessionId);
-  });
+      await expect(completeTurn(second, 'recall ARCH-023')).resolves.toBe('restored context');
+      const requestContents = (secondProvider.requests[0] ?? []).map((message) => message.content);
+      expect(requestContents).toContain('remember ARCH-023');
+      expect(requestContents).toContain('stored context');
+      expect(second.getSession().getSessionId()).toBe(sessionId);
+    },
+  );
 
   it('uses an explicit per-session store instead of the runtime default', async () => {
     const cwd = scratchDir();

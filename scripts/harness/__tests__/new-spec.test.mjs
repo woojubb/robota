@@ -336,9 +336,14 @@ describe('the Task record is the source', () => {
       '--dry-run',
     ]);
     expect(code, stderr).toBe(0);
-    expect(stderr.trim()).toBe(
+    // The root announcement (issue #2413) goes to stderr here because stdout is the document.
+    const notices = stderr
+      .trim()
+      .split('\n')
+      .filter((line) => !line.startsWith('::root::'));
+    expect(notices).toEqual([
       `new-spec: dry run — target ${DRAFT_DIR}/INFRA-135-loop-run-open-refuses-a-second-open-on-the-same-loop.md (not written)`,
-    );
+    ]);
     expect(stdout).toContain('# INFRA-135: loop-run open closes the previous run');
     expect(stdout).toContain(
       'Paired with `.agents/tasks/INFRA-135-loop-run-open-refuses-a-second-open-on-the-same-loop.md`.', // allow-missing-artifact: fixture path inside the test's temporary root

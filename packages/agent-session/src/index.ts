@@ -19,6 +19,7 @@ export { SessionBusyError, TurnClaim } from './turn-claim.js';
 
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
+export { consentScopeFor } from './consent-scope.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,
@@ -97,7 +98,7 @@ export type { ICheckpointNode } from './checkpoint-tree.js';
 // (`scan-interface-runtime`), and a decoder is a mechanism.
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
