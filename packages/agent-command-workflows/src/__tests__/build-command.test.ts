@@ -99,44 +99,49 @@ describe('build never-executes: static import guard (WORKFLOW-004 × P3)', () =>
   });
 });
 
-describe('executeWorkflowsBuild (TC-01: author + save, never execute)', () => {
-  it('saves .workflows/<name>.json, reports the path + next steps, and produces NO run output', async () => {
-    const result = await executeWorkflowsBuild(
-      '"uppercase the text" --input text=hi',
-      dir,
-      baseDeps(UPPERCASE_SPEC),
-    );
-    expect(result.success).toBe(true);
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')(
+  'executeWorkflowsBuild (TC-01: author + save, never execute)',
+  () => {
+    it('saves .workflows/<name>.json, reports the path + next steps, and produces NO run output', async () => {
+      const result = await executeWorkflowsBuild(
+        '"uppercase the text" --input text=hi',
+        dir,
+        baseDeps(UPPERCASE_SPEC),
+      );
+      expect(result.success).toBe(true);
 
-    const savedPath = join(dir, '.workflows', 'uppercase-it.json');
-    await expect(stat(savedPath)).resolves.toBeDefined();
-    expect(result.message).toContain('.workflows/uppercase-it.json');
+      const savedPath = join(dir, '.workflows', 'uppercase-it.json');
+      await expect(stat(savedPath)).resolves.toBeDefined();
+      expect(result.message).toContain('.workflows/uppercase-it.json');
 
-    // Explicit next steps — build hands off to the existing subcommands.
-    expect(result.message).toContain('/workflows validate .workflows/uppercase-it.json');
-    expect(result.message).toContain('/workflows run .workflows/uppercase-it.json');
+      // Explicit next steps — build hands off to the existing subcommands.
+      expect(result.message).toContain('/workflows validate .workflows/uppercase-it.json');
+      expect(result.message).toContain('/workflows run .workflows/uppercase-it.json');
 
-    // NO run output: nothing executed, so no outputs/duration lines can exist.
-    expect(result.message).not.toContain('Outputs:');
-    expect(result.message).not.toMatch(/Completed in \d+ms/);
-    expect(result.message).not.toContain('HI'); // the would-be run result never appears
+      // NO run output: nothing executed, so no outputs/duration lines can exist.
+      expect(result.message).not.toContain('Outputs:');
+      expect(result.message).not.toMatch(/Completed in \d+ms/);
+      expect(result.message).not.toContain('HI'); // the would-be run result never appears
 
-    // Mechanical non-execution proof: the runtime execute path was never invoked.
-    expect(executeCanary).toHaveBeenCalledTimes(0);
-  });
+      // Mechanical non-execution proof: the runtime execute path was never invoked.
+      expect(executeCanary).toHaveBeenCalledTimes(0);
+    });
 
-  it('bakes the explicit --input into the artifact input node (self-contained)', async () => {
-    await executeWorkflowsBuild('"uppercase" --input text=hi', dir, baseDeps(UPPERCASE_SPEC));
-    const saved = JSON.parse(
-      await readFile(join(dir, '.workflows', 'uppercase-it.json'), 'utf-8'),
-    ) as { nodes: Array<{ nodeType: string; config: Record<string, unknown> }> };
-    const inputNode = saved.nodes.find((n) => n.nodeType === 'input');
-    expect(inputNode?.config).toMatchObject({ text: 'hi' });
-    expect(executeCanary).toHaveBeenCalledTimes(0);
-  });
-});
+    it('bakes the explicit --input into the artifact input node (self-contained)', async () => {
+      await executeWorkflowsBuild('"uppercase" --input text=hi', dir, baseDeps(UPPERCASE_SPEC));
+      const saved = JSON.parse(
+        await readFile(join(dir, '.workflows', 'uppercase-it.json'), 'utf-8'),
+      ) as { nodes: Array<{ nodeType: string; config: Record<string, unknown> }> };
+      const inputNode = saved.nodes.find((n) => n.nodeType === 'input');
+      expect(inputNode?.config).toMatchObject({ text: 'hi' });
+      expect(executeCanary).toHaveBeenCalledTimes(0);
+    });
+  },
+);
 
-describe('build → validate → run round-trip (TC-02)', () => {
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('build → validate → run round-trip (TC-02)', () => {
   it('the built artifact validates cleanly and runs with the baked input', async () => {
     const built = await executeWorkflowsBuild(
       '"uppercase the text" --input text=hi',
@@ -221,45 +226,53 @@ describe('executeWorkflowsBuild (TC-04: no active provider)', () => {
   });
 });
 
-describe('executeWorkflowsBuild (TC-05: newNodes persisted inert)', () => {
-  const PIRATE_SPEC = JSON.stringify({
-    name: 'pirate-rewrite',
-    pipeline: [{ nodeType: 'input' }, { nodeType: 'pirate-speak' }, { nodeType: 'text-output' }],
-    newNodes: [
-      {
-        nodeType: 'pirate-speak',
-        displayName: 'Pirate Speak',
-        systemPromptTemplate: 'Rewrite as a pirate: {{text}}',
-        inputPorts: [{ key: 'text' }],
-        outputPort: { key: 'text' },
-        provider: 'anthropic',
-      },
-    ],
-    sampleInput: { text: 'hello' },
-  });
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')(
+  'executeWorkflowsBuild (TC-05: newNodes persisted inert)',
+  () => {
+    const PIRATE_SPEC = JSON.stringify({
+      name: 'pirate-rewrite',
+      pipeline: [{ nodeType: 'input' }, { nodeType: 'pirate-speak' }, { nodeType: 'text-output' }],
+      newNodes: [
+        {
+          nodeType: 'pirate-speak',
+          displayName: 'Pirate Speak',
+          systemPromptTemplate: 'Rewrite as a pirate: {{text}}',
+          inputPorts: [{ key: 'text' }],
+          outputPort: { key: 'text' },
+          provider: 'anthropic',
+        },
+      ],
+      sampleInput: { text: 'hello' },
+    });
 
-  it('saves the prompt-node manifest under nodes/, the workflow references it, nothing executes', async () => {
-    const result = await executeWorkflowsBuild('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    expect(result.success).toBe(true);
+    it('saves the prompt-node manifest under nodes/, the workflow references it, nothing executes', async () => {
+      const result = await executeWorkflowsBuild(
+        '"rewrite as a pirate"',
+        dir,
+        baseDeps(PIRATE_SPEC),
+      );
+      expect(result.success).toBe(true);
 
-    // Inert manifest persisted (persisting executes nothing — key-using node never runs).
-    const nodePath = join(dir, '.workflows', 'nodes', 'pirate-speak.node.json');
-    const manifest = JSON.parse(await readFile(nodePath, 'utf-8')) as {
-      kind: string;
-      nodeType: string;
-    };
-    expect(manifest.kind).toBe('prompt');
-    expect(manifest.nodeType).toBe('pirate-speak');
-    expect(result.message).toContain('pirate-speak.node.json');
+      // Inert manifest persisted (persisting executes nothing — key-using node never runs).
+      const nodePath = join(dir, '.workflows', 'nodes', 'pirate-speak.node.json');
+      const manifest = JSON.parse(await readFile(nodePath, 'utf-8')) as {
+        kind: string;
+        nodeType: string;
+      };
+      expect(manifest.kind).toBe('prompt');
+      expect(manifest.nodeType).toBe('pirate-speak');
+      expect(result.message).toContain('pirate-speak.node.json');
 
-    // The saved workflow references the new node type.
-    const saved = JSON.parse(
-      await readFile(join(dir, '.workflows', 'pirate-rewrite.json'), 'utf-8'),
-    ) as { nodes: Array<{ nodeType: string }> };
-    expect(saved.nodes.some((n) => n.nodeType === 'pirate-speak')).toBe(true);
+      // The saved workflow references the new node type.
+      const saved = JSON.parse(
+        await readFile(join(dir, '.workflows', 'pirate-rewrite.json'), 'utf-8'),
+      ) as { nodes: Array<{ nodeType: string }> };
+      expect(saved.nodes.some((n) => n.nodeType === 'pirate-speak')).toBe(true);
 
-    // Unlike `create` (which would fail here on the missing key), build succeeds — it never ran.
-    expect(result.message).not.toContain('run failed');
-    expect(executeCanary).toHaveBeenCalledTimes(0);
-  });
-});
+      // Unlike `create` (which would fail here on the missing key), build succeeds — it never ran.
+      expect(result.message).not.toContain('run failed');
+      expect(executeCanary).toHaveBeenCalledTimes(0);
+    });
+  },
+);
