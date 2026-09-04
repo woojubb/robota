@@ -4519,9 +4519,9 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/todo/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/todo/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
-    write(root, HISTORIC_SPEC, record('HARNESS-123', 'references `.agents/tasks/OLD-002.md`'));
+    write(root, HISTORIC_SPEC, record('HARNESS-123', 'references `.agents/tasks/OLD-002.md`')); // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     const base = commit(root, 'seed the historical records and the lane floors table');
     git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
     git(root, ['switch', '-q', '-C', 'feature', base]);
@@ -4540,12 +4540,12 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     write(
       root,
       HISTORIC_SPEC,
-      record('HARNESS-123', 'references `.agents/tasks/completed/OLD-002.md`'),
+      record('HARNESS-123', 'references `.agents/tasks/completed/OLD-002.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
     git(root, ['mv', GROUND_TASK, ARCHIVED_GROUND]);
@@ -4567,7 +4567,7 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     git(root, ['add', '-A']);
     const findings = findStagedFindings(root, base);
@@ -4600,7 +4600,7 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     git(root, ['add', '-A']);
     const findings = findStagedFindings(root, base);
@@ -4616,7 +4616,7 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     git(root, ['add', '-A']);
     const findings = findStagedFindings(root, base);
@@ -4648,7 +4648,7 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     write(
       root,
       HISTORIC_TASK,
-      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'), // allow-missing-artifact: synthetic fixture path; the case is about a record that cites a document the tree does not carry
     );
     git(root, ['add', '-A']);
     const findings = findStagedFindings(root, base);
