@@ -75,18 +75,24 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
     expect(context.memoryMd).toBe('INJECTED-MEMORY-CONTENT');
   });
 
-  it('does not discover project memory from cwd when no store is injected', async () => {
-    const cwd = makeWorkspace();
-    const store = createWorkspaceMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'));
-    await store.append({
-      type: 'project',
-      topic: 'build',
-      text: 'authority-required-memory-entry',
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'does not discover project memory from cwd when no store is injected',
+    async () => {
+      const cwd = makeWorkspace();
+      const store = createWorkspaceMemoryStore(
+        await createTrustedProjectStateFixture(cwd, 'memory'),
+      );
+      await store.append({
+        type: 'project',
+        topic: 'build',
+        text: 'authority-required-memory-entry',
+      });
 
-    const context = await loadContext(await projectSource(cwd));
-    expect(context.memoryMd).toBeUndefined();
-  });
+      const context = await loadContext(await projectSource(cwd));
+      expect(context.memoryMd).toBeUndefined();
+    },
+  );
 
   it('returns undefined memoryMd when no store is injected', async () => {
     const context = await loadContext(undefined);

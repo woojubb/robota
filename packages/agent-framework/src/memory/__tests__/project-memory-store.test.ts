@@ -68,43 +68,51 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(true);
   });
 
-  it('Given a memory item When appending Then index and topic files are created', async () => {
-    const cwd = makeProject();
-    const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given a memory item When appending Then index and topic files are created',
+    async () => {
+      const cwd = makeProject();
+      const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
 
-    const result = store.append({
-      type: 'project',
-      topic: 'Build Commands',
-      text: 'Use pnpm for package scripts.',
-    });
+      const result = store.append({
+        type: 'project',
+        topic: 'Build Commands',
+        text: 'Use pnpm for package scripts.',
+      });
 
-    expect(result.topic).toBe('build-commands');
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '[2026-05-02] (project/build-commands) Use pnpm for package scripts.',
-    );
-    expect(readFileSync(join(cwd, result.topicPath), 'utf8')).toContain(
-      'Use pnpm for package scripts.',
-    );
-  });
+      expect(result.topic).toBe('build-commands');
+      expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+        '[2026-05-02] (project/build-commands) Use pnpm for package scripts.',
+      );
+      expect(readFileSync(join(cwd, result.topicPath), 'utf8')).toContain(
+        'Use pnpm for package scripts.',
+      );
+    },
+  );
 
-  it('Given the same memory item already exists When appending again Then duplicate entries are skipped', async () => {
-    const cwd = makeProject();
-    const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
-    const input = {
-      type: 'project' as const,
-      topic: 'build',
-      text: 'Use pnpm for package scripts.',
-    };
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given the same memory item already exists When appending again Then duplicate entries are skipped',
+    async () => {
+      const cwd = makeProject();
+      const store = await makeStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+      const input = {
+        type: 'project' as const,
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+      };
 
-    const first = store.append(input);
-    const second = store.append(input);
+      const first = store.append(input);
+      const second = store.append(input);
 
-    expect(first.deduplicated).toBe(false);
-    expect(second.deduplicated).toBe(true);
-    expect(
-      readFileSync(join(cwd, first.topicPath), 'utf8').match(/Use pnpm for package scripts\./g),
-    ).toHaveLength(1);
-  });
+      expect(first.deduplicated).toBe(false);
+      expect(second.deduplicated).toBe(true);
+      expect(
+        readFileSync(join(cwd, first.topicPath), 'utf8').match(/Use pnpm for package scripts\./g),
+      ).toHaveLength(1);
+    },
+  );
 
   it('Given topic files When listing memory Then returns topic names and paths', async () => {
     const cwd = makeProject();

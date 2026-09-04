@@ -67,48 +67,56 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
     });
   });
 
-  it('emits the exact post-persistence event for create, restore, fork, switch, and rollback', async () => {
-    const { tracker, events, order } = await createTracker();
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'emits the exact post-persistence event for create, restore, fork, switch, and rollback',
+    async () => {
+      const { tracker, events, order } = await createTracker();
 
-    await tracker.beginEditCheckpointTurn('first');
-    await tracker.finalizeEditCheckpointTurn();
-    await tracker.beginEditCheckpointTurn('second');
-    await tracker.finalizeEditCheckpointTurn();
-    const [first, second] = tracker.listEditCheckpoints();
-    expect(first).toBeDefined();
-    expect(second).toBeDefined();
+      await tracker.beginEditCheckpointTurn('first');
+      await tracker.finalizeEditCheckpointTurn();
+      await tracker.beginEditCheckpointTurn('second');
+      await tracker.finalizeEditCheckpointTurn();
+      const [first, second] = tracker.listEditCheckpoints();
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
 
-    await tracker.restoreEditCheckpoint(first!.id);
-    await tracker.forkCheckpointBranch(first!.id);
-    tracker.switchCheckpointBranch(second!.id);
-    await tracker.rollbackEditCheckpoint(first!.id);
+      await tracker.restoreEditCheckpoint(first!.id);
+      await tracker.forkCheckpointBranch(first!.id);
+      tracker.switchCheckpointBranch(second!.id);
+      await tracker.rollbackEditCheckpoint(first!.id);
 
-    expect(events.map((event) => event.kind)).toEqual([
-      'checkpoint_created',
-      'checkpoint_created',
-      'checkpoint_restored',
-      'branch_forked',
-      'branch_switched',
-      'checkpoint_rolled_back',
-    ]);
-    for (const [index, item] of order.entries()) {
-      if (!item.startsWith('emit:')) continue;
-      expect(order[index - 1]).toBe('persist');
-    }
-    expect(events.every((event) => event.branchId.length > 0)).toBe(true);
-    expect(events.at(-1)?.branchId).toBe('main');
-  });
+      expect(events.map((event) => event.kind)).toEqual([
+        'checkpoint_created',
+        'checkpoint_created',
+        'checkpoint_restored',
+        'branch_forked',
+        'branch_switched',
+        'checkpoint_rolled_back',
+      ]);
+      for (const [index, item] of order.entries()) {
+        if (!item.startsWith('emit:')) continue;
+        expect(order[index - 1]).toBe('persist');
+      }
+      expect(events.every((event) => event.branchId.length > 0)).toBe(true);
+      expect(events.at(-1)?.branchId).toBe('main');
+    },
+  );
 
-  it('classifies resume-pointer hydration as a non-event', async () => {
-    const { tracker, events } = await createTracker();
-    await tracker.beginEditCheckpointTurn('first');
-    await tracker.finalizeEditCheckpointTurn();
-    const pointer = tracker.getActiveBranchPointer();
-    expect(pointer).toBeDefined();
-    const countBeforeHydration = events.length;
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'classifies resume-pointer hydration as a non-event',
+    async () => {
+      const { tracker, events } = await createTracker();
+      await tracker.beginEditCheckpointTurn('first');
+      await tracker.finalizeEditCheckpointTurn();
+      const pointer = tracker.getActiveBranchPointer();
+      expect(pointer).toBeDefined();
+      const countBeforeHydration = events.length;
 
-    tracker.restoreActiveBranch(pointer);
+      tracker.restoreActiveBranch(pointer);
 
-    expect(events).toHaveLength(countBeforeHydration);
-  });
+      expect(events).toHaveLength(countBeforeHydration);
+    },
+  );
 });

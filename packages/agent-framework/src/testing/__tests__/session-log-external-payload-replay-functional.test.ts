@@ -27,47 +27,51 @@ afterEach(async () => {
   source = undefined;
 });
 
-describe('session-log external-payload replay (framework functional)', () => {
-  it(
-    'replays a large response byte-exactly without shifting the following response',
-    async () => {
-      source = scriptedSession({
-        turns: [{ text: LARGE_RESPONSE }, { text: SENTINEL_RESPONSE }],
-      });
-      await source.submit('first recorded turn');
-      await source.submit('second recorded turn');
+// ARCH-049: stable no-follow payload reads are Linux-only; the read refuses elsewhere.
+describe.runIf(process.platform === 'linux')(
+  'session-log external-payload replay (framework functional)',
+  () => {
+    it(
+      'replays a large response byte-exactly without shifting the following response',
+      async () => {
+        source = scriptedSession({
+          turns: [{ text: LARGE_RESPONSE }, { text: SENTINEL_RESPONSE }],
+        });
+        await source.submit('first recorded turn');
+        await source.submit('second recorded turn');
 
-      const reference = findExternalPayloadReference(source.logEntries());
-      expect(reference).toBeDefined();
-      expect(existsSync(join(source.logsDir(), reference!.relativePath))).toBe(true);
+        const reference = findExternalPayloadReference(source.logEntries());
+        expect(reference).toBeDefined();
+        expect(existsSync(join(source.logsDir(), reference!.relativePath))).toBe(true);
 
-      const replayProvider = createReplayProviderFromSource(
-        new NodeSessionLogSource(source.transcriptPath()),
-      );
-      replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-replay-functional-'));
-      replaySession = new InteractiveSession({
-        cwd: replayWorkspace,
-        provider: replayProvider,
-        bare: true,
-        permissionMode: 'bypassPermissions',
-      });
+        const replayProvider = createReplayProviderFromSource(
+          new NodeSessionLogSource(source.transcriptPath()),
+        );
+        replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-replay-functional-'));
+        replaySession = new InteractiveSession({
+          cwd: replayWorkspace,
+          provider: replayProvider,
+          bare: true,
+          permissionMode: 'bypassPermissions',
+        });
 
-      await submitAndWait(replaySession, 'first replay turn');
-      await submitAndWait(replaySession, 'second replay turn');
-      const replayed = replaySession
-        .getMessages()
-        .filter((message) => message.role === 'assistant')
-        .map((message) => message.content);
+        await submitAndWait(replaySession, 'first replay turn');
+        await submitAndWait(replaySession, 'second replay turn');
+        const replayed = replaySession
+          .getMessages()
+          .filter((message) => message.role === 'assistant')
+          .map((message) => message.content);
 
-      expect(replayed).toEqual([LARGE_RESPONSE, SENTINEL_RESPONSE]);
-      expect(Buffer.byteLength(String(replayed[0]))).toBe(40_975);
-      expect(createHash('sha256').update(String(replayed[0])).digest('hex')).toBe(
-        '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193',
-      );
-    },
-    TEST_TIMEOUT_MS,
-  );
-});
+        expect(replayed).toEqual([LARGE_RESPONSE, SENTINEL_RESPONSE]);
+        expect(Buffer.byteLength(String(replayed[0]))).toBe(40_975);
+        expect(createHash('sha256').update(String(replayed[0])).digest('hex')).toBe(
+          '42bc9897b0c5ebe94994f5ef0b494461e1133116821ed9141c0d2043a0168193',
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+  },
+);
 
 async function submitAndWait(session: InteractiveSession, prompt: string): Promise<void> {
   const handle = await session.submit(prompt);

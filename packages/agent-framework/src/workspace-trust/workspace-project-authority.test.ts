@@ -241,91 +241,103 @@ describe('WorkspaceTrustService project authority', () => {
     }
   });
 
-  it('binds application state to a closed namespace and refuses linked write targets', async () => {
-    const { root, service } = fixture();
-    const outside = mkdtempSync(join(tmpdir(), 'robota-arch-042-state-outside-'));
-    roots.push(outside);
-    mkdirSync(join(root, '.robota'), { recursive: true });
-    symlinkSync(outside, join(root, '.robota', 'sessions'));
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'binds application state to a closed namespace and refuses linked write targets',
+    async () => {
+      const { root, service } = fixture();
+      const outside = mkdtempSync(join(tmpdir(), 'robota-arch-042-state-outside-'));
+      roots.push(outside);
+      mkdirSync(join(root, '.robota'), { recursive: true });
+      symlinkSync(outside, join(root, '.robota', 'sessions'));
 
-    const granted = await service.grant(root);
-    if (granted.status !== 'trusted') throw new Error('expected trusted access');
-    const sessions = getWorkspaceProjectStateStorage(granted.authority, 'sessions');
+      const granted = await service.grant(root);
+      if (granted.status !== 'trusted') throw new Error('expected trusted access');
+      const sessions = getWorkspaceProjectStateStorage(granted.authority, 'sessions');
 
-    expect(() => sessions.writeText('session.json', '{}', 'persist session')).toThrowError(
-      WorkspaceAuthorityRequiredError,
-    );
-    rmSync(join(root, '.robota', 'sessions'));
-    sessions.writeText('session.json', '{"ok":true}', 'persist session');
-    expect(sessions.readText('session.json', 'resume session')).toBe('{"ok":true}');
-    expect(() => sessions.readBytes('session.json', 'bounded session read', 1)).toThrow(
-      /read limit/i,
-    );
-    expect(sessions.namespace).toBe('sessions');
-  });
+      expect(() => sessions.writeText('session.json', '{}', 'persist session')).toThrowError(
+        WorkspaceAuthorityRequiredError,
+      );
+      rmSync(join(root, '.robota', 'sessions'));
+      sessions.writeText('session.json', '{"ok":true}', 'persist session');
+      expect(sessions.readText('session.json', 'resume session')).toBe('{"ok":true}');
+      expect(() => sessions.readBytes('session.json', 'bounded session read', 1)).toThrow(
+        /read limit/i,
+      );
+      expect(sessions.namespace).toBe('sessions');
+    },
+  );
 
-  it('binds an approved settings writer to exactly one project settings target', async () => {
-    const { root, service } = fixture();
-    const granted = await service.grant(root);
-    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'binds an approved settings writer to exactly one project settings target',
+    async () => {
+      const { root, service } = fixture();
+      const granted = await service.grant(root);
+      if (granted.status !== 'trusted') throw new Error('expected trusted access');
 
-    expect(() =>
-      createWorkspaceProjectSettingsWriter(granted.authority, {
-        status: 'denied',
-        reason: 'test denial',
-      }),
-    ).toThrowError(WorkspaceAuthorityRequiredError);
+      expect(() =>
+        createWorkspaceProjectSettingsWriter(granted.authority, {
+          status: 'denied',
+          reason: 'test denial',
+        }),
+      ).toThrowError(WorkspaceAuthorityRequiredError);
 
-    const writer = createWorkspaceProjectSettingsWriter(granted.authority, {
-      status: 'approved',
-      target: 'project-local',
-      purpose: 'test settings update',
-    });
-    writer.writeText('{"permission":"allow"}\n');
+      const writer = createWorkspaceProjectSettingsWriter(granted.authority, {
+        status: 'approved',
+        target: 'project-local',
+        purpose: 'test settings update',
+      });
+      writer.writeText('{"permission":"allow"}\n');
 
-    expect(
-      getWorkspaceProjectReader(granted.authority).readText(
-        '.robota/settings.local.json',
-        'verify settings update',
-      ),
-    ).toBe('{"permission":"allow"}\n');
-    expect(
-      getWorkspaceProjectReader(granted.authority).readText(
-        '.robota/settings.json',
-        'verify unapproved target',
-      ),
-    ).toBeUndefined();
-  });
+      expect(
+        getWorkspaceProjectReader(granted.authority).readText(
+          '.robota/settings.local.json',
+          'verify settings update',
+        ),
+      ).toBe('{"permission":"allow"}\n');
+      expect(
+        getWorkspaceProjectReader(granted.authority).readText(
+          '.robota/settings.json',
+          'verify unapproved target',
+        ),
+      ).toBeUndefined();
+    },
+  );
 
-  it('requires a separate approved mutation capability for project writes and deletes', async () => {
-    const { root, service } = fixture();
-    const granted = await service.grant(root);
-    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'requires a separate approved mutation capability for project writes and deletes',
+    async () => {
+      const { root, service } = fixture();
+      const granted = await service.grant(root);
+      if (granted.status !== 'trusted') throw new Error('expected trusted access');
 
-    expect(() =>
-      createWorkspaceProjectMutation(granted.authority, {
-        status: 'denied',
-        reason: 'permission denied',
-      }),
-    ).toThrowError(WorkspaceAuthorityRequiredError);
+      expect(() =>
+        createWorkspaceProjectMutation(granted.authority, {
+          status: 'denied',
+          reason: 'permission denied',
+        }),
+      ).toThrowError(WorkspaceAuthorityRequiredError);
 
-    const mutation = createWorkspaceProjectMutation(granted.authority, {
-      status: 'approved',
-      purpose: 'restore checkpoint',
-    });
-    mutation.writeBytes('src/restored.ts', Buffer.from('restored'), 'restore checkpoint file');
-    expect(
-      getWorkspaceProjectReader(granted.authority).readText(
-        'src/restored.ts',
-        'verify restored checkpoint file',
-      ),
-    ).toBe('restored');
-    expect(mutation.deleteFile('src/restored.ts', 'remove checkpoint-created file')).toBe(true);
-    expect(
-      getWorkspaceProjectReader(granted.authority).readText(
-        'src/restored.ts',
-        'verify checkpoint-created file deletion',
-      ),
-    ).toBeUndefined();
-  });
+      const mutation = createWorkspaceProjectMutation(granted.authority, {
+        status: 'approved',
+        purpose: 'restore checkpoint',
+      });
+      mutation.writeBytes('src/restored.ts', Buffer.from('restored'), 'restore checkpoint file');
+      expect(
+        getWorkspaceProjectReader(granted.authority).readText(
+          'src/restored.ts',
+          'verify restored checkpoint file',
+        ),
+      ).toBe('restored');
+      expect(mutation.deleteFile('src/restored.ts', 'remove checkpoint-created file')).toBe(true);
+      expect(
+        getWorkspaceProjectReader(granted.authority).readText(
+          'src/restored.ts',
+          'verify checkpoint-created file deletion',
+        ),
+      ).toBeUndefined();
+    },
+  );
 });

@@ -75,12 +75,16 @@ describe('SEC-003 alert 41 — ProjectMemoryStore topic sanitiser', () => {
     RED_TIMEOUT_MS,
   );
 
-  it('keeps the sanitised topic for ordinary input', async () => {
-    const dir = tempDir('robota-redos-memory-');
-    const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(dir, 'memory'));
-    const result = store.append({ type: 'project', topic: '--Build & Env--', text: 'hello' });
-    expect(result.topic).toBe('build-env');
-  });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'keeps the sanitised topic for ordinary input',
+    async () => {
+      const dir = tempDir('robota-redos-memory-');
+      const store = new ProjectMemoryStore(await createTrustedProjectStateFixture(dir, 'memory'));
+      const result = store.append({ type: 'project', topic: '--Build & Env--', text: 'hello' });
+      expect(result.topic).toBe('build-env');
+    },
+  );
 });
 
 describe('SEC-003 alert 38 — provider profile name sanitiser', () => {

@@ -60,32 +60,36 @@ async function createStore(cwd: string): Promise<EditCheckpointStore> {
   });
 }
 
-describe('SELFHOST-007 TC-05a — active-branch restore survives store-injection ordering', () => {
-  it('applies a stashed resume pointer on the first checkpoint access after setEditCheckpointStore', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-branch-resume-'));
-    dirs.push(cwd);
-    const aId = await seed(cwd);
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')(
+  'SELFHOST-007 TC-05a — active-branch restore survives store-injection ordering',
+  () => {
+    it('applies a stashed resume pointer on the first checkpoint access after setEditCheckpointStore', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-branch-resume-'));
+      dirs.push(cwd);
+      const aId = await seed(cwd);
 
-    // STANDARD path: tracker constructed with NO store; resume restore runs first (stashes).
-    const tracker = makeTracker(cwd, null);
-    const resumedStore = await createStore(cwd);
-    tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId });
-    tracker.setEditCheckpointStore(resumedStore); // must NOT throw (session not ready)
+      // STANDARD path: tracker constructed with NO store; resume restore runs first (stashes).
+      const tracker = makeTracker(cwd, null);
+      const resumedStore = await createStore(cwd);
+      tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId });
+      tracker.setEditCheckpointStore(resumedStore); // must NOT throw (session not ready)
 
-    // First checkpoint access (a nav read) applies the stash — active head becomes the restored 'a'.
-    tracker.listCheckpointBranches();
-    expect(tracker.getActiveBranchPointer()?.checkpointId).toBe(aId);
-  });
+      // First checkpoint access (a nav read) applies the stash — active head becomes the restored 'a'.
+      tracker.listCheckpointBranches();
+      expect(tracker.getActiveBranchPointer()?.checkpointId).toBe(aId);
+    });
 
-  it('refuses checkpoint access instead of lazily creating ambient project authority', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-branch-resume-'));
-    dirs.push(cwd);
-    const aId = await seed(cwd);
+    it('refuses checkpoint access instead of lazily creating ambient project authority', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-branch-resume-'));
+      dirs.push(cwd);
+      const aId = await seed(cwd);
 
-    const tracker = makeTracker(cwd, null);
-    tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId }); // stashed, no store
+      const tracker = makeTracker(cwd, null);
+      tracker.restoreActiveBranch({ branchId: 'branch-1', checkpointId: aId }); // stashed, no store
 
-    expect(() => tracker.listCheckpointBranches()).toThrowError(WorkspaceAuthorityRequiredError);
-    expect(tracker.getActiveBranchPointer()).toBeUndefined();
-  });
-});
+      expect(() => tracker.listCheckpointBranches()).toThrowError(WorkspaceAuthorityRequiredError);
+      expect(tracker.getActiveBranchPointer()).toBeUndefined();
+    });
+  },
+);

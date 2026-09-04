@@ -55,48 +55,56 @@ afterEach(() => {
 });
 
 describe('InteractiveSession memory command integration', () => {
-  it('Given a memory cue When a turn completes Then no hidden pending memory is created', async () => {
-    const cwd = makeProject();
-    const provider = createProvider('noted');
-    const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
-    const session = new InteractiveSession({
-      cwd,
-      provider,
-      bare: true,
-      sessionStore,
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given a memory cue When a turn completes Then no hidden pending memory is created',
+    async () => {
+      const cwd = makeProject();
+      const provider = createProvider('noted');
+      const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
+      const session = new InteractiveSession({
+        cwd,
+        provider,
+        bare: true,
+        sessionStore,
+      });
 
-    await session.submit('remember that this project uses pnpm for package scripts');
+      await session.submit('remember that this project uses pnpm for package scripts');
 
-    expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
-    const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
-    expect(saved?.memoryEvents).toEqual([]);
-  });
+      expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
+      const saved = loadedRecordOrMissing(sessionStore, session.getSession().getSessionId());
+      expect(saved?.memoryEvents).toEqual([]);
+    },
+  );
 
-  it('Given relevant project memory When submitting a prompt Then topic memory is not injected automatically', async () => {
-    const cwd = makeProject();
-    const provider = createProvider('use pnpm');
-    new ProjectMemoryStore(
-      await createTrustedProjectStateFixture(cwd, 'memory'),
-      () => new Date('2026-05-02T00:00:00.000Z'),
-    ).append({
-      type: 'project',
-      topic: 'build',
-      text: 'Use pnpm for package scripts.',
-    });
-    const session = new InteractiveSession({
-      cwd,
-      provider,
-      bare: true,
-    });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'Given relevant project memory When submitting a prompt Then topic memory is not injected automatically',
+    async () => {
+      const cwd = makeProject();
+      const provider = createProvider('use pnpm');
+      new ProjectMemoryStore(
+        await createTrustedProjectStateFixture(cwd, 'memory'),
+        () => new Date('2026-05-02T00:00:00.000Z'),
+      ).append({
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+      });
+      const session = new InteractiveSession({
+        cwd,
+        provider,
+        bare: true,
+      });
 
-    await session.submit('How should I run package scripts?');
+      await session.submit('How should I run package scripts?');
 
-    expect(latestUserMessage(provider)?.content).toBe('How should I run package scripts?');
-    expect(latestUserMessage(provider)?.content).not.toContain('<project-memory>');
-    expect(latestUserMessage(provider)?.content).not.toContain('Use pnpm for package scripts.');
-    expect(session.getUsedMemoryReferences()).toEqual([]);
-  });
+      expect(latestUserMessage(provider)?.content).toBe('How should I run package scripts?');
+      expect(latestUserMessage(provider)?.content).not.toContain('<project-memory>');
+      expect(latestUserMessage(provider)?.content).not.toContain('Use pnpm for package scripts.');
+      expect(session.getUsedMemoryReferences()).toEqual([]);
+    },
+  );
 
   it('Given no injected memory module When /memory is requested Then SDK core does not own it', async () => {
     const cwd = makeProject();
