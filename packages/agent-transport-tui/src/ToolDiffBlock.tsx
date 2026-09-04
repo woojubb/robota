@@ -2,7 +2,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { renderMarkdown } from './render-markdown.js';
-import { Text } from './SafeText.js';
+import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { PALETTE } from './tui-palette.js';
 import { buildToolDiffSummary } from './utils/tool-diff-summary.js';
@@ -24,7 +24,8 @@ export default function ToolDiffBlock({ file, lines }: IProps): React.ReactEleme
           │ {sanitizeTerminalText(summary.file)}
         </Text>
       )}
-      <Text>{renderMarkdown(summary.markdown)}</Text>
+      {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
+      <RenderedText>{renderMarkdown(summary.markdown)}</RenderedText>
       {summary.truncated && (
         <Text color={PALETTE.text.emphasis} dimColor>
           │ ... and {summary.remainingLineCount} more lines

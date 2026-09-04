@@ -9,7 +9,9 @@ import { makeTemp } from './make-temp.mjs';
 import {
   BOUNDARY_MODULE,
   findBoundaryViolations,
+  findStyleStrippingSites,
   offendingImportForms,
+  sanitizingLocalNames,
 } from '../scan-tui-safe-text-boundary.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-tui-safe-text-boundary.mjs', import.meta.url));
@@ -62,9 +64,10 @@ describe('findBoundaryViolations (#2222)', () => {
       [`${PACKAGE_SRC}/Types.ts`]: "import type { Text } from 'ink';\n",
       [`${PACKAGE_SRC}/__tests__/Leak.test.tsx`]: "import { Text } from 'ink';\n",
     });
-    const { examined, violations } = findBoundaryViolations(root);
+    const { examined, violations, strippedStyling } = findBoundaryViolations(root);
     expect(examined).toBe(3);
     expect(violations).toEqual([{ file: `${PACKAGE_SRC}/Leak.tsx`, line: 2, form: 'aliased' }]);
+    expect(strippedStyling).toEqual([]);
   });
 
   it('counts the same modules on a SECOND run rather than accumulating', () => {
@@ -85,5 +88,90 @@ describe('findBoundaryViolations (#2222)', () => {
     });
     expect(output).toMatch(/::examined:: [1-9]\d* agent-transport-tui production module\(s\)/);
     expect(output).toContain('tui-safe-text-boundary: only SafeText.tsx imports Text from ink');
+    expect(output).toContain(
+      'tui-safe-text-boundary: no renderMarkdown output is sanitized a second time',
+    );
+  });
+});
+
+// ── The boundary's SECOND direction: the renderer's own SGR must not be sanitized away ──
+
+describe('sanitizingLocalNames', () => {
+  it('names the sanitizing component under every import form, and never RenderedText', () => {
+    expect(sanitizingLocalNames("import { Text } from './SafeText.js';")).toEqual(['Text']);
+    expect(sanitizingLocalNames("import { SafeText } from './SafeText.js';")).toEqual(['SafeText']);
+    expect(sanitizingLocalNames("import { Text as T } from './SafeText.js';")).toEqual(['T']);
+    expect(sanitizingLocalNames("import { RenderedText } from './SafeText.js';")).toEqual([]);
+    expect(sanitizingLocalNames("import { RenderedText, Text } from './SafeText.js';")).toEqual([
+      'Text',
+    ]);
+    // A type-only import renders nothing, and a `Text` from anywhere else is not this boundary.
+    expect(sanitizingLocalNames("import type { Text } from './SafeText.js';")).toEqual([]);
+    expect(sanitizingLocalNames("import { Text } from 'ink';")).toEqual([]);
+  });
+});
+
+describe('findStyleStrippingSites (SCREEN-006)', () => {
+  const names = ['Text', 'SafeText'];
+
+  it('flags the renderer call written inline in the child expression', () => {
+    const source = '<Box>\n  <Text wrap="wrap">{renderMarkdown(text)}</Text>\n</Box>\n';
+    expect(findStyleStrippingSites(source, names)).toEqual([{ line: 2, component: 'Text' }]);
+  });
+
+  it('flags the renderer output bound to a local first', () => {
+    const source = 'const styled = renderMarkdown(md);\nreturn <SafeText>{styled}</SafeText>;\n';
+    expect(findStyleStrippingSites(source, names)).toEqual([{ line: 2, component: 'SafeText' }]);
+  });
+
+  it('does NOT flag RenderedText, a plain string child, or a self-closing tag', () => {
+    expect(
+      findStyleStrippingSites('<RenderedText>{renderMarkdown(text)}</RenderedText>', names),
+    ).toEqual([]);
+    expect(findStyleStrippingSites('<Text>{plainContent}</Text>', names)).toEqual([]);
+    expect(findStyleStrippingSites('<Text> </Text>', names)).toEqual([]);
+    expect(findStyleStrippingSites('<Text />', names)).toEqual([]);
+  });
+
+  it('does not confuse a local whose NAME merely contains the renderer local', () => {
+    const source = 'const md = renderMarkdown(x);\nreturn <Text>{mdLabel}</Text>;\n';
+    expect(findStyleStrippingSites(source, names)).toEqual([]);
+  });
+});
+
+describe('findBoundaryViolations — stripped styling', () => {
+  it('reports a site that sanitizes renderMarkdown output, and clears the RenderedText site', () => {
+    const root = trackedFixture({
+      [BOUNDARY_MODULE]: "import { Text } from 'ink';\n",
+      [`${PACKAGE_SRC}/Stripped.tsx`]:
+        "import { Text } from './SafeText.js';\n" +
+        "import { renderMarkdown } from './render-markdown.js';\n" +
+        'const C = () => <Text>{renderMarkdown(md)}</Text>;\n',
+      [`${PACKAGE_SRC}/Styled.tsx`]:
+        "import { RenderedText, Text } from './SafeText.js';\n" +
+        "import { renderMarkdown } from './render-markdown.js';\n" +
+        'const C = () => (\n' +
+        '  <>\n' +
+        '    <Text>label</Text>\n' +
+        '    <RenderedText>{renderMarkdown(md)}</RenderedText>\n' +
+        '  </>\n' +
+        ');\n',
+    });
+    const { violations, strippedStyling } = findBoundaryViolations(root);
+    expect(violations).toEqual([]);
+    expect(strippedStyling).toEqual([
+      { file: `${PACKAGE_SRC}/Stripped.tsx`, line: 3, component: 'Text' },
+    ]);
+  });
+
+  it('exempts tests, which render the sanitizing path over renderer output to PROVE it strips', () => {
+    const root = trackedFixture({
+      [`${PACKAGE_SRC}/__tests__/strip.test.tsx`]:
+        "import { Text } from './SafeText.js';\n" +
+        'const C = () => <Text>{renderMarkdown(md)}</Text>;\n',
+    });
+    const { examined, strippedStyling } = findBoundaryViolations(root);
+    expect(examined).toBe(0);
+    expect(strippedStyling).toEqual([]);
   });
 });

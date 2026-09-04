@@ -49,6 +49,14 @@ export function SafeText(props: TInkTextProps): React.JSX.Element {
  * just applied — the SCREEN-006 diff colours vanished exactly that way. The boundary still holds:
  * the only string that reaches this component is one the renderer built from sanitized text, and
  * the `tui-safe-text-boundary` scan keeps every other module off Ink's `Text`.
+ *
+ * PERMITTED here: a string this package's own renderer built from already-sanitized input — today
+ * that is exactly `renderMarkdown(...)`, which sanitizes before it styles. FORBIDDEN here: any
+ * string that has not passed a sanitizer — raw model output, tool stdout, file contents, plugin
+ * names, a template that interpolates one of those — which goes through `SafeText`/`Text` instead.
+ * The mirror rule holds too: `renderMarkdown(...)` must NOT be a child of `SafeText`/`Text`, whose
+ * sanitizer would strip the renderer's own SGR. The `tui-safe-text-boundary` scan enforces both
+ * directions, so neither is left to a reviewer noticing it.
  */
 export function RenderedText(props: TInkTextProps): React.JSX.Element {
   return <InkText {...props} />;
