@@ -4485,5 +4485,177 @@ describe('the finders read only the root they are given (PROC-016)', () => {
     }
   }, 300_000);
 });
+
+/**
+ * INFRA-160 (issue #2539) — an L0 unit has no spec document, so it can never reach the L1/L2
+ * planning CHECKPOINT this guard was written around. Its ground is the planning PRELUDE: the commit
+ * that records the Task with its exact `SCENARIO DRAFTED` author verdict, which is the same causal
+ * boundary the checkpoint proves. Before this, the staged guard classified the implementation as a
+ * prelude — and a repair of several historical records identifies three "planning units", so it was
+ * refused with `staged implementation has no planning checkpoint ancestor.`
+ *
+ * The refusals the gate already made are asserted here as well: no ground at all, a ground whose
+ * unit carries a spec document (an L1/L2 unit, which still needs its own checkpoint), a ground whose
+ * Task records no PLAN outcome, and a diff that reaches above lane floor L0.
+ */
+describe('an L0 implementation is grounded by its ancestor planning unit (issue #2539)', () => {
+  const LANE_RULE = '.agents/rules/spec-workflow.md';
+  const LIVE_LANE_RULE = readFileSync(path.join(WORKSPACE_ROOT, LANE_RULE), 'utf8');
+  const GROUND = 'INFRA-905-l0-ground-fixture.md';
+  const GROUND_TASK = `.agents/tasks/${GROUND}`;
+  const ARCHIVED_GROUND = `.agents/tasks/completed/${GROUND}`;
+  const HISTORIC_TASK = '.agents/tasks/completed/DOCS-049-historic-record.md';
+  const HISTORIC_SPEC = '.agents/spec-docs/done/HARNESS-123-historic-record.md';
+  const record = (id, reference) =>
+    ['---', 'status: done', 'completed: 2026-08-29', '---', '', `# ${id}`, '', reference, ''].join(
+      '\n',
+    );
+
+  /** develop already carries the two historical records and the lane floors table the bound reads. */
+  function l0Repository({ withLaneRule = true } = {}) {
+    const { root } = repository();
+    git(root, ['switch', '-q', 'develop']);
+    if (withLaneRule) write(root, LANE_RULE, LIVE_LANE_RULE);
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/todo/OLD-001.md`'),
+    );
+    write(root, HISTORIC_SPEC, record('HARNESS-123', 'references `.agents/tasks/OLD-002.md`'));
+    const base = commit(root, 'seed the historical records and the lane floors table');
+    git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(root, ['switch', '-q', '-C', 'feature', base]);
+    return { root, base };
+  }
+
+  const groundTask = (status) => taskText().replace('status: in-progress', `status: ${status}`);
+
+  function prelude(root, text = groundTask('todo')) {
+    write(root, GROUND_TASK, text);
+    return commit(root, 'L0 planning prelude');
+  }
+
+  /** The issue's exact staged shape: two historical corrections plus the ground's atomic archival. */
+  function stageRepair(root) {
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+    );
+    write(
+      root,
+      HISTORIC_SPEC,
+      record('HARNESS-123', 'references `.agents/tasks/completed/OLD-002.md`'),
+    );
+    mkdirSync(path.join(root, '.agents/tasks/completed'), { recursive: true });
+    git(root, ['mv', GROUND_TASK, ARCHIVED_GROUND]);
+    write(root, ARCHIVED_GROUND, groundTask('done'));
+    git(root, ['add', '-A']);
+  }
+
+  it('accepts the repair of several historical records plus its own archival (TC-01)', () => {
+    const { root, base } = l0Repository();
+    prelude(root);
+    stageRepair(root);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'repair two historical records and archive the ground');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('still refuses the same implementation with no planning ancestor at all (TC-02)', () => {
+    const { root, base } = l0Repository();
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+    );
+    git(root, ['add', '-A']);
+    const findings = findStagedFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(
+      /staged implementation has no planning checkpoint ancestor/,
+    );
+  });
+
+  it('still refuses a diff that reaches above lane floor L0 under the same ground (TC-03)', () => {
+    const { root, base } = l0Repository();
+    prelude(root);
+    write(root, 'packages/example/src/thing.ts', 'export const thing = 1;\n');
+    git(root, ['add', '-A']);
+    const findings = findStagedFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(/above lane floor L0/);
+    expect(findings[0].problem).toContain('packages/example/src/thing.ts');
+  });
+
+  it('refuses to ground on a unit that carries a spec document — L1/L2 still needs its checkpoint', () => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, groundTask('todo'));
+    write(
+      root,
+      `.agents/spec-docs/draft/${GROUND}`,
+      ['---', 'status: draft', '---', '', `# ${GROUND}`, ''].join('\n'),
+    );
+    commit(root, 'draft planning prelude');
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+    );
+    git(root, ['add', '-A']);
+    const findings = findStagedFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(
+      /staged implementation has no planning checkpoint ancestor/,
+    );
+  });
+
+  it('refuses to ground on a Task that records no subject-bound PLAN outcome', () => {
+    const { root, base } = l0Repository();
+    prelude(root, groundTask('todo').replace(/^\*\*Author verdict:\*\*.*$/m, 'Planning pending.'));
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+    );
+    git(root, ['add', '-A']);
+    const findings = findStagedFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(
+      /staged implementation has no planning checkpoint ancestor/,
+    );
+  });
+
+  it('does not let an L0 ground swallow a second work unit’s proposed checkpoint', () => {
+    const { root, base } = l0Repository();
+    prelude(root);
+    // A second unit stages a real checkpoint pair. Every path is `.agents/**` and therefore at lane
+    // floor L0, so a ground that judged paths alone would wave it through; it is still judged as a
+    // proposed checkpoint and refused against the pending unit.
+    const other = 'HARNESS-906-second-unit';
+    write(root, `.agents/tasks/${other}.md`, taskText({ subject: other }));
+    write(root, `.agents/spec-docs/active/${other}.md`, specText({ subject: other }));
+    git(root, ['add', '-A']);
+    expect(messages(findStagedFindings(root, base))).toMatch(
+      /does not match pending planning unit/,
+    );
+  });
+
+  it('fails closed when the lane floors table cannot be read', () => {
+    // No `spec-workflow.md` anywhere in the tree: the bound cannot be computed, so it is not granted.
+    const { root, base } = l0Repository({ withLaneRule: false });
+    prelude(root);
+    write(
+      root,
+      HISTORIC_TASK,
+      record('DOCS-049', 'references `.agents/spec-docs/done/OLD-001.md`'),
+    );
+    git(root, ['add', '-A']);
+    const findings = findStagedFindings(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toMatch(/lane floors table .*could not be read/i);
+  });
+});
+
 // harness-coverage: gate-implement-correction-validation.mjs
 // harness-coverage: gate-implement-entry-results.mjs

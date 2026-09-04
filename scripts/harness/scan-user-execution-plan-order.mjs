@@ -19,6 +19,15 @@
  *     the `SCENARIO DRAFTED` outcome/count the Task itself records) while the Task exists as `todo`
  *     or `in-progress`. The parent commit carries no GATE-PLAN PASS.
  *
+ *   - L0 (`.agents/rules/spec-workflow.md` § Lanes): the unit has NO spec document, so it can never
+ *     reach either checkpoint above. Its ground is the planning PRELUDE itself — the commit that
+ *     records the Task with its exact `SCENARIO DRAFTED` author verdict, which is the same causal
+ *     boundary a checkpoint proves (issue #2539). An implementation is grounded by it only when the
+ *     pending unit carries no spec document in ANY lifecycle folder, and EVERY changed path sits at
+ *     lane floor L0 — read from `spec-workflow.md` § "Lane floors", the table `scan-lane-declaration`
+ *     owns, never a copy. A diff that reaches L1 or L2 under an L0 ground is refused: those lanes
+ *     keep their checkpoints unchanged.
+ *
  * Before either checkpoint only the pair's own planning documents may change, plus a pure append to
  * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
  * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
@@ -57,6 +66,22 @@ import {
 } from './checkpoint-evidence-git-contract.mjs';
 import { parseConversionEvidence } from './conversion-evidence.mjs';
 import {
+  LANE_RULE_PATH,
+  PRE_CHECKPOINT_SPEC_STATUS,
+  SPEC_PREFIX,
+  TASK_PREFIX,
+  isExactCheckpointPairPath,
+  isPreCheckpointPlanningPath,
+  l0GroundDecision,
+  l1SpecCandidates,
+  l1SpecPaths,
+  pairCandidates,
+  planningBasenames,
+  specBasename,
+  subjectId,
+  taskBasename,
+} from './plan-order-records.mjs';
+import {
   CONTINUATION_STATUS_LINE,
   CORRECTION_STATUS_LINE,
   FIRST_CHECKPOINT_STATUS_LINE,
@@ -77,18 +102,10 @@ import {
 import { tokenizeCanonicalShell as sharedTokenizeCanonicalShell } from './user-execution-scenario-surface.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
-const TASK_PREFIX = '.agents/tasks/';
-const SPEC_PREFIX = '.agents/spec-docs/';
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
 const POST_MERGE_LEDGER = `${LOOP_RUNS_PREFIX}post-merge-cycle.jsonl`;
 const UES_LEDGER = `${LOOP_RUNS_PREFIX}user-execution-scenario.jsonl`;
 const BACKLOG_RULE_PATH = '.agents/rules/backlog-execution.md';
-const SPEC_FOLDERS = new Set(['draft', 'backlog', 'todo', 'active', 'done']);
-const PRE_CHECKPOINT_SPEC_STATUS = new Map([
-  ['draft', 'draft'],
-  ['backlog', 'review-ready'],
-  ['todo', 'approved'],
-]);
 /**
  * A pre-checkpoint TERMINAL DISPOSITION (issue #2469): an open Task plus its pre-checkpoint spec are
  * closed without ever reaching GATE-IMPLEMENT (a REJECT verdict, a false premise). The only accepted
@@ -309,99 +326,6 @@ function worktreePaths(root) {
   return [...new Set([...nulPaths(unstaged.stdout), ...nulPaths(untracked.stdout)])].filter(
     (file) => !AUTO_GENERATED_CHURN.has(file),
   );
-}
-
-function taskBasename(file) {
-  if (!file.startsWith(TASK_PREFIX)) return null;
-  const relative = file.slice(TASK_PREFIX.length);
-  const withoutCompleted = relative.startsWith('completed/')
-    ? relative.slice('completed/'.length)
-    : relative;
-  return withoutCompleted.endsWith('.md') ? withoutCompleted : null;
-}
-
-function specBasename(file) {
-  if (!file.startsWith(SPEC_PREFIX)) return null;
-  const relative = file.slice(SPEC_PREFIX.length);
-  const slash = relative.indexOf('/');
-  if (slash === -1) return null;
-  const folder = relative.slice(0, slash);
-  const basename = relative.slice(slash + 1);
-  return SPEC_FOLDERS.has(folder) && basename.endsWith('.md') ? basename : null;
-}
-
-function activePairCandidates(paths) {
-  const tasks = new Set(
-    paths
-      .filter((file) => file.startsWith(TASK_PREFIX) && !file.includes('/completed/'))
-      .map(taskBasename)
-      .filter(Boolean),
-  );
-  const activeSpecs = new Set(
-    paths
-      .filter((file) => file.startsWith(`${SPEC_PREFIX}active/`))
-      .map(specBasename)
-      .filter(Boolean),
-  );
-  return [...tasks].filter((basename) => activeSpecs.has(basename)).sort();
-}
-
-/**
- * Basenames of `todo/` specs a commit changes — the L1 checkpoint candidates (PROC-016). The Task
- * need not change in the same commit: it may have been committed in the prelude, and the PLAN entry
- * binds to it by path and signal rather than by co-change.
- */
-function l1SpecCandidates(paths) {
-  return [
-    ...new Set(
-      paths
-        .filter((file) => file.startsWith(`${SPEC_PREFIX}todo/`))
-        .map(specBasename)
-        .filter(Boolean),
-    ),
-  ].sort();
-}
-
-// A continuation commit (HARNESS-131) touches the active spec only — the Task has nothing to
-// change — so the pair is the active spec path in the change set whose paired Task exists in the
-// resulting tree. `readTask` reads that tree (a commit, or the index on the staged path).
-function continuationPairCandidates(paths, readTask) {
-  const activeSpecs = paths
-    .filter((file) => file.startsWith(`${SPEC_PREFIX}active/`))
-    .map(specBasename)
-    .filter(Boolean);
-  const both = new Set(activePairCandidates(paths));
-  return [...new Set(activeSpecs)]
-    .filter((basename) => !both.has(basename) && readTask(`${TASK_PREFIX}${basename}`) !== null)
-    .sort();
-}
-
-function pairCandidates(paths, readTask) {
-  return [
-    ...new Set([...activePairCandidates(paths), ...continuationPairCandidates(paths, readTask)]),
-  ].sort();
-}
-
-function planningBasenames(paths) {
-  return [
-    ...new Set(paths.map((file) => taskBasename(file) ?? specBasename(file)).filter(Boolean)),
-  ].sort();
-}
-
-function subjectId(basename) {
-  const match = /^([A-Z][A-Z0-9]*-\d+)(?:-|\.md)/.exec(basename);
-  return match?.[1] ?? null;
-}
-
-function isExactCheckpointPairPath(file, basename) {
-  return file === `${TASK_PREFIX}${basename}` || file === `${SPEC_PREFIX}active/${basename}`;
-}
-
-function isPreCheckpointPlanningPath(file, basename) {
-  if (file === `${TASK_PREFIX}${basename}`) return true;
-  if (!file.startsWith(SPEC_PREFIX) || specBasename(file) !== basename) return false;
-  const folder = file.slice(SPEC_PREFIX.length).split('/', 1)[0];
-  return PRE_CHECKPOINT_SPEC_STATUS.has(folder);
 }
 
 function frontmatterStatus(text) {
@@ -793,14 +717,6 @@ function isL1CheckpointTransition({ basename, parentSpecs, task, spec }) {
     parentSpecs.every((parentSpec) => gatePlanPassHeadings(parentSpec) === 0) &&
     gatePlanPassCount(spec, { basename, signal }) === 1
   );
-}
-
-function l1SpecPaths(basename) {
-  return {
-    taskPath: `${TASK_PREFIX}${basename}`,
-    specPath: `${SPEC_PREFIX}todo/${basename}`,
-    draftPath: `${SPEC_PREFIX}draft/${basename}`,
-  };
 }
 
 /**
@@ -1922,6 +1838,10 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     let postMergePreludes = 0;
     let pendingBasename = null;
     let planningStarted = false;
+    // The L0 ground, once proven (issue #2539). Held across entries because the implementation may
+    // archive the very Task the ground was read from, and a ground proven before that move does not
+    // stop being the branch's ground when the record moves to `tasks/completed/`.
+    let l0Ground = null;
     for (const entry of entries) {
       if (entry.paths.length === 0) continue;
       if (onlyLedgerAppends(entry.paths, textIn(entry.commit), textIn(entry.parent))) continue;
@@ -1979,6 +1899,24 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         preludeProblems.length > 0 ||
         (pendingBasename !== null && pendingBasename !== basename)
       ) {
+        const l0 = l0GroundDecision({
+          pending: pendingBasename,
+          proven: l0Ground,
+          paths: entry.paths,
+          textBefore: textIn(entry.parent),
+          laneRuleText:
+            textIn(entry.commit)(LANE_RULE_PATH) ?? textIn(entry.parent)(LANE_RULE_PATH),
+          planSignal: exactPlanSignal,
+        });
+        if (l0.grounded) {
+          l0Ground = l0.ground;
+          planningStarted = true;
+          continue;
+        }
+        if (l0.problem !== null) {
+          findings.push(finding(l0.problem, entry.commit));
+          continue;
+        }
         const lead = isCheckpointNearMiss(preludeProblems)
           ? 'planning checkpoint not recognised'
           : 'implementation exists with no planning checkpoint';
@@ -1994,7 +1932,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       // A terminal disposition closes the unit: nothing is pending for a later checkpoint.
       pendingBasename = isTerminalDisposition(entry.paths, basename) ? null : basename;
     }
-    return { base, commits, examined, checkpoint: null, pendingBasename, findings };
+    return { base, commits, examined, checkpoint: null, pendingBasename, l0Ground, findings };
   }
 
   const first = candidates[0];
@@ -2362,6 +2300,22 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
           history.pendingBasename !== null &&
           history.pendingBasename !== basename)
       ) {
+        // L0 GROUNDING (issue #2539): an L0 unit reaches no checkpoint, so its planning prelude is
+        // the ground. Accepted only for a unit with no spec document, whose Task already records the
+        // PLAN outcome, and only for a change every one of whose paths sits at lane floor L0.
+        const l0 = l0GroundDecision({
+          pending: history.pendingBasename,
+          proven: history.l0Ground ?? null,
+          paths: staged,
+          textBefore: headText,
+          laneRuleText: stagedText(LANE_RULE_PATH) ?? headText(LANE_RULE_PATH),
+          planSignal: exactPlanSignal,
+        });
+        if (l0.grounded) return findings;
+        if (l0.problem !== null) {
+          findings.push(finding(`staged ${l0.problem}`));
+          return findings;
+        }
         findings.push(
           finding(
             isCheckpointNearMiss(preludeProblems)
