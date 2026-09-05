@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [harness, ci]
 lane: L1
@@ -59,17 +59,17 @@ Bind the parsed options.baseRef to HARNESS_BASE_REF at the single main execution
 
 ## Completion Criteria
 
-- [ ] TC-01: Explicit CLI base is observed by all stage children and the verification receipt instead of an inherited conflicting base.
-- [ ] TC-02: The original environment is restored after successful, failed and throwing verification execution, including an originally absent base.
-- [ ] TC-03: Focused CI mirror regression tests and native Node syntax checks exit zero after a reproduced RED.
+- [x] TC-01: Explicit CLI base is observed by all stage children and the verification receipt instead of an inherited conflicting base.
+- [x] TC-02: The original environment is restored after successful, failed and throwing verification execution, including an originally absent base.
+- [x] TC-03: Focused CI mirror regression tests and native Node syntax checks exit zero after a reproduced RED.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                             | Notes                                                                                                    |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| TC-01 | Integration | CI mirror execution tests in `scripts/harness/__tests__/verify-like-ci.test.mjs` or isolated execution test | Stage and receipt observe CLI base; inherited conflicting base cannot win.                               |
-| TC-02 | Unit        | Same execution test describe, environment restoration cases                                                 | Successful, failed, thrown exits and absent original value.                                              |
-| TC-03 | Regression  | Focused Vitest suite and node --check                                                                       | Actual RED then GREEN; root final full gate after completion artifacts and receipt closure, before push. |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                       | Notes                                                                                                    |
+| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | `scripts/harness/__tests__/verify-like-ci-execution.test.mjs` > CI mirror execution base context                                                      | Stage and receipt observe CLI base; inherited conflicting base cannot win.                               |
+| TC-02 | Unit        | `scripts/harness/__tests__/verify-like-ci-execution.test.mjs` > CI mirror execution base context                                                      | Successful, failed, thrown exits and absent original value.                                              |
+| TC-03 | Regression  | `scripts/harness/__tests__/verify-like-ci-execution.test.mjs` > CI mirror execution base context; existing mirror and checkpoint suites; node --check | Actual RED then GREEN; root final full gate after completion artifacts and receipt closure, before push. |
 
 ## User Execution Test Scenarios
 
@@ -79,7 +79,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-166-propagate-ci-mirror-base-context.md` — implementation pending
+- [x] `.agents/tasks/completed/INFRA-166-propagate-ci-mirror-base-context.md` — focused verification complete; independent DONE passed
 
 ## Evidence Log
 
@@ -146,3 +146,93 @@ Not applicable.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `5c10d330b11a` · base `origin/develop@5c10d330b11a` · document `.agents/spec-docs/draft/INFRA-166-propagate-ci-mirror-base-context.md` blob `c5ed72084a47` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs","scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/ci-mirror-base-context
+
+···················································································
+
+ Test Files  3 passed (3)
+      Tests  83 passed (83)
+   Start at  19:54:33
+   Duration  3.92s (transform 979ms, setup 0ms, collect 1.40s, tests 3.83s, environment 0ms, prepare 258ms)
+
+7:54:33 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `b954a1937cfb` · base `origin/develop@5c10d330b11a` · document `.agents/spec-docs/todo/INFRA-166-propagate-ci-mirror-base-context.md` blob `1f81dba4826b` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs","scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/ci-mirror-base-context
+
+···················································································
+
+ Test Files  3 passed (3)
+      Tests  83 passed (83)
+   Start at  19:54:33
+   Duration  3.92s (transform 979ms, setup 0ms, collect 1.40s, tests 3.83s, environment 0ms, prepare 258ms)
+
+7:54:33 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `b954a1937cfb` · base `origin/develop@5c10d330b11a` · document `.agents/spec-docs/todo/INFRA-166-propagate-ci-mirror-base-context.md` blob `37138962b36f` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs","scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/ci-mirror-base-context
+
+···················································································
+
+ Test Files  3 passed (3)
+      Tests  83 passed (83)
+   Start at  19:54:33
+   Duration  3.92s (transform 979ms, setup 0ms, collect 1.40s, tests 3.83s, environment 0ms, prepare 258ms)
+
+7:54:33 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `b954a1937cfb` · base `origin/develop@5c10d330b11a` · document `.agents/spec-docs/todo/INFRA-166-propagate-ci-mirror-base-context.md` blob `15af31e7782b` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** approved → done
+
+**Guardian:** recover_approved_artifacts. Independent completion judgment using existing actual evidence; no test/build rerun and no author-content changes.
+
+**Ordering:** PASS — L1 document is approved in todo/, with GATE-PLAN PASS recorded before the planning checkpoint `b954a1937cfb898764cafda601429cc8158a31fd`.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — exact INFRA-166 Task Plan has TC-01 through TC-03 checked, 3/3.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — none of the three Plan items is blocked or pending.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — no product package is affected; changed source is native Node ESM, without a compilation target. The implementation worker reports actual `node --check` exit 0 for `scripts/harness/verify-like-ci-execution.mjs` and `scripts/harness/__tests__/verify-like-ci-execution.test.mjs`. This is scoped syntax evidence, not a claim that a product build ran.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — existing canonical vitestInvocation command recorded in all three TC entries ran the execution, mirror and checkpoint suites; `/tmp/infra166-focused.log` confirms 3 files, 83 tests PASS, exit 0, 3.92 seconds.
+- GATE-COMPLETE — The checkbox is checked (`[x]`): PASS — TC-01, TC-02 and TC-03 are individually checked.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: PASS — each of TC-01, TC-02 and TC-03 has its own entry containing the exact three-suite command, actual output and exit 0.
+- GATE-COMPLETE — **One of the following is recorded:** PASS — every TC row records `scripts/harness/__tests__/verify-like-ci-execution.test.mjs` and actual describe `CI mirror execution base context`.
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: PASS — all three rows have explicit test references; none skipped silently.
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: PASS — 3/3.
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: PASS — TC-01 through TC-03 reference the exact execution suite.
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: PASS — `.agents/tasks/INFRA-166-propagate-ci-mirror-base-context.md`.
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: PASS — exact active Task exists, Plan complete; terminal status/date and archive remain post-PASS actions.
+
+**Behavior evidence:** TC-01 observes the selected base in actual spawned child processes and the receipt invocation. TC-02 covers successful, failing, throwing, receipt-throw and early-return paths, including originally absent environment values. `/tmp/infra166-red.log` preserves original failure (`caller-base` instead of `selected-base`). No original failure is relabelled or hidden.
+
+**Evidence binding:** HEAD `b954a1937cfb898764cafda601429cc8158a31fd` plus reviewed implementation; base `5c10d330b11a944b9a70cd319b189632e9bddbeb`. Source SHA256 `48aefdf2c949c54a1f74d94646e929d8987092f4366d3db4f9b9566a06103941`; execution test SHA256 `3f9a028c3ceb7eb4f45a2c2fd79a33d4147baa738c43bcdadc557ee7cde6bf45`; current bytes match independent review and focused verification. ACTIONABLE FINDINGS: 0.
+
+**Scope boundary:** Exact Task records `SCENARIO DRAFTED: not-applicable | 0` for repository-only machinery. Root's integrated final verification after completion artifacts/receipt remains mandatory and pending; this scoped DONE judgment does not assert that it has run or that remote delivery is complete.

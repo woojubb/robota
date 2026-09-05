@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-166: Propagate CI mirror base context'
-status: todo
+status: done
 created: 2026-09-05
+completed: 2026-09-05
 priority: high
 urgency: now
 area: CI mirror execution
@@ -22,9 +23,9 @@ Issue: https://github.com/woojubb/robota/issues/2584
 
 ## Plan
 
-- [ ] TC-01: Explicit CLI base is observed by all stage children and the verification receipt instead of an inherited conflicting base.
-- [ ] TC-02: The original environment is restored after successful, failed and throwing verification execution, including an originally absent base.
-- [ ] TC-03: Focused CI mirror regression tests and native Node syntax checks exit zero after a reproduced RED.
+- [x] TC-01: Explicit CLI base is observed by all stage children and the verification receipt instead of an inherited conflicting base.
+- [x] TC-02: The original environment is restored after successful, failed and throwing verification execution, including an originally absent base.
+- [x] TC-03: Focused CI mirror regression tests and native Node syntax checks exit zero after a reproduced RED.
 
 ## Test Plan
 
