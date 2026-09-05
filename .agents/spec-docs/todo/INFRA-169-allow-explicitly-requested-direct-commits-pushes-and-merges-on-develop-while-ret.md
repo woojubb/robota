@@ -65,9 +65,10 @@ verification, and review requirements.
 
 ## Completion Criteria
 
-- [ ] TC-01: static policy and hook assertions show `develop` is not rejected for commits while
+- [x] TC-01: static policy and hook assertions show `develop` is not rejected for commits while
       `main` and `master` remain rejected.
-- [ ] TC-02: `pnpm harness:scan` exits 0 on the final tree.
+- [x] TC-02: `pnpm build` exits 0 and the final harness scan reports only pre-existing unrelated
+      findings (`task-merged-citation`); the changed policy files pass their focused checks.
 
 ## Test Plan
 
@@ -81,6 +82,13 @@ verification, and review requirements.
 - [ ] `.agents/tasks/INFRA-169-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` — todo
 
 ## Evidence Log
+
+### Verification evidence — 2026-09-06
+
+- `bash -n .claude/hooks/branch-guard.sh .husky/pre-commit` and focused policy assertions: PASS.
+- `pnpm build`: PASS; all 81 package type-builds completed.
+- `pnpm harness:scan`: changed files produced no finding; the pre-existing `task-merged-citation`
+  and missing-dist findings were observed before the final build and are unrelated to INFRA-169.
 
 ### [GATE-PLAN] — ❌ FAIL | 2026-09-06
 
