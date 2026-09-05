@@ -39,6 +39,39 @@ individuals. `state-lost` is invalid, never excluded, and permits push only when
 Git identity with timestamps unavailable. Never-pushed/deleted local branches are outside the server
 denominator and remain visible only to local reporting.
 
+## Recovery from a malformed receipt sequence
+
+A receipt commit followed by one more commit (a fixup, a forgotten file) is not `state-lost` — raw
+state is intact — but it violates three invariants at once and each failure mode reports a different
+symptom depending on what was tried first:
+
+- `exactReceiptClosure` (`work-run-git-adapter.mjs`) — HEAD must add exactly one receipt file.
+- `validateCommitCorrelation` (`work-run-git-adapter.mjs`) — HEAD and the bound ready head must both
+  carry the current receipt's `Work-Run`/`Work-Receipt` trailers.
+- `completeReceiptCoordinates` (`work-run-repository-validation.mjs`) — every local `work.ready` event
+  needs exactly one committed receipt file. `reopen` only emits `work.ready`; it never satisfies this
+  on its own.
+
+Reopening and readying again without first correcting history leaves a `work.ready` event with no
+receipt (`completeReceiptCoordinates` fails), deleting the stray receipt file leaves history that
+never matches a clean ready/receipt pair (`incomplete-or-foreign-receipt-history`), and committing two
+receipts in one commit trips `exactReceiptClosure` the other way (`ambiguous work-run receipt closure`).
+The corrected order:
+
+1. `git reset --soft` past both the bad receipt commit and the content commit that follows it — back
+   to the last commit before the receipt.
+2. Recommit every receipt file uncovered by the reset, **one commit per file** — the hook derives each
+   commit's trailer pair from the receipt's own filename, so a commit adding more than one receipt file
+   cannot correlate.
+3. `pnpm harness:work-run -- reopen --ground local-fix` once, regardless of how many commits step 2 took.
+4. Make exactly one content commit with everything left to deliver. This becomes the new ready head —
+   nothing may follow it before the receipt.
+5. `pnpm harness:work-run -- ready --base <base-ref>`.
+6. Commit the one receipt file this `ready` emits, and stop — no further commits before push.
+
+Step 4 needs real content to commit; if nothing remains to change, closing this way has no ready head
+to bind and the sequence cannot complete — resolve the outstanding change first, then start at step 1.
+
 ## Enforcement
 
 `post-checkout` claims, `prepare-commit-msg` correlates, pre-push validates before verification-receipt

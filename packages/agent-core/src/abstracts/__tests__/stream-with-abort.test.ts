@@ -123,14 +123,23 @@ describe('BaseAIProvider.streamWithAbort', () => {
     const items = Array.from({ length: 100 }, (_, i) => `item${i}`);
     const result: string[] = [];
 
-    // Abort after 10ms — setTimeout(0) per event ~1ms, so ~10 events before abort
-    setTimeout(() => controller.abort(), 10);
+    // Abort once a handful of items have been pulled from the underlying source — deterministic,
+    // unlike racing a real setTimeout(10) against the implementation's own real setTimeout(0)
+    // per-item macrotask yields, which flakes when concurrent CI load delays macrotask scheduling.
+    let pulled = 0;
+    async function* countingSource(): AsyncGenerator<string> {
+      for (const item of items) {
+        pulled += 1;
+        if (pulled === 3) controller.abort();
+        yield item;
+      }
+    }
 
-    for await (const item of provider.testStreamWithAbort(fromArray(items), controller.signal)) {
+    for await (const item of provider.testStreamWithAbort(countingSource(), controller.signal)) {
       result.push(item);
     }
 
-    // Should have stopped before all 100 items
+    // Should have stopped before all 100 items, after yielding at least one macrotask pause.
     expect(result.length).toBeLessThan(100);
     expect(result.length).toBeGreaterThan(0);
   });

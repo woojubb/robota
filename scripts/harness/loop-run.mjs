@@ -48,13 +48,12 @@
  *   node scripts/harness/loop-run.mjs link --loop <skill> --run <id> --nested-run <id>
  *   node scripts/harness/loop-run.mjs checkpoint --loop <skill> --run <id> --phase <last completed phase>   (before closing `abandoned` / an audit-only `halted-for-user`)
  *   node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
- *   node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason> [--ref <text>]
+ *   node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason> [--ref <text>]   (--ref is required for `user-execution-scenario`; #2568)
  *   node scripts/harness/loop-run.mjs void  --loop <skill> --run <id> --reason <text>   (an UNCOMMITTED sealed record only; #2438)
  *   node scripts/harness/loop-run.mjs show  --loop <skill>
  *
  * Exit 0 = recorded, 1 = refused.
  */
-
 import {
   existsSync,
   mkdirSync,
@@ -65,7 +64,6 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-
 import {
   REFRESH_CHECKPOINT_OPENED,
   REFRESH_PHASE_ORDER,
@@ -73,6 +71,7 @@ import {
   normalizeArchitectureRefreshMetadata,
   refreshPhaseIndex,
 } from './architecture-refresh-record.mjs';
+import { requireRefForClose } from './loop-run-ref-requirement.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
 import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
@@ -672,6 +671,7 @@ export function closeRun({ root, skill, runId, terminal, ref = null, now }) {
       'loop-run: `voided` is not a way to close a run — it is what `void` writes over an uncommitted sealed record.',
     );
   }
+  requireRefForClose(skill, ref);
   const entries = readLedger(root, skill);
   const index = requireOpen(entries, skill, runId);
   entries[index].closed = new Date(now).toISOString();
