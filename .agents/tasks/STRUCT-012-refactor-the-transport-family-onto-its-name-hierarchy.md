@@ -128,7 +128,7 @@ Recorded, not absorbed:
   - ST-9: the `FAMILY-SIBLINGS` sentence states its judged scope: `dependencies` + `peerDependencies`
   - TC-11: companion clauses (iv) parent → child and (v) `agent-framework`/`agent-core` → transport or UI child are reported on a fixture and green on the real tree
   - TC-12: the undeclared-import check reports a fixture `src/` import with no manifest entry in any of the three sections, and is green on the real tree
-- [ ] S2 — purify `agent-transport`: move `headless/` (minus `print-terminal.ts` and `cli-input.ts`,
+- [x] S2 — purify `agent-transport`: move `headless/` (minus `print-terminal.ts` and `cli-input.ts`,
       which go to `agent-cli`, their only importer), `programmatic/`, `transport-registry*`,
       `transport-run-generation`, `transport-settings-*` to `agent-framework/src/transport-host/`;
       move `headless-host-action-parity.test.ts` and
@@ -245,7 +245,7 @@ CLI examples typechecked, the historical archive hash unchanged, and the new CLI
 record verified as above. These checks supplement, not replace, ST-1/2/3/5/8 and TC-10's normal
 stage-end verification. All original failure/gate evidence remains historical.
 
-## S2 implementation evidence — integration pending
+## S2 implementation and verification evidence
 
 The approved host/test/example relocation is implemented. The historical record remains byte-identical
 at its archive path (SHA256 `7e154ebca8c66487094da32113cbcce49c76d6b2577e18c0a59665e28652400f`).
@@ -268,8 +268,14 @@ preserved; the successful retry used the full build and explicit scope, not rela
 
 Worker regression evidence: 103 moved tests, framework 1643 passed/74 skipped, CLI 468 passed/18 skipped,
 TUI 706 passed, and 179 harness tests passed. Independent product review found zero actionable defects.
-These are scoped results, not whole-branch green. S2 remains unchecked until TC-10 and integration;
-S3–S5 and the overall issue are not complete.
+Those worker results were scoped, not whole-branch green. The integration owner subsequently ran
+TC-10 on `1202aca47c9025acd94dcb6f119b1d9b664290e3`: all 11 stages passed, including full build,
+package quality, binary E2E and real TUI PTY tests (5m 1.6s;
+`/tmp/struct012-s2-delivery-verify-like-ci.log`). S2's implementation checklist is now complete.
+The final merge also inherits the independently verified INFRA-166 harness repair; product source
+is unchanged. Publication remains subject to the final merged-head gate and remote landing check.
+S3–S5 and the overall issue are not complete. The owner requested stopping after this S2 delivery;
+do not start another unit until the owner resumes work.
 
 ## Test Plan
 

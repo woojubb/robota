@@ -207,8 +207,7 @@ async function writeReceiptIfEligible({ exitCode, selected, options }) {
   return 0;
 }
 
-export async function main(argv = process.argv.slice(2)) {
-  const options = parseArgs(argv);
+async function runVerification(options) {
   if (options.unknown.length > 0) {
     process.stderr.write(`unknown --only stage(s): ${options.unknown.join(', ')}\n`);
     process.exitCode = 1;
@@ -249,6 +248,18 @@ export async function main(argv = process.argv.slice(2)) {
     options,
   });
   process.exitCode = summary.exitCode === 0 && receiptCode === 0 ? 0 : 1;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const options = parseArgs(argv);
+  const previousBase = process.env.HARNESS_BASE_REF;
+  process.env.HARNESS_BASE_REF = options.baseRef;
+  try {
+    await runVerification(options);
+  } finally {
+    if (previousBase === undefined) delete process.env.HARNESS_BASE_REF;
+    else process.env.HARNESS_BASE_REF = previousBase;
+  }
 }
 
 export { CI_STAGES, NOT_MIRRORED };
