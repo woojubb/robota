@@ -6,6 +6,7 @@ priority: medium
 urgency: soon
 area: .agents/rules, .claude/hooks, .husky
 depends_on: []
+no-issue: repository policy alignment requested directly by the maintainer; no GitHub issue is the source record
 ---
 
 # INFRA-169: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections
