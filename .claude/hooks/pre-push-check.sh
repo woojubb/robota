@@ -857,7 +857,7 @@ frozen_diff_refusal() {
   # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
   # number from the same canonical URL the parser independently validates.
   approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
-    --jq '[.comments[]? | select((.author.login // "") == "woojubb") | select((.body // "") | test("POST_FINDINGS_ACTION_REQUEST"; "m")) | select((.body // "") | test("HEAD:[[:space:]]*'"$remote_head"'"; "m")) | select((.body // "") | test("VERDICT:[[:space:]]*'"$latest_count"'"; "m")) | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}] | sort_by(.id) | if length == 0 then [] else [.[-1]] end' \
+    --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
     | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
       --verdict "$latest_count" --actions push,rebase 2>/dev/null || echo "")
   if [[ "$approved" == "1" ]]; then
