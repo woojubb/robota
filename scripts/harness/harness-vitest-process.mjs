@@ -49,11 +49,8 @@ function vitestArguments(root, files, config = undefined) {
     'run',
     ...files,
     ...(config ? ['--config', config] : []),
-    // The complete harness contract fallback performs many repository-isolated fixture runs.
-    // A single worker keeps the task-update channel responsive under that load and avoids
-    // concurrent fixture processes competing for the same host resources.
     '--pool=threads',
-    '--maxWorkers=1',
+    '--maxWorkers=2',
     '--testTimeout=30000',
     '--reporter=dot',
   ];

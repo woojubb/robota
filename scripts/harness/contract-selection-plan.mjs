@@ -25,6 +25,15 @@ const isProductSource = (file) => PRODUCT_SOURCE_PREFIXES.some((prefix) => file.
 const isControlPlane = (file) =>
   CONTRACT_CONTROL_PLANE_INPUTS.some((input) => matchesInput(file, input));
 
+// Hook files are governance inputs even though the legacy owner registry predates `.claude/hooks/`.
+// Keep the mapping at selection time so changing a hook does not conservatively expand every
+// contract test while the registry's control-plane contract remains unchanged.
+const selectionOwnerForPath = (root, file) =>
+  file.startsWith('.claude/hooks/') ? 'workspace:governance' : ownerForRepositoryInput(root, file);
+
+const hasSelectionOwner = (root, file) =>
+  file.startsWith('.claude/hooks/') || Boolean(selectionScopesForChangedPath(root, file));
+
 function completeFallback({
   root,
   contractTests,
@@ -112,10 +121,10 @@ export function createAffectedContractPlan({
       selected.add(file);
       recognized.add(file);
     }
-    const changedScopes = selectionScopesForChangedPath(root, file);
-    if (!changedScopes) return fallback(context, `unknown owner for changed input: ${file}`);
+    if (!hasSelectionOwner(root, file))
+      return fallback(context, `unknown owner for changed input: ${file}`);
     recognized.add(file);
-    const changedPrimaryOwner = ownerForRepositoryInput(root, file);
+    const changedPrimaryOwner = selectionOwnerForPath(root, file);
     let dependencyMatched = byTest.has(file);
     for (const entry of entries) {
       const implementationMatch = entry.implementationInputs.includes(file);
