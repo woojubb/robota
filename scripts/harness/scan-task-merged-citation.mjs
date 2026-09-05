@@ -81,6 +81,41 @@ export function deliversOutsideRecords(changedPaths) {
   return changedPaths.some((file) => !file.startsWith(RECORD_PREFIX));
 }
 
+/**
+ * The unit token cited alongside a work-item ID inside its own parenthetical — `S1` in a subject
+ * citing `(STRUCT-012 S1)` — or null when the citation names only the bare ID, or names it outside
+ * parens (prose like "STRUCT-012 done" is not a unit citation). Lets a staged, multi-PR Task tag
+ * which of its own Plan units a commit delivers, instead of every delivering commit reading as the
+ * whole item.
+ */
+export function citedUnitOf(subject, id) {
+  const match = new RegExp(`\\(${escapeRegExp(id)}\\s+([A-Za-z][A-Za-z0-9]*)\\)`).exec(subject);
+  return match ? match[1] : null;
+}
+
+/** The `## Plan` section body of a Task record, or '' when the record has none. */
+function planSectionOf(content) {
+  const heading = /^## Plan\s*$/m.exec(content);
+  if (heading === null) return '';
+  const start = heading.index + heading[0].length;
+  const next = content.indexOf('\n## ', start);
+  return content.slice(start, next === -1 ? content.length : next);
+}
+
+/**
+ * Unit tokens a Task record's own `## Plan` section marks complete — `S1` from a `- [x] S1 — ...`
+ * line. Scoped to that section so a `- [x]` line elsewhere in the record (Completion Criteria, Test
+ * Plan) is never mistaken for a staged unit. A record with no such lines (the common case — most
+ * Tasks are not staged into named units) yields an empty set, so `citedUnitOf` returning non-null
+ * against it still reconciles nothing.
+ */
+export function completedPlanUnits(content) {
+  const units = new Set();
+  const lineRe = /^- \[x\] ([A-Za-z][A-Za-z0-9]*)\b/gm;
+  for (const match of planSectionOf(content).matchAll(lineRe)) units.add(match[1]);
+  return units;
+}
+
 function git(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) {
@@ -158,6 +193,7 @@ export function findTaskMergedCitationFindings(root = WORKSPACE_ROOT, io = {}) {
   const changedPaths = io.changedPaths ?? ((sha) => changedPathsOf(root, sha));
   const legacy = io.legacy ?? legacyReconcilePending(root);
   const notices = io.notices ?? [];
+  const taskContent = io.taskContent ?? ((file) => readFileSync(path.join(root, file), 'utf8'));
   const records = openTaskRecords(root);
   examinedRecords = records.length;
   examinedCommits = commits.length;
@@ -172,7 +208,15 @@ export function findTaskMergedCitationFindings(root = WORKSPACE_ROOT, io = {}) {
       stillPending.add(record.id);
       continue;
     }
-    const named = delivering
+    // A commit citing a Plan unit the record itself already marks `[x]` complete is a staged,
+    // honestly multi-PR delivery — not a premature-completion claim — and does not reconcile.
+    const completedUnits = completedPlanUnits(taskContent(record.file));
+    const unreconciled = delivering.filter((commit) => {
+      const unit = citedUnitOf(commit.subject, record.id);
+      return unit === null || !completedUnits.has(unit);
+    });
+    if (unreconciled.length === 0) continue;
+    const named = unreconciled
       .slice(0, 3)
       .map((commit) => `${commit.sha.slice(0, 9)} ${commit.subject}`)
       .join('; ');
@@ -180,9 +224,9 @@ export function findTaskMergedCitationFindings(root = WORKSPACE_ROOT, io = {}) {
       file: record.file,
       type: 'task-merged-citation',
       detail:
-        `${record.id} is \`${record.status ?? '(no status)'}\` but ${delivering.length} commit(s) ` +
+        `${record.id} is \`${record.status ?? '(no status)'}\` but ${unreconciled.length} commit(s) ` +
         `merged to ${ref} cite it and deliver outside ${RECORD_PREFIX}: ${named}` +
-        `${delivering.length > 3 ? '; …' : ''} — reconcile the record (a citation is not proof ` +
+        `${unreconciled.length > 3 ? '; …' : ''} — reconcile the record (a citation is not proof ` +
         'of completion: the item may span more pull requests).',
     });
   }
