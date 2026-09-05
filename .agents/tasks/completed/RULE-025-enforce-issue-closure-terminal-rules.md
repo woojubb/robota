@@ -1,12 +1,13 @@
 ---
 title: 'RULE-025: Enforce issue closure terminal rules'
-status: in-progress
+status: done
 created: 2026-09-06
+completed: 2026-09-06
 priority: medium
 urgency: soon
 area: repository governance and harness verification
 depends_on: []
-children: []
+no-issue: internal repository issue source provided by the user; no GitHub issue number was supplied
 ---
 
 # RULE-025: Enforce issue closure terminal rules
@@ -17,15 +18,15 @@ Encode the five closure-rule findings from `/tmp/robota-issues/round2/ISSUE-CLOS
 
 ## Plan
 
-- [ ] Define terminal outcomes and the tool-defect closure path in the authoritative documents.
-- [ ] Add the merged-task terminal-state and gate-self-modification protections.
-- [ ] Add owning-test selection guidance and the pre-start rejection checklist.
-- [ ] Register and test every new harness check, then run the affected and full harness verification.
-- [ ] TC-01: Verify the authoritative lifecycle and rejection rules are present.
-- [ ] TC-02: Verify tool-defect closure evidence is parseable and auditable.
-- [ ] TC-03: Verify stale merged Tasks and evaluator/evidence overlap produce findings.
-- [ ] TC-04: Verify owning-test selection and hermetic classification remain complete.
-- [ ] TC-05: Verify focused tests and the registered harness verification pass.
+- [x] Define terminal outcomes and the tool-defect closure path in the authoritative documents.
+- [x] Add the merged-task terminal-state and gate-self-modification protections.
+- [x] Add owning-test selection guidance and the pre-start rejection checklist.
+- [x] Register and test every new harness check, then run the affected and full harness verification.
+- [x] TC-01: Verify the authoritative lifecycle and rejection rules are present.
+- [x] TC-02: Verify tool-defect closure evidence is parseable and auditable.
+- [x] TC-03: Verify stale merged Tasks and evaluator/evidence overlap produce findings.
+- [x] TC-04: Verify owning-test selection and hermetic classification remain complete.
+- [x] TC-05: Verify focused tests and the registered harness verification pass.
 
 ## User Execution Test Scenarios
 
@@ -37,6 +38,8 @@ Encode the five closure-rule findings from `/tmp/robota-issues/round2/ISSUE-CLOS
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** This work changes repository governance and developer verification machinery only; it introduces no runnable product surface or user-facing behavior for an end user to execute.
+
+Spec: `.agents/spec-docs/done/RULE-025-enforce-issue-closure-terminal-rules.md`
 
 ## Test Plan
 

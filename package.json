@@ -52,6 +52,7 @@
     "harness:test:contracts": "node scripts/harness/harness-test-tiers.mjs --tier contracts",
     "harness:test:contracts:affected": "node scripts/harness/harness-test-tiers.mjs --tier contracts --affected",
     "harness:test:hermetic": "node scripts/harness/harness-test-tiers.mjs --verify-hermetic-stripped",
+    "harness:test:owning": "node scripts/harness/test-owning.mjs",
     "harness:test:tiers:guard": "node scripts/harness/harness-test-tiers.mjs --verify-hermetic-stripped",
     "harness:verify-like-ci": "node scripts/harness/verify-like-ci.mjs",
     "harness:conformance": "node scripts/harness/check-dependency-direction.mjs --conformance-json",

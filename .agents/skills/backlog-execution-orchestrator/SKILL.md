@@ -45,6 +45,13 @@ checkpoint creation, or loop opening. Reopen only the phase invalidated by actua
 
 ### Phase 1 — Recommendation gate
 
+Before forming the recommendation, spend at most five minutes on the pre-start rejection check. Do not
+start an item; record the reason and close it as rejected-before-start when any one is true: (1) the
+owner has already decided not to do what the Issue requests, (2) a prerequisite owned by another item
+is incomplete, (3) the requested change is controlled by an external system, or (4) the work duplicates
+an item that already shipped. If none applies, proceed and carry the item through the terminal states
+in `backlog-execution.md`; a mid-work “보류” is not a terminal route.
+
 Form the recommendation the rule requires, then **hand it to `proposal-reviewer`** rather than judging it
 here. See "The recommendation is not self-judged" below — this is a deliberate behavioural change from the
 rule's previous self-assessment wording, made because an orchestrator forming a verdict on its own output

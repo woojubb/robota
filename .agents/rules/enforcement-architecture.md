@@ -224,6 +224,11 @@ violated. Which kind a hook is, is read from the hook itself.
 
 ### Silence is not success — the rule, for every layer
 
+Gate-evaluator code (`scripts/harness/gate.mjs`, `.claude/hooks/**`, and scans that implement gate
+criteria) must not be changed inside the item whose gate it evaluates. This remains forbidden even
+with approval. A tool defect is a separate item that passes its own applicable gate; the evaluated item
+must use the explicit `tool-defect` closure disposition instead of changing its judge in place.
+
 **Owner directive. This binds every skill, every hook, and every GitHub Action step, not only the
 shell guards above.**
 

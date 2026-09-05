@@ -1011,6 +1011,16 @@ repo file that no longer exists fails the scan. When a later refactor legitimate
 referenced artifact, annotate the reference with `<!-- evidence-superseded: <reason> -->` on the
 same or the preceding line — exemptions are reported on every run, never silent.
 
+## Item terminal states
+
+A started item has only two normal terminal states: **completed delivery** (the change is on
+`origin/develop`, the corresponding GitHub Issue is closed, the Task record is updated and archived,
+and the shipped and remaining work is recorded in the Issue comment) or **rejected before start** (the
+reason is recorded and the Issue is closed). `blocked`, `in-progress`, and “보류” are working states,
+never terminal outcomes. If a gate is blocked by a tool defect, use the documented `tool-defect` closure
+disposition in the gate catalogue, record the defect identifier and evidence, and file the defect as a
+separate item; do not leave the delivery open as a substitute for an honest exception.
+
 ## Done Gate
 
 **ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section must not have its

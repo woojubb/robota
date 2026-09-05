@@ -101,6 +101,21 @@ something else, not on this document (issue #2213).
 
 Partial entries (e.g., PASS without specific evidence lines) are treated as NON-COMPLIANCE on the next gate run.
 
+### Tool-defect closure disposition
+
+When a gate cannot open because the gate tool is defective rather than because the document fails its
+criteria, the item may use an explicit, auditable exception after the delivery is merged and the Issue
+is closed. Add exactly one machine-readable line to the spec Evidence Log:
+
+```markdown
+**Closed under:** `tool-defect` — <defect identifier>; gate `<GATE-NAME>`; defect record `<path or issue URL>`; evidence `<path or command>`
+```
+
+The line names the blocked gate, the defect record, and the evidence used to establish that the document
+content was not the cause. The defect must be filed as a separate item. This disposition does not turn a
+normal gate failure into a pass and cannot be used to justify changing the gate evaluator in the same
+item. A missing, duplicated, or malformed line is not a closure disposition.
+
 ---
 
 ## Prior-gate map

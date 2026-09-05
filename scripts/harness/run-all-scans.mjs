@@ -1181,6 +1181,25 @@ export const SCAN_COMMANDS = [
     advisory: true,
   },
   {
+    // RULE-025 F1 — aged in-progress work with an already merged delivery has no terminal state.
+    name: 'item-terminal-state',
+    command: ['node', 'scripts/harness/scan-item-terminal-state.mjs'],
+    always: true,
+    advisory: true,
+  },
+  {
+    // RULE-025 F3 — the gate evaluator and the evidence it judges must not share one item.
+    name: 'gate-evaluator-isolation',
+    command: ['node', 'scripts/harness/scan-gate-evaluator-isolation.mjs'],
+    always: true,
+  },
+  {
+    // RULE-025 F2 — tool-defect closure is an exact, auditable evidence form.
+    name: 'gate-closure-disposition',
+    command: ['node', 'scripts/harness/scan-gate-closure-disposition.mjs'],
+    examines: ['.agents/spec-docs/'],
+  },
+  {
     // Issue #2375: GATE-VERIFY's Plan-checkbox criterion, mechanised over the `## Plan` section.
     name: 'task-plan-items',
     command: ['node', 'scripts/harness/scan-task-plan-items.mjs'],

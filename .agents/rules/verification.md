@@ -33,6 +33,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Pre-Push Local Verification Requirement
 
+Before broad verification, identify and run the tests that own each changed implementation file. Use
+`pnpm harness:test:owning <file>` for harness files; it prints the selected tests and fails when no
+owner can be established. Changes under `scripts/harness/**` also require `pnpm harness:test:hermetic`
+before the full verification entry point. A green command proves only its own contract, not that the
+changed file's contract was exercised.
+
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves one comparison base and runs the scoped package checks for content that is actually being pushed. `HARNESS_BASE_REF` wins; otherwise an exact single-current-branch push to the checkout's matching `origin` destination may use the unique same-repository OPEN PR's immutable base OID. Another remote name/URL, ambiguous, cross-repository, renamed, multi-ref, detached, unavailable, or mismatched discovery reports one reason and uses the existing broader resolver (including `GITHUB_BASE_REF`) rather than narrowing verification.
 - Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
