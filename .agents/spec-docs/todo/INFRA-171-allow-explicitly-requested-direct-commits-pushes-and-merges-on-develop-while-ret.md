@@ -2,7 +2,7 @@
 status: approved
 type: INFRA
 tags: [cli, typescript]
-lane: L1
+lane: L2
 ---
 
 # INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop
