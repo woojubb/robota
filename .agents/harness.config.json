@@ -120,7 +120,12 @@
         "readProviderSettings",
         "readMergedProviderSettings",
         "createProviderFromSettings",
-        "loadExternalPresets"
+        "loadExternalPresets",
+        "createHeadlessTransport",
+        "HeadlessInteractionChannel",
+        "createProgrammaticAgent",
+        "TransportRegistry",
+        "createFileTransportSettingsRepository"
       ],
       "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b — resolved data is fed in from the shell), and branches on no product identity (c)."
     },
@@ -144,7 +149,12 @@
         "readProviderSettings",
         "readMergedProviderSettings",
         "createProviderFromSettings",
-        "loadExternalPresets"
+        "loadExternalPresets",
+        "createHeadlessTransport",
+        "HeadlessInteractionChannel",
+        "createProgrammaticAgent",
+        "TransportRegistry",
+        "createFileTransportSettingsRepository"
       ],
       "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract — the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) — a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
     }

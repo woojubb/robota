@@ -8,7 +8,7 @@ import {
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

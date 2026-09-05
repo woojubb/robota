@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -33,6 +33,8 @@ beforeEach(() => {
         noEmit: true,
       },
       include: [
+        '../../packages/agent-framework/src/index.ts',
+        '../../packages/agent-framework/src/transport-host/**/*.ts',
         '../../packages/agent-interface-transport/src/**/*.ts',
         '../../packages/agent-transport*/src/**/*.ts',
       ],
@@ -145,6 +147,49 @@ function makeSourceConditionContract() {
 }
 
 describe('transport conformance roster', () => {
+  it('discovers the framework-owned host through its root and its moved shared suite', () => {
+    makeBarrelReExportSubject({
+      packageDir: 'agent-framework',
+      packageName: '@scope/framework',
+      exportName: 'createHeadlessTransport',
+    });
+    const src = path.join(root, 'packages', 'agent-framework', 'src');
+    const host = path.join(src, 'transport-host');
+    mkdirSync(host, { recursive: true });
+    renameSync(path.join(src, 'adapter.ts'), path.join(host, 'adapter.ts'));
+    renameSync(path.join(src, '__tests__'), path.join(host, '__tests__'));
+    writeFileSync(
+      path.join(src, 'index.ts'),
+      "export { createHeadlessTransport } from './transport-host/adapter.js';\n",
+    );
+    // Another framework adapter-shaped factory is not a transport-host subject.
+    writeFileSync(
+      path.join(src, 'unrelated.ts'),
+      readFileSync(path.join(host, 'adapter.ts'), 'utf8').replaceAll(
+        'createHeadlessTransport',
+        'createUnrelated',
+      ),
+    );
+    writeFileSync(
+      path.join(src, 'index.ts'),
+      "export { createHeadlessTransport } from './transport-host/adapter.js';\nexport { createUnrelated } from './unrelated.js';\n",
+    );
+    const subjects = ['@scope/framework#createHeadlessTransport'];
+    expect(findTransportConformanceFindings(root, subjects)).toEqual([]);
+    expect(readExaminedTransportCount()).toBe(1);
+    rmSync(path.join(host, '__tests__', 'conformance.test.ts'));
+    expect(findTransportConformanceFindings(root, subjects)).toContain(
+      '@scope/framework#createHeadlessTransport: expected exactly one shared-suite invocation, found 0',
+    );
+    writeFileSync(
+      path.join(host, 'adapter.ts'),
+      'export function createHeadlessTransport() { return {}; }\n',
+    );
+    expect(findTransportConformanceFindings(root, subjects)).toContain(
+      'missing public subject: @scope/framework#createHeadlessTransport',
+    );
+  });
+
   it('discovers exported factory and class adapter subjects', () => {
     makeSubject({
       packageDir: 'agent-transport-one',

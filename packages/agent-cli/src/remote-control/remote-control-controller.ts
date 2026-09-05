@@ -20,7 +20,7 @@ import type {
   IIceServer,
   ISignalingClient,
 } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-transport';
+import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';

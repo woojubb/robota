@@ -23,7 +23,9 @@ describe('ARCH-018 interaction-channel charter', () => {
     const projectStructure = readFileSync(PROJECT_STRUCTURE, 'utf8');
     const interfaceSpec = readFileSync(INTERFACE_SPEC, 'utf8');
 
-    expect(projectStructure).toContain('ProgrammaticInteractionChannel` (in `agent-transport`)');
+    expect(projectStructure).toContain(
+      'ProgrammaticInteractionChannel` (in `agent-framework/src/transport-host`)',
+    );
     expect(projectStructure).not.toContain('interface that all interactive transports implement');
     expect(interfaceSpec).toMatch(/It is not the universal\s+transport\s+contract\./);
   });

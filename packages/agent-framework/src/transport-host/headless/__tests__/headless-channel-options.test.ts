@@ -3,8 +3,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const sessionCtorSpy = vi.fn();
 
-vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('@robota-sdk/agent-framework')>();
+vi.mock('../../../runtime/runtime-host.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../../runtime/runtime-host.js')>();
 
   class FakeInteractiveSession {
     private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();

@@ -730,9 +730,6 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-transport':
-        specifier: ^3.0.0-beta.67
-        version: link:../../../packages/agent-transport
       '@robota-sdk/agent-transport-http':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-transport-http
@@ -1226,9 +1223,6 @@ importers:
       '@robota-sdk/agent-tool-defaults':
         specifier: workspace:*
         version: link:../agent-tool-defaults
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
       '@robota-sdk/agent-transport-protocol':
         specifier: workspace:*
         version: link:../agent-transport-protocol
@@ -2259,12 +2253,6 @@ importers:
 
   packages/agent-transport:
     dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
       '@robota-sdk/agent-interface-command':
         specifier: workspace:*
         version: link:../agent-interface-command

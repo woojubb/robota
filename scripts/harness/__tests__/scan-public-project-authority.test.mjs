@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 import {
+  PROJECT_AUTHORITY_PUBLIC_BARRELS,
+  PROJECT_AUTHORITY_SOURCE_SCOPES,
   findPublicProjectAuthorityFindings,
   readExaminedPublicProjectAuthorityCount,
 } from '../scan-public-project-authority.mjs';
@@ -19,6 +21,32 @@ function scan(source, barrel = source) {
 }
 
 describe('public-project-authority AST guard', () => {
+  it('covers moved host options via framework without retaining removed transport sub-barrels', () => {
+    const root = 'packages/agent-framework/src/index.ts';
+    const host =
+      'packages/agent-framework/src/transport-host/headless/HeadlessInteractionChannel.ts';
+    expect(PROJECT_AUTHORITY_SOURCE_SCOPES).toContain('packages/agent-framework/src');
+    expect(PROJECT_AUTHORITY_PUBLIC_BARRELS).toContain(root);
+    expect(PROJECT_AUTHORITY_PUBLIC_BARRELS).toContain('packages/agent-transport/src/index.ts');
+    expect(PROJECT_AUTHORITY_PUBLIC_BARRELS).not.toContain(
+      'packages/agent-transport/src/headless/index.ts',
+    );
+    expect(PROJECT_AUTHORITY_PUBLIC_BARRELS).not.toContain(
+      'packages/agent-transport/src/programmatic/index.ts',
+    );
+    const content = new Map([
+      [
+        root,
+        "export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';",
+      ],
+      [host, 'export interface IHeadlessInteractionChannelOptions { cwd?: string }'],
+    ]);
+    expect(
+      findPublicProjectAuthorityFindings([root, host], [root], (file) => content.get(file)).map(
+        (finding) => finding.rule,
+      ),
+    ).toContain('high-level-project-decision-missing');
+  });
   it('RED: rejects a public project loader that accepts only cwd', () => {
     const findings = scan(
       'export function loadProjectContext(cwd: string): void {}',

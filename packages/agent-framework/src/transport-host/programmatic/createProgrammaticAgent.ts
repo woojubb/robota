@@ -9,7 +9,6 @@
  * filter/derivation logic is not re-implemented here.
  */
 
-import { createInteractiveRuntime } from '@robota-sdk/agent-framework';
 import {
   readAssistantReplies,
   readErrors,
@@ -18,13 +17,12 @@ import {
 } from '@robota-sdk/agent-interface-session';
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
+import { createInteractiveRuntime } from '../../interaction/createInteractiveRuntime.js';
 
+import type { ICommandModule } from '../../command-api/command-module.js';
+import type { IInteractiveRuntime } from '../../interaction/InteractiveRuntime.js';
+import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
-import type {
-  ICommandModule,
-  IInteractiveRuntime,
-  TWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
 import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface ICreateProgrammaticAgentOptions {

@@ -3,8 +3,8 @@
 /**
  * ARCH-011 transport lifecycle conformance roster.
  *
- * Scope: production TypeScript below every `packages/agent-transport.../src` tree (excluding tests)
- * and Vitest files below those same package trees. The discovery relation is the exported adapter
+ * Scope: production TypeScript below every `packages/agent-transport.../src` tree and framework's
+ * `src/transport-host` (excluding tests), plus Vitest files below those trees. The discovery relation is the exported adapter
  * declaration itself: TypeScript resolves every package export entry and identifies exported runtime
  * values whose returned/constructed public type has the adapter lifecycle shape. This covers direct
  * and arrow factories, classes, inheritance, and barrel re-exports without source-regex guesses.
@@ -30,7 +30,7 @@ const SCOPE = loadHarnessConfig().npmScopePrefix;
 const CONFORMANCE_HELPER_MODULE = `${SCOPE}agent-interface-transport/testing`;
 const TYPE_PROJECT = 'scripts/harness/transport-conformance.tsconfig.json';
 export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
-  `${SCOPE}agent-transport#createHeadlessTransport`,
+  `${SCOPE}agent-framework#createHeadlessTransport`,
   `${SCOPE}agent-transport-http#createHttpTransport`,
   `${SCOPE}agent-transport-mcp#createMcpTransport`,
   `${SCOPE}agent-transport-ws#createWsTransport`,
@@ -66,7 +66,12 @@ function walk(dir, accept) {
 function transportPackageDirs(root) {
   const packagesDir = path.join(root, 'packages');
   return readdirSync(packagesDir)
-    .filter((name) => name === 'agent-transport' || name.startsWith('agent-transport-'))
+    .filter(
+      (name) =>
+        name === 'agent-framework' ||
+        name === 'agent-transport' ||
+        name.startsWith('agent-transport-'),
+    )
     .map((name) => path.join(packagesDir, name))
     .filter((dir) => statSync(dir).isDirectory());
 }
@@ -138,7 +143,20 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
     if (!existsSync(manifestPath)) return [];
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     if (typeof manifest.name !== 'string') return [];
-    return [{ packageName: manifest.name, entries: sourceExportEntries(manifest, packageDir) }];
+    const hostDir =
+      path.basename(packageDir) === 'agent-framework'
+        ? path.join(packageDir, 'src', 'transport-host')
+        : undefined;
+    const exportsManifest = hostDir
+      ? { ...manifest, exports: { '.': manifest.exports?.['.'] } }
+      : manifest;
+    return [
+      {
+        packageName: manifest.name,
+        entries: sourceExportEntries(exportsManifest, packageDir),
+        hostDir,
+      },
+    ];
   });
   const rootNames = packages.flatMap(({ entries }) => entries);
   const projectFile = path.join(root, TYPE_PROJECT);
@@ -152,7 +170,7 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
     throw new Error(`transport-conformance type project did not load: ${projectFile}`);
   }
   const subjects = [];
-  for (const { packageName, entries } of packages) {
+  for (const { packageName, entries, hostDir } of packages) {
     for (const entry of entries) {
       const sourceFile = typeProject.program.getSourceFile(entry);
       const checker = typeProject.checker;
@@ -162,6 +180,12 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
       for (const exported of checker.getExportsOfModule(moduleSymbol)) {
         const target = exported.valueDeclaration ? exported : checker.getAliasedSymbol(exported);
         if (!target.valueDeclaration) continue;
+        if (hostDir) {
+          const declarationFile = target.valueDeclaration
+            .resolve(typeProject)
+            ?.getSourceFile().fileName;
+          if (!declarationFile || !declarationFile.startsWith(`${hostDir}${path.sep}`)) continue;
+        }
         if (exportedAdapterType(checker, target)) {
           subjects.push(`${packageName}#${exported.name}`);
         }
@@ -238,7 +262,11 @@ export function findTransportConformanceFindings(
 
   const tests = transportPackageDirs(root).flatMap((packageDir) =>
     walk(
-      path.join(packageDir, 'src'),
+      path.join(
+        packageDir,
+        'src',
+        ...(path.basename(packageDir) === 'agent-framework' ? ['transport-host'] : []),
+      ),
       (file) => file.endsWith('.test.ts') && file.includes(`${path.sep}__tests__${path.sep}`),
     ),
   );

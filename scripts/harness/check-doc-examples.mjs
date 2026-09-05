@@ -107,7 +107,7 @@ export function extractBlocks(markdown) {
  * workspace root, so absolutes keep the mapping correct regardless of where `OUT_DIR` moves — and
  * they work unchanged if this scan is later moved onto the native compiler.
  */
-function buildTsconfig(dir, root = WORKSPACE_ROOT) {
+export function buildTsconfig(dir, root = WORKSPACE_ROOT) {
   const at = (relative) => path.join(root, relative);
   return {
     compilerOptions: {
@@ -133,6 +133,7 @@ function buildTsconfig(dir, root = WORKSPACE_ROOT) {
           at('packages/agent-provider-openai-compatible/src/shared/openai-compatible/index.ts'),
         ],
         '@robota-sdk/agent-provider-*': [at('packages/agent-provider-*/src/index.ts')],
+        // Also resolves the future ./node source entry; S2 verifies this only in an isolated fixture.
         '@robota-sdk/agent-transport/*': [at('packages/agent-transport/src/*/index.ts')],
       },
     },

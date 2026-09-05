@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport",
   "version": "3.0.0-beta.79",
-  "description": "Core transport package for Robota SDK — headless adapter and the transport registry",
+  "description": "Transport package boundary for Robota SDK — runtime hosts are owned by agent-framework",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -16,18 +16,6 @@
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
-      }
-    },
-    "./headless": {
-      "types": "./dist/node/headless/index.d.ts",
-      "source": "./src/headless/index.ts",
-      "node": {
-        "import": "./dist/node/headless/index.js",
-        "require": "./dist/node/headless/index.cjs"
-      },
-      "default": {
-        "import": "./dist/node/headless/index.js",
-        "require": "./dist/node/headless/index.cjs"
       }
     }
   },
@@ -50,17 +38,13 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-transport --output examples/scenarios/session-event-delivery.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-interface-command": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*",

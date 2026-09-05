@@ -9,6 +9,8 @@
     "noEmit": true
   },
   "include": [
+    "../../packages/agent-framework/src/index.ts",
+    "../../packages/agent-framework/src/transport-host/**/*.ts",
     "../../packages/agent-interface-transport/src/**/*.ts",
     "../../packages/agent-transport*/src/**/*.ts"
   ]

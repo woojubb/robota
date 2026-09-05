@@ -2,13 +2,12 @@
 
 ## Scope
 
-**Approved S2 transition (STRUCT-012, prospective).** The CLI will consume headless execution and
-the transport registry from the framework root and own `PrintTerminal` / `promptInput` locally.
-The characterization checkpoint has not moved those implementations yet. Their output formatting,
-selection defaults and non-TTY refusal remain unchanged; no new public CLI export is introduced.
-The existing dependency rows and print-mode owner references are replaced with the implementation
-move, not treated as evidence that the transfer already happened. The real command-module host-action
-and skill-activation tests move to the CLI suite so the framework need not depend on agent-command.
+The CLI consumes headless execution and registry contracts from the framework root. It owns
+`PrintTerminal` (`src/print-terminal.ts`, implements `ITerminalOutput`) and `promptInput`
+(`src/cli-input.ts`) locally; no public CLI export is added. Existing formatting, defaults,
+raw-state restoration and non-TTY refusal are unchanged. The three real-command host tests and
+session-event-delivery host example are CLI-owned; Linux scenario evidence is recorded only by
+actual execution, never by reattributing the archived transport record.
 
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-framework, responsible only for the terminal UI.
@@ -520,7 +519,7 @@ agent-cli ─→ agent-framework ─→ agent-session ──→ agent-core
   ├──────────────────────────────────────→ agent-command            (slash-command modules)
   ├──────────────────────────────────────→ agent-provider           (provider definitions)
   ├──────────────────────────────────────→ agent-subagent-runner    (subagent / background execution)
-  └──────────────────────────────────────→ agent-transport          (subpaths: /tui, /headless, /ws)
+  └──────────────────────────────────────→ agent-transport-tui / agent-transport-ws (presentation / wire adapters)
 ```
 
 ### Preset Selection
@@ -629,8 +628,8 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
 | `@robota-sdk/agent-builtin-providers`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
 | `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
-| `@robota-sdk/agent-transport`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
-| `@robota-sdk/agent-transport/headless`  | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
+| `@robota-sdk/agent-framework`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
+| `@robota-sdk/agent-framework`           | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
 | `@robota-sdk/agent-transport-tui`       | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
 | `@robota-sdk/agent-transport-ws`        | `WsTransport` registered (disabled by default) in the transport registry                                                                                                                                                        |
 | `@robota-sdk/agent-transport-webrtc`    | `WsSignalingClient` / `WebRtcTransport` for the remote-control P2P channel                                                                                                                                                      |
@@ -720,13 +719,13 @@ resort, not the primary handler.
 Tests live in `src/__tests__/` and `src/startup/__tests__/`. All tests use Vitest.
 
 **Deterministic E2E (CLI-074)**: `src/__tests__/e2e/` drives full `startCli` print-mode runs
-with the scripted provider from `@robota-sdk/agent-transport/testing` — real agent loop,
+with the scripted provider from `@robota-sdk/agent-core/testing` — real agent loop,
 builtin tools, permission gate, and session persistence with zero model/network access.
 Suites: tool loop (scripted Read→Edit→Bash mutating a temp repo), permission matrix
 (`--dry-run`, `--denied-tools`), `-c` resume context, output contracts
 (text/json/stream-json/`--bare`), and a registry-driven slash-command smoke (every command
 listed by `/help` must produce a valid result envelope). Real-terminal TUI coverage lives in
-agent-transport's PTY project (see that SPEC's Test Harness Contracts).
+agent-transport-tui's PTY project (see that SPEC's Test Harness Contracts).
 
 **Built-binary E2E (SEC-022).** One suite runs the shipped binary rather than the in-process
 assembly, so the PreToolUse denial route is exercised through the product surface with no provider
@@ -800,7 +799,7 @@ robota --version                     # Version
 
 #### Print Mode and Headless Transport
 
-Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport/headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, then calls `session.shutdown({ reason: 'prompt_input_exit' })` before exiting with `transport.getExitCode()`.
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-framework` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, then calls `session.shutdown({ reason: 'prompt_input_exit' })` before exiting with `transport.getExitCode()`.
 
 Any command modules supplied to `startCli({ commandModules })` are passed to the same `InteractiveSession` in both print mode and TUI mode.
 
@@ -1788,8 +1787,10 @@ files for context display.
 
 ## Class Contract Registry
 
-All behavioral contracts in this package are expressed through interfaces and factory functions, not
-classes. The following table lists the primary runtime constructs with their contracts.
+Most behavioral contracts use interfaces and factory functions. The CLI-local `PrintTerminal` class
+(`src/print-terminal.ts`) implements core's `ITerminalOutput`, including its `ISpinner` return
+contract; `promptInput` (`src/cli-input.ts`) owns guarded interactive input and restores raw mode
+and listeners. The following table lists the other primary runtime constructs.
 
 | Construct                                                   | Kind     | Owner file                        | Contract summary                                                                                                                                                                                                                                                               |
 | ----------------------------------------------------------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

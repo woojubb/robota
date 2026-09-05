@@ -71,6 +71,28 @@ describe('guard (a) — dependency-graph neutrality', () => {
 });
 
 describe('guard (b) — purity / no-IO', () => {
+  it('rejects moved transport-host symbols through the allowed framework dependency', () => {
+    const symbols = [
+      'createHeadlessTransport',
+      'HeadlessInteractionChannel',
+      'createProgrammaticAgent',
+      'TransportRegistry',
+      'createFileTransportSettingsRepository',
+    ];
+    const rules = loadHarnessConfig().compositionNeutrality.filter((rule) =>
+      ['packages/agent-product', 'packages/agent-capability-pack'].includes(rule.dir),
+    );
+    expect(rules).toHaveLength(2);
+    for (const rule of rules) {
+      for (const symbol of symbols) {
+        const source = `import { ${symbol} } from '@robota-sdk/agent-framework';\nconst host = ${symbol}();`;
+        expect(
+          findIoViolations(source, 'src/host.ts', rule).map((finding) => finding.id),
+        ).toContain(symbol);
+      }
+    }
+  });
+
   it('FLAGS a forbidden fs import', () => {
     const kinds = findIoViolations("import { readFileSync } from 'node:fs';", 'x.ts', RULE).map(
       (f) => f.kind,

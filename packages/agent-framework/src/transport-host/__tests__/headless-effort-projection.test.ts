@@ -16,8 +16,8 @@ import type { IHeadlessInteractionChannelOptions } from '../headless/HeadlessInt
  */
 const buildRuntimeSession = vi.fn((_options: unknown) => ({ dispose: () => undefined }));
 
-vi.mock('@robota-sdk/agent-framework', async () => {
-  const actual = await vi.importActual('@robota-sdk/agent-framework');
+vi.mock('../../runtime/runtime-host.js', async () => {
+  const actual = await vi.importActual('../../runtime/runtime-host.js');
   return { ...actual, buildRuntimeSession: (options: unknown) => buildRuntimeSession(options) };
 });
 

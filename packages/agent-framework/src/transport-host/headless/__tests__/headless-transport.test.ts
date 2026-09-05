@@ -135,7 +135,7 @@ describe('createHeadlessTransport', () => {
     const pendingSubmissions: Array<() => void> = [];
     try {
       await runTransportLifecycleConformance({
-        subjectId: '@robota-sdk/agent-transport#createHeadlessTransport',
+        subjectId: '@robota-sdk/agent-framework#createHeadlessTransport',
         kind: 'runner',
         createAdapter: () =>
           createHeadlessTransport({ outputFormat: 'text', prompt: 'ARCH-011 conformance' }),

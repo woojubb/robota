@@ -6,6 +6,7 @@ import { makeTemp } from './make-temp.mjs';
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyFrozenCounts,
   examinedPackageCount,
   findSdkPublicSurfaceFindings,
 } from '../check-sdk-public-surface.mjs';
@@ -31,6 +32,18 @@ async function createFixture(files) {
 }
 
 describe('findSdkPublicSurfaceFindings', () => {
+  it('freezes the emptied transport root at zero instead of allowing its old export stars', () => {
+    expect(applyFrozenCounts([]).under.map(({ name }) => name)).not.toContain('agent-transport');
+    const finding = {
+      file: 'packages/agent-transport/src/index.ts',
+      type: 'sdk-public-export-star',
+    };
+    expect(applyFrozenCounts([finding]).over).toContainEqual({
+      name: 'agent-transport',
+      actual: 1,
+      frozen: 0,
+    });
+  });
   it('flags export-star barrels in agent-sdk source', async () => {
     const root = await createFixture({
       'packages/agent-framework/src/index.ts': "export * from './interactive/index.js';\n",

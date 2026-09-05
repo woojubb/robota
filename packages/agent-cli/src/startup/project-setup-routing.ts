@@ -1,4 +1,4 @@
-import { promptInput } from '@robota-sdk/agent-transport/headless';
+import { promptInput } from '../cli-input.js';
 import { ProviderConfigError } from '@robota-sdk/agent-framework';
 
 import { runInitCommand } from '../init/init-command.js';

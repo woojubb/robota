@@ -1,4 +1,7 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { makeTemp } from './make-temp.mjs';
 
 import {
   diffDeploymentMatrix,
@@ -65,6 +68,24 @@ describe('diffDeploymentMatrix — undocumented + phantom', () => {
 });
 
 describe('findTransportNames — the live transport packages', () => {
+  it('walks framework transport-host without including unrelated framework transports', () => {
+    const root = makeTemp('robota-deployment-host-');
+    const files = {
+      'packages/agent-framework/src/transport-host/headless/headless-transport.ts':
+        "export const value = { name: 'headless' };",
+      'packages/agent-framework/src/other-transport.ts':
+        "export const value = { name: 'unrelated' };",
+      'packages/agent-transport/src/retained-transport.ts':
+        "export const value = { name: 'retained' };",
+      'packages/agent-transport-http/src/http-transport.ts':
+        "export const value = { name: 'http' };",
+    };
+    for (const [file, source] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), source);
+    }
+    expect([...findTransportNames(root)].sort()).toEqual(['headless', 'http', 'retained']);
+  });
   /**
    * HARNESS-052. `headless` joined this set without a transport being written: the enumerator
    * filtered on the directory prefix `agent-transport-`, so `packages/agent-transport` — the base
@@ -76,7 +97,7 @@ describe('findTransportNames — the live transport packages', () => {
     expect([...findTransportNames()].sort()).toEqual(['headless', 'http', 'mcp', 'webrtc', 'ws']);
   });
 
-  it('includes the BASE agent-transport package, not only its hyphenated siblings', () => {
+  it('retains headless after its implementation moves to the framework host owner', () => {
     expect([...findTransportNames()]).toContain('headless');
   });
 

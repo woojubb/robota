@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { WorkspaceTrustService } from '../../../workspace-trust/workspace-trust-service.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -25,7 +25,7 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
-} from '@robota-sdk/agent-framework';
+} from '../../../workspace-trust/types.js';
 
 class TrustedProjectStore implements IWorkspaceTrustStore {
   inspect(): Promise<IWorkspaceTrustStoreSnapshot> {

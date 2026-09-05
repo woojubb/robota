@@ -1,5 +1,10 @@
 # @robota-sdk/agent-framework
 
+Runtime hosts are owned by this package: import `createHeadlessTransport`,
+`HeadlessInteractionChannel`, `createProgrammaticAgent`, `ProgrammaticInteractionChannel`,
+`TransportRegistry`, and its file/memory settings repositories from the root. Their implementation
+lives in `src/transport-host/`; terminal `PrintTerminal` and `promptInput` are local to the CLI.
+
 Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, `createAgentRuntime()` as a composition factory for headless and multi-session consumers, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider`) into a cohesive SDK.

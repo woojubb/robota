@@ -6,7 +6,7 @@
  * The matrix is the single at-a-glance registry of surface × runtime × transport for the "one agent definition
  * → many channels" story. For it to stay trustworthy, every transport `name` must have a row. Transport names
  * live in CODE, so the enumerable source is the set of `IConfigurableTransport`/`ITransportAdapter` adapters that
- * declare a `name` — verified today as exactly `{tui, ws, webrtc, http, mcp}`. This scan enumerates them from the
+ * declare a `name` — verified today as exactly `{headless, ws, webrtc, http, mcp}`. This scan enumerates them from the
  * code and FAILs when a transport `name` is missing a matrix row (undocumented) or a matrix Transport-`name` row
  * names a nonexistent transport (phantom).
  *
@@ -15,7 +15,8 @@
  *   - factory form: `name: 'http'`              (http / mcp / ws)
  *
  * EXCLUDED (export no transport `name`): `agent-transport-protocol` (shared lib) + `agent-transport-gui` /
- * `agent-transport-webrtc-web` (React/browser presentation). Scope is transport packages' `*transport*.ts` files.
+ * `agent-transport-webrtc-web` (React/browser presentation). Scope is transport packages and framework's
+ * `src/transport-host`, restricted to `*transport*.ts` files.
  *
  * Exit 0 = clean, 1 = findings.
  */
@@ -105,8 +106,17 @@ export function findTransportNames(root = WORKSPACE_ROOT) {
   const packagesDir = path.join(root, 'packages');
   if (!existsSync(packagesDir)) return names;
   for (const pkg of readdirSync(packagesDir)) {
-    if (!/^agent-transport(-|$)/.test(pkg) || EXCLUDED_PACKAGES.has(pkg)) continue;
-    const srcDir = path.join(packagesDir, pkg, 'src');
+    if (
+      (pkg !== 'agent-framework' && !/^agent-transport(-|$)/.test(pkg)) ||
+      EXCLUDED_PACKAGES.has(pkg)
+    )
+      continue;
+    const srcDir = path.join(
+      packagesDir,
+      pkg,
+      'src',
+      ...(pkg === 'agent-framework' ? ['transport-host'] : []),
+    );
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
     for (const file of transportSourceFiles(srcDir)) {
       examinedCount += 1;

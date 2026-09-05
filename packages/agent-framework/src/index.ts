@@ -1,6 +1,29 @@
 // @robota-sdk/agent-framework — Universal AI agent SDK
 // Provider-neutral. InteractiveSession is the single entry point.
 
+// Runtime-host implementations (STRUCT-012): these symbols are owned here.
+export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessInteractionChannel.js';
+export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
+export { createHeadlessRunner, OUTPUT_FORMATS } from './transport-host/headless/headless-runner.js';
+export type {
+  IHeadlessRunnerOptions,
+  TOutputFormat,
+} from './transport-host/headless/headless-runner.js';
+export { createHeadlessTransport } from './transport-host/headless/headless-transport.js';
+export type {
+  IHeadlessTransport,
+  IHeadlessTransportOptions,
+} from './transport-host/headless/headless-transport.js';
+export type { IHeadlessSession } from './transport-host/headless/headless-session.js';
+export { ProgrammaticInteractionChannel } from './transport-host/programmatic/ProgrammaticInteractionChannel.js';
+export { createProgrammaticAgent } from './transport-host/programmatic/createProgrammaticAgent.js';
+export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
+export { TransportRegistry } from './transport-host/transport-registry.js';
+export {
+  createFileTransportSettingsRepository,
+  createMemoryTransportSettingsRepository,
+} from './transport-host/transport-settings-repository.js';
+
 // ── Explicit workspace project authority (ARCH-042) ────────
 export {
   WorkspaceAuthorityRequiredError,

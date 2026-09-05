@@ -21,7 +21,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
   clean.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
 - Implementation packages (the separate `agent-transport-{ws,http,mcp,webrtc}` packages and
-  `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
+  `agent-framework` for headless) depend on this package for interface types, directly from their contract owner.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
 
 ## Architecture Overview
@@ -44,10 +44,10 @@ agent-transport-ws (WsTransport), agent-transport-webrtc (WebRtcTransport)
   └── implements IConfigurableTransport<TSession>
 
 agent-transport-http (createHttpTransport), agent-transport-mcp (createMcpTransport),
-agent-transport (/headless: createHeadlessTransport), agent-transport-ws (createWsTransport factory)
+agent-framework (createHeadlessTransport), agent-transport-ws (createWsTransport factory)
   └── returns bare ITransportAdapter<TSession>
 
-agent-transport
+agent-framework (transport-host)
   └── TransportRegistry            ← structurally compatible with ITransportRegistryView (no declared implements)
 ```
 
@@ -271,13 +271,13 @@ never inside the library (ROOM-001 principle).
 
 This package defines contracts that consumers implement or extend:
 
-| Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
-| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Legacy service adapter with settings capability                  |
-| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                                 | Compose any adapter kind with settings capability                |
-| Registry views           | Interface | `agent-transport` (`TransportRegistry`, structurally compatible)                                                                                                             | Segregate lifecycle from configurable settings projection        |
-| `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
+| Extension Point          | Kind      | Implementor                                                                                                                                                         | Description                                                      |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-framework), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
+| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                  | Legacy service adapter with settings capability                  |
+| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                        | Compose any adapter kind with settings capability                |
+| Registry views           | Interface | `agent-framework` (`TransportRegistry`, structurally compatible)                                                                                                    | Segregate lifecycle from configurable settings projection        |
+| `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                              | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
@@ -314,10 +314,10 @@ implementors must satisfy:
 
 | Interface                 | Implemented By                                                                                                                                                  | Package                                        |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport`         |
-| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-transport`                              |
+| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-framework`         |
+| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-framework`                              |
 | `IConfigurableTransport`  | `WsTransport`, `WebRtcTransport`                                                                                                                                | `agent-transport-ws`, `agent-transport-webrtc` |
-| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-transport`                              |
+| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-framework`                              |
 | `IPayloadChannelHost`     | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                           |
 
 The deliberate intra-package extension chains are `ITransportRunnerAdapter` and

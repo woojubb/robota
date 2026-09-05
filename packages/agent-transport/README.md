@@ -1,6 +1,8 @@
 # Agent Transport
 
-Protocol-level transport adapters for the Robota SDK — headless, HTTP, WebSocket, MCP, and WebRTC.
+Transport package boundary for the Robota SDK. During STRUCT-012 S2 its root is intentionally empty.
+Headless execution, programmatic driving and registry implementations are exported by `agent-framework`;
+terminal input/output helpers are local to `agent-cli`. Protocol package consolidation follows in S3.
 
 ## Installation
 
@@ -13,13 +15,13 @@ npm install @robota-sdk/agent-transport
 Headless is a sub-path of this package. HTTP, WebSocket, MCP, and WebRTC ship as
 standalone packages.
 
-| Transport | Package / Sub-path                     | Description                                             |
-| --------- | -------------------------------------- | ------------------------------------------------------- |
-| Headless  | `@robota-sdk/agent-transport/headless` | Non-interactive text / JSON / stream-JSON output        |
-| HTTP      | `@robota-sdk/agent-transport-http`     | Hono-based REST adapter (Node.js / CF Workers / Lambda) |
-| WebSocket | `@robota-sdk/agent-transport-ws`       | Framework-agnostic real-time bidirectional adapter      |
-| MCP       | `@robota-sdk/agent-transport-mcp`      | Model Context Protocol server adapter                   |
-| WebRTC    | `@robota-sdk/agent-transport-webrtc`   | Peer-to-peer data-channel adapter                       |
+| Transport | Package / Sub-path                   | Description                                             |
+| --------- | ------------------------------------ | ------------------------------------------------------- |
+| Headless  | `@robota-sdk/agent-framework`        | Non-interactive text / JSON / stream-JSON output        |
+| HTTP      | `@robota-sdk/agent-transport-http`   | Hono-based REST adapter (Node.js / CF Workers / Lambda) |
+| WebSocket | `@robota-sdk/agent-transport-ws`     | Framework-agnostic real-time bidirectional adapter      |
+| MCP       | `@robota-sdk/agent-transport-mcp`    | Model Context Protocol server adapter                   |
+| WebRTC    | `@robota-sdk/agent-transport-webrtc` | Peer-to-peer data-channel adapter                       |
 
 This package also exposes the `./programmatic` sub-path. Scripted-provider test fixtures live in
 `@robota-sdk/agent-core/testing` (the former `./testing` pass-through was removed, issue #2052).
@@ -33,7 +35,7 @@ that does not load project contributions.
 ### Headless
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 
 const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'Hello!' });
 ```
@@ -80,7 +82,7 @@ await renderApp(options);
 Import only what you need to keep bundles small:
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
@@ -88,12 +90,11 @@ import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 import { renderApp } from '@robota-sdk/agent-transport-tui';
 ```
 
-The root import exposes only the headless and programmatic surfaces (plus the
-`TransportRegistry`). The HTTP, WebSocket, MCP, and WebRTC transports are not
-re-exported here — import them from their own packages shown above.
+The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport
+parent root exports nothing in this interim stage; import protocol adapters from their own packages.
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 ```
 
 `TransportRegistry` accepts the discriminated base service/runner adapter union. It rejects active
@@ -103,9 +104,10 @@ immediately, and returns a complete ordered aggregate whose pending runners beco
 
 ## Dependencies
 
-- `@robota-sdk/agent-core`
+- `@robota-sdk/agent-interface-command`
+- `@robota-sdk/agent-interface-execution`
+- `@robota-sdk/agent-interface-session`
 - `@robota-sdk/agent-interface-transport`
-- `@robota-sdk/agent-framework`
 
 The heavier protocol dependencies (`ws`, `hono`, `@modelcontextprotocol/sdk`,
 `react`, `ink`, and friends) now live in the split transport packages

@@ -2,234 +2,50 @@
 
 ## Transport Admission (SEC-008)
 
-transport-admission: none — this package is the transport REGISTRY plus a headless in-process adapter. Nothing here accepts a peer over a wire, so there is no admission decision to make; the transports it registers each make their own.
+transport-admission: none — the S2 parent has no peer-admitting implementation.
 
 ## 1. Scope
 
-**Approved S2 transition (STRUCT-012, not yet applied).** The characterization checkpoint retains
-the current ownership documented below. Before the production move, the target contract is fixed:
-headless runtime execution, the programmatic driver, the registry and both settings-repository
-factories move to `agent-framework/src/transport-host/` and its root exports; `PrintTerminal` and
-`promptInput` become local `agent-cli` implementation details. Their behavior, error propagation,
-project-access decisions and lifecycle contracts do not change. The transport public API/type/class
-entries for those moved symbols must leave this SPEC with the move; no forwarding shim remains.
-S3's protocol absorption and S4's UI renames are not part of this checkpoint.
-
-Core transport package for the Robota SDK. After DQ-AUDIT-005 the consolidated transport package was
-split by concern; this package owns only the **dependency-free core**:
-
-- Headless transport (`/headless`): non-interactive print/JSON/stream-json runner — `HeadlessInteractionChannel`, `createHeadlessRunner`, `PrintTerminal`, `promptInput`, `createHeadlessTransport`.
-- Transport registry (root): `TransportRegistry` — base-adapter lifecycle plus an optional,
-  configurable-only settings projection on the same entry.
-- Programmatic driver (`/programmatic`): an in-process `IInteractionChannel` adapter
-  (`ProgrammaticInteractionChannel`) + `createProgrammaticAgent` driver — drive the real agent
-  structurally (`start`/`send`/`stop`, read assistant replies / tool calls / errors as data) with no
-  terminal, no PTY, no scraping.
-- Scripted-provider testing fixtures live in `@robota-sdk/agent-core/testing` (issue #2052 removed the `/testing` pass-through here; import the owner).
-
-The per-concern transport implementations live in their own packages: `@robota-sdk/agent-transport-tui`
-(React/Ink), `-ws` (WebSocket), `-http` (Hono), `-mcp` (MCP). This package has **zero external runtime
-dependencies** — pure TypeScript over Node stdlib + `@robota-sdk/*` contracts.
+The transport-family substrate package. During STRUCT-012 S2 its root is deliberately empty:
+runtime-host behavior has moved to `@robota-sdk/agent-framework`, and terminal I/O belongs
+to `agent-cli`. Protocol absorption is the subsequent S3 unit, not an implemented feature here.
 
 ## 2. Boundaries
 
-| Rule                           | Detail                                                                                                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Zero external runtime deps     | Only `@robota-sdk/agent-core`, `agent-framework`, `agent-interface-transport`; no React/Ink/ws/hono/mcp                                                |
-| No concrete-transport edge     | `TransportRegistry` is generic; it does not import any concrete transport. The default registration of `WsTransport` lives in the CLI composition root |
-| Registry settings shape        | `{ "transports": { "<name>": { "enabled": bool, "options": {...} } } }` under `transports` in settings.json                                            |
-| `IInteractionChannel` fidelity | `HeadlessInteractionChannel` does not implement `IInteractionChannel` directly if that would lose session events outside the `InteractionEvent` union  |
+No framework/core dependency in any manifest section and no Node builtin in the root graph.
+No compatibility forwarding exports. Host execution, programmatic driving, registry lifecycle and
+settings repositories are governed by the framework SPEC; CLI owns terminal input/output.
+Family placement is governed by the architecture map, not a duplicate layer table here.
 
 ## 3. Architecture Overview
 
-```
-agent-transport/src
-  index.ts                      ← barrel: headless + TransportRegistry
-  transport-registry.ts         ← TransportRegistry (base lifecycle + optional settings capability)
-  headless/
-    HeadlessInteractionChannel.ts ← session creation + runner for print mode
-    headless-runner.ts          ← createHeadlessRunner (text/json/stream-json)
-    headless-transport.ts       ← createHeadlessTransport (ITransportAdapter wrapper)
-    headless-stream-json.ts     ← stream-json framing
-    print-terminal.ts           ← PrintTerminal, promptInput
-  programmatic/
-    ProgrammaticInteractionChannel.ts ← in-process IInteractionChannel adapter (event buffer + action queue)
-    createProgrammaticAgent.ts  ← driver over createInteractiveRuntime (start/send/stop + accessors)
-```
-
-### Programmatic driving
-
-`createProgrammaticAgent({ provider, cwd, projectAccess?, commandModules?, sessionStore?, permissionMode? })`
-wires a `ProgrammaticInteractionChannel` to a real `InteractiveSession` via
-`createInteractiveRuntime`. `cwd` is provenance only: an omitted `projectAccess` produces the
-framework's explicit Restricted decision, while a host-issued trusted decision is forwarded
-unchanged to the session.
-`send(text)` pushes a user submission and awaits the whole turn; the channel records the framework's
-one-way `InteractionEvent` stream into `events`, which the driver exposes as `assistantReplies()`,
-`lastAssistantText()`, `toolCalls()`, and `errors()`. `queueUserAction(response)` pre-answers the next
-CMD-004 `askUser` a command may issue (an empty queue resolves `{ type: 'cancelled' }`, so a run never
-deadlocks). This is the in-process form of "drive the agent at will" (TEST-008).
-
-### Host-action parity (CMD-004 Stage D)
-
-A command's HOST ACTIONS (`language-change`, `settings-reset`, `session-exit`/`-restart`,
-`session-rename`, …) are executed by the SESSION via the injected `ICommandHostAdapters` — the LSP
-`workspace/executeCommand` model — so they work with **zero attached surfaces**: a headless or
-programmatic embedding gets the same command semantics as the TUI/GUI. An embedder that wires
-`commandHostAdapters` (settings/process/…) into its `InteractiveSession` gets full host execution;
-an embedding with no adapter for a requested action gets an EXPLICIT failure in the command result
-naming the missing capability (`Cannot apply '<action>': … not available in this environment.`) —
-never a silent skip (no-fallback). `createProgrammaticAgent` wires no adapters today, so host
-actions surface that explicit failure through the `command-result` event as data. UI intents
-(`ui_intent`) are fire-and-forget presentation requests: with zero listeners attached they are a
-defined no-op (there is no surface to render them; the host action half is unaffected). Proven by
-`src/__tests__/headless-host-action-parity.test.ts` and the multi-surface exit/restart policy e2e
-`src/__tests__/ws-multi-surface-exit-policy.test.ts` (TC-09: a remote `/exit` or restart acts on
-the SHARED host serving all surfaces — local == remote, REMOTE-006).
-
-### Headless lifecycle
-
-`HeadlessInteractionChannel` constructs the `InteractiveSession`, runs a single prompt via
-`createHeadlessRunner`, and exposes `getExitCode()`. Output format (`text` / `json` / `stream-json`)
-is selected by the runner options.
+`src/index.ts` is a valid empty module. No headless/programmatic build entries or subpath remain.
 
 ## 4. Type Ownership
 
-| Type                                 | File                                          | Description                                                                         |
-| ------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel                                        |
-| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`                                                  |
-| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`                                                 |
-| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`                                               |
-| `IHeadlessSession`                   | `src/headless/headless-session.ts`            | Exact submission/events/commands/goal/identity roles consumed by headless execution |
-| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`                                               |
-
-The in-process driver surface itself is `IAgentDriver`, owned by
-`@robota-sdk/agent-interface-transport` — this package defines no driver type of its own.
+None during the S2 transition. Shared adapter contracts remain in their interface owners.
 
 ## 5. Public API Surface
 
-### `/headless`
-
-| Export                               | Kind       | Description                                                                                                                        |
-| ------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `HeadlessInteractionChannel`         | class      | Owns session creation + runner for non-interactive (print) mode; call `run(prompt)` then `getExitCode()`                           |
-| `IHeadlessInteractionChannelOptions` | interface  | Constructor options for `HeadlessInteractionChannel`                                                                               |
-| `PrintTerminal`                      | class      | Utility for formatted terminal output in headless mode                                                                             |
-| `promptInput`                        | function   | Reads a single line from stdin                                                                                                     |
-| `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes                                         |
-| `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                                                 |
-| `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                                                |
-| `createHeadlessTransport`            | function   | Returns legacy-compatible `IHeadlessTransport` wrapping `createHeadlessRunner`                                                     |
-| `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                                              |
-| `IHeadlessSession`                   | interface  | Narrow session-role aggregate accepted by headless runner and transport                                                            |
-| `IHeadlessTransport`                 | interface  | Legacy `ITransportAdapter<IInteractiveSession>` declaration with `attach(IHeadlessSession)` overload                               |
-| `OUTPUT_FORMATS`                     | constant   | Issue #2052: `['text', 'json', 'stream-json']` — the ONE owner of the output-format vocabulary; `TOutputFormat` is derived from it |
-
-### `/programmatic`
-
-| Export                            | Kind      | Description                                                                                                  |
-| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
-| `ProgrammaticInteractionChannel`  | class     | In-process `IInteractionChannel` adapter: buffers `InteractionEvent`s, FIFO action-response queue            |
-| `createProgrammaticAgent`         | function  | Driver over `createInteractiveRuntime`: `start`/`send`/`stop` + structured accessors                         |
-| `ICreateProgrammaticAgentOptions` | interface | `{ provider, cwd, projectAccess?, commandModules?, sessionStore?, permissionMode? }`; omission is Restricted |
-
-The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (owned by
-`@robota-sdk/agent-interface-transport`, not re-exported here): `events`, `start`, `send`,
-`queueUserAction`, `assistantReplies`, `lastAssistantText`, `toolCalls`, `errors`, `stop`.
-
-The scripted provider (`createScriptedProvider`, `IScriptedProvider`, `TScriptedTurn`) is no longer
-a `/testing` subpath of this package: it is owned by `@robota-sdk/agent-core/testing`, and this
-package declares no `./testing` entry.
-
-### Root (`@robota-sdk/agent-transport`)
-
-| Export                                          | Kind     | Description                                                                                                                                                              |
-| ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `TransportRegistry`                             | class    | Base adapter lifecycle registry with configurable-only settings projection                                                                                               |
-| `createFileTransportSettingsRepository`         | function | TRANS-010 (issue #2480): an `ITransportSettingsRepository` over the `transports` section of one settings file — the shell composes it, the registry never touches a path |
-| `createMemoryTransportSettingsRepository`       | function | TRANS-010: an `ITransportSettingsRepository` held in memory — tests, and hosts with no settings file                                                                     |
-| (plus `/headless` + `/programmatic` re-exports) |          | The root barrel also re-exports the headless + programmatic surfaces                                                                                                     |
+No runtime or type exports during S2. Import the moved host symbols from the framework root.
 
 ## 6. Extension Points
 
-Register any `ITransportAdapter` into a `TransportRegistry`. A service or runner that also satisfies
-the orthogonal `ITransportSettingsCapability` appears as `TConfigurableTransport` in `getAll()` and
-persists enablement/options under `transports` in settings.json; a base-only adapter is
-lifecycle-enabled and absent from settings. The legacy `IConfigurableTransport` name remains the
-source-compatible configurable-service shape. Duplicate names reject. Unknown or non-configurable
-settings mutations reject `TransportConfigurationError`.
+None during S2; host transport registration is owned by the framework.
 
 ## 7. Error Taxonomy
 
-Headless runner surfaces provider/runtime errors as typed failed outcomes with a non-zero exit code;
-`getExitCode()` remains the package-specific readback.
-Registry settings I/O goes through an injected `ITransportSettingsRepository` (TRANS-010, issue #2480): `new TransportRegistry(pathOrRepository)` — a string path wraps `createFileTransportSettingsRepository`, whose errors propagate from the `agent-framework` settings helpers; `createMemoryTransportSettingsRepository` serves tests and hosts without a settings file. Persisted `options` are DELIVERED at `startAll` via `configure(options)` after `validateOptions` (TRANS-002): invalid options reject `TransportConfigurationError` `invalid-options`, and non-empty options for a transport without `configure` reject `options-not-applicable` — never silently ignored.
-
-`run(prompt)` resolves the exit code only AFTER the underlying `session.submit()` operation has fully
-settled — the terminal `complete`/`interrupted`/`error` event fires from inside the turn, before the
-turn's awaited `finally` runs session persistence / checkpoint finalize, so the runner awaits the
-operation (not just the event) so all trailing writes under cwd `.robota/` have drained before the
-process may exit. It writes exactly one terminal record per run (CI-001).
+No implementation errors originate here during S2. Existing host errors retain their contracts
+at the new framework owner.
 
 ## 8. Test Strategy
 
-Pre-move characterization is in `terminal-io-characterization.test.ts` (stdout/stderr framing,
-selection defaults and invalid choices, real readline success and non-TTY refusal, isolated
-stream-boundary input editing/masking, prior raw-state restoration and listener cleanup on
-newline and Ctrl-C) and
-`transport-settings-repository.characterization.test.ts` (memory patch merging and detached
-top-level read projection, real file-settings preservation and read normalization). The terminal
-suite follows its two implementations to the CLI; the repository suite follows its owner to the
-framework. These tests fix existing behavior, not new feature semantics.
-
-Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
-The programmatic integration suite proves that an explicitly trusted project decision reaches the
-real session and enables its authority-bound context source. The `public-project-authority` AST guard
-also requires every published high-level construction interface that accepts `cwd` to carry
-`TWorkspaceProjectAccess`.
-The headless public adapter invokes the shared interface-transport lifecycle conformance helper; the
-harness roster scan proves it is one of exactly six registered public subjects.
+Host tests moved with their implementation to framework `src/transport-host/`; real-command
+composition and terminal I/O tests moved to CLI. The session-event-delivery example is CLI-owned;
+its former Linux recording is preserved byte-identically in
+`.agents/archive/struct012-s2/agent-transport-session-event-delivery.record.json`.
+Package build/typecheck and the dependency/public-surface scans protect this interim empty entry.
 
 ## 9. Class Contract Registry
 
-### `HeadlessInteractionChannel`
-
-Constructs the session, runs one prompt, exposes `getExitCode()`. Print/JSON/stream-json framing is
-delegated to the runner. Does not own interactive UI.
-
-### `TransportRegistry`
-
-`register(transport)`, `getAll()`, `getEnabled()`, `setEnabled(name, enabled)`,
-`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `waitForFailure()`,
-`stopAll()`. Reads/writes the
-`transports` block of a settings file at the path supplied to the constructor. Holds no
-concrete-transport import.
-
-**When a settings change takes effect (TRANS-009).** `setEnabled` and `setOptions` **persist only**.
-Neither starts, stops, or reconfigures a running transport: the enabled set is read by `startAll` via
-`getEnabled()` when a session starts, so a change applies from the **next** start. The registry
-exposes no per-transport start or stop — `startAll` and `stopAll` act over the whole set — so
-"immediate" is not a capability that exists to be invoked.
-
-This is stated because it was not: a surface that called `setEnabled` and then reported the transport
-as enabled was reading a persisted value as a running state, and both readings were available from a
-method list that said nothing about timing.
-
-**Runner ownership (ARCH-011).** `startAll` awaits each adapter's readiness-returning `start()`, then
-immediately owns every runner's separate completion promise. A startup generation is sealed only
-after every enabled subject is registered, so a synchronously successful first runner cannot make a
-later runner disappear. `waitForCompletion()` returns one named record per runner in registration
-order; pending runners become registry-owned `abandoned:stopped` or
-`abandoned:startup-rollback`. `waitForFailure()` returns only the first real failed runner immediately
-and returns `undefined` for no runners, all success, or normal stop abandonment. A rejected runner
-promise rejects both
-routes as `TransportLifecycleError`; it is observed immediately and cannot become an unhandled
-rejection.
-
-The registry serializes idle/starting/active/stopping transitions. Active restart rejects before
-mutation. Startup failure rolls back from the failing adapter through prior adapters in reverse order
-and rejects `TransportStartupError` with the primary non-enumerable cause plus ordered safe rollback
-details. `stopAll()` terminalizes pending aggregate slots rather than waiting on terminal work. Late
-settlement is ignored, and a later `startAll` owns a distinct generation. Transport stops remain
-best-effort and their errors are collected in `IDestroyResult`.
+None during S2. The framework SPEC owns the moved runtime-host class relationships.

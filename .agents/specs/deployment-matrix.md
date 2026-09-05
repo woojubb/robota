@@ -21,17 +21,18 @@ a transport (React/browser packages carry no transport `name`) and is out of sco
 `headless` was added by HARNESS-052, not by a new transport: the drift scan matched the package-directory prefix
 `agent-transport-`, so `packages/agent-transport` — the base package, where `createHeadlessTransport` declares
 `name: 'headless'` in exactly the factory form the scan parses — could never contribute a name. The set above had
-been asserted as complete by a check structurally incapable of reading one of its members.
+been asserted as complete by a check structurally incapable of reading one of its members. STRUCT-012 S2
+moves that factory into framework `src/transport-host`; discovery follows that explicit owner too.
 
-| Surface        | Runtime                                              | Transport `name`   | Client / presentation        | Prior art in-repo                                              |
-| -------------- | ---------------------------------------------------- | ------------------ | ---------------------------- | -------------------------------------------------------------- |
-| CLI / terminal | local `agent-cli` process                            | —                  | `agent-transport-tui`        | `renderApp` + `TuiInteractionChannel` presentation boundary    |
-| CLI / one-shot | local `agent-cli` print mode (`-p`), non-interactive | `headless`         | —                            | `agent-transport/headless` (print / JSON / stream-json runner) |
-| Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001                                          |
-| Web            | `apps/agent-server` (Express + WS) / browser peer    | `ws`               | `agent-transport-webrtc-web` | playground stack                                               |
-| HTTP/WS server | headless `robota --serve` / `apps/agent-server`      | `http` / `ws`      | —                            | RUNTIME-001                                                    |
-| Remote (P2P)   | local host + signaling relay                         | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001                                                     |
-| MCP host       | any MCP client                                       | `mcp`              | —                            | —                                                              |
+| Surface        | Runtime                                              | Transport `name`   | Client / presentation        | Prior art in-repo                                           |
+| -------------- | ---------------------------------------------------- | ------------------ | ---------------------------- | ----------------------------------------------------------- |
+| CLI / terminal | local `agent-cli` process                            | —                  | `agent-transport-tui`        | `renderApp` + `TuiInteractionChannel` presentation boundary |
+| CLI / one-shot | local `agent-cli` print mode (`-p`), non-interactive | `headless`         | —                            | `agent-framework` (print / JSON / stream-json runner)       |
+| Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001                                       |
+| Web            | `apps/agent-server` (Express + WS) / browser peer    | `ws`               | `agent-transport-webrtc-web` | playground stack                                            |
+| HTTP/WS server | headless `robota --serve` / `apps/agent-server`      | `http` / `ws`      | —                            | RUNTIME-001                                                 |
+| Remote (P2P)   | local host + signaling relay                         | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001                                                  |
+| MCP host       | any MCP client                                       | `mcp`              | —                            | —                                                           |
 
 ## Transport `name` declaration forms
 
@@ -43,8 +44,8 @@ The drift scan parses both forms (a transport declares its `name` in one of two 
 - **Factory form** — `name: '…'` on a factory object-literal implementing plain `ITransportAdapter` (no
   `defaultEnabled`; mounted outside `startAll`'s fan-out but still `attach(session)` over the DIP): `http`
   (`agent-transport-http`), `mcp` (`agent-transport-mcp`), `ws` (`agent-transport-ws/ws-transport.ts`),
-  `headless` (`agent-transport/headless/headless-transport.ts` — the BASE package, which the drift scan's
-  package-prefix filter used to skip).
+  `headless` (`agent-framework/src/transport-host/headless/headless-transport.ts` — the framework-owned
+  host directory is explicitly included in drift discovery).
 
 **Excluded** (export no transport `name`): `agent-transport-protocol` (shared protocol lib),
 `agent-transport-tui`, `agent-transport-gui`, and `agent-transport-webrtc-web` (presentation).

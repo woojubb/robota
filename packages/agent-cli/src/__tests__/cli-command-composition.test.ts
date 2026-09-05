@@ -11,7 +11,7 @@ import {
   readMergedProviderSettings,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { describe, expect, it, vi } from 'vitest';
 
 import { startCli } from '../cli.js';

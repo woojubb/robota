@@ -5,7 +5,7 @@
 
 import { parseArgs } from 'node:util';
 
-import { OUTPUT_FORMATS, type TOutputFormat } from '@robota-sdk/agent-transport';
+import { OUTPUT_FORMATS, type TOutputFormat } from '@robota-sdk/agent-framework';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 

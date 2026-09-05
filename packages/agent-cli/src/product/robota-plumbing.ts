@@ -15,7 +15,7 @@ import {
   getUserSettingsPath,
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';

@@ -3,7 +3,7 @@
  * Parses arguments and delegates to startup modules, mode runners, and transports.
  */
 
-import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
+import { PrintTerminal } from './print-terminal.js';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,

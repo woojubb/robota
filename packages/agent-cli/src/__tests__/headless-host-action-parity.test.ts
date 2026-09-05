@@ -21,7 +21,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createProgrammaticAgent } from '../programmatic/index.js';
+import { createProgrammaticAgent } from '@robota-sdk/agent-framework';
 
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
 import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';

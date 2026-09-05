@@ -6,7 +6,7 @@
  * hosts that keep transport settings elsewhere.
  */
 
-import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
+import { readSettings, writeSettings, type TSettingsData } from '../config/settings-io.js';
 
 import type {
   ITransportSavedConfig,

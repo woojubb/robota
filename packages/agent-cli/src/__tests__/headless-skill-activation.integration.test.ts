@@ -13,7 +13,7 @@ import type {
   IWorkspaceTrustStore,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '../headless-transport.js';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 
 type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,

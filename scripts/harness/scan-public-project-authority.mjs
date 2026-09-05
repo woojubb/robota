@@ -46,8 +46,6 @@ export const PROJECT_AUTHORITY_PUBLIC_BARRELS = Object.freeze([
   'packages/agent-command/src/index.ts',
   'packages/agent-command-workflows/src/index.ts',
   'packages/agent-transport/src/index.ts',
-  'packages/agent-transport/src/headless/index.ts',
-  'packages/agent-transport/src/programmatic/index.ts',
   'packages/agent-transport-tui/src/index.ts',
 ]);
 

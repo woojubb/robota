@@ -7,25 +7,21 @@
 
 import { execSync } from 'node:child_process';
 
-import { buildRuntimeSession } from '@robota-sdk/agent-framework';
-
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
+import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
+import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
+import type { ICommandModule } from '../../command-api/command-module.js';
+import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
+import type { InteractiveSession } from '../../interactive/interactive-session.js';
+import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
+import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
+import type { TSubagentRunnerFactory } from '../../subagents/in-process-subagent-runner.js';
+import type { TShellExecFn } from '../../utils/skill-prompt.js';
+import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
-import type {
-  IBackgroundTaskRunner,
-  ICommandHostAdapters,
-  ICommandModule,
-  TSubagentRunnerFactory,
-  IAgentDefinition,
-  ICreateSessionOptions,
-  TShellExecFn,
-  InteractiveSession,
-  IMemoryStore,
-  IAutomaticMemoryConfig,
-  IPerTurnRecallConfig,
-  TWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface IHeadlessInteractionChannelOptions {

@@ -26,9 +26,9 @@
   "packages/agent-transport-webrtc/src/webrtc-delivery-lifecycle.ts::silent-catch": 2,
   "packages/agent-transport-ws/src/ws-connection-guards.ts::silent-catch": 1,
   "packages/agent-transport-ws/src/ws-transport-configurable.ts::silent-catch": 1,
-  "packages/agent-transport/src/headless/headless-transport.ts::discarded-rejection": 1,
-  "packages/agent-transport/src/transport-registry.ts::silent-catch": 1,
-  "packages/agent-transport/src/transport-run-generation.ts::discarded-rejection": 2,
+  "packages/agent-framework/src/transport-host/headless/headless-transport.ts::discarded-rejection": 1,
+  "packages/agent-framework/src/transport-host/transport-registry.ts::silent-catch": 1,
+  "packages/agent-framework/src/transport-host/transport-run-generation.ts::discarded-rejection": 2,
   "packages/dag-adapters-local/src/file-run-draft-store.ts::silent-catch": 1,
   "packages/dag-adapters-local/src/file-storage-port.ts::silent-catch": 1
 }

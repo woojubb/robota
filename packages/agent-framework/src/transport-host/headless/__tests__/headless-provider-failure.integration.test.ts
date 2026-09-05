@@ -10,12 +10,12 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '../../../interactive/interactive-session.js';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createHeadlessTransport } from '../headless-transport.js';
 
-import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
+import type { TInteractiveSessionOptions } from '../../../interactive/interactive-session-options.js';
 
 type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,
