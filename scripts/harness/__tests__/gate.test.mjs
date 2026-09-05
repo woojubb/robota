@@ -842,6 +842,7 @@ describe('the scaffold passes its own gate against the LIVE catalogue (PROC-016 
         '1',
         '--lane',
         'L1',
+        '--legacy-id',
         '--dry-run',
         '--root',
         root,
