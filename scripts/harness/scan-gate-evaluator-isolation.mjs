@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Refuses a change that edits a gate evaluator and records evaluated gate evidence in the same diff.
- * The evaluator must be fixed in a separate item so its verdict is not self-authored.
+ * Refuses a COMMIT that edits a gate evaluator and records evaluated gate evidence together. The
+ * evaluator must be fixed where its verdict was not self-authored.
+ *
+ * The unit is a commit, and that is the whole correction (issue #2610). Reading the branch RANGE as
+ * one diff made the scan's own remedy — "file the evaluator defect as a separate item" — unreachable:
+ * every item's planning checkpoint IS spec evidence, and `user-execution-plan-order` requires that
+ * checkpoint to be an ancestor of the implementation inside the same branch. Evaluator plus
+ * checkpoint therefore always shared the range, and `scripts/harness/gate.mjs` could not be changed
+ * at all — measured, with all three delivery shapes refused by a different scan each.
+ *
+ * Per commit the property the rule is after still holds, and holds exactly: a verdict recorded in an
+ * ancestor commit was authored before the evaluator change existed, so it cannot be self-authored.
+ * What stays refused is the shape that actually breaks it — one commit carrying both.
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -23,6 +34,14 @@ export function changedPaths(base = process.env.HARNESS_BASE_REF ?? 'origin/deve
   return git(['diff', '--name-only', `${base}...HEAD`]);
 }
 
+/** `{commit, paths}` for every commit the branch adds, oldest first. A merge is read by its own diff. */
+export function changedPathsPerCommit(base = process.env.HARNESS_BASE_REF ?? 'origin/develop') {
+  return git(['rev-list', '--reverse', `${base}..HEAD`]).map((commit) => ({
+    commit,
+    paths: git(['diff', '--name-only', `${commit}^`, commit]),
+  }));
+}
+
 export function evaluatorIsolationFindings(paths) {
   const evaluatorChanges = paths.filter((file) =>
     EVALUATOR_PREFIXES.some((prefix) => file === prefix || file.startsWith(prefix)),
@@ -39,9 +58,24 @@ export function evaluatorIsolationFindings(paths) {
   ];
 }
 
+/** One finding per commit that carries an evaluator change and gate evidence together. */
+export function commitIsolationFindings(commits) {
+  return commits.flatMap(({ commit, paths }) =>
+    evaluatorIsolationFindings(paths).map((finding) => ({
+      ...finding,
+      detail: `${commit}: ${finding.detail}`,
+    })),
+  );
+}
+
 export function main() {
-  const paths = changedPaths();
-  const findings = evaluatorIsolationFindings(paths);
+  const commits = changedPathsPerCommit();
+  // A branch with no commits of its own (a staged or working-tree run) still has one diff to judge.
+  const findings =
+    commits.length === 0
+      ? evaluatorIsolationFindings(changedPaths())
+      : commitIsolationFindings(commits);
+  const paths = commits.length === 0 ? changedPaths() : commits.flatMap((entry) => entry.paths);
   process.stdout.write(`${EXAMINED} ${paths.length} changed path(s)\n`);
   if (findings.length === 0) {
     process.stdout.write('gate-evaluator-isolation scan passed.\n');
