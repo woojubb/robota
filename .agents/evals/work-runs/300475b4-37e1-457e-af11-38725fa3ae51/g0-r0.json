@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+  "generation": 0,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "chore/allow-develop-direct-merge-final-v2",
+    "baseCommit": "1407f37204464694125a6807061b034c40cfda3a",
+    "headCommit": "383151d1819bddfb373ed75564d955af9d7a6ddb",
+    "headTree": "4fc73951837132e0d3988ed97698ec21110c995f",
+    "commitOids": ["383151d1819bddfb373ed75564d955af9d7a6ddb"],
+    "trailerDigest": "a33d854d341b5719eaadd7f1f140d2b08e6228a9a9c50207e14f5f132ea427e9",
+    "ownerFingerprint": "4c824ff52aee83bf22bdbfb828acb9ff6dd052e9527cf3b379c5d8fdb074fda4"
+  },
+  "cohort": {
+    "key": "L2/INFRA",
+    "lane": "L2",
+    "workKind": "INFRA"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-05T19:17:43.627Z",
+      "data": {
+        "branch": "chore/allow-develop-direct-merge-final-v2"
+      },
+      "hash": "2d7ee73d140dfbc7547f4a4c87b529644864f6bce600c87faad20cd577274575"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 2,
+      "previousHash": "2d7ee73d140dfbc7547f4a4c87b529644864f6bce600c87faad20cd577274575",
+      "type": "work.bound",
+      "at": "2026-09-05T19:17:43.929Z",
+      "data": {
+        "workId": "INFRA-173",
+        "lane": "L2",
+        "workKind": "INFRA"
+      },
+      "hash": "1aa3c4a0413ea18b34ab8aca2d4d68610af45c8ed89561eb2980ee54f20f808d"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 3,
+      "previousHash": "1aa3c4a0413ea18b34ab8aca2d4d68610af45c8ed89561eb2980ee54f20f808d",
+      "type": "work.started",
+      "at": "2026-09-05T19:17:44.416Z",
+      "data": {},
+      "hash": "082a22eacfbdb88d9de3dc7b9aa9cd744d770ce8e7614a38d0dadf4731881d33"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 4,
+      "previousHash": "082a22eacfbdb88d9de3dc7b9aa9cd744d770ce8e7614a38d0dadf4731881d33",
+      "type": "phase.started",
+      "at": "2026-09-05T19:17:44.873Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "f2a301a03ef67ee42f5f56755ae825eae31fabd6dab0c89a702993f92ff83abc"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 5,
+      "previousHash": "f2a301a03ef67ee42f5f56755ae825eae31fabd6dab0c89a702993f92ff83abc",
+      "type": "phase.completed",
+      "at": "2026-09-05T19:17:51.733Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "8eadc4e36ce7f37971313f6c85bef74db0d539ca6cf50ab9505c74af825ea18c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 6,
+      "previousHash": "8eadc4e36ce7f37971313f6c85bef74db0d539ca6cf50ab9505c74af825ea18c",
+      "type": "phase.started",
+      "at": "2026-09-05T19:17:52.210Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "a6c46ff735b03b6a3b7c1f32c4f9df346304056c638ac166ece4ae478f2a8e7f"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 7,
+      "previousHash": "a6c46ff735b03b6a3b7c1f32c4f9df346304056c638ac166ece4ae478f2a8e7f",
+      "type": "phase.completed",
+      "at": "2026-09-05T19:17:52.707Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "4292b228104cedd50ea250461f2d9cdecb7c6782dd796bcb8f4c39411e4af5eb"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "300475b4-37e1-457e-af11-38725fa3ae51",
+      "sequence": 8,
+      "previousHash": "4292b228104cedd50ea250461f2d9cdecb7c6782dd796bcb8f4c39411e4af5eb",
+      "type": "work.ready",
+      "at": "2026-09-05T19:17:53.201Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "e0a6b27b98f297d2d1acca82563a3c95bfcd8803157475494eb7668e3759edb1"
+    }
+  ],
+  "durations": {
+    "wallMs": 9574,
+    "activeMs": 9574,
+    "pausedMs": 0,
+    "phases": {
+      "implementation": 6860,
+      "verification": 497
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-05T19:17:43.627Z",
+    "readyAt": "2026-09-05T19:17:53.201Z"
+  }
+}
