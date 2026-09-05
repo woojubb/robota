@@ -147,7 +147,7 @@
   "scripts/harness/scan-symlink-following-enumeration.mjs": 689,
   "scripts/harness/scan-task-path-citations.mjs": 327,
   "scripts/harness/scan-unearned-done-claims.mjs": 652,
-  "scripts/harness/scan-user-execution-plan-order.mjs": 2461,
+  "scripts/harness/scan-user-execution-plan-order.mjs": 2415,
   "scripts/harness/scan-workflow-permissions.mjs": 388,
   "scripts/harness/shared.mjs": 846,
   "scripts/harness/worktree-gate.mjs": 436
