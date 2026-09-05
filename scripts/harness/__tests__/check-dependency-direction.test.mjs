@@ -5,12 +5,17 @@ import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
+import { familyOf, readFamilySiblingBaseline } from '../family-siblings.mjs';
 import {
   checkDagNodesLeaf,
   checkEntryPointOnly,
+  checkFamilySiblings,
   checkPackagePurity,
+  checkUndeclaredImports,
   checkWorkspacePackageNames,
   findWorkspacePackages,
+  loadSourcePackages,
+  readExaminedFamilyMembers,
 } from '../check-dependency-direction.mjs';
 
 // Synthetic package map: checkDagNodesLeaf reads only `name` + `pkg.dependencies` (string[]).
@@ -236,5 +241,198 @@ describe('checkEntryPointOnly (ARCH-PROVIDER-004, absorbed from check-entry-poin
       }),
     ]);
     expect(v).toEqual([]);
+  });
+});
+
+// Rule 11 / 12 fixtures — FAMILY-SIBLINGS and UNDECLARED-IMPORT (STRUCT-012).
+const S = '@robota-sdk/';
+const fam = (entries) => pkgMap(entries.map(([n, d]) => [S + n, d.map((x) => S + x)]));
+const EMPTY = { baseline: new Map() };
+
+describe('checkFamilySiblings (STRUCT-012 / FAMILY-SIBLINGS)', () => {
+  it('familyOf: the family is the second dash segment; a bare parent declares none', () => {
+    expect(familyOf(`${S}agent-transport-webrtc-web`)).toBe(`${S}agent-transport`);
+    expect(familyOf(`${S}agent-transport`)).toBeNull();
+    expect(familyOf(`${S}agent-tools`)).toBeNull();
+    expect(familyOf('zod')).toBeNull();
+  });
+
+  it('TC-01: exactly the sibling edges are reported; parent edges and child → agent-framework are not', () => {
+    const fixture = fam([
+      ['agent-transport', ['agent-interface-transport']],
+      ['agent-transport-ws', ['agent-transport', 'agent-interface-transport', 'agent-framework']],
+      ['agent-transport-webrtc', ['agent-transport', 'agent-transport-ws']],
+      ['agent-session', ['agent-core']],
+      ['agent-session-analytics', ['agent-session']],
+      ['agent-session-replay', ['agent-session-analytics']],
+      ['agent-ui-web', ['agent-interface-transport', 'agent-transport']],
+      ['agent-ui-terminal', ['agent-ui-web', 'agent-framework']],
+    ]);
+    const { violations, examined } = checkFamilySiblings(fixture, EMPTY);
+    expect(violations.map((v) => `${v.package} -> ${v.dep}`).sort()).toEqual([
+      `${S}agent-session-replay -> ${S}agent-session-analytics`,
+      `${S}agent-transport-webrtc -> ${S}agent-transport-ws`,
+      `${S}agent-ui-terminal -> ${S}agent-ui-web`,
+    ]);
+    expect(examined).toBe(6);
+  });
+
+  it('reports the size of what it examined, reset per run', () => {
+    const six = fam([
+      ['agent-transport-ws', ['agent-transport']],
+      ['agent-transport-http', ['agent-transport']],
+      ['agent-session-analytics', ['agent-session']],
+      ['agent-session-replay', ['agent-session']],
+      ['agent-ui-web', ['agent-transport']],
+      ['agent-ui-terminal', ['agent-framework']],
+    ]);
+    const two = fam([
+      ['agent-transport-ws', ['agent-transport']],
+      ['agent-transport-http', ['agent-transport']],
+    ]);
+    checkFamilySiblings(six, EMPTY);
+    expect(readExaminedFamilyMembers(six)).toBe(6);
+    checkFamilySiblings(two, EMPTY);
+    expect(readExaminedFamilyMembers(two)).toBe(2);
+  });
+
+  it('TC-01: a family resolving to zero members is a finding, not a pass', () => {
+    const { violations, examined } = checkFamilySiblings(fam([['agent-core', []]]), EMPTY);
+    expect(examined).toBe(0);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toMatch(/zero family members/);
+  });
+
+  it('delegates the agent-interface family to INTERFACE-DEPS (judged once)', () => {
+    const { violations } = checkFamilySiblings(
+      fam([['agent-interface-session', ['agent-interface-command']]]),
+      EMPTY,
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it('TC-11: a parent depending on a child, and the composer/foundation depending on a transport or UI child, are reported', () => {
+    const { violations } = checkFamilySiblings(
+      fam([
+        ['agent-transport', ['agent-transport-ws']],
+        ['agent-transport-ws', ['agent-transport']],
+        ['agent-framework', ['agent-transport-ws']],
+        ['agent-core', ['agent-ui-web']],
+      ]),
+      EMPTY,
+    );
+    expect(violations.map((v) => `${v.package} -> ${v.dep}`).sort()).toEqual([
+      `${S}agent-core -> ${S}agent-ui-web`,
+      `${S}agent-framework -> ${S}agent-transport-ws`,
+      `${S}agent-transport -> ${S}agent-transport-ws`,
+    ]);
+  });
+
+  it('judges peerDependencies with dependencies, never devDependencies', () => {
+    const packages = new Map([
+      [
+        `${S}agent-transport-ws`,
+        { dependencies: [], peerDependencies: [`${S}agent-transport-http`] },
+      ],
+      [
+        `${S}agent-transport-http`,
+        { dependencies: [], allDependencies: [`${S}agent-transport-ws`] },
+      ],
+    ]);
+    const { violations } = checkFamilySiblings(packages, EMPTY);
+    expect(violations.map((v) => v.dep)).toEqual([`${S}agent-transport-http`]);
+  });
+
+  it('TC-02: the live tree is green against the frozen baseline, and deleting any one entry reports that edge', () => {
+    const packages = findWorkspacePackages();
+    const baseline = readFamilySiblingBaseline();
+    expect(baseline.size).toBeGreaterThan(0);
+    expect(checkFamilySiblings(packages, { baseline }).violations).toEqual([]);
+    for (const edge of baseline.keys()) {
+      const shrunk = new Map(baseline);
+      shrunk.delete(edge);
+      const { violations } = checkFamilySiblings(packages, { baseline: shrunk });
+      expect(violations.map((v) => `${v.package} -> ${v.dep}`)).toEqual([edge]);
+    }
+  });
+
+  it('TC-03: a baseline entry whose edge does not exist in the tree is a stale-entry finding', () => {
+    const baseline = new Map(readFamilySiblingBaseline());
+    baseline.set(`${S}agent-transport-http -> ${S}agent-transport-ws`, 'never existed');
+    const { violations } = checkFamilySiblings(findWorkspacePackages(), { baseline });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toMatch(/stale baseline entry/);
+  });
+});
+
+describe('checkUndeclaredImports (STRUCT-012 / UNDECLARED-IMPORT)', () => {
+  const packages = new Map([
+    [
+      `${S}agent-transport-ws`,
+      {
+        dependencies: [`${S}agent-interface-transport`],
+        allDependencies: [`${S}agent-interface-transport`],
+      },
+    ],
+    [`${S}agent-transport`, { dependencies: [], allDependencies: [] }],
+    [`${S}agent-transport-http`, { dependencies: [], allDependencies: [`${S}agent-transport`] }],
+  ]);
+  const src = (name, path, text) => ({ name, dir: name, files: [{ path, text }] });
+
+  it('TC-12: a production import of a workspace package declared in no manifest section is reported', () => {
+    const v = checkUndeclaredImports(
+      [
+        src(
+          `${S}agent-transport-ws`,
+          'packages/agent-transport-ws/src/x.ts',
+          "import { a } from '@robota-sdk/agent-transport';\n",
+        ),
+      ],
+      packages,
+    );
+    expect(v).toHaveLength(1);
+    expect(v[0].dep).toBe(`${S}agent-transport`);
+  });
+
+  it('TC-12: a devDependency satisfies the declaration, and a subpath resolves to its package', () => {
+    const v = checkUndeclaredImports(
+      [
+        src(
+          `${S}agent-transport-http`,
+          'packages/agent-transport-http/src/x.ts',
+          "import type { T } from '@robota-sdk/agent-transport/node';\n",
+        ),
+      ],
+      packages,
+    );
+    expect(v).toEqual([]);
+  });
+
+  it('ignores tests, template/JSDoc text, self-imports and non-workspace specifiers', () => {
+    const v = checkUndeclaredImports(
+      [
+        src(
+          `${S}agent-transport-ws`,
+          'packages/agent-transport-ws/src/__tests__/x.test.ts',
+          "import { a } from '@robota-sdk/agent-transport';\n",
+        ),
+        src(
+          `${S}agent-transport-ws`,
+          'packages/agent-transport-ws/src/tpl.ts',
+          "const t = `\n  import { a } from '@robota-sdk/agent-transport';\n`;\n// import { b } from '@robota-sdk/agent-transport';\nimport { c } from '@robota-sdk/agent-transport-ws';\nimport { d } from '@robota-sdk/agent-provider';\n",
+        ),
+      ],
+      packages,
+    );
+    // The template-literal line is indented (not at line start) and the comment line is not an import
+    // declaration; the self-import and the non-workspace specifier are outside the rule.
+    expect(v).toEqual([]);
+  });
+
+  it('live: every production workspace import is declared (exit 0)', () => {
+    const packages = findWorkspacePackages();
+    const sources = loadSourcePackages(packages);
+    expect(sources.reduce((n, s) => n + s.files.length, 0)).toBeGreaterThan(100);
+    expect(checkUndeclaredImports(sources, packages)).toEqual([]);
   });
 });

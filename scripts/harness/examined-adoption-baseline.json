@@ -18,6 +18,7 @@
     "contract-cast-ratchet",
     "contract-disposition",
     "deployment-matrix",
+    "deps",
     "doc-examples",
     "document-authority",
     "fixture-floor",

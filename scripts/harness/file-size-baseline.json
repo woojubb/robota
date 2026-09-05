@@ -89,7 +89,7 @@
   "scripts/harness/check-backlog-placement.mjs": 331,
   "scripts/harness/check-capability-placement.mjs": 426,
   "scripts/harness/check-command-layering.mjs": 321,
-  "scripts/harness/check-dependency-direction.mjs": 729,
+  "scripts/harness/check-dependency-direction.mjs": 705,
   "scripts/harness/check-document-authority.mjs": 304,
   "scripts/harness/check-patch-coverage.mjs": 546,
   "scripts/harness/check-regression-red-proof.mjs": 1266,

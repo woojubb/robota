@@ -103,6 +103,22 @@ by [`.agents/project-structure.md`](.agents/project-structure.md); this list sta
   set `internalDeps.pluginLayerAllowed` declares in `.agents/harness.config.json` (today:
   `agent-core`): plugins register with the foundation and never reach into the framework above it.
   Enforced by: `deps` (`check-dependency-direction.mjs`, rule 4)
+- `FAMILY-SIBLINGS` — the package name hierarchy is the dependency detector (패키지 이름 계층 참조 규칙):
+  an `agent-<family>-<child>` package (family = the second dash segment) may depend on its parent
+  `agent-<family>` and on lower families, never on a sibling `agent-<family>-<other>` at any depth
+  (`agent-transport-webrtc-web` is a sibling of `agent-transport-ws`); the bare parent never depends
+  on a child; and the composer/foundation (`agent-framework`, `agent-core`) never depends on a
+  transport or UI child (`agent-transport-*`, `agent-ui-*`). Code two siblings share belongs in the
+  parent (or a parent subpath) — never in a sibling-named substrate (`-common`, `-shared`,
+  `-protocol`, `-defaults`, `-builtin`). Judged over `dependencies` + `peerDependencies`; the
+  `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. Sibling edges that predate the rule
+  are frozen shrink-only in `scripts/harness/family-sibling-baseline.json`; a stale entry is a finding.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 11)
+- `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
+  declared in one of the importing package's `dependencies`, `peerDependencies` or
+  `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as
+  `FAMILY-SIBLINGS` cannot be walked around by an import the manifest never names.
+  Enforced by: `deps` (`check-dependency-direction.mjs`, rule 12)
 - `INTERFACE-DEPS` — an `agent-interface-*` package depends only on `agent-core` and on a LOWER-layer
   peer interface package, never on an implementation package; the layer table is
   `.agents/specs/contract-family-owner-map.md` and the full statement is

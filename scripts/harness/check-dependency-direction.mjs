@@ -17,6 +17,7 @@
  * 10. Package purity (absorbed from the former check-sdk-react-free.mjs, HARNESS-016/ARL-16g):
  *    config-driven `purity` rules forbid a package from importing or declaring specific modules
  *    (see `checkPackagePurity`); a missing scan target is a hard finding, never a silent pass.
+ * 7, 11, 12. Family rules (dag-node leaf, FAMILY-SIBLINGS, UNDECLARED-IMPORT): `family-siblings.mjs`.
  *
  * `--conformance-json` additionally emits the machine-readable summary between
  * CONFORMANCE_JSON_BEGIN/END that the GATE-CONFORMANCE consumers parse — `pnpm
@@ -34,6 +35,7 @@ import {
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
+import * as family from './family-siblings.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
 import { escapeForRegExp } from './shared.mjs';
@@ -41,6 +43,12 @@ import { escapeForRegExp } from './shared.mjs';
 const ROOT = resolve(import.meta.dirname, '../..');
 const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
 const HARNESS = loadHarnessConfig();
+export {
+  checkDagNodesLeaf,
+  checkFamilySiblings,
+  checkUndeclaredImports,
+  readExaminedFamilyMembers,
+} from './family-siblings.mjs';
 
 export function findWorkspacePackages() {
   const packages = new Map();
@@ -64,6 +72,7 @@ export function findWorkspacePackages() {
               name: pkg.name,
               path: join(nestedDir, nested.name),
               dependencies: Object.keys(pkg.dependencies || {}),
+              peerDependencies: Object.keys(pkg.peerDependencies || {}),
               allDependencies: [
                 ...new Set([
                   ...Object.keys(pkg.dependencies || {}),
@@ -81,6 +90,7 @@ export function findWorkspacePackages() {
         name: pkg.name,
         path: join(base, entry.name),
         dependencies: Object.keys(pkg.dependencies || {}),
+        peerDependencies: Object.keys(pkg.peerDependencies || {}),
         allDependencies: [
           ...new Set([
             ...Object.keys(pkg.dependencies || {}),
@@ -275,54 +285,6 @@ export function checkInterfacePackageDeps(packages, layers = readInterfaceLayers
           message: `Interface-package violation: ${explainEdge(name, dep, verdict)}`,
         });
       }
-    }
-  }
-
-  return violations;
-}
-
-/**
- * Frozen baseline (HARNESS-016 / ARL-16b): dag-node leaf-invariant exceptions, keyed by the exact
- * `"<package> -> <dep>"` edge with a reason. The former `dag-node-llm-text-router` aggregator (the only
- * node→node fan-out) is REMOVED by ARCH-PROVIDER-003 — provider DIP collapsed the five vendor nodes + router
- * into the single registry-injected `dag-node-llm-text`, so the leaf invariant now holds with no exceptions.
- * (ARL-11 node-half resolved.) New node→node / node→orchestrator edges are NOT in this set and must fail.
- */
-const DAG_NODES_LEAF_ALLOWLIST = new Set([]);
-
-/**
- * Rule 7 (HARNESS-016 / ARL-16b): a `@robota-sdk/dag-node-*` leaf package may depend, among `dag-*`
- * packages, ONLY on the node-contract owners `{dag-core, dag-node}`. Depending on an orchestrator/runtime/
- * adapter layer (`dag-runtime`/`dag-framework`/`dag-worker`/`dag-projection`/`dag-scheduler`/
- * `dag-orchestration-*`/`dag-api`/`dag-builder`/`dag-adapters-*`/…) or on a **sibling** `dag-node-*` breaks
- * the leaf invariant (a leaf must not know the orchestrator or its peers). Scope: intra-DAG leaf-ness only —
- * the cross-subsystem `dag-node-* → agent-*` assembly reach (ARL-11) is a separate invariant not policed here.
- * Scanned scope: every `packages/dag-nodes/*` package (name `@robota-sdk/dag-node-*`); allow-set = the
- * node-contract owners; exceptions frozen in `DAG_NODES_LEAF_ALLOWLIST`.
- */
-export function checkDagNodesLeaf(packages) {
-  const violations = [];
-  const nodePrefix = `${HARNESS.npmScopePrefix}dag-node-`;
-  const dagPrefix = `${HARNESS.npmScopePrefix}dag-`;
-  const allowedDagTargets = new Set([
-    `${HARNESS.npmScopePrefix}dag-core`,
-    `${HARNESS.npmScopePrefix}dag-node`,
-  ]);
-
-  for (const [name, pkg] of packages) {
-    if (!name.startsWith(nodePrefix)) continue;
-    for (const dep of pkg.dependencies) {
-      if (!dep.startsWith(dagPrefix)) continue; // only intra-DAG edges are policed here
-      if (allowedDagTargets.has(dep)) continue;
-      if (DAG_NODES_LEAF_ALLOWLIST.has(`${name} -> ${dep}`)) continue;
-      violations.push({
-        package: name,
-        dep,
-        message:
-          `dag-nodes leaf violation: ${name} must not depend on ${dep}. ` +
-          `A dag-node-* leaf may depend only on {dag-core, dag-node} among dag-* packages — never an ` +
-          `orchestrator/runtime/adapter layer or a sibling dag-node-*.`,
-      });
     }
   }
 
@@ -587,7 +549,7 @@ export function checkPackagePurity(root = ROOT, rules = HARNESS.purity ?? []) {
 }
 
 /** Load `{dir, name, files}` source views of every workspace package for the Rule-8 scan. */
-function loadSourcePackages(packages) {
+export function loadSourcePackages(packages) {
   return [...packages.values()].map((pkg) => ({
     dir: pkg.path,
     name: pkg.name,
@@ -606,9 +568,12 @@ function runScan({ conformanceJson = false } = {}) {
   const coreZeroDepViolations = checkAgentCoreZeroDeps(packages);
   const pluginLayerViolations = checkPluginLayerDeps(packages);
   const interfacePackageViolations = checkInterfacePackageDeps(packages);
-  const dagNodesLeafViolations = checkDagNodesLeaf(packages);
+  const dagNodesLeafViolations = family.checkDagNodesLeaf(packages);
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
-  const entryPointOnlyViolations = checkEntryPointOnly(loadSourcePackages(packages));
+  const sourcePackages = loadSourcePackages(packages);
+  const entryPointOnlyViolations = checkEntryPointOnly(sourcePackages);
+  const familySiblings = family.checkFamilySiblings(packages);
+  const undeclaredImportViolations = family.checkUndeclaredImports(sourcePackages, packages);
   const packageNameViolations = checkWorkspacePackageNames(ROOT, new Set(packages.keys()));
   const purityViolations = checkPackagePurity();
 
@@ -622,6 +587,8 @@ function runScan({ conformanceJson = false } = {}) {
     dagNodesLeafViolations.length +
     fullGraphCycleViolations.length +
     entryPointOnlyViolations.length +
+    familySiblings.violations.length +
+    undeclaredImportViolations.length +
     purityViolations.length;
 
   const hasViolations = dependencyViolationCount > 0 || packageNameViolations.length > 0;
@@ -655,6 +622,12 @@ function runScan({ conformanceJson = false } = {}) {
     for (const v of entryPointOnlyViolations) {
       console.error(`  [ENTRY-POINT-ONLY] ${v.message}`);
     }
+    for (const v of familySiblings.violations) {
+      console.error(`  [FAMILY-SIBLINGS] ${v.message}`);
+    }
+    for (const v of undeclaredImportViolations) {
+      console.error(`  [UNDECLARED-IMPORT] ${v.message}`);
+    }
     for (const v of packageNameViolations) {
       console.error(`  [PACKAGE-NAME] ${v.message}`);
     }
@@ -665,6 +638,9 @@ function runScan({ conformanceJson = false } = {}) {
   } else {
     console.log('✅ No dependency direction violations found.');
   }
+  console.log(
+    `::examined:: ${family.readExaminedFamilyMembers(packages)} family members (FAMILY-SIBLINGS)`,
+  );
 
   if (conformanceJson) {
     // GATE-CONFORMANCE machine-readable summary (contract kept from the absorbed
