@@ -123,6 +123,10 @@ record's ID".
 
 ## File Format
 
+An approved documentation-only atomic batch uses the additional fields and boundaries owned by
+[execution-cadence.md](../rules/execution-cadence.md). Its Task and documentation may share one
+commit; that record is not a planning ancestor for later executable changes.
+
 Every Task file **must** use YAML frontmatter for all metadata fields. The following fields are
 required at the top of each file:
 

@@ -508,6 +508,10 @@ loses that compatibility treatment.
 
 ### Pre-implementation planning checkpoint
 
+The approved documentation-only atomic route in [execution-cadence.md](execution-cadence.md)
+is the exception to the separate planning checkpoint described below. Its owner defines the
+eligibility limits; runnable and higher-lane changes retain this checkpoint requirement.
+
 The section floor above proves content, not order. Before implementation begins, every work unit must
 record one subject-bound PLAN terminal outcome in its exact Task: `not-applicable` carries the author
 verdict plus its concrete reason; an applicable outcome carries the author verdict plus a
@@ -527,7 +531,8 @@ branch — the scan requires a checkpoint inside the branch's own range.
 
 Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
 commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
-missing, mixed, ambiguous, retrospective, or unreadable checkpoint. The only pre-checkpoint non-pair
+missing, mixed, ambiguous, retrospective, or unreadable checkpoint. Outside that documentation-only
+route, the only pre-checkpoint non-pair
 change admitted is one append-only closed `post-merge-cycle.jsonl` record whose referenced merge commit
 is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
 path fails.

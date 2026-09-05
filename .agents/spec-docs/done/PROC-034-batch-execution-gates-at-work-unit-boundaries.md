@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: []
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-034: batch execution gates at work-unit boundaries
 
-Paired with `.agents/tasks/PROC-034-batch-execution-gates-at-work-unit-boundaries.md`. Direct owner-approved amendment; no remote issue is invented.
+Paired with `.agents/tasks/completed/PROC-034-batch-execution-gates-at-work-unit-boundaries.md`. Direct owner-approved amendment; no remote issue is invented.
 
 ## Problem
 
@@ -77,18 +77,18 @@ Align the blanket initial-planning text in backlog-execution.md and the relevant
 
 ## Completion Criteria
 
-- [ ] TC-01: Reapply the approved cadence amendment as one coherent batch, preserving initial planning, final verification and independent review boundaries.
-- [ ] TC-02: Accept an explicitly approved documentation-only Task/change atomic commit in staged and both history paths, without granting ancestor implementation authority.
-- [ ] TC-03: Refuse missing approval, non-N/A evidence, ambiguous Tasks, paired specs, executable/symlink files, higher-lane paths, hidden residue and later unplanned product changes.
-- [ ] TC-04: Run the complete plan-order and focused governance regression batch, preserve historical RED evidence, and verify syntax, formatting and unchanged file-size ceilings after reapplication.
+- [x] TC-01: Reapply the approved cadence amendment as one coherent batch, preserving initial planning, final verification and independent review boundaries.
+- [x] TC-02: Accept an explicitly approved documentation-only Task/change atomic commit in staged and both history paths, without granting ancestor implementation authority.
+- [x] TC-03: Refuse missing approval, non-N/A evidence, ambiguous Tasks, paired specs, executable/symlink files, higher-lane paths, hidden residue and later unplanned product changes.
+- [x] TC-04: Run the complete plan-order and focused governance regression batch, preserve historical RED evidence, and verify syntax, formatting and unchanged file-size ceilings after reapplication.
 
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                                        | Notes                                                                                   |
 | ----- | ----------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | TC-01 | Unit        | Existing harness governance .test.mjs suites and independent diff review               | Preserve mandatory final gates; semantic cadence judgement belongs in one final review. |
-| TC-02 | Integration | scripts/harness/**tests**/scan-user-execution-plan-order.test.mjs                      | Stage, commit and replay identical Git fixtures; include later valid checkpoint.        |
-| TC-03 | Integration | scripts/harness/**tests**/scan-user-execution-plan-order.test.mjs                      | Negative mixed-scope/evidence/mode/residue cases and later unplanned implementation.    |
+| TC-02 | Integration | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`                    | Stage, commit and replay identical Git fixtures; include later valid checkpoint.        |
+| TC-03 | Integration | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`                    | Negative mixed-scope/evidence/mode/residue cases and later unplanned implementation.    |
 | TC-04 | Regression  | Existing plan-order .test.mjs suite, governance suites, Node syntax and file-size scan | Historical results remain historical; root runs current integrated verification.        |
 
 ## User Execution Test Scenarios
@@ -99,7 +99,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` — created, prospective recovery work remains unchecked
+- [x] `.agents/tasks/completed/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` — recovery implementation and scoped verification complete
 
 ## Evidence Log
 
@@ -245,3 +245,132 @@ Not applicable.
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `73b53e35c3f1` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/todo/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `1a4f8e0867c3` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** in-progress → verifying
+**Ordering:** Prior GATE-IMPLEMENT PASS and its exact paired Task/PLAN payload are present; current active spec status is in-progress. Recovery planning checkpoint HEAD is `9d8287837cbaca5c02c1b63ac5ca7b09de828c99`.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — The exact paired Task's four Plan items TC-01 through TC-04 are checked.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — None of those four items is blocked or pending. The separate explicitly deferred duplicate-invocation follow-up is not part of this Plan.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — This is internal Markdown/MJS harness work with no affected product package build. Its scoped executable validation is three `node --check` commands for `scripts/harness/plan-order-records.mjs`, `scripts/harness/documentation-batch-reader.mjs`, and `scripts/harness/scan-user-execution-plan-order.mjs`, all exit 0, plus `pnpm harness:scan:file-size`, exit 0: `harness file-size scan passed (152 baselined burn-down entries).` These existing actual results are attributed to root tool chunk `3b02b6`; there is no separate syntax/size log and the guardian did not rerun them.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — The existing canonical harness Vitest invocation completed with exit 0 (root session 1512, pipefail enabled). Guardian read `/tmp/proc034-recovery-tests.log`: 4 test files passed, 254 tests passed, duration 147.40 seconds. All four named suites are listed in the exact invocation below.
+
+**Existing invocation reviewed; not re-executed for recording:**
+
+```sh
+set -o pipefail
+node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const result=vitestInvocation(process.cwd(),["scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs","scripts/harness/__tests__/depth-verdict-reachable.test.mjs","scripts/harness/__tests__/check-agent-def-convention.test.mjs","scripts/harness/__tests__/scan-new-rule-declares-enforcement.test.mjs"]); process.stdout.write(result.stdout??""); process.stderr.write(result.stderr??""); process.exit(result.status??1);' 2>&1 | tee /tmp/proc034-recovery-tests.log
+```
+
+**Evidence binding:** Test log SHA256 `2c651121c9fe2776c8616e57b53ca1d96c94e5a4f866bfbc17e31d211d958940`; current code hashes independently read by the guardian: records `d3d3ef858f9c2224b25d3f15174b8498c7ed679efffbf493f7fea5de2b090ca0`, reader `9efca54b4cb172eea5fd57e44db685a6358fed8466577ee70c580a41832e7901`, scan `21cfbe9e9f3786723a110f4a31c7d6f8db5096b49bf47ba71ec14fc505f56672`, test `5e2c9ad9251ad76559225ae247abe352da5102104e65f568d303730c504b5ea3`. Root and the independent reviewer confirm these code bytes match the tested/reviewed recovery diff. Subsequent Task notation edits do not change executable input.
+
+**Failure preservation and scope:** The invalid Node test-runner attempt and direct Vitest RPC-timeout exit 1 remain failures, as recorded in the Task; no source or threshold change converted them to PASS. This entry reviews the later actual standard-adapter result. It is scoped GATE-VERIFY only: the final root CI-equivalent gate, completion receipt, integration and remote landing remain unexecuted here and are not claimed green.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const result=vitestInvocation(process.cwd(),["scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs","scripts/harness/__tests__/depth-verdict-reachable.test.mjs","scripts/harness/__tests__/check-agent-def-convention.test.mjs","scripts/harness/__tests__/scan-new-rule-declares-enforcement.test.mjs"]); process.stdout.write(result.stdout??""); process.stderr.write(result.stderr??""); process.exit(result.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 34 line(s))
+
+```
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to branch 'feature'
+Rebasing (1/2)
+Rebasing (2/2)
+Successfully rebased and updated refs/heads/feature.
+Switched to a new branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+```
+
+**Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `60c10b6dd509` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const result=vitestInvocation(process.cwd(),["scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs","scripts/harness/__tests__/depth-verdict-reachable.test.mjs","scripts/harness/__tests__/check-agent-def-convention.test.mjs","scripts/harness/__tests__/scan-new-rule-declares-enforcement.test.mjs"]); process.stdout.write(result.stdout??""); process.stderr.write(result.stderr??""); process.exit(result.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 34 line(s))
+
+```
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to branch 'feature'
+Rebasing (1/2)
+Rebasing (2/2)
+Successfully rebased and updated refs/heads/feature.
+Switched to a new branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+```
+
+**Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `326bf306c9ec` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const result=vitestInvocation(process.cwd(),["scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs","scripts/harness/__tests__/depth-verdict-reachable.test.mjs","scripts/harness/__tests__/check-agent-def-convention.test.mjs","scripts/harness/__tests__/scan-new-rule-declares-enforcement.test.mjs"]); process.stdout.write(result.stdout??""); process.stderr.write(result.stderr??""); process.exit(result.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 34 line(s))
+
+```
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to branch 'feature'
+Rebasing (1/2)
+Rebasing (2/2)
+Successfully rebased and updated refs/heads/feature.
+Switched to a new branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+```
+
+**Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `6d87cc8a78b7` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const result=vitestInvocation(process.cwd(),["scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs","scripts/harness/__tests__/depth-verdict-reachable.test.mjs","scripts/harness/__tests__/check-agent-def-convention.test.mjs","scripts/harness/__tests__/scan-new-rule-declares-enforcement.test.mjs"]); process.stdout.write(result.stdout??""); process.stderr.write(result.stderr??""); process.exit(result.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 34 line(s))
+
+```
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+Switched to branch 'develop'
+Switched to branch 'feature'
+Rebasing (1/2)
+Rebasing (2/2)
+Successfully rebased and updated refs/heads/feature.
+Switched to a new branch 'feature'
+Switched to branch 'develop'
+Switched to and reset branch 'feature'
+```
+
+**Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `4e14c8d4d5cf` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-05; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-034-batch-execution-gates-at-work-unit-boundaries.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/PROC-034-batch-execution-gates-at-work-unit-boundaries.md
+
+**Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `b78be8c90a9c` (modified)

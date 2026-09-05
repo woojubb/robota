@@ -106,6 +106,10 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
 
 ## A loop run is recorded
 
+Run and round boundaries follow [execution-cadence.md](execution-cadence.md). A LOCAL edit or a
+skill read is not a new run. Keep a running pipeline open across its related repair batch and
+record the batch's actual result once; do not dispatch extra pipelines solely to create records.
+
 A declaration says what a loop's escape IS. It cannot say whether the escape ever fired, and for as long
 as nothing recorded a run, `escape=no-progress` was a claim no check could reach — the scan that requires
 it reads only the tree, and a run is not in the tree.

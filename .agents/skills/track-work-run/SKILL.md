@@ -8,6 +8,10 @@ description: Record repository work from claim through first PR and authorized r
 Follow [work-run-measurement.md](../../rules/work-run-measurement.md). This skill routes the lifecycle;
 the rule and `work-run-contract.mjs` own its vocabulary.
 
+Use the work-unit boundaries in [execution-cadence.md](../../rules/execution-cadence.md).
+Do not create a new claim, phase, ready receipt, or reopen event for each small correction while
+implementation is still active. Preserve required events when a real lifecycle transition occurs.
+
 1. Claim immediately: `pnpm harness:work-run -- claim`. The post-checkout hook is the fallback, not a
    reason to delay an explicit request-gate claim.
 2. Bind before implementation:

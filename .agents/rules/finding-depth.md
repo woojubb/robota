@@ -18,8 +18,11 @@ revisited. The cost compounds silently, because a converged review loop looks id
 
 ## The rule
 
-**Every finding is classified before it is fixed.** Four verdicts, because a rule offering only the
-first two forces a guess whenever neither is true.
+**Every review finding is classified before it is fixed, as a batch.** Use one guardian dispatch
+for the current finding set, not one per correction. A worker's routine implementation adjustment
+within an approved decision is not a new independent-review finding. Existing LOCAL verdicts cover
+their related repairs unless new evidence changes the premise. [execution-cadence.md](execution-cadence.md)
+owns when a phase reopens. Four verdicts, because offering only the first two forces a guess.
 
 - **LOCAL** — the defect is in this change. Fix it here, test-first: write the case against the
   unfixed code and watch it fail (`tdd-and-planning`, `check-regression-red-proof`).

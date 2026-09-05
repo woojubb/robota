@@ -71,8 +71,9 @@ A2. **Not zero?** Dispatch `finding-depth-triager` on the findings and route on 
 the judgement is the guardian's, the routing is this skill's, and neither does the other's job. Required by
 [finding-depth.md](../../rules/finding-depth.md), which owns the three questions and what each verdict requires:
 
-- **LOCAL** → fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
-  minute. The same round after a push costs a CI cycle.
+- **LOCAL** → fix all current LOCAL findings as one repair batch (`pr-review-fixer` or directly),
+  run affected checks, then review that batch once. Do not commit or repeat A1 per finding;
+  [execution-cadence.md](../../rules/execution-cadence.md) owns batching and re-entry.
 - **INVALID** → the premise does not hold. Nothing to fix; record what the code actually does, and do not
   let a wrong finding drive a change.
 - **UNDETERMINED** → not a pass. Obtain the specific thing the verdict names as missing, then re-run
@@ -133,11 +134,11 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    which findings a previous round already answered. A local reviewer belongs in Round A, BEFORE the
    push, where its whole purpose is to spend a minute instead of a CI cycle.
 
-2. **Take each comment one at a time, judging before replying.** CI posts a summary comment and inline
-   comments; each carries a finding and each is judged on its own — `finding-depth-triager` returns one
-   verdict per finding, not one per round, because a PR routinely mixes a LOCAL defect with a FOUNDATIONAL
-   one and a premise that does not hold. For each: obtain the verdict, decide the handling, then hand the
-   decision to `pr-review-writer` to post — inline where the finding was inline. **Judge before replying,
+2. **Collect the current comments and judge them in one batch before replying.** Dispatch
+   `finding-depth-triager` once with the finding set; it returns a distinct verdict per finding
+   because the set can mix depths. Hand the decided batch to `pr-review-writer` once, preserving
+   each inline reply's target. Do not dispatch, commit, or re-review separately per comment.
+   **Judge before replying,
    never after**: a reply written first becomes a commitment the verdict then has to agree with.
 
    Posting is the writer's, not this skill's. An orchestrator that writes to the PR is the produce-and-route

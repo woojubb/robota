@@ -100,14 +100,11 @@ release suite a second time. The root command remains available as an explicit l
 
 ### Commit Cadence
 
-Commit at appropriate logical boundaries **as work progresses** — one commit per logical step (e.g.
-contract/types → adapter/mechanism → wiring/assembly → tests → docs/evidence), each left green
-(build/typecheck), then open one coherent PR. **Never batch a whole slice into a single
-end-of-work commit, and never defer committing until the context is nearly exhausted** — committed
-progress is safe across a compaction, whereas a large uncommitted working tree is not, and deferring
-reads as stalling. Avoid the opposite failure too: do not fragment into many trivial commits. The
-context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
-implementing and keep committing. (Owner directive.)
+Commit a coherent, verified work-unit batch, including its implementation, tests, wiring and
+documentation together. Do not require a commit per module, logical sub-step, or LOCAL correction.
+[execution-cadence.md](execution-cadence.md) owns batching, required checkpoint exceptions, and
+re-entry conditions. Preserve recoverable progress at meaningful boundaries during long work;
+context pressure is not a reason to replace implementation with planning-only activity.
 
 **Committing needs no separate approval; PUBLISHING does.** This section used to sit six lines below
 "No `git commit` or `git push` without explicit user approval", and the two could not both hold in an

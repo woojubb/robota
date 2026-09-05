@@ -39,6 +39,10 @@ If any precondition fails → **terminate** and report which one.
 
 ## Phases and routing
 
+Apply [execution-cadence.md](../../rules/execution-cadence.md) throughout. Keep LOCAL supplements
+inside the active implementation batch; they do not repeat recommendation, scenario planning,
+checkpoint creation, or loop opening. Reopen only the phase invalidated by actual new evidence.
+
 ### Phase 1 — Recommendation gate
 
 Form the recommendation the rule requires, then **hand it to `proposal-reviewer`** rather than judging it
@@ -237,7 +241,8 @@ node scripts/harness/loop-run.mjs close --loop backlog-execution-orchestrator --
 
 When the recommendation gate records a combined-lifecycle eligible Issue, route the exact Task/spec
 pair through marker read-back, priority removal read-back, PLAN, and the first GATE-IMPLEMENT checkpoint
-on the same ordered topic branch. Keep conversion, PLAN, implementation, and verification as separate
-commits; the checkpoint ancestry scanner is the authority that permits implementation. Any unreadable or
+on the same ordered topic branch. Preserve the required planning checkpoint before implementation;
+batch implementation and its verification evidence together rather than committing each step.
+The checkpoint ancestry scanner is the authority that permits implementation. Any unreadable or
 mismatched remote evidence takes the fail-closed path, stops the route, and resumes only the exact
 existing pair.

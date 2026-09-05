@@ -41,6 +41,12 @@ for an L0 change (Phase 2 step 0), until the lane is declared and its ground nam
 
 ## Phase 2: Create Backlog Draft (mandatory before any code change)
 
+For an explicitly approved documentation-only batch, follow
+[execution-cadence.md](../../rules/execution-cadence.md): put the DIRECT approval, owner instruction
+and not-applicable PLAN outcome in the single Task and commit it with the documentation. Do not
+create a separate planning-prelude commit for this route. Runnable or higher-lane changes do not
+use this exception, including changes to the checker that implements it.
+
 0. **Decide the lane first.** Read `.agents/rules/spec-workflow.md` > Lanes and derive the floor from the
    paths the change will touch. **L0** needs no draft: declare `Lane: L0` and the ground (the issue, or a
    `Fast-track:` line quoting the user's instruction verbatim) on the branch and the pull request, and

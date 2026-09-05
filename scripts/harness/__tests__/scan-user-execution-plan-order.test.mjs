@@ -4535,6 +4535,104 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     return commit(root, 'L0 planning prelude');
   }
 
+  const approvedDocumentationTask = () =>
+    groundTask('in-progress').replace(
+      'status: in-progress',
+      'status: in-progress\ndocumentation_batch_approval: DIRECT\ndocumentation_batch_instruction: "Batch the approved documentation changes in one commit."',
+    );
+
+  it('accepts an explicitly approved documentation batch with its Task in the same commit', () => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, approvedDocumentationTask());
+    write(root, '.agents/rules/example.md', '# Example\n\nBatch local supplements.\n');
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'approved documentation batch');
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it.each([
+    'packages/example/src/thing.ts',
+    '.claude/hooks/example.sh',
+    '.husky/example',
+    '.github/workflows/example.yml',
+    'scripts/harness/example.mjs',
+    'package.json',
+    '.agents/rules/spec-workflow.md',
+  ])('does not admit executable or gate-owner path %s through documentation approval', (file) => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, approvedDocumentationTask());
+    write(root, file, file === LANE_RULE ? LIVE_LANE_RULE + '\nAmended.\n' : 'changed\n');
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base).length).toBeGreaterThan(0);
+    commit(root, 'invalid mixed batch');
+    expect(findHistoryFindings(root, base).length).toBeGreaterThan(0);
+  });
+
+  it.each(['approval', 'instruction', 'plan', 'spec', 'multiple-tasks'])(
+    'refuses a documentation batch with invalid %s evidence',
+    (defect) => {
+      const { root, base } = l0Repository();
+      let task = approvedDocumentationTask();
+      if (defect === 'approval')
+        task = task.replace(
+          'documentation_batch_approval: DIRECT',
+          'documentation_batch_approval: CLASS',
+        );
+      if (defect === 'instruction')
+        task = task.replace(
+          /^documentation_batch_instruction:.*$/m,
+          'documentation_batch_instruction: ""',
+        );
+      if (defect === 'plan') task = task.replace('not-applicable | 0', 'automatable | 1');
+      write(root, GROUND_TASK, task);
+      write(root, '.agents/rules/example.md', '# Batch\n');
+      if (defect === 'spec')
+        write(root, `.agents/spec-docs/draft/${GROUND}`, '---\nstatus: draft\n---\n');
+      if (defect === 'multiple-tasks')
+        write(root, '.agents/tasks/INFRA-906-other.md', approvedDocumentationTask());
+      git(root, ['add', '-A']);
+      expect(findStagedFindings(root, base).length).toBeGreaterThan(0);
+      commit(root, 'invalid documentation evidence');
+      expect(findHistoryFindings(root, base).length).toBeGreaterThan(0);
+    },
+  );
+
+  it('refuses hidden unstaged source without widening a documentation batch', () => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, approvedDocumentationTask());
+    write(root, '.agents/rules/example.md', '# Batch\n');
+    git(root, ['add', '-A']);
+    write(root, 'packages/example/src/hidden.ts', 'export const hidden = true;\n');
+    expect(
+      findStagedFindings(root, base).some((item) => /unstaged or untracked/.test(item.problem)),
+    ).toBe(true);
+  });
+
+  it('does not promote documentation approval into a later implementation ground', () => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, approvedDocumentationTask());
+    write(root, '.agents/rules/example.md', '# Batch\n');
+    commit(root, 'approved documentation batch');
+    write(root, 'packages/example/src/thing.ts', 'export const thing = true;\n');
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base).length).toBeGreaterThan(0);
+    commit(root, 'unplanned product change');
+    expect(findHistoryFindings(root, base).length).toBeGreaterThan(0);
+  });
+
+  it('retains a valid documentation batch before a later real planning checkpoint', () => {
+    const { root, base } = l0Repository();
+    write(root, GROUND_TASK, approvedDocumentationTask());
+    write(root, '.agents/rules/example.md', '# Batch\n');
+    commit(root, 'approved documentation batch');
+    checkpoint(root);
+    expect(findHistoryFindings(root, base)).toEqual([]);
+    write(root, 'packages/example/src/thing.ts', 'export const thing = true;\n');
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
   /** The issue's exact staged shape: two historical corrections plus the ground's atomic archival. */
   function stageRepair(root) {
     write(
