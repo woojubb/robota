@@ -8,6 +8,7 @@ import { makeTemp } from './make-temp.mjs';
 
 import { describeCiSource } from '../ci-mirror-map.mjs';
 import { resolveDistFreeSubject, runWithDistFreeSubject } from '../dist-free-subject-identity.mjs';
+import { ceilingIn } from '../scan-lint-ceiling-declared-vs-frozen.mjs';
 import {
   advanceBuildState,
   annotateNotMirrored,
@@ -35,6 +36,13 @@ import {
 } from '../verify-like-ci.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+/** The whole-workspace warning ceiling as the root manifest declares it, read the same way. */
+function declaredWorkspaceLintCeiling() {
+  const { ceiling } = ceilingIn(readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8'));
+  expect(ceiling).toEqual(expect.any(Number));
+  return String(ceiling);
+}
 
 function createFixture(files) {
   const root = makeTemp('verify-like-ci-');
@@ -636,7 +644,7 @@ describe('local product classification and commands', () => {
           '--cache-strategy',
           'content',
           '--max-warnings',
-          '2203',
+          declaredWorkspaceLintCeiling(),
         ]),
       ],
     ]);
@@ -648,6 +656,23 @@ describe('local product classification and commands', () => {
       ['pnpm', ['typecheck']],
       ['pnpm', ['lint']],
     ]);
+  });
+
+  // The whole-workspace eslint this stage runs once carried its own frozen literal, which drifted
+  // from the ceiling the root `lint` script declares and turned a passing tree red locally. Pinning
+  // the expectation to a number here would have stayed green through that drift, so it is pinned to
+  // the manifest the ceiling actually belongs to: reintroduce a literal that disagrees and this
+  // goes red.
+  it('takes the whole-workspace lint ceiling from the root manifest, not a literal of its own', () => {
+    const commands = createProductStageCommands(
+      'package-quality',
+      { baseRef: 'origin/develop' },
+      { fullProductVerification: false },
+    );
+    const [, args] = commands.at(-1);
+
+    expect(args).toEqual(expect.arrayContaining(['packages', 'apps']));
+    expect(args[args.indexOf('--max-warnings') + 1]).toBe(declaredWorkspaceLintCeiling());
   });
 });
 
