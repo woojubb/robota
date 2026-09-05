@@ -220,7 +220,7 @@ describe('the verb checks see through an alias', () => {
     // The (-C|-c)-only prefix left `git --git-dir=.git ci` unsubstituted: the mask kept `ci`,
     // IS_COMMIT stayed false, and a commit ON A PROTECTED BRANCH took no check at all — the
     // protected-branch refusal is mask-driven, so it isolates the substitution from the latch.
-    const repo = scratchRepo('develop', { ci: 'commit' });
+    const repo = scratchRepo('main', { ci: 'commit' });
 
     const { status, output } = runHook('git --git-dir=.git ci -m x', repo);
 
@@ -245,7 +245,7 @@ describe('the verb checks see through an alias', () => {
     // read the WHOLE command at this statement's offsets (EXTRACT_SRC), not the bare slice, the
     // same conditional DELETE_BRANCH_NAME needed after a measured heredoc misread. Keeping the
     // three extractions on one decision stops the slice-only reading from drifting back in. (#1666)
-    const repo = scratchRepo('develop');
+    const repo = scratchRepo('main');
 
     const { status, output } = runHook(
       "cat <<'EOF'\ngit checkout -b feat/from-body main\nEOF",
@@ -377,12 +377,12 @@ describe('the verb checks see through an alias', () => {
     // match them and `git --no-pager commit` matched no action regex — the protected-branch
     // check was skipped entirely. Both the typed form and an alias body carrying the boolean
     // global must be seen. (#1666 review)
-    const typed = scratchRepo('develop');
+    const typed = scratchRepo('main');
     const r1 = runHook('git --no-pager commit -m x', typed);
     expect(r1.status, `a boolean global hid the commit verb (typed):\n${r1.output}`).toBe(2);
     expect(r1.output).toMatch(/protected branch/);
 
-    const aliased = scratchRepo('develop', { qc: '--no-pager commit' });
+    const aliased = scratchRepo('main', { qc: '--no-pager commit' });
     const r2 = runHook('git qc -m x', aliased);
     expect(r2.status, `a boolean global in an alias body hid the commit verb:\n${r2.output}`).toBe(
       2,
@@ -394,7 +394,7 @@ describe('the verb checks see through an alias', () => {
     // `git -c alias.ci=commit ci -n`: the alias has no config-file trace, so the persisted-config
     // lookup missed it, the verb latch left GIT_VERB="ci" (matching no gated verb), and the -n
     // kill switch sailed past every check. The inline definition is registered now. (#1666 review)
-    const repo = scratchRepo('develop'); // no persisted alias.ci
+    const repo = scratchRepo('main'); // no persisted alias.ci
 
     const { status, output } = runHook('git -c alias.ci=commit ci -n -m x', repo);
 
@@ -460,7 +460,7 @@ describe('a command or subcommand built from an expansion is unknowable, not per
     // `$(echo git)` collapses to an EMPTY word, so it has to be caught BEFORE the empty-word filter
     // — otherwise the next word (`commit`) is mistaken for the command, reads clean, and the
     // statement walks through. That was a review finding on the first version. (#1683)
-    const repo = scratchRepo('develop');
+    const repo = scratchRepo('main');
 
     const { status, output } = runHook(command, repo);
 
@@ -476,7 +476,7 @@ describe('a command or subcommand built from an expansion is unknowable, not per
     // A guard that fires on correct work is one people learn to route around, and this file makes
     // that argument about itself. None of these spells a gated subcommand, so none is refused —
     // the trigger is an unknown command PLUS gated-action evidence, not the mere presence of `$`.
-    const repo = scratchRepo('develop');
+    const repo = scratchRepo('main');
 
     const { status, output } = runHook(command, repo);
 
@@ -505,7 +505,7 @@ describe('a command or subcommand built from an expansion is unknowable, not per
     // and it is the deliberate trade: the alternative is letting `$GIT commit` through, which is the
     // evasion this whole change exists to close. The message names the remedy — spell the command
     // literally — and the cost only lands on a protected branch, where a commit was refused anyway.
-    const repo = scratchRepo('develop');
+    const repo = scratchRepo('main');
 
     const { status, output } = runHook('$EDITOR commit', repo);
 

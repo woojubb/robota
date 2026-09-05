@@ -1559,7 +1559,7 @@ while read -r STMT_START STMT_LEN; do
     if [[ "$MERGE_IN_PROGRESS" == "false" ]]; then
       for branch in main master; do
         if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
-          echo "[branch-guard] Blocked: cannot git commit on protected release branch '${branch}'. Create a feature branch first." >&2
+          echo "[branch-guard] Blocked: cannot git commit on protected branch '${branch}'. Create a feature branch first." >&2
           exit 2
         fi
       done
