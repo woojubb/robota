@@ -174,10 +174,22 @@ describe('the domain has a boundary, and outside it the answer is a refusal', ()
      * actually is. This case is the one that would have caught the difference; the case above cannot,
      * because both versions refuse.
      */
+    /*
+     * The budget separates the two implementations, and nothing finer. The segment-bounded version
+     * took 12 SECONDS; the expansion-bounded one returns in about a millisecond. A budget anywhere
+     * well under 12s reproduces that verdict, so the number is chosen for headroom rather than
+     * tightness: this file runs beside every other harness suite, and a 1s budget was measured
+     * failing at 1376ms on a loaded machine — a flake that blocks a push while saying nothing about
+     * the guard. Tightening it back would trade the property this case exists for against noise.
+     */
+    const LOOP_REFUSAL_BUDGET_MS = 5000;
     const started = process.hrtime.bigint();
     expect(resolveFrom(sandbox, 'loopa/x').status).not.toBe(0);
     const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
-    expect(elapsedMs, `refusing a symlink loop took ${elapsedMs.toFixed(0)}ms`).toBeLessThan(1000);
+    expect(
+      elapsedMs,
+      `refusing a symlink loop took ${elapsedMs.toFixed(0)}ms; the segment-bounded version took ~12000ms`,
+    ).toBeLessThan(LOOP_REFUSAL_BUDGET_MS);
   });
 
   it('does not expand ~, which is a real directory name here', () => {
