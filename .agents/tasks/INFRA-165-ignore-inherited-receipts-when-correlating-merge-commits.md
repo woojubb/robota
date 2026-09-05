@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-165: ignore inherited receipts when correlating merge commits'
-status: todo
+status: in-progress
 created: 2026-09-05
 priority: high
 urgency: now
@@ -22,9 +22,9 @@ no-issue: Direct owner request to resolve the reported integration blocker.
 
 ## Plan
 
-- [ ] TC-01: Real merge imports containing multiple unchanged receipts already present in merge parents return no pending terminal receipt correlation.
-- [ ] TC-02: A genuinely new receipt, changed receipt or receipt mixed with other closure paths retains existing fail-closed validation.
-- [ ] TC-03: Real Git fixture regression is RED on the original implementation, then the work-run hook suite and syntax checks pass after the bounded fix.
+- [x] TC-01: Real merge imports containing multiple unchanged receipts already present in merge parents return no pending terminal receipt correlation.
+- [x] TC-02: A genuinely new receipt, changed receipt or receipt mixed with other closure paths retains existing fail-closed validation.
+- [x] TC-03: Real Git fixture regression is RED on the original implementation, then the work-run hook suite and syntax checks pass after the bounded fix.
 
 ## Test Plan
 

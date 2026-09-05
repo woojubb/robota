@@ -339,6 +339,68 @@ function verifyDetachedCheckoutSkipsClaim() {
 }
 
 describe('tracked work-run Git hooks', () => {
+  it('does not treat receipts inherited from a merge parent as new closures', () => {
+    const root = realpathSync(makeTemp('work-run-merge-receipts-'));
+    git(root, 'init', '-b', 'develop');
+    git(root, 'config', 'user.name', 'Fixture');
+    git(root, 'config', 'user.email', 'fixture@example.test');
+    writeFileSync(join(root, 'base.txt'), 'base');
+    const existing = '.agents/evals/work-runs/existing/g0-r0.json';
+    mkdirSync(join(root, '.agents/evals/work-runs/existing'), { recursive: true });
+    writeFileSync(join(root, existing), '{}\n');
+    git(root, 'add', '.');
+    git(root, 'commit', '-m', 'base');
+    git(root, 'checkout', '-b', 'incoming');
+    for (const id of ['one', 'two', 'three', 'four']) {
+      const dir = join(root, '.agents/evals/work-runs', id);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'g0-r0.json'), '{}\n');
+    }
+    writeFileSync(join(root, 'incoming.txt'), 'ordinary merge content');
+    git(root, 'add', '.');
+    git(root, 'commit', '-m', 'incoming receipts');
+    git(root, 'checkout', 'develop');
+    writeFileSync(join(root, 'local.txt'), 'local');
+    git(root, 'add', '.');
+    git(root, 'commit', '-m', 'local');
+    git(root, 'merge', '--no-commit', '--no-ff', 'incoming');
+    expect(pendingTerminalReceiptCorrelation(root)).toBeNull();
+
+    const receipt = '.agents/evals/work-runs/one/g0-r0.json';
+    writeFileSync(join(root, receipt), '{"changed":true}\n');
+    git(root, 'add', receipt);
+    expect(() => pendingTerminalReceiptCorrelation(root)).toThrow(
+      'exactly one staged receipt path',
+    );
+    writeFileSync(join(root, receipt), '{}\n');
+    git(root, 'add', receipt);
+    git(root, 'update-index', '--chmod=+x', receipt);
+    expect(() => pendingTerminalReceiptCorrelation(root)).toThrow(
+      'exactly one staged receipt path',
+    );
+    git(root, 'update-index', '--chmod=-x', receipt);
+    expect(pendingTerminalReceiptCorrelation(root)).toBeNull();
+
+    const added = '.agents/evals/work-runs/new/g0-r0.json';
+    mkdirSync(join(root, '.agents/evals/work-runs/new'), { recursive: true });
+    writeFileSync(join(root, added), '{}\n');
+    git(root, 'add', added);
+    expect(() => pendingTerminalReceiptCorrelation(root)).toThrow(
+      'exactly one staged receipt path',
+    );
+    git(root, 'rm', '--cached', added);
+    git(root, 'rm', '--cached', existing);
+    expect(() => pendingTerminalReceiptCorrelation(root)).toThrow(
+      'exactly one staged receipt path',
+    );
+    git(root, 'checkout', 'incoming', '--', existing);
+    expect(pendingTerminalReceiptCorrelation(root)).toBeNull();
+
+    writeFileSync(join(root, '.git/MERGE_HEAD'), `${'f'.repeat(40)}\n`);
+    expect(() => pendingTerminalReceiptCorrelation(root)).toThrow(
+      'could not inspect merge parent objects',
+    );
+  });
   registerDispatcherTests('post-checkout');
   registerDispatcherTests('prepare-commit-msg');
   it('claims on topic checkout and applies trailers through a real commit', verifyCommitHooks);

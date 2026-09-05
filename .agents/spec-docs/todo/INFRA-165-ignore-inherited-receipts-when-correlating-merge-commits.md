@@ -59,9 +59,9 @@ Before counting pending receipt changes, exclude only unchanged parent-owned rec
 
 ## Completion Criteria
 
-- [ ] TC-01: Real merge imports containing multiple unchanged receipts already present in merge parents return no pending terminal receipt correlation.
-- [ ] TC-02: A genuinely new receipt, changed receipt or receipt mixed with other closure paths retains existing fail-closed validation.
-- [ ] TC-03: Real Git fixture regression is RED on the original implementation, then the work-run hook suite and syntax checks pass after the bounded fix.
+- [x] TC-01: Real merge imports containing multiple unchanged receipts already present in merge parents return no pending terminal receipt correlation.
+- [x] TC-02: A genuinely new receipt, changed receipt or receipt mixed with other closure paths retains existing fail-closed validation.
+- [x] TC-03: Real Git fixture regression is RED on the original implementation, then the work-run hook suite and syntax checks pass after the bounded fix.
 
 ## Test Plan
 
@@ -79,9 +79,13 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` — created, implementation pending
+- [x] `.agents/tasks/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` — focused implementation verified; root owns integrated final gate.
 
 ## Evidence Log
+
+### Implementation verification — 2026-09-05
+
+Original regression RED: /tmp/infra165-red.log, ambiguous pending receipt failure. Final focused run: /tmp/infra165-final-green-3.log, 15/15 tests PASS (14.44 seconds). Intermediate fixture setup failures are preserved separately. Both changed JavaScript files pass node --check and git diff --check. No transpilation/build target exists for these native Node ESM scripts. Independent source review: recover_approved_artifacts, actionable findings 0. Final integrated gate remains pending under root ownership after receipt closure.
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-05
 
@@ -146,3 +150,66 @@ Not applicable.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `579aca454726` · base `origin/develop@579aca454726` · document `.agents/spec-docs/draft/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` blob `c72293442cb7` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/work-run-hook.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"status":"trailed","runId":"state-lost-run","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","events":[{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","sequence":1,"previousHash":null,"type":"work.claimed","at":"2026-09-05T10:15:46.120Z","data":{"branch":"codex/receipt-closure"},"hash":"65f68978726c1e0b03940a86afbbf57bdae2fa3b6a9dc31035625e167bd4ec54"}]}
+{"status":"trailed","runId":"4d786b9f-2936-4788-bce3-5845699ca091","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+Switched to a new branch 'codex/receipt-closure'
+HEAD is now at b048ead chore: base
+```
+
+**Judged at:** HEAD `8833f601b881` · base `origin/develop@579aca454726` · document `.agents/spec-docs/todo/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` blob `362c34e977d9` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/work-run-hook.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"status":"trailed","runId":"state-lost-run","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","events":[{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","sequence":1,"previousHash":null,"type":"work.claimed","at":"2026-09-05T10:15:46.120Z","data":{"branch":"codex/receipt-closure"},"hash":"65f68978726c1e0b03940a86afbbf57bdae2fa3b6a9dc31035625e167bd4ec54"}]}
+{"status":"trailed","runId":"4d786b9f-2936-4788-bce3-5845699ca091","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+Switched to a new branch 'codex/receipt-closure'
+HEAD is now at b048ead chore: base
+```
+
+**Judged at:** HEAD `8833f601b881` · base `origin/develop@579aca454726` · document `.agents/spec-docs/todo/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` blob `8578a0ee925f` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/work-run-hook.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+{"status":"trailed","runId":"15f3f55b-5dba-4c0c-932e-12b28eaed13d","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"status":"trailed","runId":"state-lost-run","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","events":[{"schemaVersion":1,"runId":"4d786b9f-2936-4788-bce3-5845699ca091","sequence":1,"previousHash":null,"type":"work.claimed","at":"2026-09-05T10:15:46.120Z","data":{"branch":"codex/receipt-closure"},"hash":"65f68978726c1e0b03940a86afbbf57bdae2fa3b6a9dc31035625e167bd4ec54"}]}
+{"status":"trailed","runId":"4d786b9f-2936-4788-bce3-5845699ca091","receipt":"g0-r0"}
+Switched to a new branch 'codex/receipt-closure'
+Switched to a new branch 'codex/receipt-closure'
+HEAD is now at b048ead chore: base
+```
+
+**Judged at:** HEAD `8833f601b881` · base `origin/develop@579aca454726` · document `.agents/spec-docs/todo/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` blob `ccacf6965733` (modified)
