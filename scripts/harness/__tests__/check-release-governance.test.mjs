@@ -95,6 +95,38 @@ const GREEN_PACKAGE_JSON = {
   },
 };
 
+/**
+ * The fixed-group half of the fixture workspace (REL-025).
+ *
+ * Two published packages and one private one, because the distinction is the whole point: a private
+ * package is never published, so naming it in the `fixed` group is as much a dangling reference as
+ * naming a package that does not exist.
+ */
+const GREEN_CHANGESET_CONFIG = {
+  fixed: [['@fixture/alpha', '@fixture/beta']],
+  linked: [],
+  access: 'public',
+  baseBranch: 'main',
+};
+
+const GREEN_WORKSPACE_MANIFESTS = {
+  'packages/alpha/package.json': JSON.stringify(
+    { name: '@fixture/alpha', version: '1.0.0' },
+    null,
+    2,
+  ),
+  'packages/beta/package.json': JSON.stringify(
+    { name: '@fixture/beta', version: '1.0.0' },
+    null,
+    2,
+  ),
+  'packages/internal/package.json': JSON.stringify(
+    { name: '@fixture/internal', version: '1.0.0', private: true },
+    null,
+    2,
+  ),
+};
+
 function greenFixtureFiles() {
   return {
     'package.json': JSON.stringify(GREEN_PACKAGE_JSON, null, 2),
@@ -114,6 +146,8 @@ function greenFixtureFiles() {
     '.agents/release-runs/README.md':
       '# Release Runs\n\nRun `pnpm harness:release:check -- --version <version> --publish` before OTP.\n',
     '.agents/templates/release-run-template.md': GREEN_RELEASE_TEMPLATE,
+    '.changeset/config.json': JSON.stringify(GREEN_CHANGESET_CONFIG, null, 2),
+    ...GREEN_WORKSPACE_MANIFESTS,
   };
 }
 
@@ -242,6 +276,152 @@ pnpm harness:release:check -- --version "$VERSION" --publish
     expect(findings).toContainEqual({
       file: 'scripts/harness/run-all-scans.mjs',
       detail: 'run-all-scans.mjs must include the release-governance scan.',
+    });
+  });
+});
+
+describe('changeset fixed-group integrity (REL-025)', () => {
+  it('passes when every fixed-group entry names a published workspace package', async () => {
+    const root = await createFixture();
+    expect(collectReleaseGovernanceFindings(root)).toEqual([]);
+  });
+
+  it('flags a fixed-group entry that names no workspace package', async () => {
+    const config = structuredClone(GREEN_CHANGESET_CONFIG);
+    config.fixed[0].push('@fixture/removed-last-year');
+    const root = await createFixture({ '.changeset/config.json': JSON.stringify(config, null, 2) });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail:
+        'Fixed group entry "@fixture/removed-last-year" names no published workspace package.',
+    });
+  });
+
+  it('flags a fixed-group entry that names a PRIVATE package', async () => {
+    const config = structuredClone(GREEN_CHANGESET_CONFIG);
+    config.fixed[0].push('@fixture/internal');
+    const root = await createFixture({ '.changeset/config.json': JSON.stringify(config, null, 2) });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Fixed group entry "@fixture/internal" names no published workspace package.',
+    });
+  });
+
+  it('flags a PUBLISHED package that is absent from the fixed group (REL-025 decision A)', async () => {
+    const root = await createFixture({
+      'packages/gamma/package.json': JSON.stringify(
+        { name: '@fixture/gamma', version: '1.0.0' },
+        null,
+        2,
+      ),
+    });
+
+    const findings = collectReleaseGovernanceFindings(root);
+    expect(findings).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Published package "@fixture/gamma" is not in the changeset fixed group.',
+    });
+    // The private package is not published, so its absence from the group is not a finding.
+    expect(findings.filter((finding) => finding.detail.includes('@fixture/internal'))).toEqual([]);
+  });
+
+  it('flags published packages split across two fixed groups rather than one', async () => {
+    const root = await createFixture({
+      '.changeset/config.json': JSON.stringify(
+        { ...GREEN_CHANGESET_CONFIG, fixed: [['@fixture/alpha'], ['@fixture/beta']] },
+        null,
+        2,
+      ),
+    });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail:
+        'Published packages are split across 2 fixed groups; version-management rule 4 requires one.',
+    });
+  });
+
+  it('still names an absent published package when another manifest is unreadable', async () => {
+    // An unreadable manifest makes the published set INCOMPLETE, which forbids the claim "this
+    // group entry names nothing" — but a manifest that WAS read is a published package whether or
+    // not another one could be, so its absence from the group is still a finding.
+    const root = await createFixture({
+      'packages/beta/package.json': '{ "name": ',
+      'packages/gamma/package.json': JSON.stringify(
+        { name: '@fixture/gamma', version: '1.0.0' },
+        null,
+        2,
+      ),
+    });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Published package "@fixture/gamma" is not in the changeset fixed group.',
+    });
+  });
+
+  it('flags the same package declared in two fixed groups', async () => {
+    const root = await createFixture({
+      '.changeset/config.json': JSON.stringify(
+        {
+          ...GREEN_CHANGESET_CONFIG,
+          fixed: [['@fixture/alpha'], ['@fixture/alpha', '@fixture/beta']],
+        },
+        null,
+        2,
+      ),
+    });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Fixed group entry "@fixture/alpha" appears in more than one group.',
+    });
+  });
+
+  it('flags a missing "fixed" key rather than reading it as an empty group', async () => {
+    const config = structuredClone(GREEN_CHANGESET_CONFIG);
+    delete config.fixed;
+    const root = await createFixture({ '.changeset/config.json': JSON.stringify(config, null, 2) });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Changeset config must declare "fixed" as an array of package-name groups.',
+    });
+  });
+
+  it('flags an unreadable changeset config instead of treating it as agreement', async () => {
+    const root = await createFixture({ '.changeset/config.json': '{ "fixed": [ ' });
+
+    const findings = collectReleaseGovernanceFindings(root);
+    expect(findings).toContainEqual({
+      file: '.changeset/config.json',
+      detail: 'Changeset config could not be parsed as JSON, so the fixed group could not be read.',
+    });
+    // The unreadable branch must not ALSO report every published package as absent — a parse
+    // failure is one finding about one file, not a verdict about the workspace.
+    expect(findings.filter((finding) => finding.detail.startsWith('Fixed group entry'))).toEqual(
+      [],
+    );
+  });
+
+  it('flags an unreadable package manifest instead of dropping it from the published set', async () => {
+    const root = await createFixture({ 'packages/beta/package.json': '{ "name": ' });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: 'packages/beta/package.json',
+      detail: 'Package manifest could not be read, so the published package set is incomplete.',
+    });
+  });
+
+  it('flags a workspace with no packages/ directory rather than passing vacuously', async () => {
+    const root = await createFixture();
+    rmSync(path.join(root, 'packages'), { recursive: true, force: true });
+
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: 'packages',
+      detail: 'No packages/ directory, so the published package set could not be derived.',
     });
   });
 });
