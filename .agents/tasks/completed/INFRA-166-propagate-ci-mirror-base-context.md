@@ -19,7 +19,7 @@ Issue: https://github.com/woojubb/robota/issues/2584
 
 ## Owner Approval
 
-2026-09-05 direct instruction: "발견절차문제 즉시수정/develop". One bounded harness correction; root owns final integrated verification and push.
+2026-09-05 direct instruction: "발견한 절차상의 문제는 바로바로 수정해서 develop에 머지하세요. 하네스가 개선되어야 실제 작업 시간을 혁신적으로 단축시킬 수 있다 그렇기 때문에 하네스부터 올바르게 즉시 수정하는 게 맞다." One bounded harness correction; root owns final integrated verification and push.
 
 ## Plan
 
@@ -29,7 +29,7 @@ Issue: https://github.com/woojubb/robota/issues/2584
 
 ## Test Plan
 
-Use `scripts/harness/__tests__/verify-like-ci.test.mjs` execution regressions for child environment visibility, CLI precedence and restoration on success/failure/throw. Focused tests only in this worker; root owns final full verification after completion artifacts.
+Use `scripts/harness/__tests__/verify-like-ci-execution.test.mjs` > `CI mirror execution base context` for child environment visibility, CLI precedence and restoration on success/failure/throw, alongside the existing `verify-like-ci.test.mjs` regression suite. Focused tests only in this worker; root owns final full verification after completion artifacts.
 
 ## User Execution Test Scenarios
 

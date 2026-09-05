@@ -83,6 +83,10 @@ Not applicable.
 
 ## Evidence Log
 
+### Approval quotation correction — 2026-09-05
+
+The earlier approval entry below mislabeled the delegating agent's shorthand, "발견절차문제 즉시수정/develop", as verbatim user text. The actual user instruction was: "발견한 절차상의 문제는 바로바로 수정해서 develop에 머지하세요. 하네스가 개선되어야 실제 작업 시간을 혁신적으로 단축시킬 수 있다 그렇기 때문에 하네스부터 올바르게 즉시 수정하는 게 맞다." This corrects the quotation only; the prior gate entries are preserved, and the authorized design and implementation scope are unchanged.
+
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-05
 
 **Status upgrade:** draft → approved
