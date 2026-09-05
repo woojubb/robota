@@ -16,6 +16,7 @@ import {
 } from '../affected-contract-tests.mjs';
 import {
   CONTRACT_CONTROL_PLANE_INPUTS,
+  CONTRACT_SAFETY_FLOOR,
   createContractTestRegistry,
   relativeImportClosure,
   validateContractTestRegistry,
@@ -92,6 +93,34 @@ function fixture() {
 }
 
 describe('affected contract selection', () => {
+  it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
+    const tiers = classifyHarnessTestFiles(REPO_ROOT);
+    const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
+    for (const agent of ['mechanical-refactor-worker', 'pr-review-fixer']) {
+      const plan = createAffectedContractPlan({
+        root: REPO_ROOT,
+        contractTests: tiers.contract,
+        registry,
+        changedFiles: [`.claude/agents/${agent}.md`],
+      });
+      expect(plan.mode, agent).toBe('affected');
+      expect(plan.selected.length).toBeLessThan(tiers.contract.length);
+      expect(plan.selected).toEqual(
+        expect.arrayContaining([
+          ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
+          ...[
+            'check-agent-def-convention',
+            'agents-cannot-be-told-to-dispatch',
+            'depth-verdict-reachable',
+            'scan-retired-agent-references',
+          ].map((name) => `${TEST_ROOT}/${name}.test.mjs`),
+        ]),
+      );
+      if (agent === 'pr-review-fixer')
+        expect(plan.selected).toContain(`${TEST_ROOT}/review-before-push.test.mjs`);
+    }
+  });
+
   it('retains both rename sides and rejects malformed name-status output', () => {
     expect(parseNameStatusDiff('R100\0old.mjs\0new.mjs\0M\0same.mjs\0')).toEqual([
       'new.mjs',
@@ -215,6 +244,9 @@ describe('affected contract selection', () => {
     [['package.json'], 'control-plane'],
     [['unknown/unregistered-owner.txt'], 'unknown owner'],
     [['outside-root.txt'], 'unknown owner'],
+    [['.claude/settings.json'], 'unknown owner'],
+    [['.claude/hooks/unregistered.sh'], 'unknown owner'],
+    [['.claude/agents-backup/worker.md'], 'unknown owner'],
   ])('falls back completely for %j', (changedFiles, reason) => {
     const data = fixture();
     const result = createAffectedContractPlan({

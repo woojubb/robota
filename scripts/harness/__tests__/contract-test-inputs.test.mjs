@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { classifyHarnessTestFiles } from '../harness-test-tiers.mjs';
-import { groupContractTestsByOwner } from '../contract-test-owners.mjs';
+import { groupContractTestsByOwner, ownerForRepositoryInput } from '../contract-test-owners.mjs';
 import {
   CONTRACT_CONTROL_PLANE_INPUTS,
   CONTRACT_SAFETY_FLOOR,
@@ -14,6 +14,33 @@ import {
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 describe('contract-test input registry ownership', () => {
+  it('registers agent-definition file and directory consumers without owning other Claude inputs', () => {
+    const registry = createContractTestRegistry(
+      REPO_ROOT,
+      classifyHarnessTestFiles(REPO_ROOT).contract,
+    );
+    const byTest = new Map(registry.map((entry) => [entry.test, entry]));
+    expect(ownerForRepositoryInput(REPO_ROOT, '.claude/agents/pr-review-fixer.md')).toBe(
+      'workspace:governance',
+    );
+    expect(ownerForRepositoryInput(REPO_ROOT, '.claude/agents')).toBe('workspace:governance');
+    expect(ownerForRepositoryInput(REPO_ROOT, '.claude/settings.json')).toBeNull();
+    expect(ownerForRepositoryInput(REPO_ROOT, '.claude/agents-backup/worker.md')).toBeNull();
+    expect(
+      byTest.get('scripts/harness/__tests__/review-before-push.test.mjs').repositoryInputs,
+    ).toContain('.claude/agents/pr-review-fixer.md');
+    for (const name of [
+      'check-agent-def-convention',
+      'depth-verdict-reachable',
+      'scan-retired-agent-references',
+    ]) {
+      expect(
+        byTest.get(`scripts/harness/__tests__/${name}.test.mjs`).repositoryInputs,
+        name,
+      ).toContain('.claude/agents/**');
+    }
+  });
+
   it('registers the complete live contract tier and gives every safety-floor test a reason', () => {
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
     const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);

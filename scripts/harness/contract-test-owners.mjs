@@ -92,7 +92,12 @@ export function ownerForRepositoryInput(root, input) {
   }
   if (normalized.startsWith('docs/') || normalized === 'docs') return 'workspace:docs';
   if (normalized.startsWith('.github/workflows/')) return 'workspace:workflows';
-  if (normalized.startsWith('.agents/') || normalized.startsWith('.husky/')) {
+  if (
+    normalized.startsWith('.agents/') ||
+    normalized.startsWith('.husky/') ||
+    normalized === '.claude/agents' ||
+    normalized.startsWith('.claude/agents/')
+  ) {
     return 'workspace:governance';
   }
   if (normalized.startsWith('content/')) return 'workspace:content';

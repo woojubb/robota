@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-164: register agent definition inputs for affected contract selection'
-status: todo
+status: done
+completed: 2026-09-05
 created: 2026-09-05
 priority: medium
 urgency: soon
@@ -24,14 +25,18 @@ The reported concrete bottleneck is unknown ownership of .claude/agents/mechanic
 
 ## Plan
 
-- [ ] TC-01: Agent definition inputs resolve to workspace:governance; unrelated unknown .claude paths retain complete fallback.
-- [ ] TC-02: Direct agent file literals and directory consumers enter the registry and select all their affected consumer tests plus the safety floor, rather than only the safety floor.
-- [ ] TC-03: Control-plane input changes retain complete selection; existing product selection, isolated tests and unknown-input safety remain unchanged.
-- [ ] TC-04: Focused registry/selector regression tests and syntax/import checks exit zero after the missing-coverage cases fail on the original code.
+- [x] TC-01: Agent definition inputs resolve to workspace:governance; unrelated unknown .claude paths retain complete fallback.
+- [x] TC-02: Direct agent file literals and directory consumers enter the registry and select all their affected consumer tests plus the safety floor, rather than only the safety floor.
+- [x] TC-03: Control-plane input changes retain complete selection; existing product selection, isolated tests and unknown-input safety remain unchanged.
+- [x] TC-04: Focused registry/selector regression tests and syntax/import checks exit zero after the missing-coverage cases fail on the original code.
 
 ## Test Plan
 
-Use scripts/harness/**tests**/contract-test-inputs.test.mjs and scripts/harness/**tests**/affected-contract-tests.test.mjs. Capture RED for missing agent ownership and missing direct/directory consumer coverage, then implement one coherent correction batch. Assert positive inclusion rather than a reduced count alone; unknown and control-plane inputs must still select complete coverage. Root owns the final integrated verification and initial planning commit.
+Use `scripts/harness/__tests__/contract-test-inputs.test.mjs` and `scripts/harness/__tests__/affected-contract-tests.test.mjs`. Capture RED for missing agent ownership and missing direct/directory consumer coverage, then implement one coherent correction batch. Assert positive inclusion rather than a reduced count alone; unknown and control-plane inputs must still select complete coverage. Root owns the final integrated verification and initial planning commit.
+
+## Verification Evidence
+
+RED: `/tmp/infra164-red.log`, 2 failed and 29 passed, exit 1. GREEN: `/tmp/infra164-green.log`, 31 passed, 5.02 seconds, exit 0. Root observed `node --check` on both implementation files and the registry import probe exit 0. Each of the two agent-definition inputs now selects 87 instead of 248 files (64.9% fewer selected files); this is not a runtime reduction claim. Final full gate remains pending until completion artifacts and receipt closure.
 
 ## Delivery Verification Strategy
 

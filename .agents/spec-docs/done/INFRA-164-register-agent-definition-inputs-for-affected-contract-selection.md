@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [harness, governance]
 lane: L1
@@ -63,19 +63,19 @@ Recognize .claude/agents/ as workspace:governance without recognizing arbitrary 
 
 ## Completion Criteria
 
-- [ ] TC-01: Agent definition inputs resolve to workspace:governance; unrelated unknown .claude paths retain complete fallback.
-- [ ] TC-02: Direct agent file literals and directory consumers enter the registry and select all their affected consumer tests plus the safety floor, rather than only the safety floor.
-- [ ] TC-03: Control-plane input changes retain complete selection; existing product selection, isolated tests and unknown-input safety remain unchanged.
-- [ ] TC-04: Focused registry/selector regression tests and syntax/import checks exit zero after the missing-coverage cases fail on the original code.
+- [x] TC-01: Agent definition inputs resolve to workspace:governance; unrelated unknown .claude paths retain complete fallback.
+- [x] TC-02: Direct agent file literals and directory consumers enter the registry and select all their affected consumer tests plus the safety floor, rather than only the safety floor.
+- [x] TC-03: Control-plane input changes retain complete selection; existing product selection, isolated tests and unknown-input safety remain unchanged.
+- [x] TC-04: Focused registry/selector regression tests and syntax/import checks exit zero after the missing-coverage cases fail on the original code.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                              | Notes                                                                             |
-| ----- | ----------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| TC-01 | Unit        | scripts/harness/**tests**/affected-contract-tests.test.mjs                                   | Exact agent prefixes and unknown-path refusal to narrow.                          |
-| TC-02 | Integration | scripts/harness/**tests**/contract-test-inputs.test.mjs and affected-contract-tests.test.mjs | Real closure, literal file/directory shapes, consumer inclusion and safety floor. |
-| TC-03 | Regression  | scripts/harness/**tests**/affected-contract-tests.test.mjs                                   | Existing complete fallback matrix, product isolation and deterministic partition. |
-| TC-04 | Regression  | Both .test.mjs suites and syntax/import checks                                               | Initial RED then current GREEN; no duplicate full gate per edit.                  |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                                                                                                            | Notes                                                      |
+| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| TC-01 | Unit        | `scripts/harness/__tests__/affected-contract-tests.test.mjs` — describe `affected contract selection`                                                                                                                                      | Exact agent prefixes and unknown-path refusal to narrow.   |
+| TC-02 | Integration | `scripts/harness/__tests__/contract-test-inputs.test.mjs` — describe `contract-test input registry ownership`; `scripts/harness/__tests__/affected-contract-tests.test.mjs` — describe `affected contract selection`                       | Real closure, direct/directory consumers and safety floor. |
+| TC-03 | Regression  | `scripts/harness/__tests__/affected-contract-tests.test.mjs` — describe `affected contract selection`                                                                                                                                      | Complete fallback matrix, product isolation and partition. |
+| TC-04 | Regression  | `scripts/harness/__tests__/contract-test-inputs.test.mjs` — describe `contract-test input registry ownership`; `scripts/harness/__tests__/affected-contract-tests.test.mjs` — describe `affected contract selection`; syntax/import checks | Actual RED then GREEN, no duplicate full gate per edit.    |
 
 ## Delivery Verification Strategy
 
@@ -89,7 +89,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` — created; implementation not begun
+- [x] `.agents/tasks/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` — scoped implementation and verification complete; final delivery gate pending
 
 ## Evidence Log
 
@@ -175,3 +175,134 @@ Not applicable.
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 
 **Judged at:** HEAD `e7a176df8f10` · base `origin/develop@e7a176df8f10` · document `.agents/spec-docs/todo/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` blob `e3645951d25d` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/contract-test-inputs.test.mjs","scripts/harness/__tests__/affected-contract-tests.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/proc034-approved-recovery
+
+·······························
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  18:44:41
+   Duration  5.02s (transform 52ms, setup 0ms, collect 98ms, tests 9.26s, environment 0ms, prepare 51ms)
+
+6:44:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `67481d444934` · base `origin/develop@e7a176df8f10` · document `.agents/spec-docs/todo/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` blob `2fc5c2b0a7c8` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/contract-test-inputs.test.mjs","scripts/harness/__tests__/affected-contract-tests.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/proc034-approved-recovery
+
+·······························
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  18:44:41
+   Duration  5.02s (transform 52ms, setup 0ms, collect 98ms, tests 9.26s, environment 0ms, prepare 51ms)
+
+6:44:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `67481d444934` · base `origin/develop@e7a176df8f10` · document `.agents/spec-docs/todo/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` blob `72e156636bef` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/contract-test-inputs.test.mjs","scripts/harness/__tests__/affected-contract-tests.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/proc034-approved-recovery
+
+·······························
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  18:44:41
+   Duration  5.02s (transform 52ms, setup 0ms, collect 98ms, tests 9.26s, environment 0ms, prepare 51ms)
+
+6:44:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `67481d444934` · base `origin/develop@e7a176df8f10` · document `.agents/spec-docs/todo/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` blob `7c88ab377032` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/contract-test-inputs.test.mjs","scripts/harness/__tests__/affected-contract-tests.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/proc034-approved-recovery
+
+·······························
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  18:44:41
+   Duration  5.02s (transform 52ms, setup 0ms, collect 98ms, tests 9.26s, environment 0ms, prepare 51ms)
+
+6:44:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `67481d444934` · base `origin/develop@e7a176df8f10` · document `.agents/spec-docs/todo/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md` blob `1cadfe80fc62` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-05
+
+**Status remains:** approved
+**Ordering:** L1 combined DONE (supported alias GATE-DONE) follows the existing GATE-PLAN PASS. Current approved status and todo/ location agree. This independent review uses existing execution results only; no test or build was rerun.
+**Failed criteria:**
+
+- GATE-COMPLETE — One of the following is recorded (Test written: test file path + test function/describe name; or Test skipped: explicit reason): TC-01 through TC-03 name files but no test function/describe; TC-04 says only "Both .test.mjs suites", not an exact file/function reference. Existing successful execution does not supply the missing row binding.
+  **Required action:** The author must bind the four Test Plan rows to the already-written tests. Available exact describes are `scripts/harness/__tests__/contract-test-inputs.test.mjs > contract-test input registry ownership` and `scripts/harness/__tests__/affected-contract-tests.test.mjs > affected contract selection`. No implementation or verification rerun is required for this evidence-reference correction.
+- GATE-COMPLETE — Test Plan updated with test references or skip reasons for all TC-N rows: TC-04 lacks an explicit file reference and all rows lack the required function/describe binding above.
+  **Required action:** Complete the same four row references without changing test scope or claiming a new execution.
+
+**Other criteria reviewed:**
+
+- GATE-VERIFY — Every Plan item is complete: PASS — Exact paired Task TC-01 through TC-04 are checked.
+- GATE-VERIFY — No Plan item is blocked/pending: PASS — No pending item in Plan; final delivery verification is explicitly separate.
+- GATE-VERIFY — Build passes for affected packages: PASS — No package/app source is changed. Root's actual existing `node --check scripts/harness/contract-test-owners.mjs` and `node --check scripts/harness/contract-test-inputs.mjs` plus real registry import probe exited 0; this attribution is not a guardian re-execution or full-build claim.
+- GATE-VERIFY — Tests pass for affected packages: PASS — Guardian read `/tmp/infra164-green.log`: 2 files, 31 tests PASS, 5.02s; root observed canonical vitestInvocation exit 0. The prior `/tmp/infra164-red.log` retains 2 failures/29 passes before implementation.
+- GATE-COMPLETE — Every TC checkbox is checked: PASS — Four checked criteria.
+- GATE-COMPLETE — Each TC has exact command/result/exit evidence: PASS — Four GATE-COMPLETE TC entries name the existing invocation, observed 31 PASS and exit 0.
+- GATE-COMPLETE — No TC silently unaddressed: FAIL only for the Test Plan reference omission specified above; no behavioral test failure found.
+- GATE-COMPLETE — Completion Criteria checkboxes all checked: PASS — TC-01 through TC-04.
+- GATE-COMPLETE — Tasks section names exact active Task: PASS — Existing `.agents/tasks/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md`.
+- GATE-COMPLETE — Task is completion-ready: PASS — All four scoped Plan items checked; no blocked item.
+
+**Binding:** HEAD `67481d444934cfed6b7d1a2c4a07a63d80919672`. Guardian independently read matching current SHA256 values: owners `0ced721ffb0e074893f7a40504d51e23b59377cb7374e6ebfe74be2d0a68a8f1`; inputs `d214b15f3d0459275f405d32117b185b6521a90a7c16668532627639cc347223`; input test `eaa64b70e7e82ddfccb9346547fd542b3ba2aac8bfea5d251e020c2263166524`; affected test `734484db21e397146ea7631da3a8ed81e3e166b7d9852dc2485d487054725c51`.
+**Scope:** Product scenario is genuinely not applicable, as the exact Task's author outcome states. Final CI-equivalent verification after completion/receipt closure remains mandatory and is not claimed passed by this scoped review.
+
+### [GATE-DONE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** approved → done
+**Ordering:** L1 prior GATE-PLAN PASS remains present; approved/todo input state is unchanged. The preceding FAIL is preserved. This bounded re-judgement checks the four repaired Test Plan rows against actual test declarations and reuses the unchanged scoped verification evidence above.
+
+- GATE-VERIFY — Every Plan item is marked complete: PASS — Exact Task TC-01 through TC-04 remain checked.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — All scoped Plan work is complete; final delivery verification remains a separate mandatory boundary.
+- GATE-VERIFY — Build passes for all affected packages: PASS — Harness-MJS-only scope, no affected package/app build. Existing two module syntax checks and registry import probe exited 0, attributed to root as recorded in the preceding review.
+- GATE-VERIFY — Tests pass for all affected packages: PASS — Existing canonical vitestInvocation result in `/tmp/infra164-green.log` is 2 files / 31 tests PASS, exit 0; no source/test bytes changed and no test was rerun for this entry.
+- GATE-COMPLETE — The checkbox is checked: PASS — Each TC-01 through TC-04 is checked.
+- GATE-COMPLETE — A GATE-COMPLETE TC-N Evidence Log entry exists with exact command, output and exit: PASS — All four existing entries retain the actual invocation, 31 PASS output and exit 0.
+- GATE-COMPLETE — One of the following is recorded, test path plus test function/describe or explicit skip: PASS — TC-01 and TC-03 now bind `scripts/harness/__tests__/affected-contract-tests.test.mjs > affected contract selection`; TC-02 and TC-04 bind that describe plus `scripts/harness/__tests__/contract-test-inputs.test.mjs > contract-test input registry ownership`. Guardian read both actual describe declarations and matched their spelling.
+- GATE-COMPLETE — No TC-N is silently unaddressed: PASS — All four rows now carry exact existing test references.
+- GATE-COMPLETE — Completion Criteria checkboxes are all checked: PASS — Four of four.
+- GATE-COMPLETE — Test Plan updated with test references or skip reasons for all TC-N rows: PASS — Four of four repaired rows now satisfy the named reference requirement.
+- GATE-COMPLETE — Tasks section names the exact active Task path: PASS — `.agents/tasks/INFRA-164-register-agent-definition-inputs-for-affected-contract-selection.md`.
+- GATE-COMPLETE — Active Task exists and is completion-ready: PASS — Existing exact Task has all scoped Plan items checked and no pending item.
+
+**Disposition:** The sole named FAIL class, Test Plan reference binding, is resolved without implementation changes or verification repetition. Previous execution/hash binding and historical RED remain valid and preserved. This is scoped L1 DONE, not a claim that the later full CI-equivalent delivery gate, receipt closure or remote landing has run. Guardian makes no status/location change.
