@@ -14,7 +14,7 @@ import {
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 describe('contract-test input registry ownership', () => {
-  it('registers agent and hook consumers without owning other Claude inputs', () => {
+  it('registers agent-definition file and directory consumers without owning other Claude inputs', () => {
     const registry = createContractTestRegistry(
       REPO_ROOT,
       classifyHarnessTestFiles(REPO_ROOT).contract,
@@ -24,9 +24,6 @@ describe('contract-test input registry ownership', () => {
       'workspace:governance',
     );
     expect(ownerForRepositoryInput(REPO_ROOT, '.claude/agents')).toBe('workspace:governance');
-    expect(ownerForRepositoryInput(REPO_ROOT, '.claude/hooks/branch-guard.sh')).toBe(
-      'workspace:governance',
-    );
     expect(ownerForRepositoryInput(REPO_ROOT, '.claude/settings.json')).toBeNull();
     expect(ownerForRepositoryInput(REPO_ROOT, '.claude/agents-backup/worker.md')).toBeNull();
     expect(
@@ -42,10 +39,6 @@ describe('contract-test input registry ownership', () => {
         name,
       ).toContain('.claude/agents/**');
     }
-    const hookConsumers = byTest.get(
-      'scripts/harness/__tests__/branch-guard-aliases.test.mjs',
-    )?.repositoryInputs;
-    expect(hookConsumers).toContain('.claude/hooks/branch-guard.sh');
   });
 
   it('registers the complete live contract tier and gives every safety-floor test a reason', () => {

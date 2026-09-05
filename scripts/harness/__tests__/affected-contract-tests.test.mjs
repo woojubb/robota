@@ -245,6 +245,7 @@ describe('affected contract selection', () => {
     [['unknown/unregistered-owner.txt'], 'unknown owner'],
     [['outside-root.txt'], 'unknown owner'],
     [['.claude/settings.json'], 'unknown owner'],
+    [['.claude/hooks/unregistered.sh'], 'unknown owner'],
     [['.claude/agents-backup/worker.md'], 'unknown owner'],
   ])('falls back completely for %j', (changedFiles, reason) => {
     const data = fixture();
@@ -262,28 +263,6 @@ describe('affected contract selection', () => {
       data.contracts.filter((file) => file !== data.files.isolated).sort(),
     );
     expect(result.isolated).toEqual([data.files.isolated]);
-  });
-
-  it('selects registered Claude hook consumers instead of narrowing to the safety floor', () => {
-    const registry = createContractTestRegistry(
-      REPO_ROOT,
-      classifyHarnessTestFiles(REPO_ROOT).contract,
-    );
-    const result = createAffectedContractPlan({
-      root: REPO_ROOT,
-      contractTests: classifyHarnessTestFiles(REPO_ROOT).contract,
-      registry,
-      changedFiles: ['.claude/hooks/branch-guard.sh'],
-    });
-    expect(result.mode).toBe('affected');
-    expect(result.selected).toEqual(
-      expect.arrayContaining([
-        ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
-        `${TEST_ROOT}/branch-guard-aliases.test.mjs`,
-        `${TEST_ROOT}/branch-guard-reads-git-branch.test.mjs`,
-      ]),
-    );
-    expect(result.selected.length).toBeGreaterThan(CONTRACT_SAFETY_FLOOR.length);
   });
 
   it('uses the complete fallback for every contract control-plane input', () => {
