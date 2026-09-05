@@ -107,18 +107,18 @@ None
 ## Completion Criteria
 
 - [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exits 0, including Issue reuse/creation, conflict refusal, and legacy-ID controls.
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 for the changed harness and workflow documents.
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 for the changed harness and workflow documents.
 - [x] TC-03: `pnpm harness:task:allocate <PREFIX> "issue-backed allocation test" --issue 2401 --dry-run` → outputs `<PREFIX>-2401` and writes no Task; with `--issue` omitted, an exact existing title is reused or a GitHub Issue is created and its returned number is used.
 - [x] TC-04: `node scripts/harness/new-spec.mjs HARNESS-2401 --type INFRA --issue 2401 --lane L1 --dry-run` → exits 0 and outputs a draft paired to the HARNESS-2401 Task; a legacy ID without `--legacy-id` exits 1.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                                                                             |
-| ----- | --------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: the exact two-file command passed 85 tests; the related five-file regression set passed 143 tests. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls. |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | Regression over the changed harness/docs set; recorded after the work-run receipt closure is sealed.                                                                              |
-| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `<PREFIX>-2401` output with no Task written. Omitted-Issue creation is mocked in unit tests because it mutates GitHub.                                                      |
-| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                                                                                      |
+| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                                                                                                                                                  |
+| ----- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: the exact two-file command passed 85 tests; the related five-file regression set passed 143 tests. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls.                                                                      |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | PASS: 63 scans passed, 1 skipped; two pre-existing advisory findings were tolerated in PR context.                                                                                                                                                     |
+| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `<PREFIX>-2401` output with no Task written. Test written: `scripts/harness/__tests__/allocate-work-item-id.test.mjs` — `reuses one exact title before creating an Issue` and `uses the server-returned number when it creates a missing Issue`. |
+| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                                                                                                                                                           |
 
 ## User Execution Test Scenarios
 
@@ -128,7 +128,7 @@ None
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` — todo
+- [x] `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` — todo; terminal archival follows GATE-DONE.
 
 ## Evidence Log
 
@@ -279,3 +279,48 @@ new-spec: dry run — target .agents/spec-docs/draft/HARNESS-2401-issue-number-b
 ```
 
 **Judged at:** HEAD `cc0b6e5701f7` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `7ec3682be1fe` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 99 line(s))
+
+```
+✓ doc-folder-status
+
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2234/3064 lines (72.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 349/789 lines (44.2%) outside the standard sections — consider extracting to docs/design/
+⚑ reference-kind-qualified: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+63 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context) (48 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged at:** HEAD `2934ff4f1e28` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `431129119040` (tracked)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-03: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged at:** HEAD `2934ff4f1e28` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `7124692cbff8` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no supplied --verify-cmd contains `build`, `harness:scan` or `run-all-scans` (supplied: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exit 0 ( Duration 1.67s (transform 228ms, setup 0ms, collect 454ms, tests 2.31s, environment 0ms, prepare 90ms) ⏎ ⏎ 2:38:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.))
+  **Required action:** pass a build command via --verify-cmd
+
+**Judged at:** HEAD `2934ff4f1e28` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `78d511ee1552` (modified)

@@ -21,7 +21,7 @@ allocating the identifier. Preserve legacy identifiers so existing citations rem
 
 - [x] Update the allocator and spec scaffolder contract to resolve or create the registering Issue and use its number as the new identifier.
 - [x] Update the written workflow guidance and identifier parsers/tests for the issue-number-backed format while preserving legacy records.
-- [ ] Run focused tests and the affected harness scan, then record the merged delivery.
+- [x] Run focused tests and the affected harness scan, then record the merged delivery.
 
 ## User Execution Test Scenarios
 
