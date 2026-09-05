@@ -86,7 +86,7 @@ function hydrateMissingCommit(oid, commits, loadCommit, loadCommits, remaining) 
   }
   for (const value of loaded) {
     const commit = historicalCommit(value);
-    commits.set(commit.sha, commit);
+    if (commit.sha === oid) commits.set(commit.sha, commit);
   }
   const commit = commits.get(oid);
   if (!commit)
