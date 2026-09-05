@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [harness, governance]
 lane: L1
@@ -65,11 +65,11 @@ Before counting pending receipt changes, exclude only unchanged parent-owned rec
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                      | Notes                                                                                |
-| ----- | ----------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| TC-01 | Integration | `scripts/harness/__tests__/work-run-hook.test.mjs`   | Real Git branches and MERGE_HEAD, four inherited receipts.                           |
-| TC-02 | Integration | `scripts/harness/__tests__/work-run-hook.test.mjs`   | Altered/new/mixed receipt and non-merge controls.                                    |
-| TC-03 | Regression  | Same `work-run-hook.test.mjs` suite and node --check | Observe original RED, fixed GREEN; final full gate after completion/receipt by root. |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                           | Notes                                                                      |
+| ----- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| TC-01 | Integration | `scripts/harness/__tests__/work-run-hook.test.mjs` — `tracked work-run Git hooks > does not treat receipts inherited from a merge parent as new closures` | Real Git branches and MERGE_HEAD, four inherited receipts.                 |
+| TC-02 | Integration | `scripts/harness/__tests__/work-run-hook.test.mjs` — `tracked work-run Git hooks`, including the inherited-receipt test's opposite-path assertions        | Altered/new/mixed receipt and non-merge controls.                          |
+| TC-03 | Regression  | `scripts/harness/__tests__/work-run-hook.test.mjs` — `tracked work-run Git hooks`, and node --check                                                       | Original RED, fixed 15-test GREEN, then final full gate PASS on 573e3e860. |
 
 ## User Execution Test Scenarios
 
@@ -79,7 +79,7 @@ Not applicable.
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` — focused implementation verified; root owns integrated final gate.
+- [x] `.agents/tasks/completed/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` — focused verification, final full gate and remote develop integration passed.
 
 ## Evidence Log
 
@@ -213,3 +213,30 @@ HEAD is now at b048ead chore: base
 ```
 
 **Judged at:** HEAD `8833f601b881` · base `origin/develop@579aca454726` · document `.agents/spec-docs/todo/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` blob `ccacf6965733` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** approved → done
+
+**Guardian:** recover_approved_artifacts, independent of implementation author. Existing actual verification evidence reviewed; no commands rerun for record creation. This entry records the present completion judgment, not a retrospective planning approval.
+
+**Ordering:** PASS — lane L1, current spec status `approved` in `todo/`, with recorded GATE-PLAN PASS and prior DIRECT approval. L1 DONE combines GATE-VERIFY and GATE-COMPLETE criteria.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — exact paired INFRA-165 Task has TC-01, TC-02 and TC-03 checked, 3/3.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — all three planned work items complete; no blocked/pending Plan item.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — native Node ESM harness-only change, no affected product package build. Existing actual `node --check` on both changed modules succeeded (implementation evidence and caller's actual execution report). `/tmp/infra165-verify-like-ci.log` reports affected dist-free scan PASS and product build explicitly N/A; this does not claim a product build ran.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — existing canonical vitestInvocation work-run hook run in `/tmp/infra165-final-green-3.log` has 15/15 tests PASS, exit 0, 14.44 seconds. Final `/tmp/infra165-verify-like-ci.log` reports all 11 stages PASS, including harness-self-test and harness-hermetic-test. Intermediate failures remain preserved; no failed run is relabelled.
+- GATE-COMPLETE — The checkbox is checked (`[x]`): PASS for TC-01, TC-02 and TC-03, individually checked in Completion Criteria.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: PASS for each of TC-01, TC-02 and TC-03 — each existing entry contains the exact canonical vitestInvocation command, actual output and exit 0. Original regression RED is separately retained at `/tmp/infra165-red.log` and shows the ambiguous pending receipt failure before the fix.
+- GATE-COMPLETE — **One of the following is recorded:** PASS for each TC — all three Test Plan rows name `scripts/harness/__tests__/work-run-hook.test.mjs` and the actual `tracked work-run Git hooks` describe; TC-01 additionally names the exact inherited-receipt test. TC-02 opposite-path assertions cover new/changed/mode-changed/deleted receipts and unreadable merge parent; existing ordinary controls remain.
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: PASS — three TC rows, three explicit references, no missing row.
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: PASS — 3/3.
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: PASS — TC-01 through TC-03 have exact file/describe references.
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: PASS — `.agents/tasks/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` exists and is the paired Task.
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: PASS — the exact active Task exists, all three Plan items are checked, and no blocked or pending work remains in its Plan. Archive/status disposition is a post-PASS caller action.
+
+**Evidence binding:** Delivered commit `573e3e860b34684edaeff98a212af76e45c25a05`, prior base `579aca454726eb1eeeb1ccf1602f9bd4207e0808`. Fresh fetch and remote ls-remote independently confirmed delivery to develop, with expected five files and no unrelated changes. Current S2-tree source hashes match that reviewed/delivered implementation: pending-receipt module SHA256 `4e70c8c09be9eb45acf916b6912caae1f2bdb9a5806e355632aeed9063dbd9fc`; hook tests SHA256 `511f6087d79be34bcc6985dc02177bb82f05c2bff7a5d2002cdfaa33bb6b10b9`. Later changes to this item are Test Plan reference clarification and Task Issue #2583 linkage, not executable inputs. Independent code review ACTIONABLE FINDINGS: 0 and MERGE VERIFIED: PASS remain bound to these hashes.
+
+**Product user scenario:** N/A — exact Task records `SCENARIO DRAFTED: not-applicable | 0` for repository-internal Git correlation, not a shipped product surface. No new runtime scenario success is claimed.
+
+**Verdict reason:** All L1 DONE completion and scoped verification criteria are met by actual preserved evidence. This judgment covers INFRA-165 only, not the separate S2 final gate. Status transition, archive and issue closure remain caller-owned.
