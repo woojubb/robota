@@ -14,6 +14,18 @@ commit target even though the maintainer has explicitly authorized direct integr
 updates. This causes a direct `develop` commit to be rejected while `main`/`master` protections
 remain necessary.
 
+## User Execution Test Scenarios
+
+<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
+     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
+     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
+     evidence); otherwise write the scenario a user can run and raise the count. -->
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This changes repository-maintainer workflow enforcement and local Git hooks; it has no
+end-user runtime surface, CLI behavior, SDK contract, or product-facing interaction to execute.
+
 ## Prior Art Research
 
 Waived: this is a repository-local policy alignment with no external product or protocol behavior.
