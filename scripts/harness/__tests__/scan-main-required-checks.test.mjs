@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -7,11 +8,17 @@ import { makeTemp } from './make-temp.mjs';
 
 import {
   DECLARATION_FILE,
+  STRICT_POLICY_KEY,
+  readDeclarationBranch,
+  strictPolicyFindings,
+} from '../required-status-checks-declaration.mjs';
+import {
   declaredBranches,
   findContextNameFindings,
   findRequiredCheckFindings,
   publishedContexts,
   jobConditionProblem,
+  reconcileLiveBranch,
   jobNeeds,
   pullRequestTrigger,
   splitJobSteps,
@@ -564,5 +571,206 @@ describe('a declared context name must be one a workflow actually publishes (iss
       'utf8',
     );
     expect(findContextNameFindings(root)).toEqual([]);
+  });
+});
+
+/**
+ * INFRA-162 (issue #2219) — the STRICT status-check policy ("require branches to be up to date
+ * before merging") was live on both rulesets, declared by nothing, and discarded by the reconciler:
+ * `reconcileLiveBranch` reduced each live `required_status_checks` rule to its contexts, so flipping
+ * the flag in the GitHub UI in either direction produced no finding and `ruleset-drift.yml` reported
+ * success. That is `enforcement-architecture.md` § "Silence is not success" exactly: the reconciler
+ * did not check, and reported as if it had.
+ *
+ * Every case below runs over a FIXTURE live payload — the shape `/rules/branches/{branch}` returns —
+ * so the comparison is proved without `--live` and the offline half stays hermetic.
+ */
+describe('strict status-check policy is declared and reconciled (INFRA-162, issue #2219)', () => {
+  /** The live payload shape, reduced to what this assertion reads. */
+  const livePayload = (parameters) => [
+    { type: 'required_status_checks', parameters },
+    { type: 'non_fast_forward', parameters: null },
+  ];
+  const checks = [{ context: 'build' }];
+
+  it('reports nothing when the declared value and the live value agree', () => {
+    for (const value of [true, false]) {
+      expect(
+        strictPolicyFindings({
+          branchName: 'develop',
+          rules: livePayload({
+            required_status_checks: checks,
+            strict_required_status_checks_policy: value,
+          }),
+          branch: { strict_required_status_checks_policy: value },
+        }),
+      ).toEqual([]);
+    }
+  });
+
+  it.each([
+    ['declared false, live true', false, true],
+    ['declared true, live false', true, false],
+  ])('is RED on disagreement in each direction (%s)', (_name, declared, live) => {
+    const findings = strictPolicyFindings({
+      branchName: 'develop',
+      rules: livePayload({
+        required_status_checks: checks,
+        strict_required_status_checks_policy: live,
+      }),
+      branch: { strict_required_status_checks_policy: declared },
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain(`declares \`${STRICT_POLICY_KEY}: ${declared}\``);
+    expect(findings[0].detail).toContain(`the LIVE ruleset holds \`${live}\``);
+    expect(findings[0].detail).toContain('develop');
+  });
+
+  // TC-03: unknown is not `false`. Each shape below would silently have read as "strict is off"
+  // under any `?? false` default, which is the same silence the scan exists to break.
+  it.each([
+    [
+      'the rule parameters carry no strict key',
+      livePayload({ required_status_checks: checks }),
+      /carries no `strict_required_status_checks_policy`/,
+    ],
+    [
+      'the live read returns no required_status_checks rule at all',
+      [{ type: 'non_fast_forward', parameters: null }],
+      /no `required_status_checks` rule/,
+    ],
+    [
+      'the rule parameters are null',
+      [{ type: 'required_status_checks', parameters: null }],
+      /carries no `strict_required_status_checks_policy`/,
+    ],
+    [
+      'the strict value is not a boolean',
+      livePayload({
+        required_status_checks: checks,
+        strict_required_status_checks_policy: 'false',
+      }),
+      /is not a boolean/,
+    ],
+  ])('refuses rather than defaulting when %s', (_name, rules, pattern) => {
+    const findings = strictPolicyFindings({
+      branchName: 'main',
+      rules,
+      branch: { strict_required_status_checks_policy: false },
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toMatch(pattern);
+  });
+
+  it('refuses a declaration that omits the key, rather than assuming a value', () => {
+    const findings = strictPolicyFindings({
+      branchName: 'develop',
+      rules: livePayload({
+        required_status_checks: checks,
+        strict_required_status_checks_policy: false,
+      }),
+      branch: { required_status_checks: checks },
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain(DECLARATION_FILE);
+    expect(findings[0].detail).toContain(STRICT_POLICY_KEY);
+  });
+});
+
+/**
+ * INFRA-162 TC-01 — the tracked declaration itself, not a fixture. The value declared MUST be the
+ * value the ruleset held when it was declared (`develop` `false`, `main` `true`, measured with
+ * `gh api repos/woojubb/robota/rules/branches/<branch>` on 2026-09-05): declaring the value someone
+ * would prefer makes the first `--live` run red about a setting nobody agreed to change. A branch
+ * that omits the key or its reason is exactly the silence this unit exists to end.
+ */
+describe('the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01)', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+
+  it.each([
+    ['develop', false],
+    ['main', true],
+  ])('declares `%s` with the measured value %s and a stated reason', (branchName, measured) => {
+    const branch = readDeclarationBranch(REPO_ROOT, branchName);
+    expect(branch).not.toBeNull();
+    expect(branch[STRICT_POLICY_KEY]).toBe(measured);
+    expect(typeof branch.strict_policy_why).toBe('string');
+    expect(branch.strict_policy_why.length).toBeGreaterThan(50);
+    expect(branch.strict_policy_why).toContain('INFRA-162');
+  });
+
+  it('refuses a missing declaration file rather than reading it as "no branch declared"', () => {
+    const root = makeTemp('rsc-decl-missing-');
+    expect(() => readDeclarationBranch(root, 'develop')).toThrow(/is missing/);
+  });
+
+  it('returns null for a branch the declaration does not carry, so the strict assertion can name it', () => {
+    const root = makeTemp('rsc-decl-nobranch-');
+    mkdirSync(path.join(root, '.github'), { recursive: true });
+    writeFileSync(
+      path.join(root, DECLARATION_FILE),
+      JSON.stringify({ branches: { develop: { required_status_checks: [{ context: 'build' }] } } }),
+    );
+    expect(readDeclarationBranch(root, 'main')).toBeNull();
+    const findings = strictPolicyFindings({
+      branchName: 'main',
+      rules: [
+        {
+          type: 'required_status_checks',
+          parameters: {
+            required_status_checks: [{ context: 'build' }],
+            strict_required_status_checks_policy: true,
+          },
+        },
+      ],
+      branch: readDeclarationBranch(root, 'main'),
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain('declares no `branches.main`');
+  });
+});
+
+// The pure `strictPolicyFindings` tests above stay green even if `reconcileLiveBranch` never calls
+// it — a check installed in the wiring slot that cannot go red is the defect one layer up. These
+// drive the reconciler itself with an injected live payload, so removing the call fails them.
+describe('the live reconciler actually consults the strict policy (INFRA-162 wiring)', () => {
+  function declarationRoot(strict) {
+    const root = makeTemp('strict-wiring-');
+    mkdirSync(path.dirname(path.join(root, DECLARATION_FILE)), { recursive: true });
+    writeFileSync(
+      path.join(root, DECLARATION_FILE),
+      JSON.stringify({
+        branches: {
+          develop: {
+            required_status_checks: [{ context: 'build' }],
+            [STRICT_POLICY_KEY]: strict,
+            strict_policy_why: 'declared for this fixture',
+          },
+        },
+      }),
+    );
+    return root;
+  }
+
+  const liveRules = (strict) => () => [
+    {
+      type: 'required_status_checks',
+      parameters: {
+        required_status_checks: [{ context: 'build' }],
+        strict_required_status_checks_policy: strict,
+      },
+    },
+  ];
+
+  it('reports nothing when the live flag matches what the declaration records', () => {
+    const findings = reconcileLiveBranch(declarationRoot(false), 'develop', liveRules(false));
+    expect(findings).toEqual([]);
+  });
+
+  it('reports the disagreement when the live flag has moved away from the declaration', () => {
+    const findings = reconcileLiveBranch(declarationRoot(false), 'develop', liveRules(true));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].context).toContain('strict policy');
+    expect(findings[0].detail).toMatch(/true/);
   });
 });

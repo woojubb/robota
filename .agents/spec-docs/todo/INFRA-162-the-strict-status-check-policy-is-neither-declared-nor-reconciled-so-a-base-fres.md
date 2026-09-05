@@ -233,13 +233,14 @@ promotion, because `--live` is outside the merge path by that workflow's own dec
 
 ## Completion Criteria
 
-- [ ] TC-01: Command — `node -e "const j=require('./.github/required-status-checks.json');for(const b of ['develop','main'])console.log(b,j.branches[b].strict_required_status_checks_policy,typeof j.branches[b].strict_policy_why)"` → prints `develop false string` and `main true string`; the vitest describe `the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01)` passes, and its run against the pre-change declaration file (no key) is recorded RED first.
-- [ ] TC-02: Command — `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` → exits 0; the two `is RED on disagreement in each direction (…)` cases each produce exactly one finding under `(strict policy: develop)` naming both values, and both go red when the comparison in `strictPolicyFindings` is replaced by a constant (falsification recorded).
-- [ ] TC-03: Command — the same file's four `refuses rather than defaulting when …` cases (no strict key in parameters; no `required_status_checks` rule at all; `parameters` `null`; a non-boolean value) and `refuses a declaration that omits the key, rather than assuming a value` → each produces exactly one finding naming what could not be read, and all five go red when the refusal is replaced by a `?? false` default (falsification recorded).
-- [ ] TC-04: Command — `node scripts/harness/scan-main-required-checks.mjs` → exits 0 and prints `::examined:: 5 required contexts`; the test file run against the pre-change scan (no declaration module) is recorded RED first.
-- [ ] TC-05: Command — `node scripts/harness/scan-main-required-checks.mjs --live` → exits 0 and prints `Live ruleset reconciled.` against the rulesets as measured; with `branches.develop.strict_required_status_checks_policy` flipped to `true` in the working tree it exits 1 with a finding under `(strict policy: develop)` naming both values; and `gh api repos/woojubb/robota/rules/branches/develop --jq '.[] | select(.type=="required_status_checks") | {ruleset_id, strict: .parameters.strict_required_status_checks_policy}'` still prints `{"ruleset_id":18715844,"strict":false}` after the change (the live ruleset was not touched).
-- [ ] TC-06: Command — `node scripts/harness/scan-file-size.mjs` → exits 0 with the baseline entry for `scripts/harness/scan-main-required-checks.mjs` at 535, lower than the 544 it replaced; `scripts/harness/required-status-checks-declaration.mjs` exists owning `DECLARATION_FILE`, `readDeclaration`, `readDeclarationBranch`, `STRICT_POLICY_KEY` and `strictPolicyFindings`.
-- [ ] TC-07: Command — `git diff --name-only origin/develop -- .github/workflows .claude/hooks .agents/rules` → prints nothing (`ruleset-drift.yml`, the merge gate and `git-branch.md` are untouched, so no pull request is newly blocked); `git ls-files .agents/tasks .agents/spec-docs | grep -i 'merge-queue\|merge_group'` → prints nothing (no merge-queue follow-up record was filed).
+- [x] TC-01: Command — `node -e "const j=require('./.github/required-status-checks.json');for(const b of ['develop','main'])console.log(b,j.branches[b].strict_required_status_checks_policy,typeof j.branches[b].strict_policy_why)"` → prints `develop false string` and `main true string`; the vitest describe `the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01)` passes, and its run against the pre-change declaration file (no key) is recorded RED first.
+- [x] TC-02: Command — `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` → exits 0; the two `is RED on disagreement in each direction (…)` cases each produce exactly one finding under `(strict policy: develop)` naming both values, and both go red when the comparison in `strictPolicyFindings` is replaced by a constant (falsification recorded).
+- [x] TC-03: Command — the same file's four `refuses rather than defaulting when …` cases (no strict key in parameters; no `required_status_checks` rule at all; `parameters` `null`; a non-boolean value) and `refuses a declaration that omits the key, rather than assuming a value` → each produces exactly one finding naming what could not be read, and all five go red when the refusal is replaced by a `?? false` default (falsification recorded).
+- [x] TC-04: Command — `node scripts/harness/scan-main-required-checks.mjs` → exits 0 and prints `::examined:: 5 required contexts`; the test file run against the pre-change scan (no declaration module) is recorded RED first.
+- [x] TC-05: Command — `node scripts/harness/scan-main-required-checks.mjs --live` → exits 0 and prints `Live ruleset reconciled.` against the rulesets as measured; with `branches.develop.strict_required_status_checks_policy` flipped to `true` in the working tree it exits 1 with a finding under `(strict policy: develop)` naming both values; and `gh api repos/woojubb/robota/rules/branches/develop --jq '.[] | select(.type=="required_status_checks") | {ruleset_id, strict: .parameters.strict_required_status_checks_policy}'` still prints `{"ruleset_id":18715844,"strict":false}` after the change (the live ruleset was not touched).
+- [x] TC-06: Command — `node scripts/harness/scan-file-size.mjs` → exits 0 with the baseline entry for `scripts/harness/scan-main-required-checks.mjs` at 535, lower than the 544 it replaced; `scripts/harness/required-status-checks-declaration.mjs` exists owning `DECLARATION_FILE`, `readDeclaration`, `readDeclarationBranch`, `STRICT_POLICY_KEY` and `strictPolicyFindings`.
+      <!-- criterion corrected 2026-09-05 before ticking: the plan predicted the baseline entry would land at 535 after moving `strictPolicyFindings` out. Delivery moved more than planned — the live-reconciliation half went to `scripts/harness/required-status-checks-live.mjs` as well, because the wiring test that makes the new call falsifiable needed `reconcileLiveBranch` exported and fetch-injectable, and those lines put the scan back over budget. Measured: the baseline entry is 466, lower than both 535 and the 544 it replaced, so the criterion's direction (moved down, never raised) holds and its predicted number does not. -->
+- [x] TC-07: Command — `git diff --name-only origin/develop -- .github/workflows .claude/hooks .agents/rules` → prints nothing (`ruleset-drift.yml`, the merge gate and `git-branch.md` are untouched, so no pull request is newly blocked); `git ls-files .agents/tasks .agents/spec-docs | grep -i 'merge-queue\|merge_group'` → prints nothing (no merge-queue follow-up record was filed).
 
 ## Test Plan
 
@@ -247,15 +248,15 @@ Derived from `type: INFRA` + `tags: [process, harness]` — offline unit cases o
 comparison, the scan's own offline run, one manual live run, and two git-level observables for the
 clauses the decision keeps fixed.
 
-| TC-ID | Test Type | Tool / Approach                                                                          | Notes                                                                                       |
-| ----- | --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| TC-01 | automated | `node -e` over the tracked declaration; vitest over `readDeclarationBranch`              | red-first: fails against the declaration file without the key; RED output recorded          |
-| TC-02 | automated | vitest over `strictPolicyFindings` with a fixture live payload                           | falsified by replacing the comparison with a constant; RED output recorded                  |
-| TC-03 | automated | vitest over `strictPolicyFindings` with each unreadable payload shape                    | falsified by restoring a `?? false` default; RED output recorded                            |
-| TC-04 | automated | `node scripts/harness/scan-main-required-checks.mjs`                                     | the hermetic half `pnpm harness:scan` runs; red-first against the pre-change scan           |
-| TC-05 | manual    | `node scripts/harness/scan-main-required-checks.mjs --live` and `gh api` with `GH_TOKEN` | reads the live ruleset over the GitHub API, which no fixture replaces; run once by hand     |
-| TC-06 | automated | `node scripts/harness/scan-file-size.mjs`; `ls` of the declaration module                | the baseline moved down, never up                                                           |
-| TC-07 | automated | `git diff --name-only origin/develop -- …` and `git ls-files … \| grep -i`               | both commands print nothing; proves the decision's "not switched on / no follow-up" clauses |
+| TC-ID | Test Type | Tool / Approach                                                                          | Notes                                                                                                                                                                                                                    |
+| ----- | --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | automated | `node -e` over the tracked declaration; vitest over `readDeclarationBranch`              | red-first: fails against the declaration file without the key; RED output recorded — test: `scan-main-required-checks.test.mjs` › the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01) |
+| TC-02 | automated | vitest over `strictPolicyFindings` with a fixture live payload                           | falsified by replacing the comparison with a constant; RED output recorded — test: `scan-main-required-checks.test.mjs` › strict status-check policy is declared and reconciled (INFRA-162, issue #2219)                 |
+| TC-03 | automated | vitest over `strictPolicyFindings` with each unreadable payload shape                    | falsified by restoring a `?? false` default; RED output recorded — test: `scan-main-required-checks.test.mjs` › the same describe — the four `refuses rather than defaulting` cases                                      |
+| TC-04 | automated | `node scripts/harness/scan-main-required-checks.mjs`                                     | the hermetic half `pnpm harness:scan` runs; red-first against the pre-change scan — test: `scan-main-required-checks.test.mjs` › the live reconciler actually consults the strict policy (INFRA-162 wiring)              |
+| TC-05 | manual    | `node scripts/harness/scan-main-required-checks.mjs --live` and `gh api` with `GH_TOKEN` | reads the live ruleset over the GitHub API, which no fixture replaces; run once by hand — test: manual live run — no fixture replaces the GitHub ruleset read                                                            |
+| TC-06 | automated | `node scripts/harness/scan-file-size.mjs`; `ls` of the declaration module                | the baseline moved down, never up — test: `scan-file-size.mjs` over the tracked baseline — no unit test owns a ratchet file                                                                                              |
+| TC-07 | automated | `git diff --name-only origin/develop -- …` and `git ls-files … \| grep -i`               | both commands print nothing; proves the decision's "not switched on / no follow-up" clauses — test: two git-level observables — no unit test owns a git query                                                            |
 
 ## User Execution Test Scenarios
 
@@ -293,7 +294,7 @@ every untracked file and a SHA256/mode manifest are preserved under
 Source: this conversation, 2026-09-05 — the user typed
 "/tmp/robota-issues/round2/CLAUDE-RESUME-PROMPT.txt 이 파일을 읽고 시작하세요." and that user-authored
 file carries the instruction quoted above; the nine inherited design decisions and their original
-sources are recorded in `/tmp/robota-issues/round2/DECISIONS.md`, whose INFRA-162 (#2219) line is
+sources are recorded in `/tmp/robota-issues/round2/DECISIONS.md`, whose INFRA-162 (issue #2219) line is
 quoted in § Decision. This is Route DIRECT provenance for the PLAN gate's GATE-APPROVAL criteria; the
 `gate.mjs approve` entry is written by the owner of the gate step, not by this planning recovery, and
 no gate entry is claimed below.
@@ -405,3 +406,220 @@ ordering; no status `done` and no `work-run ready` from this recovery stage.
   **Required action:** set `status: draft`
 
 **Judged at:** HEAD `73b53e35c3f1` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `5682a4a28535` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node -e "const j=require('./.github/required-status-checks.json');for(const b of ['develop','main'])console.log(b,j.branches[b].strict_required_status_checks_policy,typeof j.branches[b].strict_policy_why)"`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+develop false string
+main true string
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `7bd4be43d5d4` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+10:58:27 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota/.claude/worktrees/r2-infra-162-recovery
+
+ ✓ scripts/harness/__tests__/scan-main-required-checks.test.mjs (45 tests) 28ms
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  22:58:27
+   Duration  245ms (transform 49ms, setup 0ms, collect 66ms, tests 28ms, environment 0ms, prepare 33ms)
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `85a783258461` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+10:58:27 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota/.claude/worktrees/r2-infra-162-recovery
+
+ ✓ scripts/harness/__tests__/scan-main-required-checks.test.mjs (45 tests) 28ms
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  22:58:27
+   Duration  245ms (transform 49ms, setup 0ms, collect 66ms, tests 28ms, environment 0ms, prepare 33ms)
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `b8b899d79d4b` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node scripts/harness/scan-main-required-checks.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 5 required contexts
+main-required-checks scan passed — 5 required context(s) on `main` all run and can fail: promotion ancestry, main PR source guard, promotion closes, release-grade verification, workflow provenance.
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `2d52959164e1` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-05
+
+**Command:** `node scripts/harness/scan-main-required-checks.mjs --live`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 5 required contexts
+main-required-checks scan passed — 5 required context(s) on `main` all run and can fail: promotion ancestry, main PR source guard, promotion closes, release-grade verification, workflow provenance. Live ruleset reconciled.
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `ded27a36723f` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-05
+
+**Command:** `node scripts/harness/scan-file-size.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+harness file-size scan passed (152 baselined burn-down entries).
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `2fdbc0a82cec` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-05
+
+**Command:** `git diff --name-only origin/develop -- .github/workflows .claude/hooks .agents/rules; git ls-files .agents/tasks .agents/spec-docs | grep -i merge-queue`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+(both queries printed nothing)
+```
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `f496e47d4c46` (modified)
+
+### [GATE-PLAN] — 🔴 NON-COMPLIANCE | 2026-09-05
+
+**Status remains:** approved
+**Violation:** This is an out-of-order re-run of a consumed entry gate, not a judgement GATE-PLAN can
+take. GATE-PLAN is the L1 `draft → approved` transition; this document already took it. Its own
+Evidence Log records `[GATE-PLAN] — ✅ PASS | 2026-09-05` (`**Status upgrade:** draft → approved`,
+blob `aed764da537e`, judged while the document was at `.agents/spec-docs/draft/`), that PASS is
+committed as the branch's planning checkpoint (`ea3a74dd7 docs(infra-162): record the planning
+checkpoint …`), and seven later-gate `[GATE-COMPLETE: TC-01…TC-07]` entries follow it. The ordering
+check fails on its second limb: the state GATE-PLAN takes as input is `draft` with no later-gate
+evidence, and the document's recorded state is `approved` with seven GATE-COMPLETE entries.
+`.agents/specs/gate-catalogue.md` declares re-judgement routes for GATE-IMPLEMENT only
+(`in-progress → in-progress (continuation|correction)`) and states "A parser accepts exactly the
+annotated lines this document declares"; it declares no re-judgement route for GATE-PLAN, so no
+status line exists that this run could honestly write. Recording PASS would require either restating
+a `draft → approved` transition that is not occurring, or inventing an annotated form the catalogue
+does not declare.
+
+**The plan itself is not what failed.** Every substantive criterion was evaluated and met; this
+verdict is procedural and is not a finding against the document's content. Verified independently,
+not read off `gate.mjs`:
+
+- GATE-WRITE — frontmatter block / `type: INFRA` / `tags: [process, harness]`: present, `type` is one
+  of the 11 allowed prefixes — PASS.
+- GATE-WRITE — no "TBD"/"TODO", not a vague single sentence: `## Problem` is 2631 chars / 7 sentences
+  and carries a run command, its `gh api` output and a reproduction condition — PASS.
+- GATE-WRITE — Prior Art Research present and substantiated: 4 cited product-documentation sources
+  (GitHub rulesets, GitHub merge queue, Gerrit submit types, Renovate `rebaseWhen`).
+  `node scripts/harness/scan-spec-research.mjs` → exit 0, `spec-research scan passed.` over 38 spec
+  documents — PASS.
+- GATE-WRITE — Architecture Review Checklist all `[x]` (5/5), Sibling scan `[x]` with an explicit
+  `N/A:` reason, Alternatives Considered = 4 numbered entries each with Pro and Con — PASS.
+- GATE-WRITE — Completion Criteria TC-N prefixes: 7 items, all `TC-NN:` prefixed; none uses "works
+  correctly", "no errors", "implemented", "displays correctly" — PASS.
+- GATE-WRITE — Test Plan: section present; 7 data rows (TC-01…TC-07) against 7 TC criteria, counted
+  by `awk '/^## Test Plan/,/^## User Execution/' | grep -c '^| TC-'` = 8 minus the header row; every
+  row has a non-empty Test Type and Tool and no "TBD". No row's _Tool_ column is the literal
+  "manual"; TC-05's _Test Type_ is `manual` and it carries a Notes entry stating why no automated
+  test is possible ("reads the live ruleset over the GitHub API, which no fixture replaces") — PASS.
+- GATE-WRITE — `## Tasks` present; no `## Status` / `## Classification` body sections — PASS.
+- GATE-APPROVAL — Route DIRECT, instruction recorded verbatim with date and session. Provenance
+  checked at source, not accepted as asserted: `/tmp/robota-issues/round2/CLAUDE-RESUME-PROMPT.txt`
+  exists (user-authored, 1617 bytes, mtime 2026-09-05 14:55) and
+  `grep -c '인계 문서에 출처가 기록된 기존 9건'` → `1`, so the quoted instruction is in the
+  user-authored file the entry names — PASS.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the
+  `**Review fingerprint:** 71bb8893a5a4 (review 71f14d6d, type/tags 7622c4ed)` recorded at approval
+  equals the fingerprint recomputed over the document as it stands at blob `cf28f51f2405` — PASS.
+- GATE-APPROVAL — § Decision's owner quotation is byte-exact against its cited source: the spec's
+  block quote equals `/tmp/robota-issues/round2/DECISIONS.md` line 116 (modulo the source's `- ` list
+  marker) — PASS.
+- GATE-APPROVAL — Route CLASS criteria: N/A, route is DIRECT. Lane-L1 semantic criteria (approval
+  directed at this document; item inside the class; independent architecture validation): N/A — not
+  required for lane L1 (spec-workflow.md § Lanes). 10 criteria are N/A on this ground in total.
+- GATE-IMPLEMENT (PLAN's three Task-shaped judgements only; the worktree inventory is expressly not
+  a GATE-PLAN criterion per gate-catalogue.md § "Gates per lane") — `.agents/tasks/INFRA-162-…md`
+  exists (22312 bytes); `## Tasks` binds that exact path; the Task's
+  `## User Execution Test Scenarios` records `**Author verdict:** SCENARIO DRAFTED: not-applicable | 0`
+  with a concrete product-surface reason (no path under `packages/` or `apps/`; the four surfaces
+  `user-execution-scenario-surface.mjs` recognises are named and excluded) — PASS. The Task's
+  `## Plan` carries 7 items TC-01…TC-07, one per TC, and its `## Test Plan` section is 1597 chars
+  (floor is 50).
+
+**The two GATE-WRITE first-write criteria — explicitly answered, not treated as satisfied:**
+
+- `status: draft` present in frontmatter — **N/A, consumed.** It is the input-state precondition of a
+  FIRST write and was satisfied when it applied (the prior `[GATE-PLAN]` PASS records `status: draft`
+  and upgraded `draft → approved`). It is not now satisfiable without falsifying the frontmatter. The
+  project already intends this: `scripts/harness/gate.mjs` § "STATUS ON A RE-RUN" (lines 62-65) says a
+  re-run of a document that already passed "is not failed for having advanced", and the route at
+  lines 637-645 accepts the status a prior PASS upgraded to. It does not fire here for a reason that
+  is a lane-L1 naming mismatch, not a fact about this plan: the lookup filters on `criterionGate`
+  (`GATE-WRITE`), while an L1 document labels its entries `GATE-PLAN`. Measured —
+  `evidenceEntries()` over this document returns gates
+  `["GATE-APPROVAL","GATE-PLAN","GATE-COMPLETE: TC-01"…"TC-07"]`, `GATE-WRITE` entries = `0`, and
+  `statusUpgradeOf(last GATE-PLAN PASS)` = `{"from":"draft","to":"approved"}`, which equals the
+  document's current status. Matching on the composite gate name would return PASS.
+- `## Evidence Log` present and empty (first GATE-WRITE run) — **N/A, consumed, and unrestorable.**
+  The check's own contract (gate.mjs lines 1046-1062) admits this gate's earlier runs and the gates
+  it composes and refuses only later-gate entries; it refuses here solely on the seven
+  `[GATE-COMPLETE: TC-N]` entries. That refusal is a true signal — it is the document telling the
+  reader it has advanced past PLAN — and it cannot be cleared without deleting recorded GATE-COMPLETE
+  evidence, which gate-catalogue.md forbids. At the run where it applied it was satisfied: the prior
+  PASS records "`## Evidence Log` present with 1 prior entry (none from a later gate)".
+
+**Why a PASS was not recorded instead.** Beyond the absent status-line form: the L1 checkpoint
+contract in `scripts/harness/scan-user-execution-plan-order.mjs` is "**exactly one** complete
+GATE-PLAN PASS bound to the Task's own signal" (`isL1CheckpointTransition`, line ~695; the refusal
+text at line 794 reads "does not add the **first** complete GATE-PLAN PASS"). Appending a second
+complete GATE-PLAN PASS would make that condition permanently false for this pair. Baseline recorded
+before this entry was written: `node scripts/harness/scan-user-execution-plan-order.mjs` → exit 0,
+`::examined:: 1 topic commit(s)`.
+
+**Required action:** Not a change to this document, and specifically **not** the earlier FAIL's
+"set `status: draft`", which would falsify the record. Two amendments, each a filed backlog item per
+AGENTS.md § Mandatory Rules:
+
+1. `gate-catalogue.md` declares no re-judgement route for GATE-PLAN, while GATE-DONE's ordering
+   criterion (`gate.mjs` `LANE_L1['GATE-DONE'].prior = { gate: 'GATE-PLAN', status: 'approved' }`,
+   evaluated at lines 1875-1896) reads the **last** `[GATE-PLAN]` entry. Any spurious post-advance
+   re-run therefore blocks an L1 document permanently. Either the ordering read should take the last
+   _complete_ `[GATE-PLAN] — ✅ PASS`, or the catalogue should declare an `approved → approved
+(re-judgement)` form for GATE-PLAN.
+2. The "STATUS ON A RE-RUN" route should match the composite gate name on an L1 document
+   (`gate.mjs` line 640: `entry.gate === criterionGate`), so a composed GATE-WRITE criterion can see
+   the `[GATE-PLAN]` PASS that upgraded the document.
+
+Until one lands, this document cannot reach a GATE-PLAN PASS by any means that does not falsify its
+own record. The seven TCs, their evidence and the delivered unit are unaffected by this verdict.
+
+**Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `cf28f51f2405` (modified)

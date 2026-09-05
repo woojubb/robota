@@ -127,27 +127,27 @@ new completion. The settled owner decision this Plan reflects is option A: decla
 Completion Criteria one-to-one; TC-07 carries the two decision clauses ("develop is not switched on",
 "no merge-queue follow-up") that the preserved Plan predated.
 
-- [ ] TC-01 — Declare the value each ruleset holds today.
+- [x] TC-01 — Declare the value each ruleset holds today.
       `node -e "const j=require('./.github/required-status-checks.json');for(const b of ['develop','main'])console.log(b,j.branches[b].strict_required_status_checks_policy,typeof j.branches[b].strict_policy_why)"`
       prints `develop false string` and `main true string`; the vitest describe
       `the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01)` passes,
       and its run against the pre-change declaration file (no key) is recorded RED first.
-- [ ] TC-02 — Reconcile the flag beside the contexts.
+- [x] TC-02 — Reconcile the flag beside the contexts.
       `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` exits 0;
       the two `is RED on disagreement in each direction (…)` cases each produce exactly one finding
       under `(strict policy: develop)` naming both values, and both go red when the comparison in
       `strictPolicyFindings` is replaced by a constant (falsification recorded).
-- [ ] TC-03 — Refuse rather than default when the flag cannot be read on either side.
+- [x] TC-03 — Refuse rather than default when the flag cannot be read on either side.
       The four `refuses rather than defaulting when …` cases (no strict key in parameters; no
       `required_status_checks` rule at all; `parameters` `null`; a non-boolean value) and
       `refuses a declaration that omits the key, rather than assuming a value` each produce exactly
       one finding naming what could not be read, and all five go red when the refusal is replaced by
       a `?? false` default (falsification recorded).
-- [ ] TC-04 — Keep the hermetic half green.
+- [x] TC-04 — Keep the hermetic half green.
       `node scripts/harness/scan-main-required-checks.mjs` exits 0 and prints
       `::examined:: 5 required contexts`; the TC-04 test file run against the pre-change scan (no
       declaration module) is recorded RED first.
-- [ ] TC-05 — Reconcile live, with the ruleset unchanged.
+- [x] TC-05 — Reconcile live, with the ruleset unchanged.
       `node scripts/harness/scan-main-required-checks.mjs --live` exits 0 and prints
       `Live ruleset reconciled.` against the rulesets as measured; with
       `branches.develop.strict_required_status_checks_policy` flipped to `true` in the working tree
@@ -155,12 +155,13 @@ Completion Criteria one-to-one; TC-07 carries the two decision clauses ("develop
       `gh api repos/woojubb/robota/rules/branches/develop --jq '.[] | select(.type=="required_status_checks") | {ruleset_id, strict: .parameters.strict_required_status_checks_policy}'`
       still prints `{"ruleset_id":18715844,"strict":false}` after the change (the live ruleset was
       not touched).
-- [ ] TC-06 — Stay under the `file-size` budget by moving, not by raising.
+- [x] TC-06 — Stay under the `file-size` budget by moving, not by raising.
       `node scripts/harness/scan-file-size.mjs` exits 0 with the baseline entry for
       `scripts/harness/scan-main-required-checks.mjs` at 535, lower than the 544 it replaced, and
       `scripts/harness/required-status-checks-declaration.mjs` exists owning `DECLARATION_FILE`,
       `readDeclaration`, `readDeclarationBranch`, `STRICT_POLICY_KEY` and `strictPolicyFindings`.
-- [ ] TC-07 — Change nothing the decision keeps fixed.
+      <!-- criterion corrected 2026-09-05 before ticking: the plan predicted the baseline entry would land at 535 after moving `strictPolicyFindings` out. Delivery moved more than planned — the live-reconciliation half went to `scripts/harness/required-status-checks-live.mjs` as well, because the wiring test that makes the new call falsifiable needed `reconcileLiveBranch` exported and fetch-injectable, and those lines put the scan back over budget. Measured: the baseline entry is 466, lower than both 535 and the 544 it replaced, so the criterion's direction (moved down, never raised) holds and its predicted number does not. -->
+- [x] TC-07 — Change nothing the decision keeps fixed.
       `git diff --name-only origin/develop -- .github/workflows .claude/hooks .agents/rules` prints
       nothing (`ruleset-drift.yml`, the merge gate and `git-branch.md` are untouched, so no pull
       request is newly blocked), and `git ls-files .agents/tasks .agents/spec-docs | grep -i 'merge-queue\|merge_group'`
@@ -224,7 +225,7 @@ from `/tmp/robota-issues/round2/DECISIONS.md`:
 > 대조(fail-closed), develop 은 켜지 않음. 머지 큐 후속은 만들지 않음(사용자 소유 저장소 불가); 잔여
 > 위험은 후일 B vs C.
 
-(`INFRA-158` there is the superseded label for this same item, #2219 — see "Why this record is
+(`INFRA-158` there is the superseded label for this same item, issue #2219 — see "Why this record is
 `INFRA-162`" above; it is not the other item that holds `INFRA-158` today.) The decision brief with
 the prior art and the throughput measurement behind it is
 `/tmp/robota-issues/round2/decisions/INFRA-158-strict.md`. The paired spec § "Decision" records the
@@ -292,7 +293,7 @@ manifest are preserved at `/tmp/robota-issues/round2/impl2/INFRA-162/` (`plan-pr
 Source: this conversation, 2026-09-05 — the user typed
 "/tmp/robota-issues/round2/CLAUDE-RESUME-PROMPT.txt 이 파일을 읽고 시작하세요." and that user-authored
 file carries the instruction quoted above; the nine inherited design decisions and their original
-sources are recorded in `/tmp/robota-issues/round2/DECISIONS.md`, whose INFRA-162 (#2219) line is
+sources are recorded in `/tmp/robota-issues/round2/DECISIONS.md`, whose INFRA-162 (issue #2219) line is
 quoted in § "Decision" above. This is Route DIRECT provenance for the PLAN gate's GATE-APPROVAL
 criteria; the `gate.mjs approve` entry itself is written by the owner of the gate step, not by this
 planning recovery.
