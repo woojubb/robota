@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -46,7 +46,7 @@ describe.runIf(process.platform === 'linux')(
     let projectMutation: IWorkspaceProjectMutation;
 
     beforeEach(async () => {
-      cwd = mkdtempSync(join(tmpdir(), 'sec-020-init-'));
+      cwd = realpathSync(mkdtempSync(join(tmpdir(), 'sec-020-init-')));
       projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
       projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {
         status: 'approved',

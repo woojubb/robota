@@ -9,7 +9,7 @@
  * EXPLICIT failure in the command result — never a silent skip.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -122,7 +122,7 @@ describe('CMD-004 Stage D — programmatic driver surface (no adapters wired)', 
   let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-parity-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-parity-')));
   });
   afterEach(async () => {
     await driver?.stop();

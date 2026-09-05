@@ -9,7 +9,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-transport';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,7 +32,7 @@ import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-devic
  */
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(mkdtempSync(join(tmpdir(), 'robota-rc-registry-')), 'settings.json'),
+    join(realpathSync(mkdtempSync(join(tmpdir(), 'robota-rc-registry-'))), 'settings.json'),
   );
 }
 

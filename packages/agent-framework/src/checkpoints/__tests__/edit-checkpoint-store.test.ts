@@ -6,6 +6,7 @@ import {
   unlinkSync,
   writeFileSync,
   mkdtempSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,7 +51,7 @@ describe('resolveContainedSnapshotPath (issue #2076)', () => {
   });
 });
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

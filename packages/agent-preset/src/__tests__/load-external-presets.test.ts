@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +28,7 @@ const BUILT_IN_IDS = createPresetRegistry()
 
 /** Create a fresh unique temp directory for a single test case. */
 function makeTempDir(): string {
-  return mkdtempSync(join(tmpdir(), 'robota-presets-'));
+  return realpathSync(mkdtempSync(join(tmpdir(), 'robota-presets-')));
 }
 
 /** Write a JSON preset file into `dir` and return nothing. */

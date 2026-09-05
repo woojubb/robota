@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ import { createTrustedProjectStateFixture } from '../../testing/trusted-project-
 
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-automatic-memory-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-automatic-memory-')));
 const NOW = new Date('2026-05-02T00:00:00.000Z');
 
 function makeProject(): string {

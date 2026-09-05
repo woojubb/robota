@@ -8,7 +8,7 @@
  * end-to-end on the real binary.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ describe('replay conversation through the real binary (INFRA-018)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-replay-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-pty-')));
     writeTuiProviderSettings(projectDir); // dummy provider profile so the CLI boots; key never used
   });
 

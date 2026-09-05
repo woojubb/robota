@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, rmSync, existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +14,7 @@ import { loadContext } from '../context-loader.js';
 
 import type { IMemoryStore, IStartupMemory } from '../../memory/types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-context-loader-memory-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-context-loader-memory-')));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

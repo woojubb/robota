@@ -6,7 +6,7 @@
  * update check is disabled so this isolated scenario performs no startup network request.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,7 +43,7 @@ describe('organization policy through the built CLI (CLI-083)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-pty-org-policy-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-org-policy-')));
     homeDir = join(projectDir, 'home');
     writeOrgPolicyFixture(homeDir);
   });

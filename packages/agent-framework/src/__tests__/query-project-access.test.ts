@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -34,8 +34,8 @@ describe('createQuery project access', () => {
   });
 
   it('refuses trusted project access minted for a different query root', async () => {
-    const trustedRoot = mkdtempSync(join(tmpdir(), 'robota-query-trusted-'));
-    const queryRoot = mkdtempSync(join(tmpdir(), 'robota-query-cwd-'));
+    const trustedRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-query-trusted-')));
+    const queryRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-query-cwd-')));
     roots.push(trustedRoot, queryRoot);
     const projectAccess = await createTrustedProjectAccessFixture(trustedRoot);
     const scripted = createScriptedProvider([]);
@@ -46,7 +46,7 @@ describe('createQuery project access', () => {
   });
 
   it('accepts an in-root query descendant whose name begins with two dots', async () => {
-    const trustedRoot = mkdtempSync(join(tmpdir(), 'robota-query-descendant-'));
+    const trustedRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-query-descendant-')));
     const queryRoot = join(trustedRoot, '..cache');
     mkdirSync(queryRoot);
     roots.push(trustedRoot);

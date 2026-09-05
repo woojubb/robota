@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -60,7 +60,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
   const scratchDirs: string[] = [];
 
   function scratchDir(): string {
-    const cwd = mkdtempSync(join(tmpdir(), 'arch-023-runtime-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-023-runtime-')));
     scratchDirs.push(cwd);
     return cwd;
   }

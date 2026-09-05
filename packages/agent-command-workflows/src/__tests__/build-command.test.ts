@@ -5,7 +5,7 @@
  * (the only in-process DAG execution entry, used by `create`/`run` via
  * `authoring/execute-workflow.ts`) is spied in every test and asserted at 0 calls.
  */
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
@@ -62,7 +62,7 @@ let dir: string;
 let executeCanary: MockInstance<typeof LocalDagRuntimeProvider.prototype.execute>;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'wf-build-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-build-')));
   executeCanary = vi.spyOn(LocalDagRuntimeProvider.prototype, 'execute');
 });
 afterEach(async () => {

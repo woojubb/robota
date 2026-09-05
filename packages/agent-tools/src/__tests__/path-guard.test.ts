@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -74,7 +74,7 @@ describe('checkPathWithinCwd — symlink containment (SEC-006)', () => {
   let outside: string;
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), 'path-guard-'));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'path-guard-')));
     workdir = join(root, 'workdir');
     outside = join(root, 'outside');
     mkdirSync(workdir, { recursive: true });

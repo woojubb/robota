@@ -7,7 +7,7 @@
  * All assertions read the shared `InteractionEvent` stream the contract exposes.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -74,7 +74,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
   let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-flows-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-flows-')));
   });
   afterEach(async () => {
     await driver?.stop();

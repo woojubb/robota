@@ -18,7 +18,7 @@
  *   evidences the same STATUS_GLYPH→PALETTE.status sourcing end-to-end via the success kind.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,7 +59,7 @@ describe('SCREEN-006 color/motion through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-screen006-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screen006-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

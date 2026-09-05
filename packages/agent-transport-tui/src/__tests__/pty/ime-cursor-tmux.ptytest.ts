@@ -14,7 +14,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -127,7 +127,7 @@ describe.skipIf(TMUX === undefined)(
     let run: ITmuxRun;
 
     beforeEach(() => {
-      const root = mkdtempSync(join(tmpdir(), 'robota-tmux-ime-'));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-tmux-ime-')));
       run = { root, socket: join(root, 'sock') };
     });
 

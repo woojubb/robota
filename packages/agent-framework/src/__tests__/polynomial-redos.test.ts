@@ -12,7 +12,7 @@
  * The pumps are all reachable through the exported entry point named in each test — no private function is
  * imported, so the tests also assert that the fixed shape is the one the public path actually runs.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 function tempDir(prefix: string): string {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   tempDirs.push(dir);
   return dir;
 }

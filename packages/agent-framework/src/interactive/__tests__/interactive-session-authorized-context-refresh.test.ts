@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ const TEST_CONFIG = {
 
 describe('InteractiveSession authorized context refresh', () => {
   it('emits a refresh event after an authorized project context file changes', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'robota-context-refresh-'));
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-context-refresh-')));
     const agentsPath = join(cwd, 'AGENTS.md');
     await writeFile(agentsPath, '# Initial rules\n', 'utf8');
     const scripted = createScriptedProvider([{ text: 'first' }, { text: 'second' }]);

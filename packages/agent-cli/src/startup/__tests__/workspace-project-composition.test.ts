@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-s
 const roots: string[] = [];
 
 function tempRoot(prefix: string): string {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(root);
   return root;
 }

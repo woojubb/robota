@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
  * controller's `finally`, before `persistSession()`, on the completed-turn path, guarded).
  */
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-auto-capture-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-auto-capture-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {

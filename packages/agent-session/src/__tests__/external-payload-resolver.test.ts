@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +26,7 @@ afterEach(() => {
 // no-follow handle there yet), so the resolver has nothing to exercise on another host.
 describe.skipIf(process.platform !== 'linux')('resolveSessionLogExternalPayloads', () => {
   it('ARCH-014: resolves a valid content-addressed JSON sidecar', () => {
-    const baseDirectory = mkdtempSync(join(tmpdir(), 'robota-payload-resolver-'));
+    const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-resolver-')));
     temporaryDirectories.push(baseDirectory);
     const payloadDirectory = join(baseDirectory, 'session.payloads');
     mkdirSync(payloadDirectory);
@@ -304,7 +304,7 @@ function payloadOptions(baseDirectory: string): { source: NodeExternalPayloadSou
 }
 
 function createTemporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), 'robota-payload-resolver-'));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-resolver-')));
   temporaryDirectories.push(directory);
   return directory;
 }

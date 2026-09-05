@@ -6,7 +6,7 @@
  * Only external I/O (network, git) is mocked.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -39,7 +39,7 @@ async function loadConfig(cwd: string) {
 }
 
 function createTempDir(prefix = 'e2e-'): string {
-  const dir = mkdtempSync(join(tmpdir(), `robota-${prefix}`));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), `robota-${prefix}`)));
   tempDirs.push(dir);
   return dir;
 }

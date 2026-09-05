@@ -15,7 +15,7 @@
  * would prove the reader throws and say nothing about whether the loader still swallows it.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +28,7 @@ import { createNodeHostSettingsSource } from '../settings-source.js';
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-config-002-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-config-002-')));
   roots.push(root);
   return root;
 }

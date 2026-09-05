@@ -10,7 +10,7 @@
  * frame restores afterward (machine proxy for "no stale frame / clean resume").
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,7 @@ describe('terminal handoff through the real binary (TERM-003)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-handoff-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-handoff-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

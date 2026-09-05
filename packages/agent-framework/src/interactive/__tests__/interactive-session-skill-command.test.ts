@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -112,7 +112,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('submits non-fork skills into the parent session', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-common-api-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-user-skill-common-api-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -159,7 +159,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('activates model-invocable skills through the SDK path without submitting a user turn', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-model-skill-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-model-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -191,7 +191,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('executes named user skills through the SDK path', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-user-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -234,7 +234,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('does not route natural-language skill directives outside the command tool path', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-natural-language-skill-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-natural-language-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
@@ -249,7 +249,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('does not record skill activation for prompt-only skill references', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-prompt-only-skill-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-prompt-only-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
@@ -262,7 +262,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('persists skill activation events in the session record', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-persisted-skill-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-persisted-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     let savedRecord: IInteractiveSessionRecord | undefined;
@@ -292,7 +292,7 @@ describe('InteractiveSession skill activation common API', () => {
   });
 
   it('runs context: fork skills through an isolated subagent session', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-')));
     createTempSkill(cwd, 'audit', ['context: fork', 'agent: Explore', 'allowed-tools: Read']);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({

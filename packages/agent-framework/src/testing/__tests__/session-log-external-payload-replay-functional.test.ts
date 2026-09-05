@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -47,7 +47,7 @@ describe.runIf(process.platform === 'linux')(
         const replayProvider = createReplayProviderFromSource(
           new NodeSessionLogSource(source.transcriptPath()),
         );
-        replayWorkspace = mkdtempSync(join(tmpdir(), 'robota-replay-functional-'));
+        replayWorkspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-functional-')));
         replaySession = new InteractiveSession({
           cwd: replayWorkspace,
           provider: replayProvider,

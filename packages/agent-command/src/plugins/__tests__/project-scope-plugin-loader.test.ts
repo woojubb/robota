@@ -5,7 +5,7 @@
  * only `~/.robota/plugins`, so the install "succeeded" and the session saw nothing.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -40,8 +40,8 @@ function writePluginBundle(root: string, plugin: string, description: string): v
 }
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-2487-home-'));
-  cwd = mkdtempSync(join(tmpdir(), 'robota-2487-cwd-'));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-2487-home-')));
+  cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-2487-cwd-')));
   originalHome = process.env.HOME;
   process.env.HOME = home;
 });

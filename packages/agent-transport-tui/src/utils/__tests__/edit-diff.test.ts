@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generateDiffLines, generateDiffLinesWithContext, extractEditDiff } from '../edit-diff.js';
@@ -215,7 +215,7 @@ describe('generateDiffLinesWithContext', () => {
   });
 
   function makeTempFile(content: string): string {
-    tmpDir = mkdtempSync(join(tmpdir(), 'edit-diff-test-'));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'edit-diff-test-')));
     const filePath = join(tmpDir, 'test.ts');
     writeFileSync(filePath, content, 'utf-8');
     return filePath;
@@ -361,7 +361,7 @@ describe('extractEditDiff startLine resolution', () => {
   });
 
   function makeTempFile(content: string): string {
-    tmpDir = mkdtempSync(join(tmpdir(), 'edit-diff-test-'));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'edit-diff-test-')));
     const filePath = join(tmpDir, 'test.ts');
     writeFileSync(filePath, content, 'utf-8');
     return filePath;

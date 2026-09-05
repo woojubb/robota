@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +9,7 @@ import { BUILT_IN_AGENTS } from '../built-in-agents.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 function createTempDir(): string {
-  return mkdtempSync(join(tmpdir(), 'agent-loader-test-'));
+  return realpathSync(mkdtempSync(join(tmpdir(), 'agent-loader-test-')));
 }
 
 function writeAgentFile(dir: string, filename: string, content: string): void {

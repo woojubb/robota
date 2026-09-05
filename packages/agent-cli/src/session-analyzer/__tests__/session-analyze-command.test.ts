@@ -5,7 +5,7 @@
  * bugs that the parser/reporter unit tests could not catch (TC-01/02/06/07).
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -54,8 +54,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   let exitCode: number | undefined;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-obs-home-'));
-    project = mkdtempSync(join(tmpdir(), 'robota-obs-proj-'));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-home-')));
+    project = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-proj-')));
     vi.stubEnv('HOME', home);
     stdout = [];
     stderr = [];

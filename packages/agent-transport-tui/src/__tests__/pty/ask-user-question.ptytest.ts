@@ -8,7 +8,7 @@
  * follow-up assistant text renders — proving ask → dialog → answer → turn-continue on the real binary.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ describe('AskUserQuestion dialog through the real binary (CMD-005)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-ask-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-ask-pty-')));
     writeTuiProviderSettings(projectDir); // dummy provider profile; replay answers every call
   });
 

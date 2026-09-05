@@ -5,7 +5,7 @@
  * (`pnpm --filter @robota-sdk/agent-cli build`).
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ describe('/settings opens the settings screen via ui_intent (CMD-004 Stage C)', 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-settings-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

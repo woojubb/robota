@@ -6,7 +6,7 @@
  * (the session command-pipeline path is covered by the framework functional tests with a fake
  * handoff).
  */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +44,7 @@ describe('command handoff PTY E2E', () => {
   it(
     '/shell runs a one-shot command on the real terminal and returns its exit code',
     async () => {
-      const dir = mkdtempSync(join(tmpdir(), 'robota-shell-pty-'));
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-shell-pty-')));
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {
@@ -74,7 +74,7 @@ describe('command handoff PTY E2E', () => {
   it(
     '/editor opens $EDITOR on the real terminal and round-trips the composed text',
     async () => {
-      const dir = mkdtempSync(join(tmpdir(), 'robota-editor-pty-'));
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-editor-pty-')));
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {

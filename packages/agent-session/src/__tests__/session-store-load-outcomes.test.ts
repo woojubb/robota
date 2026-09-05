@@ -13,7 +13,7 @@
  *     only that the codec agrees with itself; the format change is what is on disk.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -28,7 +28,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 const SESSION_ID = 'sess_outcomes';
 
 function newStoreDir(): string {
-  return mkdtempSync(path.join(tmpdir(), 'trans-007-'));
+  return realpathSync(mkdtempSync(path.join(tmpdir(), 'trans-007-')));
 }
 
 function record(id = SESSION_ID): IInteractiveSessionRecord {

@@ -2,7 +2,7 @@
  * Tests for ReadTool
  */
 
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,7 +27,7 @@ async function run(params: TToolParameters): Promise<IToolInvocationResult> {
 let tmpDir: string;
 
 beforeAll(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'read-tool-test-'));
+  tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'read-tool-test-')));
   readTool = createReadTool({ cwd: tmpDir });
 });
 

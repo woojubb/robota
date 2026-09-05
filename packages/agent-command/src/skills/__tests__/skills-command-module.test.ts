@@ -164,7 +164,7 @@ describe('createSkillsCommandModule', () => {
   });
 
   it('lets the SDK normalize virtual /skill-name commands into the composed skills command', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-skills-command-module-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-skills-command-module-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession();
     const session = new InteractiveSession({

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,7 @@ interface IWorkerObservation {
 function runWorker(options: {
   start?: { cwd: string; worktree?: string };
 }): Promise<IWorkerObservation> {
-  const recordPath = join(mkdtempSync(join(tmpdir(), 'arch-021-')), 'records.jsonl');
+  const recordPath = join(realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-'))), 'records.jsonl');
   return new Promise<IWorkerObservation>((resolve, reject) => {
     const child = spawn(process.execPath, [ENTRY, SUBAGENT_WORKER_MODE_FLAG], {
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
@@ -128,8 +128,8 @@ describe.skipIf(!existsSync(DIST))(
         // The line the bintest cannot reach: `parentTools: composition.createTools({ cwd:
         // subagentExecutionRoot(payload) })`. Reverting it to `[]`, or to `payload.request.cwd`,
         // changes what this observes.
-        const worktree = mkdtempSync(join(tmpdir(), 'arch-021-worktree-'));
-        const requestCwd = mkdtempSync(join(tmpdir(), 'arch-021-parent-'));
+        const worktree = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-worktree-')));
+        const requestCwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-021-parent-')));
 
         const { records } = await runWorker({ start: { cwd: requestCwd, worktree } });
 

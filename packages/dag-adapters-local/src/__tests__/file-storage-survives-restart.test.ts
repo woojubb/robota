@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 function storageRoot(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'dag-003-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-003-')));
   dirs.push(dir);
   return dir;
 }

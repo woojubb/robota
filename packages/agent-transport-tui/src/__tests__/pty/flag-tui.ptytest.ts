@@ -7,7 +7,7 @@
  * dedicated PTY project against the BUILT robota binary (`pnpm --filter @robota-sdk/agent-cli build`).
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,7 +22,7 @@ describe('CLI flag → TUI rendering through a real PTY (TEST-009 Phase 3)', () 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-flagtui-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-flagtui-')));
     writeTuiProviderSettings(projectDir);
   });
 

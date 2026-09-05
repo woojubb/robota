@@ -6,6 +6,7 @@ import {
   readdirSync,
   symlinkSync,
   writeFileSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ function leakedInto(dir: string): string[] {
 }
 
 function scratch() {
-  const base = mkdtempSync(join(tmpdir(), 'checkpoint-containment-'));
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-containment-')));
   const sandbox = join(base, 'sandbox');
   const outside = join(base, 'outside');
   mkdirSync(sandbox, { recursive: true });

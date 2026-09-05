@@ -2,7 +2,7 @@
  * DATA-002 persistence store — real-fs round-trips (no mocks).
  * Phase 1: workflows and data-node manifests are owned by the single store.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ const WORKFLOW: IDagDefinition = {
 describe('DATA-002 persistence store — workflows (TC-03)', () => {
   let projectDir: string;
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'persist-store-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'persist-store-')));
   });
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });

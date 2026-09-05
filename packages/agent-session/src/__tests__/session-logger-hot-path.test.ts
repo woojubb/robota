@@ -9,7 +9,7 @@
  */
 
 import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -59,7 +59,7 @@ describe('FileSessionLogger hot path (CORE-029)', () => {
   let logDir: string;
 
   beforeEach(() => {
-    logDir = mkdtempSync(join(tmpdir(), 'session-log-'));
+    logDir = realpathSync(mkdtempSync(join(tmpdir(), 'session-log-')));
     fsControl.appendCalls.length = 0;
     fsControl.failAppend = null;
     fsControl.failMkdir = null;

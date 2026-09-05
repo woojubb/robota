@@ -9,7 +9,7 @@
  * - CommandRegistry aggregates command module + skill + plugin sources
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,7 +27,7 @@ import type { ILoadedBundlePlugin } from '../plugins/index.js';
 let tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'cross-pkg-skills-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cross-pkg-skills-')));
   tempDirs.push(dir);
   return dir;
 }

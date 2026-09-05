@@ -13,7 +13,7 @@
  * callers. Exported only via `@robota-sdk/agent-framework/testing`; never import from runtime code.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
@@ -143,7 +143,7 @@ export class ScriptedSessionHarness {
 
   constructor(options: IScriptedSessionOptions) {
     this.ownsWorkspace = options.cwd === undefined;
-    this.cwd = options.cwd ?? mkdtempSync(join(tmpdir(), 'robota-fxn-'));
+    this.cwd = options.cwd ?? realpathSync(mkdtempSync(join(tmpdir(), 'robota-fxn-')));
     if (this.ownsWorkspace) {
       for (const [relPath, content] of Object.entries(options.files ?? {})) {
         const abs = join(this.cwd, relPath);

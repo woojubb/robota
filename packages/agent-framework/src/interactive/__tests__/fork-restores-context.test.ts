@@ -4,7 +4,7 @@
  * The source record stays untouched (append-only invariant).
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +26,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
   let storeFilePath: string | undefined;
 
   beforeEach(async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-073-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-073-')));
     store = await createTrustedProjectSessionStoreFixture(cwd);
     store.save({
       id: SOURCE_ID,

@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,7 @@ describe.runIf(process.platform === 'linux')(
       store: Awaited<ReturnType<typeof createTrustedProjectSessionStoreFixture>>;
       cwd: string;
     }> {
-      const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-roundtrip-'));
+      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-sdk-session-roundtrip-')));
       mkdirSync(join(cwd, '.robota'), { recursive: true });
       return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
     }

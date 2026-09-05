@@ -1,4 +1,4 @@
-import { writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
@@ -164,7 +164,7 @@ describe('buildCommand', () => {
     const tmpDirs: string[] = [];
 
     async function specDir(): Promise<string> {
-      const dir = await mkdtemp(join(tmpdir(), 'dag-build-spec-'));
+      const dir = await realpath(await mkdtemp(join(tmpdir(), 'dag-build-spec-')));
       tmpDirs.push(dir);
       return dir;
     }

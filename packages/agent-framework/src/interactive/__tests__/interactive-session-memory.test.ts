@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +14,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-interactive-memory-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-interactive-memory-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {

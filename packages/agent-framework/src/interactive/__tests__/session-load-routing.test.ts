@@ -14,7 +14,7 @@
  * session. Recovery is for absence; a damaged record is reported.
  */
 
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -55,7 +55,7 @@ function record(id = SESSION_ID, cwd = '/work'): IInteractiveSessionRecord {
 }
 
 async function projectFixture(): Promise<{ root: string; sessionsDir: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'trans-007-project-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'trans-007-project-')));
   return { root, sessionsDir: join(root, '.robota', 'sessions') };
 }
 
@@ -287,7 +287,7 @@ describe.runIf(process.platform === 'linux')(
      * can present itself as a resumable session.
      */
     async function projectWithLog(lines: readonly string[]): Promise<string> {
-      const root = await mkdtemp(join(tmpdir(), 'trans-007-replay-'));
+      const root = await realpath(await mkdtemp(join(tmpdir(), 'trans-007-replay-')));
       const access = await createTrustedProjectAccessFixture(root);
       if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
       new WorkspaceSessionLogSink(

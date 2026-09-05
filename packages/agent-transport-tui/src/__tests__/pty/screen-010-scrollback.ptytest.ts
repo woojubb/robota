@@ -9,7 +9,7 @@
  * the automatable essence of TC-05.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,7 +24,7 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-scrollback-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-scrollback-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

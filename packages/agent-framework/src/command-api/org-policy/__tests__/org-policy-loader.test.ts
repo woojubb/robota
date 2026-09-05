@@ -6,7 +6,7 @@
  * truncated or mangled policy behave exactly like having deployed none — silently removing provider
  * allowlisting, blocked commands and the plaintext-key requirement together.
  */
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,7 +31,7 @@ function withPolicyFile(contents?: string): void {
 }
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'org-policy-'));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'org-policy-')));
 });
 
 afterEach(() => {

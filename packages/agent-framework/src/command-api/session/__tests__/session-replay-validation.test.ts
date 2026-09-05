@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +31,7 @@ function writeLog(
   sessionId: string,
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
-  const root = mkdtempSync(join(tmpdir(), 'arch-029-replay-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'arch-029-replay-')));
   const logs = join(root, '.robota', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);

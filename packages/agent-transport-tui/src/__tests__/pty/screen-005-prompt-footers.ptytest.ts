@@ -9,7 +9,7 @@
  *   (`←→ Navigate · Enter Confirm`, no Esc); pressing Esc resolves nothing (documented hard-stop).
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,7 @@ describe('SCREEN-005 prompt footers through the real binary', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-screen005-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-screen005-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

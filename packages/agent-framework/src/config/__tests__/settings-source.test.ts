@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ import {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-settings-source-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-source-')));
   roots.push(root);
   return root;
 }

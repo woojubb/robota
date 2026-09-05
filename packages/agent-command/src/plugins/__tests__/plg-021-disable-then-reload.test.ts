@@ -12,7 +12,15 @@
  * that checked "createLoader is a function" would pass against `() => cached`.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -50,7 +58,7 @@ function settingsPath(): string {
 }
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'robota-plg021-'));
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plg021-')));
   originalHome = process.env.HOME;
   process.env.HOME = home;
   writePluginBundle();

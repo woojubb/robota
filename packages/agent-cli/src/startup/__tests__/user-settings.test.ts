@@ -8,7 +8,7 @@
  * The cases assert the BEHAVIOUR. One asserting that `readUserSettingsOrExit` is called instead of
  * `readSettings` would pass on the day this defect existed, because the call was already being made.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ const homes: string[] = [];
 
 /** A HOME whose `~/.robota/settings.json` this case controls, written verbatim. */
 function homeWithSettings(raw?: string): string {
-  const home = mkdtempSync(join(tmpdir(), 'issue-2342-home-'));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'issue-2342-home-')));
   homes.push(home);
   mkdirSync(join(home, '.robota'), { recursive: true });
   if (raw !== undefined) writeFileSync(join(home, '.robota', 'settings.json'), raw, 'utf8');

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ import { ensureRendezvousDirectory } from '../local-peer-rendezvous.js';
 const made: string[] = [];
 
 function scratch(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-comp-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-comp-')));
   made.push(dir);
   return dir;
 }

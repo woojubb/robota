@@ -2,7 +2,7 @@
  * Tests for GlobTool
  */
 
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +28,7 @@ async function run(params: TToolParameters): Promise<IToolInvocationResult> {
 let tmpDir: string;
 
 beforeAll(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'glob-tool-test-'));
+  tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'glob-tool-test-')));
 
   // Create directory structure:
   // tmpDir/

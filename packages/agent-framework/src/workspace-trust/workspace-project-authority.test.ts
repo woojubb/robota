@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -75,7 +75,7 @@ describe('WorkspaceTrustService project authority', () => {
     root: string;
     service: WorkspaceTrustService;
   } {
-    const root = mkdtempSync(join(tmpdir(), 'robota-arch-042-'));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-')));
     roots.push(root);
     const identity: IWorkspaceIdentity = {
       repositoryKey: `test:${root}`,
@@ -198,7 +198,7 @@ describe('WorkspaceTrustService project authority', () => {
     const { root, service } = fixture();
     mkdirSync(join(root, 'nested'));
     writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
-    const outside = mkdtempSync(join(tmpdir(), 'robota-arch-042-outside-'));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'secret.txt'), 'outside secret', 'utf8');
     symlinkSync(outside, join(root, 'linked-outside'));
@@ -246,7 +246,7 @@ describe('WorkspaceTrustService project authority', () => {
     'binds application state to a closed namespace and refuses linked write targets',
     async () => {
       const { root, service } = fixture();
-      const outside = mkdtempSync(join(tmpdir(), 'robota-arch-042-state-outside-'));
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'robota-arch-042-state-outside-')));
       roots.push(outside);
       mkdirSync(join(root, '.robota'), { recursive: true });
       symlinkSync(outside, join(root, '.robota', 'sessions'));

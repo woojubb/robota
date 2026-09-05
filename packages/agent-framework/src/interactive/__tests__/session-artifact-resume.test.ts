@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -65,7 +65,7 @@ function record(id: string): ISessionRecord {
 }
 
 function newStore(): NodeSessionStore {
-  return new NodeSessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-resume-')));
+  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-resume-'))));
 }
 
 describe('imported session artifact resumes via loadSessionRecord (TC-03)', () => {

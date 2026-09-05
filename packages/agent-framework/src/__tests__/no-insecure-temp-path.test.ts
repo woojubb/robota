@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, realpathSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -53,7 +53,7 @@ describe('SEC-003 floor: no insecure temp paths in agent-framework', () => {
         const line = source.split('\n')[lineNumber - 1] ?? '';
         // The `mkdtemp(join(tmpdir(), …))` wrapper is safe. Look BACKWARDS across the wrap, not
         // just on this line, for the same reason the match itself is source-wide. The optional
-        // qualifier admits `mkdtempSync(path.join(tmpdir(), …))`, which is how this repo actually
+        // qualifier admits `realpathSync(mkdtempSync(path.join(tmpdir(), …)))`, which is how this repo actually
         // spells it — without it the floor flags three safe call sites, and an over-firing floor is
         // one that gets suppressed.
         const before = source.slice(Math.max(0, index - 200), index);

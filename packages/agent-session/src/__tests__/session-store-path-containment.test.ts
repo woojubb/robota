@@ -7,7 +7,7 @@
  * one sink its own path building would fail here, not in a code-scanning alert.
  */
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 function newStore(): { store: NodeSessionStore; root: string; baseDir: string } {
-  const root = mkdtempSync(path.join(tmpdir(), 'sec-2240-'));
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'sec-2240-')));
   dirs.push(root);
   const baseDir = path.join(root, 'sessions');
   return { store: new NodeSessionStore(baseDir), root, baseDir };

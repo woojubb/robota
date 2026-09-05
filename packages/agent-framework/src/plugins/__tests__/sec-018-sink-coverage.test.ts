@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,7 +37,7 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
   let pluginsDir: string;
 
   beforeEach(() => {
-    base = mkdtempSync(join(tmpdir(), 'sec-018-registry-'));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-registry-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
   });
@@ -113,7 +121,7 @@ describe('SEC-018 - a marketplace manifest name cannot select a destination outs
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    base = mkdtempSync(join(tmpdir(), 'sec-018-client-'));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-client-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');
@@ -162,7 +170,7 @@ describe('SEC-018 - known_marketplaces.json installLocation is a hint, not a fac
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    base = mkdtempSync(join(tmpdir(), 'sec-018-known-'));
+    base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-known-')));
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');

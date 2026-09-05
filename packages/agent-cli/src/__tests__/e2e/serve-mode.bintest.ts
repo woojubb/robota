@@ -20,7 +20,7 @@
  * Build-gated (`*.bintest.ts`, `test:bin` project): requires `pnpm --filter @robota-sdk/agent-cli build`.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -156,8 +156,8 @@ describe('robota --serve black-box runtime host (RUNTIME-001)', () => {
   const url = (t = token): string => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)}`;
 
   beforeAll(async () => {
-    binCwd = mkdtempSync(join(tmpdir(), 'robota-serve-bin-'));
-    homeDir = mkdtempSync(join(tmpdir(), 'robota-serve-home-'));
+    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-bin-')));
+    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-home-')));
     writeProviderSettings(homeDir);
     port = await findFreePort();
 

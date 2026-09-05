@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 function fileWith(contents: string): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'read-dag-arg-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'read-dag-arg-')));
   dirs.push(dir);
   const file = path.join(dir, 'w.json');
   writeFileSync(file, contents);
@@ -60,7 +60,7 @@ describe('readDagFileArg', () => {
   it('reports a missing file rather than throwing', async () => {
     // Inside a mkdtemp dir, not joined onto `tmpdir()` directly — a predictable temp path is what
     // the SEC-003 floor exists to stop, and it caught the first draft of this very case.
-    const dir = mkdtempSync(path.join(tmpdir(), 'read-dag-arg-'));
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'read-dag-arg-')));
     dirs.push(dir);
     const result = await readDagFileArg(path.join(dir, 'absent.json'));
     expect(result.ok).toBe(false);

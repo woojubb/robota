@@ -3,7 +3,7 @@
  * on the actual filesystem and RUNS after "restart" — no fs/runner mocks. Uses a pure inner DAG
  * (an `input` node) so no provider credentials are needed.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -66,7 +66,7 @@ function makeExecContext(node: IDagNodeDefinition): INodeExecutionContext {
 describe('BEHAVIOR-006 composite reload — real fs + runner', () => {
   let projectDir: string;
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'composite-reload-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'composite-reload-')));
   });
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });

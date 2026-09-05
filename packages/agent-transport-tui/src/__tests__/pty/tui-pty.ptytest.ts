@@ -5,7 +5,7 @@
  * BUILT robota binary — `pnpm --filter @robota-sdk/agent-cli build` first.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ describe('TUI through a real PTY (CLI-074)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-pty-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-')));
     writeTuiProviderSettings(projectDir);
   });
 

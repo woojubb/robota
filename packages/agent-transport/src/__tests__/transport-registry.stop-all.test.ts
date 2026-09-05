@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -26,7 +26,7 @@ function makeTransport(
 describe('TransportRegistry.stopAll (best-effort, CORE-013)', () => {
   it('stops every transport even when one stop fails, and collects the error', async () => {
     const registry = new TransportRegistry(
-      path.join(mkdtempSync(path.join(tmpdir(), 'registry-')), 'settings.json'),
+      path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
     );
     const stoppedSecond = vi.fn().mockResolvedValue(undefined);
     registry.register(
@@ -45,7 +45,7 @@ describe('TransportRegistry.stopAll (best-effort, CORE-013)', () => {
 
   it('returns an empty error list when all stops succeed', async () => {
     const registry = new TransportRegistry(
-      path.join(mkdtempSync(path.join(tmpdir(), 'registry-')), 'settings.json'),
+      path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
     );
     registry.register(makeTransport('a', vi.fn().mockResolvedValue(undefined)));
 
