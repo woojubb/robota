@@ -118,21 +118,38 @@ completion. The settled owner decision is option A (see `## USER-DECISION`); TC-
 TC-05 are written against it, and TC-02 through TC-05 land in ONE change so the scan is green on
 arrival (see `## Baseline and introduction order`).
 
-- [ ] TC-01 — Retarget the frontmatter key of `.changeset/arch-provider-002-stage-a-split.md` and
+- [x] TC-01 — Retarget the frontmatter key of `.changeset/arch-provider-002-stage-a-split.md` and
       `.changeset/arch-provider-003-stage-b-pr1.md` from the renamed leaf to
       `@robota-sdk/agent-builtin-providers`, and the two migration sentences in the first file's
       body that told a consumer to import from the old name, so `./node_modules/.bin/changeset status`
       exits 0 and a release plan can be computed at all. No other `.changeset/*.md` is edited.
-- [ ] TC-02 — Add the 23 published packages absent from the `fixed` group to the single existing
+      Evidence (2026-09-05, commit `0834752291`): `./node_modules/.bin/changeset status` exits 0
+      (`/tmp/robota-issues/round2/impl2/REL-025/impl-tc01-head.log`; exit 1 on the base in
+      `impl-base-changeset-status.log`); `git diff --name-only 73b53e35c..HEAD -- .changeset` lists
+      only `.changeset/arch-provider-002-stage-a-split.md`,
+      `.changeset/arch-provider-003-stage-b-pr1.md` and `.changeset/config.json`.
+- [x] TC-02 — Add the 23 published packages absent from the `fixed` group to the single existing
       group in `.changeset/config.json`, each as its explicit `@robota-sdk/<name>` string (no glob
       pattern anywhere in `fixed`), so the group holds exactly the 37 names of the published set
       measured from `packages/**/package.json` with `private !== true`, sorted; `linked` stays `[]`
       and `updateInternalDependencies` stays `"patch"`.
-- [ ] TC-03 — Bring `@robota-sdk/agent-process` onto the version line by group membership alone:
+      Evidence (2026-09-05, commit `f17aa71504`): the Node walk over `.changeset/config.json` and
+      every `packages/**/package.json` prints `fixed entries: 37`, `public: 37`,
+      `public NOT in fixed: 0`, `fixed with no public: []`, `groups: 1`, `glob entries: 0`, the
+      group sorted, `linked` `[]` and `updateInternalDependencies` `patch`
+      (`/tmp/robota-issues/round2/impl2/REL-025/impl-tc02-head.log`; the base measured 14 / 23 in
+      `impl-measure-base.log`).
+- [x] TC-03 — Bring `@robota-sdk/agent-process` onto the version line by group membership alone:
       it is one of the 37 names in TC-02, its `package.json` `version` is NOT edited by hand
       (version-management rule 3), and the assembled release plan of TC-06 lists it at the same
       `newVersion` as the other 36 releases.
-- [ ] TC-04 — Add the mechanical floor as `scripts/harness/release-fixed-group.mjs`, exporting
+      Evidence (2026-09-05): `git diff --name-only 73b53e35c..HEAD -- packages/agent-process/package.json`
+      is empty (the manifest still reads `3.0.0-beta.77`); the dry-run plan of
+      `changeset status --verbose --output` lists `@robota-sdk/agent-process` at `newVersion`
+      `3.0.0-beta.80`, the single `newVersion` of the other 36 group releases
+      (`/tmp/robota-issues/round2/impl2/REL-025/impl-tc03-head.log`, plan
+      `impl-tc06-release-plan.json`).
+- [x] TC-04 — Add the mechanical floor as `scripts/harness/release-fixed-group.mjs`, exporting
       `collectChangesetFixedGroupFindings(workspaceRoot)`, imported and appended by
       `scripts/harness/check-release-governance.mjs` (which stays at or under its frozen
       `file-size` line of 312): derive the published set from `packages/**/package.json`
@@ -143,7 +160,14 @@ arrival (see `## Baseline and introduction order`).
       directory are each a finding naming what could not be read, never an empty set treated as
       agreement, and an unreadable manifest suppresses only the direction-(a) absence claim for
       that run. `node scripts/harness/check-release-governance.mjs` exits 0 on the branch.
-- [ ] TC-05 — Add the `changeset fixed-group integrity (REL-025)` cases to
+      Evidence (2026-09-05, commit `58440876d5`): `scripts/harness/release-fixed-group.mjs` exports
+      `collectChangesetFixedGroupFindings`, imported and appended by
+      `scripts/harness/check-release-governance.mjs` (311 lines); the scan exits 0 at HEAD and
+      exited 1 with 23 `is not in the changeset fixed group` findings against the pre-change config
+      (`/tmp/robota-issues/round2/impl2/REL-025/impl-tc04-head.log`,
+      `impl-red-2-live-scan-prechange-config.log`);
+      `git diff --name-only 73b53e35c..HEAD -- scripts/harness/run-all-scans.mjs` is empty.
+- [x] TC-05 — Add the `changeset fixed-group integrity (REL-025)` cases to
       `scripts/harness/__tests__/check-release-governance.test.mjs`: a green fixture with two
       published and one private package; a group entry naming no package; a group entry naming a
       PRIVATE package; a PUBLISHED package absent from the group (the private one not reported); a
@@ -152,6 +176,12 @@ arrival (see `## Baseline and introduction order`).
       itself a finding and still lets a readable published package's absence be reported; and an
       absent `packages/` directory. Each refusal case is run once against the base scan (which
       never opens the config) and its FAIL recorded before the module exists, then GREEN with it.
+      Evidence (2026-09-05, commit `7a1024438f`):
+      `scripts/harness/__tests__/check-release-governance.test.mjs` — RED with the module absent
+      and the import reverted: 10 failed / 12 passed of 22, every failure inside the
+      `changeset fixed-group integrity (REL-025)` block
+      (`/tmp/robota-issues/round2/impl2/REL-025/impl-red-1.log`); GREEN with it: 22 passed, exit 0
+      (`impl-tc05-vitest-head.log`).
 - [ ] TC-06 — Produce the dry-run release plan the issue asks for without versioning anything:
       `./node_modules/.bin/changeset status --verbose --output <scratchpad>/rel-025-release-plan.json`
       exits 0, and the JSON's `releases` array has exactly 37 entries whose names equal the TC-02

@@ -287,24 +287,24 @@ published, so its absence from the group is still reported.
 
 ## Completion Criteria
 
-- [ ] TC-01: Command: `./node_modules/.bin/changeset status` → exits 0 after the frontmatter key of
+- [x] TC-01: Command: `./node_modules/.bin/changeset status` → exits 0 after the frontmatter key of
       `.changeset/arch-provider-002-stage-a-split.md` and `.changeset/arch-provider-003-stage-b-pr1.md`
       (and the first file's two migration sentences) are retargeted to
       `@robota-sdk/agent-builtin-providers`; `git diff --name-only -- .changeset` lists exactly those
       two `.md` files besides `config.json`.
-- [ ] TC-02: Observable: a Node one-liner over `.changeset/config.json` and every
+- [x] TC-02: Observable: a Node one-liner over `.changeset/config.json` and every
       `packages/**/package.json` prints `fixed entries: 37`, `public: 37`, `public NOT in fixed: 0`,
       `fixed with no public: []`, `groups: 1`, `glob entries: 0` (no entry containing `*`, `?`, `[`
       or `{`), the group sorted, `linked` equal to `[]` and `updateInternalDependencies` equal to
       `"patch"`.
-- [ ] TC-03: Observable: `git diff --name-only -- packages/agent-process/package.json` is empty, and
+- [x] TC-03: Observable: `git diff --name-only -- packages/agent-process/package.json` is empty, and
       the TC-06 plan JSON has a `releases[]` entry with `name === '@robota-sdk/agent-process'` whose
       `newVersion` equals every other entry's.
-- [ ] TC-04: Command: `node scripts/harness/check-release-governance.mjs` → exits 0 on the branch with
+- [x] TC-04: Command: `node scripts/harness/check-release-governance.mjs` → exits 0 on the branch with
       `scripts/harness/release-fixed-group.mjs` exporting `collectChangesetFixedGroupFindings` and
       imported by `check-release-governance.mjs`; `wc -l scripts/harness/check-release-governance.mjs`
       ≤ 312; `git diff --name-only -- scripts/harness/run-all-scans.mjs` is empty.
-- [ ] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/check-release-governance.test.mjs`
+- [x] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/check-release-governance.test.mjs`
       → exits 0 with the 11 pre-existing cases plus the `changeset fixed-group integrity (REL-025)`
       block (green fixture; entry naming no package; entry naming a PRIVATE package; PUBLISHED package
       absent from the group with the private one not reported; split across two groups; same name in
@@ -330,15 +330,15 @@ Derived strategy for `type: RULE` — unit tests over fixture workspaces for the
 live-tree falsification so the scan is shown able to fail, and the changesets dry run the issue asks
 for. No manual row.
 
-| TC-ID | Test Type   | Tool / Approach                                                                                           | Notes                                                                                                          |
-| ----- | ----------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Integration | `./node_modules/.bin/changeset status` on the branch                                                      | Exit 0 is the whole assertion; output kept with the Task; `git diff --name-only -- .changeset` bounds the edit |
-| TC-02 | Unit        | Node one-liner over `config.json` and `packages/**/package.json`                                          | Compared to the MEASURED published set, not to the number 37 in prose; glob characters refused                 |
-| TC-03 | Unit        | `git diff --name-only` plus the TC-06 plan JSON                                                           | Membership-only re-entry of `agent-process`; version-management rule 3 (no manual version edit)                |
-| TC-04 | Unit        | `node scripts/harness/check-release-governance.mjs`, `wc -l`, `git diff --name-only`                      | Green on the branch; frozen `file-size` line respected; scan registry untouched                                |
-| TC-05 | Unit        | `pnpm exec vitest run` on the named test file                                                             | RED with the module absent and the import reverted, GREEN with it; failing names and count recorded first      |
-| TC-06 | Integration | `changeset status --verbose --output` plus a Node one-liner over the JSON                                 | Dry run only; 37 releases, one `newVersion`; no `changeset version`, no manifest or CHANGELOG change           |
-| TC-07 | Suite       | Scripted in-place edit + `check-release-governance.mjs`, then `run-all-scans.mjs --affected --context pr` | Live-tree falsification proves the scan can fail; the affected scan set green afterwards                       |
+| TC-ID | Test Type   | Tool / Approach                                                                                           | Notes                                                                                                                                                                                                                                                                                                                                                                        |
+| ----- | ----------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | `./node_modules/.bin/changeset status` on the branch                                                      | Exit 0 is the whole assertion; output kept with the Task; `git diff --name-only -- .changeset` bounds the edit — **Test skipped:** no unit test — the whole assertion is the recorded `changeset status` exit 0 (integration row); changesets itself resolves the retargeted names                                                                                           |
+| TC-02 | Unit        | Node one-liner over `config.json` and `packages/**/package.json`                                          | Compared to the MEASURED published set, not to the number 37 in prose; glob characters refused — **Test skipped:** no unit test of the config literal — its agreement with the measured published set is asserted by the recorded one-liner and, durably, by `scripts/harness/release-fixed-group.mjs` through the `release-governance` scan (mechanism covered under TC-04) |
+| TC-03 | Unit        | `git diff --name-only` plus the TC-06 plan JSON                                                           | Membership-only re-entry of `agent-process`; version-management rule 3 (no manual version edit)                                                                                                                                                                                                                                                                              |
+| TC-04 | Unit        | `node scripts/harness/check-release-governance.mjs`, `wc -l`, `git diff --name-only`                      | Green on the branch; frozen `file-size` line respected; scan registry untouched — **Test written:** `scripts/harness/__tests__/check-release-governance.test.mjs` > `changeset fixed-group integrity (REL-025)`                                                                                                                                                              |
+| TC-05 | Unit        | `pnpm exec vitest run` on the named test file                                                             | RED with the module absent and the import reverted, GREEN with it; failing names and count recorded first                                                                                                                                                                                                                                                                    |
+| TC-06 | Integration | `changeset status --verbose --output` plus a Node one-liner over the JSON                                 | Dry run only; 37 releases, one `newVersion`; no `changeset version`, no manifest or CHANGELOG change                                                                                                                                                                                                                                                                         |
+| TC-07 | Suite       | Scripted in-place edit + `check-release-governance.mjs`, then `run-all-scans.mjs --affected --context pr` | Live-tree falsification proves the scan can fail; the affected scan set green afterwards                                                                                                                                                                                                                                                                                     |
 
 ## User Execution Test Scenarios
 
@@ -465,3 +465,97 @@ the entries below are written only by `gate.mjs` or the guardian.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `73b53e35c3f1` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/draft/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `f3df0a2f3b9f` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `./node_modules/.bin/changeset status && git diff --name-only 73b53e35c..HEAD -- .changeset`
+**Exit:** 0
+**Output:** (last 10 of 101 line(s))
+
+```
+🦋  - @robota-sdk/agent-interface-execution
+🦋  - @robota-sdk/agent-plugin
+🦋  - @robota-sdk/agent-interface-analytics
+🦋  - @robota-sdk/agent-interface-tui
+🦋  - @robota-sdk/agent-process
+CHANGESET_STATUS_EXIT=0
+changeset md files in range diff:
+.changeset/arch-provider-002-stage-a-split.md
+.changeset/arch-provider-003-stage-b-pr1.md
+.changeset/config.json
+```
+
+**Judged at:** HEAD `7a1024438fbb` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `bad103d467af` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node /tmp/robota-issues/round2/impl2/REL-025/impl-measure-published-set.mjs (a Node walk over .changeset/config.json and packages/**/package.json) plus a one-liner over the group's order, linked and updateInternalDependencies`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+manifests: 82  public: 37  private: 45  groups: 1  fixed entries: 37
+public NOT in fixed: 0
+fixed with no public: []
+glob entries: 0
+version histogram: {"3.0.0-beta.79":36,"3.0.0-beta.77":1}
+groups: 1 entries: 37 sorted: true linked: [] updateInternalDependencies: patch globs: 0
+EXIT=0
+```
+
+**Judged at:** HEAD `7a1024438fbb` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `64a153bfb411` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node /tmp/robota-issues/round2/impl2/REL-025/impl-tc03-assert.mjs /tmp/robota-issues/round2/impl2/REL-025/impl-tc06-release-plan.json (git diff --name-only -- packages/agent-process/package.json; agent-process newVersion equals the other 36 group releases')`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+agent-process in fixed group: true
+packages/agent-process/package.json diff names: "" manifest version (untouched): 3.0.0-beta.77
+agent-process plan entry: {"name":"@robota-sdk/agent-process","type":"major","oldVersion":"3.0.0-beta.79","changesets":[],"newVersion":"3.0.0-beta.80"}
+other group releases: 36 distinct newVersion among them: ["3.0.0-beta.80"]
+TC-03 ASSERT: PASS
+EXIT=0
+```
+
+**Judged at:** HEAD `7a1024438fbb` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `c5d5af9a5284` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node scripts/harness/check-release-governance.mjs && wc -l scripts/harness/check-release-governance.mjs && git diff --name-only 73b53e35c..HEAD -- scripts/harness/run-all-scans.mjs`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+release governance scan passed.
+SCAN_EXIT=0
+wc -l:      311
+run-all-scans.mjs diff over range: []
+export present: 1
+import present: 1
+```
+
+**Judged at:** HEAD `7a1024438fbb` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `919b9c3b62f8` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-05
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-release-governance.test.mjs (RED before the module: 10 failed / 12 passed, /tmp/robota-issues/round2/impl2/REL-025/impl-red-1.log)`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota/.claude/worktrees/r2-rel-025-recovery
+
+ ✓ scripts/harness/__tests__/check-release-governance.test.mjs (22 tests) 142ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  21:34:46
+   Duration  311ms (transform 22ms, setup 0ms, collect 28ms, tests 142ms, environment 0ms, prepare 32ms)
+
+VITEST_EXIT=0
+```
+
+**Judged at:** HEAD `7a1024438fbb` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `6ef73c9a04c3` (modified)
