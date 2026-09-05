@@ -715,7 +715,8 @@ manifest rule bypassed by an undeclared source import: TC-12.
    `src/headless/__tests__/headless-skill-activation.integration.test.ts` import
    `@robota-sdk/agent-command`, and `agent-command → agent-framework`, so placing them in
    `agent-framework` would be a `DEV-CYCLE` (rule 6) finding; they move to the `agent-cli` suite, the
-   one layer that legally depends on both packages (the alternative — rewriting them over
+   one layer that legally depends on both packages. Move `ws-multi-surface-exit-policy.test.ts` and
+   both parent session-event-delivery example sources to CLI in S2 as clarified below (the alternative — rewriting them over
    `agent-framework/testing` doubles — is rejected because the parity test exists to exercise the real
    command modules). Both moved tests import `createProgrammaticAgent` and `createHeadlessTransport`
    by relative path today; after S2 those two are **root-barrel exports of
@@ -732,9 +733,9 @@ manifest rule bypassed by an undeclared source import: TC-12.
    `background-messages` (ruling 8), rewire the seven consumers (`-ws`, `-http`, `-webrtc`, `-gui`,
    `-webrtc-web`, `agent-cli`, `examples/capabilities/multi-surface-deploy` is not one — it imports
    only the registry) to `@robota-sdk/agent-transport` (`/node` where admission or the manifest is
-   used), internalise the parent's own test import (`src/__tests__/ws-multi-surface-exit-policy.test.ts:16`
-   becomes a relative import; that test also composes `agent-command` + `agent-framework` and moves
-   to the `agent-cli` suite with the S2 pair), and delete the parent's `-protocol` `devDependency` —
+   used), rewire the already CLI-owned `ws-multi-surface-exit-policy.test.ts` and session-event-delivery
+   examples to public parent package exports (never cross-package relative imports), and delete
+   the parent's `-protocol` `devDependency` —
    a leftover devDependency would be `agent-transport ⇄ agent-transport-protocol` in
    `allDependencies`, which `checkFullGraphCycles` (`:692`) reports. **Honest size: ~104 live files
    in one change** — the same order as `STRUCT-011`'s 63. The five transport baseline entries that
@@ -852,7 +853,9 @@ in one unit, and `checkPassthroughReexports` would refuse one anyway.
    registry/settings modules into `packages/agent-framework/src/transport-host/` (a directory, not a
    package); export them from `agent-framework`'s root barrel (ruling 10). Move
    `headless-host-action-parity.test.ts` and `headless-skill-activation.integration.test.ts` to
-   `packages/agent-cli/src/__tests__/` (they import `agent-command`; `DEV-CYCLE`). Rewrite
+   `packages/agent-cli/src/__tests__/` (they import `agent-command`; `DEV-CYCLE`); also move the WS
+   multi-surface test and both session-event-delivery example sources to CLI during S2, with the
+   script/typecheck/history migration specified below. Rewrite
    `agent-cli`'s 8 files and the example. Remove `agent-core` and `agent-framework` from the parent's
    manifest; remove the `./headless` export.
 3. **Substrate absorption + consumer rewiring, one unit.** `git mv` the 16 `-protocol` modules and
@@ -861,8 +864,8 @@ in one unit, and `checkPassthroughReexports` would refuse one anyway.
    served by the root now being browser-safe). Rename the four `ws-` modules to `wire-messages`,
    `session-message-handler` (`createSessionMessageHandler`, `ISessionMessageHandlerOptions`),
    `session-events`, `background-messages` (ruling 8). Add the six `agent-interface-*` dependencies
-   to the parent; delete the parent's `-protocol` `devDependency`; move
-   `ws-multi-surface-exit-policy.test.ts` to the `agent-cli` suite. Rewrite the consumers' imports and
+   to the parent; delete the parent's `-protocol` `devDependency`; rewire the already CLI-owned
+   WS multi-surface test and examples through public parent exports. Rewrite the consumers' imports and
    manifests (`-ws`, `-http`, `-webrtc`, `-gui`, `-webrtc-web`, `agent-cli`) and the S3 rows of the
    scans table; remove the five `-protocol` baseline entries. No shim of any kind.
 4. **`-webrtc-web → -gui`** stays in the baseline until S4 removes it by the rename.
@@ -875,6 +878,84 @@ in one unit, and `checkPassthroughReexports` would refuse one anyway.
    `.agents/publish-registry.md:53`, `.agents/harness.config.json:509`, the diagram and guide lines;
    delete the baseline file when it is empty. Carry the two `npm deprecate` commands from § Decision
    S5 into the release checklist the owner runs (ruling 11).
+
+## Prospective S2 sequencing clarification — host tests and scenario ownership
+
+This clarification preserves the approved final owners and behavior. It does not amend the
+historical gates, mark S2 complete, absorb S3 substrate work, or change any runtime contract.
+The parent loses `agent-core` and `agent-framework` from **every manifest dependency section**;
+relocating them to devDependencies is not fulfillment, even if the narrower original TC-05 passes.
+The seven family-baseline entries remain unchanged throughout S2.
+
+**S2 test ownership.** Move `ws-multi-surface-exit-policy.test.ts` to
+`packages/agent-cli/src/__tests__/` together with the already planned headless-host parity and
+skill-activation tests. Its imports are already package specifiers, and CLI already declares
+command, framework, protocol and the interface dependencies. Keep its real command/session
+composition and assertions unchanged. S2 still imports `createWsHandler`,
+`createOutboundDelivery` and `TServerMessage` from `agent-transport-protocol`.
+S3 then only rewires this CLI-owned test to the public `agent-transport` exports and renamed
+`createSessionMessageHandler`; the earlier instruction to internalise the parent test's import
+does not apply after its S2 move. No cross-package relative source imports and no shim.
+
+**S2 example ownership.** Move both
+`packages/agent-transport/examples/verify-session-event-delivery.ts` and
+`session-event-delivery-project-access.ts` to `packages/agent-cli/examples/`, retaining their
+local helper relation, production trust-service path, deterministic provider, protocol imports
+and scenario identifier `ARCH-020+ARCH-028-protocol`. This is a host-composition example, not a
+framework-owned example: putting its protocol dependency in framework would violate the
+companion family gate. S3 rewires only its public protocol package/symbol imports. Do not
+delete assertions, alter runtime behavior, or replace execution with a recorded transcript.
+
+The receiving CLI currently has no `scenario:verify`, `scenario:record`, or examples directory.
+Its root typecheck includes `src/**/*` only. Add these owner-local scripts to its package manifest:
+
+- `scenario:verify`: `pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts`
+- `scenario:record`: `node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-cli --output examples/scenarios/session-event-delivery.record.json -- pnpm scenario:verify`
+
+Remove the old parent's matching scripts, and move/adapt its `tsconfig.examples.json` to CLI
+(`rootDir: "."`, `noEmit: true`, `declaration: false`, `declarationMap: false`, includes both
+`examples/**/*` and `src/**/*`, preserving applicable compiler/type-root settings). CLI
+`typecheck` becomes `tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit`; the parent
+drops the now-nonexistent examples-project leg, not checks of remaining owned sources.
+Only drop parent dependency entries after a complete src/examples import inventory proves no
+remaining consumers; do not satisfy purity through excluded files or undeclared imports.
+
+**Historical record versus new owner evidence.** Move the old authoritative record, byte-for-byte,
+to `.agents/archive/struct012-s2/agent-transport-session-event-delivery.record.json` as explicit
+historical evidence outside the active `examples/scenarios/*.record.json` registry. Its SHA256 is
+`7e154ebca8c66487094da32113cbcce49c76d6b2577e18c0a59665e28652400f`; keep its old scope,
+packageName, command, Linux stdout and hashes unchanged. Do not copy it into CLI's live registry
+and relabel its metadata. The owner map discovers package scripts automatically; no central
+override/registry extension is needed. The validator requires exactly one active record per
+resolved command and exact scope/command/output matching.
+
+After the affected build, execute `pnpm --filter @robota-sdk/agent-cli scenario:verify`.
+On a supported Linux checkout, require the same normalized structured scenario payload as the
+historical record (plan events, context refresh, branch events/final branch, committed delivery
+failure and cleanup), with no unexplained output difference. Only then run
+`pnpm --filter @robota-sdk/agent-cli scenario:record` to create fresh CLI-owned evidence through
+the existing recorder, and verify again with
+`pnpm harness:verify -- --scope packages/agent-cli --include-scenarios` without
+`--skip-record-check`. This planned recording establishes new execution/owner metadata, not
+new behavior or permission to normalize a regression away. Preserve source/head/platform and
+actual command transcripts for comparison.
+
+The current macOS run can only exercise the example's existing ARCH-047
+`notApplicable: true` branch. That is not a successful Linux scenario. Do not use its zero exit
+to replace the historical success payload or manufacture a successful new CLI record. If no
+supported Linux execution is available, report the missing new-owner execution/record comparison
+as pending, keep S2 acceptance pending, and stop rather than invent evidence or change platform
+policy. No previous successful run is reattributed to this checkout.
+
+**Interim root and verification.** S2 may retain a valid empty `agent-transport/src/index.ts`
+until S3 supplies substrate; remove obsolete headless/programmatic build entries and the
+`./headless` export. No compatibility re-export or invented runtime behavior is introduced.
+TC-05 keeps its existing commands and additionally checks all dependency sections for zero
+core/framework entries and all remaining parent src/examples imports for zero such consumers.
+TC-09 keeps its package suites and additionally requires all three CLI-moved tests collected,
+CLI examples typechecked, the historical archive hash unchanged, and the new CLI owner scenario
+record verified as above. These checks supplement, not replace, ST-1/2/3/5/8 and TC-10's normal
+stage-end verification. All original failure/gate evidence remains historical.
 
 ## Affected Files
 
@@ -894,6 +975,12 @@ in one unit, and `checkPassthroughReexports` would refuse one anyway.
 | `packages/agent-transport-gui/**` + 64 live files                                                                                                                                                                                           | `git mv` → `packages/agent-ui-web`; `@robota-sdk/agent-ui-web` (ruling 9)                                                                      |
 | `packages/agent-transport-tui/**` + 110 live files                                                                                                                                                                                          | `git mv` → `packages/agent-ui-terminal`; `@robota-sdk/agent-ui-terminal` (ruling 9); `ci.yml:1322,1326`                                        |
 | `.agents/project-structure.md`, `ARCHITECTURE.md`, `.agents/publish-registry.md`, `README.md`, `content/guide/architecture.md`, `diagrams/robota-architecture.mmd`, `.agents/harness.config.json`, `packages/agent-transport*/docs/SPEC.md` | routing/identity updates                                                                                                                       |
+
+Additional S2 files: `packages/agent-transport/tsdown.config.ts`, both packages' `package.json`,
+`packages/agent-transport/tsconfig.examples.json` → `packages/agent-cli/tsconfig.examples.json`,
+`packages/agent-transport/examples/{verify-session-event-delivery,session-event-delivery-project-access}.ts`
+→ `packages/agent-cli/examples/`, and the archive/new-owner record paths in the clarification.
+No root scenario-owner registry or runtime policy changes are required.
 
 ## Completion Criteria
 
