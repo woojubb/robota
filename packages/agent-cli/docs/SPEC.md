@@ -2,6 +2,14 @@
 
 ## Scope
 
+**Approved S2 transition (STRUCT-012, prospective).** The CLI will consume headless execution and
+the transport registry from the framework root and own `PrintTerminal` / `promptInput` locally.
+The characterization checkpoint has not moved those implementations yet. Their output formatting,
+selection defaults and non-TTY refusal remain unchanged; no new public CLI export is introduced.
+The existing dependency rows and print-mode owner references are replaced with the implementation
+move, not treated as evidence that the transfer already happened. The real command-module host-action
+and skill-activation tests move to the CLI suite so the framework need not depend on agent-command.
+
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-framework, responsible only for the terminal UI.
 

@@ -6,6 +6,15 @@ transport-admission: none — this package is the transport REGISTRY plus a head
 
 ## 1. Scope
 
+**Approved S2 transition (STRUCT-012, not yet applied).** The characterization checkpoint retains
+the current ownership documented below. Before the production move, the target contract is fixed:
+headless runtime execution, the programmatic driver, the registry and both settings-repository
+factories move to `agent-framework/src/transport-host/` and its root exports; `PrintTerminal` and
+`promptInput` become local `agent-cli` implementation details. Their behavior, error propagation,
+project-access decisions and lifecycle contracts do not change. The transport public API/type/class
+entries for those moved symbols must leave this SPEC with the move; no forwarding shim remains.
+S3's protocol absorption and S4's UI renames are not part of this checkpoint.
+
 Core transport package for the Robota SDK. After DQ-AUDIT-005 the consolidated transport package was
 split by concern; this package owns only the **dependency-free core**:
 
@@ -164,6 +173,15 @@ operation (not just the event) so all trailing writes under cwd `.robota/` have 
 process may exit. It writes exactly one terminal record per run (CI-001).
 
 ## 8. Test Strategy
+
+Pre-move characterization is in `terminal-io-characterization.test.ts` (stdout/stderr framing,
+selection defaults and invalid choices, real readline success and non-TTY refusal, isolated
+stream-boundary input editing/masking, prior raw-state restoration and listener cleanup on
+newline and Ctrl-C) and
+`transport-settings-repository.characterization.test.ts` (memory patch merging and detached
+top-level read projection, real file-settings preservation and read normalization). The terminal
+suite follows its two implementations to the CLI; the repository suite follows its owner to the
+framework. These tests fix existing behavior, not new feature semantics.
 
 Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
 The programmatic integration suite proves that an explicitly trusted project decision reaches the

@@ -2,6 +2,14 @@
 
 ## Scope
 
+**Approved S2 transition (STRUCT-012, prospective).** The runtime-host ownership transfer specified
+in the current `agent-transport` SPEC is not implemented at the characterization checkpoint.
+Its headless, programmatic and registry implementations will live under `src/transport-host/` and
+be exported from this package's root, not through a transport-package re-export. Their existing
+session authority, output, settings and lifecycle behavior must be preserved. Public API, Type
+Ownership, Error Taxonomy and Class Contract Registry entries transfer with the actual move.
+Terminal I/O (`PrintTerminal` / `promptInput`) belongs to the CLI and is not received here.
+
 `@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts into a single, provider-neutral SDK surface. Initial project-aware construction consumes a `TWorkspaceProjectAccess` decision; a bare `cwd` is provenance, not filesystem authority. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
 
 This package owns: config loading (6-layer merge), context loading (AGENTS.md/CLAUDE.md walk-up), command infrastructure (command contracts, registry, sources), permission prompt, edit checkpointing, reversible execution policy, project memory store, self-hosting verification planner, skill discovery, background job orchestration, subagent assembly, bundle plugin management, and all SDK-specific type definitions.
