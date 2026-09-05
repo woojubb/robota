@@ -245,7 +245,6 @@ describe('affected contract selection', () => {
     [['unknown/unregistered-owner.txt'], 'unknown owner'],
     [['outside-root.txt'], 'unknown owner'],
     [['.claude/settings.json'], 'unknown owner'],
-    [['.claude/hooks/unregistered.sh'], 'unknown owner'],
     [['.claude/agents-backup/worker.md'], 'unknown owner'],
   ])('falls back completely for %j', (changedFiles, reason) => {
     const data = fixture();
@@ -263,6 +262,19 @@ describe('affected contract selection', () => {
       data.contracts.filter((file) => file !== data.files.isolated).sort(),
     );
     expect(result.isolated).toEqual([data.files.isolated]);
+  });
+
+  it('classifies Claude hook files as governance inputs', () => {
+    const data = fixture();
+    const result = createAffectedContractPlan({
+      root: data.root,
+      contractTests: data.contracts,
+      isolatedContract: data.isolated,
+      registry: data.registry,
+      changedFiles: ['.claude/hooks/unregistered.sh'],
+    });
+    expect(result.mode).toBe('affected');
+    expect(result.selected).toEqual([data.files.floor]);
   });
 
   it('uses the complete fallback for every contract control-plane input', () => {
