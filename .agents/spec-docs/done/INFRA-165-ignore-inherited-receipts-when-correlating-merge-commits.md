@@ -55,6 +55,7 @@ Before counting pending receipt changes, exclude only unchanged parent-owned rec
 
 - `scripts/harness/work-run-pending-receipt.mjs`
 - `scripts/harness/__tests__/work-run-hook.test.mjs`
+- `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` — final verification fixture isolation only; no production contract change.
 - This spec and paired Task. No hook policy, rebase behavior, CI or product source changes.
 
 ## Completion Criteria
@@ -82,6 +83,12 @@ Not applicable.
 - [x] `.agents/tasks/completed/INFRA-165-ignore-inherited-receipts-when-correlating-merge-commits.md` — focused verification, final full gate and remote develop integration passed.
 
 ## Evidence Log
+
+### Final integration verification correction — 2026-09-05
+
+Actual final verification found the temporary checkpoint fixture inheriting the real repository's HARNESS_BASE_REF. Its own origin/develop then ceased to be the fixture integration authority. The failure is preserved in /tmp/infra165-metadata-verify-like-ci.log. Under the owner's harness-correction instruction, this fixture alone now removes that variable before each test and restores the original environment afterward. Real-repository contract tests retain the original cumulative work-run base. Production source, policy, baselines and prior gate verdicts are unchanged.
+
+Focused verification with HARNESS_BASE_REF set to the original work-run base: gate-checkpoint-evidence.test.mjs plus scan-user-execution-plan-order.test.mjs, 2 files / 189 tests PASS, exit 0, 141.65 seconds (/tmp/infra165-fixture-green.log). node --check and git diff --check also exited 0. The full verification remains caller-owned pending the related base propagation correction.
 
 ### Implementation verification — 2026-09-05
 

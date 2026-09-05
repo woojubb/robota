@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   correctionCheckpointEvidence,
@@ -27,6 +27,12 @@ function git(args) {
 }
 
 describe('gate checkpoint evidence renderer', () => {
+  beforeEach(() => {
+    // This fixture owns origin/develop; a caller's repository base is not its integration ref.
+    vi.stubEnv('HARNESS_BASE_REF', undefined);
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
   it('renders the declared v2 first-checkpoint payload', () => {
     git(['init', '-q']);
     git(['config', 'user.email', 'fixture@example.com']);
