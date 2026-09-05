@@ -86,7 +86,12 @@ function hydrateMissingCommit(oid, commits, loadCommit, loadCommits, remaining) 
   }
   for (const value of loaded) {
     const commit = historicalCommit(value);
-    if (commit.sha === oid) commits.set(commit.sha, commit);
+    commits.set(commit.sha, commit);
+    // The ancestry page is ordered from the requested force-push boundary back
+    // toward the opening seal. Keep that contiguous segment, but do not ingest
+    // older commits after the generation-zero closure; those commits are not
+    // part of this evidence and may contain unrelated trailers.
+    if (hasGenerationZeroTrailer(commit)) break;
   }
   const commit = commits.get(oid);
   if (!commit)
