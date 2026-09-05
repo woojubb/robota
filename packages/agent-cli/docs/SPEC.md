@@ -720,6 +720,13 @@ Suites: tool loop (scripted Read→Edit→Bash mutating a temp repo), permission
 listed by `/help` must produce a valid result envelope). Real-terminal TUI coverage lives in
 agent-transport's PTY project (see that SPEC's Test Harness Contracts).
 
+**Built-binary E2E (SEC-022).** One suite runs the shipped binary rather than the in-process
+assembly, so the PreToolUse denial route is exercised through the product surface with no provider
+and no network call. The driver takes the session id from stdout and reads the persisted session
+record, because the stream-json event union carries no tool events and stdout alone cannot show a
+denial. A denial and its reason are asserted from that record, and the allowed arm is asserted to
+carry neither.
+
 | Layer               | Test file(s)                                 | Strategy                                                                 |
 | ------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
 | CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases |
