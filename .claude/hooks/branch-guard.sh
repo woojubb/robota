@@ -1,6 +1,6 @@
 #!/bin/bash
 # branch-guard hook
-# Blocks git commit on protected branches (main, master, develop).
+# Blocks git commit on protected branches (main, master).
 #
 # fail-direction: refuse — this hook classifies git verbs, and git's grammar is wider than any list
 # of spellings. An allowlist of flag tokens here leaked three bypasses in one change, each silent.
@@ -1550,15 +1550,16 @@ while read -r STMT_START STMT_LEN; do
     fi
   fi
 
-  # Block commit on all protected branches
+  # Block commit on release branches. develop is an integration branch, but direct commits are
+  # permitted by the repository policy when explicitly requested by the maintainer.
   # Exception: allow merge commits (when .git/MERGE_HEAD exists — completing a git merge)
   if [[ "$IS_COMMIT" == "true" ]]; then
     MERGE_IN_PROGRESS=false
     [[ -f "$PROJECT_DIR/.git/MERGE_HEAD" ]] && MERGE_IN_PROGRESS=true
     if [[ "$MERGE_IN_PROGRESS" == "false" ]]; then
-      for branch in main master develop; do
+      for branch in main master; do
         if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
-          echo "[branch-guard] Blocked: cannot git commit on protected branch '${branch}'. Create a feature branch first." >&2
+          echo "[branch-guard] Blocked: cannot git commit on protected release branch '${branch}'. Create a feature branch first." >&2
           exit 2
         fi
       done
