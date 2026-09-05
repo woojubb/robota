@@ -137,10 +137,15 @@ that fails if the extraction blinds a scan.
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the
-engineering test plan (TC-01 to TC-05).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This item relocates functions between four of the repository's own internal maintenance
+scripts so a size scan over those scripts stops reporting growth. Nothing it touches is published,
+installed, or reachable from any command a person outside this repository can run — there is no
+screen, no CLI flag, no SDK entry point and no file a user of Robota ever sees, so there is no
+surface on which a scenario could be performed.
 
 ## Tasks
 
@@ -225,6 +230,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -265,6 +271,7 @@ Recorded as the rule's required choice rather than skipped.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `caae2df542ff` · base `origin/develop@caae2df542ff` · document `.agents/spec-docs/todo/INFRA-175-shrink-gate-and-run-all-scans-back-under-their-frozen-file-size-baselines.md` blob `3785126564fb` (untracked)
