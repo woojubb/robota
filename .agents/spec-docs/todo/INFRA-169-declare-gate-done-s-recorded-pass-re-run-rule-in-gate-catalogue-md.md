@@ -2,7 +2,7 @@
 status: approved
 type: INFRA
 tags: [infra]
-lane: L1
+lane: L2
 ---
 
 # INFRA-169: Declare GATE-DONE's recorded-pass re-run rule in gate-catalogue.md
@@ -164,3 +164,20 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-169-declare-gate-done-s-recorded-pass-re-run-rule-in-gate-catalogue-md.md` blob `15727700b811` (untracked)
+
+### Note — lane correction and owner override (2026-09-06)
+
+The `lane-declaration` scan (issue #2588's own affected files, `scripts/harness/gate.mjs` and
+`.agents/specs/gate-catalogue.md`, set an L2 floor) refused this document's original `lane: L1`.
+Re-running the write/approval gates under L2 with an independent `backlog-gate-guard` dispatch then
+correctly returned `GATE VERDICT: NON-COMPLIANCE` — the implementation commits had already landed
+before that re-run, so no gate re-run could honestly bless them as prospectively approved. That
+finding is accurate and is not disputed here.
+
+The repository owner, on being told this directly, explicitly reviewed the finding and decided to
+bypass the local spec-doc/gate pipeline for this merge rather than have it re-run retroactively —
+GitHub's branch protection on `develop` was independently confirmed already removed
+(`gh api repos/woojubb/robota/branches/develop/protection` → 404 Not protected). The `lane:` field
+above is corrected to `L2` to state the honest floor; the GATE-WRITE/GATE-APPROVAL/GATE-IMPLEMENT
+entries above are left as the record of the (L1-then-superseded) attempt, not as a claim that this
+document cleared L2's gates in the documented order.
