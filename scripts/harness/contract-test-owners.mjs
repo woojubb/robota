@@ -96,8 +96,7 @@ export function ownerForRepositoryInput(root, input) {
     normalized.startsWith('.agents/') ||
     normalized.startsWith('.husky/') ||
     normalized === '.claude/agents' ||
-    normalized.startsWith('.claude/agents/') ||
-    normalized.startsWith('.claude/hooks/')
+    normalized.startsWith('.claude/agents/')
   ) {
     return 'workspace:governance';
   }
