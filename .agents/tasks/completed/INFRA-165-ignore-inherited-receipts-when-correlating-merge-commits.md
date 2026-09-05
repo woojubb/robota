@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-165: ignore inherited receipts when correlating merge commits'
-status: in-progress
+status: completed
 created: 2026-09-05
+completed: 2026-09-05
 priority: high
 urgency: now
 area: work-run receipt correlation
@@ -14,7 +15,7 @@ depends_on: []
 
 Unblock legitimate integration merges by distinguishing inherited receipt blobs from new receipt closures.
 
-no-issue: Direct owner request to resolve the reported integration blocker.
+Issue: https://github.com/woojubb/robota/issues/2583
 
 ## Owner Approval
 
