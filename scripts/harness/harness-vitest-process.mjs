@@ -50,10 +50,10 @@ function vitestArguments(root, files, config = undefined) {
     ...files,
     ...(config ? ['--config', config] : []),
     // The complete harness contract fallback performs many repository-isolated fixture runs.
-    // Threads intermittently lose the Vitest task-update channel under that load; forks keep
-    // each worker's process state isolated and allow the required gate to finish deterministically.
-    '--pool=forks',
-    '--maxWorkers=2',
+    // A single worker keeps the task-update channel responsive under that load and avoids
+    // concurrent fixture processes competing for the same host resources.
+    '--pool=threads',
+    '--maxWorkers=1',
     '--testTimeout=30000',
     '--reporter=dot',
   ];

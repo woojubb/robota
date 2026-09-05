@@ -54,12 +54,12 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(owner).toContain("entry.name.endsWith('.test.mjs')");
   });
 
-  it('root harness:test uses the bounded thread pool', () => {
+  it('root harness:test uses the serialized thread pool', () => {
     const packageJson = JSON.parse(read('package.json'));
     const script = read('scripts/harness/harness-vitest-process.mjs');
 
     expect(script).toContain('--pool=threads');
-    expect(script).toContain('--maxWorkers=2');
+    expect(script).toContain('--maxWorkers=1');
     expect(script).toContain('--testTimeout=30000');
   });
 });
