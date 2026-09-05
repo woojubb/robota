@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [harness, typescript]
 lane: L1
@@ -128,7 +128,7 @@ None
 
 ## Tasks
 
-- [x] `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` — todo; terminal archival follows GATE-DONE.
+- [x] `.agents/tasks/completed/HARNESS-2401-issue-number-backed-spec-identifiers.md` — todo; terminal archival follows GATE-DONE.
 
 ## Evidence Log
 
@@ -356,3 +356,26 @@ scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-q
   **Required action:** complete the missing bindings and re-run GATE-DONE.
 
 **Judged at:** HEAD `9fcb950ad96adec0c0a2861b82092d436fb93189` · base `origin/develop@cac1040da69030cd04dffd122563a7c9da46ceb3` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `c521cfb1a0c82fb6a02f2c6e0ebedc8a4a336cc5` (tracked)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → done
+
+**Guardian:** `backlog-gate-guard`, independent of the implementation author. This entry records the
+current completion judgment; no frontmatter status, document path, or judged content was changed.
+
+- GATE-DONE — Ordering: PASS — the prior `[GATE-PLAN] — ✅ PASS | 2026-09-06` entry records `draft → approved`; the document currently has `status: approved` and remains under `.agents/spec-docs/todo/`, satisfying the declared `recorded-pass` L1 input rule.
+- GATE-VERIFY — Every item in the paired Task `## Plan` is marked complete (`[x]`): PASS — `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` has exactly 3/3 Plan items checked.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired Task Plan contains no unchecked, blocked, or pending item; `depends_on: []`.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — independently reran `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` at HEAD `51dd479aadd7e78995fbd198d715a6113b9b07da`; exit 0, 66 affected scans selected, 63 passed, 1 skipped, and 2 PR-context advisory findings tolerated with no blocking failure.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — independently reran `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs`; exit 0, 2 test files passed and 85/85 tests passed.
+- GATE-COMPLETE — Every Completion Criteria checkbox is checked: PASS — TC-01 through TC-04 are all `[x]` (4/4).
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` entry exists per criterion with command/action, observed result, and exit: PASS — the Evidence Log contains PASS entries for TC-01, TC-02, TC-03, and TC-04; each records its command, output/result, and exit 0.
+- GATE-COMPLETE — Each Test Plan row has a test reference or explicit skip reason: PASS — TC-01 names the allocator/scaffolder test files and `the issue source`; TC-02 records why no separate test file was written because the affected harness scan is the executable cross-cutting verification; TC-03 names the allocator test file and exact Issue reuse/creation cases; TC-04 names the scaffolder test file and the issue-backed acceptance/legacy-ID refusal cases.
+- GATE-COMPLETE — No TC-N is silently unaddressed: PASS — all four Test Plan rows have one of the required bindings.
+- GATE-COMPLETE — `## Completion Criteria` is fully checked: PASS — 4/4 criteria are checked.
+- GATE-COMPLETE — `## Test Plan` has references or skip reasons for every TC-N: PASS — TC-01 through TC-04 are all bound as recorded above.
+- GATE-COMPLETE — The spec names the exact active Task path and it exists: PASS — `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` is named in `## Tasks` and exists.
+- GATE-COMPLETE — The paired Task is completion-ready: PASS — the exact paired Task has 3/3 Plan items checked and no pending or blocked item; terminal status and archival remain post-PASS caller actions.
+
+**Judged at:** HEAD `51dd479aadd7e78995fbd198d715a6113b9b07da` · base `origin/develop@cac1040da69030cd04dffd122563a7c9da46ceb3` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `4480dcc43a5e3ddf2889c3169d54abce7fe6dc7a` (tracked)

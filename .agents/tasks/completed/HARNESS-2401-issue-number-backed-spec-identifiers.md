@@ -1,13 +1,16 @@
 ---
 title: 'HARNESS-2401: use GitHub issue numbers for new spec identifiers'
 issue: https://github.com/woojubb/robota/issues/2401
-status: todo
+status: done
 created: 2026-09-06
 priority: medium
 urgency: soon
 area: scripts/harness, .agents/tasks, .agents/skills
 depends_on: []
+completed: 2026-09-06
 ---
+
+Spec: `.agents/spec-docs/done/HARNESS-2401-issue-number-backed-spec-identifiers.md`
 
 # HARNESS-2401: use GitHub issue numbers for new spec identifiers
 
