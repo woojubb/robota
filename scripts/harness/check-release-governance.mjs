@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { collectChangesetFixedGroupFindings } from './release-fixed-group.mjs';
 
 export function collectReleaseGovernanceFindings(workspaceRoot = process.cwd()) {
   const findings = [];
@@ -55,7 +56,6 @@ export function collectReleaseGovernanceFindings(workspaceRoot = process.cwd()) 
   const processRules = readText('.agents/rules/process.md');
   const rulesIndex = readText('.agents/rules/index.md');
   const commonMistakes = readText('.agents/rules/common-mistakes.md');
-  const publishRules = readText('.agents/rules/publish.md');
   const ciWorkflow = readText('.github/workflows/ci.yml');
   const publishScript = readText('scripts/publish/publish-packages.sh');
 
@@ -173,7 +173,7 @@ export function collectReleaseGovernanceFindings(workspaceRoot = process.cwd()) 
   );
   requireContains(
     '.agents/rules/publish.md',
-    publishRules,
+    releaseRules,
     'Release Control Plane',
     'Publish rules must reference the Release Control Plane before publish.',
   );
@@ -289,7 +289,7 @@ export function collectReleaseGovernanceFindings(workspaceRoot = process.cwd()) 
     'Publish script must request OTP only inside the publish boundary.',
   );
 
-  return findings;
+  return [...findings, ...collectChangesetFixedGroupFindings(workspaceRoot)];
 }
 
 function main() {
