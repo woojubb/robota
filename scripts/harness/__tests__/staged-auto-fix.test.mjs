@@ -87,12 +87,18 @@ function contractProblems({ hook, lintStaged, packageJson, typedProject, workflo
   if (hook.includes('with-repo-lock.sh')) {
     problems.push('pre-commit must not acquire a second repository lock');
   }
+  if (sourceTasks.indexOf('eslint --fix') === -1) {
+    problems.push('lint-staged must run ESLint on staged source files');
+  }
+  // Owner directive 2026-09-05: Prettier no longer auto-runs at commit time (reformatted
+  // lines a prior edit had only indented, producing repeated add/delete churn). Format drift
+  // is caught by the separate format-check verify-like-ci stage instead (INFRA-083).
   if (
-    sourceTasks.indexOf('eslint --fix') === -1 ||
-    sourceTasks.indexOf('prettier --write') === -1 ||
-    sourceTasks.indexOf('eslint --fix') > sourceTasks.indexOf('prettier --write')
+    Object.values(lintStaged).some(
+      (tasks) => Array.isArray(tasks) && tasks.includes('prettier --write'),
+    )
   ) {
-    problems.push('lint-staged must run ESLint before Prettier');
+    problems.push('lint-staged must not auto-run Prettier (owner directive 2026-09-05)');
   }
   if (!workflow.includes('pnpm lint:fix:staged') || !workflow.includes('pnpm lint:fix')) {
     problems.push('the completion workflow must name staged and full fix modes');
@@ -129,9 +135,9 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
       ({ hook }) => ({ hook: `${hook}\nwith-repo-lock.sh pnpm lint:fix:staged\n` }),
     ],
     [
-      'formatter before linter',
+      'prettier reintroduced into lint-staged',
       ({ lintStaged }) => {
-        lintStaged['*.{ts,tsx}'] = ['prettier --write', 'eslint --fix'];
+        lintStaged['*.{ts,tsx}'] = ['eslint --fix', 'prettier --write'];
       },
     ],
     [
@@ -148,7 +154,7 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
     expect(contractProblems(changed)).not.toEqual([]);
   });
 
-  it('fixes only staged source and documentation files and automatically re-stages them', async () => {
+  it('lints staged TypeScript via ESLint only, leaves markdown untouched (Prettier disabled, owner directive)', async () => {
     const fixtureRoot = makeTemp('robota-staged-auto-fix-');
     const sourcePath = path.join(fixtureRoot, 'fixture.ts');
     const markdownPath = path.join(fixtureRoot, 'fixture.md');
@@ -201,8 +207,11 @@ describe('INFRA-089 staged and full auto-fix contract', () => {
 
       expect(`${result.stdout}${result.stderr}`).not.toContain('FAILED');
       expect(result.status).toBe(0);
-      expect(readFileSync(sourcePath, 'utf8')).toBe("const answer = { value: 'ok' };\n");
-      expect(readFileSync(markdownPath, 'utf8')).toBe('# Title\n\n- item\n');
+      // ESLint has no autofixable rule for this fixture (only a no-unused-vars warning) and
+      // Prettier no longer runs at commit time, so the staged file is untouched.
+      expect(readFileSync(sourcePath, 'utf8')).toBe('const answer={value:"ok"}\n');
+      // `.md` is not routed to any lint-staged task now that Prettier is disabled.
+      expect(readFileSync(markdownPath, 'utf8')).toBe('# Title\n\n-   item\n');
       expect(readFileSync(unrelatedPath, 'utf8')).toBe(unrelatedBefore);
       expect(git('diff', '--cached', '--name-only').stdout.trim().split('\n').sort()).toEqual([
         'fixture.md',

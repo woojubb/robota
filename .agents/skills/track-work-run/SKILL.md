@@ -35,7 +35,10 @@ implementation is still active. Preserve required events when a real lifecycle t
    and commit its receipt-only closure; then force-push. A rebase generation may not add file changes,
    and the server edge must land on the proven rebased head or that exact empty-bind + closure suffix.
 7. If raw state is truly lost, use `recover --state-lost --run-id <id> --base <base-ref>`. Never create
-   a late synthetic claim. The resulting receipt remains in the invalid denominator.
+   a late synthetic claim. The resulting receipt remains in the invalid denominator. If instead a
+   commit landed on top of an already-committed receipt (raw state intact, history malformed), follow
+   [work-run-measurement.md § Recovery from a malformed receipt sequence](../../rules/work-run-measurement.md#recovery-from-a-malformed-receipt-sequence)
+   instead of reopening blind.
 
 Before push, run `pnpm harness:scan:work-run -- --base <base-ref>`. Missing, mixed, stale, malformed,
 or identity-mismatched measurement is a defect to fix, not a bypass condition.

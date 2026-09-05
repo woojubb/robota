@@ -431,6 +431,43 @@ describe('closeRun', () => {
       );
     }
   });
+
+  it('refuses closing `user-execution-scenario` without --ref — a null ref there seals unamendably (#2568, H5)', () => {
+    const root = workspace({ 'user-execution-scenario': FINDING_SET });
+    const { runId } = openRun({ root, skill: 'user-execution-scenario', now: NOW });
+    expect(() =>
+      closeRun({ root, skill: 'user-execution-scenario', runId, terminal: 'converged', now: NOW }),
+    ).toThrow(/--ref/);
+    expect(() =>
+      closeRun({
+        root,
+        skill: 'user-execution-scenario',
+        runId,
+        terminal: 'converged',
+        ref: '   ',
+        now: NOW,
+      }),
+    ).toThrow(/--ref/);
+    // The run is still OPEN — the refusal above must not have sealed it.
+    expect(
+      closeRun({
+        root,
+        skill: 'user-execution-scenario',
+        runId,
+        terminal: 'converged',
+        ref: 'DOCS-031 — SCENARIO DRAFTED: converged | 0',
+        now: NOW,
+      }).ref,
+    ).toBe('DOCS-031 — SCENARIO DRAFTED: converged | 0');
+  });
+
+  it('every other loop kind still closes with no --ref, unaffected by the user-execution-scenario refusal', () => {
+    const root = workspace({ looper: FINDING_SET, tries: ATTEMPT });
+    const a = openRun({ root, skill: 'looper', now: NOW });
+    expect(
+      closeRun({ root, skill: 'looper', runId: a.runId, terminal: 'converged', now: NOW }).ref,
+    ).toBe(null);
+  });
 });
 
 describe('voidRun (#2438)', () => {
