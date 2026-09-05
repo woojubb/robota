@@ -230,9 +230,10 @@ so an `export` in an earlier statement does not reach it.
   feature branch** (a feature branch PR'd straight to `main` sweeps the whole `develop` delta and diverges
   the branches). MECHANICALLY enforced by the `main-pr-source-guard` CI job
   (`.github/workflows/ci.yml`). The flow is fixed: **feature→develop→main**.
-- `develop` is the integration branch. All feature work branches from `develop`. Direct commits to
-  `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
-  enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
+- `develop` is the integration branch. All feature work should normally branch from `develop` and
+  return through a PR, but direct commits, pushes, and merges are permitted when the maintainer
+  explicitly requests them. The branch remains subject to the repository's verification and review
+  requirements.
 - Feature branches must be created from `develop` and merged back into `develop`. **Create them from the
   freshly-fetched `origin/develop` head — never from `main`, and never from another local feature branch.**
   Explicitly: `git fetch origin && git checkout -b <type>/<slug> origin/develop`. Rationale, one line each:

@@ -6,7 +6,10 @@ import {
   forcePushEdge,
   resolveAttestedOpeningHeadFromHistory,
 } from './work-run-opening-head-history.mjs';
-import { attestedOpeningHead } from './work-run-opening-head-evidence.mjs';
+import {
+  attestedOpeningHead,
+  attestedOpeningHeadFromComments,
+} from './work-run-opening-head-evidence.mjs';
 import { pullRequestTimeline } from './work-run-pr-timeline.mjs';
 import { loadPullRequestCommitAncestry } from './work-run-pr-ancestry.mjs';
 import { terminalPullRequestWorkRunId } from './work-run-pr-body.mjs';
@@ -149,6 +152,60 @@ function resolveOpeningHistory(context, pr, timeline) {
     isAttested: (candidate) =>
       attestedOpeningHead(context.root, context.repository, pr.created_at, candidate, context) !==
       null,
+    attestCandidates:
+      context.run === spawnSync
+        ? (candidates) => attestOpeningHeadCandidates(context, pr, candidates)
+        : undefined,
+  });
+}
+
+function graphqlString(value) {
+  return JSON.stringify(value);
+}
+
+function attestOpeningHeadCandidates(context, pr, candidates) {
+  if (candidates.length === 0) return [];
+  const [owner, name] = context.repository.split('/');
+  const selections = candidates
+    .map(
+      ({ headOid }, index) =>
+        `c${index}: object(oid: ${graphqlString(headOid)}) { ... on Commit { comments(first: 100) { nodes { databaseId body createdAt updatedAt } } } }`,
+    )
+    .join('\n');
+  const response = runGitHubJson(
+    [
+      'api',
+      'graphql',
+      '-f',
+      `query=query { repository(owner: ${graphqlString(owner)}, name: ${graphqlString(name)}) { ${selections} } }`,
+    ],
+    context.run,
+    context.root,
+    context.budget,
+  );
+  if (!response?.data?.repository?.c0) {
+    return candidates.filter(
+      (candidate) =>
+        attestedOpeningHead(context.root, context.repository, pr.created_at, candidate, context) !==
+        null,
+    );
+  }
+  return candidates.filter(({ headOid }, index) => {
+    const comments = response?.data?.repository?.[`c${index}`]?.comments?.nodes;
+    if (!Array.isArray(comments)) return false;
+    return (
+      attestedOpeningHeadFromComments(
+        comments.map((comment) => ({
+          id: comment.databaseId,
+          commit_id: headOid,
+          body: comment.body,
+          created_at: comment.createdAt,
+          updated_at: comment.updatedAt,
+        })),
+        pr.created_at,
+        { runId: candidates[index].runId, headOid },
+      ) !== null
+    );
   });
 }
 

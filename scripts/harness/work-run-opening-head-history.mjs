@@ -122,8 +122,9 @@ function hydrateForcePushAncestors(timeline, commits, loadCommit, loadCommits) {
   }
 }
 
-function attestedCandidates(commits, expectedRunId, isAttested) {
-  return initialReceiptHeads(commits, expectedRunId).filter(isAttested);
+function attestedCandidates(commits, expectedRunId, isAttested, attestCandidates) {
+  const candidates = initialReceiptHeads(commits, expectedRunId);
+  return attestCandidates ? attestCandidates(candidates) : candidates.filter(isAttested);
 }
 
 export function resolveAttestedOpeningHeadFromHistory({
@@ -132,6 +133,7 @@ export function resolveAttestedOpeningHeadFromHistory({
   loadCommit = null,
   loadCommits = null,
   isAttested,
+  attestCandidates = null,
 }) {
   if (
     !Array.isArray(timeline) ||
@@ -144,10 +146,10 @@ export function resolveAttestedOpeningHeadFromHistory({
     );
   }
   const commits = timelineCommits(timeline);
-  let attested = attestedCandidates(commits, expectedRunId, isAttested);
+  let attested = attestedCandidates(commits, expectedRunId, isAttested, attestCandidates);
   if (attested.length === 0) {
     hydrateForcePushAncestors(timeline, commits, loadCommit, loadCommits);
-    attested = attestedCandidates(commits, expectedRunId, isAttested);
+    attested = attestedCandidates(commits, expectedRunId, isAttested, attestCandidates);
   }
   if (attested.length !== 1) {
     throw evidenceFailure(
