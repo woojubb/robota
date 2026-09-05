@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+  "generation": 1,
+  "revision": 1,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "chore/allow-develop-direct-merge-final-v3",
+    "baseCommit": "caae2df542ff764d7505d9a61e39d602472ff9b8",
+    "headCommit": "897934e23c5e7e7bb8ab6ce13e786ec57b1bf274",
+    "headTree": "80618a19a68e099dc688ef61f76793157cac4bc2",
+    "commitOids": [
+      "c3381f130dff125982a0125b8bdd7862b743cac3",
+      "16930cd342a1a8a8ccbfb1a3e31e8897d89a9064",
+      "dcba0e8a81b85ad7073c63409c6ffbc54faa5db8",
+      "45c14393b8d22d57cbbfc58ee4fb9a51416156ee",
+      "dbd6b67770b75fa8adc6b7e947366a092ea0e046",
+      "adbb02cc413ebe67097e14b1a76b39a26251b697",
+      "897934e23c5e7e7bb8ab6ce13e786ec57b1bf274"
+    ],
+    "trailerDigest": "a4a3e01dcbced7c294dd8158b8437b7a26067c2bf3fc6cfa002ca8e8c16193c3",
+    "ownerFingerprint": "4c824ff52aee83bf22bdbfb828acb9ff6dd052e9527cf3b379c5d8fdb074fda4"
+  },
+  "cohort": {
+    "key": "L2/INFRA",
+    "lane": "L2",
+    "workKind": "INFRA"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-05T19:27:26.641Z",
+      "data": {
+        "branch": "chore/allow-develop-direct-merge-final-v3"
+      },
+      "hash": "eb9e3d52f0812607c79c35e0b4447c2aebf270dce745dca10b5c9cb36d3038af"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 2,
+      "previousHash": "eb9e3d52f0812607c79c35e0b4447c2aebf270dce745dca10b5c9cb36d3038af",
+      "type": "work.bound",
+      "at": "2026-09-05T19:27:29.768Z",
+      "data": {
+        "workId": "INFRA-173",
+        "lane": "L2",
+        "workKind": "INFRA"
+      },
+      "hash": "0aa15c2be51000742a1ab8f930682b7ea950f6d3c7e0fdb9a312dcc351b595c6"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 3,
+      "previousHash": "0aa15c2be51000742a1ab8f930682b7ea950f6d3c7e0fdb9a312dcc351b595c6",
+      "type": "work.started",
+      "at": "2026-09-05T19:27:30.226Z",
+      "data": {},
+      "hash": "c521ecb23c1241c0f07b02150e9ae55b5e296a366ae06aca5afdbd0967c506ae"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 4,
+      "previousHash": "c521ecb23c1241c0f07b02150e9ae55b5e296a366ae06aca5afdbd0967c506ae",
+      "type": "phase.started",
+      "at": "2026-09-05T19:27:30.667Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "28f22e458be30952a423ec7aa2e271f80ede1dc712254bbe492ec8a6ccfdf812"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 5,
+      "previousHash": "28f22e458be30952a423ec7aa2e271f80ede1dc712254bbe492ec8a6ccfdf812",
+      "type": "phase.completed",
+      "at": "2026-09-05T19:29:18.208Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "bc8f9ee29e31fddd8ccb0fb22f39985b6dd506e9aab3022a842c0728290a53bc"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 6,
+      "previousHash": "bc8f9ee29e31fddd8ccb0fb22f39985b6dd506e9aab3022a842c0728290a53bc",
+      "type": "phase.started",
+      "at": "2026-09-05T19:29:18.658Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "7dd2ce8f473e713a2bd568dcc2decaf678bc2ee05b726af0c604c0e98fe50911"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 7,
+      "previousHash": "7dd2ce8f473e713a2bd568dcc2decaf678bc2ee05b726af0c604c0e98fe50911",
+      "type": "phase.completed",
+      "at": "2026-09-05T19:29:19.104Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "bf7042eba9218620b767804fc213a94b6ae51cc8c5991ab84dba22247f458b01"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 8,
+      "previousHash": "bf7042eba9218620b767804fc213a94b6ae51cc8c5991ab84dba22247f458b01",
+      "type": "work.ready",
+      "at": "2026-09-05T19:29:19.548Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "e44570d05a9ad57799a5c0da04fd96e35728f86614386bfe5eabf406e6ab5ccd"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 9,
+      "previousHash": "e44570d05a9ad57799a5c0da04fd96e35728f86614386bfe5eabf406e6ab5ccd",
+      "type": "work.reopened",
+      "at": "2026-09-05T19:48:11.764Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 1,
+        "revision": 0,
+        "authorization": {
+          "prNumber": 2609,
+          "head": "7d292432946e9bb2adb62bc4c01bc255a5be42a0",
+          "verdict": 1,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/actions/runs/33987273630",
+          "scope": "Push the contract-scan timeout fix commit 53bedb0df on chore/allow-develop-direct-merge-final-v3",
+          "approvedBy": "@woojubb",
+          "commentId": 5554341836,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2609#issuecomment-5554341836",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "be5ca11d8192dc1e9dee0bf54e39cf07b439a97a0faf8223131d879582317747"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 10,
+      "previousHash": "be5ca11d8192dc1e9dee0bf54e39cf07b439a97a0faf8223131d879582317747",
+      "type": "phase.started",
+      "at": "2026-09-05T19:48:12.197Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "b9d575c351b0b941b82fe98eb9f1b6522bd3df291980f078edf0c89c40ed7c7a"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 11,
+      "previousHash": "b9d575c351b0b941b82fe98eb9f1b6522bd3df291980f078edf0c89c40ed7c7a",
+      "type": "phase.completed",
+      "at": "2026-09-05T19:48:12.624Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "82f546fc26f2cff2c929d4f35461da60bc22ff5b50833b6b5e83745a304a48db"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 12,
+      "previousHash": "82f546fc26f2cff2c929d4f35461da60bc22ff5b50833b6b5e83745a304a48db",
+      "type": "work.ready",
+      "at": "2026-09-05T19:55:36.961Z",
+      "data": {
+        "generation": 1,
+        "revision": 0
+      },
+      "hash": "9852b2711ebb9044754b76fdc0d4ba0d4be725919e90c79bcc721bd254d943ba"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 13,
+      "previousHash": "9852b2711ebb9044754b76fdc0d4ba0d4be725919e90c79bcc721bd254d943ba",
+      "type": "work.reopened",
+      "at": "2026-09-05T20:05:55.183Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 1,
+        "revision": 1,
+        "authorization": {
+          "prNumber": 2609,
+          "head": "7d292432946e9bb2adb62bc4c01bc255a5be42a0",
+          "verdict": 1,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/actions/runs/33987273630",
+          "scope": "Push the contract-scan timeout fix commit 53bedb0df on chore/allow-develop-direct-merge-final-v3",
+          "approvedBy": "@woojubb",
+          "commentId": 5554341836,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2609#issuecomment-5554341836",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "42805d86b913223f05c0cd60835a0f6160c000571f17c3e4def903ae5ed8ce8b"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 14,
+      "previousHash": "42805d86b913223f05c0cd60835a0f6160c000571f17c3e4def903ae5ed8ce8b",
+      "type": "phase.started",
+      "at": "2026-09-05T20:06:05.678Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "defa0b35fae2db4232fdeabb529efb11fdc674ca3278b77a028a888a35e1e7cf"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 15,
+      "previousHash": "defa0b35fae2db4232fdeabb529efb11fdc674ca3278b77a028a888a35e1e7cf",
+      "type": "phase.completed",
+      "at": "2026-09-05T20:06:06.082Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "b0dd8e471dc61231d733dd4f22d80bd7e2e63aa7f8088c687db56a5a6d2b7e80"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 16,
+      "previousHash": "b0dd8e471dc61231d733dd4f22d80bd7e2e63aa7f8088c687db56a5a6d2b7e80",
+      "type": "phase.started",
+      "at": "2026-09-05T20:06:06.486Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "81815a11d768928de0adb89449ad870d067de380edf067e7677bf9ee789d6517"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 17,
+      "previousHash": "81815a11d768928de0adb89449ad870d067de380edf067e7677bf9ee789d6517",
+      "type": "phase.completed",
+      "at": "2026-09-05T20:06:06.891Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "b9007b80dde83b1ba05e56ebcf7cc938686d7c7f512315be27101494c5125194"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "069d31e0-14d4-431b-9524-d5833866f4bc",
+      "sequence": 18,
+      "previousHash": "b9007b80dde83b1ba05e56ebcf7cc938686d7c7f512315be27101494c5125194",
+      "type": "work.ready",
+      "at": "2026-09-05T20:06:07.294Z",
+      "data": {
+        "generation": 1,
+        "revision": 1
+      },
+      "hash": "c094bf3a705bae3aaafa21b37af8cc5d577d62450e9ee6c702ea98cb96836ae9"
+    }
+  ],
+  "durations": {
+    "wallMs": 1075530,
+    "activeMs": 1075530,
+    "pausedMs": 0,
+    "phases": {
+      "verification": 832,
+      "implementation": 404
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-05T19:27:26.641Z",
+    "readyAt": "2026-09-05T20:06:07.294Z"
+  },
+  "ground": "red-check",
+  "authorization": {
+    "prNumber": 2609,
+    "head": "7d292432946e9bb2adb62bc4c01bc255a5be42a0",
+    "verdict": 1,
+    "action": "push",
+    "ground": "red-check",
+    "evidence": "https://github.com/woojubb/robota/actions/runs/33987273630",
+    "scope": "Push the contract-scan timeout fix commit 53bedb0df on chore/allow-develop-direct-merge-final-v3",
+    "approvedBy": "@woojubb",
+    "commentId": 5554341836,
+    "commentUrl": "https://github.com/woojubb/robota/pull/2609#issuecomment-5554341836",
+    "commentAuthor": "woojubb",
+    "commentAuthorAssociation": "OWNER"
+  }
+}
