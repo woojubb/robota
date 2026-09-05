@@ -49,6 +49,12 @@ allows `develop`; `main` and `master` remain blocked.
 - [x] 대안 최소 2개 검토 완료
 - [x] 결정 근거 문서화 완료
 
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Reason:** This is repository-maintainer workflow enforcement with no end-user runtime surface, CLI behavior, SDK contract, or product-facing interaction.
+
 ## Fallback & Degradation Declaration
 
 None
