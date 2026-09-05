@@ -2320,7 +2320,7 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
           finding(
             isCheckpointNearMiss(preludeProblems)
               ? `staged planning checkpoint not recognised: ${preludeProblems.join(' ')}`
-              : 'staged implementation has no planning checkpoint ancestor.',
+              : `staged implementation has no planning checkpoint ancestor.${l0.reason ? ` ${l0.reason}` : ''}`,
           ),
         );
       }
