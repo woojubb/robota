@@ -644,3 +644,30 @@ release governance scan passed.
 - Remaining 11 criteria: judged PASS by `node scripts/harness/gate.mjs judge --gate DONE` (11 PASS, 0 FAIL, 2 PENDING-GUARDIAN); not re-judged here.
 
 **Judged at:** HEAD `0509cd191344` · base `origin/develop@99386b241ed6` · document `.agents/spec-docs/todo/REL-025-reconcile-the-changesets-fixed-group-with-the-published-package-set.md` blob `c6ce4c7bd1fd` (modified)
+
+### [VERIFICATION] — receipt closure sequence corrected | 2026-09-05
+
+The first attempt at the receipt-only closure commit was made in the wrong order and is recorded
+here rather than erased. Content commits were made AFTER `work-run ready` had already bound
+`g0-r0`, so `work-run ready` refused a second receipt against a changed head; `work-run reopen
+--ground local-fix` then issued `g0-r1` while every earlier commit still carried
+`Work-Receipt: g0-r0`. `scan-work-run-measurement` reported `invalid-commit-trailers`, which is the
+correct refusal: `validateCommitCorrelation` requires the bound ready head and the closure commit to
+carry the CURRENT receipt coordinates, and neither did.
+
+The repair keeps every superseded receipt. `g0-r1` and `g0-r2` are committed as history so the
+receipt files and the `work.ready` events in the run state stay one-to-one, which is what
+`completeReceiptCoordinates` compares; the run was then reopened to `g0-r3`, this entry is the last
+content commit, and the `g0-r3` receipt is the single receipt-only commit that follows it. No event
+was rewritten and no receipt was deleted from the run's recorded history.
+
+Two conditions remain outside this item and are contained, not claimed as passing. The
+`package-quality` stage of `pnpm harness:verify-like-ci` fails on a ceiling this change does not
+touch: `scripts/harness/verify-like-ci-product.mjs` spells `--max-warnings 2203` as its own literal
+while the ceiling's declared owner, the root `lint` script, and its frozen baseline in
+`scripts/harness/lint-warning-baseline.json` both read 2356, and the workspace measures 2353
+warnings with 0 errors. The mirror is therefore stricter than the checks it mirrors — CI runs
+`pnpm lint` / `pnpm lint:affected` at 2356 — and this diff resolves to zero affected package scopes,
+so the required CI check for it lints nothing at all. The literal was introduced by `cbb906bf7`. The
+second is `task-merged-citation`, advisory in `pr` context, which reports STRUCT-012 as `in-progress`
+while `e965f4fd4` on `origin/develop` cites it; both the record and the commit predate this branch.
