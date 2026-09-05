@@ -5,7 +5,7 @@
 '@robota-sdk/agent-provider-openai': patch
 '@robota-sdk/agent-provider-gemini': patch
 '@robota-sdk/agent-provider-openai-compatible': patch
-'@robota-sdk/agent-provider-defaults': patch
+'@robota-sdk/agent-builtin-providers': patch
 '@robota-sdk/dag-core': patch
 '@robota-sdk/dag-node-llm-text': minor
 '@robota-sdk/dag-framework': minor
