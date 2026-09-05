@@ -6,6 +6,7 @@ priority: medium
 urgency: soon
 area: repository governance
 depends_on: []
+no-issue: 'This is an internal governance disposition record created from the operator-requested gate audit; it is not a GitHub issue.'
 documentation_batch_approval: DIRECT
 documentation_batch_instruction: '그런 게이트가 다 꼭 필요한 것들인지 모두 전수 검사해서 과감하게 삭제할 예정입니다.'
 ---
