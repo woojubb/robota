@@ -38,9 +38,24 @@ import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-
 
 const LINE_TIMEOUT_MS = 10_000;
 
-/** Where a session listens. Derived from the session id, so a sender needs no second lookup. */
+/**
+ * Where a session listens. Derived from the session id, so a sender needs no second lookup.
+ *
+ * The id is a caller-supplied string, so it is joined and then CHECKED: a traversal segment
+ * (`../escape`) resolves outside the guarded directory, and a socket there proves nothing about
+ * who is listening. The refusal happens here, before any connection is opened, because connecting
+ * first would already have handed the message over.
+ */
 export function peerSocketPath(guardedDirectory: string, sessionId: string): string {
-  return path.join(guardedDirectory, `${sessionId}.sock`);
+  const socketPath = path.resolve(guardedDirectory, `${sessionId}.sock`);
+  const root = path.resolve(guardedDirectory);
+  if (socketPath !== root && !socketPath.startsWith(`${root}${path.sep}`)) {
+    throw new Error(
+      `local peer channel: session id ${JSON.stringify(sessionId)} resolves to ${socketPath}, ` +
+        `which is outside the guarded directory ${root}. A socket there is not admitted.`,
+    );
+  }
+  return socketPath;
 }
 
 /** A refusal carries its reason. There is no admitted-looking result without evidence. */
