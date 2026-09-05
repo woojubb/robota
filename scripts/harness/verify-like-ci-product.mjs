@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { createVerificationPlan, planRequiresPackageDist } from './check-plan.mjs';
 import { classifyFiles, resolveCapabilityReachability } from './classify-changed-paths.mjs';
+import { ceilingIn } from './scan-lint-ceiling-declared-vs-frozen.mjs';
 import {
   collectPackageManifestChanges,
   collectRootManifestChange,
@@ -16,6 +20,34 @@ import { WORKSPACE_ROOT, run } from './verify-like-ci-shared.mjs';
 
 function affectedScriptArgs(script, baseRef) {
   return [script, '--', '--base-ref', baseRef];
+}
+
+// Measured 2026-09-05. This command lints the WHOLE workspace — `packages apps`, the same two
+// trees the root `lint` script covers — so the ceiling that belongs on it is the whole-workspace
+// one. It used to carry `2203` as its own frozen literal instead. That number is a ceiling for a
+// SUBSET: `workspace-execution-plan.mjs` puts it on the `root-lint` task it builds for the affected
+// directories of a run, where the count is far below it. Applied to the whole workspace it is
+// simply wrong — the tree measures 2353 warnings and 0 errors, under the 2356 the root `lint`
+// script declares and `lint-warning-baseline.json` freezes, so the same eslint invocation ran
+// twice inside this one stage and disagreed with itself: green at 2356, red at 2203. A diff with
+// zero affected package scopes — which this stage's own note says CI lints none of — therefore
+// failed locally on a ceiling no required check applies at that scope.
+//
+// `scan-lint-ceiling-declared-vs-frozen.mjs` compares the root script against the baseline and says
+// in its own header that a number written into a script is a hand-maintained second source this
+// repository has spent whole items removing. Reading the ceiling back through that scan's exported
+// `ceilingIn` removes this copy rather than re-syncing it, so the next re-freeze cannot reopen the
+// gap. The subset ceiling in `workspace-execution-plan.mjs` is a separate number on a separate
+// scope and is deliberately left alone here.
+function productLintCeiling() {
+  const manifestSource = readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8');
+  const { ceiling, reason } = ceilingIn(manifestSource);
+  if (ceiling === null) {
+    throw new Error(
+      `verify-like-ci-product: cannot read the lint ceiling from package.json (${reason}).`,
+    );
+  }
+  return String(ceiling);
 }
 
 export function createProductStageCommands(stageName, { baseRef }, context) {
@@ -47,7 +79,7 @@ export function createProductStageCommands(stageName, { baseRef }, context) {
             '--cache-strategy',
             'content',
             '--max-warnings',
-            '2203',
+            productLintCeiling(),
           ],
         ],
       ];
