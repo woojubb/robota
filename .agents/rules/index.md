@@ -4,8 +4,7 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in [skill
 
 ## Amendable by amendment
 
-Read this section as a constitution reads: **every rule here is MANDATORY, and the only thing that
-changes one is an amendment.** Both halves are load-bearing, and the second must never be heard as
+Read this section as a constitution reads: **every rule here is MANDATORY, and the only thing that changes one is an amendment.** Both halves are load-bearing, and the second must never be heard as
 softening the first.
 
 **While a rule stands, it binds.** Disagreeing with it does not suspend it. Neither does judging it

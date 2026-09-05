@@ -1,7 +1,7 @@
 ---
 status: done
 type: RULE
-tags: []
+tags: [harness, governance]
 lane: L2
 ---
 
@@ -374,3 +374,19 @@ Switched to and reset branch 'feature'
 - GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/PROC-034-batch-execution-gates-at-work-unit-boundaries.md
 
 **Judged at:** HEAD `9d8287837cba` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `b78be8c90a9c` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** done → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "검사 코드까지 영구 개정해"
+**Given:** 2026-09-05, this conversation
+**Review fingerprint:** fc155c289037 (review 80474830, type/tags beb69ef8)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-05, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (fc155c289037) equals the document's current fingerprint
+
+**Judged at:** HEAD `62968d984158` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/done/PROC-034-batch-execution-gates-at-work-unit-boundaries.md` blob `8a6959941abf` (modified)

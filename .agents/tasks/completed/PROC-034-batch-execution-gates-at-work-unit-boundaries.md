@@ -52,10 +52,16 @@ landing verification.
 
 ## Deferred Follow-up
 
+Integration verification on the first committed batch failed on routing-document size, an empty
+spec tag list and non-canonical scenario terminology. One documentation-only repair retained
+the original size ceilings (AGENTS 112, rules index 99), supplied the missing classification and
+used the canonical term. All three named scans then passed; the prior failure log is preserved
+at `/tmp/proc034-verify-like-ci.log`. The checker implementation and tests were unchanged.
+
 The next consolidated harness cycle evaluates duplicate-invocation detection using stable work-unit/input identities. This remains OPEN and is not a prerequisite claimed complete by the documentation-only exception.
 
 ## User Execution Test Scenarios
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This work changes repository execution guidance and harness Git-order validation, not a shipped CLI, SDK or browser feature. Deterministic Git fixture regression tests directly verify the changed process boundary; product user scenarios are not applicable.
+**Reason:** This work changes repository execution guidance and harness Git-order validation, not a shipped CLI, SDK or browser feature. Deterministic Git fixture regression tests directly verify the changed process boundary; product user execution test scenarios are not applicable.
