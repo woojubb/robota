@@ -34,11 +34,20 @@ export function changedPaths(base = process.env.HARNESS_BASE_REF ?? 'origin/deve
   return git(['diff', '--name-only', `${base}...HEAD`]);
 }
 
+function changedPathsForCommit(commit) {
+  const parents = (git(['show', '-s', '--format=%P', commit])[0] ?? '')
+    .split(/\s+/u)
+    .filter(Boolean);
+  if (parents.length !== 2) return git(['diff', '--name-only', `${commit}^`, commit]);
+  const automaticTree = git(['merge-tree', '--write-tree', parents[0], parents[1]])[0];
+  return git(['diff', '--name-only', automaticTree, commit]);
+}
+
 /** `{commit, paths}` for every commit the branch adds, oldest first. A merge is read by its own diff. */
 export function changedPathsPerCommit(base = process.env.HARNESS_BASE_REF ?? 'origin/develop') {
   return git(['rev-list', '--reverse', `${base}..HEAD`]).map((commit) => ({
     commit,
-    paths: git(['diff', '--name-only', `${commit}^`, commit]),
+    paths: changedPathsForCommit(commit),
   }));
 }
 
