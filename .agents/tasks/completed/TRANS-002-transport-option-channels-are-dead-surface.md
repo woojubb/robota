@@ -27,6 +27,8 @@ user while never being applied, and the validation hook can never fire. Separate
 
 ## Evidence (adversarially verified 2026-08-13, CONFIRMED)
 
+<!-- evidence-superseded: STRUCT-012 S2 moved this historical source to packages/agent-framework/src/transport-host/transport-registry.ts; the original evidence describes the earlier revision. -->
+
 - `packages/agent-transport/src/transport-registry.ts:84-94` — `startAll` calls `getEnabled()` (which
   discards config) then `attach()`+`start()`; persisted `config.options` never reach a transport.
   `resolveConfig` (`:168-175`) reads `settings.transports.<name>.options` into `getAll()`, whose only

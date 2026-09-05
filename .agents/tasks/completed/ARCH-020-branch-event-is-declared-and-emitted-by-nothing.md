@@ -120,6 +120,8 @@ DONE-GATE-STAGE-1: PASS
   ```
 
   The official package `scenario:record` command wrote the same normalized output to
+  <!-- evidence-superseded: STRUCT-012 S2 preserved this historical record byte-for-byte at .agents/archive/struct012-s2/agent-transport-session-event-delivery.record.json; the new CLI-owned record is separate. -->
+
   `packages/agent-transport/examples/scenarios/session-event-delivery.record.json`.
 
 ## Conformance Evidence

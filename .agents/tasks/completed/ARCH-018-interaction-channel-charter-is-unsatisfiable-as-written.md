@@ -27,6 +27,9 @@ written.
 
 - `.agents/project-structure.md:281` — the universal charter; `:286` — its own exception
   ("`HeadlessInteractionChannel` does not").
+
+<!-- evidence-superseded: STRUCT-012 S2 moved this historical source to packages/agent-framework/src/transport-host/headless/HeadlessInteractionChannel.ts; the original evidence describes the earlier revision. -->
+
 - `packages/agent-transport/src/headless/HeadlessInteractionChannel.ts:93` — plain class, no
   implements; the real implementers repo-wide are exactly `TuiInteractionChannel` and
   `ProgrammaticInteractionChannel`.

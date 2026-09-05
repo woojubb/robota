@@ -23,6 +23,8 @@ Two halves of one user-visible lie, produced by the same two lines of TUI code.
 
 Measured at `e5551e9b6`.
 
+<!-- evidence-superseded: STRUCT-012 S2 moved this historical source to packages/agent-framework/src/transport-host/transport-registry.ts; the original evidence describes the earlier revision. -->
+
 **The success half.** `packages/agent-transport/src/transport-registry.ts:124-127`:
 
 ```ts

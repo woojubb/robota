@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-165: ignore inherited receipts when correlating merge commits'
 status: completed
+completed: 2026-09-05
 created: 2026-09-05
 priority: high
 urgency: now
