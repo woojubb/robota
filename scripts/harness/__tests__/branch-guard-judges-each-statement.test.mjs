@@ -151,28 +151,41 @@ describe('a statement refused on its own is refused in any company (INFRA-079)',
     ).toStrictEqual([]);
   });
 
+  /*
+   * Each case spawns the hook once per (guarded × sibling × order) pair — dozens of processes — and
+   * the assertion is about the verdicts, never about elapsed time. The default per-test budget was
+   * never chosen for that shape: measured at 11.1s against the 10s default on this machine, so the
+   * case reports a timeout where the guard behaved correctly. The budget below is stated for the
+   * work the case actually does; a guard that stalls still fails it.
+   */
+  const CROSS_PRODUCT_BUDGET_MS = 120_000;
+
   for (const [sepName, sep] of SEPARATORS) {
-    it(`still refuses it behind a well-formed sibling, joined by ${sepName}`, () => {
-      const escaped = [];
-      for (const [guardedName, guarded] of GUARDED) {
-        for (const [siblingName, sibling] of SIBLINGS) {
-          // Both orders. The old reading took the FIRST match anywhere, so a guarded statement in
-          // second position escaped and one in first position did not — testing one order would
-          // have called the defect closed while half of it was live.
-          if (verdict(`${sibling}${sep}${guarded}`) !== 2) {
-            escaped.push(`${guardedName} AFTER ${siblingName}`);
-          }
-          if (verdict(`${guarded}${sep}${sibling}`) !== 2) {
-            escaped.push(`${guardedName} BEFORE ${siblingName}`);
+    it(
+      `still refuses it behind a well-formed sibling, joined by ${sepName}`,
+      () => {
+        const escaped = [];
+        for (const [guardedName, guarded] of GUARDED) {
+          for (const [siblingName, sibling] of SIBLINGS) {
+            // Both orders. The old reading took the FIRST match anywhere, so a guarded statement in
+            // second position escaped and one in first position did not — testing one order would
+            // have called the defect closed while half of it was live.
+            if (verdict(`${sibling}${sep}${guarded}`) !== 2) {
+              escaped.push(`${guardedName} AFTER ${siblingName}`);
+            }
+            if (verdict(`${guarded}${sep}${sibling}`) !== 2) {
+              escaped.push(`${guardedName} BEFORE ${siblingName}`);
+            }
           }
         }
-      }
-      expect(
-        escaped,
-        'a guarded statement went unjudged because a sibling was well-formed. The verdict was ' +
-          'about the command; every decision belongs to a statement.',
-      ).toStrictEqual([]);
-    });
+        expect(
+          escaped,
+          'a guarded statement went unjudged because a sibling was well-formed. The verdict was ' +
+            'about the command; every decision belongs to a statement.',
+        ).toStrictEqual([]);
+      },
+      CROSS_PRODUCT_BUDGET_MS,
+    );
   }
 });
 
