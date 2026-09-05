@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections'
+title: 'INFRA-173: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections'
 status: in-progress
 created: 2026-09-06
 priority: medium
@@ -9,7 +9,7 @@ depends_on: []
 no-issue: repository policy alignment requested directly by the maintainer; no GitHub issue is the source record
 ---
 
-# INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections
+# INFRA-173: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections
 
 ## Objective
 
