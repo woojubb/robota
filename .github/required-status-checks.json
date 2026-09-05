@@ -6,6 +6,8 @@
       "ruleset": "protect-develop",
       "ruleset_id": 18715844,
       "mirrored_by": "pnpm harness:verify-like-ci",
+      "strict_required_status_checks_policy": false,
+      "strict_policy_why": "INFRA-162 / issue #2219. \"Require branches to be up to date before merging\" is OFF on `protect-develop`, and that is the deliberate choice `fd0752f90` recorded: base freshness is asked mechanically at the one moment it matters by `.claude/hooks/merge-gate.sh`, which refuses a merge whose base moved over any file the pull request touches, instead of charging every pull request a rebase and a CI cycle. Declared here so that turning it on or off is a visible change: `scripts/harness/scan-main-required-checks.mjs --live` reconciles this value against the live ruleset and refuses rather than defaulting when it cannot be read.",
       "why": "INFRA-056. `verify-like-ci` is named across the rules and skills as THE CI-equivalent verification entry point, and it ran neither `pnpm build` nor any package's test suite — the two required gates most likely to catch a functional regression. This list is what that claim is measured against: `scripts/harness/ci-mirror-map.mjs` pins every context below to a stage, step for step, or to an explicit un-mirrorable reason, so a context added here without a stage turns `pnpm harness:test` RED.",
       "required_status_checks": [
         {
@@ -122,6 +124,8 @@
     "main": {
       "ruleset": "protect-main",
       "ruleset_id": 18715845,
+      "strict_required_status_checks_policy": true,
+      "strict_policy_why": "INFRA-162 / issue #2219. ON for `protect-main`, and unlike `develop` it costs nothing per pull request: the only pull requests to `main` are promotions from `develop`, one at a time, and `promotion ancestry` already requires the promotion to carry `main`'s ancestry and to promote `develop`'s tree unchanged. A stale promotion head is exactly the shape that would let `release-grade verification` certify a tree that is not the one being merged, so GitHub re-running the required checks against the updated base is the cheap half of that guarantee. Declared here so that turning it off is a visible change rather than a silent one.",
       "required_status_checks": [
         {
           "context": "promotion ancestry",
