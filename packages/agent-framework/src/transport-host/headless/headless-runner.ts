@@ -138,7 +138,7 @@ export function getSessionId(session: IHeadlessSession): string {
  *  1. Ordering — the terminal `complete`/`interrupted`/`error` events fire from INSIDE the turn, BEFORE
  *     `session.submit()`'s awaited `finally` runs `persistSession()` / the checkpoint finalize. If `run()`
  *     resolved directly off those events, `start()` would return while the session was still writing
- *     `.robota/` under cwd — a race the caller (or a test's cleanup) can lose (ENOTEMPTY). So each format
+ *     session files in caller-configured storage — a race cleanup can lose (ENOTEMPTY). So each format
  *     records the code via `finalize()` and then AWAITS the underlying operation, guaranteeing all trailing
  *     turn work has drained before `run()` resolves.
  *  2. Duplication — since submit is now awaited in a try/catch, a terminal event AND a later submit
