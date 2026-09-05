@@ -113,12 +113,12 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                                                                                                                                                  |
-| ----- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: the exact two-file command passed 85 tests; the related five-file regression set passed 143 tests. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls.                                                                      |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | PASS: 63 scans passed, 1 skipped; two pre-existing advisory findings were tolerated in PR context.                                                                                                                                                     |
-| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `<PREFIX>-2401` output with no Task written. Test written: `scripts/harness/__tests__/allocate-work-item-id.test.mjs` — `reuses one exact title before creating an Issue` and `uses the server-returned number when it creates a missing Issue`. |
-| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                                                                                                                                                           |
+| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                                                                                                                                                                               |
+| ----- | --------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: the exact two-file command passed 85 tests; the related five-file regression set passed 143 tests. Test written: `scripts/harness/__tests__/allocate-work-item-id.test.mjs` — `the issue source`; `scripts/harness/__tests__/new-spec.test.mjs` — issue-backed ID acceptance. |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | PASS: 63 scans passed, 1 skipped; two pre-existing advisory findings were tolerated in PR context. Skip reason for a separate test file: the affected harness scan is the executable verification for this cross-cutting guard.                                                     |
+| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `<PREFIX>-2401` output with no Task written. Test written: `scripts/harness/__tests__/allocate-work-item-id.test.mjs` — `reuses one exact title before creating an Issue` and `uses the server-returned number when it creates a missing Issue`.                              |
+| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; Test written: `scripts/harness/__tests__/new-spec.test.mjs` — issue-backed ID acceptance and legacy-ID mismatch refusal.                                                                                                                     |
 
 ## User Execution Test Scenarios
 
@@ -324,3 +324,35 @@ scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-q
   **Required action:** pass a build command via --verify-cmd
 
 **Judged at:** HEAD `2934ff4f1e28` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `78d511ee1552` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** approved
+**Ordering check:** PASS — prior `[GATE-PLAN] — ✅ PASS | 2026-09-06` records `draft → approved`; the document is currently `status: approved` in `.agents/spec-docs/todo/`, the declared L1 input state.
+**Criterion results:**
+
+- GATE-VERIFY — Every item in the paired Task `## Plan` is marked complete: ✅ PASS — 3/3 items at `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md:22-24` are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: ✅ PASS — the paired Task Plan contains no unchecked, blocked, or pending item; `depends_on: []`.
+- GATE-VERIFY — Build passes for all affected packages: ❌ FAIL — the latest recorded GATE-DONE attempt explicitly reports no supplied build-shaped verification command; the existing TC-02 scan evidence is recorded at earlier HEAD `2934ff4f1e28`, not as a current GATE-DONE verification result.
+- GATE-VERIFY — Tests pass for all affected packages: ✅ PASS — `[GATE-COMPLETE: TC-01]` records the exact two-file Vitest command, exit `0`, 2 files passed and 85 tests passed; both referenced test files exist.
+- GATE-COMPLETE — Every Completion Criteria checkbox is checked: ✅ PASS — TC-01 through TC-04 are all `[x]`.
+- GATE-COMPLETE — One `[GATE-COMPLETE: TC-N]` entry exists per criterion with command/action, observed result, and exit: ✅ PASS — entries for TC-01, TC-02, TC-03, and TC-04 are present and each records a command, output, and exit `0`.
+- GATE-COMPLETE — Each Test Plan row has a test reference or explicit skip reason: ❌ FAIL — TC-01 and TC-02 name commands but no test file plus function/describe reference or skip reason; TC-04 likewise has no test reference or skip reason. TC-03 is sufficient because it names `scripts/harness/__tests__/allocate-work-item-id.test.mjs` and two test descriptions.
+- GATE-COMPLETE — No TC-N is silently unaddressed: ❌ FAIL — TC-01, TC-02, and TC-04 lack the required row-level test reference/skip reason.
+- GATE-COMPLETE — `## Completion Criteria` is fully checked: ✅ PASS — 4/4 checked.
+- GATE-COMPLETE — `## Test Plan` has references or skip reasons for every TC-N: ❌ FAIL — TC-01, TC-02, and TC-04 remain unbound as described above.
+- GATE-COMPLETE — The spec names the exact active Task path and it exists: ✅ PASS — `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` is named at spec line 131 and exists.
+- GATE-COMPLETE — The paired Task is completion-ready: ✅ PASS — all 3 Plan items are `[x]`, with no blocked or pending item; terminal status/archival are downstream of this gate.
+
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages: no current build-shaped verification command/result is recorded for this DONE attempt.
+  **Required action:** record and verify a build-shaped command for the affected scope, then re-run GATE-DONE.
+- GATE-COMPLETE — Each Test Plan row has a test reference or explicit skip reason: TC-01, TC-02, and TC-04 lack the required row-level evidence.
+  **Required action:** add a durable test file plus function/describe reference for each row, or an explicit skip reason where no automated test was written, then re-run GATE-DONE.
+- GATE-COMPLETE — No TC-N is silently unaddressed: TC-01, TC-02, and TC-04 are unaddressed under the row-level evidence rule.
+  **Required action:** bind those rows to test references or explicit skip reasons.
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-01, TC-02, and TC-04 are missing the required binding.
+  **Required action:** complete the missing bindings and re-run GATE-DONE.
+
+**Judged at:** HEAD `9fcb950ad96adec0c0a2861b82092d436fb93189` · base `origin/develop@cac1040da69030cd04dffd122563a7c9da46ceb3` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `c521cfb1a0c82fb6a02f2c6e0ebedc8a4a336cc5` (tracked)
