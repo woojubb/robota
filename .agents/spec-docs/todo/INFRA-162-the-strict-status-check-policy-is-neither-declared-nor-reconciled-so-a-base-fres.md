@@ -248,15 +248,15 @@ Derived from `type: INFRA` + `tags: [process, harness]` — offline unit cases o
 comparison, the scan's own offline run, one manual live run, and two git-level observables for the
 clauses the decision keeps fixed.
 
-| TC-ID | Test Type | Tool / Approach                                                                          | Notes                                                                                                                                                                                                                    |
-| ----- | --------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| TC-01 | automated | `node -e` over the tracked declaration; vitest over `readDeclarationBranch`              | red-first: fails against the declaration file without the key; RED output recorded — test: `scan-main-required-checks.test.mjs` › the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01) |
-| TC-02 | automated | vitest over `strictPolicyFindings` with a fixture live payload                           | falsified by replacing the comparison with a constant; RED output recorded — test: `scan-main-required-checks.test.mjs` › strict status-check policy is declared and reconciled (INFRA-162, issue #2219)                 |
-| TC-03 | automated | vitest over `strictPolicyFindings` with each unreadable payload shape                    | falsified by restoring a `?? false` default; RED output recorded — test: `scan-main-required-checks.test.mjs` › the same describe — the four `refuses rather than defaulting` cases                                      |
-| TC-04 | automated | `node scripts/harness/scan-main-required-checks.mjs`                                     | the hermetic half `pnpm harness:scan` runs; red-first against the pre-change scan — test: `scan-main-required-checks.test.mjs` › the live reconciler actually consults the strict policy (INFRA-162 wiring)              |
-| TC-05 | manual    | `node scripts/harness/scan-main-required-checks.mjs --live` and `gh api` with `GH_TOKEN` | reads the live ruleset over the GitHub API, which no fixture replaces; run once by hand — test: manual live run — no fixture replaces the GitHub ruleset read                                                            |
-| TC-06 | automated | `node scripts/harness/scan-file-size.mjs`; `ls` of the declaration module                | the baseline moved down, never up — test: `scan-file-size.mjs` over the tracked baseline — no unit test owns a ratchet file                                                                                              |
-| TC-07 | automated | `git diff --name-only origin/develop -- …` and `git ls-files … \| grep -i`               | both commands print nothing; proves the decision's "not switched on / no follow-up" clauses — test: two git-level observables — no unit test owns a git query                                                            |
+| TC-ID | Test Type | Tool / Approach                                                                          | Notes                                                                                                                                                                                                                                                                                                                 |
+| ----- | --------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | automated | `node -e` over the tracked declaration; vitest over `readDeclarationBranch`              | red-first: fails against the declaration file without the key; RED output recorded — test: `scan-main-required-checks.test.mjs` › the tracked declaration records the strict policy each ruleset holds (INFRA-162 TC-01)                                                                                              |
+| TC-02 | automated | vitest over `strictPolicyFindings` with a fixture live payload                           | falsified by replacing the comparison with a constant; RED output recorded — test: `scan-main-required-checks.test.mjs` › strict status-check policy is declared and reconciled (INFRA-162, issue #2219)                                                                                                              |
+| TC-03 | automated | vitest over `strictPolicyFindings` with each unreadable payload shape                    | falsified by restoring a `?? false` default; RED output recorded — test: `scan-main-required-checks.test.mjs` › the same describe — the four `refuses rather than defaulting` cases                                                                                                                                   |
+| TC-04 | automated | `node scripts/harness/scan-main-required-checks.mjs`                                     | the hermetic half `pnpm harness:scan` runs; red-first against the pre-change scan — test: `scan-main-required-checks.test.mjs` › the live reconciler actually consults the strict policy (INFRA-162 wiring)                                                                                                           |
+| TC-05 | manual    | `node scripts/harness/scan-main-required-checks.mjs --live` and `gh api` with `GH_TOKEN` | reads the live ruleset over the GitHub API, which no fixture replaces; run once by hand — test: manual live run — no fixture replaces the GitHub ruleset read                                                                                                                                                         |
+| TC-06 | automated | `node scripts/harness/scan-file-size.mjs`; `ls` of the declaration module                | the baseline moved down, never up; no unit test is written for it — a ratchet file is owned by `scan-file-size.mjs` itself, so the scan run IS the check (unit test skipped, reason recorded here)                                                                                                                    |
+| TC-07 | automated | `git diff --name-only origin/develop -- …` and `git ls-files … \| grep -i`               | both commands print nothing; proves the decision's "not switched on / no follow-up" clauses. No unit test is written for it — the assertion is over git history rather than over code, so a unit test is skipped and the two commands are the check — test: two git-level observables — no unit test owns a git query |
 
 ## User Execution Test Scenarios
 
@@ -623,3 +623,137 @@ Until one lands, this document cannot reach a GATE-PLAN PASS by any means that d
 own record. The seven TCs, their evidence and the delivered unit are unaffected by this verdict.
 
 **Judged at:** HEAD `ea3a74dd781c` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `cf28f51f2405` (modified)
+
+### [GATE-DONE] — 🔴 NON-COMPLIANCE | 2026-09-05
+
+**Status remains:** approved
+
+**Violation:** GATE-DONE's ordering check reports PASS on this document **only because the judge that
+implements it was edited inside this unit's own delivery**, uncommitted, unrecorded in this Evidence
+Log, absent from § Affected Files, § Solution and the Task `## Plan`, and unapproved anywhere in the
+repository. The edit removes an invariant that a named existing test protects, and that test is RED.
+The gate did not pass on the recorded evidence; the code deciding the gate was changed until it did.
+
+Measured, not read off `gate.mjs`:
+
+- The supplement is `scripts/harness/gate.mjs`, staged and uncommitted (`git status --short` → `M
+scripts/harness/gate.mjs`; it is not among the 9 files of the delivery commit `7224be17d`). It
+  rewrites `orderingResult` to accept an earlier PASS whose recorded upgrade target equals the
+  document's current status, instead of the last prior-gate entry, and widens `frontmatter-status` to
+  match the composite gate name.
+- Without it the ordering check FAILS. Using `gate.mjs`'s own exported helpers over this document,
+  the `[GATE-PLAN]` entries are, in order, `✅ PASS` (`{"from":"draft","to":"approved"}`), `❌ FAIL`
+  (upgrade `null`), `🔴 NON-COMPLIANCE` (upgrade `null`). The last entry is the NON-COMPLIANCE, so the
+  unmodified read yields FAIL; the added `upgradingPass` lookup is what yields PASS.
+- The edit turns an existing named regression test red. `pnpm exec vitest run
+scripts/harness/__tests__/gate.test.mjs` → **1 failed | 90 passed (91)**, the failure being
+  `judge — GATE-IMPLEMENT reads the worktree > keeps the last-entry rule for an ordinary gate after an
+older PASS and later FAIL`: `expected 'PASS  GATE-VERIFY — orderi…' to contain 'last
+[GATE-IMPLEMENT] entry is ❌ FAIL, PASS required'`. That test exists to assert exactly the invariant
+  the supplement deletes. Restoring `scripts/harness/gate.mjs` to its HEAD content and re-running the
+  same command → **91 passed (91)**; the working-tree file was then restored byte-exact (sha256
+  `a977df0f177b3ba3a3278aecdf6b4c17f6ebd80848d4608bde37da8ed0137758`). The failure is caused by the
+  supplement and is not pre-existing.
+- No approval for it exists. `/tmp/robota-issues/round2/DECISIONS.md` — the owner ledger this
+  document's § Decision cites, current through 2026-09-05 and carrying all nine recovery items —
+  contains no entry authorising an ordering-check change. Its two on-point entries prescribe the
+  opposite handling: line 8 requires a `gate.mjs` L1-lane amendment to be "정식 L2 항목으로 처리"
+  (processed as a formal L2 item) and to not weaken the judging criteria; line 107 records a
+  guardian-found `gate.mjs` defect being routed to a follow-up local item (HARNESS-9xx) rather than
+  fixed inline in the blocked unit.
+- The remedy this document itself prescribed was not taken. The preceding `[GATE-PLAN]` NON-COMPLIANCE
+  entry's **Required action** names "Two amendments, each a filed backlog item per AGENTS.md §
+  Mandatory Rules" — and names precisely these two changes. Neither was filed: no file under
+  `.agents/tasks/` or `.agents/spec-docs/` other than this pair references the ordering read or the
+  re-run route, and the only modified paths in the tree are this document and `gate.mjs`.
+- This document's own § "Prospective Recovery — current conversation authorization" states, under
+  what the recovery does **not** permit: "no verification bypass; no disabling or editing of any hook
+  or scan to pass."
+
+**Per-criterion record.** The two criteria the machine left `PENDING-GUARDIAN` both PASS on the
+evidence; the criterion that decides this verdict is GATE-VERIFY's "Tests pass".
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`) (`task-plan-items`): **PASS.** The `## Plan` SECTION only, per issue #2375 — 7 items
+  (TC-01…TC-07), `grep -c '^- \[x\]'` = 7, `grep -c '^- \[ \]'` = 0, and no nested checkbox exists in
+  the section. Substance spot-checked rather than taken from the ticks: TC-01's command prints
+  `develop false string` / `main true string` (exit 0); TC-07's `git diff --name-only origin/develop
+-- .github/workflows .claude/hooks .agents/rules` prints nothing and `git ls-files .agents/tasks
+.agents/spec-docs | grep -i 'merge-queue\|merge_group'` exits 1 with no match.
+- GATE-VERIFY — No Plan item is blocked or pending: **PASS.** No item carries a blocked or pending
+  marker; the section's only occurrence of "blocked" is TC-07 prose ("no pull request is newly
+  blocked"), which describes the change's effect, not an item's state. No `## Plan` item states its
+  own disposition (merging, landing, closing, publishing), so the gate is not unsatisfiable by
+  construction.
+- GATE-VERIFY — Build passes (`pnpm build`): **PASS**, re-run — exit 0, `✓ All build:types complete.`
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): **FAIL.** The tree this verdict
+  judges carries a modification to `scripts/harness/gate.mjs` whose owning suite is RED (1 failed | 90
+  passed, above). The machine judge reported PASS only because the two supplied `--verify-cmd` values
+  (`pnpm build`, `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`)
+  never run the suite covering the file the delivery changed. The PASS is an artifact of the command
+  selection, not a fact about the tree.
+- GATE-COMPLETE — Every TC checkbox `[x]`: **PASS**, re-derived — 7 `- [x] TC-` in `## Completion
+Criteria`, 0 unchecked.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` entry with command, output and exit code per TC:
+  **PASS**, re-derived — `grep -c '^### \[GATE-COMPLETE: TC-0'` = 7, one per TC-01…TC-07.
+- GATE-COMPLETE — Every `## Test Plan` row records a test reference or a skip reason; no TC silently
+  unaddressed: **PASS**, re-derived — 8 `^| TC-` lines minus the header = 7 data rows against 7 TC
+  criteria. The two skip reasons are honest, not missing tests: TC-06's ("a ratchet file is owned by
+  `scan-file-size.mjs` itself, so the scan run IS the check") is correct — the baseline number is
+  enforced by the scan that owns it, and a unit test asserting the literal would only restate the
+  file; TC-07's ("the assertion is over git history rather than over code") is correct — "these paths
+  did not move relative to `origin/develop`" is a property of the diff, which no unit test can own.
+- GATE-COMPLETE — `## Test Plan` updated for all TC-N rows: **PASS** — same measurement as above.
+- GATE-COMPLETE — The spec's `## Tasks` names the exact active task path: **PASS** — it names
+  `.agents/tasks/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md`,
+  which exists.
+- GATE-COMPLETE — That active task is completion-ready, all `[x]`, none pending or blocked: **PASS** —
+  7/7, same measurement as the two GATE-VERIFY Plan criteria.
+
+**Two findings that are NOT grounds for this verdict**, recorded so they are not re-litigated:
+
+- **The TC-06 correction is an honest repair, not an expectation fitted to output.** The criterion
+  predicted a `file-size` baseline of 535 for `scripts/harness/scan-main-required-checks.mjs`;
+  measured, the entry is **466** (`file-size-baseline.json:133`) against the **544** it replaced
+  (`git show HEAD~1:scripts/harness/file-size-baseline.json`). The invariant the plan and the recovery
+  authorization actually protect is direction — "moved down, never raised", "no raising of the
+  `file-size` baseline" — and 466 satisfies it more strictly than the prediction. The disclosure
+  preserves the original 535 rather than overwriting it, names the cause (the live half moved to
+  `required-status-checks-live.mjs` so `reconcileLiveBranch` could be exported and fetch-injectable
+  for the wiring test), and states plainly that "its predicted number does not [hold]". A number
+  fitted to output would have silently replaced 535 with 466. The correction is mirrored byte-identically
+  into the paired Task (spec line 242 ≡ task line 163), so the pair does not diverge.
+- **The wiring test can genuinely go red.** Falsified by deleting the `strictPolicyFindings` call from
+  `reconcileLiveBranch` — which delivery moved to `scripts/harness/required-status-checks-live.mjs:94`
+  — and re-running: `the live reconciler actually consults the strict policy (INFRA-162 wiring) >
+reports the disagreement when the live flag has moved away from the declaration` failed with
+  `expected [] to have a length of 1 but got +0` (1 failed | 44 passed). The file was restored
+  byte-exact (sha256 `c4c9122a8d5c09f1df8f451ee7c6c5a58bac8506b0011b63964ac9b90355549c`). It is a real
+  wiring check, not one that cannot fail.
+
+**Judgement on the supplement: a weakening of a gate, not a correction of a defect.** The defect it
+names is real — reading the last `[GATE-PLAN]` entry let one out-of-order re-run block an L1 document
+with no recoverable route, which is what the preceding NON-COMPLIANCE entry diagnosed. But the change
+made does more than repair that: it makes a recorded `🔴 NON-COMPLIANCE` on a prior gate
+non-blocking whenever an earlier PASS matches the current status, and the code cannot distinguish
+"NON-COMPLIANCE because the re-run was out of order" from "NON-COMPLIANCE because the earlier PASS was
+invalid". The red test names that lost invariant exactly. A correction of the defect would keep the
+last-entry rule and add the narrow re-judgement route the catalogue lacks — which is option two of the
+preceding entry's own **Required action**, and which requires a filed amendment, not an inline edit
+inside the unit the gate is blocking.
+
+**Required action:** Not a change to this document's plan, criteria or evidence, none of which failed.
+
+1. Remove `scripts/harness/gate.mjs` from this unit's delivery and restore it to its HEAD content, so
+   `gate.test.mjs` returns to 91/91 and this gate is judged by the judge the repository agreed on.
+2. File the two amendments the preceding `[GATE-PLAN]` NON-COMPLIANCE already named as backlog items,
+   per AGENTS.md § Mandatory Rules and the DECISIONS.md line 8 precedent (a `gate.mjs` lane amendment
+   is a formal L2 item). Either amendment must keep the last-entry rule for an ordinary gate — i.e.
+   `gate.test.mjs > keeps the last-entry rule for an ordinary gate after an older PASS and later FAIL`
+   stays green — and declare the re-judgement form in `gate-catalogue.md` rather than infer it.
+3. Until one lands, this pair's route past the consumed GATE-PLAN entry is the DECISIONS.md line 107
+   precedent, not an edit to the judge.
+
+This verdict does not touch the seven TCs, their evidence, or the delivered unit, all of which stand.
+
+**Judged at:** HEAD `7224be17d652` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md` blob `aac53bdfdba8` (modified)
