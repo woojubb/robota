@@ -121,6 +121,7 @@ export const ROOT_SCRIPT_CLASSES = Object.freeze({
     'harness:scan',
     'harness:test',
     'harness:verify',
+    'harness:test:owning',
     'harness:verify-like-ci',
     'harness:verify:release',
     'harness:workspace:affected',

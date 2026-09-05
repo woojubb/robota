@@ -1185,7 +1185,6 @@ export const SCAN_COMMANDS = [
     name: 'item-terminal-state',
     command: ['node', 'scripts/harness/scan-item-terminal-state.mjs'],
     always: true,
-    advisory: true,
   },
   {
     // RULE-025 F3 — the gate evaluator and the evidence it judges must not share one item.
