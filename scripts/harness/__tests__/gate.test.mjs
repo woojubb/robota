@@ -72,14 +72,15 @@ const CATALOGUE = `# Gate Catalogue
 
 ## Prior-gate map
 
-| This gate      | Prior gate that must show PASS | Expected input status / folder |
-| -------------- | ------------------------------ | ------------------------------ |
-| GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |
-| GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |
-| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) |
-| GATE-IMPLEMENT (correction) | GATE-IMPLEMENT                 | \`in-progress\` (legacy v1 recovery only) |
-| GATE-VERIFY    | GATE-IMPLEMENT                 | \`in-progress\`                |
-| GATE-COMPLETE  | GATE-VERIFY                    | \`verifying\`                  |
+| This gate      | Prior gate that must show PASS | Expected input status / folder | Re-run rule |
+| -------------- | ------------------------------ | ------------------------------ | ----------- |
+| GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |             |
+| GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |             |
+| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) | |
+| GATE-IMPLEMENT (correction) | GATE-IMPLEMENT                 | \`in-progress\` (legacy v1 recovery only) | |
+| GATE-VERIFY    | GATE-IMPLEMENT                 | \`in-progress\`                |             |
+| GATE-COMPLETE  | GATE-VERIFY                    | \`verifying\`                  |             |
+| GATE-DONE      | GATE-PLAN                      | \`approved\`                   | \`recorded-pass\` |
 
 ## Gate Criteria
 
@@ -479,6 +480,13 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
     expect(parsePriorGateMap(text).get('GATE-IMPLEMENT (continuation)')).toEqual({
       gate: 'GATE-IMPLEMENT',
       status: 'in-progress',
+    });
+    // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588): the GATE-DONE → GATE-PLAN pairing
+    // declares `recorded-pass`, the one row this repository excepts from the default last-entry rule.
+    expect(parsePriorGateMap(text).get('GATE-DONE')).toEqual({
+      gate: 'GATE-PLAN',
+      status: 'approved',
+      reRun: 'recorded-pass',
     });
   });
 
@@ -1614,6 +1622,106 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
     const advanced = run(root, ['advance', '--doc', doc]);
     expect(advanced.status, advanced.stderr).toBe(0);
     expect(existsSync(path.join(root, `.agents/spec-docs/done/${SPEC_ID}.md`))).toBe(true);
+  });
+
+  /**
+   * G1 (issue #2219/#2588): reproduces INFRA-162 — an out-of-order re-run of `judge --gate PLAN`
+   * recorded a later `[GATE-PLAN] — ❌ FAIL` after the real PASS had already upgraded the document to
+   * `approved`. Before gate-catalogue.md declared `recorded-pass` for this one row, GATE-DONE's
+   * ordering check read only the LAST `[GATE-PLAN]` entry and blocked forever, with no route back
+   * short of forging the record. It must not affect any other pairing — the sibling test "keeps the
+   * last-entry rule for an ordinary gate after an older PASS and later FAIL" (GATE-VERIFY ← GATE-
+   * IMPLEMENT) stays on the plain rule and must stay green alongside this one.
+   */
+  it('DONE still judges PASS on GATE-PLAN when an out-of-order re-run recorded a later FAIL (G1, gate-catalogue.md `recorded-pass`)', () => {
+    const spec =
+      conformingSpec({ status: 'approved', folder: 'todo', ticked: true }).replace(
+        '| fixture with the tree                 |       |',
+        '| fixture with the tree                 | skipped: needs a live tree |',
+      ) +
+      `\n### [GATE-PLAN] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → approved\n` +
+      `\n### [GATE-PLAN] — ❌ FAIL | ${DATE}\n\n**Status remains:** approved\n\n**Failed criteria:**\n\n- fixture out-of-order re-run: preconditions were already consumed by the earlier PASS\n  **Required action:** none — this entry simulates the INFRA-162 mistaken re-run\n`;
+    const { root, doc } = makeWorkspace({ spec, folder: 'todo' });
+    const output = path.join(root, 'vitest.log');
+    writeFileSync(output, 'RUN scripts/harness/__tests__/example.test.mjs\nTests 2 passed (2)\n');
+    expect(
+      run(root, [
+        'record',
+        '--doc',
+        doc,
+        '--tc',
+        'TC-01',
+        '--command',
+        'pnpm exec vitest run scripts/harness/__tests__/example.test.mjs',
+        '--exit',
+        '0',
+        '--output-file',
+        output,
+        '--date',
+        DATE,
+      ]).status,
+    ).toBe(0);
+    expect(
+      run(root, [
+        'record',
+        '--doc',
+        doc,
+        '--tc',
+        'TC-02',
+        '--skip',
+        'needs a live tree — verified by hand',
+        '--date',
+        DATE,
+      ]).status,
+    ).toBe(0);
+    const result = judge(root, doc, 'DONE', [
+      '--lane',
+      'L1',
+      '--verify-cmd',
+      'echo node scripts/harness/run-all-scans.mjs --affected',
+      '--verify-cmd',
+      'echo pnpm exec vitest run scripts/harness/__tests__/example.test.mjs',
+    ]);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      'GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`',
+    );
+    expect(result.stdout).toContain(
+      '(the PASS that upgraded the status; a later out-of-order entry does not revoke it)',
+    );
+  });
+
+  /**
+   * G2 (issue #2219/#2588): GATE-WRITE's `status: draft` present criterion runs under
+   * `criterionGate: 'GATE-WRITE'`, but under L1 the document records the PASS under the COMPOSED
+   * name `GATE-PLAN` — never a bare `GATE-WRITE` entry. Matching entries by `criterionGate` alone
+   * found zero, so a re-run of `judge --gate PLAN` after the document already advanced past `draft`
+   * FAILed forever. `recordedGate` must accept the composed name too.
+   */
+  it('re-runs judge --gate PLAN after advance without failing frontmatter-status, reading the PASS recorded under the composed GATE-PLAN name (G2)', () => {
+    const { root, doc } = makeWorkspace();
+    gitInit(root);
+    expect(approve(root, doc, ['--route', 'DIRECT', '--instruction', 'go']).status).toBe(0);
+    const first = judge(root, doc, 'PLAN', ['--lane', 'L1']);
+    expect(first.status, first.stdout + first.stderr).toBe(0);
+    expect(readFileSync(doc, 'utf8')).toContain('**Status upgrade:** draft → approved');
+    expect(
+      evidenceEntries(readFileSync(doc, 'utf8')).some((entry) => entry.gate === 'GATE-WRITE'),
+    ).toBe(false);
+
+    // `advance` — not `judge` — performs the status transition (G3's usage clarification); only
+    // after it does the frontmatter actually read `status: approved`.
+    const advanced = run(root, ['advance', '--doc', doc]);
+    expect(advanced.status, advanced.stdout + advanced.stderr).toBe(0);
+    const movedDoc = path.join(root, `.agents/spec-docs/todo/${SPEC_ID}.md`);
+    expect(existsSync(movedDoc)).toBe(true);
+    expect(readFileSync(movedDoc, 'utf8')).toMatch(/status:\s*approved/);
+
+    const rerun = judge(root, movedDoc, 'PLAN', ['--lane', 'L1']);
+    expect(rerun.status, rerun.stdout + rerun.stderr).toBe(0);
+    expect(rerun.stdout).toContain(
+      're-run: `status: approved` is the upgrade target of the prior [GATE-PLAN] PASS',
+    );
   });
 
   /**
