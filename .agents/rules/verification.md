@@ -5,11 +5,13 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Build Requirements
 
-- ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
+- Source changes require an affected-scope build at the coherent implementation-batch boundary,
+  following [execution-cadence.md](execution-cadence.md), not after each edit.
 - Never commit code that does not build successfully.
-- Mandatory loop: change -> build -> test -> fix -> re-verify.
-- **After every commit that modifies `packages/*/src/`**, run `pnpm build` for the affected packages so the user can immediately test locally. Do NOT skip this step — the user always tests locally after changes.
-- Subagents and executing-plans must also follow this rule: build after commit, not just before.
+- Batch changes, build, test, and repair failures together. Keep local build artifacts current for
+  the user; a commit alone does not invalidate a successful build of identical source inputs.
+- Workers and the integration owner share the verification boundary defined in execution-cadence;
+  do not duplicate a pre-commit build with a post-commit build when its inputs are unchanged.
 
 ### Browser Verification Requirement
 
@@ -56,16 +58,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Delegated Verification Claims
 
-- A "green" you did not observe is a **hypothesis, not a fact**. A verification result reported by a
-  delegated worker (a subagent, a script, a summary of a run you did not watch) does not satisfy any gate
-  in this file until the actor who will act on it has independently reproduced it.
-- Before staging, committing, pushing, or reporting delegated work as done, re-run the affected gates in
-  your own context — at minimum the CI-equivalent verification entry point named in
-  [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, plus
-  `pnpm install --frozen-lockfile` when the lockfile was touched.
-- This binds whoever consumes the claim, not only whoever invoked a delegation procedure. The pipeline
-  that applies it to one delegated mechanical change is
-  [delegated-refactor-green-gate](../skills/delegated-refactor-green-gate/SKILL.md).
+- A worker's result covers only the commands and source state it actually verified, not the integrated
+  branch. Inspect its evidence and preserve failures; never promote a partial result to full green.
+- The integration owner runs the CI-equivalent entry point named in [git-branch.md](git-branch.md)
+  on the final batch, plus a frozen-lockfile install when the lockfile changed. Workers do focused
+  verification; intermediary agents do not each reproduce the full gate. Cadence and re-run triggers
+  are owned by [execution-cadence.md](execution-cadence.md).
 
 ### Headless CLI Verification Requirement
 

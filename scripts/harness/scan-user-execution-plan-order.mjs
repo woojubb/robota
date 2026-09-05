@@ -19,18 +19,12 @@
  *     the `SCENARIO DRAFTED` outcome/count the Task itself records) while the Task exists as `todo`
  *     or `in-progress`. The parent commit carries no GATE-PLAN PASS.
  *
- *   - L0 (`.agents/rules/spec-workflow.md` § Lanes): the unit has NO spec document, so it can never
- *     reach either checkpoint above. Its ground is the planning PRELUDE itself — the commit that
- *     records the Task with its exact `SCENARIO DRAFTED` author verdict, which is the same causal
- *     boundary a checkpoint proves (issue #2539). An implementation is grounded by it only when the
- *     pending unit carries no spec document in ANY lifecycle folder, and EVERY changed path sits at
- *     lane floor L0 — read from `spec-workflow.md` § "Lane floors", the table `scan-lane-declaration`
- *     owns, never a copy. A diff that reaches L1 or L2 under an L0 ground is refused: those lanes
- *     keep their checkpoints unchanged.
+ *   - L0 uses its Task planning prelude, except explicitly approved documentation-only batches
+ *     may record that Task in the same commit (execution-cadence.md). Both routes require no
+ *     paired spec and enforce the lane bound; neither replaces an L1/L2 checkpoint.
  *
- * Before either checkpoint only the pair's own planning documents may change, plus a pure append to
- * any `.agents/loop-runs/*.jsonl` ledger — the skill records its run there and a run record is not
- * implementation. The post-merge and user-execution-scenario ledgers keep their stricter shapes.
+ * Other pre-checkpoint paths are pair-owned planning documents and append-only loop records;
+ * post-merge and user-execution-scenario ledgers retain their stricter contracts.
  * One further pre-checkpoint shape is accepted: a TERMINAL DISPOSITION (issue #2469) that closes the
  * unit without a checkpoint — `tasks/<b>` → `tasks/completed/<b>` at `wontfix`/`skipped`/`superseded`
  * beside `spec-docs/{draft,backlog,todo}/<b>` → `spec-docs/rejected/<b>` at `status: rejected` with a
@@ -51,6 +45,7 @@ import path from 'node:path';
 
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
+import { documentationBatchReader } from './documentation-batch-reader.mjs';
 import {
   CHECKPOINT_EVIDENCE_CONTRACT_MARKERS,
   parseCheckpointEvidence,
@@ -73,6 +68,7 @@ import {
   isExactCheckpointPairPath,
   isPreCheckpointPlanningPath,
   l0GroundDecision,
+  readPlanSignal,
   l1SpecCandidates,
   l1SpecPaths,
   pairCandidates,
@@ -626,15 +622,7 @@ function gateImplementCorrectionCount(spec, binding = null, ruleText = null, opt
   ).length;
 }
 
-function exactPlanSignal(task) {
-  const section = markdownSection(task, '## User Execution Test Scenarios');
-  const matches = [
-    ...(section ?? '').matchAll(
-      /^\*\*Author verdict:\*\*\s+`SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(0|[1-9]\d*)`\s*$/gm,
-    ),
-  ];
-  return matches.length === 1 ? { outcome: matches[0][1], count: Number(matches[0][2]) } : null;
-}
+const exactPlanSignal = (task) => readPlanSignal(task, markdownSection);
 
 function isCheckpointTransition({
   basename,
@@ -1649,6 +1637,7 @@ function requireWorktreeTopLevel(root) {
 }
 
 function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
   const planState = userExecutionPlanContractState(root);
@@ -1838,9 +1827,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     let postMergePreludes = 0;
     let pendingBasename = null;
     let planningStarted = false;
-    // The L0 ground, once proven (issue #2539). Held across entries because the implementation may
-    // archive the very Task the ground was read from, and a ground proven before that move does not
-    // stop being the branch's ground when the record moves to `tasks/completed/`.
+    // Preserve ancestor L0 grounds across Task archival; documentation batches never set this.
     let l0Ground = null;
     for (const entry of entries) {
       if (entry.paths.length === 0) continue;
@@ -1885,6 +1872,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         continue;
       }
       const basenames = planningBasenames(entry.paths);
+      if (pendingBasename === null && docs.commit(entry)) continue;
       const basename = basenames.length === 1 ? basenames[0] : null;
       const preludeProblems =
         basename === null
@@ -1970,6 +1958,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
         ),
       );
     }
+    if (!planningStarted && docs.commit(entry)) continue;
     const preludeProblems = planningPreludeProblems(
       entry.paths,
       basename,
@@ -2176,6 +2165,7 @@ function stagedCheckpoint(root, paths) {
 }
 
 export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   try {
     const staged = stagedPaths(root);
     if (staged.length === 0) return [];
@@ -2266,6 +2256,16 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     const proposed = stagedCheckpoint(root, staged);
     const findings = proposed.problems.map((problem) => finding(problem));
     if (proposed.pairs.length === 0) {
+      if (findings.length === 0 && history.pendingBasename == null && docs.staged(staged)) {
+        const residue = worktreePaths(root);
+        return residue.length === 0
+          ? []
+          : [
+              finding(
+                `unstaged or untracked path(s) exist during documentation batch: ${residue.join(', ')}.`,
+              ),
+            ];
+      }
       const agreement = agreementPrelude(staged, stagedText, headText);
       if (agreement !== null) {
         findings.push(...agreement.problems.map((problem) => finding(problem)));

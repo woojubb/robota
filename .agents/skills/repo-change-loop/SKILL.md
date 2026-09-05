@@ -32,7 +32,8 @@ description: Runs the standard Robota change loop by identifying impact, buildin
    - scenario or example behavior
    - documentation only
 2. Determine the affected packages or apps from the changed paths.
-3. If `packages/*/src/` changed, run the affected package build immediately.
+3. If package source changed, build at the coherent batch boundary defined in
+   [execution-cadence.md](../../rules/execution-cadence.md), not after each edit.
 4. Run the most relevant targeted checks:
    - package build
    - targeted tests

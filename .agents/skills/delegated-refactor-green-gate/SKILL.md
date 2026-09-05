@@ -1,6 +1,6 @@
 ---
 name: delegated-refactor-green-gate
-description: Pipeline for delegating one large mechanical change to a worker under a hard green-or-report gate — specify, dispatch mechanical-refactor-worker, independently re-verify the green claim, hand the working-tree diff to pr-review-reviewer, then commit. Route-only: it does no editing and forms no verdict. Use when delegating a big decision-free change on your own working tree.
+description: Delegate one mechanical change with focused worker verification, one integrated final gate, and one independent batch review. Route-only; does not edit or form verdicts. Use for decision-free shared-tree work.
 loop: over=finding-set; escape=no-progress; bound=2 rounds
 ---
 
@@ -48,12 +48,11 @@ not dispatch around it.
 
 ### 2. Dispatch `mechanical-refactor-worker`
 
-Hand it the specification and state that it shares this working tree, so it hands the tree back
-unstaged. It drives the change until the project's CI-equivalent verification entry point is green —
-that entry point runs the build and the affected scope's tests as stages of its own — or it stops
-with a named blocker.
+Hand it the specification and focused verification scope. It shares this tree and returns it
+unstaged with `scoped-pass` or a named blocker. The integration owner, not each worker, owns the full
+gate under [execution-cadence.md](../../rules/execution-cadence.md).
 
-**Route:** `green` → step 3. `blocked` → read the blocker: a defect in the specification returns to
+**Route:** `scoped-pass` → step 3. `blocked` → read the blocker: a defect in the specification returns to
 step 1 (bounded to 2 re-specifications); an environment or toolchain failure is diagnosed and the step
 repeats; anything else terminates.
 
@@ -62,22 +61,24 @@ repeats; anything else terminates.
 Both are conditions you evaluate from observable state, not verdicts: you read exit codes and path
 lists. Forming a judgement about the diff is step 4's job, and not yours.
 
-**3a. Re-verify the green claim.** The worker's `green` is a hypothesis. Reproduce it in this session:
-run the CI-equivalent verification entry point in FULL and in the foreground — not a subset of its
-stages — plus a frozen-lockfile install when the lockfile was touched. Read its summary: it names the
-required contexts it could not run locally, and those remain yours to reason about.
+**3a. Verify the integrated batch.** Inspect the worker's scoped evidence without calling it branch
+green. At the parent work unit's final boundary, the integration owner runs the full CI-equivalent
+entry point and frozen-lockfile install when applicable. If this is a sub-step, return the scoped
+result to that owner instead of running another full gate here. Read the final gate's reported
+uncovered contexts; they remain unverified, not implicitly passed.
 
 **3b. Check the changed file set against step 1's list.** Compare the paths the diff touches with the
 paths the specification allowed. A file outside the list is out-of-scope work, decidable without reading
 a line of the diff.
 
-**Route:** both clean → step 4. 3a not reproduced → back to step 2 with the failing command and its
+**Route:** both clean → step 4. 3a failed → back to step 2 with the failing command and its
 output (bounded to 2 rounds). 3b out of scope → back to step 2 with the offending paths (bounded to 2
 rounds). Either bound exhausted → terminate and report.
 
 ### 4. Dispatch `pr-review-reviewer` on the working-tree diff
 
-Hand it **the uncommitted diff plus step 1's specification**, so it can judge the change against what
+Reuse the parent work unit's final independent review when composed into that pipeline; do not
+dispatch a second reviewer for the same batch. Hand it **the uncommitted diff plus step 1's specification**, so it can judge the change against what
 was actually asked for rather than inferring the intent from the diff. Defects the transformation
 introduced, and edits that are in-scope by path but not by intent, are its findings to make — not yours
 to eyeball. Do not ask it for **missed** sites: a site that was never edited is not in the changed set,
@@ -88,8 +89,8 @@ rounds); if the same findings recur unchanged, or the bound is exhausted, termin
 
 ### 5. Commit
 
-Stage and commit per [git-branch.md](../../rules/git-branch.md), then continue with the project's
-post-implementation sequence. This pipeline ends here; it does not push, open, or merge anything.
+Return the verified diff to the parent's batch commit, or commit once when this is the whole work
+unit, per [git-branch.md](../../rules/git-branch.md). This pipeline does not push, open, or merge.
 
 **Terminate** at any step per the Stop Conditions in
 [backlog-execution.md](../../rules/backlog-execution.md) — report state, blocker, and the tree's staging

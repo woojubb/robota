@@ -44,6 +44,7 @@ const ROOT_INPUTS = new Set(CONTRACT_CONTROL_PLANE_INPUTS.filter((input) => !inp
 
 const REPOSITORY_PREFIXES = [
   '.agents/',
+  '.claude/agents/',
   '.github/',
   '.husky/',
   'apps/',
@@ -135,6 +136,7 @@ function looksLikeRepositoryInput(value) {
   const normalized = normalize(value);
   return (
     ROOT_INPUTS.has(normalized) ||
+    normalized === '.claude/agents' ||
     REPOSITORY_PREFIXES.some((prefix) => normalized.startsWith(prefix))
   );
 }
@@ -146,6 +148,11 @@ function repositoryInputsFromSources(root, implementationInputs) {
     for (const match of source.matchAll(/['"`]([^'"`\n]+)['"`]/gu)) {
       const candidate = normalize(match[1]);
       if (!looksLikeRepositoryInput(candidate) || candidate.includes('${')) continue;
+      // Directory consumers read every definition, including newly added agent files.
+      if (candidate === '.claude/agents') {
+        inputs.add(`${candidate}/**`);
+        continue;
+      }
       inputs.add(candidate.endsWith('/') ? `${candidate}**` : candidate);
     }
   }

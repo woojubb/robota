@@ -263,6 +263,10 @@ parses it; an entry it cannot parse is a FAIL, never a pass.
 
 ### GATE-IMPLEMENT `approved → in-progress`
 
+The documentation-only atomic route owned by
+[execution-cadence.md](../rules/execution-cadence.md) has no paired spec and does not enter this
+transition. Its eligibility limits do not exempt runnable or higher-lane changes from this gate.
+
 - [ ] `.agents/tasks/<ID>.md` has been created — `mechanical`
 - [ ] Tasks file path is recorded in the `## Tasks` section of the spec document — `mechanical`
 - [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N) — `mechanical`

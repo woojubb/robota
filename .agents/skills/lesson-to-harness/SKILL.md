@@ -45,20 +45,25 @@ prevention (steps 8–9) does.
    partial wiring.
 7. **Write** — the canonical `.agents/rules/<slug>.md` (neutral, domain-free) + references at all
    touchpoints. One owner document per fact.
-8. **Build the mechanism (mandatory — the lesson is not closed without it)** — prose alone never
-   closes a lesson. Reach one of exactly two terminal states:
+8. **Schedule the mechanism at the rule-owned boundary** — follow
+   [learning-loop.md](../../rules/learning-loop.md) § "Mechanisms Land on a Cycle". Between cycles,
+   amend the approved rule and record the class in the existing recurrence ledger; do not interrupt
+   each product fix with a new mechanism project. An open recorded lesson is not mechanized.
+   At the consolidated cycle, reach one of exactly two terminal states:
    - **Mechanized** — a `harness:scan` FAIL condition, hook check, or test that trips on the
      violation (the default).
    - **Infeasible-now** — a written, concrete obstacle **plus** a tracked backlog item to add the
      check. "Hard to check" / "low value" / silence are not acceptable reasons.
-9. **Prove the mechanism catches the incident** — run the new check against the **pre-fix state**
+9. **When a mechanism is implemented in the consolidated cycle, prove it catches the incident** — run the new check against the **pre-fix state**
    (or a reproducing fixture) and confirm it FAILS, then against the fixed state and confirm it
    PASSES. The check carries its own coverage and stays scoped to the class. Record the
    before/after result.
 10. **Ship** per [git-branch.md](../../rules/git-branch.md) (branch → conventional commit → PR →
     Pre-Merge Code-Review Gate → merge), `pnpm harness:scan` green before the PR.
-11. **Report** — files wired, swept-instance count (step 5), mechanism terminal state (step 8),
-    prove result (step 9). No named terminal state = the lesson is not closed.
+11. **Report once for the batch** — files wired and swept instances. Between cycles, report the
+    lesson as OPEN with its existing tracked follow-up; do not claim mechanization. At the cycle's
+    mechanism boundary, report the terminal state and step-9 proof. No terminal state means the
+    mechanism remains open, not that every documentation amendment must start a mechanism project.
 
 ## New recurring role → dispatch capability-extraction
 

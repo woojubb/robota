@@ -12,6 +12,10 @@ re-judges.
 
 ## What to do
 
+Handle the supplied finding set as one repair batch under
+[execution-cadence.md](../../.agents/rules/execution-cadence.md). Reuse its supplied verdicts for
+related LOCAL corrections. Do not request a new verdict, commit, or re-review per small supplement.
+
 1. Take the reviewer's **MUST** and **SHOULD** findings (each with `file:line + severity`). CONSIDER/NIT are not
    yours to act on unless explicitly asked.
 2. **Take the DEPTH verdict for each finding — you do not produce it.** Depth is a judgement, so it belongs to

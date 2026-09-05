@@ -62,7 +62,7 @@ the package and app listing, and the dependency-direction rules.
 
 ## Mandatory Rules
 
-All rules in the document tree above are mandatory, non-negotiable, and domain-free. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply.
+All rules in the document tree above are mandatory, non-negotiable, and domain-free. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply. Apply [execution-cadence.md](.agents/rules/execution-cadence.md) before dispatching work: batch small supplements at work-unit boundaries.
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 

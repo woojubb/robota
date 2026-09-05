@@ -19,6 +19,10 @@ This skill is **mandatory** whenever:
 
 **Trigger condition:** Any SPEC.md diff in the current changeset.
 
+Run once for the coherent changeset, not once per SPEC edit. Collect related gaps and fix them
+as one batch under [execution-cadence.md](../../rules/execution-cadence.md); reuse this run and
+its evidence across supplements. Only changed claims and their affected consequences need rechecking.
+
 ## Core Principle
 
 **Spec is the source of truth.** This workflow only fixes code to match the spec. It never modifies the spec itself. If the spec appears wrong, that is a separate concern handled by other workflows (e.g., `spec-writing-standard`, `spec-first-development`). Within this workflow, the spec is assumed correct and the code must conform.
@@ -120,11 +124,13 @@ pnpm --filter <affected-package> exec tsc -p tsconfig.json --noEmit
 
 All must pass. If not, fix and retry.
 
-Then **return to Step 2** with fresh eyes. Re-read the spec and re-compare against the code (which may have been fixed in Step 4). Gaps may cascade: fixing one gap can reveal another.
+Then return to Step 2 for the repaired claims and affected consequences. Do not repeat unchanged
+comparisons or already-passing commands on identical inputs.
 
 ### Step 6: Regression tests
 
-Only when Step 2 produces **zero gaps**:
+Only when Step 2 produces **zero gaps**, confirm coverage below. Reuse Step 5's passing commands
+on unchanged inputs instead of executing them again; missing coverage runs in the integrated batch:
 
 ```bash
 # All affected packages

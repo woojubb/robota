@@ -28,6 +28,7 @@ import {
   parseLaneFloors,
   parseSpecTriggerSections,
 } from './scan-lane-declaration.mjs';
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
 
 export const TASK_PREFIX = '.agents/tasks/';
 export const SPEC_PREFIX = '.agents/spec-docs/';
@@ -237,4 +238,55 @@ export function l0GroundDecision({ pending, proven, paths, textBefore, laneRuleT
         grounded: false,
         problem: `L0 implementation grounded by \`${ground}\` reaches ${floorProblem}. An L1/L2 change reaches its own planning checkpoint; the L0 ground does not stand in for it.`,
       };
+}
+
+/** Documentation-only authorization is atomic, not an ancestor implementation ground. */
+export function isApprovedDocumentationBatch({
+  paths,
+  textAfter,
+  laneRuleText,
+  planSignal,
+  isPlainFile,
+}) {
+  const allowed = (file) =>
+    file === 'AGENTS.md' ||
+    file === 'README.md' ||
+    /^\.agents\/(?:rules|skills|tasks|evals\/lessons)\/[A-Za-z0-9_./-]+\.md$/.test(file) ||
+    /^\.claude\/agents\/[A-Za-z0-9_-]+\.md$/.test(file) ||
+    /^docs\/[A-Za-z0-9_./-]+\.md$/.test(file);
+  if (
+    paths.length === 0 ||
+    !paths.every((file) => allowed(file) && !file.split('/').includes('..') && isPlainFile(file))
+  )
+    return false;
+  if (laneFloorAboveL0(paths, laneRuleText) !== null) return false;
+  const tasks = paths.filter((file) => file.startsWith(TASK_PREFIX));
+  if (tasks.length !== 1 || tasks[0].slice(TASK_PREFIX.length).includes('/')) return false;
+  const basename = taskBasename(tasks[0]);
+  if (basename === null || subjectId(basename) === null) return false;
+  const task = textAfter(tasks[0]);
+  if (typeof task !== 'string') return false;
+  const fields = frontmatterObject(task);
+  if (!['todo', 'in-progress'].includes(asScalar(fields.status))) return false;
+  if (
+    asScalar(fields.documentation_batch_approval) !== 'DIRECT' ||
+    asScalar(fields.documentation_batch_instruction).trim() === ''
+  )
+    return false;
+  const signal = planSignal(task);
+  return (
+    signal?.outcome === 'not-applicable' &&
+    signal.count === 0 &&
+    l0GroundProblems(basename, textAfter, planSignal).length === 0
+  );
+}
+
+export function readPlanSignal(task, sectionReader) {
+  const section = sectionReader(task, '## User Execution Test Scenarios');
+  const matches = [
+    ...(section ?? '').matchAll(
+      /^\*\*Author verdict:\*\*\s+`SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(0|[1-9]\d*)`\s*$/gm,
+    ),
+  ];
+  return matches.length === 1 ? { outcome: matches[0][1], count: Number(matches[0][2]) } : null;
 }

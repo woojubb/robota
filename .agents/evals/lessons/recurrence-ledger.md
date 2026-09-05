@@ -126,6 +126,17 @@ Imports, comments and checks left behind by the change that removed their subjec
 
 ---
 
+## L7 — Fragmenting one approved outcome into repeated process gates
+
+**Count: 2** · First seen 2026-09-05 · Last seen 2026-09-05 · Mechanism: open — next consolidated
+harness cycle, tracked by this open entry after the PROC-034 cadence amendment · Rule: `execution-cadence.md`
+
+- 2026-09-05 — a second continuation checkpoint was added to the same S2 branch after a local
+  clarification, then required recovery despite the existing valid entry checkpoint.
+- 2026-09-05 — per-supplement scope questions and validation handoffs continued after repeated owner
+  requests to batch work. Owner explicitly approved the permanent rule/skill amendment and made it
+  the highest priority. These two concrete instances are the counted floor, not an estimate of prior days.
+
 ## Retired
 
 Classes whose `Last seen` passed 90 days. Counts and dates are kept: a return carries the old count
