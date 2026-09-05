@@ -68,10 +68,12 @@ Two things it deliberately does not treat as collisions, and one it cannot see:
   A body is the one place an ID is declared that no scan over the tree reaches, so the allocator
   reads bodies as a claimed-ID source too (issue #2322).
 
-**So a NEW record names its issue.** Any of `Registered as … issue #N`, a bare `issue #N`, or the
-issue URL — the three spellings already in the tree, so a record that links already does not have to
-link again. A pull-request reference is not one: `PR #N` says what delivered the work, not what
-registered it. `no-issue: <reason>` on a line opts out, for an item that genuinely has none.
+**So a NEW record is Issue-backed.** Before creating a Task or its paired spec, resolve the registering
+GitHub Issue. If one exists, pass its number; if none exists, `allocate-work-item-id.mjs` searches for
+an exact title and creates a correctly labeled Issue, then uses the server-returned number. The new ID
+is `<PREFIX>-<issue-number>` (for example, `HARNESS-2401`), so it is not derived from a local counter.
+The Task must still cite the Issue URL. Existing legacy IDs remain valid and are not renamed; a legacy
+record may be scaffolded explicitly with `new-spec.mjs … --legacy-id`.
 
 Only records a change ADDS are judged. 711 of 798 existing records carry no citation, most of them
 completed and merged; back-filling them means guessing which issue each one meant, and a wrong link
@@ -91,21 +93,19 @@ record's ID".
 
 ## Process
 
-1. Allocate the ID and create the record in ONE step:
+1. Resolve the Issue, allocate the Issue-backed ID, and create the record in ONE step:
 
    ```
-   pnpm harness:task:allocate INFRA "the problem, as a sentence" --issue 1916
+   pnpm harness:task:allocate INFRA "the problem, as a sentence" --issue 2401
    ```
 
-   Do **not** read the highest number and add one. That read has a shelf life measured in minutes
-   when more than one session is working, and the number is claimed by more than the filenames in
-   this directory: on 2026-08-22, 63 IDs were claimed by a tracked file that is not a record — a
-   rule citing the item that introduced it, a scan header, a hook comment. `INFRA-127` was one of
-   them, and a survey of this directory reported `INFRA-126` as the highest.
+   Omit `--issue` to reuse an exact existing Issue title or create a new enhancement Issue with
+   `status:needs-triage`; allocation stops if GitHub cannot resolve/create/read back the Issue. The
+   returned ID is `<PREFIX>-<issue-number>`.
 
-   The allocator reads the records, every citation in the tree, and the issue titles and bodies, and
-   says so: when it cannot reach the issue list it prints that it allocated from a smaller set rather
-   than passing quietly. Add `--dry-run` to see the ID without writing the file.
+   The allocator still reads records, citations, and issue titles/bodies to refuse a legacy-ID
+   collision. It never uses their highest number for a new allocation. Add `--dry-run` with an
+   explicit `--issue` to see the ID without writing the file or creating a remote Issue.
 
 2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
 3. When implementation is complete and all gates pass (see

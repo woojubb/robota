@@ -46,6 +46,7 @@ legacy IDs remain readable and unchanged.
 - `scripts/harness/__tests__/new-spec.test.mjs`
 - `.agents/tasks/README.md`
 - `.agents/skills/user-request-gate/SKILL.md`
+- `.agents/skills/backlog-pipeline/SKILL.md`
 
 ### Alternatives Considered
 
@@ -105,19 +106,19 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exits 0, including Issue reuse/creation, conflict refusal, and legacy-ID controls.
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exits 0, including Issue reuse/creation, conflict refusal, and legacy-ID controls.
 - [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 for the changed harness and workflow documents.
-- [ ] TC-03: `pnpm harness:task:allocate HARNESS "issue-backed allocation test" --issue 2401 --dry-run` → outputs `HARNESS-2401` and writes no Task; with `--issue` omitted, an exact existing title is reused or a GitHub Issue is created and its returned number is used.
-- [ ] TC-04: `node scripts/harness/new-spec.mjs HARNESS-2401 --type INFRA --issue 2401 --lane L1 --dry-run` → exits 0 and outputs a draft paired to the HARNESS-2401 Task; a legacy ID without `--legacy-id` exits 1.
+- [x] TC-03: `pnpm harness:task:allocate <PREFIX> "issue-backed allocation test" --issue 2401 --dry-run` → outputs `<PREFIX>-2401` and writes no Task; with `--issue` omitted, an exact existing title is reused or a GitHub Issue is created and its returned number is used.
+- [x] TC-04: `node scripts/harness/new-spec.mjs HARNESS-2401 --type INFRA --issue 2401 --lane L1 --dry-run` → exits 0 and outputs a draft paired to the HARNESS-2401 Task; a legacy ID without `--legacy-id` exits 1.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                    |
-| ----- | --------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | Includes RED controls for each refusal and GREEN controls for valid Issue-backed IDs.                    |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | Regression over the changed harness/docs set.                                                            |
-| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | Read-only existing-Issue path; omitted-Issue creation is mocked in unit tests because it mutates GitHub. |
-| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | Confirms Issue/ID pairing and explicit legacy escape.                                                    |
+| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                     |
+| ----- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: 5 focused/related files, 143 tests passed. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls. |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | Regression over the changed harness/docs set; recorded after the work-run receipt closure is sealed.                      |
+| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `SPECID-2401`; no Task written. Omitted-Issue creation is mocked in unit tests because it mutates GitHub.           |
+| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                              |
 
 ## User Execution Test Scenarios
 

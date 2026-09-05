@@ -5,7 +5,7 @@ status: todo
 created: 2026-09-06
 priority: medium
 urgency: soon
-area: scripts/harness, .agents/rules, .agents/skills
+area: scripts/harness, .agents/tasks, .agents/skills
 depends_on: []
 ---
 
@@ -19,8 +19,8 @@ allocating the identifier. Preserve legacy identifiers so existing citations rem
 
 ## Plan
 
-- [ ] Update the allocator and spec scaffolder contract to resolve or create the registering Issue and use its number as the new identifier.
-- [ ] Update the written workflow guidance and identifier parsers/tests for the issue-number-backed format while preserving legacy records.
+- [x] Update the allocator and spec scaffolder contract to resolve or create the registering Issue and use its number as the new identifier.
+- [x] Update the written workflow guidance and identifier parsers/tests for the issue-number-backed format while preserving legacy records.
 - [ ] Run focused tests and the affected harness scan, then record the merged delivery.
 
 ## User Execution Test Scenarios

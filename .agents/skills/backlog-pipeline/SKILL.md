@@ -119,7 +119,10 @@ work, and before a `develop → main` release. See
 
 **The L1 lane, in order** — each step is one of the commands above; none is skipped or reordered:
 
-1. `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` — scaffold
+1. Resolve the registering GitHub Issue and allocate `<PREFIX>-<issue-number>` with
+   `pnpm harness:task:allocate` (or pass an existing Issue number), then run
+   `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` — scaffold. Use
+   `--legacy-id` only when scaffolding a pre-existing record whose ID predates this convention.
 2. Write Problem, Decision and the TC-N criteria
 3. `gate.mjs approve --doc <PATH> --route CLASS --class LANE-L0-L1 --instruction "<verbatim>"` —
    evidence measured by the script
