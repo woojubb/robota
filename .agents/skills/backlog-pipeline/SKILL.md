@@ -132,7 +132,8 @@ work, and before a `develop → main` release. See
 8. `gate.mjs record --doc <PATH> --tc TC-NN …` per TC
 9. `gate.mjs judge --gate DONE --doc <PATH> --lane L1 --verify-cmd "<build-shaped>" --verify-cmd "<test-shaped>"`
    (an affected scan run counts as build-shaped: `node scripts/harness/run-all-scans.mjs --affected --context pr …`)
-10. `gate.mjs advance --doc <PATH>` (`approved → done`, `done/`), the Task to `completed/`, commit
+10. `node scripts/harness/task-complete.mjs --doc <PATH> --date YYYY-MM-DD`, then commit the
+    completed pair. [Tasks README](../../tasks/README.md#process) owns supported/manual routes.
 
 When the guard is dispatched — the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md)
 (Agent tool), one gate per invocation — it owns how to judge; give it only the two inputs it needs:
@@ -154,7 +155,8 @@ Look up the folder the rule maps the **next** status to.
 
 **PASS:**
 
-1. Run `node scripts/harness/gate.mjs advance --doc <PATH>`. It moves the file to the folder the rule
+1. For terminal `done`, use the completion command above (or the README's explicit manual route).
+   For other transitions run `node scripts/harness/gate.mjs advance --doc <PATH>`. It moves the file to the folder the rule
    maps the next status to (no move when both statuses map to the same folder) and rewrites the
    frontmatter `status:` in the same step — the rule's folder ↔ status agreement is what makes a
    half-done move a NON-COMPLIANCE on the next run, which is why the two are never done by hand.

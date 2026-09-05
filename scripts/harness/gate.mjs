@@ -186,7 +186,7 @@ import {
   parseRegistrySection,
   standingVerdict,
 } from './scan-standing-delegation-evidence.mjs';
-import { vacantAdvanceDestination } from './gate-advance-contract.mjs';
+import { repointCurrentSpec, vacantAdvanceDestination } from './gate-advance-contract.mjs';
 import { extractExamined } from './run-all-scans.mjs';
 import { AUTO_GENERATED_CHURN } from './verification-receipt-storage.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
@@ -402,7 +402,7 @@ export function evidenceEntries(text) {
   return entries;
 }
 
-function statusUpgradeOf(entry) {
+export function statusUpgradeOf(entry) {
   for (const line of entry.lines) {
     const match = /^\*\*Status upgrade:\*\*\s*`?([a-z-]+)`?\s*→\s*`?([a-z-]+)`?/.exec(line);
     if (match) return { from: match[1], to: match[2] };
@@ -2082,7 +2082,7 @@ export function runRecord(options) {
 
 // ── advance ──────────────────────────────────────────────────────────────────────────────────────
 
-export function runAdvance(options) {
+export function prepareAdvance(options) {
   const root = path.resolve(options.root ?? WORKSPACE_ROOT);
   if (!options.doc) throw new Error('advance needs --doc');
   const docPath = resolveFrom(root, options.doc, '');
@@ -2129,19 +2129,21 @@ export function runAdvance(options) {
     upgrade.from === 'approved' &&
     upgrade.to === 'in-progress'
   ) {
-    if (!taskRel) {
-      throw new Error('refused: GATE-IMPLEMENT PASS names no paired active Task');
-    }
+    if (!taskRel) throw new Error('refused: GATE-IMPLEMENT PASS names no paired active Task');
     activatedTask = prepareTaskActivation(root, taskRel);
   }
 
+  return { root, docPath, doc, upgrade, target, moved, taskRel, activatedTask, last };
+}
+
+export function runAdvance(options) {
+  const { root, docPath, doc, upgrade, target, moved, taskRel, activatedTask } =
+    prepareAdvance(options);
   const notes = [];
   writeFileSync(docPath, rewriteFrontmatterStatus(doc.text, upgrade.to));
   if (moved) {
     mkdirSync(path.dirname(target), { recursive: true });
     const rel = path.relative(root, docPath);
-    // A draft git does not track yet (or a root that is no repository) has nothing for `git mv` to
-    // move; a plain rename is the right tool there, said once, not reported as a refusal.
     const tracked = git(root, ['ls-files', '--error-unmatch', '--', rel]);
     if (!tracked.ok) {
       renameSync(docPath, target);
@@ -2164,12 +2166,10 @@ export function runAdvance(options) {
   if (moved && taskRel) {
     const oldRel = path.relative(root, docPath).split(path.sep).join('/');
     const newRel = path.relative(root, target).split(path.sep).join('/');
-    // Read first, write only what was read: an existence check before the read is a window in
-    // which the record can vanish, and a missing record is one outcome, named, not a crash.
     const taskText = readTaskRecordText(path.resolve(root, taskRel));
     if (taskText === null) notes.push(`${taskRel} is not on disk — nothing re-pointed`);
     else if (taskText.includes(oldRel)) {
-      writeFileSync(path.resolve(root, taskRel), taskText.split(oldRel).join(newRel));
+      writeFileSync(path.resolve(root, taskRel), repointCurrentSpec(taskText, oldRel, newRel));
       notes.push(`rewrote ${oldRel} → ${newRel} in ${taskRel}`);
     }
   }

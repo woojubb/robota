@@ -1,11 +1,12 @@
 ---
 title: 'INFRA-168: Complete approved Task and spec lifecycle together'
-status: in-progress
+status: done
 created: 2026-09-05
 priority: medium
 urgency: soon
 area: harness
 depends_on: []
+completed: 2026-09-05
 ---
 
 # INFRA-168: Complete approved Task and spec lifecycle together
@@ -16,7 +17,7 @@ Complete a judged Task/spec pair in one native operation, avoiding late status/d
 
 no-issue: Direct user request to improve the measured execution bottleneck.
 
-Spec: `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md`
+Spec: `.agents/spec-docs/done/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md`
 
 Instruction (verbatim): 그 개선 작업 끝나면 또 개선해서 지금보다 빠른 작업 속도를 만들기 위해 3시간동안 작업한 세션로그를 확인해서 불필요한 진행이나 잘못된 하네스를 찾아서 개선해줘. 획기적으로 개발시간을 개선해줘
 
@@ -24,9 +25,9 @@ Prior delivery instruction (verbatim): 발견한 절차상의 문제는 바로�
 
 ## Plan
 
-- [ ] TC-01: Add preflighted completion orchestration using existing gate advancement and Task lifecycle owners.
-- [ ] TC-02, TC-03: Protect refusal, historical paths, consistent completion and safe repeat behavior with focused regression tests.
-- [ ] TC-04, TC-05: Route completion instructions to the command and finalize evidence before the parent-owned integrated gate.
+- [x] TC-01: Add preflighted completion orchestration using existing gate advancement and Task lifecycle owners.
+- [x] TC-02, TC-03: Protect refusal, historical paths, consistent completion and safe repeat behavior with focused regression tests.
+- [x] TC-04, TC-05: Route completion instructions to the command and finalize evidence before the parent-owned integrated gate.
 
 ## User Execution Test Scenarios
 
@@ -48,3 +49,9 @@ Focused Vitest integration fixtures in `scripts/harness/__tests__/task-complete.
 ## Evidence
 
 Observed historical failure: INFRA-165 source was pushed before terminal metadata; manual archival then required status/date correction and repeated verification. This is prior evidence, not a PASS for INFRA-168.
+
+Actual RED: `/tmp/infra168-red.log` reproduces historical path rewriting by old advance; `/tmp/infra168-refusal-red.log` records 10 failing refusal cases before the preflight implementation. Final focused `/tmp/infra168-final-focused.log`: 4 files, 120 tests PASS in 15.89 seconds. Three changed native ESM modules pass `node --check` (no transpilation/package build applies); `git diff --check` and file-size scan pass without changing the baseline. The 2560-line gate ceiling is unchanged (current 2559). Full integrated verification remains parent-owned and is not claimed complete here.
+
+## Result
+
+One maintenance command completes supported judged pairs, preserves historical evidence, and refuses unsupported initiative projections before writes. It reports partial I/O failures explicitly; crash-atomic multi-file transactions are not promised. Current manual initiative/non-done routes remain available. Root-owned operational guidance no longer treats waits as permission to start unrelated work; it distinguishes an idle-worker dispatch from a notification, without claiming machine enforcement over agent providers.

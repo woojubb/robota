@@ -244,13 +244,10 @@ The measurement behind this rule is in
 
 ### A Wait Is Not Idle Time
 
-When work is blocked on something that takes minutes and is not yours to speed up — a continuous
-integration run, a review round, a deploy, a queued check — you take another independent item and
-progress it meanwhile. Waiting sequentially is a choice, and it makes every round trip cost the
-wall-clock of the whole session.
-
-The obligation is on the WAIT, not on the amount of work. If a blocking wait is under way and any
-independent item remains, something else advances during it.
+While an actual asynchronous operation runs, advance already-authorized independent work only
+when doing so does not delay the current batch's completion. A wait is not an obligation to open
+another Task, branch, or review. Finish known integration and completion work before expanding
+the work in progress; do not keep extending a batch to fill its waits. Respect a user's stop boundary.
 
 Enforced by: `.claude/hooks/no-foreground-wait.sh` — it refuses a foreground Bash call whose sleep
 budget exceeds 60 seconds, or that loops around a remote status read (`gh pr checks`, `gh run view`,
@@ -261,7 +258,10 @@ property, so a wait it cannot parse is one it has no evidence about. Deliberate 
 `FOREGROUND_WAIT_ACK=1` inline in the same command.
 
 - **The wait must be real.** Something you cannot make faster and are not permitted to skip. A wait
-  invented to avoid interleaving is not a wait.
+  for work that has not started is not a real asynchronous wait. A notification does not start an
+  idle or completed worker: use the runtime's start/resume operation for a work request, and rely
+  on its accepted dispatch before waiting. Check dispatch once at the work boundary, not by repeated
+  status polling or by requesting another review of unchanged content.
 - **The second item must be INDEPENDENT** — no source file, no rule document and no frozen baseline
   in common with the one already in flight. Two changes to the same ratchet or registry are one
   item, whatever the backlog calls them.
@@ -272,11 +272,11 @@ property, so a wait it cannot parse is one it has no evidence about. Deliberate 
 - **Re-check the first item before returning to it.** Its review may have arrived while you were
   away, and the state you left is not the state you come back to.
 
-Enforced by: nothing — whether an agent took a second item during a blocking wait leaves no trace in
-the repository. The tree shows two branches, and two branches are what sequential work produces too.
-Filed as [HARNESS-077](../tasks/HARNESS-077-a-wait-leaves-no-trace.md), which asks whether the wait
-itself can be instrumented; until then this rule is read, not checked, and says so rather than
-reading like a rule something enforces.
+Enforced by: nothing — repository scans cannot observe the runtime's dispatch acceptance or decide
+whether interleaving delays a delivery. The runtime's dispatch result is the execution evidence;
+an acknowledgment of a notification is not. Instrumentation remains tracked in
+[HARNESS-077](../tasks/HARNESS-077-a-wait-leaves-no-trace.md); this guidance does not claim that a
+repository check enforces provider-managed worker state.
 
 **One thing to know about running the suite in a worktree.** A git hook exports `GIT_DIR` into
 everything it launches, so a test spawned by a push-time gate can silently write to the repository

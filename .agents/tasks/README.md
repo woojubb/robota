@@ -110,13 +110,22 @@ record's ID".
 2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
 3. When implementation is complete and all gates pass (see
    [backlog-execution.md](../rules/backlog-execution.md)):
-   - Update `status: done` and add `completed: YYYY-MM-DD` in frontmatter.
-   - Use `git mv` to move the file from this directory to `completed/`.
-   - Include the status update and the move in the same commit — do not split them.
+   - Run `node scripts/harness/task-complete.mjs --doc <current-spec> --date YYYY-MM-DD`.
+     It consumes the existing terminal PASS and completes the supported Task/spec pair together;
+     it does not check boxes or judge completion. Include its changes in the delivery commit.
+   - The command refuses initiative/projection cases before writes; complete those through the
+     existing manual lifecycle/projection route below. An unexpected I/O failure exits nonzero
+     with partial paths: inspect them and recover manually, never treat that output as success.
 4. For items that will not be implemented, set `status: wontfix`, `skipped`, or `superseded`, add
    the completion date, then move to `completed/` in the same commit.
 5. If another Task declares this Task in `children`, update that initiative Task's `## Children`
    and paired AGREEMENT spec's `## Tasks` rows in the same commit as this lifecycle transition.
+
+Manual done completion: for L0/no-spec work and initiative/projection cases, retain the manual route.
+After the applicable completion gates pass, advance a paired spec with `gate.mjs advance` if present,
+set Task `status: done` and `completed: YYYY-MM-DD`, and `git mv` it into `completed/`. Update current
+Task/spec pointers and all required parent projections in that same delivery commit. A missing spec
+is valid only for the L0/no-spec route; it is not permission to bypass a required paired plan.
 
 **Never** move a file to `completed/` without first updating `status` in its frontmatter.
 **Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).

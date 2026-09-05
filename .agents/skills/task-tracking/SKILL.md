@@ -55,13 +55,10 @@ a parent `AGREEMENT` Task and its paired spec-doc, then connect the child Tasks 
 
 ### Completing a Task
 
-5. Set frontmatter status to the correct terminal value and add `completed: YYYY-MM-DD`.
-6. Move the file to `completed/` with `git mv`:
-   ```bash
-   git mv .agents/tasks/<task-name>.md .agents/tasks/completed/<task-name>.md
-   ```
-7. Update every declaring AGREEMENT Task `## Children` row and paired spec `## Tasks` row.
-8. Commit the status, move, and parent projections **in the same commit as the work it tracks**.
+5. Follow [Tasks README — Process](../../tasks/README.md#process): after terminal gate PASS,
+   run `node scripts/harness/task-complete.mjs --doc <current-spec> --date YYYY-MM-DD` for a
+   supported pair. The README owns refusals, manual initiative/non-done routes and partial-failure recovery.
+6. Commit completion metadata **in the same commit as the work it tracks**.
 
 ### Archival Timing (when exactly to move) — enforced
 

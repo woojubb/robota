@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 lane: L2
 tags: [harness, governance]
@@ -64,7 +64,8 @@ None
 - `scripts/harness/gate.mjs`
 - `scripts/harness/task-complete.mjs`
 - `scripts/harness/__tests__/task-complete.test.mjs`
-- Existing `scripts/harness/__tests__/gate*.test.mjs` advancement regression owner, if needed.
+- `scripts/harness/gate-advance-contract.mjs` — existing advancement destination/pointer owner.
+- `scripts/harness/__tests__/gate.test.mjs`, `scripts/harness/__tests__/gate-advance-contract.test.mjs`, `scripts/harness/__tests__/task-lifecycle.test.mjs` — unchanged regression coverage.
 - `.agents/tasks/README.md`
 - `.agents/skills/task-tracking/SKILL.md`
 - `.agents/skills/backlog-pipeline/SKILL.md`
@@ -73,11 +74,11 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: A real temporary-repository terminal-PASS pair completes with spec done, Task done/date/archived, and both current links resolving; existing manual advance regression is demonstrated before implementation.
-- [ ] TC-02: Missing or non-PASS evidence, mismatched pair, unchecked completion/Task Plan, invalid date, collision, outside-root and symlink inputs exit nonzero with source bytes and index unchanged.
-- [ ] TC-03: Historical Evidence Log path bytes remain unchanged; a fully consistent repeat is a no-op, and unexpected write failure exits nonzero with explicit partial-state diagnostics.
-- [ ] TC-04: Initiative/projection cases refuse before writes; supported completion documentation routes to one command while non-done/manual projection routes remain explicit; operational guidance forbids starting work merely to fill waits and requires actual dispatch for idle workers, without claiming runtime enforcement.
-- [ ] TC-05: Focused lifecycle/advance regression tests and native ESM syntax checks exit zero; no gate judging semantics or receipt/CI checks change.
+- [x] TC-01: A real temporary-repository terminal-PASS pair completes with spec done, Task done/date/archived, and both current links resolving; existing manual advance regression is demonstrated before implementation.
+- [x] TC-02: Missing or non-PASS evidence, mismatched pair, unchecked completion/Task Plan, invalid date, collision, outside-root and symlink inputs exit nonzero with source bytes and index unchanged.
+- [x] TC-03: Historical Evidence Log path bytes remain unchanged; a fully consistent repeat is a no-op, and unexpected write failure exits nonzero with explicit partial-state diagnostics.
+- [x] TC-04: Initiative/projection cases refuse before writes; supported completion documentation routes to one command while non-done/manual projection routes remain explicit; operational guidance forbids starting work merely to fill waits and requires actual dispatch for idle workers, without claiming runtime enforcement.
+- [x] TC-05: Focused lifecycle/advance regression tests and native ESM syntax checks exit zero; no gate judging semantics or receipt/CI checks change.
 
 ## Test Plan
 
@@ -99,7 +100,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` — implement the single completion-consistency batch.
+- [x] `.agents/tasks/completed/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` — implement the single completion-consistency batch.
 
 ## Evidence Log
 
@@ -248,3 +249,150 @@ Not applicable.
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `1f060208552e` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/todo/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `58cffe482e50` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/task-complete.test.mjs","scripts/harness/__tests__/gate.test.mjs","scripts/harness/__tests__/gate-advance-contract.test.mjs","scripts/harness/__tests__/task-lifecycle.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1)'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+························································································································
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  20:46:45
+   Duration  15.89s (transform 194ms, setup 0ms, collect 396ms, tests 16.70s, environment 0ms, prepare 101ms)
+
+8:46:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `c0c7ce06871c` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/task-complete.test.mjs","scripts/harness/__tests__/gate.test.mjs","scripts/harness/__tests__/gate-advance-contract.test.mjs","scripts/harness/__tests__/task-lifecycle.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1)'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+························································································································
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  20:46:45
+   Duration  15.89s (transform 194ms, setup 0ms, collect 396ms, tests 16.70s, environment 0ms, prepare 101ms)
+
+8:46:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `a6b7fffa76bb` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/task-complete.test.mjs","scripts/harness/__tests__/gate.test.mjs","scripts/harness/__tests__/gate-advance-contract.test.mjs","scripts/harness/__tests__/task-lifecycle.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1)'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+························································································································
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  20:46:45
+   Duration  15.89s (transform 194ms, setup 0ms, collect 396ms, tests 16.70s, environment 0ms, prepare 101ms)
+
+8:46:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `3a81d24679dd` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/task-complete.test.mjs","scripts/harness/__tests__/gate.test.mjs","scripts/harness/__tests__/gate-advance-contract.test.mjs","scripts/harness/__tests__/task-lifecycle.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1)'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+························································································································
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  20:46:45
+   Duration  15.89s (transform 194ms, setup 0ms, collect 396ms, tests 16.70s, environment 0ms, prepare 101ms)
+
+8:46:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `55f57c87f9c2` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs"; const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/task-complete.test.mjs","scripts/harness/__tests__/gate.test.mjs","scripts/harness/__tests__/gate-advance-contract.test.mjs","scripts/harness/__tests__/task-lifecycle.test.mjs"]); process.stdout.write(r.stdout??""); process.stderr.write(r.stderr??""); process.exit(r.status??1)'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+························································································································
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  20:46:45
+   Duration  15.89s (transform 194ms, setup 0ms, collect 396ms, tests 16.70s, environment 0ms, prepare 101ms)
+
+8:46:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `05e3810bbee5` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-05
+
+**Status remains:** in-progress
+
+- GATE-VERIFY — ordering: existing GATE-IMPLEMENT PASS and current in-progress state verified.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): mechanically all three checked, but TC-04 routing completion is not substantively met; see INFRA-168-REVIEW-01 below.
+- GATE-VERIFY — No Plan item is blocked or pending: FAIL, TC-04 has an unresolved existing-route omission. README Process line 113 directs done Tasks to a paired-spec-only command while spec-workflow.md lines 238–239 explicitly define L0 as having no spec. The removed manual done status/date/archive instructions were not retained for L0/no-spec Tasks; the initiative manual-route reference also points below to projection updates without the removed lifecycle steps.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): N/A to product compilation, native repository ESM only; the affected modules successfully loaded in the actual focused test run, and author reports three native syntax checks passed. No full-gate result inferred.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `/tmp/infra168-final-focused.log` confirms four affected suites and 120 tests PASS in 15.89 seconds. Existing routing assertions only check command presence and partial-path wording and therefore do not cover the missing manual done route.
+
+**INFRA-168-REVIEW-01 — SHOULD, correctness/documentation routing:** `.agents/tasks/README.md:113`. Preserve the existing successful manual done lifecycle for L0/no-paired-spec Tasks and unsupported initiative/projection cases in this owner document: set done and completion date, archive, update applicable parent projections in the same delivery commit. Keep the automatic command bounded to supported L1/L2 pairs. Add a routing assertion for that preserved path. This does not require expanding the command's API or adding another Task. Depth awaits the independent depth owner; no source changes were made by this guardian.
+
+**Snapshot:** HEAD `c9b9a6b781a33712750678ff0292aa136e283f52` plus frozen implementation diff. Source SHA256: task-complete `73870d9f0eb454a4d516b8cad1f4b3859c3e53c34dd5b898df557f4bc9f3c3c8`; gate `112c64bbf180cd712d93a303850fd3238e6df635bd5199e2f4b2edee735a3445`; gate-advance-contract `825a2465b67f0475b7c9938056bed4c1210b769035422a6d37d56ce9d19123b7`. Remaining reviewed preflight, history, terminal-evidence and partial-failure implementation has no additional actionable finding in this review. Original prior evidence remains below unchanged.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-05` present (`approved → in-progress`); frontmatter `status: in-progress`; document lives in `.agents/spec-docs/active/` as spec-workflow.md maps `in-progress`. The five `[GATE-COMPLETE: TC-0N]` entries above are `gate.mjs record` evidence, carry no Status upgrade line, and changed no status; no GATE-COMPLETE verdict exists, so nothing this gate authorizes has already happened.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): three Plan items (TC-01; TC-02, TC-03; TC-04, TC-05) all `[x]` in `.agents/tasks/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md`; `task-plan-items` scan ✓ in the affected run.
+- GATE-VERIFY — No Plan item is blocked or pending: no blocked/pending marker in `## Plan`. The prior FAIL's INFRA-168-REVIEW-01 (TC-04 dropped the manual done route) is resolved on the current tree: `.agents/tasks/README.md` § Process step 3 bounds `task-complete.mjs` to a "supported Task/spec pair" and sends initiative/projection cases to the manual route; the new "Manual done completion:" paragraph retains, for L0/no-spec work and initiative/projection cases, `gate.mjs advance` if a spec exists, Task `status: done` and `completed: YYYY-MM-DD`, `git mv` into `completed/`, and pointer/parent-projection updates in the same delivery commit. The command side stays bounded in `scripts/harness/task-complete.mjs` (refuses lane ≠ L1/L2, `type: AGREEMENT`, Tasks with `children`, Tasks declared by any initiative, mismatched pair). The routing assertion `task-complete.test.mjs > routes supported completion through one command and retains explicit manual recovery` now asserts `L0/no-spec`, `Manual done completion:` and `` `status: done` and `completed: YYYY-MM-DD` ``; `/tmp/infra168-manual-route-red.log` shows exactly that assertion failing (1 failed | 18 passed) before the README change and `/tmp/infra168-manual-route-green.log` 19 passed after it. Guardian re-run of that file: 19 passed (19), exit 0. No new actionable finding in the delta: `repointCurrentSpec` bounds re-pointing to `Spec:` / `## Bound spec document` above `## Evidence`; `prepareAdvance` is a read-only split of `runAdvance` with judging unchanged; skill/rule edits route to the README owner without duplicating it.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): N/A as a package build — `git status --short` shows only `.agents/**` and `scripts/harness/**` paths, no `packages/*` or `apps/*`. Native ESM stand-in run by the guardian: `node --check` on `scripts/harness/task-complete.mjs`, `gate.mjs`, `gate-advance-contract.mjs` exit 0; `git diff --check` clean; `gate.mjs` 2559 lines (ceiling 2560). Build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr`: 66/68 ✓; the 2 ✗ are not this delta — `task-archival` names this very Task as "all 3 checkbox(es) checked but the spec has not reached spec-docs/done/ — run GATE-VERIFY/GATE-COMPLETE ... then archive" (the post-PASS handoff state, checked against the final state per the catalogue), and `work-run-measurement: invalid-closure-commit` reads receipts at the committed HEAD `c9b9a6b78` (docs-only planning checkpoint, no receipt closure yet), not the working tree — the parent-owned receipt-closure step before push.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no affected package; affected suites run by the guardian on the current tree — `pnpm exec vitest run scripts/harness/__tests__/task-complete.test.mjs scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/gate-advance-contract.test.mjs scripts/harness/__tests__/task-lifecycle.test.mjs` → 4 files, 120 passed (120), 16.20s; `task-complete.test.mjs` alone → 19 passed (19), exit 0; the only other importer of the changed modules, `scripts/harness/__tests__/new-spec.test.mjs` → 42 passed (42), exit 0. Total 162 tests, 0 failures.
+
+**Snapshot:** HEAD `c9b9a6b781a33712750678ff0292aa136e283f52` plus the uncommitted implementation diff; document blob `51628539116000a239b58ed57445ba8b07bb4ea6` (modified) hashed before this entry. Production SHA256 unchanged since the FAIL entry's Snapshot: task-complete `73870d9f0eb454a4d516b8cad1f4b3859c3e53c34dd5b898df557f4bc9f3c3c8`; gate `112c64bbf180cd712d93a303850fd3238e6df635bd5199e2f4b2edee735a3445`; gate-advance-contract `825a2465b67f0475b7c9938056bed4c1210b769035422a6d37d56ce9d19123b7`. Delta since FAIL is docs+test only: README `563e3bfb2144f193b9f88c35d0fa6a051f7a7922eaa06b3badcdd0ac0388af65`, task-complete.test `8b2e50accc8579aebe76aeb11092b4e5ac407ffbd6a9e6e2cb27373eb5834476`. The prior FAIL entry remains above unchanged. Status transition is the orchestrator's; this guardian changed nothing else.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-05; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md
+
+**Judged at:** HEAD `c9b9a6b781a3` · base `origin/develop@1f060208552e` · document `.agents/spec-docs/active/INFRA-168-complete-approved-task-and-spec-lifecycle-together.md` blob `db02062eb4a5` (modified)
