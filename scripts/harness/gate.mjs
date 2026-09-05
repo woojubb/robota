@@ -254,7 +254,11 @@ const LANE_L1 = {
     composes: ['GATE-VERIFY', 'GATE-COMPLETE'],
     select: {},
     upgrade: ['approved', 'done'],
-    prior: { gate: 'GATE-PLAN', status: 'approved' },
+    // `undefined`, not a hardcoded object: the prior-gate pairing and its re-run rule are declared in
+    // gate-catalogue.md § Prior-gate map (the `GATE-DONE` row), read via `catalogue.priorGates`, the
+    // same path every non-L1 gate already uses (issue #2219/#2588 — the rule must be declared, not
+    // inferred in code).
+    prior: undefined,
   },
 };
 
@@ -479,8 +483,11 @@ export function parseCatalogue(text) {
 }
 
 /**
- * The catalogue's prior-gate map: `| GATE-X | GATE-Y | \`status\` |` rows under "Prior-gate map". A
- * catalogue without the section is a refusal — an empty map would silently drop every ordering check.
+ * The catalogue's prior-gate map: `| GATE-X | GATE-Y | \`status\` | <re-run rule> |` rows under
+ * "Prior-gate map". A catalogue without the section is a refusal — an empty map would silently drop
+ * every ordering check. The 4th (re-run rule) column is the declared exception to the default
+ * last-entry ordering rule (issue #2219/#2588); blank means the default and is left off the parsed
+ * value entirely, so a row with no declared rule parses identically to before this column existed.
  */
 export function parsePriorGateMap(text) {
   const section = sectionBody(text, /^Prior-gate map$/i);
@@ -490,13 +497,16 @@ export function parsePriorGateMap(text) {
       'the catalogue states no `## Prior-gate map` section — the ordering checks cannot run without it',
     );
   for (const cells of tableRows(section.body)) {
-    const [gate, prior, status] = cells;
+    const [gate, prior, status, reRun] = cells;
     const statusToken = /`([a-z-]+)`/.exec(status ?? '');
+    const reRunToken = /`([a-z-]+)`/.exec(reRun ?? '');
     if (
       /^GATE-[A-Z]+(?: \((?:continuation|correction)\))?$/.test(gate ?? '') &&
       /^GATE-[A-Z]+$/.test(prior ?? '')
     ) {
-      map.set(gate, { gate: prior, status: statusToken ? statusToken[1] : null });
+      const value = { gate: prior, status: statusToken ? statusToken[1] : null };
+      if (reRunToken) value.reRun = reRunToken[1];
+      map.set(gate, value);
     }
   }
   return map;
@@ -616,6 +626,15 @@ const pass = (observed) => ({ ok: true, observed });
 const fail = (observed, action) => ({ ok: false, observed, action });
 /** A mechanical criterion this script cannot decide on this document — the guardian's, never a pass. */
 const pending = (observed) => ({ ok: false, pending: true, observed });
+/**
+ * True when `entry` was recorded under any of `gateNames` — the configured gate name a judgement runs
+ * under AND, for a criterion judged inside an L1 composite gate, the COMPOSED gate name the document's
+ * Evidence Log actually uses (a composite writes one entry per run, never one per component; issue
+ * #2219/#2588 — matching the configured name alone misses every entry an L1 composite ever wrote).
+ */
+function recordedGate(entry, ...gateNames) {
+  return gateNames.includes(entry.gate);
+}
 
 function frontmatterChecks() {
   return [
@@ -630,19 +649,24 @@ function frontmatterChecks() {
     {
       id: 'frontmatter-status',
       pattern: /`status:\s*([a-z-]+)`\s+present/i,
-      run: ({ doc, criterion, criterionGate }) => {
+      run: ({ doc, criterion, criterionGate, composedGate }) => {
         const expected = /`status:\s*([a-z-]+)`/.exec(criterion.text)[1];
         const actual = doc.fm.status;
         if (actual === expected) return pass(`\`status: ${actual}\``);
         // A re-run (STATUS ON A RE-RUN in the header): the prior PASS of this same gate upgraded the
-        // document to the status it now carries.
+        // document to the status it now carries. Under an L1 composite (e.g. GATE-PLAN composing
+        // GATE-WRITE) the entry is recorded under the COMPOSED name, never the configured
+        // `criterionGate` alone — `recordedGate` accepts either.
         const prior = (evidenceEntries(doc.text) ?? [])
-          .filter((entry) => entry.gate === criterionGate && entry.verdict === '✅ PASS')
+          .filter(
+            (entry) =>
+              recordedGate(entry, criterionGate, composedGate) && entry.verdict === '✅ PASS',
+          )
           .pop();
         const upgrade = prior ? statusUpgradeOf(prior) : null;
         if (upgrade && upgrade.to === actual)
           return pass(
-            `re-run: \`status: ${actual}\` is the upgrade target of the prior [${criterionGate}] PASS (${prior.date})`,
+            `re-run: \`status: ${actual}\` is the upgrade target of the prior [${prior.gate}] PASS (${prior.date})`,
           );
         return fail(
           `\`status: ${actual ?? '(absent)'}\`, required \`status: ${expected}\``,
@@ -1843,7 +1867,12 @@ export function judgeCriteria(catalogue, gate, ctx) {
       }
       let outcome;
       try {
-        outcome = judgement.run({ ...ctx, criterion, criterionGate: gateName });
+        outcome = judgement.run({
+          ...ctx,
+          criterion,
+          criterionGate: gateName,
+          composedGate: gate.name,
+        });
       } catch (error) {
         outcome = fail(
           `judgement ${judgement.id} threw: ${error.message}`,
@@ -1878,20 +1907,37 @@ function orderingResult(catalogue, gate, doc) {
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
   const retriesFromLatestPass = gate.continuation || gate.correction;
   const last = entries.findLast((entry) => !retriesFromLatestPass || entry.verdict === '✅ PASS');
+  // `recorded-pass` (gate-catalogue.md § Prior-gate map, declared per row — issue #2219/#2588): a
+  // later, out-of-order re-run of the prior gate that FAILs does not retract an earlier PASS whose
+  // recorded Status upgrade already produced the status the document now carries. Read ONLY for a row
+  // the catalogue marks this way — every other pairing keeps the plain last-entry rule untouched, so
+  // `gate.test.mjs` › "keeps the last-entry rule for an ordinary gate after an older PASS and later
+  // FAIL" stays green exactly as before this existed.
+  const recordedPass =
+    prior.reRun === 'recorded-pass'
+      ? entries.findLast(
+          (entry) => entry.verdict === '✅ PASS' && statusUpgradeOf(entry)?.to === doc.fm.status,
+        )
+      : null;
   const problems = [];
-  if (!last || last.verdict !== '✅ PASS')
+  if ((!last || last.verdict !== '✅ PASS') && !recordedPass)
     problems.push(
       `${retriesFromLatestPass ? `no prior [${prior.gate}] PASS entry exists; last entry` : `last [${prior.gate}] entry`} is ${entries.at(-1)?.verdict ?? 'absent'}${retriesFromLatestPass ? '' : ', PASS required'}`,
     );
   if (prior.status && doc.fm.status !== prior.status)
     problems.push(`status is \`${doc.fm.status ?? '(absent)'}\`, \`${prior.status}\` expected`);
+  const passUsed = last?.verdict === '✅ PASS' ? last : recordedPass;
   return {
     gate: gate.name,
     label: `${gate.name} — ordering: prior gate ${prior.gate} PASS${prior.status ? ` and status \`${prior.status}\`` : ''}`,
     verdict: problems.length === 0 ? 'PASS' : 'FAIL',
     observed:
       problems.length === 0
-        ? `[${prior.gate}] — ✅ PASS | ${last.date}${prior.status ? `; status \`${doc.fm.status}\`` : ''}`
+        ? `[${prior.gate}] — ✅ PASS | ${passUsed.date}${
+            passUsed === recordedPass
+              ? ' (the PASS that upgraded the status; a later out-of-order entry does not revoke it)'
+              : ''
+          }${prior.status ? `; status \`${doc.fm.status}\`` : ''}`
         : problems.join('; '),
     action: 'run the prior gate to PASS first',
   };
@@ -2490,7 +2536,7 @@ const USAGE = [
   '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]',
   '  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]',
   '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',
-  "dates default to the LOCAL calendar date; the document's `lane:` is authoritative (--lane may only equal it); L1 order: approve → judge --gate PLAN → advance → one planning commit; a stacked branch sets HARNESS_BASE_REF=<parent branch> for the measured diff",
+  "dates default to the LOCAL calendar date; the document's `lane:` is authoritative (--lane may only equal it); L1 order: approve (does not change status) → judge --gate PLAN (does not change status) → advance (performs the status transition) → one planning commit; a stacked branch sets HARNESS_BASE_REF=<parent branch> for the measured diff",
 ].join('\n');
 
 export function main(argv = process.argv.slice(2)) {

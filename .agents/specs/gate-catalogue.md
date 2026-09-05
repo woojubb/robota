@@ -123,19 +123,38 @@ item. A missing, duplicated, or malformed line is not a closure disposition.
 The agent runs its ordering check before any gate's own criteria. This table is the repository's
 answer to "what precedes this gate, and what state must the document already be in":
 
-| This gate                     | Prior gate that must show PASS | Expected input status / folder                |
-| ----------------------------- | ------------------------------ | --------------------------------------------- |
-| GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                |
-| GATE-IMPLEMENT                | GATE-APPROVAL                  | `approved`                                    |
-| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | `in-progress` (delivery sequenced across PRs) |
-| GATE-IMPLEMENT (correction)   | GATE-IMPLEMENT                 | `in-progress` (legacy v1 recovery only)       |
-| GATE-VERIFY                   | GATE-IMPLEMENT                 | `in-progress`                                 |
-| GATE-COMPLETE                 | GATE-VERIFY                    | `verifying`                                   |
-| DONE-GATE-STAGE-2             | DONE-GATE-STAGE-1              | scenarios written, implementation complete    |
+| This gate                     | Prior gate that must show PASS | Expected input status / folder                | Re-run rule     |
+| ----------------------------- | ------------------------------ | --------------------------------------------- | --------------- |
+| GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                |                 |
+| GATE-IMPLEMENT                | GATE-APPROVAL                  | `approved`                                    |                 |
+| GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | `in-progress` (delivery sequenced across PRs) |                 |
+| GATE-IMPLEMENT (correction)   | GATE-IMPLEMENT                 | `in-progress` (legacy v1 recovery only)       |                 |
+| GATE-VERIFY                   | GATE-IMPLEMENT                 | `in-progress`                                 |                 |
+| GATE-COMPLETE                 | GATE-VERIFY                    | `verifying`                                   |                 |
+| DONE-GATE-STAGE-2             | DONE-GATE-STAGE-1              | scenarios written, implementation complete    |                 |
+| GATE-DONE                     | GATE-PLAN                      | `approved`                                    | `recorded-pass` |
 
 GATE-WRITE has no prior status gate (it is the entry gate); GATE-CONFORMANCE is standalone (no transition)
 and is exempt; DONE-GATE-STAGE-1 has no prior gate. Authoritative spec-document gate order:
 `backlog-pipeline` skill > State Machine.
+
+**Re-run rule, declared per row (issue #2219/#2588 — the ordering check must read a declared rule,
+never infer one).** Blank (the default): the LAST recorded entry for the prior gate must itself be
+`✅ PASS` — an out-of-order re-run of the prior gate that later records `❌ FAIL` or `🔴 NON-COMPLIANCE`
+blocks this gate, full stop, even though an earlier PASS exists
+(`gate.test.mjs` › "keeps the last-entry rule for an ordinary gate after an older PASS and later
+FAIL" is the named regression that protects this default for every row that does not override it).
+`recorded-pass`: an entry for the prior gate anywhere in the Evidence Log counts as satisfying this
+row when it is `✅ PASS` AND its own `**Status upgrade:** X → Y` line's `Y` equals the document's
+CURRENT `status:` — the document's own state corroborates the passage independently of entry order.
+Declared ONLY for `GATE-DONE`'s check on `GATE-PLAN`: `GATE-PLAN` is L1's own composite gate (composes
+GATE-WRITE + GATE-APPROVAL + three GATE-IMPLEMENT criteria into ONE entry), so a later, out-of-order
+re-run of `judge --gate PLAN` on the already-advanced document can only produce a fresh `[GATE-PLAN]`
+entry that FAILs or is NON-COMPLIANCE — its first-write preconditions (`status: draft`, an empty
+Evidence Log) were consumed by the very passage it is re-judging, and reading the LAST entry would
+then block `GATE-DONE` permanently with no recoverable route short of falsifying the record. Do not
+add `recorded-pass` to another row without also updating the named regression above — that test
+exists specifically to keep every other pairing on the plain last-entry rule.
 
 ---
 
