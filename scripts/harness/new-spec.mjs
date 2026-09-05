@@ -47,7 +47,7 @@
  * Usage:
  *   node scripts/harness/new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1|L2
  *       [--title "<t>"] [--tags a,b] [--waive "<reason>"] [--user-surface|--no-user-surface]
- *       [--dry-run] [--root <dir>]
+ *       [--legacy-id] [--dry-run] [--root <dir>]
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -91,7 +91,7 @@ export const DEFAULT_NOT_APPLICABLE =
   'no runnable user-facing behaviour changes; verification evidence is recorded in the engineering ' +
   'test plan (TC-01 to TC-03)';
 
-const WORK_ITEM_ID = /^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3,}$/;
+const WORK_ITEM_ID = /^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+$/;
 const VALUE_FLAGS = new Set([
   '--type',
   '--issue',
@@ -101,11 +101,11 @@ const VALUE_FLAGS = new Set([
   '--waive',
   '--root',
 ]);
-const BOOLEAN_FLAGS = new Set(['--dry-run', '--user-surface', '--no-user-surface']);
+const BOOLEAN_FLAGS = new Set(['--dry-run', '--user-surface', '--no-user-surface', '--legacy-id']);
 
 export const USAGE =
   'usage: new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1|L2 [--title "<t>"] [--tags a,b] ' +
-  '[--waive "<reason>"] [--user-surface|--no-user-surface] [--dry-run] [--root <dir>]';
+  '[--waive "<reason>"] [--user-surface|--no-user-surface] [--legacy-id] [--dry-run] [--root <dir>]';
 
 /**
  * Parse argv into options, or an error. Every unknown token is an error: the script that ignores an
@@ -121,6 +121,7 @@ export function parseArgs(argv) {
     tags: undefined,
     waive: undefined,
     userSurface: undefined,
+    legacyId: false,
     dryRun: false,
     root: WORKSPACE_ROOT,
   };
@@ -138,7 +139,9 @@ export function parseArgs(argv) {
     }
     if (BOOLEAN_FLAGS.has(token)) {
       if (token === '--dry-run') options.dryRun = true;
-      else options.userSurface = token === '--user-surface';
+      else if (token === '--user-surface' || token === '--no-user-surface')
+        options.userSurface = token === '--user-surface';
+      else if (token === '--legacy-id') options.legacyId = true;
       continue;
     }
     if (token.startsWith('--')) return { ok: false, error: `unknown argument ${token}` };
@@ -392,6 +395,15 @@ export function renderSpec(options) {
     return {
       ok: false,
       error: `--issue ${options.issue} disagrees with ${task.file}, which names issue #${task.issue}`,
+    };
+  }
+  const issueBackedId = task.issue !== undefined && options.id.match(/-(\d+)$/)?.[1] === task.issue;
+  if (!options.legacyId && !issueBackedId) {
+    return {
+      ok: false,
+      error:
+        `${id} is not backed by Task issue #${task.issue ?? '(missing)'}. ` +
+        'Use an issue-number ID or pass --legacy-id only for an existing pre-convention record.',
     };
   }
   const fields = buildFields(options, task);

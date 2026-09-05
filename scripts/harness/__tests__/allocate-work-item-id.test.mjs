@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   RECORD_ID_WIDTH,
   SENTINEL_FLOOR,
+  closeCreatedIssue,
   collectClaimed,
   idsFromCitations,
   idsFromIssues,
@@ -22,6 +23,7 @@ import {
   positionalArgs,
   readExamined,
   recordStub,
+  resolveIssueNumber,
   treeFreshness,
   yamlSingleQuoted,
 } from '../allocate-work-item-id.mjs';
@@ -153,6 +155,52 @@ describe('the issue source', () => {
     // nobody asked. Conflating them makes an unreachable network read as a clean allocation, which
     // is the exact failure the three original collisions were.
     expect(idsFromIssues({ run: () => null })).toBeNull();
+  });
+
+  it('uses an explicitly resolved Issue number as the new ID source', () => {
+    expect(
+      resolveIssueNumber({
+        requestedIssue: '2401',
+        viewIssue: (number) => ({ number }),
+      }),
+    ).toEqual({ number: '2401', source: 'existing' });
+  });
+
+  it('reuses one exact title before creating an Issue', () => {
+    let created = false;
+    expect(
+      resolveIssueNumber({
+        title: 'existing title',
+        issueList: () => [{ number: 2401, title: 'existing title' }],
+        createIssue: () => {
+          created = true;
+          return { number: 2402 };
+        },
+      }),
+    ).toEqual({ number: '2401', source: 'existing-title' });
+    expect(created).toBe(false);
+  });
+
+  it('uses the server-returned number when it creates a missing Issue', () => {
+    expect(
+      resolveIssueNumber({
+        title: 'new title',
+        issueList: () => [],
+        createIssue: (issueTitle) => ({ number: 2402, title: issueTitle }),
+      }),
+    ).toEqual({ number: '2402', source: 'created' });
+  });
+
+  it('refuses a dry run that would need to create an Issue', () => {
+    expect(() =>
+      resolveIssueNumber({ title: 'new title', dryRun: true, issueList: () => [] }),
+    ).toThrow(/--dry-run cannot create/);
+  });
+
+  it('closes a newly created Issue when a later allocation safety check refuses it', () => {
+    const closed = [];
+    expect(closeCreatedIssue('2402', (number) => closed.push(number))).toBe(1);
+    expect(closed).toEqual(['2402']);
   });
 });
 

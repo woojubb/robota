@@ -6,7 +6,10 @@ import {
   forcePushEdge,
   resolveAttestedOpeningHeadFromHistory,
 } from './work-run-opening-head-history.mjs';
-import { attestedOpeningHead } from './work-run-opening-head-evidence.mjs';
+import {
+  attestedOpeningHead,
+  attestedOpeningHeadFromComments,
+} from './work-run-opening-head-evidence.mjs';
 import { pullRequestTimeline } from './work-run-pr-timeline.mjs';
 import { loadPullRequestCommitAncestry } from './work-run-pr-ancestry.mjs';
 import { terminalPullRequestWorkRunId } from './work-run-pr-body.mjs';
@@ -20,6 +23,8 @@ const OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const GITHUB_BUFFER_BYTES = 8 * 1024 * 1024;
 const GITHUB_REQUEST_BUDGET = 1_016;
 const GITHUB_QUERY_BUDGET_MS = 15_000;
+const COMMIT_COMMENT_PAGE_SIZE = 100;
+const MAX_COMMIT_COMMENT_PAGES = 10;
 
 function requestTimeout(budget) {
   if (typeof budget.now === 'function') return takeWorkRunVerificationQuery(budget);
@@ -136,6 +141,27 @@ function evidenceContext(root, run, runtime, repository) {
 
 function resolveOpeningHistory(context, pr, timeline) {
   const queryJson = (args) => runGitHubJson(args, context.run, context.root, context.budget);
+  const loadRepositoryCommitComments = (candidates) => {
+    const wanted = new Set(candidates.map(({ headOid }) => headOid));
+    const commentsByHead = new Map([...wanted].map((headOid) => [headOid, []]));
+    for (let page = 1; page <= MAX_COMMIT_COMMENT_PAGES; page += 1) {
+      const comments = queryJson([
+        'api',
+        '-X',
+        'GET',
+        `/repos/${context.repository}/comments?per_page=${COMMIT_COMMENT_PAGE_SIZE}&page=${page}`,
+      ]);
+      if (!Array.isArray(comments)) {
+        throw new Error('GitHub repository commit comments are incomplete');
+      }
+      for (const comment of comments) {
+        const headOid = comment?.commit_id;
+        if (wanted.has(headOid)) commentsByHead.get(headOid).push(comment);
+      }
+      if (comments.length < COMMIT_COMMENT_PAGE_SIZE) return commentsByHead;
+    }
+    throw new Error('GitHub repository commit comments exceed the evidence budget');
+  };
   return resolveAttestedOpeningHeadFromHistory({
     timeline,
     loadCommits: (oid, maxCommits) =>
@@ -149,6 +175,17 @@ function resolveOpeningHistory(context, pr, timeline) {
     isAttested: (candidate) =>
       attestedOpeningHead(context.root, context.repository, pr.created_at, candidate, context) !==
       null,
+    isAttestedBatch: (candidates) => {
+      const commentsByHead = loadRepositoryCommitComments(candidates);
+      return candidates.filter(
+        (candidate) =>
+          attestedOpeningHeadFromComments(
+            commentsByHead.get(candidate.headOid) ?? [],
+            pr.created_at,
+            candidate,
+          ) !== null,
+      );
+    },
   });
 }
 

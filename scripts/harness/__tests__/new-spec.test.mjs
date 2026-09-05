@@ -82,6 +82,11 @@ function rootWith({ tasks = [], template = true } = {}) {
 }
 
 const STUB_TASK = { id: 'PROC-999', title: 'a scaffold example', issue: 1 };
+const ISSUE_BACKED_TASK = {
+  id: 'HARNESS-2401',
+  title: 'use GitHub issue numbers for new spec identifiers',
+  issue: 2401,
+};
 
 const RICH_TASK = {
   id: 'HARNESS-998',
@@ -131,7 +136,7 @@ function invoke(root, args) {
   return { code, stdout, stderr };
 }
 
-const L1_ARGS = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L1'];
+const L1_ARGS = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L1', '--legacy-id'];
 
 const headingsOf = (text) =>
   text.split('\n').filter((line) => /^#{2,3}\s/.test(line) && !line.startsWith('### [GATE'));
@@ -239,7 +244,7 @@ describe('L1 pre-fills the sections a scaffold can honestly state', () => {
 });
 
 describe('L2 keeps the obligations no scaffold can discharge', () => {
-  const L2_ARGS = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L2'];
+  const L2_ARGS = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L2', '--legacy-id'];
 
   it('leaves Prior Art and User Execution as comments, and scan-spec-research names the gap', () => {
     const root = rootWith({ tasks: [STUB_TASK] });
@@ -281,6 +286,7 @@ describe('the Task record is the source', () => {
       '7',
       '--lane',
       'L1',
+      '--legacy-id',
       '--dry-run',
     ]);
     expect(code).toBe(0);
@@ -333,6 +339,7 @@ describe('the Task record is the source', () => {
       'L1',
       '--title',
       'loop-run open closes the previous run',
+      '--legacy-id',
       '--dry-run',
     ]);
     expect(code, stderr).toBe(0);
@@ -359,6 +366,21 @@ describe('the Task record is the source', () => {
 });
 
 describe('refusals, each beside its control', () => {
+  it('accepts an ID whose numeric component is the registering Issue number', () => {
+    const root = rootWith({ tasks: [ISSUE_BACKED_TASK] });
+    const args = ['HARNESS-2401', '--type', 'INFRA', '--issue', '2401', '--lane', 'L1'];
+    expect(run(root, [...args, '--dry-run']).code).toBe(0);
+  });
+
+  it('refuses a new-style scaffold for a legacy ID unless the escape is explicit', () => {
+    const root = rootWith({ tasks: [STUB_TASK] });
+    const args = ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L1'];
+    const refused = run(root, [...args, '--dry-run']);
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toMatch(/not backed by Task issue #1/);
+    expect(run(root, [...args, '--legacy-id', '--dry-run']).code).toBe(0);
+  });
+
   it('L0 is refused with exit 1 — L0 has no spec document', () => {
     const root = rootWith({ tasks: [STUB_TASK] });
     const refused = run(root, ['PROC-999', '--type', 'RULE', '--issue', '1', '--lane', 'L0']);
@@ -419,7 +441,16 @@ describe('refusals, each beside its control', () => {
 describe('the written file passes the frontmatter gate for every type', () => {
   it.each(TYPES)('%s', (type) => {
     const root = rootWith({ tasks: [STUB_TASK] });
-    const { code } = invoke(root, ['PROC-999', '--type', type, '--issue', '1', '--lane', 'L1']);
+    const { code } = invoke(root, [
+      'PROC-999',
+      '--type',
+      type,
+      '--issue',
+      '1',
+      '--lane',
+      'L1',
+      '--legacy-id',
+    ]);
     expect(code).toBe(0);
     const file = path.join(root, DRAFT_DIR, 'PROC-999-a-scaffold-example.md');
     expect(findSpecDocFrontmatterFindings(file)).toEqual({ blocking: [], warnings: [] });

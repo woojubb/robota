@@ -277,6 +277,9 @@ else if (args.includes('/commits/') && args.includes('/comments?')) {
   const comments = fixture.openingComments?.[args.match(/\\/commits\\/([^/]+)\\/comments\\?/)?.[1]] ?? [];
   output = args.includes('--slurp') ? [comments] : comments;
 }
+else if (args.includes('/repos/') && args.includes('/comments?')) {
+  output = Object.values(fixture.openingComments ?? {}).flat();
+}
 else if (args.includes('/contents/')) output = fixture.openingContent;
 else if (args.includes('/commits/')) output = fixture.openingCommits?.[args.split('/').at(-1)];
 else if (args.includes('/compare/')) output = fixture.compare;

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Allocate a work-item ID and write its record in ONE operation (issue #1916, option 2).
+ * Allocate a work-item ID and write its record in ONE operation (issue #2401).
  *
  * ## The gap this closes
  *
- * `scan-work-item-id-collision` refuses an ID held by two tracked RECORDS. That is the half a clone
- * can judge offline, and it is not the half that bites. An ID is allocated by reading the current
- * highest number and adding one, and the read has a shelf life measured in minutes when more than
- * one session is working — so the collision is created between the read and the write, which is
- * exactly where no scan can stand.
+ * `scan-work-item-id-collision` refuses an ID held by two tracked RECORDS. That remains a useful
+ * compatibility guard for legacy records, but it cannot serialize two unpublished sessions.
+ * New records use the registering GitHub Issue number instead of reading a local highest number.
  *
- * Making the read and the claim the same operation is what removes that window. This script does
- * not survey and advise; it takes the number and writes the file.
+ * GitHub already has the atomic allocator we need: an Issue number. This script resolves the
+ * registering Issue (or creates one when the title is new), then writes `<PREFIX>-<issue-number>`.
+ * The old counter helpers remain exported for historical compatibility tests, but the production
+ * path never allocates a new number by scanning the tree.
  *
  * ## What "claimed" means here, measured
  *
@@ -29,17 +29,13 @@
  * assumed away — an allocator that quietly skips a source allocates from a smaller set than it
  * claims to, which is the failure it exists to prevent.
  *
- * ## Why it never reuses a gap
- *
- * The next ID is one above the highest CLAIMED number, not the lowest free one. A gap in the
- * sequence is usually a number that was claimed by something this script cannot see — a branch not
- * yet pushed, an issue in a session that has not opened it yet — and handing it out is the collision
- * again with extra confidence. Counting up is monotone and cheap.
+ * The legacy counter helpers below remain available to test historical behavior and old callers.
+ * They are not used by the production allocation path, which derives the ID from the Issue number.
  *
  * Usage:
- *   node scripts/harness/allocate-work-item-id.mjs INFRA "the slug of the problem"
- *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --issue 1916
- *   node scripts/harness/allocate-work-item-id.mjs INFRA --dry-run     # print the ID, write nothing
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "the issue title" --issue 2401
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "the issue title" # find/create Issue
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --issue 2401 --dry-run
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --allow-stale  # behind origin/develop, knowingly
  *
  * A clone BEHIND `origin/develop` is refused (issue #2184): its records and citations are stale
@@ -58,7 +54,181 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const TASKS_DIR = '.agents/tasks';
 
 /** A work-item ID: one or more uppercase segments, then a number. `ARCH-FIX-020` is one. */
-export const WORK_ITEM_ID = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*)-(\d{3,})\b/g;
+export const WORK_ITEM_ID = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*)-(\d+)\b/g;
+
+const ISSUE_REPOSITORY = 'woojubb/robota';
+const REQUIRED_NEW_ISSUE_LABELS = ['enhancement', 'status:needs-triage'];
+
+const validIssueNumber = (value) =>
+  typeof value === 'string' && /^[1-9]\d*$/.test(value) ? value : null;
+
+/** Read issue numbers and titles for exact-title reuse before creating a duplicate. */
+export function listIssues({ run = defaultIssueList } = {}) {
+  const result = run();
+  if (result === null) return null;
+  return result
+    .map((issue) => ({ number: String(issue.number), title: String(issue.title ?? '') }))
+    .filter((issue) => validIssueNumber(issue.number) !== null);
+}
+
+function defaultIssueList() {
+  const result = spawnSync(
+    'gh',
+    [
+      'issue',
+      'list',
+      '--repo',
+      ISSUE_REPOSITORY,
+      '--state',
+      'all',
+      '--limit',
+      '1000',
+      '--json',
+      'number,title',
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 8 * 1024 * 1024 },
+  );
+  if (result.status !== 0) return null;
+  try {
+    return JSON.parse(result.stdout ?? '[]');
+  } catch {
+    return null;
+  }
+}
+
+function defaultIssueView(number) {
+  const result = spawnSync(
+    'gh',
+    ['issue', 'view', number, '--repo', ISSUE_REPOSITORY, '--json', 'number,title,labels'],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
+  );
+  if (result.status !== 0) return null;
+  try {
+    return JSON.parse(result.stdout ?? '{}');
+  } catch {
+    return null;
+  }
+}
+
+function defaultCloseIssue(number) {
+  const closed = spawnSync(
+    'gh',
+    [
+      'issue',
+      'close',
+      number,
+      '--repo',
+      ISSUE_REPOSITORY,
+      '--reason',
+      'not planned',
+      '--comment',
+      'Closed automatically because work-item ID allocation could not complete safely.',
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
+  );
+  return closed.status === 0;
+}
+
+/** Close an Issue created by this allocator when a later safety check refuses the allocation. */
+export function closeCreatedIssue(number, closeIssue = defaultCloseIssue) {
+  const valid = validIssueNumber(String(number));
+  if (valid === null) throw new Error('cannot clean up an invalid GitHub issue number');
+  return closeIssue(valid);
+}
+
+function defaultCreateIssue(title) {
+  const body = [
+    '## What was observed',
+    '',
+    title,
+    '',
+    '## Expected outcome',
+    '',
+    'Track this requested change as the canonical external work item before creating its Task/spec identifier.',
+    '',
+    '## Location / context',
+    '',
+    'Created by `allocate-work-item-id.mjs`; duplicate search was performed by exact title before creation.',
+    '',
+    '## Duplicate search',
+    '',
+    'Exact-title search found no existing Issue.',
+  ].join('\n');
+  const created = spawnSync(
+    'gh',
+    [
+      'issue',
+      'create',
+      '--repo',
+      ISSUE_REPOSITORY,
+      '--title',
+      title,
+      '--body',
+      body,
+      ...REQUIRED_NEW_ISSUE_LABELS.flatMap((label) => ['--label', label]),
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
+  );
+  if (created.status !== 0) return null;
+  const number = /\/issues\/(\d+)\b/.exec(created.stdout ?? '')?.[1] ?? null;
+  if (number === null) return null;
+  const verified = defaultIssueView(number);
+  if (
+    verified === null ||
+    !REQUIRED_NEW_ISSUE_LABELS.every((label) =>
+      (verified.labels ?? []).some((entry) => entry.name === label),
+    )
+  ) {
+    const cleanedUp = closeCreatedIssue(number);
+    throw new Error(
+      `allocate-work-item-id: created issue #${number}, but required labels could not be verified; ` +
+        `refusing to allocate${cleanedUp ? ' (the newly created Issue was closed)' : ' (automatic cleanup failed; close the Issue manually)'}`,
+    );
+  }
+  return { number, title };
+}
+
+/** Resolve an existing Issue or create one, without writing a Task/spec before resolution succeeds. */
+export function resolveIssueNumber({
+  requestedIssue = null,
+  title = '',
+  dryRun = false,
+  viewIssue = defaultIssueView,
+  issueList = () => defaultIssueList(),
+  createIssue = defaultCreateIssue,
+} = {}) {
+  const requested = requestedIssue === null ? null : validIssueNumber(String(requestedIssue));
+  if (requestedIssue !== null && requested === null) {
+    throw new Error('`--issue` must be a positive GitHub issue number');
+  }
+  if (requested !== null) {
+    const issue = viewIssue(requested);
+    if (issue === null || String(issue.number) !== requested) {
+      throw new Error(`GitHub issue #${requested} could not be resolved in ${ISSUE_REPOSITORY}`);
+    }
+    return { number: requested, source: 'existing' };
+  }
+  const normalizedTitle = String(title).trim();
+  if (normalizedTitle === '') throw new Error('a title is required when --issue is omitted');
+  const listed = listIssues({ run: issueList });
+  if (listed === null) throw new Error('GitHub issue list could not be read; refusing to allocate');
+  const matches = listed.filter((issue) => issue.title === normalizedTitle);
+  if (matches.length > 1) {
+    throw new Error(
+      `several GitHub Issues have the exact title "${normalizedTitle}"; pass --issue explicitly`,
+    );
+  }
+  if (matches.length === 1) return { number: matches[0].number, source: 'existing-title' };
+  if (dryRun)
+    throw new Error('--dry-run cannot create a missing GitHub Issue; pass --issue explicitly');
+  const created = createIssue(normalizedTitle);
+  if (created === null || validIssueNumber(String(created.number)) === null) {
+    throw new Error(
+      'GitHub Issue creation did not return a valid issue number; refusing to allocate',
+    );
+  }
+  return { number: String(created.number), source: 'created' };
+}
 
 /**
  * Every ID that has a record file, live or completed.
@@ -73,7 +243,7 @@ export function idsFromRecords(root = WORKSPACE_ROOT) {
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.md')) continue;
-      const match = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3,})/.exec(name);
+      const match = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)/.exec(name);
       if (match) ids.add(match[1]);
     }
   }
@@ -90,7 +260,7 @@ export function idsFromCitations(root = WORKSPACE_ROOT) {
   // `-w`, not `\b`: Apple Git's `-E` has no `\b`, and the pattern then matched NOTHING — the
   // citation source came back empty and the run said "0 from citations" as if that were a
   // measurement (found while fixing issue #2390; the reporter's 1493 was read under GNU git).
-  const grep = spawnSync('git', ['grep', '-hoIwE', '[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3,}'], {
+  const grep = spawnSync('git', ['grep', '-hoIwE', '[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]+'], {
     cwd: root,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -107,7 +277,7 @@ export function idsFromCitations(root = WORKSPACE_ROOT) {
   const ids = new Set();
   for (const line of (grep.stdout ?? '').split('\n')) {
     const trimmed = line.trim();
-    if (/^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3,}$/.test(trimmed)) ids.add(trimmed);
+    if (/^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+$/.test(trimmed)) ids.add(trimmed);
   }
   return ids;
 }
@@ -218,8 +388,9 @@ function formatId(prefix, number) {
 }
 
 /**
- * The next ID for `prefix`: one above the highest number any source claims for it, and never a
- * number any source claims.
+ * The legacy next ID for `prefix`: one above the highest number any source claims for it, and never
+ * a number any source claims. New allocations do not call this helper; they use a GitHub Issue
+ * number through `resolveIssueNumber` instead.
  *
  * Width follows the widest claim already in use, so a repository at `INFRA-099` moves to
  * `INFRA-100` rather than to `INFRA-0100`.
@@ -431,12 +602,40 @@ function main(argv) {
           (freshness.status === 'stale' ? ' — --allow-stale accepted' : ''),
   );
 
+  let issueResolution;
+  try {
+    issueResolution = resolveIssueNumber({
+      requestedIssue: issue,
+      title,
+      dryRun,
+    });
+  } catch (error) {
+    console.error(`allocate-work-item-id: ${error.message}`);
+    return 1;
+  }
+  const issueNumber = issueResolution.number;
+  const id = `${prefix}-${issueNumber}`;
+  console.log(`::issue:: #${issueNumber} (${issueResolution.source})`);
+
   const records = idsFromRecords();
   const citations = idsFromCitations();
   const issues = idsFromIssues();
 
   const claimed = collectClaimed(records, citations, issues);
-  const id = nextFreeId(prefix, claimed, SENTINEL_FLOOR, records);
+  if (claimed.has(id)) {
+    let cleanup = '';
+    if (issueResolution.source === 'created') {
+      cleanup = closeCreatedIssue(issueNumber)
+        ? ` The newly created Issue #${issueNumber} was closed because allocation was refused.`
+        : ` Automatic cleanup of newly created Issue #${issueNumber} failed; close it manually.`;
+    }
+    console.error(
+      `allocate-work-item-id: ${id} is already claimed by a tracked record, citation, or Issue; ` +
+        'refusing to create a duplicate. Choose a different prefix or reconcile the existing item.' +
+        cleanup,
+    );
+    return 1;
+  }
 
   console.log(
     `::examined:: ${readExamined()} claimed work-item id(s); ` +
@@ -447,9 +646,9 @@ function main(argv) {
   );
   if (issues === null) {
     console.log(
-      '  issue titles and bodies could not be read (no `gh`, no network, or not authenticated). The three ' +
-        'collisions this allocator exists for were all between a record and an issue title, so ' +
-        'this run allocated from a SMALLER set than the one that matters. Re-check before pushing.',
+      '  issue titles and bodies could not be read (no `gh`, no network, or not authenticated). ' +
+        'The selected Issue number is still server-issued, but the tracked-tree collision check was ' +
+        'performed against a SMALLER set than the one that matters. Re-check before pushing.',
     );
   }
 

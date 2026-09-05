@@ -6,6 +6,7 @@ import {
   tryGit,
   tryGitBytes,
 } from './work-run-git-adapter.mjs';
+import { exactWorkRunReceiptTrailers } from './work-run-commit-trailers.mjs';
 import { historicalRebaseSuffixMatches } from './work-run-historical-rebase-suffix.mjs';
 import {
   ensureRebaseCommitAvailable,
@@ -138,10 +139,48 @@ export function validatePostPrGeneration(context, receipt = context.receipt) {
     baseCommit,
     messages,
   );
+  const firstGenerationIndex = actual.commitOids.findIndex((oid) => {
+    const message = messages.get(oid) ?? '';
+    try {
+      const trailers = exactWorkRunReceiptTrailers(message);
+      return (
+        trailers.runId === receipt.runId && trailers.receiptId.startsWith(`g${receipt.generation}-`)
+      );
+    } catch {
+      return false;
+    }
+  });
+  const authorizationIndex = actual.commitOids.indexOf(receipt.authorization.head);
+  const previousGenerationReady = receipt.events.findLast(
+    (event) => event.type === 'work.ready' && event.data?.generation < receipt.generation,
+  );
+  const previousGenerationReceipt = previousGenerationReady
+    ? `g${previousGenerationReady.data.generation}-r${previousGenerationReady.data.revision}`
+    : null;
+  const preGenerationFixesAreBound =
+    previousGenerationReceipt !== null &&
+    actual.commitOids.slice(authorizationIndex + 1, firstGenerationIndex).every((oid) => {
+      try {
+        const trailers = exactWorkRunReceiptTrailers(messages.get(oid) ?? '');
+        return trailers.runId === receipt.runId && trailers.receiptId === previousGenerationReceipt;
+      } catch {
+        return false;
+      }
+    });
+  // A fix may be committed after the approved PR head but before the first generation receipt is
+  // closed. In that valid sequence the receipt trailer on the fix is still the previous generation,
+  // so the immediate boundary is later than the approved head. The live PR evidence already binds
+  // the authorization to the exact remote head; accept that head when it is an ancestor before the
+  // first post-PR generation trailer, while retaining the exact-boundary check for normal history.
+  const authorizationPrecedesGeneration =
+    receipt.authorization.action === 'push' &&
+    authorizationIndex >= 0 &&
+    firstGenerationIndex > authorizationIndex &&
+    preGenerationFixesAreBound;
   const matches =
     receipt.authorization.action === 'rebase'
       ? boundary !== null && rebaseProofMatches(root, receipt, boundary, baseCommit, runtime)
-      : receipt.authorization.head === boundary;
+      : receipt.authorization.head === boundary || authorizationPrecedesGeneration;
   return matches ? { ok: true } : { ok: false, reason: 'authorization-head-mismatch' };
 }
 

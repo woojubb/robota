@@ -51,10 +51,13 @@ use this exception, including changes to the checker that implements it.
    paths the change will touch. **L0** needs no draft: declare `Lane: L0` and the ground (the issue, or a
    `Fast-track:` line quoting the user's instruction verbatim) on the branch and the pull request, and
    go to Phase 4 — `scan-lane-declaration` refuses the declaration if the diff's floor is higher.
-   **L1** uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the
-   draft — the scaffold writes the `Waived:` line research.md accepts, so step 4's research dispatch is
-   not required for L1 (the author may still research) — fills Problem, Decision and the TC-N criteria,
-   and goes to Phase 3 where `gate.mjs approve` then `gate.mjs judge --gate PLAN` run. **L2** takes
+   **L1** first resolves the registering GitHub Issue and allocates `<PREFIX>-<issue-number>` with
+   `pnpm harness:task:allocate` (omitting `--issue` finds an exact title or creates the Issue), then
+   uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the draft.
+   The scaffold writes the `Waived:` line research.md accepts, so step 4's research dispatch is not
+   required for L1 (the author may still research) — fills Problem, Decision and the TC-N criteria,
+   and goes to Phase 3 where `gate.mjs approve` then `gate.mjs judge --gate PLAN` run. A pre-existing
+   legacy ID requires `--legacy-id` explicitly. **L2** takes
    steps 1–4 as written. On a branch stacked on another feature branch, set `HARNESS_BASE_REF=<that
 branch>` before any base-reading step (`scan-lane-declaration`, `run-all-scans --affected`,
    `gate.mjs approve --route CLASS`), or the measured diff is the parent branch's as well.
