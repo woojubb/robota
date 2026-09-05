@@ -5,7 +5,7 @@ tags: [cli, typescript]
 lane: L2
 ---
 
-# INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop
+# INFRA-173: Allow explicitly requested direct commits, pushes, and merges on develop
 
 ## Problem
 
@@ -78,7 +78,7 @@ verification, and review requirements.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` — todo
+- [ ] `.agents/tasks/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` — todo
 
 ## Evidence Log
 
@@ -87,10 +87,10 @@ verification, and review requirements.
 **Status remains:** draft
 **Failed criteria:**
 
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, whose basename is not the spec's (INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop.md)
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, whose basename is not the spec's (INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop.md)
   **Required action:** pair the Task and the spec by basename
 
-**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop.md` blob `be959b47826d` (untracked)
+**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop.md` blob `be959b47826d` (untracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-06
 
@@ -109,7 +109,7 @@ verification, and review requirements.
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (0d38b9063aa5) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 
-**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` blob `66f46570736b` (untracked)
+**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` blob `66f46570736b` (untracked)
 
 ### [GATE-PLAN] — ✅ PASS | 2026-09-06
 
@@ -150,8 +150,8 @@ verification, and review requirements.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (0d38b9063aa5) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
-**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` blob `7f612a66efe1` (untracked)
+**Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-173-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` blob `7f612a66efe1` (untracked)

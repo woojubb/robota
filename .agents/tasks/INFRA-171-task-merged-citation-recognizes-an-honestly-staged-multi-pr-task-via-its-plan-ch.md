@@ -28,8 +28,7 @@ The repository's own convention already tags which unit a commit delivers — th
 own Plan checklist already marks that unit `- [x] S1 — ...`. The fix teaches the scanner to read both:
 a delivering commit citing a Plan unit the record itself already marks complete is staged, honest
 progress, not a premature-completion claim, and does not reconcile as a finding. A commit citing the
-bare ID with no unit suffix, or a unit still unchecked, is unaffected and still reconciles (issue
-#2586).
+bare ID with no unit suffix, or a unit still unchecked, is unaffected and still reconciles (issue #2586).
 
 ## Plan
 
