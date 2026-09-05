@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -74,7 +74,7 @@ function makeExecContext(node: IDagNodeDefinition): INodeExecutionContext {
 
 let dir: string;
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'ws-writer-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'ws-writer-')));
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });

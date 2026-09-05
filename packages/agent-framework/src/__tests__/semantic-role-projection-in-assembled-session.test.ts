@@ -157,8 +157,8 @@ const rolesFrom = (commands: readonly ISystemCommand[]): ISystemCommandSemanticR
   new SystemCommandExecutor([...commands]).getSemanticRoles();
 
 beforeAll(async () => {
-  cwd = mkdtempSync(join(tmpdir(), 'semantic-role-projection-'));
-  userHome = mkdtempSync(join(tmpdir(), 'semantic-role-projection-home-'));
+  cwd = realpathSync(mkdtempSync(join(tmpdir(), 'semantic-role-projection-')));
+  userHome = realpathSync(mkdtempSync(join(tmpdir(), 'semantic-role-projection-home-')));
   mkdirSync(join(cwd, 'src'), { recursive: true });
   writeFileSync(join(cwd, 'src', 'index.ts'), 'export const value = 1;\n');
 

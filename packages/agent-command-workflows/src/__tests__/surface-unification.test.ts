@@ -11,7 +11,7 @@
  *    argument with the same quote-aware tokenizer `create`/`build` use, and reject surplus/unknown
  *    tokens explicitly instead of folding them into the path.
  */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -89,7 +89,7 @@ const UPPERCASE_SPEC = JSON.stringify({
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'wf-p3-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-p3-')));
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });

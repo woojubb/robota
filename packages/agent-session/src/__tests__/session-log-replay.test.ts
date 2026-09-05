@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -19,7 +19,7 @@ describe('session log replay support', () => {
   });
 
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
-    const logDir = mkdtempSync(join(tmpdir(), 'robota-log-'));
+    const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-')));
     const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
       externalPayloadThresholdBytes: 32,
     });
@@ -58,7 +58,7 @@ describe('session log replay support', () => {
   it.skipIf(process.platform !== 'linux')(
     'ARCH-014: loadSessionLogEntries hydrates externalized values before replay',
     () => {
-      const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
+      const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-hydration-')));
       const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
         externalPayloadThresholdBytes: 32,
       });

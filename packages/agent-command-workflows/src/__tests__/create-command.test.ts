@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +39,7 @@ const UPPERCASE_SPEC = JSON.stringify({
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'wf-create-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-create-')));
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });

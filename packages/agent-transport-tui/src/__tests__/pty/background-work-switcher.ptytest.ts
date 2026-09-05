@@ -9,7 +9,7 @@
  * test:pty`) against `packages/agent-cli/bin/robota.cjs`.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +26,7 @@ describe('Background-work drill-in entry point through a real PTY (TEST-010 / SC
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-bgwork-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bgwork-')));
     writeTuiProviderSettings(projectDir);
   });
 

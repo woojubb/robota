@@ -9,7 +9,7 @@
  * against a freshly built CLI.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +26,7 @@ describe('provider setup ask through a real PTY (CMD-004 TC-09)', () => {
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-pty-provider-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-provider-')));
     writeTuiProviderSettings(projectDir);
   });
 

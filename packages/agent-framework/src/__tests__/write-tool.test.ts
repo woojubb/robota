@@ -2,7 +2,7 @@
  * Tests for WriteTool
  */
 
-import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, mkdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,7 +27,7 @@ async function run(params: TToolParameters): Promise<IToolInvocationResult> {
 let tmpDir: string;
 
 beforeAll(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'write-tool-test-'));
+  tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'write-tool-test-')));
   writeTool = createWriteTool({ cwd: tmpDir });
 });
 

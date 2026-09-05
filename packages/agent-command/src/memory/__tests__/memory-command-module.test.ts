@@ -20,7 +20,7 @@ import type {
 
 // SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
 // name, so no other user can pre-create or read the paths this suite writes under it.
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-command-memory-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-command-memory-')));
 const memoryStores = new Map<string, Promise<IMemoryStore>>();
 
 class TrustedStore implements IWorkspaceTrustStore {

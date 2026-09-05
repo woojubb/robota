@@ -3,7 +3,7 @@
  * underlying provider — no network, no API key. Proves record→replay round-trip, staleness
  * detection, exhaustion, and workspace-path rewrite.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,7 @@ let dir: string;
 let cassette: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'robota-cassette-'));
+  dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cassette-')));
   cassette = join(dir, 'goal.cassette.json');
 });
 afterEach(() => {

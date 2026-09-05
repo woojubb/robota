@@ -46,7 +46,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
   let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-programmatic-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-programmatic-')));
   });
 
   afterEach(async () => {

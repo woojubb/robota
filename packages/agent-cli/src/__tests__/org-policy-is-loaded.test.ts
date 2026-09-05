@@ -11,7 +11,7 @@
  * puts a real `org-policy.json` on disk and drives the real entry point can tell those apart.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -36,7 +36,7 @@ const SETTINGS_JSON = JSON.stringify({
 
 /** A HOME with a real `~/.robota/org-policy.json`, which is the only thing `loadOrgPolicy` reads. */
 function homeWithPolicy(policy: unknown): string {
-  const home = mkdtempSync(join(tmpdir(), 'cli-083-home-'));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-home-')));
   homes.push(home);
   mkdirSync(join(home, '.robota'), { recursive: true });
   writeFileSync(join(home, '.robota', 'org-policy.json'), JSON.stringify(policy), 'utf8');
@@ -46,7 +46,7 @@ function homeWithPolicy(policy: unknown): string {
 
 /** The same HOME, with a policy file written verbatim so a case can make it unreadable. */
 function homeWithRawPolicy(raw: string): string {
-  const home = mkdtempSync(join(tmpdir(), 'issue-2023-home-'));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'issue-2023-home-')));
   homes.push(home);
   mkdirSync(join(home, '.robota'), { recursive: true });
   writeFileSync(join(home, '.robota', 'org-policy.json'), raw, 'utf8');
@@ -85,7 +85,7 @@ describe('CLI-083: the loaded policy is SURFACED, not only consumed in place', (
   });
 
   it('returns undefined when there is no policy file, so absence stays distinguishable', () => {
-    const home = mkdtempSync(join(tmpdir(), 'cli-083-surface-none-'));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-surface-none-')));
     homes.push(home);
     mkdirSync(join(home, '.robota'), { recursive: true });
     writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');
@@ -117,7 +117,7 @@ describe('CLI-083: a policy file on disk reaches the enforcement', () => {
   it('allows the same switch when no policy file exists — the read is what differs', async () => {
     // The control. Without it, a build that refused every switch for an unrelated reason would
     // satisfy the case above.
-    const home = mkdtempSync(join(tmpdir(), 'cli-083-nopolicy-'));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'cli-083-nopolicy-')));
     homes.push(home);
     mkdirSync(join(home, '.robota'), { recursive: true });
     writeFileSync(join(home, '.robota', 'settings.json'), SETTINGS_JSON, 'utf8');

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 function createRegistry(): TransportRegistry {
-  const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-contract-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'transport-registry-contract-')));
   const settingsPath = path.join(dir, 'settings.json');
   writeFileSync(settingsPath, '{}');
   tempDirs.push(dir);

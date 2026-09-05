@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync, mkdirSync, chmodSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, mkdirSync, chmodSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -17,7 +17,7 @@ const made: string[] = [];
 
 function scratch(): string {
   // mkdtemp, not join(tmpdir(), name): the OS chooses the name and creates it 0700 (SEC-003).
-  const dir = mkdtempSync(path.join(tmpdir(), 'robota-guarded-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'robota-guarded-')));
   made.push(dir);
   return dir;
 }

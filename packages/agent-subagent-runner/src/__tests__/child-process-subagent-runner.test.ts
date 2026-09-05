@@ -151,7 +151,10 @@ describe('ChildProcessSubagentRunner', () => {
       // Review proposed deferring the read to `'close'` to beat a drain race. Measured, that is not
       // the mechanism — see the comment at the read site — so this pins the bound's direction
       // rather than a wait.
-      const noisyWorker = join(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-')), 'noisy.mjs');
+      const noisyWorker = join(
+        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-'))),
+        'noisy.mjs',
+      );
       writeFileSync(
         noisyWorker,
         [
@@ -186,7 +189,7 @@ describe('ChildProcessSubagentRunner', () => {
       // optional, so without a handshake deadline the parent waits forever — a silent hang, where
       // the seam this replaced failed loudly.
       const silentEntry = join(
-        mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-')),
+        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-'))),
         'silent.mjs',
       );
       writeFileSync(silentEntry, 'setTimeout(() => {}, 60_000);\n', 'utf8');
@@ -284,7 +287,7 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'exposes a deterministic transcript path and reads transcript pages',
     async () => {
-      const logsDir = mkdtempSync(join(tmpdir(), 'robota-subagent-logs-'));
+      const logsDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-subagent-logs-')));
       const transcriptDir = join(logsDir, 'session_1', 'subagents');
       mkdirSync(transcriptDir, { recursive: true });
       writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');

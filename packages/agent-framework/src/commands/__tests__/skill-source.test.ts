@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,7 +24,7 @@ describe('SkillCommandSource multi-path', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'skill-source-test-'));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'skill-source-test-')));
     projectDir = join(tmpDir, 'project');
     homeDir = join(tmpDir, 'home');
     mkdirSync(projectDir, { recursive: true });

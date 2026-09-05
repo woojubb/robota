@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -30,7 +30,7 @@ describe('interactive-session-streaming edit diffs', () => {
   });
 
   function makeTempFile(content: string): string {
-    tmpDir = mkdtempSync(join(tmpdir(), 'interactive-diff-test-'));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'interactive-diff-test-')));
     const filePath = join(tmpDir, 'example.md');
     writeFileSync(filePath, content, 'utf8');
     return filePath;

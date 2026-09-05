@@ -9,6 +9,7 @@ import {
   openSync,
   closeSync,
   fstatSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,7 +33,7 @@ import {
 
 import type { IUpdateCheckCache } from '../update-check-cache.js';
 
-const TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-update-check-test-'));
+const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-test-')));
 
 function cleanup(): void {
   rmSync(TEST_DIR, { recursive: true, force: true });
@@ -243,7 +244,7 @@ describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
   }
 
   it('writes 0600 into a 0700 directory under a permissive umask', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'robota-update-check-mode-'));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-mode-')));
     const cachePath = join(dir, '.robota', 'update-check.json');
 
     withPermissiveUmask(() => writeUpdateCheckCache(cachePath, { ...CACHE }));
@@ -254,7 +255,7 @@ describe('writeUpdateCheckCache owner-only mode (issue #2229)', () => {
   });
 
   it('repairs a 0644 cache an older version left behind', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'robota-update-check-repair-'));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-update-check-repair-')));
     const cachePath = join(dir, '.robota', 'update-check.json');
 
     withPermissiveUmask(() => {

@@ -7,7 +7,7 @@
  * (3) a failure before the write completes leaves the previous record untouched.
  */
 
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,7 +43,7 @@ function createRecord(
 }
 
 beforeEach(() => {
-  baseDir = mkdtempSync(join(tmpdir(), 'robota-store-'));
+  baseDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-store-')));
 });
 
 afterEach(() => {

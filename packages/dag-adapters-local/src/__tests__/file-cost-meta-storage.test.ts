@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileCostMetaStorage } from '../file-cost-meta-storage.js';
@@ -22,7 +22,7 @@ describe('FileCostMetaStorage', () => {
   };
 
   beforeEach(() => {
-    TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-cost-meta-test-'));
+    TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cost-meta-test-')));
     storage = new FileCostMetaStorage(TEST_DIR);
   });
 

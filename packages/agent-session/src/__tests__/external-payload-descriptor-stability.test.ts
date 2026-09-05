@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,7 +43,7 @@ describe('NodeExternalPayloadSource descriptor stability', () => {
   it.skipIf(process.platform !== 'linux')(
     'ARCH-042: reads the opened file after its pathname is replaced',
     () => {
-      const baseDirectory = mkdtempSync(join(tmpdir(), 'robota-payload-descriptor-'));
+      const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-descriptor-')));
       temporaryDirectories.push(baseDirectory);
       replacement.targetPath = join(baseDirectory, 'payload.json');
       replacement.heldPath = join(baseDirectory, 'held.json');

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, writeFile, rm, readFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile, mkdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nodeCommand, type INodeCommandOptions } from '../commands/node.js';
@@ -35,7 +35,7 @@ function makeIo(): { options: INodeCommandOptions; written: string[] } {
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'localnode-e2e-'));
+  tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'localnode-e2e-')));
 });
 
 afterEach(async () => {

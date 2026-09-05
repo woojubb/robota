@@ -6,7 +6,7 @@
  * files concurrently (maxInFlight >= 2 — fails on the old sequential loop) while
  * staying within the p-limit bound (maxInFlight <= 50).
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -62,7 +62,7 @@ describe('grepTool bounded concurrency (CLI-042)', () => {
   let fixtureDir: string;
 
   beforeAll(() => {
-    fixtureDir = mkdtempSync(join(tmpdir(), 'grep-tool-concurrency-'));
+    fixtureDir = realpathSync(mkdtempSync(join(tmpdir(), 'grep-tool-concurrency-')));
     for (let i = 0; i < FILE_COUNT; i++) {
       writeFileSync(
         join(fixtureDir, `file-${String(i).padStart(3, '0')}.txt`),

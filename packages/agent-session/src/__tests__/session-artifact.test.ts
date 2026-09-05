@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -113,7 +113,7 @@ function fullRecord(): IInteractiveSessionRecord {
 }
 
 function newStore(): NodeSessionStore {
-  return new NodeSessionStore(mkdtempSync(path.join(tmpdir(), 'artifact-store-')));
+  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-store-'))));
 }
 
 describe('session artifact — round-trip fidelity (TC-01)', () => {

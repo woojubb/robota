@@ -285,7 +285,7 @@ describe('headless transport skill activation integration', () => {
   });
 
   it('executes model-invocable skills through the skills built-in command in a headless session', async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-skill-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-skill-')));
     createTempSkill(
       cwd,
       'repo-writing',
@@ -359,7 +359,7 @@ describe('headless transport skill activation integration', () => {
   });
 
   it('executes explicit slash skills through SDK skill loading in a headless session', async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-slash-skill-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-slash-skill-')));
     createTempSkill(
       cwd,
       'audit',
@@ -422,7 +422,7 @@ describe('headless transport skill activation integration', () => {
   });
 
   it('reports skipped unknown native tool calls through the headless execution path', async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-unknown-tool-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-unknown-tool-')));
     const observed = createUnknownToolCallingProvider();
     const session = new InteractiveSession({
       cwd,

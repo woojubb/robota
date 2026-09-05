@@ -4,7 +4,7 @@
  * contract. Fixtures use an isolated HOME + temp cwd; env keys are injected.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,8 +31,8 @@ describe('diagnose accuracy (CLI-067)', () => {
   let cwd: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-067-home-'));
-    cwd = mkdtempSync(join(tmpdir(), 'robota-067-cwd-'));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-067-home-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-067-cwd-')));
     vi.stubEnv('HOME', home);
     // No ambient provider keys leak into the checks.
     for (const name of [

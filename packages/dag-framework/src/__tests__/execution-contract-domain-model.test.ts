@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 function projectDir(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'dag-exec-contract-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-exec-contract-')));
   tempDirs.push(dir);
   return dir;
 }

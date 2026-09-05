@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, rmSync, readFileSync, statSync, mkdtempSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  readFileSync,
+  statSync,
+  mkdtempSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,7 +23,7 @@ import {
   deleteSettings,
 } from '../settings-io.js';
 
-const TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-settings-io-test-'));
+const TEST_DIR = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-io-test-')));
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });

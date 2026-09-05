@@ -1,5 +1,5 @@
 import { mkdirSync, rmSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
 // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
 describe.runIf(process.platform === 'linux')('session persistence facade', () => {
   it('creates a project-local session store and resolves resumable summaries', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'robota-sdk-session-store-'));
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-sdk-session-store-')));
     mkdirSync(join(cwd, '.robota'), { recursive: true });
     const store = await createTrustedProjectSessionStoreFixture(cwd);
 

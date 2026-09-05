@@ -2,7 +2,7 @@
  * DATA-002 P2 — code-node persistence: `.dag/nodes/<type>.node.json` (kind:'code') manifest +
  * supplementary `<type>.dag.node.js` companion. Real filesystem, no mocks.
  */
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -75,7 +75,7 @@ const UPPER = `export const node = { execute: (i) => ({ text: String(i.text).toU
 describe('DATA-002 P2 — code node persistence', () => {
   let projectDir: string;
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'code-node-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'code-node-')));
   });
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });

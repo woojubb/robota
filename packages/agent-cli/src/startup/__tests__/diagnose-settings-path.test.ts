@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -45,7 +45,7 @@ describe('diagnose reports an absolute user settings path (NEUT-009)', () => {
   });
 
   it('does not resolve against the working directory', () => {
-    const cwd = mkdtempSync(path.join(tmpdir(), 'diagnose-cwd-'));
+    const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'diagnose-cwd-')));
     dirs.push(cwd);
     const resolved = withoutHome(() => resolveUserSettingsPath());
     expect(path.resolve(cwd, resolved)).not.toBe(path.join(cwd, '.robota', 'settings.json'));

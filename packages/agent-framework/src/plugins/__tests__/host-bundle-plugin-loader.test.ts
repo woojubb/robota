@@ -10,7 +10,7 @@
  * argument. "The map is forwarded" is satisfied by forwarding an empty one.
  */
 
-import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ import { createHostBundlePluginLoader } from '../host-bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-host-plugin-loader-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-host-plugin-loader-')));
 
 function writeJson(path: string, data: unknown): void {
   mkdirSync(join(path, '..'), { recursive: true });

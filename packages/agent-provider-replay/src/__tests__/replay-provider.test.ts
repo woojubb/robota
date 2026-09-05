@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -141,7 +141,7 @@ describe('ReplayProvider (INFRA-017)', () => {
   it.skipIf(process.platform !== 'linux')(
     'ARCH-014: direct construction hydrates nested response references with an explicit base',
     async () => {
-      const baseDirectory = mkdtempSync(join(tmpdir(), 'robota-replay-provider-'));
+      const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-provider-')));
       try {
         const serialized = JSON.stringify('hydrated content');
         const sha256 = createHash('sha256').update(serialized).digest('hex');

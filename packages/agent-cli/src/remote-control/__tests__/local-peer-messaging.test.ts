@@ -9,7 +9,7 @@
  * second set of cases over them would create a second opinion about rules with one owner.
  */
 
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -25,7 +25,7 @@ let guardedDirectory: string;
 
 /** A 0700 directory, because that mode is the whole same-user-same-host argument. */
 beforeEach(() => {
-  guardedDirectory = mkdtempSync(path.join(tmpdir(), 'peer-006-'));
+  guardedDirectory = realpathSync(mkdtempSync(path.join(tmpdir(), 'peer-006-')));
   rmSync(guardedDirectory, { recursive: true, force: true });
   mkdirSync(guardedDirectory, { mode: 0o700, recursive: true });
 });

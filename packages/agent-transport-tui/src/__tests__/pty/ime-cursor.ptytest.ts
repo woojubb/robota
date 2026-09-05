@@ -18,7 +18,7 @@
  * reserved for supported-default, Terminal.app-default-off, force-on, and kill-switch boundaries.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -105,7 +105,7 @@ describe('CLI-062 — IME hardware-cursor positioning through a real PTY', () =>
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-pty-ime-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-ime-')));
     writeTuiProviderSettings(projectDir);
   });
 
@@ -145,7 +145,7 @@ describe('CLI-062 terminal matrix — observable cursor contract per terminal', 
   let session: IPtySession | undefined;
 
   beforeEach(() => {
-    projectDir = mkdtempSync(join(tmpdir(), 'robota-pty-ime-matrix-'));
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-pty-ime-matrix-')));
     writeTuiProviderSettings(projectDir);
   });
 

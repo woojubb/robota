@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,7 +15,7 @@ describe('contribution sources', () => {
   const scratchDirectories: string[] = [];
 
   function scratchDirectory(): string {
-    const directory = mkdtempSync(join(tmpdir(), 'arch-042-contribution-'));
+    const directory = realpathSync(mkdtempSync(join(tmpdir(), 'arch-042-contribution-')));
     scratchDirectories.push(directory);
     return directory;
   }

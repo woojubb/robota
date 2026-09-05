@@ -7,7 +7,7 @@
  * the restored model context is non-empty. No store/session mocks.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -72,7 +72,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   let channel: TuiInteractionChannel | undefined;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-b11-int-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-b11-int-')));
   });
 
   afterEach(async () => {

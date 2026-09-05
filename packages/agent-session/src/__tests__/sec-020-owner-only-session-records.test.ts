@@ -11,7 +11,15 @@
  */
 
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,7 +40,7 @@ let previousUmask: number;
 
 beforeEach(() => {
   previousUmask = process.umask(PERMISSIVE_UMASK);
-  root = mkdtempSync(join(tmpdir(), 'sec-020-'));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'sec-020-')));
 });
 
 afterEach(() => {

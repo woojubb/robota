@@ -1,6 +1,6 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -42,7 +42,7 @@ class RecordingTransport implements IConfigurableTransport<IInteractiveSession> 
 function newRegistry(): TransportRegistry {
   // A fresh temp settings path → no saved overrides → each transport's `defaultEnabled` decides (true here).
   return new TransportRegistry(
-    path.join(mkdtempSync(path.join(tmpdir(), 'deploy-matrix-')), 'settings.json'),
+    path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'deploy-matrix-'))), 'settings.json'),
   );
 }
 

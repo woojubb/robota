@@ -5,7 +5,7 @@
  * to verify session resume/fork semantics that the TUI already has.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -153,7 +153,7 @@ describe('print mode session resume integration (CLI-063)', () => {
   let stdoutWriteCount = 0;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-print-resume-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-print-resume-')));
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new ExitSentinel(code ?? 0);
     }) as never);
@@ -266,7 +266,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
   let cwd: string;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-append-prompt-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-append-prompt-')));
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new ExitSentinel(code ?? 0);
     }) as never);

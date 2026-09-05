@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,7 +15,7 @@ import type {
   ISemanticMemoryAdapter,
 } from '../types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-fs-memory-store-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fs-memory-store-')));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

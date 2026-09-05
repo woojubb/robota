@@ -5,7 +5,7 @@
  */
 
 import { createHook } from 'node:async_hooks';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -75,7 +75,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     else process.env.USERPROFILE = savedProfile;
   }
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'runtime-host-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-')));
     // Contained — TEST-012. The session's default initialisation reads the real user home
     // (`createDefaultUserSettingsSources()` → `process.env.HOME`, `homedir()` for plugins) with no
     // seam, so on a machine whose ~/.claude/settings.json defines a SessionStart command hook the
@@ -83,7 +83,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     // measures (issue #2383). Pointing HOME at an empty directory per test makes the assertion
     // below mean "the host leaked a timer" on any machine; the class remedy (a global isolation or
     // a userHome seam) is TEST-012's. `USERPROFILE` is the Windows spelling of the same default.
-    homeRoot = mkdtempSync(join(tmpdir(), 'runtime-host-home-'));
+    homeRoot = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-home-')));
     home = join(homeRoot, 'home');
     mkdirSync(home);
     savedHome = process.env.HOME;

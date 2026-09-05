@@ -9,7 +9,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { homedir } from 'node:os';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -119,7 +119,7 @@ describe('applySystemCommandResult', () => {
   });
 
   it('reloads plugin command source immediately when requested', () => {
-    const home = mkdtempSync(join(tmpdir(), 'robota-plugin-reload-'));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-plugin-reload-')));
     const pluginDir = join(
       home,
       '.robota',

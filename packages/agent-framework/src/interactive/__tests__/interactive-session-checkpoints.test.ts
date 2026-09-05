@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  mkdtempSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,7 +19,7 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-interactive-checkpoints-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-interactive-checkpoints-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {

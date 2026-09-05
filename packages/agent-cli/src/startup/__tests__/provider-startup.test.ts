@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
@@ -25,7 +25,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-startup-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-startup-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;

@@ -2,7 +2,7 @@
  * Tests for InteractiveSession — event-driven session wrapper.
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -139,7 +139,7 @@ describe('InteractiveSession', () => {
   });
 
   it('expands @file references through SDK-owned prompt preprocessing', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-file-ref-'));
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-interactive-file-ref-')));
     try {
       await writeFile(join(cwd, 'AGENTS.md'), '# Rules\nUse repo guidance.\n');
       const mockSession = createMockSession({ runResult: 'done' });
@@ -182,7 +182,7 @@ describe('InteractiveSession', () => {
   });
 
   it('adds manual context references to future prompt model input', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-manual-ref-'));
+    const cwd = await realpath(await mkdtemp(join(tmpdir(), 'robota-interactive-manual-ref-')));
     try {
       await writeFile(join(cwd, 'notes.md'), 'manual context body\n');
       const mockSession = createMockSession({ runResult: 'done' });

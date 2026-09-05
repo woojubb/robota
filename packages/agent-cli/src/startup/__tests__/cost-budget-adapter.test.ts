@@ -6,6 +6,7 @@ import {
   rmSync,
   symlinkSync,
   writeFileSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -21,7 +22,7 @@ import { COST_BUDGET_FILE, createFileCostBudgetAdapter } from '../cost-budget-ad
 describe('createFileCostBudgetAdapter', () => {
   let cwd: string;
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-budget-adapter-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-budget-adapter-')));
   });
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true });

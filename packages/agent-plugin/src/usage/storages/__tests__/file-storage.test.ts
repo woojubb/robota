@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileUsageStorage } from '../file-storage';
@@ -23,7 +23,7 @@ describe('FileUsageStorage (PLUGIN-001: real persistence)', () => {
   let dir: string;
 
   function freshStorage(): FileUsageStorage {
-    dir = mkdtempSync(join(tmpdir(), 'robota-usage-'));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-usage-')));
     return new FileUsageStorage(join(dir, 'usage.json'));
   }
 

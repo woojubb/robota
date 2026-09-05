@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -39,7 +39,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
   const wsUrl = 'ws://127.0.0.1:7070';
 
   beforeAll(async () => {
-    webRoot = mkdtempSync(join(tmpdir(), 'monitor-ui-'));
+    webRoot = realpathSync(mkdtempSync(join(tmpdir(), 'monitor-ui-')));
     mkdirSync(join(webRoot, 'assets'), { recursive: true });
     writeFileSync(
       join(webRoot, 'index.html'),

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -110,8 +110,8 @@ describe('default CLI command composition', () => {
   });
 
   it('routes direct user-local storage inspection before provider setup', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-home-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-home-')));
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -167,8 +167,8 @@ describe('default CLI command composition', () => {
   });
 
   it('routes direct user-local memory commands before provider setup', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-'));
-    const home = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-home-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-')));
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-home-')));
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -213,7 +213,7 @@ describe('default CLI command composition', () => {
   });
 
   it('runs permissions mode changes through headless slash-command execution', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-headless-permissions-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-permissions-')));
     const session = new InteractiveSession({
       cwd,
       provider: createFakeProvider(),
@@ -268,7 +268,7 @@ describe('default CLI command composition', () => {
   });
 
   it('prints provider profile lists in headless mode without blocking on TUI interactions', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-headless-provider-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-headless-provider-')));
     mkdirSync(join(cwd, '.robota'), { recursive: true });
     writeFileSync(
       join(cwd, '.robota', 'settings.local.json'),

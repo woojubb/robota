@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type {
@@ -12,7 +12,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { startCli } from '../cli.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-update-check-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-update-check-test-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 let lastChatMessages: TUniversalMessage[] = [];

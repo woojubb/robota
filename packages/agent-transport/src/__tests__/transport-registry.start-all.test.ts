@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 function registryOverTempSettings(): TransportRegistry {
-  const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-start-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'transport-registry-start-')));
   const file = path.join(dir, 'settings.json');
   writeFileSync(file, '{}');
   tempDirs.push(dir);
@@ -123,7 +123,7 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
   });
 
   it('remains idle when settings resolution fails before startup begins', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'transport-registry-settings-'));
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'transport-registry-settings-')));
     const file = path.join(dir, 'settings.json');
     tempDirs.push(dir);
     writeFileSync(file, '{');

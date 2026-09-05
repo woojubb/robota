@@ -1,5 +1,5 @@
 import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
-import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +9,7 @@ import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest, TEnabledPlugins } from '../bundle-plugin-types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-bundle-plugin-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bundle-plugin-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

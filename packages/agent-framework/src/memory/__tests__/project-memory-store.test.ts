@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  mkdtempSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,7 +19,7 @@ import {
 } from '../project-memory-store.js';
 import { createTrustedProjectStateFixture } from '../../testing/trusted-project-state-fixture.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-memory-store-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-memory-store-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

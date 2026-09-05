@@ -6,7 +6,7 @@
  * setup N. Non-TTY without --yes fails with an error naming the question.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,7 +52,7 @@ describe('runInitCommand prompt matrix (CLI-065)', () => {
   let projectMutation: IWorkspaceProjectMutation;
 
   beforeEach(async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-init-test-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-init-test-')));
     promptSpy = vi.fn<(question: string) => Promise<string>>(async () => 'y');
     projectAccess = await createTrustedWorkspaceProjectAccess(cwd);
     projectMutation = createWorkspaceProjectMutation(projectAccess.authority, {

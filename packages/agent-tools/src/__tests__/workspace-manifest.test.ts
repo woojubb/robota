@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -12,7 +12,7 @@ import type { IWorkspaceManifest } from '../sandbox/types.js';
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-workspace-manifest-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-workspace-manifest-')));
   tempDirs.push(dir);
   return dir;
 }

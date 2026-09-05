@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,7 @@ async function createTracker(): Promise<{
   events: IBranchEvent[];
   order: string[];
 }> {
-  const cwd = mkdtempSync(join(tmpdir(), 'arch-020-branch-events-'));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arch-020-branch-events-')));
   roots.push(cwd);
   const events: IBranchEvent[] = [];
   const order: string[] = [];
