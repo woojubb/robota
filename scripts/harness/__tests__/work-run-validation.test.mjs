@@ -1126,6 +1126,38 @@ describe('work-run validation', () => {
     });
   });
 
+  it('does not let another run spoof the generation boundary', () => {
+    const authorization = trustedAuthorization({ head: 'a'.repeat(40) });
+    const events = receiptEvents({ generation: 1, authorization });
+    const receipt = {
+      runId: 'run-1',
+      generation: 1,
+      revision: 0,
+      authorization,
+      events,
+    };
+    const context = {
+      currentPrNumber: 42,
+      receipt,
+      baseCommit: 'b'.repeat(40),
+      actual: {
+        commitOids: ['a'.repeat(40), 'c'.repeat(40), 'd'.repeat(40), 'e'.repeat(40)],
+      },
+      messages: new Map([
+        ['a'.repeat(40), 'reviewed head'],
+        ['c'.repeat(40), 'bound fix\n\nWork-Run: run-1\nWork-Receipt: g0-r0'],
+        ['d'.repeat(40), 'spoofed boundary\n\nWork-Run: other-run\nWork-Receipt: g1-r99'],
+        ['e'.repeat(40), 'generation\n\nWork-Run: run-1\nWork-Receipt: g1-r0'],
+      ]),
+      liveAuthorizations: new Map([[authorization.commentId, authorization]]),
+    };
+
+    expect(validatePostPrGeneration(context)).toEqual({
+      ok: false,
+      reason: 'authorization-head-mismatch',
+    });
+  });
+
   it('accepts a later generation whose opening receipt is g0-r1', () => {
     const { fixture, currentHead } = laterGenerationAfterRevisedOpeningFixture();
     expect(

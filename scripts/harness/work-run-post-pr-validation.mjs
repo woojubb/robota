@@ -141,10 +141,14 @@ export function validatePostPrGeneration(context, receipt = context.receipt) {
   );
   const firstGenerationIndex = actual.commitOids.findIndex((oid) => {
     const message = messages.get(oid) ?? '';
-    return (
-      /Work-Receipt:\s*g\d+-r\d+/u.test(message) &&
-      message.includes(`Work-Receipt: g${receipt.generation}-`)
-    );
+    try {
+      const trailers = exactWorkRunReceiptTrailers(message);
+      return (
+        trailers.runId === receipt.runId && trailers.receiptId.startsWith(`g${receipt.generation}-`)
+      );
+    } catch {
+      return false;
+    }
   });
   const authorizationIndex = actual.commitOids.indexOf(receipt.authorization.head);
   const previousGenerationReady = receipt.events.findLast(

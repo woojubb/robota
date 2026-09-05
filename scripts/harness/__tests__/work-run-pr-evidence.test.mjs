@@ -363,6 +363,28 @@ describe('pull-request head evidence', () => {
     expect(checked).toEqual([newer, older]);
   });
 
+  it('rejects two sealed opening heads through the PR evidence fetcher', () => {
+    const older = '1'.repeat(40);
+    const newer = '2'.repeat(40);
+    const timeline = [
+      committed(older, g0Message('older'), [OPENING_PARENT]),
+      committed(newer, g0Message('newer'), [OPENING_PARENT]),
+      committed(FORCED_HEAD, 'fix: later change', [newer]),
+    ];
+    const base = evidenceRunner(timeline, { currentHead: FORCED_HEAD, openedHead: newer });
+    const fetchEvidence = createPullRequestEvidenceFetcher(repository(), {
+      run: (command, args) => {
+        const endpoint = args.at(-1);
+        if (endpoint.startsWith('/repos/woojubb/robota/comments?')) {
+          return response([openingComment(older), openingComment(newer)]);
+        }
+        return base(command, args);
+      },
+    });
+
+    expect(() => fetchEvidence({ number: 7 })).toThrow(/missing or ambiguous/u);
+  });
+
   it('fetches g0-r2 opening evidence end to end', () => {
     const receiptId = 'g0-r2';
     const bytes = Buffer.from(`${JSON.stringify(openingReceipt(2))}\n`);
