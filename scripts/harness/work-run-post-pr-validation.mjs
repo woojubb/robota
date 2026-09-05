@@ -138,10 +138,27 @@ export function validatePostPrGeneration(context, receipt = context.receipt) {
     baseCommit,
     messages,
   );
+  const firstGenerationIndex = actual.commitOids.findIndex((oid) => {
+    const message = messages.get(oid) ?? '';
+    return (
+      /Work-Receipt:\s*g\d+-r\d+/u.test(message) &&
+      message.includes(`Work-Receipt: g${receipt.generation}-`)
+    );
+  });
+  const authorizationIndex = actual.commitOids.indexOf(receipt.authorization.head);
+  // A fix may be committed after the approved PR head but before the first generation receipt is
+  // closed. In that valid sequence the receipt trailer on the fix is still the previous generation,
+  // so the immediate boundary is later than the approved head. The live PR evidence already binds
+  // the authorization to the exact remote head; accept that head when it is an ancestor before the
+  // first post-PR generation trailer, while retaining the exact-boundary check for normal history.
+  const authorizationPrecedesGeneration =
+    receipt.authorization.action === 'push' &&
+    authorizationIndex >= 0 &&
+    firstGenerationIndex > authorizationIndex;
   const matches =
     receipt.authorization.action === 'rebase'
       ? boundary !== null && rebaseProofMatches(root, receipt, boundary, baseCommit, runtime)
-      : receipt.authorization.head === boundary;
+      : receipt.authorization.head === boundary || authorizationPrecedesGeneration;
   return matches ? { ok: true } : { ok: false, reason: 'authorization-head-mismatch' };
 }
 
