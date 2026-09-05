@@ -314,6 +314,28 @@ describe('pull-request head evidence', () => {
     });
   });
 
+  it('checks the newest generation-zero candidate first and stops after its seal is found', () => {
+    const older = '1'.repeat(40);
+    const newer = '2'.repeat(40);
+    const checked = [];
+    expect(
+      resolveAttestedOpeningHeadFromHistory({
+        timeline: [
+          committed(older, g0Message('older'), [OPENING_PARENT]),
+          committed(newer, g0Message('newer'), [OPENING_PARENT]),
+        ],
+        loadCommit: () => {
+          throw new Error('must not hydrate an already visible opening closure');
+        },
+        isAttested: ({ headOid }) => {
+          checked.push(headOid);
+          return headOid === newer;
+        },
+      }),
+    ).toEqual({ headOid: newer, runId: 'run-1' });
+    expect(checked).toEqual([newer]);
+  });
+
   it('fetches g0-r2 opening evidence end to end', () => {
     const receiptId = 'g0-r2';
     const bytes = Buffer.from(`${JSON.stringify(openingReceipt(2))}\n`);

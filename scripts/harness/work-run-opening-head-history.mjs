@@ -123,7 +123,17 @@ function hydrateForcePushAncestors(timeline, commits, loadCommit, loadCommits) {
 }
 
 function attestedCandidates(commits, expectedRunId, isAttested) {
-  return initialReceiptHeads(commits, expectedRunId).filter(isAttested);
+  // The opening seal is attached to the final generation-zero closure before the PR is opened.
+  // Check that newest candidate first and stop on the first valid seal: each REST lookup costs a
+  // separate GitHub process, and serially probing every historical receipt can exhaust the bounded
+  // verification budget before reaching the actual opening head. A duplicate seal on one commit is
+  // still rejected by `attestedOpeningHead`; older candidates are only queried when newer ones are
+  // not sealed.
+  const candidates = initialReceiptHeads(commits, expectedRunId);
+  for (const candidate of candidates.reverse()) {
+    if (isAttested(candidate)) return [candidate];
+  }
+  return [];
 }
 
 export function resolveAttestedOpeningHeadFromHistory({
