@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
@@ -104,6 +106,61 @@ const GIT_AMBIENT_ENV: string[] = JSON.parse(
 // and the fixture's own `git init` then fails, which turned a silent corruption into four red tests
 // pointing at nothing. Deleting in this process is enough: vitest forks inherit its environment.
 for (const name of GIT_AMBIENT_ENV) delete process.env[name];
+
+/**
+ * The runner's home directory, replaced with an empty one before any test runs.
+ *
+ * ## Why this is here and not in one test file
+ *
+ * Four production entry points default their `userHome` parameter to the real home —
+ * `createDefaultUserSettingsSources`, `createDefaultUserContributionSources`,
+ * `createContributionSourcesForProjectAccess`, `UpdateCheckCache` — so any test that constructs a
+ * session without threading a home reads whatever `~/.claude`, `~/.robota` and `~/.claude/skills`
+ * happen to hold on the machine running it. Its result then moves with the machine rather than with
+ * the code, in BOTH directions: issue #2300 was filed from a suite that passed locally because the
+ * developer had 13 unrelated skills installed and failed on CI, where there are none; issue #2383 is
+ * the same mechanism inverted, red locally because of a `SessionStart` hook and green on CI.
+ *
+ * That is not a property of any one test file, so a fix in one test file would protect one test
+ * file. It lives in the shared ceiling for the same reason the ambient-git scrub above does: this is
+ * the one file every vitest config in the workspace inherits.
+ *
+ * ## Why a created directory and not a path that does not exist
+ *
+ * A missing root and an empty root are different failures. `createNodeHostContributionSource`
+ * swallows `ENOENT` and returns no reader at all, so a non-existent home makes every host-owned read
+ * a no-op rather than an empty read — the two are indistinguishable from a test's point of view, and
+ * only one of them is what a real user with a clean machine has. The directory is therefore created.
+ *
+ * ## Why the path is also published as an environment variable
+ *
+ * `packages/agent-framework/src/__tests__/vitest-home-isolation.test.ts` is the floor that keeps
+ * this honest, and it has to be able to name the directory it expects. It asserts `os.homedir()`
+ * rather than the pool: `homedir()` follows `HOME` in a forked child and not necessarily in a worker
+ * thread, so pinning `pool: 'forks'` would make the floor go vacuous on a pool change instead of
+ * red.
+ *
+ * ## Scope, stated where the reader meets it
+ *
+ * `HOME` is one surface. `os.tmpdir()` contents, a globally installed binary, an authenticated CLI
+ * and a populated package store can satisfy an assertion the same way; this closes `HOME` and
+ * nothing else. It also cannot see an assertion that passes only because host state is ABSENT —
+ * such an assertion passes identically before and after this block.
+ */
+const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'robota-vitest-home-'));
+
+// ASSIGNED, not deleted — the opposite of the git block above, and deliberately so. With `HOME`
+// absent, `os.homedir()` falls back to the password database and hands back the real home anyway,
+// which is precisely the state being removed.
+process.env.HOME = ISOLATED_HOME;
+process.env.USERPROFILE = ISOLATED_HOME;
+process.env.ROBOTA_VITEST_ISOLATED_HOME = ISOLATED_HOME;
+
+// The forks die before this process does, so nothing is still reading the directory here. `force`
+// keeps a failed run from adding a second failure on the way out.
+process.on('exit', () => {
+  rmSync(ISOLATED_HOME, { recursive: true, force: true });
+});
 
 export const resourceCeiling = defineConfig({
   test: {
