@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [harness, ci]
 lane: L1
@@ -54,7 +54,8 @@ Introduce one explicit scheduler owner for safe batches. Finish every running ch
 ## Affected Files
 
 - `scripts/harness/verify-like-ci-execution.mjs`
-- A small scheduler owner module if needed to retain existing file-size ceilings.
+- `scripts/harness/verify-like-ci-scheduler.mjs` — explicit execution batches and settlement.
+- `.agents/rules/execution-cadence.md` — owner-requested final-batch boundary clarification; no new mechanical enforcement claim.
 - `scripts/harness/verify-like-ci-reporting.mjs`
 - `scripts/harness/__tests__/verify-like-ci-execution.test.mjs`
 - `scripts/harness/__tests__/verify-like-ci.test.mjs`
@@ -62,10 +63,10 @@ Introduce one explicit scheduler owner for safe batches. Finish every running ch
 
 ## Completion Criteria
 
-- [ ] TC-01: Cheap and dist-free failures prevent expensive downstream runner calls, report blocked checks and emit no full receipt.
-- [ ] TC-02: Independent cheap checks and contract/hermetic checks overlap only within declared batches; all children settle before environment restoration, even on throw.
-- [ ] TC-03: Build never overlaps built readers; all eleven semantic checks and --only selection retain their coverage and receipt contract.
-- [ ] TC-04: Output distinguishes selected/applicable checks from actual execution batches, and focused regression suites plus syntax checks exit zero.
+- [x] TC-01: Cheap and dist-free failures prevent expensive downstream runner calls, report blocked checks and emit no full receipt.
+- [x] TC-02: Independent cheap checks and contract/hermetic checks overlap only within declared batches; all children settle before environment restoration, even on throw.
+- [x] TC-03: Build never overlaps built readers; all eleven semantic checks and --only selection retain their coverage and receipt contract.
+- [x] TC-04: Output distinguishes selected/applicable checks from actual execution batches, and focused regression suites plus syntax checks exit zero.
 
 ## Test Plan
 
@@ -84,7 +85,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` — implementation pending
+- [x] `.agents/tasks/completed/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` — focused verification and independent DONE passed; final full verification is integration-owner controlled
 
 ## Evidence Log
 
@@ -151,3 +152,112 @@ Not applicable.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `9cfb459251d4` · base `origin/develop@9cfb459251d4` · document `.agents/spec-docs/draft/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` blob `8550cbbe9aae` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+·························································································
+
+ Test Files  2 passed (2)
+      Tests  89 passed (89)
+   Start at  20:20:26
+   Duration  1.34s (transform 148ms, setup 0ms, collect 288ms, tests 1.15s, environment 0ms, prepare 54ms)
+
+8:20:26 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `44f33264b965` · base `origin/develop@9cfb459251d4` · document `.agents/spec-docs/todo/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` blob `9e6ded3e2bfb` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+·························································································
+
+ Test Files  2 passed (2)
+      Tests  89 passed (89)
+   Start at  20:20:26
+   Duration  1.34s (transform 148ms, setup 0ms, collect 288ms, tests 1.15s, environment 0ms, prepare 54ms)
+
+8:20:26 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `44f33264b965` · base `origin/develop@9cfb459251d4` · document `.agents/spec-docs/todo/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` blob `144004aed508` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+·························································································
+
+ Test Files  2 passed (2)
+      Tests  89 passed (89)
+   Start at  20:20:26
+   Duration  1.34s (transform 148ms, setup 0ms, collect 288ms, tests 1.15s, environment 0ms, prepare 54ms)
+
+8:20:26 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `44f33264b965` · base `origin/develop@9cfb459251d4` · document `.agents/spec-docs/todo/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` blob `f2d784368fae` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-05
+
+**Command:** `node --input-type=module -e 'import {vitestInvocation} from "./scripts/harness/harness-vitest-process.mjs";const r=vitestInvocation(process.cwd(),["scripts/harness/__tests__/verify-like-ci-execution.test.mjs","scripts/harness/__tests__/verify-like-ci.test.mjs"]);process.stdout.write(r.stdout??"");process.stderr.write(r.stderr??"");process.exit(r.status??1);'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+RUN  v3.2.6 /private/tmp/robota-worktrees/struct012-s2
+
+·························································································
+
+ Test Files  2 passed (2)
+      Tests  89 passed (89)
+   Start at  20:20:26
+   Duration  1.34s (transform 148ms, setup 0ms, collect 288ms, tests 1.15s, environment 0ms, prepare 54ms)
+
+8:20:26 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+```
+
+**Judged at:** HEAD `44f33264b965` · base `origin/develop@9cfb459251d4` · document `.agents/spec-docs/todo/INFRA-167-batch-ci-verification-with-fail-fast-boundaries.md` blob `dc54a432ee43` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior GATE-PLAN PASS and status approved: recorded GATE-PLAN PASS dated 2026-09-05; current approved spec is in todo, the L1 input state.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): exact paired Task has four checked TC-01 through TC-04 Plan items.
+- GATE-VERIFY — No Plan item is blocked or pending: all four implementation items are complete; final owner verification and delivery are outside the Plan and remain downstream obligations.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): N/A for package compilation; changes are native repository Node ESM scheduler/reporting and tests, with no affected product package. Native syntax validation was reported by the author; the actual focused log independently confirms the new scheduler and modified execution/reporting modules load and execute successfully. No product build or full-gate PASS is claimed here.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `/tmp/infra167-final-focused.log` records the two affected harness suites, 89 tests PASS, exit zero, 1.34 seconds. `/tmp/infra167-red.log` preserves the preceding downstream-call regression failure. Guardian read the actual tests and logs without rerunning them.
+- GATE-COMPLETE — The checkbox is checked (`[x]`): TC-01, TC-02, TC-03 and TC-04 are checked.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: all four entries contain the exact focused command, observed 89-test output and exit zero.
+- GATE-COMPLETE — The exact command or action used to verify: each TC entry identifies the two-suite vitestInvocation command; scheduler source and deferred-child assertions independently support their stated requirements.
+- GATE-COMPLETE — The actual output or result observed: the preserved final focused log matches the four TC entries; all 89 tests passed, with the non-failing Vite warning retained.
+- GATE-COMPLETE — Exit code if applicable: zero is recorded for every TC verification entry.
+- GATE-COMPLETE — One of the following is recorded: every Test Plan row names the execution or reporting test file and describe; no scenario or test waiver is substituted for the affected regression tests.
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: all four rows have matching test references. Deferred promises assert both declared concurrent pairs settle before context restoration; downstream calls and receipt calls remain absent after failure; build exclusivity, unknown-check rejection and partial selection are asserted.
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: four of four checked.
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: four rows map one-to-one to the four criteria and the observed suites.
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: the named INFRA-167 Task exists at the active path with the same basename.
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: active Task is in-progress with all four Plan items checked; terminal status and archival follow this verdict, not precede it. Its product user-execution scenario PLAN is explicitly not-applicable for internal scheduling.
+
+**Independent review:** No unresolved actionable source findings. All eleven declared semantic checks remain covered by nine execution batches; build is exclusive and built readers remain serial. The execution-cadence amendment describes owner responsibility without inventing mechanical enforcement. This verdict authorizes completion artifact assembly, not push or a claim that the final full gate already passed.
+
+**Judged at:** HEAD `44f33264b965f1e0bdb4de21e66b12879933dd52` plus frozen INFRA-167 working diff; base `9cfb459251d44c52c73539ca310166249b209db4`. Source and tests were not modified by the guardian.

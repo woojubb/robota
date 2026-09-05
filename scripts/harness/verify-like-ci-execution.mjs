@@ -1,20 +1,17 @@
 import { spawnSync } from 'node:child_process';
 
-import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { CI_STAGES, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { executeStages } from './verify-like-ci-scheduler.mjs';
 import { staleDistScopes } from './scan-dist-freshness.mjs';
 import { appendJobSummary } from './shared.mjs';
 import { realDirtyLines, shouldWriteFullReceipt } from './verification-receipt.mjs';
 import { runDistFreeScanSuite, runScanSuite } from './verify-like-ci-dist-free.mjs';
 import { runFormatCheck } from './verify-like-ci-format.mjs';
 import {
-  advanceBuildState,
-  blockedStageResult,
   describeAffectedScopes,
-  initialBuildState,
   preflight,
   resolveRunContext,
   runProductStage,
-  stageGate,
 } from './verify-like-ci-product.mjs';
 import {
   annotateNotMirrored,
@@ -130,42 +127,6 @@ async function annotateStaleDist(stageName, outcome) {
   return outcome.note ? `${outcome.note}; ${hint}` : hint;
 }
 
-async function executeStages(selected, options, context) {
-  const results = [];
-  let buildState = initialBuildState(selected, context);
-  const runStartedAt = performance.now();
-  for (const stage of selected) {
-    const stageStartedAt = performance.now();
-    const gate = stageGate(stage.name, context);
-    if (!gate.run) {
-      process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);
-      results.push({
-        name: stage.name,
-        status: 'skip',
-        note: gate.note,
-        durationMs: performance.now() - stageStartedAt,
-      });
-      continue;
-    }
-    process.stdout.write(`\n===== ${stage.name} =====\n`);
-    const blocked = blockedStageResult(stage, buildState);
-    if (blocked) {
-      results.push({ ...blocked, durationMs: performance.now() - stageStartedAt });
-      continue;
-    }
-    process.stdout.write(`mirrors: ${describeCiSource(stage)}\n`);
-    const outcome = await STAGE_RUNNERS[stage.name](options, context);
-    results.push({
-      name: stage.name,
-      status: outcome.code === 0 ? 'pass' : 'fail',
-      note: await annotateStaleDist(stage.name, outcome),
-      durationMs: performance.now() - stageStartedAt,
-    });
-    buildState = advanceBuildState(buildState, stage, outcome.code);
-  }
-  return { results, totalDurationMs: performance.now() - runStartedAt };
-}
-
 async function writeReceiptIfEligible({ exitCode, selected, options }) {
   let clean = false;
   let dirty = [];
@@ -231,7 +192,13 @@ async function runVerification(options) {
     `\nmirroring the required checks of \`${MIRRORED_BRANCH}\` — ${context.changedFiles.length} changed file(s) vs ${options.baseRef}, ` +
       `${context.codeChanged ? 'CODE' : 'docs-only'}, ${context.distRequired ? 'build output required' : 'no build output required'}\n`,
   );
-  const { results, totalDurationMs } = await executeStages(selected, options, context);
+  const { results, totalDurationMs, execution, thrown } = await executeStages(
+    selected,
+    options,
+    context,
+    STAGE_RUNNERS,
+    annotateStaleDist,
+  );
   const skippedStages = CI_STAGES.filter((stage) => !selected.includes(stage)).map(
     (stage) => stage.name,
   );
@@ -239,9 +206,11 @@ async function runVerification(options) {
     skippedStages,
     notMirrored: annotateNotMirrored(context.changedFiles, context.productChanged),
     totalDurationMs,
+    execution,
   });
   process.stdout.write(`${summary.lines.join('\n')}\n`);
   appendJobSummary(`${summary.lines.join('\n')}\n`);
+  if (thrown !== undefined) throw thrown;
   const receiptCode = await writeReceiptIfEligible({
     exitCode: summary.exitCode,
     selected,

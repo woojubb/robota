@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-167: Batch CI verification with fail-fast boundaries'
-status: todo
+status: done
 created: 2026-09-05
+completed: 2026-09-05
 priority: high
 urgency: now
 area: CI verification scheduling
@@ -22,10 +23,10 @@ no-issue: Direct owner request for this single harness improvement.
 
 ## Plan
 
-- [ ] TC-01: Cheap and dist-free failures prevent expensive downstream runner calls, report blocked checks and emit no full receipt.
-- [ ] TC-02: Independent cheap checks and contract/hermetic checks overlap only within declared batches; all children settle before environment restoration, even on throw.
-- [ ] TC-03: Build never overlaps built readers; all eleven semantic checks and --only selection retain their coverage and receipt contract.
-- [ ] TC-04: Output distinguishes selected/applicable checks from actual execution batches, and focused regression suites plus syntax checks exit zero.
+- [x] TC-01: Cheap and dist-free failures prevent expensive downstream runner calls, report blocked checks and emit no full receipt.
+- [x] TC-02: Independent cheap checks and contract/hermetic checks overlap only within declared batches; all children settle before environment restoration, even on throw.
+- [x] TC-03: Build never overlaps built readers; all eleven semantic checks and --only selection retain their coverage and receipt contract.
+- [x] TC-04: Output distinguishes selected/applicable checks from actual execution batches, and focused regression suites plus syntax checks exit zero.
 
 ## Test Plan
 

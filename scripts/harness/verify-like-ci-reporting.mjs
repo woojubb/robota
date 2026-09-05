@@ -37,9 +37,13 @@ export function staleDistHint(staleScopes) {
 
 export function summarize(
   results,
-  { skippedStages = [], notMirrored = [], totalDurationMs = null } = {},
+  { skippedStages = [], notMirrored = [], totalDurationMs = null, execution = null } = {},
 ) {
   const lines = ['', 'verify-like-ci summary:'];
+  if (execution)
+    lines.push(
+      `checks: ${execution.selectedChecks} selected, ${execution.applicableChecks} applicable, ${execution.executedChecks} executed; execution batches: ${execution.executedBatches}`,
+    );
   for (const result of results) {
     const mark = result.status === 'pass' ? '✓' : result.status === 'skip' ? '-' : '✗';
     const timing =
@@ -58,12 +62,17 @@ export function summarize(
     }
   }
   const failed = results.filter((result) => result.status === 'fail');
-  if (failed.length > 0) {
+  const blocked = results.filter((result) => result.status === 'blocked');
+  if (failed.length > 0 || blocked.length > 0) {
     lines.push(
       `FAIL — ${failed.length} of ${results.length} stage(s) failed: ${failed
         .map((result) => result.name)
         .join(', ')}`,
     );
+    if (blocked.length > 0)
+      lines.push(
+        `${blocked.length} check(s) blocked, not executed: ${blocked.map((result) => result.name).join(', ')}`,
+      );
     for (const result of failed) {
       const stage = CI_STAGES.find((entry) => entry.name === result.name);
       if (stage) lines.push(`  ${result.name} covers ${describeCiSource(stage)}`);
@@ -75,6 +84,12 @@ export function summarize(
       `PARTIAL — ${results.length} selected stage(s) passed. This is NOT a CI-equivalent result: ` +
         `${skippedStages.length} stage(s) were not run (${skippedStages.join(', ')}). ` +
         'Run `pnpm harness:verify-like-ci` with no --only before claiming the gate is green.',
+    );
+    return { lines, exitCode: 0 };
+  }
+  if (execution) {
+    lines.push(
+      `PASS — ${execution.executedChecks} checks executed, ${results.filter((result) => result.status === 'skip').length} not applicable, ${execution.executedBatches} execution batches; required coverage satisfied.`,
     );
     return { lines, exitCode: 0 };
   }

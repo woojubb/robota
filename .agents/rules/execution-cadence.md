@@ -39,6 +39,11 @@ the full required gate on the final batch once, and repeats it only when its inp
 or a run actually failed. A partial worker result is never whole-branch green. Preserve required
 CI checks, runtime scenarios, regression RED proof, and final independent review.
 
+Before that full gate, integrate every known authorized source, documentation and completion-record
+change and settle required parallel work. Do not describe a merge as final or last until this
+boundary is reached. This is an execution-owner responsibility, not a new per-edit checkpoint;
+the harness cannot infer unrecorded pending human work and does not claim to enforce it mechanically.
+
 Do not run builds and tests concurrently when they write/read the same generated dependency
 artifacts. Build the dependency closure once, then run dependent checks against that stable output.
 

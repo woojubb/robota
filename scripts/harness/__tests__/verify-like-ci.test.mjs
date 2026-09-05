@@ -686,6 +686,34 @@ describe('annotateNotMirrored', () => {
 });
 
 describe('summarize', () => {
+  it('distinguishes not-applicable checks and blocked work from executed checks', () => {
+    const execution = {
+      selectedChecks: 2,
+      applicableChecks: 1,
+      executedChecks: 1,
+      executedBatches: 1,
+    };
+    const passed = summarize(
+      [
+        { name: 'build', status: 'skip' },
+        { name: 'commitlint', status: 'pass' },
+      ],
+      { execution },
+    );
+    expect(passed.lines.join('\n')).toContain(
+      '1 checks executed, 1 not applicable, 1 execution batches; required coverage satisfied',
+    );
+    const failed = summarize(
+      [
+        { name: 'commitlint', status: 'fail' },
+        { name: 'build', status: 'blocked' },
+      ],
+      { execution },
+    );
+    expect(failed.exitCode).toBe(1);
+    expect(failed.lines.join('\n')).toContain('1 of 2 stage(s) failed: commitlint');
+    expect(failed.lines.join('\n')).toContain('1 check(s) blocked, not executed: build');
+  });
   it('reports PASS and exit 0 when every stage passed', () => {
     const { lines, exitCode } = summarize([
       { name: 'harness-self-test', status: 'pass' },

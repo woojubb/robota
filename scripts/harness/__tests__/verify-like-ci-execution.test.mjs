@@ -25,6 +25,8 @@ vi.mock('../shared.mjs', async (original) => ({
 
 import { main, STAGE_RUNNERS } from '../verify-like-ci-execution.mjs';
 import { run } from '../verify-like-ci-shared.mjs';
+import { executionBatches } from '../verify-like-ci-scheduler.mjs';
+import { CI_STAGES } from '../ci-mirror-map.mjs';
 
 describe('CI mirror execution base context', () => {
   const observations = [];
@@ -112,5 +114,99 @@ describe('CI mirror execution base context', () => {
     expect(process.exitCode).toBe(1);
     expect(observations).toEqual([]);
     expect(process.env.HARNESS_BASE_REF).toBe('caller-base');
+  });
+
+  it.each([
+    'format-check',
+    'commitlint',
+    'scan-suite-dist-free',
+    'harness-self-test',
+    'harness-hermetic-test',
+    'build',
+  ])('blocks downstream checks after %s fails', async (name) => {
+    vi.mocked(STAGE_RUNNERS[name]).mockResolvedValue({ code: 1 });
+    await main(['--base-ref', 'selected-base']);
+    if (['format-check', 'commitlint', 'scan-suite-dist-free'].includes(name))
+      expect(STAGE_RUNNERS['harness-self-test']).not.toHaveBeenCalled();
+    if (name !== 'build') expect(STAGE_RUNNERS.build).not.toHaveBeenCalled();
+    expect(STAGE_RUNNERS['package-quality']).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+    expect(vi.mocked(process.stdout.write).mock.calls.flat().join('')).toContain('blocked');
+  });
+
+  it.each([
+    ['format-check', 'commitlint'],
+    ['harness-self-test', 'harness-hermetic-test'],
+  ])(
+    'settles concurrent %s and %s before restoring environment after throw',
+    async (first, second) => {
+      vi.stubEnv('HARNESS_BASE_REF', 'caller-base');
+      let release;
+      const pending = new Promise((resolve) => {
+        release = resolve;
+      });
+      let entered = 0;
+      vi.mocked(STAGE_RUNNERS[first]).mockImplementation(async () => {
+        entered++;
+        throw new Error('batch failure');
+      });
+      vi.mocked(STAGE_RUNNERS[second]).mockImplementation(async () => {
+        entered++;
+        await pending;
+        expect(process.env.HARNESS_BASE_REF).toBe('selected-base');
+        return { code: 0 };
+      });
+      let finished = false;
+      const observed = main(['--base-ref', 'selected-base']).catch((error) => {
+        finished = true;
+        return error;
+      });
+      await vi.waitFor(() => expect(entered).toBe(2));
+      expect(finished).toBe(false);
+      expect(process.env.HARNESS_BASE_REF).toBe('selected-base');
+      release();
+      expect(await observed).toMatchObject({ message: 'batch failure' });
+      expect(process.env.HARNESS_BASE_REF).toBe('caller-base');
+      expect(STAGE_RUNNERS.build).not.toHaveBeenCalled();
+      expect(run).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps build exclusive and counts nine actual batches for eleven checks', async () => {
+    let release;
+    const pending = new Promise((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(STAGE_RUNNERS.build).mockImplementation(async () => {
+      await pending;
+      return { code: 0 };
+    });
+    const invocation = main(['--base-ref', 'selected-base']);
+    await vi.waitFor(() => expect(STAGE_RUNNERS.build).toHaveBeenCalledOnce());
+    for (const name of [
+      'scan-suite',
+      'package-quality',
+      'binary-e2e',
+      'examples-typecheck',
+      'tui-e2e',
+    ])
+      expect(STAGE_RUNNERS[name]).not.toHaveBeenCalled();
+    release();
+    await invocation;
+    for (const runner of Object.values(STAGE_RUNNERS)) expect(runner).toHaveBeenCalledOnce();
+    expect(vi.mocked(process.stdout.write).mock.calls.flat().join('')).toContain(
+      '11 selected, 11 applicable, 11 executed; execution batches: 9',
+    );
+  });
+
+  it('preserves only selection and refuses future unknown checks', async () => {
+    await main(['--only', 'build']);
+    expect(STAGE_RUNNERS.build).toHaveBeenCalledOnce();
+    expect(STAGE_RUNNERS['format-check']).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(() => executionBatches(CI_STAGES, [...CI_STAGES, { name: 'future-check' }])).toThrow(
+      'exactly once',
+    );
   });
 });
