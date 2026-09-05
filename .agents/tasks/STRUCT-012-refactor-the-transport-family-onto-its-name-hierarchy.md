@@ -118,7 +118,7 @@ Recorded, not absorbed:
 
 ## Plan
 
-- [ ] S1 — add `checkFamilySiblings` to `check-dependency-direction.mjs` (parent legal, sibling
+- [x] S1 — add `checkFamilySiblings` to `check-dependency-direction.mjs` (parent legal, sibling
       illegal, `agent-interface-*` delegated, child → `agent-framework` not reported), freeze the
       seven measured edges in `scripts/harness/family-sibling-baseline.json`, add the three-family
       fixture (`agent-transport-*`, `agent-session-*`, `agent-ui-*`) and the two companion clauses

@@ -66,6 +66,10 @@ const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package'])
 export const GHOST_PACKAGE_ALLOWLIST = new Set([
   '@robota-sdk/dag-nodes', // group-container README title (packages/dag-nodes holds nested dag-node-* packages); the container itself ships no package
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
+  // STRUCT-012 S4 renames agent-transport-gui/-tui into these; the approved spec and Task name the
+  // destinations before they exist. ANTI-ROT below turns both into stale entries the day S4 lands.
+  'packages/agent-ui-web',
+  'packages/agent-ui-terminal',
 ]);
 
 /**

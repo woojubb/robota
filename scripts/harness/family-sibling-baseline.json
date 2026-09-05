@@ -1,0 +1,13 @@
+{
+  "item": "STRUCT-012",
+  "reason": "Same-family sibling edges that existed when the FAMILY-SIBLINGS rule was armed (agent-<family>-<child> depending on agent-<family>-<other>). Each is a lower layer wearing a sibling name; the rule forbids new ones from the day it is armed and this set may only SHRINK -- an entry whose edge no longer exists is itself a finding, so the freeze cannot outlive the debt. The transport six leave with STRUCT-012 S3/S4; the provider edge has its own root item.",
+  "frozen": {
+    "@robota-sdk/agent-provider-openai -> @robota-sdk/agent-provider-openai-compatible": "agent-provider-openai-compatible is a lower layer named as a sibling; separate root item (STRUCT-012 § Out of scope)",
+    "@robota-sdk/agent-transport-gui -> @robota-sdk/agent-transport-protocol": "leaves at STRUCT-012 S3 (substrate absorbed into agent-transport)",
+    "@robota-sdk/agent-transport-http -> @robota-sdk/agent-transport-protocol": "leaves at STRUCT-012 S3",
+    "@robota-sdk/agent-transport-webrtc -> @robota-sdk/agent-transport-protocol": "leaves at STRUCT-012 S3",
+    "@robota-sdk/agent-transport-webrtc-web -> @robota-sdk/agent-transport-gui": "leaves at STRUCT-012 S4 (agent-transport-gui becomes agent-ui-web, another family)",
+    "@robota-sdk/agent-transport-webrtc-web -> @robota-sdk/agent-transport-protocol": "leaves at STRUCT-012 S3",
+    "@robota-sdk/agent-transport-ws -> @robota-sdk/agent-transport-protocol": "leaves at STRUCT-012 S3"
+  }
+}
