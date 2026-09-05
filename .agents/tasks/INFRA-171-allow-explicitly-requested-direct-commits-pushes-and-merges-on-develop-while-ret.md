@@ -19,8 +19,8 @@ Align the branch-policy document and local commit guard with the maintainer-auth
 
 ## Plan
 
-- [x] Update the branch-policy wording.
-- [x] Permit `develop` in the command-string and git-native commit guards.
+- [ ] Update the branch-policy wording.
+- [ ] Permit `develop` in the command-string and git-native commit guards.
 - [ ] Run focused shell checks and the repository scan.
 
 ## User Execution Test Scenarios
