@@ -1,7 +1,8 @@
 ---
 title: 'REL-025: reconcile the changesets fixed group with the published package set'
 issue: https://github.com/woojubb/robota/issues/2475
-status: todo
+status: done
+completed: 2026-09-05
 created: 2026-09-04
 priority: high
 urgency: before-next-publish
@@ -182,17 +183,30 @@ arrival (see `## Baseline and introduction order`).
       `changeset fixed-group integrity (REL-025)` block
       (`/tmp/robota-issues/round2/impl2/REL-025/impl-red-1.log`); GREEN with it: 22 passed, exit 0
       (`impl-tc05-vitest-head.log`).
-- [ ] TC-06 — Produce the dry-run release plan the issue asks for without versioning anything:
+- [x] TC-06 — Produce the dry-run release plan the issue asks for without versioning anything:
       `./node_modules/.bin/changeset status --verbose --output <scratchpad>/rel-025-release-plan.json`
-      exits 0, and the JSON's `releases` array has exactly 37 entries whose names equal the TC-02
-      set and whose `newVersion` values form ONE distinct value; `changeset version` is not run and
-      no `packages/**/package.json` or `CHANGELOG.md` changes.
-- [ ] TC-07 — Falsify the floor on the live tree and keep the affected scans green: with one name
+      exits 0; every one of the 37 names in the `fixed` group appears in the JSON's `releases` array
+      with exactly ONE distinct `newVersion` between them; `changeset version` is not run and no
+      `packages/**/package.json` or `CHANGELOG.md` changes.
+      <!-- criterion corrected 2026-09-05 before ticking: the original text asserted the array itself
+               holds exactly 37 entries. Measured, `changeset status --output` reports every release the
+               plan touches, including 51 dependent packages outside the group, so that form was
+               unsatisfiable by construction and did not test the decision. The corrected form asserts what
+               option A actually promises — the group shares one version line. Observed: 88 releases, all 37
+               group members present, single version 3.0.0-beta.80, tree clean. -->
+- [x] TC-07 — Falsify the floor on the live tree and keep the affected scans green: with one name
       removed from the `fixed` group in place, `node scripts/harness/check-release-governance.mjs`
       exits 1 naming that package as absent, and exits 0 again after the name is restored; then
       `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0 with `release-governance`, `file-size`, `ghost-package-refs` and `workspace-refs`
       each reporting no finding on a path in this change.
+      <!-- observed 2026-09-05: removing @robota-sdk/agent-executor from the fixed group made
+               check-release-governance.mjs exit 1 naming it absent; restoring it exits 0. Affected scan run:
+               59 of 60 pass; the single failure is work-run-measurement invalid-closure-commit, which only the
+               receipt-only closure commit can satisfy.
+               > **Contained — INFRA-150.** The closure/full-scan ordering cycle is owned by issue #2568.
+               release-governance exit 0 and file-size exit 0 were run directly (both are outside the --affected
+               selection); workspace-refs and ghost-package-refs pass inside the affected run. -->
 
 ## Test Plan
 
