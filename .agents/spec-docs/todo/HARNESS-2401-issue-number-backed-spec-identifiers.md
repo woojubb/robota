@@ -113,12 +113,12 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                     |
-| ----- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: 5 focused/related files, 143 tests passed. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls. |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | Regression over the changed harness/docs set; recorded after the work-run receipt closure is sealed.                      |
-| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `SPECID-2401`; no Task written. Omitted-Issue creation is mocked in unit tests because it mutates GitHub.           |
-| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                              |
+| TC-ID | Test Type | Tool / Approach                                          | Notes                                                                                                                                                                             |
+| ----- | --------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on allocator and scaffolder tests | PASS: the exact two-file command passed 85 tests; the related five-file regression set passed 143 tests. Includes Issue reuse/creation, conflict refusal, and legacy-ID controls. |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`              | Regression over the changed harness/docs set; recorded after the work-run receipt closure is sealed.                                                                              |
+| TC-03 | CLI       | `pnpm harness:task:allocate … --issue 2401 --dry-run`    | PASS: `<PREFIX>-2401` output with no Task written. Omitted-Issue creation is mocked in unit tests because it mutates GitHub.                                                      |
+| TC-04 | CLI       | `node scripts/harness/new-spec.mjs … --dry-run`          | PASS: draft rendered for HARNESS-2401; confirms Issue/ID pairing and explicit legacy escape.                                                                                      |
 
 ## User Execution Test Scenarios
 
@@ -219,3 +219,63 @@ None
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `cac1040da690` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/draft/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `7d5f12213f35` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+ ✓ scripts/harness/__tests__/allocate-work-item-id.test.mjs (41 tests) 2035ms
+   ✓ the claimed set is wider than the record filenames > reads an ID out of a record filename, live or completed  413ms
+   ✓ a clone behind its upstream is refused, not answered (issue #2184) > is fresh when the clone is at the upstream tip  331ms
+   ✓ a clone behind its upstream is refused, not answered (issue #2184) > THE CASE: reports stale, naming the gap, once upstream moves — even before a fetch  420ms
+   ✓ a clone behind its upstream is refused, not answered (issue #2184) > offline is not stale: a fetch that fails measures against the local upstream ref  332ms
+
+ Test Files  2 passed (2)
+      Tests  85 passed (85)
+   Start at  02:34:12
+   Duration  2.41s (transform 329ms, setup 0ms, collect 601ms, tests 3.07s, environment 0ms, prepare 138ms)
+```
+
+**Judged at:** HEAD `cc0b6e5701f7` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `ff8574f5748c` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm harness:task:allocate ZZTEST "issue-backed allocation test" --issue 2401 --dry-run`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+> robota-monorepo@0.1.0 harness:task:allocate /Users/jungyoun/Documents/dev/woojubb/robota-4
+> node scripts/harness/allocate-work-item-id.mjs "ZZTEST" "issue-backed allocation test" "--issue" "2401" "--dry-run"
+
+::measured:: HEAD is 0 commit(s) behind origin/develop@cac1040da
+::issue:: #2401 (existing)
+::examined:: 2401 claimed work-item id(s); 1092 from records, 2392 from citations, 412 from issue titles and bodies
+ZZTEST-2401
+```
+
+**Judged at:** HEAD `cc0b6e5701f7` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `8a9ed66d2dbb` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/new-spec.mjs HARNESS-2401 --type INFRA --issue 2401 --lane L1 --dry-run`
+**Exit:** 0
+**Output:** (last 10 of 96 line(s))
+
+```
+Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+
+Recorded as the rule's required choice rather than skipped.
+
+## Tasks
+
+- [ ] `.agents/tasks/HARNESS-2401-issue-number-backed-spec-identifiers.md` — todo
+
+## Evidence Log
+new-spec: dry run — target .agents/spec-docs/draft/HARNESS-2401-issue-number-backed-spec-identifiers.md (not written)
+```
+
+**Judged at:** HEAD `cc0b6e5701f7` · base `origin/develop@cac1040da690` · document `.agents/spec-docs/todo/HARNESS-2401-issue-number-backed-spec-identifiers.md` blob `7ec3682be1fe` (modified)
