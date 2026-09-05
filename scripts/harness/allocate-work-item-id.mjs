@@ -110,6 +110,32 @@ function defaultIssueView(number) {
   }
 }
 
+function defaultCloseIssue(number) {
+  const closed = spawnSync(
+    'gh',
+    [
+      'issue',
+      'close',
+      number,
+      '--repo',
+      ISSUE_REPOSITORY,
+      '--reason',
+      'not planned',
+      '--comment',
+      'Closed automatically because work-item ID allocation could not complete safely.',
+    ],
+    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
+  );
+  return closed.status === 0;
+}
+
+/** Close an Issue created by this allocator when a later safety check refuses the allocation. */
+export function closeCreatedIssue(number, closeIssue = defaultCloseIssue) {
+  const valid = validIssueNumber(String(number));
+  if (valid === null) throw new Error('cannot clean up an invalid GitHub issue number');
+  return closeIssue(valid);
+}
+
 function defaultCreateIssue(title) {
   const body = [
     '## What was observed',
@@ -153,8 +179,10 @@ function defaultCreateIssue(title) {
       (verified.labels ?? []).some((entry) => entry.name === label),
     )
   ) {
+    const cleanedUp = closeCreatedIssue(number);
     throw new Error(
-      `allocate-work-item-id: created issue #${number}, but required labels could not be verified; refusing to allocate`,
+      `allocate-work-item-id: created issue #${number}, but required labels could not be verified; ` +
+        `refusing to allocate${cleanedUp ? ' (the newly created Issue was closed)' : ' (automatic cleanup failed; close the Issue manually)'}`,
     );
   }
   return { number, title };
@@ -595,9 +623,16 @@ function main(argv) {
 
   const claimed = collectClaimed(records, citations, issues);
   if (claimed.has(id)) {
+    let cleanup = '';
+    if (issueResolution.source === 'created') {
+      cleanup = closeCreatedIssue(issueNumber)
+        ? ` The newly created Issue #${issueNumber} was closed because allocation was refused.`
+        : ` Automatic cleanup of newly created Issue #${issueNumber} failed; close it manually.`;
+    }
     console.error(
       `allocate-work-item-id: ${id} is already claimed by a tracked record, citation, or Issue; ` +
-        'refusing to create a duplicate. Choose a different prefix or reconcile the existing item.',
+        'refusing to create a duplicate. Choose a different prefix or reconcile the existing item.' +
+        cleanup,
     );
     return 1;
   }

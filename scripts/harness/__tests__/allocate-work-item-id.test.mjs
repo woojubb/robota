@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   RECORD_ID_WIDTH,
   SENTINEL_FLOOR,
+  closeCreatedIssue,
   collectClaimed,
   idsFromCitations,
   idsFromIssues,
@@ -194,6 +195,12 @@ describe('the issue source', () => {
     expect(() =>
       resolveIssueNumber({ title: 'new title', dryRun: true, issueList: () => [] }),
     ).toThrow(/--dry-run cannot create/);
+  });
+
+  it('closes a newly created Issue when a later allocation safety check refuses it', () => {
+    const closed = [];
+    expect(closeCreatedIssue('2402', (number) => closed.push(number))).toBe(1);
+    expect(closed).toEqual(['2402']);
   });
 });
 
