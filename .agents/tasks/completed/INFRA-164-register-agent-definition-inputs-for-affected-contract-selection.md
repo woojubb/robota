@@ -51,6 +51,6 @@ The integration owner runs the final full CI-equivalent gate after completion ar
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-Author assessment, 2026-09-05: the assigned author read the complete user-execution-scenario-author role and evaluated INFRA-164 before implementation. Its entire effect is repository machinery (contract-test scheduling), not an unreachable product capability. No product surface or executability probe applies; engineering tests are not presented as a user scenario. This assessment confirms the earlier content-authored N/A rather than claiming the role review happened earlier.
+Author assessment, 2026-09-05: the assigned author read the complete user-execution-scenario-author role and evaluated INFRA-164 before implementation. Its entire effect is repository machinery (contract-test scheduling), not an unreachable product capability. No product surface or executability probe applies; engineering tests are not presented as a user execution test scenario. This assessment confirms the earlier content-authored N/A rather than claiming the role review happened earlier.
 
-**Reason:** This change affects repository-internal contract-test selection metadata, not a shipped CLI, SDK, browser or core package behavior. Real registry and selector regression tests cover the execution-planning boundary; no product user scenario is introduced.
+**Reason:** This change affects repository-internal contract-test selection metadata, not a shipped CLI, SDK, browser or core package behavior. Real registry and selector regression tests cover the execution-planning boundary; no product user execution test scenario is introduced.
