@@ -33,6 +33,7 @@ import {
   validateWorkRunMeasurement,
   validateWorkRunReceipt,
 } from '../work-run-validation.mjs';
+import { validatePostPrGeneration } from '../work-run-post-pr-validation.mjs';
 import { createWorkRunVerificationRuntime } from '../work-run-verification-runtime.mjs';
 
 const identity = {
@@ -1064,6 +1065,65 @@ describe('work-run validation', () => {
         }),
       }),
     ).toEqual({ ok: false, reason: 'post-pr-local-fix' });
+  });
+
+  it('accepts a pre-receipt fix only when it retains the previous generation receipt binding', () => {
+    const authorization = trustedAuthorization({ head: 'a'.repeat(40) });
+    const events = receiptEvents({ generation: 1, authorization });
+    const receipt = {
+      runId: 'run-1',
+      generation: 1,
+      revision: 0,
+      authorization,
+      events,
+    };
+    const context = {
+      currentPrNumber: 42,
+      receipt,
+      baseCommit: 'b'.repeat(40),
+      actual: {
+        commitOids: ['a'.repeat(40), 'c'.repeat(40), 'd'.repeat(40)],
+      },
+      messages: new Map([
+        ['a'.repeat(40), 'reviewed head'],
+        ['c'.repeat(40), 'fix\n\nWork-Run: run-1\nWork-Receipt: g0-r0'],
+        ['d'.repeat(40), 'generation\n\nWork-Run: run-1\nWork-Receipt: g1-r0'],
+      ]),
+      liveAuthorizations: new Map([[authorization.commentId, authorization]]),
+    };
+
+    expect(validatePostPrGeneration(context)).toEqual({ ok: true });
+  });
+
+  it('rejects an unbound commit between the approved head and the generation receipt', () => {
+    const authorization = trustedAuthorization({ head: 'a'.repeat(40) });
+    const events = receiptEvents({ generation: 1, authorization });
+    const receipt = {
+      runId: 'run-1',
+      generation: 1,
+      revision: 0,
+      authorization,
+      events,
+    };
+    const context = {
+      currentPrNumber: 42,
+      receipt,
+      baseCommit: 'b'.repeat(40),
+      actual: {
+        commitOids: ['a'.repeat(40), 'c'.repeat(40), 'd'.repeat(40)],
+      },
+      messages: new Map([
+        ['a'.repeat(40), 'reviewed head'],
+        ['c'.repeat(40), 'unbound commit\n\nWork-Run: run-1\nWork-Receipt: g0-r99'],
+        ['d'.repeat(40), 'generation\n\nWork-Run: run-1\nWork-Receipt: g1-r0'],
+      ]),
+      liveAuthorizations: new Map([[authorization.commentId, authorization]]),
+    };
+
+    expect(validatePostPrGeneration(context)).toEqual({
+      ok: false,
+      reason: 'authorization-head-mismatch',
+    });
   });
 
   it('accepts a later generation whose opening receipt is g0-r1', () => {

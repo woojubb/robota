@@ -252,7 +252,9 @@ function evidenceRunner(
     }
     if (endpoint.includes('/comments?')) {
       const commentHead = /\/commits\/([0-9a-f]+)\/comments\?/u.exec(endpoint)?.[1];
-      return response(commentHead === openedHead ? [openingComment(openedHead)] : []);
+      return response(
+        commentHead === undefined || commentHead === openedHead ? [openingComment(openedHead)] : [],
+      );
     }
     if (endpoint.includes('/contents/')) {
       return response({
@@ -314,7 +316,29 @@ describe('pull-request head evidence', () => {
     });
   });
 
-  it('checks the newest generation-zero candidate first and stops after its seal is found', () => {
+  it('fails closed when two generation-zero candidates are both sealed', () => {
+    const older = '1'.repeat(40);
+    const newer = '2'.repeat(40);
+    const checked = [];
+    expect(() =>
+      resolveAttestedOpeningHeadFromHistory({
+        timeline: [
+          committed(older, g0Message('older'), [OPENING_PARENT]),
+          committed(newer, g0Message('newer'), [OPENING_PARENT]),
+        ],
+        loadCommit: () => {
+          throw new Error('must not hydrate an already visible opening closure');
+        },
+        isAttested: ({ headOid }) => {
+          checked.push(headOid);
+          return headOid === newer || headOid === older;
+        },
+      }),
+    ).toThrow(/ambiguous/u);
+    expect(checked).toEqual([newer, older]);
+  });
+
+  it('uses a batch attestation result while retaining ambiguity detection', () => {
     const older = '1'.repeat(40);
     const newer = '2'.repeat(40);
     const checked = [];
@@ -327,13 +351,16 @@ describe('pull-request head evidence', () => {
         loadCommit: () => {
           throw new Error('must not hydrate an already visible opening closure');
         },
-        isAttested: ({ headOid }) => {
-          checked.push(headOid);
-          return headOid === newer;
+        isAttested: () => {
+          throw new Error('single-candidate fallback must not run');
+        },
+        isAttestedBatch: (candidates) => {
+          checked.push(...candidates.map(({ headOid }) => headOid));
+          return [candidates[0]];
         },
       }),
     ).toEqual({ headOid: newer, runId: 'run-1' });
-    expect(checked).toEqual([newer]);
+    expect(checked).toEqual([newer, older]);
   });
 
   it('fetches g0-r2 opening evidence end to end', () => {

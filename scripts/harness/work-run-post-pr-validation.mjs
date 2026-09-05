@@ -6,6 +6,7 @@ import {
   tryGit,
   tryGitBytes,
 } from './work-run-git-adapter.mjs';
+import { exactWorkRunReceiptTrailers } from './work-run-commit-trailers.mjs';
 import { historicalRebaseSuffixMatches } from './work-run-historical-rebase-suffix.mjs';
 import {
   ensureRebaseCommitAvailable,
@@ -146,6 +147,22 @@ export function validatePostPrGeneration(context, receipt = context.receipt) {
     );
   });
   const authorizationIndex = actual.commitOids.indexOf(receipt.authorization.head);
+  const previousGenerationReady = receipt.events.findLast(
+    (event) => event.type === 'work.ready' && event.data?.generation < receipt.generation,
+  );
+  const previousGenerationReceipt = previousGenerationReady
+    ? `g${previousGenerationReady.data.generation}-r${previousGenerationReady.data.revision}`
+    : null;
+  const preGenerationFixesAreBound =
+    previousGenerationReceipt !== null &&
+    actual.commitOids.slice(authorizationIndex + 1, firstGenerationIndex).every((oid) => {
+      try {
+        const trailers = exactWorkRunReceiptTrailers(messages.get(oid) ?? '');
+        return trailers.runId === receipt.runId && trailers.receiptId === previousGenerationReceipt;
+      } catch {
+        return false;
+      }
+    });
   // A fix may be committed after the approved PR head but before the first generation receipt is
   // closed. In that valid sequence the receipt trailer on the fix is still the previous generation,
   // so the immediate boundary is later than the approved head. The live PR evidence already binds
@@ -154,7 +171,8 @@ export function validatePostPrGeneration(context, receipt = context.receipt) {
   const authorizationPrecedesGeneration =
     receipt.authorization.action === 'push' &&
     authorizationIndex >= 0 &&
-    firstGenerationIndex > authorizationIndex;
+    firstGenerationIndex > authorizationIndex &&
+    preGenerationFixesAreBound;
   const matches =
     receipt.authorization.action === 'rebase'
       ? boundary !== null && rebaseProofMatches(root, receipt, boundary, baseCommit, runtime)

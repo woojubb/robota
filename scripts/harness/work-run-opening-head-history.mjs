@@ -122,18 +122,24 @@ function hydrateForcePushAncestors(timeline, commits, loadCommit, loadCommits) {
   }
 }
 
-function attestedCandidates(commits, expectedRunId, isAttested) {
-  // The opening seal is attached to the final generation-zero closure before the PR is opened.
-  // Check that newest candidate first and stop on the first valid seal: each REST lookup costs a
-  // separate GitHub process, and serially probing every historical receipt can exhaust the bounded
-  // verification budget before reaching the actual opening head. A duplicate seal on one commit is
-  // still rejected by `attestedOpeningHead`; older candidates are only queried when newer ones are
-  // not sealed.
+function attestedCandidates(commits, expectedRunId, isAttested, isAttestedBatch) {
   const candidates = initialReceiptHeads(commits, expectedRunId);
-  for (const candidate of candidates.reverse()) {
-    if (isAttested(candidate)) return [candidate];
+  if (typeof isAttestedBatch === 'function') {
+    const result = isAttestedBatch([...candidates].reverse());
+    if (!Array.isArray(result)) {
+      throw evidenceFailure(
+        'opening-head-history-invalid',
+        'Opening-head attestation result is invalid',
+      );
+    }
+    const attested = new Set(result.map((candidate) => candidate?.headOid));
+    return candidates.filter((candidate) => attested.has(candidate.headOid));
   }
-  return [];
+  // The opening seal is attached to the final generation-zero closure before the PR is opened.
+  // Check newest first for the common case, but continue through every candidate so two valid seals
+  // remain an ambiguity rather than being silently resolved by recency. Callers that can batch the
+  // remote lookups should provide `isAttestedBatch` to keep this fail-closed check within budget.
+  return candidates.reverse().filter((candidate) => isAttested(candidate));
 }
 
 export function resolveAttestedOpeningHeadFromHistory({
@@ -142,6 +148,7 @@ export function resolveAttestedOpeningHeadFromHistory({
   loadCommit = null,
   loadCommits = null,
   isAttested,
+  isAttestedBatch = null,
 }) {
   if (
     !Array.isArray(timeline) ||
@@ -154,10 +161,10 @@ export function resolveAttestedOpeningHeadFromHistory({
     );
   }
   const commits = timelineCommits(timeline);
-  let attested = attestedCandidates(commits, expectedRunId, isAttested);
+  let attested = attestedCandidates(commits, expectedRunId, isAttested, isAttestedBatch);
   if (attested.length === 0) {
     hydrateForcePushAncestors(timeline, commits, loadCommit, loadCommits);
-    attested = attestedCandidates(commits, expectedRunId, isAttested);
+    attested = attestedCandidates(commits, expectedRunId, isAttested, isAttestedBatch);
   }
   if (attested.length !== 1) {
     throw evidenceFailure(
