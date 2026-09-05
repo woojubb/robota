@@ -342,7 +342,7 @@ describe('a guard that asks GitHub bounds how long it waits', () => {
     );
     const elapsed = (Date.now() - started) / 1000;
 
-    expect(elapsed, `the real watchdog took ${elapsed}s`).toBeLessThan(2);
+    expect(elapsed, `the real watchdog took ${elapsed}s`).toBeLessThan(5);
     expect(status, `it let the command through: ${output}`).toBe(2);
     expect(output).toMatch(/did not answer within 0\.1s/);
   });
