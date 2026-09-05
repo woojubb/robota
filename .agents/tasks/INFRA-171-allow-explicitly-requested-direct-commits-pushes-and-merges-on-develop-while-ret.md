@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections'
-status: todo
+status: in-progress
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -19,9 +19,8 @@ Align the branch-policy document and local commit guard with the maintainer-auth
 
 ## Plan
 
-- [x] Update the branch-policy wording.
-- [x] Permit `develop` in the command-string and git-native commit guards.
-- [x] Run focused shell checks and the repository scan.
+- [ ] TC-01: Update the branch-policy wording and both local commit guards.
+- [ ] TC-02: Run focused assertions and the repository scan.
 
 ## User Execution Test Scenarios
 

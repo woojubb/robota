@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [cli, typescript]
 lane: L2
@@ -40,6 +40,8 @@ Choose alternative 2 because the requested workflow must be represented consiste
 the Claude command guard, and the Git-native pre-commit guard. Push and merge behavior already
 allows `develop`; `main` and `master` remain blocked.
 
+**Delivery mode:** `single`
+
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료
@@ -78,7 +80,7 @@ verification, and review requirements.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` — todo
+- [ ] `.agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` — in-progress
 
 ## Evidence Log
 
@@ -155,3 +157,39 @@ verification, and review requirements.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md` blob `7f612a66efe1` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: the planning checkpoint was approved in the merged planning PR.
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: the paired INFRA-171 Task exists.
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: the exact paired Task path is recorded above.
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria: the Task records TC-01 and TC-02 for the two spec criteria.
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` section with ≥50 chars: the Task test plan describes focused assertions and repository scanning.
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `SCENARIO DRAFTED: not-applicable | 0`.
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired spec/Task inventory: implementation changes remain unstaged until this checkpoint is committed.
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md",
+  "taskItems": [
+    { "kind": "tc-id", "value": "TC-01" },
+    { "kind": "tc-id", "value": "TC-02" }
+  ],
+  "plan": { "outcome": "not-applicable", "count": 0 },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md",
+    ".agents/tasks/INFRA-171-allow-explicitly-requested-direct-commits-pushes-and-merges-on-develop-while-ret.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
