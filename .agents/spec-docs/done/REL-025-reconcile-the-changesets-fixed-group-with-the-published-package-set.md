@@ -671,3 +671,30 @@ warnings with 0 errors. The mirror is therefore stricter than the checks it mirr
 so the required CI check for it lints nothing at all. The literal was introduced by `cbb906bf7`. The
 second is `task-merged-citation`, advisory in `pr` context, which reports STRUCT-012 as `in-progress`
 while `e965f4fd4` on `origin/develop` cites it; both the record and the commit predate this branch.
+
+### [VERIFICATION] — delivery supplement: whole-workspace lint ceiling | 2026-09-05
+
+The first full `pnpm harness:verify-like-ci` run on this branch failed one stage of eleven,
+`package-quality`, for a reason this item does not touch. That stage runs an eslint over
+`packages apps` — the whole workspace — and carried `--max-warnings 2203` as its own literal. 2203
+is the subset ceiling `workspace-execution-plan.mjs` puts on the root-lint task it builds for a
+run's affected directories. The whole-workspace ceiling is declared by the root `lint` script and
+frozen in `lint-warning-baseline.json`, both at 2356, and the tree measures 2353 warnings with 0
+errors. So the same eslint invocation ran twice inside the one stage and disagreed with itself:
+green at 2356, red at 2203. This item's diff resolves to zero affected package scopes, which the
+stage's own note reports as "CI verifies none either", so the local mirror was failing on a ceiling
+no required check applies at that scope.
+
+The fix reads the ceiling through `ceilingIn`, the function
+`scan-lint-ceiling-declared-vs-frozen.mjs` already exports, rather than re-syncing a fourth copy by
+hand. No ceiling was raised: 2356 and the frozen baseline are untouched, and the subset ceiling in
+`workspace-execution-plan.mjs` is a separate number on a separate scope and was deliberately left
+alone. The accompanying test pins the expectation to the manifest instead of to a number, so a
+diverging literal goes red; RED was observed as `expected '2203' to be '2356'` before GREEN.
+
+The same run also failed one test, `stream-with-abort.test.ts` case "yields to macrotask queue
+periodically", with `expected 0 to be greater than 0`. Run alone it passes. The stage executes
+test, typecheck and two lints concurrently, and the case measures wall-clock yielding, so it is
+load-sensitive rather than a regression of this change, which touches no runtime source. It is
+recorded here rather than silently re-run, and is reported for its own repair at
+`/tmp/robota-issues/round2/HARNESS-BLOCKERS-AND-PLAYBOOK.md` as H6.
