@@ -122,6 +122,11 @@ None
 
 ## User Execution Test Scenarios
 
+Not applicable.
+
+**Reason:** This change updates repository-authoring and harness verification workflows; it does not
+deliver a product-facing command, API, TUI, browser, or end-user behavior scenario.
+
 <!-- One scenario per user-observable surface this change delivers: the exact command a user runs,
      the observable result, and the evidence file. A scenario exercises the implemented code path;
      reading a document to prove the document is well written is not one (backlog-execution.md). -->
