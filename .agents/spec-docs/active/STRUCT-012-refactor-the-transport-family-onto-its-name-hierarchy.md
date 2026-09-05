@@ -1175,3 +1175,53 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `4b03d3248389` · base `origin/develop@4b03d3248389` · document `.agents/spec-docs/todo/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `384edb2eb500` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-05
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-05; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (13)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 1732 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "scripts/harness/check-dependency-direction.mjs",
+    "scripts/harness/family-sibling-baseline.json",
+    "packages/agent-transport/package.json",
+    "packages/agent-transport/src/index.ts",
+    "packages/agent-framework/src/index.ts",
+    "packages/agent-transport-ws/package.json",
+    "packages/agent-transport-gui/package.json",
+    ".agents/project-structure.md",
+    "ARCHITECTURE.md"
+  ],
+  "priorPass": "sha256:4994a15261fb3c2d374128da124f14510822e3bec0d58b8175700bb0cbecdad1",
+  "ancestorSha": "73b53e35c3f18f5cec15c29f491e2eaeeeaa0c18",
+  "taskPath": ".agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+  "specPath": ".agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/loop-runs/backlog-execution-orchestrator.jsonl",
+    ".agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+    ".agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged at:** HEAD `73b53e35c3f1` · base `origin/develop@73b53e35c3f1` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `593c6cb199d0` (tracked)
