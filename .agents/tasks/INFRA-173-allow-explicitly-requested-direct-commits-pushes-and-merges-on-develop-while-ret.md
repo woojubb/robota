@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections'
+title: 'INFRA-173: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections'
 status: in-progress
 created: 2026-09-06
 priority: medium
@@ -9,7 +9,7 @@ depends_on: []
 no-issue: repository policy alignment requested directly by the maintainer; no GitHub issue is the source record
 ---
 
-# INFRA-171: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections
+# INFRA-173: Allow explicitly requested direct commits, pushes, and merges on develop while retaining main/master protections
 
 ## Objective
 
@@ -19,9 +19,8 @@ Align the branch-policy document and local commit guard with the maintainer-auth
 
 ## Plan
 
-- [ ] Update the branch-policy wording.
-- [ ] Permit `develop` in the command-string and git-native commit guards.
-- [ ] Run focused shell checks and the repository scan.
+- [ ] TC-01: Update the branch-policy wording and both local commit guards.
+- [ ] TC-02: Run focused assertions and the repository scan.
 
 ## User Execution Test Scenarios
 
