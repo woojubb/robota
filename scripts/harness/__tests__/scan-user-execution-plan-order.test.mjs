@@ -28,6 +28,7 @@ import {
   parseUserExecutionPlanContract,
   validateTaskUserExecutionPlan,
 } from '../user-execution-plan-contract.mjs';
+import { l0GroundDecision } from '../plan-order-records.mjs';
 
 const TASK_ID = 'HARNESS-900-plan-order-fixture';
 const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
@@ -4757,3 +4758,67 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
 
 // harness-coverage: gate-implement-correction-validation.mjs
 // harness-coverage: gate-implement-entry-results.mjs
+
+describe('the refusal carries why the L0 ground did not apply (issue #2597)', () => {
+  // The refusal a caller emits when this returns `problem: null` is
+  // "staged implementation has no planning checkpoint ancestor" — which is false whenever a pending
+  // planning unit exists. The reason is computed here and must reach the reader rather than be
+  // discarded, or an L1/L2 unit whose checkpoint the walk did not recognise reads as having no
+  // checkpoint at all. That is the silent trap issue #2597 was filed for.
+  const planSignal = () => ({ outcome: 'not-applicable', count: 0 });
+  const laneRuleText = null;
+
+  it('surfaces the spec-document reason instead of discarding it', () => {
+    const basename = 'INFRA-999-fixture.md';
+    const textBefore = (file) =>
+      file === `.agents/tasks/${basename}`
+        ? '## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n'
+        : file === `.agents/spec-docs/todo/${basename}`
+          ? '---\nstatus: approved\n---\n'
+          : null;
+
+    const decision = l0GroundDecision({
+      pending: basename,
+      proven: null,
+      paths: ['scripts/harness/example.mjs'],
+      textBefore,
+      laneRuleText,
+      planSignal,
+    });
+
+    expect(decision.grounded).toBe(false);
+    // `problem` stays null: eight named tests contract "no planning checkpoint ancestor" as the
+    // verdict for an unrecognised checkpoint, and that verdict is right. The reason rides alongside.
+    expect(decision.problem).toBeNull();
+    expect(decision.reason).toBeDefined();
+    expect(decision.reason).toContain(basename);
+    expect(decision.reason).toContain('.agents/spec-docs/todo/');
+  });
+
+  it('still says nothing when there is no pending unit at all — the generic refusal is correct there', () => {
+    const decision = l0GroundDecision({
+      pending: null,
+      proven: null,
+      paths: ['scripts/harness/example.mjs'],
+      textBefore: () => null,
+      laneRuleText,
+      planSignal,
+    });
+
+    expect(decision).toEqual({ grounded: false, problem: null });
+    expect(decision.reason).toBeUndefined();
+  });
+
+  it('names the missing Task rather than the spec when the pending unit has no record', () => {
+    const decision = l0GroundDecision({
+      pending: 'INFRA-998-fixture.md',
+      proven: null,
+      paths: ['scripts/harness/example.mjs'],
+      textBefore: () => null,
+      laneRuleText,
+      planSignal,
+    });
+
+    expect(decision.reason).toContain('no Task record to ground on');
+  });
+});

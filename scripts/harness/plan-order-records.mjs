@@ -228,8 +228,14 @@ function laneFloorAboveL0(paths, ruleText) {
 export function l0GroundDecision({ pending, proven, paths, textBefore, laneRuleText, planSignal }) {
   const ground = proven ?? pending ?? null;
   if (ground === null) return { grounded: false, problem: null };
-  if (ground !== proven && l0GroundProblems(ground, textBefore, planSignal).length > 0) {
-    return { grounded: false, problem: null };
+  if (ground !== proven) {
+    // `problem` stays null here on purpose: eight named tests contract that a malformed or absent
+    // checkpoint is refused as "no planning checkpoint ancestor", and that IS the accurate answer —
+    // a checkpoint that does not parse is not a checkpoint. What was missing is WHY, which this
+    // computes and used to discard, sending the reader to look for a checkpoint that is right there
+    // but unrecognised (issue #2597). `reason` carries it alongside, for the caller to append.
+    const problems = l0GroundProblems(ground, textBefore, planSignal);
+    if (problems.length > 0) return { grounded: false, problem: null, reason: problems.join(' ') };
   }
   const floorProblem = laneFloorAboveL0(paths, laneRuleText);
   return floorProblem === null
