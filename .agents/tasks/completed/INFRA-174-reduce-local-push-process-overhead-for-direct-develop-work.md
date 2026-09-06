@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-174: reduce local push process overhead for direct-develop work'
-status: todo
+status: done
 created: 2026-09-06
+completed: 2026-09-06
 priority: medium
 urgency: soon
 area: scripts/harness
