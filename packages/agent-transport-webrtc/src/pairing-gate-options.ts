@@ -16,6 +16,7 @@ import type {
 } from '@robota-sdk/agent-remote-pairing';
 import type {
   IProtocolSession,
+  IWsHandlerOptions,
   SessionResumeBridge,
   createWsHandler,
 } from '@robota-sdk/agent-transport-protocol';
@@ -73,6 +74,12 @@ export interface IPairingGateOptions {
    * (never disposes — the bridge is owned by the transport across reconnects).
    */
   readonly resumeBridge?: SessionResumeBridge;
+  /** Host-owned usage read models exposed only after this gate accepts. */
+  readonly personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: IWsHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
+  /** Trusted carrier-owned surface; WebRTC assigns `remote`. */
+  readonly surface?: IWsHandlerOptions['surface'];
   /**
    * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
    *

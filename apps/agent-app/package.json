@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "xvfb-run -a node e2e/run-e2e.mjs",
+    "test:e2e:usage": "node e2e/usage-dashboard.mjs",
     "test:e2e:bundled": "node e2e/bundled-runtime-e2e.mjs",
     "lint": "eslint . --max-warnings 0"
   },

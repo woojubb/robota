@@ -17,6 +17,13 @@ export { formatSingleSession, formatAggregateReport, formatUsageReport } from '.
 
 // ANALYTICS-001: source-attributed token-usage analysis.
 export { summarizeUsageBySource } from './usage.js';
+export { summarizePersonalUsage } from './personal-usage.js';
+export { formatPersonalUsageReport } from './personal-usage-format.js';
+export type { IPersonalUsageSnapshot } from './personal-usage.js';
+export type {
+  IPersonalUsageReport,
+  IPersonalUsageRequest,
+} from '@robota-sdk/agent-interface-analytics';
 export type {
   TUsageAnalysisInput,
   IUsageSourceTotals,

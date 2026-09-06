@@ -161,6 +161,10 @@ The same directive can be set agent-wide via `defaultModel.toolChoice`.
 
 Provider-specific SDK payload capture remains provider-owned. Providers may call `IChatOptions.onProviderNativeRawPayload` with exact SDK request, response, or stream event objects; `Robota` forwards those callbacks as provider-neutral `provider_native_raw_payload` execution events without importing concrete provider SDK types. `provider_response_raw.responseKind` remains `provider-normalized-message`, which keeps common replay validation provider-neutral.
 
+Each provider round also receives a `usageObservationId` before invocation. Streaming fragments from
+that round reuse the identifier, while a separately billed round receives a new one. Persisted
+analytics can therefore deduplicate provider usage by identity without collapsing equal token totals.
+
 ## IAgentConfig
 
 | Field                   | Type                       | Description                    |

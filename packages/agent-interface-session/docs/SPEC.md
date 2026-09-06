@@ -55,7 +55,7 @@ symbols also redesign their composition.
 | `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`       | `src/session-contracts.ts`            | goal, plan and branch state carried on a session        |
 | `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`        | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union |
 | `ISkillActivationEvent`, `IMemoryEvent`, `IContextReferenceItem` | `src/event-contracts.ts`              | session-event payloads                                  |
-| `TDriverId`, `ISubmitOptions`, `IUiIntentEvent`                  | `src/driver-contracts.ts`             | driver identity and driver-routed events                |
+| `TDriverId`, `ISubmitOptions`, `IUiIntentEvent`                  | `src/driver-contracts.ts`             | driver identity, trusted usage surface, and routed events |
 | `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`            | `src/turn-contracts.ts`               | one turn's handle and outcome                           |
 | `ICompactEvent`, `TCompactTrigger`                               | `src/compact-contracts.ts`            | context compaction                                      |
 | `IResumableSessionSummary`                                       | `src/session-summary-contracts.ts`    | the resume-list projection                              |

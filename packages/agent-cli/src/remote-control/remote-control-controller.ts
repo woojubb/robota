@@ -9,6 +9,12 @@ import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
 import { defaultCreateTransport } from './default-transport-factory.js';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+
+type TUsageReporters = Pick<
+  IWsHandlerOptions,
+  'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
 
 import { hasTurnServer } from './ice-config.js';
 
@@ -74,9 +80,13 @@ export interface IRemoteControlControllerDeps {
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
     resumeBridge?: SessionResumeBridge,
+    localPeer?: import('@robota-sdk/agent-transport-webrtc').ILocalPeerProof,
+    usageReporters?: TUsageReporters,
   ) => IConfigurableTransport<IInteractiveSession>;
   /** REMOTE-013 E4: build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
   createResumeBridge?: (session: IInteractiveSession) => SessionResumeBridge;
+  /** Host-owned usage reporters shared by every admitted transport surface. */
+  usageReporters?: TUsageReporters;
   /** REMOTE-013 E4: relay URL for reconnect signaling (defaults to `readRelayUrl`). */
   now?: () => number;
   /** REMOTE-013 E4: schedule a deferred callback (default `setTimeout`); tests inject a controllable fake. */
@@ -178,7 +188,13 @@ export class RemoteControlController {
     this.reconnectConfig = reconnect;
     if (reconnect && !this.bridge) {
       this.bridge = (
-        this.deps.createResumeBridge ?? ((s) => new SessionResumeBridge({ session: s }))
+        this.deps.createResumeBridge ??
+        ((s) =>
+          new SessionResumeBridge({
+            session: s,
+            surface: 'remote',
+            ...this.deps.usageReporters,
+          }))
       )(session);
     }
 
@@ -211,6 +227,8 @@ export class RemoteControlController {
       this.iceConfig,
       reconnect,
       this.bridge,
+      undefined,
+      this.deps.usageReporters,
     );
 
     this.deps.registry.register(transport);
@@ -342,6 +360,8 @@ export class RemoteControlController {
       this.iceConfig,
       this.reconnectConfig,
       this.bridge,
+      undefined,
+      this.deps.usageReporters,
     );
     this.reconnectPeers.push(peer);
     this.reconnectSignalings.push(signaling);

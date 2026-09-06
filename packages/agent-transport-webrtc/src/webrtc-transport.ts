@@ -178,6 +178,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       ...(this.options.reconnect ? { reconnect: this.options.reconnect } : {}),
       ...(this.options.localPeer ? { localPeer: this.options.localPeer } : {}),
       ...(this.options.resumeBridge ? { resumeBridge: this.options.resumeBridge } : {}),
+      ...(this.options.personalUsageReporter
+        ? { personalUsageReporter: this.options.personalUsageReporter }
+        : {}),
+      ...(this.options.usageReporter ? { usageReporter: this.options.usageReporter } : {}),
+      ...(this.options.storedSessionUsageReporter
+        ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
+        : {}),
+      surface: 'remote',
       onDeliveryError: (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
     });
@@ -211,6 +219,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       deliver: createChannelDelivery(channel, (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
       ),
+      ...(this.options.personalUsageReporter
+        ? { personalUsageReporter: this.options.personalUsageReporter }
+        : {}),
+      ...(this.options.usageReporter ? { usageReporter: this.options.usageReporter } : {}),
+      ...(this.options.storedSessionUsageReporter
+        ? { storedSessionUsageReporter: this.options.storedSessionUsageReporter }
+        : {}),
+      surface: 'remote',
     });
     this.cleanupHandler = cleanup;
     channel.onMessage.subscribe((data) => {

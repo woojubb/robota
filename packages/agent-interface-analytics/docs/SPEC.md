@@ -13,7 +13,8 @@
 ## Scope
 
 This package owns the **usage and run-trace contracts**: how many tokens a turn consumed, what it
-cost, which execution unit it is attributed to, and the per-turn timeline a trace view renders.
+cost, which execution unit, model, provider, and product surface it is attributed to, the per-turn
+timeline a trace view renders, and the provider-neutral cross-session personal-usage report shape.
 
 It contains type declarations only. No class, no runtime logic, no mechanism.
 
@@ -47,22 +48,41 @@ ARCH-105 was a split rather than a move.
 
 ## Type Ownership
 
-| Type                             | Location                 | Purpose                                                                                         |
-| -------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `IUsageSnapshot`                 | `src/usage-contracts.ts` | one turn's token counts, context window and cost status                                         |
-| `IUsageSource`                   | `src/usage-contracts.ts` | which execution unit consumed it — main thread, subagent, background task, tool, command, skill |
-| `IUsageSourceTotals`             | `src/usage-contracts.ts` | one source's rolled-up totals and share                                                         |
-| `IUsageBySourceReport`           | `src/usage-contracts.ts` | the whole-session read model, including the timeline                                            |
-| `ISpanEntry`                     | `src/usage-contracts.ts` | one operation's duration, as recorded on the session timeline                                   |
-| `IRunTraceSpan`, `IRunTraceTurn` | `src/usage-contracts.ts` | the trace projection — spans grouped under their owning turn                                    |
+| Type                             | Location                 | Purpose                                                                                             |
+| -------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `IUsageSnapshot`                 | `src/usage-contracts.ts` | one turn's token counts, context window and cost status                                             |
+| `IUsageSource`                   | `src/usage-contracts.ts` | which execution unit consumed it — main thread, subagent, background task, tool, command, skill     |
+| `IUsageSourceTotals`             | `src/usage-contracts.ts` | one source's rolled-up totals and share                                                             |
+| `IUsageBySourceReport`           | `src/usage-contracts.ts` | the whole-session read model, including the timeline                                                |
+| `ISpanEntry`                     | `src/usage-contracts.ts` | one operation's duration, as recorded on the session timeline                                       |
+| `IRunTraceSpan`, `IRunTraceTurn` | `src/usage-contracts.ts` | the trace projection — spans grouped under their owning turn                                        |
+| `IPersonalUsageRequest`          | `src/usage-contracts.ts` | versioned 7/30-day calendar request with an explicit IANA timezone                                  |
+| `IPersonalUsageReport`           | `src/usage-contracts.ts` | content-free cross-session totals, daily buckets, dimensions, contributor session IDs, and coverage |
+| `IPersonalUsageCoverage`         | `src/usage-contracts.ts` | legacy, corrupt, unsupported, duplicate, and attribution confidence counters                        |
+| `IPersonalUsageActivity`         | `src/usage-contracts.ts` | privacy-safe tool, skill, and plugin activation counts                                              |
 
-7 declarations. `src/index.ts` is the single entry point; there is no subpath export.
+`src/index.ts` is the single entry point; there is no subpath export.
 
 ## Public API Surface
 
-| Export           | Kind | Description                               |
-| ---------------- | ---- | ----------------------------------------- |
-| every name above | type | contract declarations; see Type Ownership |
+| Export                     | Kind | Description                                      |
+| -------------------------- | ---- | ------------------------------------------------ |
+| `IUsageSource`             | type | execution-source attribution contract            |
+| `IUsageSnapshot`           | type | per-turn token, context, and cost snapshot        |
+| `ISpanEntry`               | type | one recorded trace operation                      |
+| `IUsageSourceTotals`       | type | aggregate for one execution source                |
+| `IRunTraceSpan`            | type | span projected into a run trace                   |
+| `IRunTraceTurn`            | type | trace spans grouped under one turn                |
+| `IUsageBySourceReport`     | type | current or stored-session usage report            |
+| `IUsageObservation`        | type | canonical, deduplicable provider-usage observation |
+| `TUsageSurface`            | type | trusted product-surface attribution vocabulary     |
+| `IPersonalUsageRequest`    | type | period and timezone request                       |
+| `IPersonalUsageTotals`     | type | cross-session totals and cost confidence          |
+| `IPersonalUsageDimension`  | type | one grouped attribution row                       |
+| `IPersonalUsageActivity`   | type | privacy-safe tool/skill/plugin count              |
+| `IPersonalUsageDay`        | type | one complete local-calendar bucket                |
+| `IPersonalUsageCoverage`   | type | incomplete/legacy/duplicate coverage diagnostics  |
+| `IPersonalUsageReport`     | type | versioned provider-neutral personal usage report  |
 
 **No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
 vocabulary and its discriminators, and this package needs neither.
@@ -84,10 +104,8 @@ failure — an unpriced model yields `unknown` and no `costUsd`, and that is a n
 
 ## Test Strategy
 
-`src/__tests__/contracts.test.ts` asserts the exported shapes. Four of the seven had **no assertion
-anywhere** before this package existed — only `IUsageSnapshot` was covered, incidentally, in the
-transport package's contract test. Extracting the family was the moment that became visible, and they
-are covered now.
+`src/__tests__/contracts.test.ts` asserts the exported shapes, including the provider-round observation
+identity and the contributor session IDs carried by day/dimension aggregates for privacy-safe drill-down.
 
 Beyond that the package declares types and exports no behavior, so the remaining assertion available
 is that it compiles, which `pnpm typecheck` makes on every run. The contracts are exercised by

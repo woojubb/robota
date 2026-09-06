@@ -29,6 +29,12 @@ import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type {
+  IPersonalUsageReport,
+  IPersonalUsageRequest,
+} from '@robota-sdk/agent-session-analytics';
+import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
+import type { IProtocolSession, IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
 
 /**
  * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
@@ -57,9 +63,18 @@ export function loadReplayProvider(logFile: string): IAIProvider {
  * product-assembly decision, so the shell wires `WsTransport` here and injects the registry into the
  * profile as a read-only view — the neutral assembler never imports a concrete transport.
  */
-export function createDefaultTransportRegistry(): {
+export function createDefaultTransportRegistry(
+  personalUsageReporter?: (request: IPersonalUsageRequest) => IPersonalUsageReport,
+  storedSessionUsageReporter?: (sessionId: string) => ReturnType<typeof summarizeUsageBySource>,
+  driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
+  surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
+): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
+  usageReporters: Pick<
+    IWsHandlerOptions,
+    'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+  >;
 } {
   const registry = new TransportRegistry(getUserSettingsPath());
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
@@ -69,14 +84,41 @@ export function createDefaultTransportRegistry(): {
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
+  const usageReporter = (session: IProtocolSession): ReturnType<typeof summarizeUsageBySource> => {
+    const subject = session as IProtocolSession & {
+      getFullHistory?: () => import('@robota-sdk/agent-core').IHistoryEntry[];
+      getSession?: () => { getSessionId(): string };
+    };
+    if (!subject.getFullHistory || !subject.getSession) {
+      throw new Error('The attached session does not expose usage history.');
+    }
+    return summarizeUsageBySource({
+      id: subject.getSession().getSessionId(),
+      history: subject.getFullHistory(),
+    });
+  };
   const wsTransport = new WsTransport({
     ...(wsToken ? { token: wsToken } : {}),
+    ...(wsToken ? { allowedOrigins: ['file://'] } : {}),
     ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
+    ...(personalUsageReporter ? { personalUsageReporter } : {}),
+    ...(storedSessionUsageReporter ? { storedSessionUsageReporter } : {}),
+    ...(driverId ? { driverId } : {}),
+    ...(surface ? { surface } : {}),
+    usageReporter,
   });
   registry.register(wsTransport);
   // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
   // monitor's `ws-url` at the actual port.
-  return { registry, wsTransport };
+  return {
+    registry,
+    wsTransport,
+    usageReporters: {
+      ...(personalUsageReporter ? { personalUsageReporter } : {}),
+      usageReporter,
+      ...(storedSessionUsageReporter ? { storedSessionUsageReporter } : {}),
+    },
+  };
 }
 
 /**

@@ -397,8 +397,12 @@ jobs:
           const required = process.env.FULL_VERIFICATION === 'true' || plan.scopes.some((scope) =>
             scope.checks.some((check) => checksRequiringPackageDist.has(check)),
           );
+          const agentAppRequired = process.env.FULL_VERIFICATION === 'true' || plan.scopes.some(
+            (scope) => scope.scope === 'apps/agent-app',
+          );
           appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
           appendFileSync(process.env.GITHUB_OUTPUT, `complete=${process.env.FULL_VERIFICATION === 'true' ? 'true' : 'false'}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `agent_app_required=${agentAppRequired ? 'true' : 'false'}\n`);
 
           if (required) {
             console.log('Package or app verification requires the root monorepo build output.');
@@ -521,6 +525,17 @@ jobs:
       - name: Build-output contracts scan (dist-dependent)
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:scan:build-contracts
+
+      # ARCH-2164: these valid-wire product paths were previously exercised only by scripts that no
+      # required check invoked. Keep them inside the already-required build job and only select them
+      # when the affected-scope plan includes the desktop app (or verification fails closed to full).
+      - name: Desktop Electron session e2e
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.agent_app_required == 'true'
+        run: pnpm --filter @robota-sdk/agent-app test:e2e
+
+      - name: Desktop Electron usage and protocol reachability e2e
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.agent_app_required == 'true'
+        run: xvfb-run -a pnpm --filter @robota-sdk/agent-app test:e2e:usage
 
       - name: Binary e2e (agent-cli bintests, dist-dependent)
         if: env.CLI_APPLICABLE == 'true'

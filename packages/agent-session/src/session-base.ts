@@ -233,6 +233,10 @@ export abstract class SessionBase {
     return this.model;
   }
 
+  getProviderId(): string {
+    return this.aiProvider.name;
+  }
+
   /** Add an event entry to history (not a chat message) */
   addHistoryEntry(entry: IHistoryEntry): void {
     this.agent.addHistoryEntry(entry);

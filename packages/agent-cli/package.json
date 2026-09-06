@@ -60,6 +60,7 @@
     "build:bun:windows-x64": "bun scripts/build-bun.mjs windows-x64",
     "test:bun": "node scripts/e2e-bun-binary.mjs",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
+    "scenario:usage:verify": "pnpm exec tsx --conditions=source examples/verify-personal-usage.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-cli --output examples/scenarios/session-event-delivery.record.json -- pnpm scenario:verify"
   },
   "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports — kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",

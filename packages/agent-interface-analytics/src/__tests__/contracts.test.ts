@@ -2,6 +2,10 @@ import { describe, expectTypeOf, it } from 'vitest';
 
 import type {
   IRunTraceTurn,
+  IPersonalUsageReport,
+  IPersonalUsageActivity,
+  IPersonalUsageRequest,
+  IUsageObservation,
   IUsageBySourceReport,
   IUsageSnapshot,
   IUsageSource,
@@ -31,5 +35,14 @@ describe('analytics contract surface', () => {
     expectTypeOf<IUsageBySourceReport>().toHaveProperty('bySource');
     expectTypeOf<IUsageBySourceReport>().toHaveProperty('timeline');
     expectTypeOf<IRunTraceTurn>().toHaveProperty('spans');
+  });
+
+  it('exports cross-session usage request, observation, and report contracts', () => {
+    expectTypeOf<IPersonalUsageRequest>().toHaveProperty('period');
+    expectTypeOf<IUsageObservation>().toHaveProperty('usageObservationId');
+    expectTypeOf<IPersonalUsageReport>().toHaveProperty('daily');
+    expectTypeOf<IPersonalUsageReport>().toHaveProperty('coverage');
+    expectTypeOf<IPersonalUsageReport>().toHaveProperty('byActivity');
+    expectTypeOf<IPersonalUsageActivity>().toHaveProperty('count');
   });
 });

@@ -70,6 +70,12 @@ This package does NOT own: provider implementations, generic session run loop, t
 
 ## Architecture Overview
 
+Each accepted top-level interactive turn persists one content-free `usage-observation` history entry
+after acquiring the execution claim. The entry reuses the public `turnId` as its canonical observation
+identity, records success/failure/interruption independently of token availability, and carries the
+actual model plus per-turn driver surface when known. Never-run queued submissions produce no entry;
+existing `usage-summary` entries remain readable as legacy analytics input.
+
 `agent-framework` sits above `agent-core`, `agent-session`, `agent-tools`, and `agent-executor` and provides a single assembly surface for building AI agent applications. See the "Architecture" section below for the full package dependency chain and feature layout.
 
 Key design rules:
@@ -1366,7 +1372,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?, options?: ISubmitOptions)` — the
   exported concrete class accepts the same transport-owned public options contract as
-  `IInteractiveSession` (`driverId` only). `displayInput` overrides what appears in the client's
+  `IInteractiveSession` (`driverId` plus trusted product `surface`). Driver identity remains distinct
+  from usage-surface attribution. `displayInput` overrides what appears in the client's
   message list; `rawInput` is passed to `Session.run()` for hook matching. The implementation
   explicitly projects the public options shape, so runtime extra properties cannot become internal
   execution authority.

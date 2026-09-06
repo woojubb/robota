@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
+import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
+import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
@@ -13,44 +15,6 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
  * elements mirror the TUI: title bar + status strip, scrollable conversation column, background-activity
  * rail, composer with key hints, and the permission/ask modal.
  */
-
-const STATUS_DOT: Record<string, string> = {
-  connected: 'bg-primary status-glow',
-  connecting: 'bg-amber-400 animate-pulse',
-  disconnected: 'bg-zinc-600',
-  error: 'bg-rose-500',
-};
-
-/** Title bar: robota mark, live connection status (raw status text kept for tests), optional surface label. */
-function TitleBar({ status, surface }: { status: string; surface?: string }): React.ReactElement {
-  const dot = STATUS_DOT[status] ?? STATUS_DOT.disconnected;
-  return (
-    <header
-      className="agent-gui-status flex h-11 flex-shrink-0 items-center gap-3 border-b border-border/70 bg-card/40 px-4 backdrop-blur-sm"
-      data-status={status}
-    >
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-primary status-glow" />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.22em] text-foreground/90">
-          robota
-        </span>
-        {surface ? (
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
-            {surface}
-          </span>
-        ) : null}
-      </div>
-      <span className="text-border/70">/</span>
-      <div className="flex items-center gap-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-        <span className="font-mono text-[11px] text-muted-foreground">{status}</span>
-      </div>
-      <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/50">
-        <span className="rounded border border-border/60 px-1.5 py-0.5">local · owner</span>
-      </div>
-    </header>
-  );
-}
 
 /** Designed empty state shown before the first turn. */
 function EmptyState(): React.ReactElement {
@@ -125,10 +89,14 @@ function Composer({ onSubmit }: { onSubmit: (prompt: string) => void }): React.R
 export function SessionSurface({
   state,
   surface,
+  personalUsageEnabled = false,
 }: {
   state: IWsSessionState;
   surface?: string;
+  /** Desktop shells opt in; embedded/session-only surfaces keep their existing chat-only contract. */
+  personalUsageEnabled?: boolean;
 }): React.ReactElement {
+  const [view, setView] = useState<'chat' | 'usage'>('chat');
   const tasks = state.executionWorkspace?.entries ?? [];
   const hasTasks = tasks.length > 0;
   const isEmpty =
@@ -144,7 +112,13 @@ export function SessionSurface({
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TitleBar status={state.status} surface={surface} />
+      <SessionTitleBar
+        status={state.status}
+        surface={surface}
+        view={view}
+        onView={setView}
+        personalUsageEnabled={personalUsageEnabled}
+      />
 
       {uiIntentNotices.length > 0 && (
         <div className="flex flex-col gap-1 border-b border-border/50 bg-card/40 px-4 py-2">
@@ -169,29 +143,48 @@ export function SessionSurface({
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="gui-rise flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-hidden">
-            {isEmpty ? (
-              <EmptyState />
-            ) : (
-              <ConversationView
-                messages={state.messages}
-                activeTools={state.activeTools}
-                streamingText={state.streamingText}
-                isThinking={state.isThinking}
-              />
-            )}
-          </div>
-          <Composer onSubmit={(prompt) => state.send({ type: 'submit', prompt })} />
-        </div>
+      <SessionNotices state={state} />
 
-        {hasTasks && (
-          <aside className="w-72 flex-shrink-0 overflow-hidden border-l border-border/70 bg-card/15">
-            <AgentActivityPanel tasks={tasks} />
-          </aside>
-        )}
-      </div>
+      {personalUsageEnabled && view === 'usage' ? (
+        <div className="min-h-0 flex-1">
+          <PersonalUsageDashboard state={state} />
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="gui-rise flex min-w-0 flex-1 flex-col">
+            <div className="flex-1 overflow-hidden">
+              {isEmpty ? (
+                <EmptyState />
+              ) : (
+                <ConversationView
+                  messages={state.messages}
+                  activeTools={state.activeTools}
+                  streamingText={state.streamingText}
+                  isThinking={state.isThinking}
+                />
+              )}
+            </div>
+            <Composer
+              onSubmit={(prompt) => {
+                if (!prompt.startsWith('/')) {
+                  state.send({ type: 'submit', prompt });
+                  return;
+                }
+                const [name, ...rest] = prompt.slice(1).trim().split(/\s+/u);
+                if (!name) return;
+                const args = rest.join(' ');
+                state.send({ type: 'command', name, ...(args ? { args } : {}) });
+              }}
+            />
+          </div>
+
+          {hasTasks && (
+            <aside className="w-72 flex-shrink-0 overflow-hidden border-l border-border/70 bg-card/15">
+              <AgentActivityPanel tasks={tasks} />
+            </aside>
+          )}
+        </div>
+      )}
 
       <PermissionPrompt
         prompts={state.pendingPrompts}

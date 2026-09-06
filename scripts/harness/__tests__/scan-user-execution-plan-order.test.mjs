@@ -3371,6 +3371,7 @@ function stageAgreementPrelude(
     parentTaskTransform = (text) => text,
     specTransform = (text) => text,
     childTransform = (text) => text,
+    specFolder = 'draft',
   } = {},
 ) {
   const issue = 'https://github.com/woojubb/robota/issues/1987';
@@ -3398,7 +3399,7 @@ function stageAgreementPrelude(
   );
   write(
     root,
-    `.agents/spec-docs/draft/${AGREEMENT_PARENT}.md`,
+    `.agents/spec-docs/${specFolder}/${AGREEMENT_PARENT}.md`,
     specTransform(
       [
         '---',
@@ -3428,7 +3429,7 @@ function stageAgreementPrelude(
       ),
     );
   }
-  git(root, ['add', '.agents/tasks', '.agents/spec-docs/draft']);
+  git(root, ['add', '.agents/tasks', `.agents/spec-docs/${specFolder}`]);
 }
 
 describe('user-execution PLAN order — staged transaction', () => {
@@ -3445,6 +3446,22 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(findStagedFindings(root, base)).toEqual([]);
 
     commit(root, 'convert issue into atomic agreement manifest');
+
+    expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('accepts an atomic AGREEMENT manifest before its later L2 checkpoint', () => {
+    const { root, base } = repository();
+    stageAgreementPrelude(root, {
+      specFolder: 'todo',
+      specTransform: (text) => text.replace('status: draft', 'status: approved'),
+    });
+    commit(root, 'convert issue into atomic agreement manifest');
+
+    const active = `.agents/spec-docs/active/${AGREEMENT_PARENT}.md`;
+    write(root, `.agents/tasks/${AGREEMENT_PARENT}.md`, taskText({ subject: AGREEMENT_PARENT }));
+    write(root, active, specText({ subject: AGREEMENT_PARENT }));
+    commit(root, 'start agreement implementation');
 
     expect(findHistoryFindings(root, base)).toEqual([]);
   });

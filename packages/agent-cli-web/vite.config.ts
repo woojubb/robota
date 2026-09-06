@@ -10,25 +10,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      // The protocol package publishes one `.` entry and it is a NODE
-      // bundle: its barrel re-exports the two modules that import `node:crypto`, so a browser
-      // consumer of the transport GUI client pulls a Node builtin into this bundle and the build
-      // fails on `randomBytes` rather than on the import that asked for it. The package already
-      // carries a browser-safe barrel; this alias points the SPA at it.
-      //
-      // This is the containment, not the fix. Naming the browser entry in the package's own
-      // `exports` map is a published-contract change, which is a direct-owner decision
-      // (`backlog-execution.md` § "Never inside any class", item 2). Until that lands, every
-      // consumer OUTSIDE this repository still receives the Node bundle; the disposition is
-      // recorded on the issue this change closes.
-      '@robota-sdk/agent-transport-protocol': new URL(
-        '../agent-transport-protocol/src/browser.ts',
-        import.meta.url,
-      ).pathname,
-    },
-  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

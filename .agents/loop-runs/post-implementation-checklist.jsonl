@@ -8,3 +8,5 @@
 {"runId":"r20260829055801","opened":"2026-08-29T05:58:01.524Z","closed":"2026-08-29T06:01:12.378Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/todo/INFRA-141-make-multi-task-agreement-conversion-atomic-across-commit-ordering-and-issue-han.md"}
 {"runId":"r20260829092243","opened":"2026-08-29T09:22:43.383Z","closed":"2026-08-30T18:58:38.631Z","roundFindings":[5,0],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260830185838"}
 {"runId":"r20260830185838","opened":"2026-08-30T18:58:38.631Z","closed":"2026-08-30T19:40:39.850Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"OBSERVABILITY-002"}
+{"runId":"r20260906072107","opened":"2026-09-06T07:21:07.549Z","closed":"2026-09-06T08:59:53.247Z","roundFindings":[4,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260906090437","opened":"2026-09-06T09:04:37.251Z","closed":"2026-09-06T09:04:37.352Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":null}

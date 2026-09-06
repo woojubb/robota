@@ -34,7 +34,8 @@ Electron main (Node)                         robota sidecar (Node CLI)
         ▼ (renderer, Chromium)
    agent-transport-gui React presentation core
      useWsSession('ws://127.0.0.1:<port>?token=<nonce>')  ← token in query (browser WS can't set headers)
-     ConversationView + AgentActivityPanel + PermissionPrompt + composer
+   ConversationView + AgentActivityPanel + PermissionPrompt + composer
+   PersonalUsageDashboard (7/30-day cross-session read model; no prompt content)
 ```
 
 - **`electron/sidecar.ts`** — Electron-free logic (endpoint minting, spawn-arg building, `SidecarSupervisor`);
@@ -78,7 +79,8 @@ runtime) — enforced by review + the harness `deps` scan.
 - `electron/__tests__/sidecar.test.ts` — endpoint/token minting, spawn-arg building (token in env, not
   argv), and `SidecarSupervisor` (crash → fatal, ready, shutdown SIGTERM→SIGKILL, idempotent).
 - `src/__tests__/session-surface.test.tsx` — the compose-root renders the session over a stub
-  `IWsSessionState` and answers permission prompts, proving no session logic lives in the GUI.
+  `IWsSessionState`, answers permission prompts, enables the desktop-only Usage navigation, routes
+  slash commands, and renders usage/error/empty/drill-down states while keeping session logic in the GUI package.
 - **Headless end-to-end (`e2e/`, `pnpm --filter @robota-sdk/agent-app test:e2e`):** launches the REAL built
   Electron app under **`xvfb`** via **Playwright `_electron`**, pointed at `e2e/scripted-sidecar.mjs` — a
   deterministic sidecar that stands up the **REAL `WsTransport`** (so the GUI-002 T5 loopback auth is
@@ -87,6 +89,15 @@ runtime) — enforced by review + the harness `deps` scan.
   shutdown (TC-01/TC-02/TC-04). Runs on this headless Linux box (Electron launched with `--no-sandbox`, the
   standard CI posture). This is the agent-owned automated form of the smoke below — GUI verification is not
   deferred to the owner.
+- **Usage/reachability end-to-end (`pnpm --filter @robota-sdk/agent-app test:e2e:usage`):** launches
+  the same built app and real transport, then verifies slash-command feedback, partial-stream error
+  recovery, 7/30-day aggregate views, model/surface breakdowns, contributor-session and current-
+  session reports, privacy, and an admission-token mismatch that yields no usage data and an explicit
+  unavailable state.
+- **Required workflow reachability:** the develop PR `build` check reads the affected-scope plan and,
+  whenever it includes `@robota-sdk/agent-app` (or classification fails closed to full), runs both
+  Electron scenarios under `xvfb`. The release sweep records this as already covered by that required
+  check rather than silently excluding the non-default `test:e2e:*` scripts.
 
 ## User Execution Test Scenario (manual, real `robota`)
 

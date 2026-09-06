@@ -45,6 +45,89 @@ export interface IUsageSnapshot {
   source?: IUsageSource;
 }
 
+/** DATA-2577: one persisted, content-free observation for a started interactive turn. */
+export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'unknown';
+
+export interface IUsageObservation {
+  usageObservationId: string;
+  turnId: string;
+  outcome: 'success' | 'failure' | 'interrupted';
+  modelId?: string;
+  providerId?: string;
+  surface?: TUsageSurface;
+  source?: IUsageSource;
+  usage?: IUsageSnapshot;
+}
+
+export interface IPersonalUsageRequest {
+  period: '7d' | '30d';
+  /** IANA timezone used to assign observations to local calendar days. */
+  timezone: string;
+}
+
+export interface IPersonalUsageTotals {
+  sessions: number;
+  turns: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+}
+
+export interface IPersonalUsageDimension extends Omit<IPersonalUsageTotals, 'sessions'> {
+  key: string;
+  label: string;
+  /** Stable ids of persisted sessions that contributed to this aggregate. */
+  sessionIds: string[];
+}
+
+export interface IPersonalUsageActivity {
+  key: string;
+  label: string;
+  kind: 'tool' | 'skill' | 'plugin';
+  count: number;
+}
+
+export interface IPersonalUsageDay {
+  date: string;
+  partial: boolean;
+  totals: IPersonalUsageTotals;
+  /** Stable ids of persisted sessions that contributed usage or activity on this local day. */
+  sessionIds: string[];
+}
+
+export interface IPersonalUsageCoverage {
+  validSessions: number;
+  corruptSessions: number;
+  unsupportedSessions: number;
+  duplicateObservations: number;
+  legacyObservations: number;
+  unknownModelObservations: number;
+  unknownProviderObservations: number;
+  unknownSurfaceObservations: number;
+  corruptSessionIds: string[];
+  unsupportedSessionIds: string[];
+}
+
+/** OBSERVABILITY-2577: stable, content-free cross-session report consumed by CLI and GUI. */
+export interface IPersonalUsageReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  period: IPersonalUsageRequest['period'];
+  timezone: string;
+  interval: { startDate: string; endDate: string };
+  totals: IPersonalUsageTotals;
+  daily: IPersonalUsageDay[];
+  byModel: IPersonalUsageDimension[];
+  byProvider: IPersonalUsageDimension[];
+  bySurface: IPersonalUsageDimension[];
+  bySource: IPersonalUsageDimension[];
+  byActivity: IPersonalUsageActivity[];
+  sessionIds: string[];
+  coverage: IPersonalUsageCoverage;
+}
+
 /**
  * SELFHOST-004: a per-operation span entry recorded on the session timeline. Carried as the `data` of
  * an `IHistoryEntry<ISpanEntry>` on `IInteractiveSessionRecord.history`. It is the record-side projection

@@ -10,7 +10,11 @@
  * by the time either runs, that question is closed.
  */
 
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import {
+  createWsHandler,
+  type IWsHandlerOptions,
+  type SessionResumeBridge,
+} from '@robota-sdk/agent-transport-protocol';
 
 import { createChannelDelivery } from './channel-delivery.js';
 
@@ -22,6 +26,10 @@ export interface IAttachSessionOptions {
   readonly session: IProtocolSession;
   readonly resumeBridge?: SessionResumeBridge;
   readonly createHandler?: typeof createWsHandler;
+  readonly personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: IWsHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
+  readonly surface?: IWsHandlerOptions['surface'];
 }
 
 export interface IAttachedSession {
@@ -67,6 +75,14 @@ export function attachSession(
   const { onMessage, cleanup } = create({
     session: options.session,
     deliver: createChannelDelivery(options.channel, onDeliveryError),
+    ...(options.personalUsageReporter
+      ? { personalUsageReporter: options.personalUsageReporter }
+      : {}),
+    ...(options.usageReporter ? { usageReporter: options.usageReporter } : {}),
+    ...(options.storedSessionUsageReporter
+      ? { storedSessionUsageReporter: options.storedSessionUsageReporter }
+      : {}),
+    ...(options.surface ? { surface: options.surface } : {}),
   });
   return { onSessionMessage: onMessage, cleanup };
 }

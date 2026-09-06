@@ -6,6 +6,7 @@
  */
 
 import type { TTurnSource } from './turn-contracts.js';
+import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
 /**
@@ -24,6 +25,8 @@ export const AGENT_DRIVER_ID: TDriverId = 'agent';
 /** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
 export interface ISubmitOptions {
   readonly driverId?: TDriverId;
+  /** Trusted product surface that accepted this turn; independent from the driver's identity. */
+  readonly surface?: TUsageSurface;
   /**
    * PEER-002 (#1809): where this turn came from, when it is not an ordinary user prompt.
    *

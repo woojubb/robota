@@ -152,11 +152,27 @@ robota --model claude-sonnet-4-6     # Override provider model for this session
 robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota usage                        # Show the last 7 days of personal usage from local session history
+robota usage --period 30d           # Show complete buckets for the last 30 calendar days
+robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
 robota --version                    # Show version
 ```
+
+### Personal Usage
+
+`robota usage` reads local user and trusted-project session stores without starting a provider or
+requiring network access. It reports sessions, started turns, tokens, cost confidence, model/provider/
+surface/source breakdowns, privacy-safe activity counts, and coverage diagnostics. The project copy
+wins when the same session ID exists in both stores. Stored prompts, responses, paths, and tool
+payloads are never printed.
+
+Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with `--timezone`, and use
+`--format json` for the external `schemaVersion: 1` projection. An empty store produces an empty
+report; a supplied store set containing no readable records exits with an error instead of silently
+reporting zero usage.
 
 ### CLI Updates
 

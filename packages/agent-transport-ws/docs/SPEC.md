@@ -49,6 +49,13 @@ bound and `boundPort` is available. Start before attach and repeated active star
 `TransportLifecycleError`; repeated stop is bounded/safe and clears the session so restart requires
 reattach. Each subject invokes the shared suite exactly once under its package/export roster id.
 
+The host may inject `personalUsageReporter`, `usageReporter`, and
+`storedSessionUsageReporter` at construction. The transport forwards these capabilities to every
+connection's protocol handler; it never reads session stores or builds analytics itself.
+The host also assigns `IWsTransportConfig.driverId`; the CLI composition root uses `app`, `browser`,
+or `remote:ws` according to the trusted launch path so persisted turns carry the correct product
+surface instead of accepting a client-claimed identity.
+
 ### Frame routing — two profiles on one connection (TRANS-001)
 
 `WsTransport` is a **payload-agnostic carrier**. It routes by WebSocket frame opcode, so the

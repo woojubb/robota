@@ -24,6 +24,8 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
 
+export { createUsageObservationEntry } from './interactive-session-usage-observation.js';
+
 /** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
  * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */
 export function isAbortError(err: unknown): boolean {
@@ -199,11 +201,17 @@ function extractTurnUsage(
   let promptTokens = 0;
   let completionTokens = 0;
   let foundUsage = false;
+  const seenUsageObservations = new Set<string>();
 
   for (const message of turnMessages) {
     if (message.role !== 'assistant') continue;
+    const usageObservationId = message.metadata?.['usageObservationId'];
+    if (typeof usageObservationId === 'string' && seenUsageObservations.has(usageObservationId)) {
+      continue;
+    }
     const usage = collectAssistantUsageMetadata(message);
     if (!usage) continue;
+    if (typeof usageObservationId === 'string') seenUsageObservations.add(usageObservationId);
     foundUsage = true;
     promptTokens += usage.inputTokens;
     completionTokens += usage.outputTokens;

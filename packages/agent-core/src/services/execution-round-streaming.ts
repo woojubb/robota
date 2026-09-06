@@ -63,6 +63,7 @@ export async function callRoundProviderWithEvents(
   conversationStore: ConversationStore,
   currentRound: number,
   executionId: string,
+  usageObservationId: string,
   logger: ILogger,
   wrappedOnTextDelta: (delta: string) => void,
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
@@ -188,7 +189,13 @@ export async function callRoundProviderWithEvents(
     // from its prose. The substring test that stood here committed the round as `interrupted` for
     // any provider failure whose message happened to contain "abort".
     if (isAbortFailure(providerError, fullContext.signal)) {
-      conversationStore.commitAssistant('interrupted', { round: currentRound });
+      conversationStore.commitAssistant('interrupted', {
+        round: currentRound,
+        usageObservationId,
+        executionId,
+        providerId: resolved.currentInfo.provider,
+        modelId: resolved.aiProviderInfo.model,
+      });
       throw providerError;
     }
     conversationStore.discardPending();
@@ -200,12 +207,20 @@ export async function callRoundProviderWithEvents(
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
       round: currentRound,
+      usageObservationId,
+      executionId,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
       providerError: true,
     });
     // CORE-033: announced like every other append. A failed turn is precisely when a reader goes to
     // the session log, and this record was the one message the log never contained.
     announceAppend(conversationStore, fullContext, executionId, fullContext.conversationId, {
       round: currentRound,
+      usageObservationId,
+      executionId,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
       providerError: true,
     });
     return null;

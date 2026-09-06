@@ -18,7 +18,13 @@ import {
 } from './ws-connection-guards.js';
 import { toBytes } from './ws-message-data.js';
 import { WsSessionDelivery } from './ws-session-delivery.js';
-import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
+import {
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_PORT,
+  configuredUsageReporters,
+  transportLifecycleError,
+  validTransportOptions,
+} from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -26,7 +32,6 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
-  ITransportLifecycleError,
   IPayloadChannel,
   IPayloadChannelHost,
   TChannelEventMap,
@@ -72,6 +77,9 @@ export class WsTransport
   private readonly token?: string;
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
+  private readonly driverId?: IWsTransportConfig['driverId'];
+  private readonly surface?: IWsTransportConfig['surface'];
+  private readonly usageReporters: ReturnType<typeof configuredUsageReporters>;
   private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
@@ -84,6 +92,9 @@ export class WsTransport
     if (admission.token !== null) this.token = admission.token;
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
+    this.driverId = config.driverId;
+    this.surface = config.surface;
+    this.usageReporters = configuredUsageReporters(config);
   }
 
   attach(session: IInteractiveSession): void;
@@ -120,9 +131,9 @@ export class WsTransport
   }
 
   async start(): Promise<void> {
-    if (!this.session) throw this.lifecycleError('not-attached');
+    if (!this.session) throw transportLifecycleError(this.name, 'not-attached');
     if (this.state === 'starting' || this.state === 'ready' || this.state === 'stopping') {
-      throw this.lifecycleError('already-started');
+      throw transportLifecycleError(this.name, 'already-started');
     }
     this.state = 'starting';
     this.startCancelled = false;
@@ -170,7 +181,7 @@ export class WsTransport
   /** TRANS-002 (issue #2480): persisted `port`/`maxRetries` reach the server through here, before start. */
   configure(options: Record<string, TUniversalValue>): void {
     if (this.state !== 'detached' && this.state !== 'attached') {
-      throw this.lifecycleError('already-started');
+      throw transportLifecycleError(this.name, 'already-started');
     }
     if (!this.validateOptions(options)) {
       throw new TypeError('WsTransport options are invalid (port 1-65535, maxRetries >= 0).');
@@ -180,19 +191,7 @@ export class WsTransport
   }
 
   validateOptions(options: Record<string, TUniversalValue>): boolean {
-    const { port, maxRetries } = options;
-    if (port !== undefined && (typeof port !== 'number' || port < 1 || port > 65535)) return false;
-    if (maxRetries !== undefined && (typeof maxRetries !== 'number' || maxRetries < 0))
-      return false;
-    return true;
-  }
-
-  private lifecycleError(code: ITransportLifecycleError['code']): ITransportLifecycleError {
-    return Object.assign(new Error(`WsTransport ${code}.`), {
-      name: 'TransportLifecycleError' as const,
-      code,
-      transportName: this.name,
-    });
+    return validTransportOptions(options);
   }
 
   private bindWithRetry(
@@ -253,7 +252,13 @@ export class WsTransport
           }
 
           const delivery = new WsSessionDelivery(ws);
-          const handler = createWsHandler({ session, deliver: delivery.deliver });
+          const handler = createWsHandler({
+            session,
+            deliver: delivery.deliver,
+            ...(this.driverId ? { driverId: this.driverId } : {}),
+            ...(this.surface ? { surface: this.surface } : {}),
+            ...this.usageReporters,
+          });
           delivery.bindProtocolCleanup(handler.cleanup);
 
           delivery.bindSinkDetach(

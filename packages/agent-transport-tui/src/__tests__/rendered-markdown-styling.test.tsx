@@ -37,16 +37,21 @@ const DIFF_MARKDOWN = [
 
 describe('markdown styling survives the render site (SCREEN-006)', () => {
   let originalForceColor: string | undefined;
+  let originalNoColor: string | undefined;
 
   beforeEach(() => {
     // `renderMarkdown` colours only for an interactive colour terminal; the test process is not one.
     originalForceColor = process.env.FORCE_COLOR;
+    originalNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
     process.env.FORCE_COLOR = '1';
   });
 
   afterEach(() => {
     if (originalForceColor === undefined) delete process.env.FORCE_COLOR;
     else process.env.FORCE_COLOR = originalForceColor;
+    if (originalNoColor === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = originalNoColor;
   });
 
   it('ToolDiffBlock keeps the added/removed diff colours', () => {

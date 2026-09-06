@@ -113,6 +113,11 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 `TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
 (their SSOT) — this package does not re-declare them.
 
+The host-owned `personalUsageReporter`, current-session `usageReporter`, and
+`storedSessionUsageReporter` capabilities are forwarded only after admission on both direct and paired
+handlers. A reconnecting session's `SessionResumeBridge` retains the same reporters for its full lifetime,
+so resumption changes delivery state but not admitted-owner query authority.
+
 ## Public API Surface
 
 | Export                        | Kind     | Description                                                                                                                                 |

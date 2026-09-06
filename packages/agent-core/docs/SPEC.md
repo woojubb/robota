@@ -770,6 +770,10 @@ These types and helpers are consumed by the session layer to track effective tok
 
 Provider response usage is normalized before assistant messages are committed:
 
+- Every provider round mints one `usageObservationId` before the call and commits it with the
+  provider/model/execution/round metadata. Stream fragments for that round share the ID; a later
+  provider round receives a new ID, so consumers deduplicate by identity rather than token equality.
+
 - `inputTokens`/`outputTokens` metadata is the canonical history form for context accounting.
 - Provider-normalized `promptTokens`/`completionTokens`/`totalTokens` metadata and assistant `usage` payloads are accepted and converted to the same canonical metadata.
 - Core must not branch on provider names to perform this conversion.

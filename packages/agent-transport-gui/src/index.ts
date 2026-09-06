@@ -8,6 +8,7 @@ export { useSessionClient, useWsSession } from './hooks/useSessionClient.js';
 export type {
   IConversationMessage,
   IActiveTool,
+  ISessionNotice,
   IWsSessionState,
   ISessionClientHandle,
   TMakeSessionClient,
@@ -33,5 +34,7 @@ export type { IUiIntentNotice, TUiIntentNotice } from './hooks/ui-intent-state.j
 export { ConversationView } from './components/ConversationView.js';
 export { AgentActivityPanel } from './components/AgentActivityPanel.js';
 export { PermissionPrompt } from './components/PermissionPrompt.js';
+export { PersonalUsageDashboard } from './components/PersonalUsageDashboard.js';
+export type { TPersonalUsageDashboardState } from './components/personal-usage-dashboard-types.js';
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
 export { SessionMonitor } from './components/SessionMonitor.js';

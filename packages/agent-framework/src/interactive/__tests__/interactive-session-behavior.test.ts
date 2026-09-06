@@ -38,6 +38,7 @@ function createMockSession(options?: {
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
+    getProviderId: vi.fn().mockReturnValue('test-provider'),
     getModelId: vi.fn().mockReturnValue('test-model'),
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSessionId: vi.fn().mockReturnValue('sess-1'),
@@ -104,6 +105,17 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(messages[0]!.content).toBe('Hello');
     expect(messages[1]!.role).toBe('assistant');
     expect(messages[1]!.content).toBe('Hello back!');
+    expect(session.getFullHistory()).toContainEqual(
+      expect.objectContaining({
+        type: 'usage-observation',
+        data: expect.objectContaining({
+          outcome: 'success',
+          providerId: 'test-provider',
+          modelId: 'test-model',
+          surface: 'cli',
+        }),
+      }),
+    );
   });
 
   // ── Scenario: Streaming text accumulation ─────────────────────
@@ -193,6 +205,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     // 'queued' should NOT have been executed
     expect(mockSession.run).toHaveBeenCalledTimes(1);
     expect(mockSession.run).toHaveBeenCalledWith('first', undefined);
+    expect(
+      session.getFullHistory().filter((entry) => entry.type === 'usage-observation'),
+    ).toHaveLength(1);
   });
 
   // ── Scenario: Abort ───────────────────────────────────────────
@@ -253,6 +268,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const lastMsg = messages[messages.length - 1];
     expect(lastMsg!.role).toBe('system');
     expect(lastMsg!.content).toContain('Interrupted by user');
+    expect(session.getFullHistory()).toContainEqual(
+      expect.objectContaining({
+        type: 'usage-observation',
+        data: expect.objectContaining({ outcome: 'interrupted' }),
+      }),
+    );
   });
 
   // ── Scenario: Error handling ──────────────────────────────────
@@ -276,6 +297,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       (m) => m.role === 'system' && m.content?.includes('Rate limit reached'),
     );
     expect(errorMsg).toBeDefined();
+    expect(session.getFullHistory()).toContainEqual(
+      expect.objectContaining({
+        type: 'usage-observation',
+        data: expect.objectContaining({ outcome: 'failure' }),
+      }),
+    );
   });
 
   // ── Scenario: ERR-001 — mid-stream failure surfacing + liveness ─

@@ -18,7 +18,12 @@ import type {
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import type { IWsHandlerOptions, SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+
+type TUsageReporters = Pick<
+  IWsHandlerOptions,
+  'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
 
 export interface ITransportHooks {
   readonly onPaired: (result?: IPairingResult) => void;
@@ -48,6 +53,7 @@ export function defaultCreateTransport(
   reconnect?: IHostReconnectConfig,
   resumeBridge?: SessionResumeBridge,
   localPeer?: ILocalPeerProof,
+  usageReporters?: TUsageReporters,
 ): IConfigurableTransport<IInteractiveSession> {
   return new WebRtcTransport({
     signaling,
@@ -60,5 +66,12 @@ export function defaultCreateTransport(
     ...(reconnect ? { reconnect } : {}),
     ...(resumeBridge ? { resumeBridge } : {}),
     ...(localPeer ? { localPeer } : {}),
+    ...(usageReporters?.personalUsageReporter
+      ? { personalUsageReporter: usageReporters.personalUsageReporter }
+      : {}),
+    ...(usageReporters?.usageReporter ? { usageReporter: usageReporters.usageReporter } : {}),
+    ...(usageReporters?.storedSessionUsageReporter
+      ? { storedSessionUsageReporter: usageReporters.storedSessionUsageReporter }
+      : {}),
   });
 }

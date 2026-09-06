@@ -1,7 +1,8 @@
 ---
 title: 'DATA-2577: Persist canonical usage identity and model provider surface attribution'
 issue: https://github.com/woojubb/robota/issues/2577
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-06
 priority: high
 urgency: soon
@@ -34,20 +35,20 @@ represented as `unknown` by downstream consumers.
 
 ## Plan
 
-- [ ] Define a canonical started-turn observation plus usage identity and optional
+- [x] Define a canonical started-turn observation plus usage identity and optional
       provider/model/per-turn surface fields in the owning interface contracts; keep execution source
       distinct from product surface.
-- [ ] Have the execution-round owner mint `usageObservationId` once before each provider invocation;
+- [x] Have the execution-round owner mint `usageObservationId` once before each provider invocation;
       reuse it for all repeated fragments from that invocation, assign a new ID to each separately
       observed provider invocation, and correlate it with `turnId`, `executionId`, and round without using
       content equality.
-- [ ] Persist exactly one top-level started-turn observation after the execution claim is acquired for
+- [x] Persist exactly one top-level started-turn observation after the execution claim is acquired for
       success, failure, and `interrupted` outcomes, including zero-usage results; exclude submissions that
       never ran and ended `coalesced`, `dropped`, or `cancelled`, plus nested/provider rounds.
-- [ ] Persist and round-trip the new optional fields through the strict versioned session-record codec.
-- [ ] Preserve old valid records without eager rewrite and expose absent attribution for downstream
+- [x] Persist and round-trip the new optional fields through the strict versioned session-record codec.
+- [x] Preserve old valid records without eager rewrite and expose absent attribution for downstream
       `unknown` buckets.
-- [ ] Add regression fixtures for repeated usage fragments, mixed legacy/current records, autonomous
+- [x] Add regression fixtures for repeated usage fragments, mixed legacy/current records, autonomous
       work, and multi-driver sessions.
 
 ## Constraints
@@ -86,3 +87,10 @@ represented as `unknown` by downstream consumers.
 **Reason:** This Task establishes an internal persisted-data contract and deliberately exposes no
 standalone user command or screen; its behavior becomes user-observable only through FLOW-2577 and
 SCREEN-2577, whose scenarios exercise the exact persisted path.
+
+## Result
+
+Canonical provider-round identities and actual provider/model/source attribution now persist through
+the strict session codec. The framework records exactly one started top-level observation for success,
+failure, interruption, and zero-usage outcomes while excluding work that never acquired execution.
+Legacy records remain readable and missing attribution stays explicit for downstream reporting.

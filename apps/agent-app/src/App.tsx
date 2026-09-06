@@ -21,7 +21,7 @@ function SessionView({ url }: { url: string }): React.ReactElement {
   useEffect(() => {
     if (state.status === 'connected') window.agentGui.signalReady();
   }, [state.status]);
-  return <SessionSurface state={state} surface="app" />;
+  return <SessionSurface state={state} surface="app" personalUsageEnabled />;
 }
 
 /** Top-level: resolve the endpoint from the preload bridge, watch for a fatal sidecar state, then mount. */
@@ -41,7 +41,7 @@ export function App(): React.ReactElement {
     return (
       <div role="alert" className="h-full">
         <CenteredChrome tone="fatal">
-          The agent process stopped. Restart the app to reconnect.
+          The agent process stopped. Personal Usage is unavailable. Restart the app to reconnect.
         </CenteredChrome>
       </div>
     );

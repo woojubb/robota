@@ -1,10 +1,11 @@
 # @robota-sdk/agent-session-analytics
 
-Session-log timing analysis and reporting for the Robota SDK.
+Session-log timing and personal-usage analysis for the Robota SDK.
 
 Given persisted session records, it computes per-turn timing intervals (LLM wait vs. tool
-execution), aggregates across sessions, and renders text reports. Pure functions — no file I/O, no
-`process.*`, no CLI concerns; callers load records and write output.
+execution), aggregates cross-session usage into complete local-calendar buckets, and renders text
+reports. Pure functions — no file I/O, no `process.*`, no CLI concerns; callers load records and
+write output.
 
 ## API
 
@@ -16,6 +17,8 @@ execution), aggregates across sessions, and renders text reports. Pure functions
 | `gapMs(from, to)`           | Millisecond gap between two timestamps (string/Date) |
 | `formatSingleSession(r)`    | Render a single-session report as text               |
 | `formatAggregateReport(a)`  | Render an aggregate report as text                   |
+| `summarizePersonalUsage(s, request)` | Build a deterministic 7- or 30-day personal-usage report from an immutable snapshot |
+| `formatPersonalUsageReport(report)` | Render the personal-usage report as readable text |
 
 Operates on the canonical `IInteractiveSessionRecord` projection and `IHistoryEntry` — owns no
 duplicate record/history types.

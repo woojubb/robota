@@ -17,6 +17,13 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       }
+    },
+    "./client": {
+      "types": "./dist/browser/client.d.ts",
+      "source": "./src/client.ts",
+      "browser": "./dist/browser/client.js",
+      "import": "./dist/browser/client.js",
+      "default": "./dist/browser/client.js"
     }
   },
   "repository": {

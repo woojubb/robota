@@ -4,6 +4,8 @@ WebRTC P2P transport for the Robota SDK (REMOTE-001). Carries an `IInteractiveSe
 so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer — session content
 never routes through a server. It reuses the same transport-neutral session bridge + wire protocol as the
 WebSocket transport (`createWsHandler` from `@robota-sdk/agent-transport-protocol`).
+Host-injected personal/current/stored-session usage reporters follow the admitted direct, paired, and
+reconnecting channel paths; reconnecting through `SessionResumeBridge` does not drop those capabilities.
 
 > **Stage A status:** `defaultEnabled: false`, no pairing/auth, no `/remote-control` command, not registered in
 > `agent-cli`. Exercised only by loopback tests. Pairing/auth + the enable path land in Stage B.

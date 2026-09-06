@@ -12,18 +12,23 @@ import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './ws-background-messages.js';
-import { decodeClientMessage, decodeFrame } from './message-decoders.js';
 import { subscribeSessionEvents } from './ws-session-events.js';
+import { parseClientMessage } from './ws-message-parser.js';
+import { handleSessionQueryMessage, isSessionQueryMessage } from './ws-session-query-messages.js';
+import { handleUsageQueryMessage } from './ws-usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TClientMessage } from './ws-protocol.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
+import type { IUsageQueryReporters } from './ws-usage-messages.js';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
 // `ws-session-events.ts`; re-exported here for the bridge and existing importers.
 export { subscribeSessionEvents } from './ws-session-events.js';
 export type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
+export { parseClientMessage } from './ws-message-parser.js';
 
 export interface IWsHandlerOptions {
   /** IProtocolSession to expose. */
@@ -42,6 +47,14 @@ export interface IWsHandlerOptions {
    * a client-supplied driver id is NEVER trusted. Absent → unattributed (the session defaults to the owner).
    */
   driverId?: TDriverId;
+  /** Trusted carrier-owned product surface, kept separate from driver identity. */
+  surface?: TUsageSurface;
+  /** Host-owned cross-session read model. The protocol only correlates and carries its result. */
+  personalUsageReporter?: NonNullable<IUsageQueryReporters['personalUsageReporter']>;
+  /** Host-owned current-session trace/cost producer for the pre-existing message family. */
+  usageReporter?: NonNullable<IUsageQueryReporters['usageReporter']>;
+  /** Host-owned stored-session producer used by cross-session drill-down. */
+  storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
 }
 
 /**
@@ -70,7 +83,17 @@ export function createWsHandler(options: IWsHandlerOptions): {
   const cleanup = subscribeSessionEvents(options.session, options.deliver, {
     getSurfaceDriverId: () => options.driverId,
   });
-  const onMessage = createWsMessageHandler(options.session, options.deliver, options.driverId);
+  const onMessage = createWsMessageHandler(
+    options.session,
+    options.deliver,
+    options.driverId,
+    {
+      personalUsageReporter: options.personalUsageReporter,
+      usageReporter: options.usageReporter,
+      storedSessionUsageReporter: options.storedSessionUsageReporter,
+    },
+    options.surface,
+  );
 
   return { onMessage, cleanup };
 }
@@ -79,24 +102,21 @@ function createWsMessageHandler(
   session: IProtocolSession,
   deliver: TOutboundDeliver,
   driverId?: TDriverId,
+  reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
+  surface?: TUsageSurface,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    handleClientMessage(session, deliver, msg, driverId);
+    handleClientMessage(session, deliver, msg, driverId, reporters, surface);
   };
 }
 
-/** Parse a client JSON frame; on invalid JSON it emits `protocol_error` and returns null. Exported for E4. */
-export function parseClientMessage(data: string, deliver: TOutboundDeliver): TClientMessage | null {
-  // Issue #2045: `raw string → owner decoder → typed message`. A malformed frame — invalid JSON OR
-  // valid JSON of an invalid shape — is answered on the wire with `protocol_error`, the protocol's
-  // stated response, rather than cast onward as a `TClientMessage` it never was.
-  const decoded = decodeFrame(data, decodeClientMessage);
-  if (decoded.ok) return decoded.message;
-  deliver({ type: 'protocol_error', message: decoded.reason });
-  return null;
-}
+const EMPTY_USAGE_REPORTERS: IUsageQueryReporters = {
+  personalUsageReporter: undefined,
+  usageReporter: undefined,
+  storedSessionUsageReporter: undefined,
+};
 
 /**
  * Route a parsed client message to the session (control/query/background/prompt-response). Exported for E4:
@@ -107,9 +127,14 @@ export function handleClientMessage(
   deliver: TOutboundDeliver,
   msg: TClientMessage,
   driverId?: TDriverId,
+  reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
+  surface?: TUsageSurface,
 ): void {
+  if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
+    return;
+  }
   if (isSessionControlMessage(msg)) {
-    handleSessionControlMessage(session, deliver, msg, driverId);
+    handleSessionControlMessage(session, deliver, msg, driverId, surface);
     return;
   }
   if (isSessionQueryMessage(msg)) {
@@ -140,22 +165,6 @@ function isSessionControlMessage(
     msg.type === 'command' ||
     msg.type === 'abort' ||
     msg.type === 'cancel-queue'
-  );
-}
-
-function isSessionQueryMessage(msg: TClientMessage): msg is Extract<
-  TClientMessage,
-  {
-    type:
-      'get-messages' | 'get-context' | 'get-executing' | 'get-pending' | 'get-execution-workspace';
-  }
-> {
-  return (
-    msg.type === 'get-messages' ||
-    msg.type === 'get-context' ||
-    msg.type === 'get-executing' ||
-    msg.type === 'get-pending' ||
-    msg.type === 'get-execution-workspace'
   );
 }
 
@@ -218,6 +227,7 @@ function handleSessionControlMessage(
   deliver: TOutboundDeliver,
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
   driverId?: TDriverId,
+  surface?: TUsageSurface,
 ): void {
   if (msg.type === 'submit') {
     // TRANS-008 (issue #2045). A TYPE check, not a falsy one: `{}`, `[]`, `42` and `true` are truthy
@@ -229,8 +239,17 @@ function handleSessionControlMessage(
       return;
     }
     // REMOTE-014 E5: attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).
+    const submitOptions = {
+      ...(driverId ? { driverId } : {}),
+      ...(surface ? { surface } : {}),
+    };
     session
-      .submit(msg.prompt, undefined, undefined, driverId ? { driverId } : undefined)
+      .submit(
+        msg.prompt,
+        undefined,
+        undefined,
+        Object.keys(submitOptions).length > 0 ? submitOptions : undefined,
+      )
       .catch((error: Error) => {
         deliver({ type: 'protocol_error', message: error.message });
       });
@@ -259,36 +278,5 @@ function handleSessionControlMessage(
     session.abort();
   } else {
     session.cancelQueue();
-  }
-}
-
-function handleSessionQueryMessage(
-  session: IProtocolSession,
-  deliver: TOutboundDeliver,
-  msg: Extract<
-    TClientMessage,
-    {
-      type:
-        | 'get-messages'
-        | 'get-context'
-        | 'get-executing'
-        | 'get-pending'
-        | 'get-execution-workspace';
-    }
-  >,
-): void {
-  if (msg.type === 'get-messages') {
-    deliver({ type: 'messages', messages: session.getMessages() });
-  } else if (msg.type === 'get-context') {
-    deliver({ type: 'context', state: session.getContextState() });
-  } else if (msg.type === 'get-executing') {
-    deliver({ type: 'executing', executing: session.isExecuting() });
-  } else if (msg.type === 'get-execution-workspace') {
-    deliver({
-      type: 'execution_workspace_event',
-      snapshot: session.getExecutionWorkspaceSnapshot(),
-    });
-  } else {
-    deliver({ type: 'pending', pending: session.getPendingPrompt() });
   }
 }

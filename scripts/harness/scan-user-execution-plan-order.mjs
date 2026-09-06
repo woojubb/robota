@@ -1120,14 +1120,7 @@ function correctionClosureOnly(paths, textForPath, parentTextForPath) {
 
 const NEAR_MISS_PREFIX = 'checkpoint-form near miss';
 
-/**
- * A commit whose only unexpected paths are the exact checkpoint pair — or the active spec alone —
- * is not implementation: it is a checkpoint whose entry failed the form (a typo in the status line,
- * a missing binding, an entry appended without its pair). Refusing it as "non-planning prelude
- * path" names a planning document and hides which criterion failed (issue #2420). So the
- * checkpoint-form checks are run and their own words reported, the way a recognised candidate
- * already is, and the refusal carries this prefix so the caller can lead with it.
- */
+/** Explain a malformed checkpoint in checkpoint vocabulary instead of calling it implementation. */
 function checkpointNearMissProblem(basename, textForPath, parentTextForPath) {
   const taskPath = `${TASK_PREFIX}${basename}`;
   const specPath = `${SPEC_PREFIX}active/${basename}`;
@@ -1162,11 +1155,7 @@ function hasRejectionEntry(text) {
     });
 }
 
-/**
- * The exact path set of a pre-checkpoint terminal disposition for `basename`, or null when `paths`
- * is any other shape. Membership is decided by paths alone; contents are judged by
- * `terminalDispositionProblems`.
- */
+/** Resolve the exact path set for a pre-checkpoint terminal disposition. */
 export function terminalDispositionPaths(paths, basename) {
   const taskSource = `${TASK_PREFIX}${basename}`;
   const taskDestination = `${TASK_PREFIX}completed/${basename}`;
@@ -1951,14 +1940,23 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       continue;
     }
     if (entry.paths.includes(POST_MERGE_LEDGER)) {
-      findings.push(
-        finding(
-          'predecessor post-merge ledger is not one append-only closed record exactly bound to a verified PR merge ancestor of the topic base.',
-          entry.commit,
-        ),
-      );
+      findings.push(finding('predecessor post-merge ledger is invalid.', entry.commit));
     }
     if (!planningStarted && docs.commit(entry)) continue;
+    const agreement = agreementPrelude(entry.paths, textIn(entry.commit), textIn(entry.parent));
+    if (agreement !== null) {
+      const problem =
+        agreement.problems.join(' ') ||
+        (agreement.basename === basename
+          ? null
+          : `atomic AGREEMENT belongs to \`${agreement.basename ?? '(unknown)'}\`, not \`${basename}\`.`);
+      if (problem)
+        findings.push(
+          finding(`invalid atomic AGREEMENT before checkpoint: ${problem}`, entry.commit),
+        );
+      else planningStarted = true;
+      continue;
+    }
     const preludeProblems = planningPreludeProblems(
       entry.paths,
       basename,

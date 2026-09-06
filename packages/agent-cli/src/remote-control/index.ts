@@ -10,6 +10,12 @@ import { createTrustedDeviceStore } from './trusted-device-store.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+
+type TUsageReporters = Pick<
+  IWsHandlerOptions,
+  'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
 
 /** The surface the controller needs from the live TUI channel (structural — no coupling to the class). */
 interface ILiveChannel {
@@ -50,13 +56,17 @@ function readWebrtcRawOption(key: string): unknown {
  * `onChannelReady` (each live channel, incl. session-switch re-creations) so the enable path attaches the
  * session the user is actually driving and surfaces async failures into that channel's history.
  */
-export function createRemoteControlController(registry: TransportRegistry): {
+export function createRemoteControlController(
+  registry: TransportRegistry,
+  usageReporters?: TUsageReporters,
+): {
   controller: RemoteControlController;
   setChannel: (channel: ILiveChannel | undefined) => void;
 } {
   let channel: ILiveChannel | undefined;
   const controller = new RemoteControlController({
     registry,
+    ...(usageReporters ? { usageReporters } : {}),
     readRelayUrl: () => readWebrtcOption('relayUrl'),
     readClientUrl: () => readWebrtcOption('clientUrl'),
     readIceServers: () => parseIceServers(readWebrtcRawOption('iceServers')),

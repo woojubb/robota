@@ -1,5 +1,6 @@
 import { runEvalCommand } from '../eval/eval-command.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
+import { runUsageCommand } from '../usage/usage-command.js';
 import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
 
 import type { IStartCliOptions } from './command-setup.js';
@@ -15,6 +16,13 @@ export async function runPreparsedCliCommand(
   cwd: string = process.cwd(),
 ): Promise<boolean> {
   const composition = createInitialCliWorkspaceComposition(cwd, options);
+  if (argv[SUBCOMMAND_INDEX] === 'usage') {
+    process.exitCode = runUsageCommand(
+      argv.slice(ACTION_INDEX),
+      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
+    );
+    return true;
+  }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),

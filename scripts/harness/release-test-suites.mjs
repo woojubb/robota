@@ -107,8 +107,16 @@ export const EXCLUSIONS = [
   {
     workspace: 'apps/agent-app',
     script: 'test:e2e',
-    kind: 'unwired',
-    why: 'the Electron desktop e2e (xvfb + a full app build). No workflow invokes it today — measured, not assumed. Wiring it belongs with the desktop release pipeline, not with a promotion gate that would then own an Electron build.',
+    kind: 'covered-elsewhere',
+    workflow: '.github/workflows/ci.yml',
+    why: 'the Electron desktop e2e (xvfb + a full app build) runs in the REQUIRED build job whenever the affected-scope plan selects agent-app; a promotion carries only develop commits that already passed that check.',
+  },
+  {
+    workspace: 'apps/agent-app',
+    script: 'test:e2e:usage',
+    kind: 'covered-elsewhere',
+    workflow: '.github/workflows/ci.yml',
+    why: 'the desktop usage/protocol reachability scenario runs beside test:e2e in the REQUIRED build job whenever the affected-scope plan selects agent-app, including fail-closed full verification.',
   },
   {
     workspace: 'apps/agent-app',

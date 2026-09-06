@@ -20,67 +20,31 @@ import {
   type TUiIntentNotice,
 } from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
+import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
+import { usePersonalUsageState } from './use-personal-usage.js';
 
+import type {
+  IActiveTool,
+  IConversationMessage,
+  ISessionClientHandle,
+  ISessionNotice,
+  IWsSessionState,
+  TMakeSessionClient,
+} from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
-export interface IConversationMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  isStreaming?: boolean;
-  /** REMOTE-014 E5: the co-driving author of a user turn (display-only; absent/owner = the local owner). */
-  author?: string;
-}
-
-export interface IActiveTool {
-  id: string;
-  name: string;
-  status: 'running' | 'done' | 'error';
-  input?: unknown;
-  result?: unknown;
-}
-
-/** The minimal session-client surface a transport (WS, RTC, …) satisfies. Generic over its status type. */
-export interface ISessionClientHandle {
-  connect: () => void;
-  disconnect: () => void;
-  send: (msg: TClientMessage) => void;
-}
-
-/** Factory the hook calls to build its client from the message/status callbacks. */
-export type TMakeSessionClient<TStatus extends string = TConnectionStatus> = (callbacks: {
-  onMessage: (msg: TServerMessage) => void;
-  onStatusChange: (status: TStatus) => void;
-}) => ISessionClientHandle;
-
-export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
-  status: TStatus;
-  messages: IConversationMessage[];
-  activeTools: IActiveTool[];
-  streamingText: string;
-  isThinking: boolean;
-  executionWorkspace: IExecutionWorkspaceSnapshot | null;
-  /** CMD-004 Stage E: the session name, following the broadcast `session_renamed` (host-executed rename). */
-  sessionName: string | null;
-  send: (msg: TClientMessage) => void;
-  /** REMOTE-007/009: prompts awaiting the owner's answer (permission/ask), rendered by the UI. */
-  pendingPrompts: readonly TPendingPrompt[];
-  /** Answer a pending permission prompt (sends `permission-response`). */
-  answerPermission: (id: string, result: TPermissionResultValue) => void;
-  /** Answer a pending ask prompt (sends `ask-response`). */
-  answerAsk: (id: string, response: TActionResponse) => void;
-  /**
-   * CMD-004 Stage D: explicit notices for `ui_intent`s this surface cannot render as a screen
-   * (requester-routed to this surface by the server; never a silent drop — TC-05).
-   */
-  uiIntentNotices: readonly TUiIntentNotice[];
-  /** Dismiss one ui_intent notice by id. */
-  dismissUiIntentNotice: (id: string) => void;
-}
+export type {
+  IActiveTool,
+  IConversationMessage,
+  ISessionClientHandle,
+  ISessionNotice,
+  IWsSessionState,
+  TMakeSessionClient,
+} from './session-client-types.js';
 
 let msgCounter = 0;
 function nextId(): string {
@@ -101,12 +65,19 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [uiIntentNotices, setUiIntentNotices] = useState<readonly TUiIntentNotice[]>([]);
+  const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingIdRef = useRef<string | null>(null);
   const streamingTextRef = useRef('');
+  const send = useCallback((msg: TClientMessage): void => clientRef.current?.send(msg), []);
+  const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
 
   const handleMessage = useCallback((msg: TServerMessage): void => {
+    // ARCH-2164: touching the exhaustive registry here keeps every decoded variant tied to an
+    // explicit GUI ownership decision, including variants intentionally handled by focused views.
+    void SERVER_MESSAGE_HANDLING[msg.type];
+    if (handleUsageMessage(msg)) return;
     switch (msg.type) {
       case 'messages': {
         const reconstructed: IConversationMessage[] = msg.messages.flatMap((m) => {
@@ -194,6 +165,49 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         setMessages([]);
         break;
       }
+      case 'error': {
+        const finalText = streamingTextRef.current;
+        const sid = streamingIdRef.current;
+        streamingTextRef.current = '';
+        streamingIdRef.current = null;
+        setStreamingText('');
+        setIsThinking(false);
+        setActiveTools((previous) =>
+          previous.map((tool) =>
+            tool.status === 'running' ? { ...tool, status: 'error' as const } : tool,
+          ),
+        );
+        if (finalText) {
+          setMessages((previous) => [
+            ...previous,
+            { id: sid ?? nextId(), role: 'assistant', content: finalText },
+          ]);
+        }
+        setSessionNotices((previous) => [
+          ...previous,
+          { id: nextId(), kind: 'session-error', message: msg.message },
+        ]);
+        break;
+      }
+      case 'protocol_error': {
+        setSessionNotices((previous) => [
+          ...previous,
+          { id: nextId(), kind: 'protocol-error', message: msg.message },
+        ]);
+        break;
+      }
+      case 'command_result': {
+        setSessionNotices((previous) => [
+          ...previous,
+          {
+            id: nextId(),
+            kind: 'command-result',
+            message: `/${msg.name}: ${msg.message}`,
+            success: msg.success,
+          },
+        ]);
+        break;
+      }
       case 'complete':
       case 'interrupted': {
         const finalText = streamingTextRef.current;
@@ -212,11 +226,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         break;
       }
     }
-  }, []);
-
-  const send = useCallback((msg: TClientMessage): void => {
-    clientRef.current?.send(msg);
-  }, []);
+  }, [handleUsageMessage]);
 
   const answerPermission = useCallback((id: string, result: TPermissionResultValue): void => {
     clientRef.current?.send(permissionResponse(id, result));
@@ -230,6 +240,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
 
   const dismissUiIntentNotice = useCallback((id: string): void => {
     setUiIntentNotices((prev) => removeUiIntentNotice(prev, id));
+  }, []);
+
+  const dismissSessionNotice = useCallback((id: string): void => {
+    setSessionNotices((previous) => previous.filter((notice) => notice.id !== id));
   }, []);
 
   useEffect(() => {
@@ -256,6 +270,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     answerAsk,
     uiIntentNotices,
     dismissUiIntentNotice,
+    ...personalUsageState,
+    sessionNotices,
+    dismissSessionNotice,
   };
 }
 

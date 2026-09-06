@@ -129,6 +129,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
 - **Project Memory** — Command-driven memory capture and retrieval surfaces
 - **Replay Events** — Session execution can forward provider/tool boundary events and provider-native raw payload events into append-only logs
+- **Usage observations** — Each accepted top-level turn records one content-free outcome observation, including the active model and driver surface when known, even when token usage is absent
 - **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
 
 ## Architecture

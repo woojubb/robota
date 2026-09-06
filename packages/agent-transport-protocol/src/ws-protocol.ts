@@ -13,7 +13,11 @@ import type {
   IUiIntentEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
-import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
+import type {
+  IPersonalUsageReport,
+  IPersonalUsageRequest,
+  IUsageBySourceReport,
+} from '@robota-sdk/agent-interface-analytics';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,
@@ -41,6 +45,13 @@ export type TClientMessage =
   | { type: 'get-context' }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
+  | {
+      type: 'get-personal-usage-report';
+      requestId: string;
+      period: IPersonalUsageRequest['period'];
+      timezone: string;
+    }
+  | { type: 'get-stored-session-usage-report'; requestId: string; sessionId: string }
   | { type: 'get-executing' }
   | { type: 'get-pending' }
   | { type: 'get-execution-workspace' }
@@ -87,6 +98,26 @@ export type TServerMessage =
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.
   | { type: 'usage_report'; report: IUsageBySourceReport }
+  | { type: 'personal_usage_report'; requestId: string; report: IPersonalUsageReport }
+  | {
+      type: 'personal_usage_report_error';
+      requestId: string;
+      code: 'not_available' | 'report_failed';
+      message: string;
+    }
+  | {
+      type: 'stored_session_usage_report';
+      requestId: string;
+      sessionId: string;
+      report: IUsageBySourceReport;
+    }
+  | {
+      type: 'stored_session_usage_report_error';
+      requestId: string;
+      sessionId: string;
+      code: 'not_available' | 'report_failed';
+      message: string;
+    }
   | { type: 'executing'; executing: boolean }
   | { type: 'pending'; pending: string | null }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }

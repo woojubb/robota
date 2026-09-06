@@ -6,6 +6,7 @@ import { SessionResumeBridge } from '../session-resume-bridge.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IPersonalUsageReport } from '@robota-sdk/agent-interface-analytics';
 
 /**
  * REMOTE-013 E4 TC-02 — the persistent SessionResumeBridge: a monotonic seq CONTINUOUS across a
@@ -43,6 +44,50 @@ type TResumeSinkStub = ((data: string) => void) & { calls: string[] };
 const TEST_ATTACH_OPTIONS = { onDeliveryError: vi.fn() };
 
 describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
+  it('keeps remote surface attribution separate from the paired device id', async () => {
+    const base = fakeSession().session;
+    const submit = vi.fn().mockResolvedValue(undefined);
+    const session = Object.assign(base, { submit });
+    const bridge = new SessionResumeBridge({ session, driverId: 'device-sha256', surface: 'remote' });
+    bridge.attach(sink(), TEST_ATTACH_OPTIONS);
+
+    bridge.onClientMessage(JSON.stringify({ type: 'submit', prompt: 'paired turn' }));
+    await vi.waitFor(() => expect(submit).toHaveBeenCalled());
+
+    expect(submit).toHaveBeenCalledWith('paired turn', undefined, undefined, {
+      driverId: 'device-sha256',
+      surface: 'remote',
+    });
+    bridge.dispose();
+  });
+
+  it('keeps host usage reporting reachable across the resume bridge', async () => {
+    const { session } = fakeSession();
+    const report = { schemaVersion: 1 } as IPersonalUsageReport;
+    const personalUsageReporter = vi.fn().mockResolvedValue(report);
+    const bridge = new SessionResumeBridge({ session, personalUsageReporter });
+    const output = sink();
+    bridge.attach(output, TEST_ATTACH_OPTIONS);
+
+    bridge.onClientMessage(
+      JSON.stringify({
+        type: 'get-personal-usage-report',
+        requestId: 'resume-usage',
+        period: '7d',
+        timezone: 'UTC',
+      }),
+    );
+    await vi.waitFor(() => expect(output.calls).toHaveLength(1));
+
+    expect(personalUsageReporter).toHaveBeenCalledWith({ period: '7d', timezone: 'UTC' });
+    expect(frames(output)[0]).toMatchObject({
+      type: 'personal_usage_report',
+      requestId: 'resume-usage',
+      report,
+    });
+    bridge.dispose();
+  });
+
   it('stamps a monotonic seq and forwards live to the attached sink', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });

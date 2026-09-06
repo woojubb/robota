@@ -1,7 +1,8 @@
 ---
 title: 'OBSERVABILITY-2577: Aggregate versioned cross-session personal usage reports'
 issue: https://github.com/woojubb/robota/issues/2577
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-06
 priority: high
 urgency: soon
@@ -32,15 +33,15 @@ not from usage-bearing messages or inferred provider requests.
 
 ## Plan
 
-- [ ] Define the report request/result contracts, metric-scope vocabulary, period bounds, timezone,
+- [x] Define the report request/result contracts, metric-scope vocabulary, period bounds, timezone,
       cost confidence, breakdowns, drill-down IDs, and structured coverage diagnostics.
-- [ ] Accept one immutable, already-enumerated user/project-store snapshot; keep store discovery and I/O
+- [x] Accept one immutable, already-enumerated user/project-store snapshot; keep store discovery and I/O
       in host adapters, then apply one deterministic merge and canonical normalization stage.
-- [ ] Aggregate sessions, top-level turns, tokens, cost, model, surface, execution source, canonical
+- [x] Aggregate sessions, top-level turns, tokens, cost, model, surface, execution source, canonical
       tool-starts, and started skill/plugin activations into complete daily buckets.
-- [ ] Represent legacy/missing attribution as `unknown`, current-day buckets as partial, and corrupt or
+- [x] Represent legacy/missing attribution as `unknown`, current-day buckets as partial, and corrupt or
       unsupported records as visible partial coverage.
-- [ ] Add fixture-based tests for empty periods, inclusive-start/exclusive-end bounds, IANA zones, DST,
+- [x] Add fixture-based tests for empty periods, inclusive-start/exclusive-end bounds, IANA zones, DST,
       dedupe, mixed confidence, and privacy-safe output.
 
 ## Constraints
@@ -74,3 +75,10 @@ not from usage-bearing messages or inferred provider requests.
 
 **Reason:** This Task owns a shared analytics contract and reducer, not a directly runnable product
 surface; FLOW-2577 and SCREEN-2577 consume it and provide the executable CLI and GUI scenarios.
+
+## Result
+
+The analytics package now owns one versioned, provider-neutral reducer for complete 7/30-day local
+calendar reports. It merges immutable store snapshots deterministically, deduplicates canonical usage,
+retains legacy and coverage diagnostics, exposes model/provider/surface/source/activity dimensions and
+session drill-down IDs, and emits no stored prompt, response, path, or tool-payload content.

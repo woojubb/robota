@@ -105,4 +105,27 @@ describe('CORE-043 — provider_request describes what was sent', () => {
       await agent.destroy();
     }
   });
+
+  it('DATA-2577 assigns one stable usage identity to each provider round', async () => {
+    const provider = new NoSchemaProvider();
+    const agent = new Robota({
+      name: 'usage-observation-identity',
+      aiProviders: [provider as unknown as IAIProvider],
+      defaultModel: { provider: 'no-schema', model: 'some-model' },
+    });
+
+    try {
+      await agent.run('anything');
+      const assistant = agent.getHistory().find((message) => message.role === 'assistant');
+      expect(assistant?.metadata).toMatchObject({
+        providerId: 'no-schema',
+        modelId: 'some-model',
+        round: 1,
+      });
+      expect(assistant?.metadata?.['usageObservationId']).toEqual(expect.any(String));
+      expect(assistant?.metadata?.['executionId']).toEqual(expect.any(String));
+    } finally {
+      await agent.destroy();
+    }
+  });
 });

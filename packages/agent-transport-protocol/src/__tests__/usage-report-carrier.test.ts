@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+import { describe, it, expect, vi } from 'vitest';
 
+import { createOutboundDelivery } from '../outbound-delivery.js';
+import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-protocol.js';
 import type { IUsageBySourceReport } from '@robota-sdk/agent-interface-analytics';
 
@@ -74,5 +77,22 @@ describe('SELFHOST-004 TC-08 — usage_report server-message carrier', () => {
     // compile-time proof the request variant exists (the GUI asks for the report)
     const req = { type: 'get-usage-report' } as const;
     expect(req.type).toBe('get-usage-report');
+  });
+
+  it('routes the request through the host producer and delivers the report', async () => {
+    const sent: TServerMessage[] = [];
+    const reporter = vi.fn().mockReturnValue(report);
+    const session = createTestInteractiveSession();
+    const { onMessage } = createWsHandler({
+      session,
+      deliver: createOutboundDelivery((message) => sent.push(message), vi.fn()),
+      usageReporter: reporter,
+    });
+
+    onMessage(JSON.stringify({ type: 'get-usage-report' }));
+    await Promise.resolve();
+
+    expect(reporter).toHaveBeenCalledWith(session);
+    expect(sent).toContainEqual({ type: 'usage_report', report });
   });
 });

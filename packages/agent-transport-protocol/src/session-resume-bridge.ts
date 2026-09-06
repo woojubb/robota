@@ -27,7 +27,9 @@ import { subscribeSessionEvents } from './ws-session-events.js';
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
+import type { IUsageQueryReporters } from './ws-usage-messages.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
 /** The current channel sink — receives a serialized JSON frame to put on the wire. */
 export type TResumeSink = (data: string) => void;
@@ -59,12 +61,18 @@ export interface ISessionResumeBridgeOptions {
   readonly buffer?: IResumeBufferOptions;
   /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
   readonly driverId?: TDriverId;
+  readonly surface?: TUsageSurface;
+  readonly personalUsageReporter?: IUsageQueryReporters['personalUsageReporter'];
+  readonly usageReporter?: IUsageQueryReporters['usageReporter'];
+  readonly storedSessionUsageReporter?: IUsageQueryReporters['storedSessionUsageReporter'];
 }
 
 export class SessionResumeBridge {
   private readonly session: IProtocolSession;
   private readonly buffer: ResumeBuffer;
   private driverId?: TDriverId;
+  private readonly reporters: IUsageQueryReporters;
+  private readonly surface?: TUsageSurface;
   private readonly unsubscribe: () => void;
   private onDeliveryError?: IAttachOptions['onDeliveryError'];
   /**
@@ -96,6 +104,12 @@ export class SessionResumeBridge {
     this.session = options.session;
     this.buffer = new ResumeBuffer(options.buffer);
     this.driverId = options.driverId;
+    this.surface = options.surface;
+    this.reporters = {
+      personalUsageReporter: options.personalUsageReporter,
+      usageReporter: options.usageReporter,
+      storedSessionUsageReporter: options.storedSessionUsageReporter,
+    };
     // ONE subscription for the whole session — outlives every channel. Every event → seq-stamped + buffered.
     // CMD-004 Stage D: `ui_intent` is requester-routed against the LATE-BOUND driver id (bound by
     // `setDriverId` after pairing) — routing happens BEFORE buffering, so a foreign surface's intent
@@ -157,7 +171,14 @@ export class SessionResumeBridge {
     }
     // Session control/query/background/prompt-response — responses funnel back through `emit` (seq'd + buffered).
     // REMOTE-014 E5: inject the server-assigned driver id (submit/prompt-response attribution).
-    handleClientMessage(this.session, this.emitBoundary, msg, this.driverId);
+    handleClientMessage(
+      this.session,
+      this.emitBoundary,
+      msg,
+      this.driverId,
+      this.reporters,
+      this.surface,
+    );
   }
 
   /** Unsubscribe from the session (host reconnect-window ceiling / teardown). Idempotent. */

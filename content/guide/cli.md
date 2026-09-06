@@ -30,11 +30,31 @@ robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota usage                        # Show the last 7 days of personal usage from local session history
+robota usage --period 30d           # Show the last 30 complete calendar-day buckets
+robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip startup update check for this run
 robota --version                    # Show version
 ```
+
+## Personal Usage
+
+Run `robota usage` before starting a session to summarize local user and trusted-project history. The
+report includes sessions, started turns, tokens, cost confidence, daily buckets, attribution
+breakdowns, privacy-safe activity counts, and coverage warnings. It does not send data to a provider
+or print stored prompts, responses, paths, or tool payloads.
+
+```bash
+robota usage
+robota usage --period 30d --timezone Asia/Seoul
+robota usage --period 30d --timezone UTC --format json
+```
+
+The JSON form is a stable external projection with `schemaVersion: 1`. The desktop app exposes the
+same shared report under **Usage**, including 7/30-day controls, model/surface breakdowns, coverage
+states, and links back to contributing session details.
 
 ## CLI Updates
 

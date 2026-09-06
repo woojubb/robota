@@ -3,7 +3,7 @@
  * Wraps the native WebSocket API with typed agent-transport-ws messages.
  */
 
-import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport-protocol';
+import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport-protocol/client';
 
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
 

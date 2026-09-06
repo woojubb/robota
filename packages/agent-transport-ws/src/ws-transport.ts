@@ -7,18 +7,29 @@
 
 import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
+import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
 } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type {
+  IProtocolSession,
+  IWsHandlerOptions,
+  TServerMessage,
+} from '@robota-sdk/agent-transport-protocol';
 
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */
   send: (message: TServerMessage) => void;
   /** Owning socket lifecycle callback for outbound session-event delivery failures. */
   onDeliveryError?: (error: Error, event: string) => void;
+  personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
+  usageReporter?: IWsHandlerOptions['usageReporter'];
+  storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
+  driverId?: TDriverId;
+  surface?: TUsageSurface;
 }
 
 export interface IWsTransport extends ITransportAdapter<IInteractiveSession> {
@@ -54,7 +65,19 @@ export function createWsTransport(options: IWsTransportOptions): IWsTransport {
         transport.onMessage = null;
         options.onDeliveryError?.(error, event);
       });
-      const handler = createWsHandler({ session, deliver });
+      const handler = createWsHandler({
+        session,
+        deliver,
+        ...(options.driverId ? { driverId: options.driverId } : {}),
+        ...(options.surface ? { surface: options.surface } : {}),
+        ...(options.personalUsageReporter
+          ? { personalUsageReporter: options.personalUsageReporter }
+          : {}),
+        ...(options.usageReporter ? { usageReporter: options.usageReporter } : {}),
+        ...(options.storedSessionUsageReporter
+          ? { storedSessionUsageReporter: options.storedSessionUsageReporter }
+          : {}),
+      });
       cleanup = handler.cleanup;
       this.onMessage = handler.onMessage;
     },

@@ -4,6 +4,7 @@ import {
   buildResult,
   createUsageSummaryEntry,
   createSourceUsageSummaryEntry,
+  createUsageObservationEntry,
 } from '../interactive-session-execution.js';
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -128,5 +129,70 @@ describe('interactive session usage summaries', () => {
     expect(entry.category).toBe('event');
     expect(entry.type).toBe('usage-summary');
     expect(entry.data).toEqual(usage);
+  });
+
+  it('persists a content-free observation even when a started turn has zero usage', () => {
+    const entry = createUsageObservationEntry({
+      turnId: 'turn-1',
+      outcome: 'failure',
+      providerId: 'anthropic',
+      modelId: 'gpt-5.6-sol',
+      driverId: 'app',
+    });
+
+    expect(entry).toMatchObject({
+      category: 'event',
+      type: 'usage-observation',
+      data: {
+        usageObservationId: 'turn-1',
+        turnId: 'turn-1',
+        outcome: 'failure',
+        providerId: 'anthropic',
+        modelId: 'gpt-5.6-sol',
+        surface: 'desktop-app',
+      },
+    });
+    expect(entry.data?.usage).toBeUndefined();
+  });
+
+  it('uses trusted surface metadata independently from an opaque driver id', () => {
+    const entry = createUsageObservationEntry({
+      turnId: 'turn-remote',
+      outcome: 'success',
+      driverId: 'device-sha256',
+      surface: 'remote',
+    });
+
+    expect(entry.data).toMatchObject({ surface: 'remote' });
+  });
+
+  it('deduplicates repeated persisted usage fragments by provider-round identity', () => {
+    const duplicate = {
+      role: 'assistant' as const,
+      content: 'done',
+      id: 'a1',
+      timestamp: new Date(),
+      state: 'complete' as const,
+      metadata: {
+        usageObservationId: 'provider-round-1',
+        inputTokens: 10,
+        outputTokens: 5,
+      },
+    };
+    const result = buildResult(
+      'done',
+      [duplicate, { ...duplicate, id: 'a1-replayed' }],
+      [],
+      0,
+      { usedTokens: 15, maxTokens: 1000, usedPercentage: 1.5, remainingPercentage: 98.5 },
+      undefined,
+      'gpt-test',
+    );
+
+    expect(result.usage).toMatchObject({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
   });
 });

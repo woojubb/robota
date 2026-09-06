@@ -15,7 +15,7 @@ import {
   SessionResumeBridge,
 } from '@robota-sdk/agent-transport-protocol';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { attachSession } from '../session-attachment.js';
 
@@ -51,6 +51,50 @@ function channelHolding(bytes: () => number): IPairingChannel & { sent: string[]
 }
 
 describe('attachSession + the replay budget (ARCH-030)', () => {
+  it('attributes direct admitted WebRTC submissions to the remote surface', async () => {
+    const base = fakeSession().session;
+    const submit = vi.fn().mockResolvedValue(undefined);
+    const session = Object.assign(base, { submit });
+    const channel = channelHolding(() => 0);
+    const attached = attachSession({ channel, session, surface: 'remote' }, false, () => undefined);
+
+    attached.onSessionMessage(JSON.stringify({ type: 'submit', prompt: 'remote turn' }));
+    await vi.waitFor(() => expect(submit).toHaveBeenCalled());
+
+    expect(submit).toHaveBeenCalledWith('remote turn', undefined, undefined, {
+      surface: 'remote',
+    });
+    attached.cleanup();
+  });
+
+  it('exposes host usage reporting on the admitted direct handler path', async () => {
+    const { session } = fakeSession();
+    const channel = channelHolding(() => 0);
+    const report = { schemaVersion: 1 } as never;
+    const attached = attachSession(
+      { channel, session, personalUsageReporter: async () => report },
+      false,
+      () => undefined,
+    );
+
+    attached.onSessionMessage(
+      JSON.stringify({
+        type: 'get-personal-usage-report',
+        requestId: 'direct-usage',
+        period: '30d',
+        timezone: 'UTC',
+      }),
+    );
+    await expect.poll(() => channel.sent.length).toBeGreaterThan(0);
+
+    expect(channel.sent.map((frame) => JSON.parse(frame))).toContainEqual({
+      type: 'personal_usage_report',
+      requestId: 'direct-usage',
+      report,
+    });
+    attached.cleanup();
+  });
+
   it('closes a peer that is over budget when the replay burst is attempted', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });

@@ -33,4 +33,6 @@ other workspace packages; `agent-cli` depends on its `dist/` at build time only 
 ## Build
 
 `vite build` → `dist/` (single `index.html` entry). `agent-cli`'s build runs this first, then
-`scripts/copy-web-assets.mjs` copies `dist/` into `agent-cli/dist/web`.
+`scripts/copy-web-assets.mjs` copies `dist/` into `agent-cli/dist/web`. The GUI library imports the
+protocol package's published browser-safe `./client` entrypoint; this SPA carries no package alias or
+private source-path workaround for protocol decoding.

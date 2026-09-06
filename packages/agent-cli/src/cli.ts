@@ -28,7 +28,6 @@ import { bindAssembledCollaborators } from './product/assembled-collaborators.js
 import { createRobotaProfile } from './product/robota-profile.js';
 import {
   buildRobotaRuntimeOptions,
-  createDefaultTransportRegistry,
   loadReplayProvider,
   reportUnknownPresetModules,
   selectProductCommandModules,
@@ -37,6 +36,7 @@ import {
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
+import { createDefaultUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
   createRobotaPackSet,
@@ -194,14 +194,26 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     workspaceComposition,
     orgPolicy,
   } = buildCommandSetupOrExit(cwd, args, options, version, packCommandModules);
-  // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
-  // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
-  // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
-  const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
+  // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
+  const wsDriverId = process.env['ROBOTA_WS_TOKEN'] ? 'app' : args.open ? 'browser' : 'remote:ws';
+  const wsSurface = process.env['ROBOTA_WS_TOKEN']
+    ? 'desktop-app'
+    : args.open
+      ? 'browser'
+      : 'remote';
+  const {
+    registry: transportRegistry,
+    wsTransport,
+    usageReporters,
+  } = createDefaultUsageTransportRegistry(
+    workspaceComposition.sessionStore,
+    workspaceComposition.projectAccess.status === 'trusted',
+    wsDriverId,
+    wsSurface,
+  );
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
-    createRemoteControlController(transportRegistry);
-  // CMD-007 (issue #2058): this product stores `/cost budget` in `.robota/budget.json` under the
-  // workspace; the command sees only the port, so another product may store it elsewhere.
+    createRemoteControlController(transportRegistry, usageReporters);
+  // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
   commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd);
   const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
@@ -437,7 +449,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    // ARCH-013: `permissionMode` arrives via `...presetSurface` below, from this same value.
     maxTurns: args.maxTurns,
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,

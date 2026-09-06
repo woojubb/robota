@@ -1,10 +1,4 @@
-/**
- * SessionExecutionController — owns execution lifecycle state and methods
- * for InteractiveSession.
- *
- * Manages: execution claim, streaming text, active tools, pending queue,
- * shutting-down flag, and all private execution lifecycle methods.
- */
+/** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
 import {
   createUserMessage,
@@ -23,6 +17,7 @@ import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
+import { recordUsageObservation } from './interactive-session-usage-observation.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
@@ -208,12 +203,8 @@ export class SessionExecutionController {
     turnId: string,
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
-    // RUNTIME-12: claim the turn SYNCHRONOUSLY at entry. The caller's `if (execCtrl.executing)` gate
-    // (interactive-session.submit) and this claim are synchronous, so a second concurrent submit
-    // observes `executing` and coalesces to the pending queue instead of BOTH starting a turn. (Previously
-    // set only AFTER the awaited checkAndRefreshContextIfStale below, leaving a two-await window where both
-    // entries saw idle.) The `finally` always releases it — including if the refresh throws, which is why
-    // checkAndRefreshContextIfStale now runs INSIDE the try.
+    // RUNTIME-12: claim synchronously before any await so a concurrent submit queues rather than also
+    // starting. The `finally` releases this claim even when context refresh or execution throws.
     let executionClaim: IExecutionClaim;
     try {
       executionClaim = this.executionClaim.acquire('prompt');
@@ -231,6 +222,7 @@ export class SessionExecutionController {
     // COMPLETED path only, and a handle must settle for an interrupted turn too.
     let terminalResult: IExecutionResult | undefined;
     let turnError: Error | undefined;
+    let turnOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
     let ephemeralSystemContext: string | undefined;
     try {
       await checkAndRefreshContextIfStale(
@@ -277,11 +269,13 @@ export class SessionExecutionController {
         onComplete: (result: IExecutionResult) => {
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
+          turnOutcome = 'success';
           this.callbacks.emit('complete', result);
         },
         onInterrupted: (result: IExecutionResult) => {
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
+          turnOutcome = 'interrupted';
           this.callbacks.emit('interrupted', result);
         },
         onError: (err: Error) => {
@@ -293,17 +287,8 @@ export class SessionExecutionController {
         },
       });
     } catch (error) {
-      // RUNTIME-003: the REAL error, not the generic fallback below.
-      //
-      // `executePromptTurn` catches its own throws and routes them to `onError`, so `turnError` is
-      // set for anything that happens INSIDE it. Everything before it in this `try` is not covered:
-      // the `checkAndRefreshContextIfStale` await, a synchronous listener on one of the `emit`
-      // calls, the recall block's own rethrow. Review found that such a throw left both
-      // `terminalResult` and `turnError` undefined, so the handle rejected with "the turn ended
-      // without a result" — a message that names the symptom and destroys the cause.
-      //
-      // Rethrown, so callers of `executePrompt` see exactly what they saw before. The only thing
-      // this changes is WHAT the handle rejects with.
+      // RUNTIME-003: preserve failures before `executePromptTurn` can route them through `onError`;
+      // otherwise the turn handle would replace the real cause with "ended without a result".
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
@@ -320,6 +305,13 @@ export class SessionExecutionController {
         userMessage: displayInput ?? input,
         record: (event) => this.histTracker.recordMemoryEvent(event),
         onError: (error) => this.callbacks.emit('error', error),
+      });
+      recordUsageObservation(this.histTracker.getHistory(), this.callbacks.getSessionOrThrow(), {
+        turnId,
+        outcome: turnOutcome,
+        ...(turnOptions.driverId ? { driverId: turnOptions.driverId } : {}),
+        ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
+        ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
       });
       // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.

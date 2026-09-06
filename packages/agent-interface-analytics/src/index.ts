@@ -9,4 +9,13 @@ export type {
   IRunTraceSpan,
   IRunTraceTurn,
   IUsageBySourceReport,
+  IUsageObservation,
+  TUsageSurface,
+  IPersonalUsageRequest,
+  IPersonalUsageTotals,
+  IPersonalUsageDimension,
+  IPersonalUsageActivity,
+  IPersonalUsageDay,
+  IPersonalUsageCoverage,
+  IPersonalUsageReport,
 } from './usage-contracts.js';

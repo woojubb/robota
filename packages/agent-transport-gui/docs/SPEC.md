@@ -38,6 +38,17 @@ Provides:
   `IWsSessionState.sessionName` (co-driving titles follow the host-executed rename) and
   `history_cleared` into an emptied transcript (messages + streaming state reset) — a clear
   performed by ANY surface refreshes this one.
+- **Personal usage dashboard (SCREEN-2577)** — the reducer sends request-correlated 7/30-day usage
+  queries and folds success/error replies with latest-request-wins semantics. An opt-in
+  `SessionSurface` exposes a Chat/Usage navigation switch; the usage screen renders totals, complete
+  calendar-day buckets, model/provider/surface/source/activity breakdowns, loading/empty/error
+  states, contributor-session drill-down, current-session trace, and coverage warnings without
+  receiving prompt content. Browser/remote consumers remain opted out by default.
+- **Protocol reachability (ARCH-2164)** — `SERVER_MESSAGE_HANDLING` is an exhaustive
+  `Record<TServerMessage['type'], ...>` that assigns every wire variant to a specialized reducer,
+  transport lifecycle, or explicit intentionally-not-rendered disposition. Slash composer input uses the
+  command wire path; command results and protocol/session errors become dismissible notices. A
+  session error finalizes partial text and clears thinking/running-tool state before another turn.
 - **Components** — `ConversationView` (pure conversation render, markdown), `AgentActivityPanel` (background
   task rail), `PermissionPrompt` (permission/ask modal), `SessionSurface` (the full terminal-noir desktop
   layout over an `IWsSessionState`), and `CenteredChrome` (pre-session / fatal chrome).
@@ -119,30 +130,33 @@ logic — it forwards user intent through the reducer's `send` / `answerPermissi
 
 Exported from the package root (node) and `./client` (browser):
 
-| Export                   | Kind      | Description                                                                          |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------ |
-| `useSessionClient`       | hook      | Transport-neutral session reducer, generic over the status type                      |
-| `useWsSession`           | hook      | `useSessionClient` bound to a localhost WS via `createWsSessionClient`               |
-| `createWsSessionClient`  | function  | Browser WebSocket client (reconnecting) implementing `ISessionClientHandle`          |
-| `applyPromptEvent`       | function  | Fold a permission/ask/resolved event into the pending-prompt list                    |
-| `permissionResponse`     | function  | Build the `TClientMessage` answering a permission prompt                             |
-| `askResponse`            | function  | Build the `TClientMessage` answering an ask prompt                                   |
-| `applyUiIntentEvent`     | function  | Fold a `ui_intent` server message into the explicit notice list (CMD-004 Stage D)    |
-| `removeUiIntentNotice`   | function  | Dismiss one ui-intent notice by id (idempotent)                                      |
-| `describeUiIntentForGui` | function  | Per-kind explicit "not available on this surface" text for an intent                 |
-| `ConversationView`       | component | Pure conversation renderer (markdown); messages/activeTools/streamingText/isThinking |
-| `AgentActivityPanel`     | component | Background-task rail; `tasks: readonly IExecutionWorkspaceEntry[]`                   |
-| `PermissionPrompt`       | component | Permission/ask modal; prompts + `onAnswerPermission`/`onAnswerAsk`                   |
-| `SessionSurface`         | component | Full terminal-noir desktop layout over an `IWsSessionState`; optional `surface`      |
-| `CenteredChrome`         | component | Pre-session / fatal chrome frame; `tone` + children                                  |
-| `SessionMonitor`         | component | Localhost-WS **web** session shell (composes the reducer + views); prop `wsUrl`      |
-| `IConversationMessage`   | type      | Reconstructed conversation message (id, role, content, author?)                      |
-| `IActiveTool`            | type      | Active tool-call display state                                                       |
-| `IWsSessionState`        | type      | Reducer return state (generic over the status type)                                  |
-| `ISessionClientHandle`   | type      | The `connect`/`disconnect`/`send` handle a transport client returns                  |
-| `TMakeSessionClient`     | type      | Factory the reducer calls to build its client from the callbacks                     |
-| `TConnectionStatus`      | type      | WS lifecycle status (`disconnected \| connecting \| connected \| error`)             |
-| `TPendingPrompt`         | type      | A pending permission/ask prompt awaiting the owner's answer                          |
+| Export                         | Kind      | Description                                                                          |
+| ------------------------------ | --------- | ------------------------------------------------------------------------------------ |
+| `useSessionClient`             | hook      | Transport-neutral session reducer, generic over the status type                      |
+| `useWsSession`                 | hook      | `useSessionClient` bound to a localhost WS via `createWsSessionClient`               |
+| `createWsSessionClient`        | function  | Browser WebSocket client (reconnecting) implementing `ISessionClientHandle`          |
+| `applyPromptEvent`             | function  | Fold a permission/ask/resolved event into the pending-prompt list                    |
+| `permissionResponse`           | function  | Build the `TClientMessage` answering a permission prompt                             |
+| `askResponse`                  | function  | Build the `TClientMessage` answering an ask prompt                                   |
+| `applyUiIntentEvent`           | function  | Fold a `ui_intent` server message into the explicit notice list (CMD-004 Stage D)    |
+| `removeUiIntentNotice`         | function  | Dismiss one ui-intent notice by id (idempotent)                                      |
+| `describeUiIntentForGui`       | function  | Per-kind explicit "not available on this surface" text for an intent                 |
+| `ConversationView`             | component | Pure conversation renderer (markdown); messages/activeTools/streamingText/isThinking |
+| `AgentActivityPanel`           | component | Background-task rail; `tasks: readonly IExecutionWorkspaceEntry[]`                   |
+| `PermissionPrompt`             | component | Permission/ask modal; prompts + `onAnswerPermission`/`onAnswerAsk`                   |
+| `PersonalUsageDashboard`       | component | Cross-session 7/30-day usage totals, chart, breakdown, and coverage states           |
+| `SessionSurface`               | component | Full terminal-noir desktop layout with Chat/Usage navigation                         |
+| `CenteredChrome`               | component | Pre-session / fatal chrome frame; `tone` + children                                  |
+| `SessionMonitor`               | component | Localhost-WS **web** session shell (composes the reducer + views); prop `wsUrl`      |
+| `IConversationMessage`         | type      | Reconstructed conversation message (id, role, content, author?)                      |
+| `IActiveTool`                  | type      | Active tool-call display state                                                       |
+| `ISessionNotice`               | type      | Visible command-result, session-error, or protocol-error notice                      |
+| `IWsSessionState`              | type      | Reducer return state (generic over the status type)                                  |
+| `ISessionClientHandle`         | type      | The `connect`/`disconnect`/`send` handle a transport client returns                  |
+| `TMakeSessionClient`           | type      | Factory the reducer calls to build its client from the callbacks                     |
+| `TConnectionStatus`            | type      | WS lifecycle status (`disconnected \| connecting \| connected \| error`)             |
+| `TPendingPrompt`               | type      | A pending permission/ask prompt awaiting the owner's answer                          |
+| `TPersonalUsageDashboardState` | type      | Pure loading/error/empty/ready state consumed by `PersonalUsageDashboard`            |
 
 Style: `./styles/theme.css` (source; consumer-compiled). Consumers import these directly — this package is
 NOT re-exported through a sibling product (`agent-transport-webrtc-web` does not re-export it; the repo forbids
@@ -166,6 +180,10 @@ pass-through re-exports).
 - `prompt-state.test.ts` — the permission/ask reducer helpers.
 - `ui-intent-state.test.ts` — CMD-004 TC-05: every `ui_intent` kind (including unknown wire-level
   kinds) folds to an explicit notice — never a silent no-op; dismissal is id-scoped + idempotent.
+- `server-message-handling.test.ts` — ARCH-2164 compile/runtime roster: every server-message
+  discriminator has an explicit GUI disposition.
+- `use-session-client-broadcast.test.tsx` — request correlation, stored/current/personal reports,
+  command/error notices, and error recovery from partial streaming state.
 - Component rendering (`SessionSurface`, prompts) is exercised by the consuming app's jsdom test
   (`apps/agent-app`) and its headless Electron e2e (real `WsTransport` sidecar).
 
@@ -186,14 +204,14 @@ pass-through re-exports).
 
 ### Components
 
-| Name                 | Props                                                    |
-| -------------------- | -------------------------------------------------------- |
-| `ConversationView`   | `messages`, `activeTools`, `streamingText`, `isThinking` |
-| `AgentActivityPanel` | `tasks: readonly IExecutionWorkspaceEntry[]`             |
-| `PermissionPrompt`   | `prompts`, `onAnswerPermission`, `onAnswerAsk`           |
-| `SessionSurface`     | `state: IWsSessionState`, optional `surface` label       |
-| `CenteredChrome`     | `tone: 'muted' \| 'fatal'`, `children`                   |
-| `SessionMonitor`     | `wsUrl: string`, optional `className` (web monitor page) |
+| Name                 | Props                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `ConversationView`   | `messages`, `activeTools`, `streamingText`, `isThinking`                                     |
+| `AgentActivityPanel` | `tasks: readonly IExecutionWorkspaceEntry[]`                                                 |
+| `PermissionPrompt`   | `prompts`, `onAnswerPermission`, `onAnswerAsk`                                               |
+| `SessionSurface`     | `state: IWsSessionState`, optional `surface` label and desktop `personalUsageEnabled` opt-in |
+| `CenteredChrome`     | `tone: 'muted' \| 'fatal'`, `children`                                                       |
+| `SessionMonitor`     | `wsUrl: string`, optional `className` (web monitor page)                                     |
 
 ### Cross-Package Consumers
 

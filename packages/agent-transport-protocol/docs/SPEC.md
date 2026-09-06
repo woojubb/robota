@@ -15,7 +15,12 @@ non-WebSocket transport can reuse it without a `webrtc → ws` package edge.
   `TServerMessage`s through that boundary; returns `onMessage(data)` (drives `session.submit/executeCommand/
 abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: works over any byte/string
   channel via the carrier's `deliver`/`onMessage` callbacks — no `ws`, no `node:` sockets.
-- `TClientMessage` / `TServerMessage` — the JSON wire protocol (inbound client verbs; outbound server events).
+- `TClientMessage` / `TServerMessage` — the JSON wire protocol (inbound client verbs; outbound server
+  events), including request-correlated cross-session personal reports, stored-session usage
+  drill-down, and the existing current-session usage report. Malformed correlated requests receive
+  content-free typed errors only when their required correlation identifiers are valid.
+- `./client` — a browser-safe runtime decoder and wire-type entrypoint. It excludes Node-only
+  admission/handler implementation code so Electron and browser renderers do not bundle `node:` APIs.
 - **TRANS-001 payload-agnostic channel frame codec** (`src/channel-frames.ts`) — `encodeBinaryFrame`,
   `encodeChannelEventFrame`, `decodeChannelFrame`, `isChannelFrame`, plus `CHANNEL_FRAME_MAGIC` /
   `CHANNEL_FRAME_VERSION`. A pure, byte-oriented envelope for the contracts in
@@ -100,6 +105,8 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   id — e.g. an idle model-invoked command) is unroutable and reaches every surface (never a silent
   drop). In the `SessionResumeBridge`, routing happens BEFORE seq-stamping/buffering, so a foreign
   surface's intent consumes no seq and cannot leak through a later `resume` replay.
+  The bridge also owns the same host-injected usage reporters as a direct handler; reconnect/detach changes
+  only its carrier sink and cannot turn an admitted usage query into `not_available`.
   **Stage E — broadcast session-state events:** `subscribeSessionEvents` forwards the session's
   `session_renamed` (`{ type: 'session_renamed', event }`) and `history_cleared`
   (`{ type: 'history_cleared' }`) events to EVERY attached surface, unfiltered — the host executed
@@ -123,9 +130,9 @@ they do not rebuild anonymous intersections or require the unrelated lifecycle/g
 
 - **Contains runtime logic** (the handler) — so it is NOT `agent-interface-transport` (which bans runtime code,
   INFRA-035). It is a leaf below every transport implementation.
-- **Dependencies: `@robota-sdk/agent-interface-transport` ONLY.** No `agent-core`, no `ws`, no `node:` sockets
-  (verified). Transport implementations (`-ws`, `-webrtc`) depend DOWN on this package; it depends on none of
-  them (no cycle).
+- **Dependencies: interface-contract packages only.** No `agent-core`, no `ws`, no `node:` sockets
+  in the browser entrypoint (verified). Transport implementations (`-ws`, `-webrtc`) depend DOWN on
+  this package; it depends on none of them (no cycle).
 
 ### Hand-off ownership transaction (HANDOFF-001, #1811)
 
@@ -217,6 +224,9 @@ once and the carriers stay dumb.
 | `decodeFrame`                           | function  | `raw string → JSON → owner decoder`, the one inbound path a carrier implements; enforces `MAX_INBOUND_FRAME_BYTES`  |
 | `TMessageDecodeResult`                  | type      | `{ ok: true, message } \| { ok: false, reason }` — the result every decoder above returns                           |
 
+`decodeServerMessage`, `decodeFrame`, `TMessageDecodeResult`, `TClientMessage`, and
+`TServerMessage` are also exported from `./client`; that subpath is the renderer contract.
+
 ## Type Ownership
 
 | Type/Symbol              | Location                   | Purpose                                                 |
@@ -246,6 +256,8 @@ as such: the bridge path was already guarded, so they guard the restructure rath
 all eleven reply families after a disconnect (five Promise continuations asserting zero unhandled
 rejections, six synchronous ones asserting nothing escapes `onMessage`), the latch, observer isolation,
 and a `@ts-expect-error` case that fails typecheck if the brand is ever dropped.
+`personal-usage-report.test.ts` and `usage-report-carrier.test.ts` cover all three usage-report
+families, request correlation, unavailable/error replies, and malformed-identifier non-reflection.
 `src/__tests__/channel-frames.test.ts` (TRANS-001) covers the channel codec: opaque
 round-trip integrity (including non-UTF-8 bytes), chunked reassembly by `seq` from out-of-order delivery,
 multi-byte channel names, encoder input validation, and every malformed-input error result.

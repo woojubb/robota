@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: AGREEMENT
 tags: [cli, desktop, json-schema, typescript]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # AGREEMENT-2577: Coordinate cross-session usage reporting across CLI and GUI
 
-Paired with `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`.
+Paired with `.agents/tasks/completed/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`.
 Arising from [issue #2577](https://github.com/woojubb/robota/issues/2577).
 
 ## Problem
@@ -119,7 +119,7 @@ canonical usage/turn event; autonomous work remains `unknown`. CLI JSON is an ex
 
 **Delivery mode:** `sequenced`
 
-**Continuation artifacts:** `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`, `.agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`, `.agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`, `.agents/tasks/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`
+**Continuation artifacts:** `.agents/spec-docs/done/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/completed/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/completed/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`, `.agents/tasks/completed/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`, `.agents/tasks/completed/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`, `.agents/tasks/completed/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`
 
 Validated recommendation:
 
@@ -222,86 +222,91 @@ request ID, or silently catch to empty/success.
 
 ## Completion Criteria
 
-- [ ] TC-01: DATA-2577 proves one started-turn observation for zero-usage/success/failure/`interrupted`,
+- [x] TC-01: DATA-2577 proves one started-turn observation for zero-usage/success/failure/`interrupted`,
       none for never-run `coalesced`/`dropped`/`cancelled`; invocation-scoped `usageObservationId`
       deduplicates repeated fragments but not separately observed invocations or equal distinct usage;
       actual optional provider/model/per-turn surface round-trips; legacy records remain readable without
       guessed attribution.
-- [ ] TC-02: OBSERVABILITY-2577 produces deterministic 7/30-day inclusive-start/exclusive-end reports
+- [x] TC-02: OBSERVABILITY-2577 produces deterministic 7/30-day inclusive-start/exclusive-end reports
       with complete buckets, explicit timezone, summary/breakdowns/activity/drill-down, confidence, and
       coverage across valid, legacy, duplicate, corrupt, unsupported, empty, DST, and partial-day fixtures.
-- [ ] TC-03: `robota usage --period 7d` and `robota usage --period 30d --timezone UTC --format json`
+- [x] TC-03: `robota usage --period 7d` and `robota usage --period 30d --timezone UTC --format json`
       exit 0 on the canonical fixture; JSON declares `schemaVersion: 1`, and invalid period/timezone exits
       non-zero through the standard CLI error contract.
-- [ ] TC-04: the GUI 7/30-day dashboard consumes the distinct correlated sidecar report, applies
+- [x] TC-04: the GUI 7/30-day dashboard consumes the distinct correlated sidecar report, applies
       latest-request-wins, renders accessible loading/empty/
       partial/error/unknown/estimated states, and drills into the existing per-session report after the
       converted [issue #2164](https://github.com/woojubb/robota/issues/2164) dependency is satisfied;
       admitted owner surfaces receive equivalent results; pre-admission failures never reach the report
       producer; malformed admitted requests get a content-free correlated error only with a validated
       `requestId`, otherwise the existing uncorrelated protocol error/close behavior.
-- [ ] TC-05: one fixture corpus yields equal normalized totals, buckets, breakdowns, and coverage through
+- [x] TC-05: one fixture corpus yields equal normalized totals, buckets, breakdowns, and coverage through
       the shared report, CLI JSON, and GUI view model, with no prompt/response/path/tool-payload fields.
-- [ ] TC-06: all four declared child Tasks are `done`, the exact child projections below are current,
+- [x] TC-06: all four declared child Tasks are `done`, the exact child projections below are current,
       and [issue #2577](https://github.com/woojubb/robota/issues/2577) retains or reaches a truthful
       terminal state only after the complete external outcome lands.
 
 ## Test Plan
 
-| TC-ID | Test Type                         | Tool / Approach                                        | Notes                                     |
-| ----- | --------------------------------- | ------------------------------------------------------ | ----------------------------------------- |
-| TC-01 | Consumer-driven contract + codec  | Focused Vitest type/codec/session integration suites   | Includes RED proofs in DATA-2577          |
-| TC-02 | Observability reducer contract    | Focused Vitest fixtures with injected clock/timezone   | Includes store, turn, and activity dedupe |
-| TC-03 | CLI process integration           | Built `robota usage` against isolated fixture stores   | Assert stdout, stderr, schema, exit codes |
-| TC-04 | WebSocket + GUI integration       | Sidecar fixtures plus Playwright/component E2E         | Admission parity + issue 2164 dependency  |
-| TC-05 | Cross-consumer contract           | One fixture snapshot compared across three projections | Privacy allowlist assertion included      |
-| TC-06 | Initiative lifecycle verification | Task lifecycle scan plus `pnpm harness:scan`           | Parent completes only after all children  |
+| TC-ID | Test Type                         | Tool / Approach                                                                                                                                                     | Notes                                         |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| TC-01 | Consumer-driven contract + codec  | `packages/agent-core/src/services/__tests__/provider-request-event.test.ts`; `packages/agent-framework/src/interactive/__tests__/interactive-session-usage.test.ts` | Started turns, invocation identity, codec     |
+| TC-02 | Observability reducer contract    | `packages/agent-session-analytics/src/__tests__/personal-usage.test.ts`                                                                                             | Store, turn, activity, timezone, coverage     |
+| TC-03 | CLI process integration           | `packages/agent-cli/examples/verify-personal-usage.ts`; `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`                                              | Text/JSON/error/privacy process assertions    |
+| TC-04 | WebSocket + GUI integration       | `apps/agent-app/e2e/usage-dashboard.mjs`; `packages/agent-transport-protocol/src/__tests__/personal-usage-report.test.ts`                                           | Admission, correlation, dashboard, drill-down |
+| TC-05 | Cross-consumer contract           | `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`; `packages/agent-transport-gui/src/hooks/__tests__/use-session-client-broadcast.test.tsx`            | Shared totals and privacy allowlist           |
+| TC-06 | Initiative lifecycle verification | `scripts/harness/check-task-archival.mjs`; `scripts/harness/scan-task-plan-items.mjs`                                                                               | Skip reason: lifecycle state is verified by the named harness scanners rather than a product test file |
 
 ## User Execution Test Scenarios
 
-### Scenario 1 — CLI personal usage report
+**Author verdict:** `SCENARIO DRAFTED: automatable | 3`
 
-Prerequisites: build the CLI and install the canonical AGREEMENT-2577 fixture in isolated user/project session
-stores, including legacy, duplicate, and partially attributed records. Run
-`robota usage --period 7d --format json`, then
-`robota usage --period 30d --timezone UTC`.
+### Scenario 1: CLI personal usage report
 
-Expected: both commands exit 0 and show exact interval/timezone, sessions, top-level turns, tokens, cost
-confidence, complete daily buckets, model/surface/source/activity breakdowns, contributing sessions, and
-coverage. Duplicate canonical events count once, legacy facts are `unknown`, current day is partial, and
-no stored content appears. Cleanup: remove only isolated fixture stores. Evidence: pending commands,
-exit codes, and JSON/text snapshots.
+- **executability:** agent-executable
+- **product surface:** robota-cli
+- **surface rationale:** shipped-entrypoint=robota
+- **prerequisites:** build the CLI and let the durable runner install the canonical fixture in isolated user/project stores; no live provider credential or external service is required
+- **command:** `pnpm exec robota usage --period 30d --timezone UTC --format json`
+- **observable type:** product-output
+- **expected observable:** exit=0; output-contains="schemaVersion":1, 30 daily buckets, "totalTokens":42, and "costStatus":"estimated"; output-excludes=PROMPT_CONTENT_MUST_NOT_APPEAR
+- **observable rationale:** source=product-process
+- **cleanup:** remove only the isolated fixture stores
+- **evidence:** `pnpm exec tsx packages/agent-cli/examples/verify-personal-usage.ts` exited 0 on 2026-09-06 with `jsonExit=0`, `textExit=0`, `invalidExit=1`, `totalTokens=42`, and `privacyLeak=false` after invoking the built product commands.
 
-### Scenario 2 — GUI parity and drill-down
+### Scenario 2: GUI parity and drill-down
 
-Prerequisites: complete the converted [issue #2164](https://github.com/woojubb/robota/issues/2164)
-dependency and start the deterministic GUI sidecar over the same fixture. Open Personal Usage, switch 7
-days to 30 days, switch model to surface breakdown, inspect coverage, and open a contributing session.
+- **executability:** agent-executable
+- **product surface:** robota-browser-ui
+- **surface rationale:** shipped-interface=robota-browser-ui
+- **prerequisites:** build the Electron app and launch the durable Playwright runner against its deterministic admitted sidecar; no live provider credential or external service is required
+- **browser steps:** wait for `.agent-gui-status[data-status="connected"]`; activate Usage; activate 30 days; activate By surface; activate the first Open session button; activate Current session trace
+- **observable type:** ui-state
+- **expected observable:** visible=Personal usage, 30 days, By surface, Partial day, estimated, desktop-app, 42-token stored-session detail, and 42-token current-session trace; absent=PROMPT_CONTENT_MUST_NOT_APPEAR
+- **observable rationale:** source=rendered-product-ui
+- **cleanup:** close Electron and terminate its fixture sidecar
+- **evidence:** `node apps/agent-app/e2e/usage-dashboard.mjs` exited 0 on 2026-09-06 with `SCREEN-2577 usage dashboard scenario passed` after observing the accessible dashboard and both drill-down report families.
 
-Expected: normalized values equal CLI JSON for the same request; empty/partial/error/unknown/estimated
-states are visible and accessible; drill-down opens the existing per-session report. Cleanup: stop the
-sidecar and remove fixture stores. Evidence: pending automated GUI trace and screenshots.
+### Scenario 3: admission boundary
 
-### Scenario 3 — admission boundary and equal owner authority
-
-Prerequisites: start the deterministic sidecar plus an unpaired client and authenticated desktop-local,
-paired remote/WebRTC, and CLI-web owner clients over the same fixture. Request the cross-session report
-from each client with unique request IDs.
-
-Expected: every admitted owner receives an equivalent correlated report; the unpaired connection is
-rejected/closed before report-protocol reachability and emits no report data. An admitted malformed request
-with a validated request ID receives a correlated typed error; a missing/invalid ID follows the existing
-uncorrelated error/close policy and never echoes the untrusted value. Desktop-only navigation does not
-alter protocol authority. Cleanup: stop the clients and fixture sidecar. Evidence: pending automated
-protocol output.
+- **executability:** agent-executable
+- **product surface:** robota-browser-ui
+- **surface rationale:** shipped-interface=robota-browser-ui
+- **prerequisites:** launch Electron through the durable runner against a sidecar configured with a mismatched admission token; no live provider credential or external service is required
+- **browser steps:** wait for the Personal Usage unavailable alert; verify the seeded usage model is absent
+- **observable type:** ui-state
+- **expected observable:** visible=Personal Usage is unavailable; absent=scripted-model
+- **observable rationale:** source=rendered-product-ui
+- **cleanup:** close the rejected Electron instance and terminate its fixture sidecar
+- **evidence:** the rejection half of `node apps/agent-app/e2e/usage-dashboard.mjs` exited 0 on 2026-09-06 with `ARCH-2164 rejected-admission scenario passed` and no seeded usage content rendered.
 
 ## Tasks
 
-- [ ] AGREEMENT-2577 — todo — `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`
-- [ ] DATA-2577 — todo — `.agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`
-- [ ] OBSERVABILITY-2577 — todo — `.agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`
-- [ ] FLOW-2577 — todo — `.agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`
-- [ ] SCREEN-2577 — todo — `.agents/tasks/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`
+- [x] AGREEMENT-2577 — done — `.agents/tasks/completed/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`
+- [x] DATA-2577 — done — `.agents/tasks/completed/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`
+- [x] OBSERVABILITY-2577 — done — `.agents/tasks/completed/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`
+- [x] FLOW-2577 — done — `.agents/tasks/completed/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`
+- [x] SCREEN-2577 — done — `.agents/tasks/completed/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`
 
 ## Evidence Log
 
@@ -425,6 +430,7 @@ protocol output.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -488,6 +494,210 @@ protocol output.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `7b29a4b01f49` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `8a68a58b5b3b` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run packages/agent-core/src/services/__tests__/provider-request-event.test.ts packages/agent-framework/src/interactive/__tests__/interactive-session-usage.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-3
+
+ ✓ packages/agent-framework/src/interactive/__tests__/interactive-session-usage.test.ts (7 tests) 3ms
+ ✓ packages/agent-core/src/services/__tests__/provider-request-event.test.ts (2 tests) 15ms
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  16:59:22
+   Duration  1.27s (transform 871ms, setup 0ms, collect 1.21s, tests 18ms, environment 0ms, prepare 261ms)
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `15beeaf99c56` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run packages/agent-session-analytics/src/__tests__/personal-usage.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:59:22 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-3
+
+ ✓ packages/agent-session-analytics/src/__tests__/personal-usage.test.ts (7 tests) 25ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:59:22
+   Duration  481ms (transform 91ms, setup 0ms, collect 118ms, tests 25ms, environment 0ms, prepare 80ms)
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `a60d093ac220` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec tsx packages/agent-cli/examples/verify-personal-usage.ts`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+{"scenario":"personal-usage-cli","jsonExit":0,"textExit":0,"invalidExit":1,"totals":{"sessions":1,"turns":1,"promptTokens":30,"completionTokens":12,"totalTokens":42,"costUsd":0.0042,"costStatus":"estimated"},"privacyLeak":false}
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `c5b086724e35` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-06
+
+**Command:** `node apps/agent-app/e2e/usage-dashboard.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+SCREEN-2577 usage dashboard scenario passed
+ARCH-2164 rejected-admission scenario passed
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `d43ab12d978d` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run packages/agent-cli/src/usage/__tests__/usage-command.test.ts packages/agent-transport-gui/src/hooks/__tests__/use-session-client-broadcast.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-3
+
+ ✓ packages/agent-cli/src/usage/__tests__/usage-command.test.ts (5 tests) 27ms
+ ✓ packages/agent-transport-gui/src/hooks/__tests__/use-session-client-broadcast.test.tsx (6 tests) 41ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  16:59:22
+   Duration  1.39s (transform 684ms, setup 0ms, collect 994ms, tests 68ms, environment 786ms, prepare 220ms)
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `5158498f6d9b` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/check-task-archival.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 159 active task files
+task-archival scan passed (159 active task file(s) examined, 1079 archived in .agents/tasks/completed/).
+```
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `1b3e4e708490` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-06
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- Tests pass for all affected packages (`pnpm test`): FAIL — `pnpm test` exited 1. `apps/agent-server/src/__tests__/app.test.ts` failed `Agent Server HTTP routes > SEC-008 regression: /api/v1/remote/chat spends operator credit and must be authenticated > refuses a token signed with a different secret`; the assertion expected HTTP 401 but observed HTTP 404.
+  **Required action:** resolve or establish the named failing test ground, rerun the full `pnpm test` successfully, and then re-run GATE-VERIFY.
+
+**Criteria met:**
+
+- Ordering: PASS — the document is under `.agents/spec-docs/active/` with `status: in-progress`, and its last GATE-IMPLEMENT entry is `✅ PASS` with `approved → in-progress`.
+- Every item in the paired Task's `## Plan` is complete: PASS — all five Plan items are `[x]`; `node scripts/harness/scan-task-plan-items.mjs` exited 0 after examining 253 Task Plan sections.
+- No Plan item is blocked or pending: PASS — the five checked Plan items contain no blocked or pending disposition.
+- Build passes for all affected packages: PASS — `pnpm build` exited 0 and completed all package JavaScript builds plus all 11 type-build tiers.
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `ed1e0ff3decda081259d94b25b4a8d4ad955e28a` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-06
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+  **Required action:** make every verify command exit 0
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `65d645ea6ad9` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-06
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 (    134|  ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 (    134|  ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+  **Required action:** make every verify command exit 0
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `463991601d0a` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-06
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- Tests pass for all affected packages (`pnpm test`): FAIL — the fresh `pnpm test` run exited 1. `packages/agent-transport-tui/src/__tests__/rendered-markdown-styling.test.tsx` failed two SCREEN-006 cases: `ToolDiffBlock keeps the added/removed diff colours` and `StreamingIndicator keeps the colours of a diff block in streamed text`; both rendered the diff text without the expected ANSI light-green/light-red sequences.
+  **Required action:** resolve or establish the named failing-test ground, rerun the full `pnpm test` successfully, and then re-run GATE-VERIFY.
+
+**Criteria met:**
+
+- Ordering: PASS — the document is under `.agents/spec-docs/active/` with `status: in-progress`, and its last GATE-IMPLEMENT entry is `✅ PASS` with `approved → in-progress`.
+- Every item in the paired Task's `## Plan` is complete: PASS — all five Plan items are `[x]`; `node scripts/harness/scan-task-plan-items.mjs` exited 0 after examining 253 Task Plan sections.
+- No Plan item is blocked or pending: PASS — the five checked Plan items contain no blocked or pending disposition.
+- Build passes for all affected packages: PASS — the fresh `pnpm build` run exited 0 and completed all package JavaScript builds plus all 11 type-build tiers.
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `4f9950f2851ba1ddb16095ec6ccb86df6e5587e7` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering: PASS — the document is under `.agents/spec-docs/active/` with `status: in-progress`, and its last GATE-IMPLEMENT entry is `✅ PASS` with `approved → in-progress`.
+- GATE-VERIFY — Every item in the paired Task's `## Plan` is complete: PASS — all five Plan items are `[x]`; `node scripts/harness/scan-task-plan-items.mjs` exited 0 after examining 253 Task Plan sections.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the five checked Plan items contain no blocked or pending disposition.
+- GATE-VERIFY — Build passes for all affected packages: PASS — the fresh `pnpm build` run exited 0 and completed all package JavaScript builds plus all 11 type-build tiers.
+- GATE-VERIFY — Tests pass for all affected packages: PASS — the fresh `pnpm test` run exited 0; the complete recursive workspace test run finished successfully.
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `9548181c5a1f558c8a730d8564ed3a1c23c0911d` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/completed/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`, which is not an active root Task path
+  **Required action:** record the active Task at `.agents/tasks/<ID>.md` rather than an archived or nested path
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `5f4933b40019` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-06; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 9/9 tasks `[x]` in .agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md
+
+**Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `2dcc3f5c73a0` (modified)

@@ -12,12 +12,21 @@ actual execution, never by reattributing the archived transport record.
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-framework, responsible only for the terminal UI.
 
+The pre-session `robota usage` command owns local user/project store enumeration and renders the
+shared `agent-session-analytics` personal-usage report as readable text or versioned JSON. It does
+not duplicate aggregation rules and never prints stored prompt/response content. User and trusted
+project stores are merged by session id (the project copy wins); an empty pair of stores is a valid
+empty report, while a supplied store set in which every record is unreadable is an explicit error.
+
 **Modes.** Default = interactive TUI (`renderApp`). `-p`/`--goal` = print/headless autonomous run. **`--serve`
 (RUNTIME-001)** = the **headless runtime host**: it runs `startRuntimeHost` (from `@robota-sdk/agent-framework`)
 over the resolved runtime options + the loopback `WsTransport` (token/port from `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`)
 and keeps the process alive until SIGTERM — rendering NO ink. This is the backend `apps/agent-app` (the desktop
 GUI) spawns: the TUI and the GUI are sibling presentations over the SAME runtime host; the GUI does not control
-the CLI. `agent-framework` owns the neutral build-session + transport-lifecycle seam.
+the CLI. The composition root assigns trusted WS driver identities (`app`, `browser`, or `remote:ws`) so each
+turn's persisted usage surface reflects the launch path rather than a client-provided claim. The same host-owned
+usage reporters are passed to paired and reconnecting WebRTC surfaces. `agent-framework` owns the neutral
+build-session + transport-lifecycle seam.
 
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
@@ -212,6 +221,7 @@ Whitebox internals are not specified here. See:
 | IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`    |
 | IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                    |
 | IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                |
+| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting |
 
 ## Public API Surface
 
@@ -734,6 +744,11 @@ record, because the stream-json event union carries no tool events and stdout al
 denial. A denial and its reason are asserted from that record, and the allowed arm is asserted to
 carry neither.
 
+**Personal-usage product scenario (FLOW-2577).** `examples/verify-personal-usage.ts` creates an
+isolated versioned session store and drives the built `robota usage` binary in JSON, text, and invalid-
+argument modes. It asserts totals, privacy (a persisted content sentinel is absent), and nonzero exit
+for invalid input without requiring a provider or network.
+
 | Layer               | Test file(s)                                 | Strategy                                                                 |
 | ------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
 | CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases |
@@ -770,6 +785,9 @@ with that person: changing it changes what they must type, what they see, or wha
 robota                               # Interactive TUI
 robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
 robota diagnose                      # Check setup and print diagnostics
+robota usage                         # 7-day personal usage summary from local session stores
+robota usage --period 30d            # 30-day complete calendar buckets
+robota usage --timezone UTC --format json # Versioned machine-readable projection
 robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 robota -p "prompt"                   # Print mode (one-shot)
 robota -c                            # Continue last session (most recent by cwd)
