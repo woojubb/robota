@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [cli, desktop, json-schema, typescript]
 lane: L2
@@ -116,6 +116,10 @@ and round. Provider-internal HTTP retries yielding one observed response remain 
 `modelRequests` is not a v1 headline unless canonical per-generation events exist. Surface is stored per
 canonical usage/turn event; autonomous work remains `unknown`. CLI JSON is an external projection with
 `schemaVersion: 1`, independent from internal TypeScript and the session-record envelope.
+
+**Delivery mode:** `sequenced`
+
+**Continuation artifacts:** `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, `.agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`, `.agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`, `.agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`, `.agents/tasks/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`
 
 Validated recommendation:
 
@@ -293,6 +297,7 @@ protocol output.
 
 ## Tasks
 
+- [ ] AGREEMENT-2577 — todo — `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`
 - [ ] DATA-2577 — todo — `.agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`
 - [ ] OBSERVABILITY-2577 — todo — `.agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`
 - [ ] FLOW-2577 — todo — `.agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`
@@ -406,3 +411,83 @@ protocol output.
 - GATE-APPROVAL — Independent architecture validation conditional: PASS — the independent read-only `proposal-reviewer` ENDORSED the corrected recommendation after explicitly reviewing the new-surface placement: `agent-core` owns canonical usage identity, `agent-cli` owns the terminal command and shared CLI/runtime report host, `agent-transport-protocol` owns the admitted wire contract, `agent-transport-gui` owns pure shared GUI presentation, and `agent-app` owns only desktop navigation/dashboard mounting; it also confirmed equal authority for admitted local, CLI-web, and paired-remote owners and the separate #2164/#2007 boundaries. Exact terminal verdict: `REVIEW VERDICT: ENDORSE`. The retained architecture-audit-fanout structure channel independently covered the eight named placement/dependency/admission cells and returned `AUDIT-DIM-COMPLETE: dim=structure shard=1/1 blocker=0 high=0 medium=0 low=0 coverage=8/8 uncovered=none`.
 
 **Judged at:** HEAD `ae11b1d97951` · base `origin/develop@b080d2087bf7` · document `.agents/spec-docs/backlog/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `fcdefdbd4786` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-06; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task carries 9 checkbox tasks for 6 criteria
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 953 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 3`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md",
+    ".agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md",
+    ".agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md",
+    ".agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md",
+    ".agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md",
+    ".agents/tasks/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md"
+  ],
+  "taskPath": ".agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md",
+  "taskItems": [
+    {
+      "kind": "checkbox",
+      "value": "DATA-2577 — todo — `.agents/tasks/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`"
+    },
+    {
+      "kind": "checkbox",
+      "value": "OBSERVABILITY-2577 — todo — `.agents/tasks/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`"
+    },
+    {
+      "kind": "checkbox",
+      "value": "FLOW-2577 — todo — `.agents/tasks/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`"
+    },
+    {
+      "kind": "checkbox",
+      "value": "SCREEN-2577 — todo — `.agents/tasks/SCREEN-2577-render-the-shared-personal-usage-dashboard-in-robota-gui.md`"
+    },
+    {
+      "kind": "checkbox",
+      "value": "Complete DATA-2577 first so usage identity, actual model/provider, per-turn surface attribution, and legacy decoding are canonical before aggregation."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Complete OBSERVABILITY-2577 over those records, including one store/event deduplication policy, 7/30-day calendar semantics, confidence, coverage, and drill-down IDs."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Complete FLOW-2577 against the shared report and publish a separately versioned JSON projection."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Convert/deliver [issue #2164](https://github.com/woojubb/robota/issues/2164)'s GUI reachability owner, then complete SCREEN-2577 against the same shared report without renderer-side aggregation."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Verify one fixture corpus yields equivalent CLI JSON and GUI view-model totals before the parent can complete."
+    }
+  ],
+  "plan": {
+    "outcome": "automatable",
+    "count": 3
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md",
+    ".agents/tasks/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged at:** HEAD `7b29a4b01f49` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `8a68a58b5b3b` (modified)

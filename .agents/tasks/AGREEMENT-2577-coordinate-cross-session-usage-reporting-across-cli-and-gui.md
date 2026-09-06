@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2577: Coordinate cross-session usage reporting across CLI and GUI'
 issue: https://github.com/woojubb/robota/issues/2577
-status: todo
+status: in-progress
 created: 2026-09-06
 priority: high
 urgency: soon
@@ -92,42 +92,201 @@ surfaces consume one report instead of recomputing metrics.
 
 **Author verdict:** `SCENARIO DRAFTED: automatable | 3`
 
-### Scenario 1 — CLI personal usage history
+**Executability probe:** `pnpm exec robota --version` exited 0 with `robota 3.0.0-beta.72`, and
+`pnpm exec robota session analyze` exited 0 with the current per-session report. These runs prove the
+repository-local shipped CLI entrypoint and analogous pre-session report routing; `robota usage` was not
+run because it is the behavior this Task has not implemented yet. The existing browser automation entry
+point is `apps/agent-app/e2e/run-e2e.mjs`, which launches the built Electron product through Playwright
+and drives rendered controls by accessible role/name. Its Linux wrapper
+`pnpm --filter @robota-sdk/agent-app test:e2e` was also probed and exited 1 on this macOS host because
+`xvfb-run` is unavailable. Direct `node apps/agent-app/e2e/run-e2e.mjs` reached Electron launch but did
+not finish within the 30-second probe and was terminated; no Personal Usage behavior is claimed from
+either probe. SCREEN-2577 must add the exact direct automation entry point
+`node apps/agent-app/e2e/usage-dashboard.mjs` with its deterministic fixture and controls.
 
-Prerequisites: all four child Tasks' deterministic usage fixture is installed in isolated user and
-project session stores, including legacy, duplicate, and partially attributed records. Build the Robota
-CLI and set the fixture home/project exactly as FLOW-2577 documents.
+### Scenario 1: CLI 30-day personal usage JSON
 
-Steps: run `robota usage --period 7d --format json`, then `robota usage --period 30d --timezone UTC`.
+- **executability:** agent-executable
+- **product surface:** robota-cli
+- **surface rationale:** shipped-entrypoint=robota
+- **prerequisites:** build the Robota CLI; install the shipped #2577 deterministic corpus in isolated user and project session stores; run from that isolated project with HOME pointing at its isolated user store; no live provider credential or external service is required
+- **command:** `pnpm exec robota usage --period 30d --timezone UTC --format json`
+- **observable type:** product-output
+- **expected observable:** exit=0; output-contains="schemaVersion": 1
+- **observable rationale:** source=product-process
+- **cleanup:** remove only the isolated user and project fixture stores
+- **evidence:** pending implementation
 
-Expected: both commands exit 0; output declares `schemaVersion: 1`, exact interval and timezone, complete
-daily buckets, totals, model/surface/source/activity breakdowns, contributing session IDs, and structured
-coverage. Duplicate canonical events are counted once, legacy attribution appears as `unknown`, and no
-prompt/response/path/payload content appears.
+### Scenario 2: Personal Usage dashboard and session drill-down
 
-Cleanup: remove only the isolated fixture stores. Evidence: pending implementation; record commands,
-exit codes, and JSON snapshots before completion.
+- **executability:** agent-executable
+- **product surface:** robota-browser-ui
+- **surface rationale:** shipped-interface=robota-browser-ui
+- **prerequisites:** build the Robota desktop app; complete #2164; install the shipped #2577 deterministic corpus in isolated stores; SCREEN-2577 has added `node apps/agent-app/e2e/usage-dashboard.mjs` as the direct Playwright/Electron launcher with the admitted sidecar fixture; no live provider credential or external service is required
+- **browser steps:** wait for `.agent-gui-status[data-status="connected"]`; click `getByRole('link', { name: 'Personal Usage' })`; click `getByRole('button', { name: '30 days' })`; click `getByRole('button', { name: 'By surface' })`; click `getByRole('link', { name: /Open session/ }).first()`
+- **observable type:** ui-state
+- **expected observable:** visible=Personal Usage, 30 days, By surface, Partial today, Unknown, Estimated, and the selected existing session usage/trace view after activating Open session
+- **observable rationale:** source=rendered-product-ui
+- **cleanup:** close the desktop app, stop its fixture sidecar, and remove only the isolated fixture stores
+- **evidence:** pending implementation
 
-### Scenario 2 — GUI parity and drill-down
+### Scenario 3: Pre-admission failure exposes no usage history
 
-Prerequisites: start the deterministic GUI sidecar with the same fixture corpus and complete
-[issue #2164](https://github.com/woojubb/robota/issues/2164)'s required producer/route/consumer path.
+- **executability:** agent-executable
+- **product surface:** robota-browser-ui
+- **surface rationale:** shipped-interface=robota-browser-ui
+- **prerequisites:** build the Robota desktop app; SCREEN-2577 has added `node apps/agent-app/e2e/usage-dashboard.mjs` with a rejection-sidecar mode that refuses the app's admission credential; launch that mode through the direct Playwright/Electron path; no live provider credential or external service is required
+- **browser steps:** wait for `getByRole('alert')`; inspect the rendered alert state; verify the Personal Usage navigation and report totals are not rendered
+- **observable type:** ui-state
+- **expected observable:** visible=Personal Usage unavailable, with no sessions, turns, token totals, buckets, attribution, or contributing-session links rendered
+- **observable rationale:** source=rendered-product-ui
+- **cleanup:** close the desktop app, stop the rejection-sidecar fixture, and remove its isolated temporary state
+- **evidence:** pending implementation
 
-Steps: open Personal Usage, switch 7 days to 30 days, switch model to surface breakdown, inspect the
-coverage notice, and open a contributing session from a populated bucket.
+### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-06
 
-Expected: chart and summary values equal the CLI JSON projection for the same interval/timezone, the
-current day is marked partial, unknown/estimated values remain visible, and drill-down opens the existing
-per-session report. Cleanup: stop the sidecar and remove the isolated fixture stores. Evidence: pending;
-record the automated GUI scenario output and screenshots before completion.
+**Status remains:** scenario drafted
+**Failed criteria:**
 
-### Scenario 3 — owner admission and equal paired authority
+- Scenario completeness (catalogue criterion 1): the three scenarios state prerequisites, expected
+  behavior, cleanup, and pending evidence in prose, but Scenario 2 has no exact GUI startup/invocation
+  or exact browser steps and Scenario 3 has no exact client commands or UI steps. None uses the
+  canonical one-line `prerequisites:`, `invocation:`, `expected observable:`, and `evidence:` fields.
+  **Required action:** rewrite each retained scenario with the exact canonical fields and an exact
+  reproducible command or ordered browser interaction sequence.
+- Executability decision (criterion 2): no scenario carries `executability: agent-executable` or
+  `executability: manual-only: <specific technical reason>`.
+  **Required action:** declare one allowed executability value on every scenario and, for any
+  `manual-only` scenario, record the required barrier and confirmation fields.
+- Canonical product surface and observable (criterion 3): no scenario declares `product surface:`,
+  `surface rationale:`, `observable type:`, or `observable rationale:`. Scenario 1 combines two CLI
+  invocations instead of supplying a canonical single invocation beginning with `robota` or
+  `pnpm exec robota`; Scenario 2 does not identify the `robota-browser-ui` surface with exact browser
+  steps and a `ui-state` observable; Scenario 3 is currently a protocol-integration verification, not
+  a canonical shipped-product invocation.
+  **Required action:** bind each user scenario to one allowed product surface and matching invocation,
+  use the observable's required machine-readable expected shape, and keep transport-only coverage in
+  the engineering Test Plan unless it can be observed through an allowed shipped surface.
 
-Prerequisites: start the sidecar with one unpaired client and authenticated desktop-local, paired remote,
-and CLI-web owner clients against the same fixture. Request the cross-session report from each client.
+**Criteria met:**
 
-Expected: all admitted owners receive the same correlated report; the unpaired connection is rejected or
-closed before report-protocol reachability without totals, buckets, attribution, or session identifiers.
-An admitted malformed request is correlated only when its request ID validated; otherwise existing
-uncorrelated error/close behavior applies. Desktop-only navigation does not alter protocol authority.
-Cleanup: stop the clients and isolated sidecar. Evidence: pending automated protocol integration output.
+- Credentials and external services (criterion 4): PASS — the scenarios use deterministic local
+  fixtures and a local sidecar and do not require live credentials or an external service.
+- Exception path: not applicable; three scenarios are present, so no unwritten-scenario exception is
+  being claimed.
+- Ordering: PASS — DONE-GATE-STAGE-1 has no prerequisite gate in the catalogue.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** scenario drafted → scenario written
+
+Re-run after the retained FAIL above. Judged by `backlog-gate-guard` against
+`.agents/specs/gate-catalogue.md` § DONE-GATE-STAGE-1 and `backlog-execution.md` > Scenario Design
+Preference Order.
+
+- Ordering: PASS — DONE-GATE-STAGE-1 has no prior gate. The Task remains under `.agents/tasks/` at
+  `status: todo`, and the scenarios describe not-yet-implemented behavior rather than claiming an
+  execution result.
+- Field completeness: PASS — `scenarioEntries` found exactly three consecutively numbered scenarios
+  and `scenarioContract` parsed all three as the author-declared `automatable` outcome. Every scenario
+  has one nonempty executability, surface, rationale, prerequisite, action, observable, observable
+  rationale, cleanup, and pending evidence field.
+- Scenario 1: guardian-observable-verdict=product-behavior;
+  surface=robota-cli; surface-rationale=shipped-entrypoint=robota;
+  invocation=`pnpm exec robota usage --period 30d --timezone UTC --format json`;
+  observable-type=product-output; observable-rationale=source=product-process;
+  expected-observable=`exit=0; output-contains="schemaVersion": 1`; executability=agent-executable.
+- Scenario 2: guardian-observable-verdict=product-behavior;
+  surface=robota-browser-ui; surface-rationale=shipped-interface=robota-browser-ui;
+  invocation=wait for `.agent-gui-status[data-status="connected"]`, activate Personal Usage, 30 days,
+  By surface, and the first Open session link by the exact authored accessible selectors;
+  observable-type=ui-state; observable-rationale=source=rendered-product-ui;
+  expected-observable=`visible=Personal Usage, 30 days, By surface, Partial today, Unknown, Estimated,
+  and the selected existing session usage/trace view after activating Open session`;
+  executability=agent-executable.
+- Scenario 3: guardian-observable-verdict=product-behavior;
+  surface=robota-browser-ui; surface-rationale=shipped-interface=robota-browser-ui;
+  invocation=wait for `getByRole('alert')`, inspect it, and verify Personal Usage navigation and report
+  totals are absent; observable-type=ui-state; observable-rationale=source=rendered-product-ui;
+  expected-observable=`visible=Personal Usage unavailable, with no sessions, turns, token totals,
+  buckets, attribution, or contributing-session links rendered`; executability=agent-executable.
+- Criterion 1: PASS — Scenario 1 has one exact canonical product command; Scenarios 2 and 3 have exact
+  ordered browser steps. All three include prerequisites, expected observable, cleanup, and evidence.
+- Criterion 2: PASS — every scenario declares `executability: agent-executable`. The author probed the
+  repository-local CLI and Electron/Playwright entry paths and assigned the missing deterministic
+  launcher and fixture to the child work that must supply them before Stage 2.
+- Criterion 3: PASS — the CLI output comes from the shipped `robota` process and the GUI states come
+  from the rendered product UI. No scenario uses build, test, lint, harness, CI, or repository-text
+  inspection as its observable.
+- Criterion 4: PASS — every prerequisite explicitly states that no live provider credential or
+  external service is required.
+- Exception clause: N/A — all three scenarios are written.
+
+<!-- checkpoint-evidence:v1:start -->
+```json
+{
+  "version": 1,
+  "form": "doneGateStageOne",
+  "outcome": "automatable",
+  "scenarios": [
+    {
+      "name": "Scenario 1: CLI 30-day personal usage JSON",
+      "surface": "robota-cli",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota usage --period 30d --timezone UTC --format json",
+      "observableType": "product-output",
+      "observable": "exit=0; output-contains=\"schemaVersion\": 1",
+      "observableRationale": "source=product-process",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "build the Robota CLI; install the shipped #2577 deterministic corpus in isolated user and project session stores; run from that isolated project with HOME pointing at its isolated user store; no live provider credential or external service is required",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota usage --period 30d --timezone UTC --format json"
+      },
+      "expectedObservable": "exit=0; output-contains=\"schemaVersion\": 1",
+      "cleanup": "remove only the isolated user and project fixture stores",
+      "evidence": "pending implementation"
+    },
+    {
+      "name": "Scenario 2: Personal Usage dashboard and session drill-down",
+      "surface": "robota-browser-ui",
+      "surfaceRationale": "shipped-interface=robota-browser-ui",
+      "invocation": "wait for `.agent-gui-status[data-status=\"connected\"]`; click `getByRole('link', { name: 'Personal Usage' })`; click `getByRole('button', { name: '30 days' })`; click `getByRole('button', { name: 'By surface' })`; click `getByRole('link', { name: /Open session/ }).first()`",
+      "observableType": "ui-state",
+      "observable": "visible=Personal Usage, 30 days, By surface, Partial today, Unknown, Estimated, and the selected existing session usage/trace view after activating Open session",
+      "observableRationale": "source=rendered-product-ui",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "build the Robota desktop app; complete #2164; install the shipped #2577 deterministic corpus in isolated stores; SCREEN-2577 has added `node apps/agent-app/e2e/usage-dashboard.mjs` as the direct Playwright/Electron launcher with the admitted sidecar fixture; no live provider credential or external service is required",
+      "action": {
+        "kind": "browserSteps",
+        "value": "wait for `.agent-gui-status[data-status=\"connected\"]`; click `getByRole('link', { name: 'Personal Usage' })`; click `getByRole('button', { name: '30 days' })`; click `getByRole('button', { name: 'By surface' })`; click `getByRole('link', { name: /Open session/ }).first()`"
+      },
+      "expectedObservable": "visible=Personal Usage, 30 days, By surface, Partial today, Unknown, Estimated, and the selected existing session usage/trace view after activating Open session",
+      "cleanup": "close the desktop app, stop its fixture sidecar, and remove only the isolated fixture stores",
+      "evidence": "pending implementation"
+    },
+    {
+      "name": "Scenario 3: Pre-admission failure exposes no usage history",
+      "surface": "robota-browser-ui",
+      "surfaceRationale": "shipped-interface=robota-browser-ui",
+      "invocation": "wait for `getByRole('alert')`; inspect the rendered alert state; verify the Personal Usage navigation and report totals are not rendered",
+      "observableType": "ui-state",
+      "observable": "visible=Personal Usage unavailable, with no sessions, turns, token totals, buckets, attribution, or contributing-session links rendered",
+      "observableRationale": "source=rendered-product-ui",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "build the Robota desktop app; SCREEN-2577 has added `node apps/agent-app/e2e/usage-dashboard.mjs` with a rejection-sidecar mode that refuses the app's admission credential; launch that mode through the direct Playwright/Electron path; no live provider credential or external service is required",
+      "action": {
+        "kind": "browserSteps",
+        "value": "wait for `getByRole('alert')`; inspect the rendered alert state; verify the Personal Usage navigation and report totals are not rendered"
+      },
+      "expectedObservable": "visible=Personal Usage unavailable, with no sessions, turns, token totals, buckets, attribution, or contributing-session links rendered",
+      "cleanup": "close the desktop app, stop the rejection-sidecar fixture, and remove its isolated temporary state",
+      "evidence": "pending implementation"
+    }
+  ]
+}
+```
+<!-- checkpoint-evidence:v1:end -->
