@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+  "generation": 0,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "fix/refactor-027-phantom-ports-v2",
+    "baseCommit": "aff91a876cd74f82616d0d1708cd53480a7dfc63",
+    "headCommit": "110bcbc043dad23eaacc42becd07424407c670f9",
+    "headTree": "c4ef35bda270c62ea55e7bf271117d94a24a6a3a",
+    "commitOids": [
+      "acc27125c390e64e38c6ab0220544aef5fd6dd91",
+      "60880c0173561c9a57eeb2a11c7ec25f9b5795dd",
+      "110bcbc043dad23eaacc42becd07424407c670f9"
+    ],
+    "trailerDigest": "bf6393c90dd9ff27dc825e69517e7b2a37024d51481fbb4c9c284a669e602f3f",
+    "ownerFingerprint": "67c3371f71776dc0101e2b16c8dfc0d5b526ab031a2f98eaea8e47dc8eccfbd9"
+  },
+  "cohort": {
+    "key": "L1/refactor",
+    "lane": "L1",
+    "workKind": "refactor"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-06T12:15:30.469Z",
+      "data": {
+        "branch": "fix/refactor-027-phantom-ports-v2"
+      },
+      "hash": "92e68c11c3ab8eccad844096a3d397aa85693b309b04a68a6dc48fdd7bba5ff1"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 2,
+      "previousHash": "92e68c11c3ab8eccad844096a3d397aa85693b309b04a68a6dc48fdd7bba5ff1",
+      "type": "work.bound",
+      "at": "2026-09-06T12:23:38.174Z",
+      "data": {
+        "workId": "REFACTOR-027",
+        "lane": "L1",
+        "workKind": "refactor"
+      },
+      "hash": "5517b30c523eb50ab80bab4d77254f4d7f0dc738e424a80f12b35d0f9e70bbe3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 3,
+      "previousHash": "5517b30c523eb50ab80bab4d77254f4d7f0dc738e424a80f12b35d0f9e70bbe3",
+      "type": "work.started",
+      "at": "2026-09-06T12:23:38.401Z",
+      "data": {},
+      "hash": "81bcc64e14914147706285130891a83d8fc341eb5c6ef6725e2d8f50ddcd0c90"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 4,
+      "previousHash": "81bcc64e14914147706285130891a83d8fc341eb5c6ef6725e2d8f50ddcd0c90",
+      "type": "phase.started",
+      "at": "2026-09-06T12:23:38.623Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "aaa3b4706359e2905d66026586903de0e6edba12a2d9b8e2461bd80d45710578"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 5,
+      "previousHash": "aaa3b4706359e2905d66026586903de0e6edba12a2d9b8e2461bd80d45710578",
+      "type": "phase.completed",
+      "at": "2026-09-06T12:23:38.860Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "5ff16e08e5b98415d94430fbee5628186407460d660a1941ca62e5ac8d355b9f"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "2b540881-a775-46d0-b8d7-db31fbe0727f",
+      "sequence": 6,
+      "previousHash": "5ff16e08e5b98415d94430fbee5628186407460d660a1941ca62e5ac8d355b9f",
+      "type": "work.ready",
+      "at": "2026-09-06T12:23:39.099Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "b84247dff980b7258678354084f03ce9a910af725835f70d18d9b4e4957b79e2"
+    }
+  ],
+  "durations": {
+    "wallMs": 488630,
+    "activeMs": 488630,
+    "pausedMs": 0,
+    "phases": {
+      "implementation": 237
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-06T12:15:30.469Z",
+    "readyAt": "2026-09-06T12:23:39.099Z"
+  }
+}
