@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2485: detect rule-to-rule normative contradictions'
 issue: https://github.com/woojubb/robota/issues/2485
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-06
 priority: medium
 urgency: soon

@@ -1,5 +1,6 @@
 ---
-status: approved
+status: done
+completed: 2026-09-06
 type: INFRA
 tags: [harness, rules]
 lane: L1
