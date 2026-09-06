@@ -256,9 +256,18 @@ REVIEWER_RE='^github-actions(\\[bot\\])?$'
 #
 # So the selection asks for the marker ITSELF, across BOTH channels the reviewer writes to (issue
 # comments, where the summary lands, and pull-request reviews). Recency is then judged on the
-# verdict — the only entry whose age means anything.
-LAST_REVIEW=$(bounded_gh pr view "$PR" --json comments,reviews \
-  --jq "([.comments[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {}" || echo '{}')
+# verdict — the only entry whose age means anything. Keep the complete verdict list as evidence too:
+# a single zero is not the same fact as corroborating zeroes from every verdict that ran. The former
+# remains mergeable for now, but the output must say that corroboration is absent (#2247).
+REVIEW_VERDICTS=$(bounded_gh pr view "$PR" --json comments,reviews \
+  --jq "([.comments[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at)" || echo '[]')
+VERDICT_COUNT=$(printf '%s' "$REVIEW_VERDICTS" | jq -r 'length' 2>/dev/null || echo "")
+if [[ ! "$VERDICT_COUNT" =~ ^[0-9]+$ ]]; then
+  echo "[merge-gate] Blocked: could not count reviewer verdicts on #$PR." >&2
+  echo "[merge-gate] The difference between one zero and corroborated zeroes is unknown." >&2
+  exit 2
+fi
+LAST_REVIEW=$(printf '%s' "$REVIEW_VERDICTS" | jq -c 'last // {}' 2>/dev/null || echo '{}')
 LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.at // ""' 2>/dev/null || echo "")
 
 if [[ -z "$LAST_REVIEW_AT" ]]; then
@@ -555,11 +564,17 @@ if [[ "$COUNT" != "0" ]]; then
   exit 2
 fi
 
+if [[ "$VERDICT_COUNT" == "1" ]]; then
+  REVIEW_EVIDENCE="1 verdict, 0 findings — no corroborating review"
+else
+  REVIEW_EVIDENCE="$VERDICT_COUNT verdicts, 0 findings"
+fi
+
 # The gate stops here on purpose. Whether a finding written in prose was addressed is the reviewer's
 # judgement, and a hook guessing at it would be a check measuring the wrong thing. What it has
 # established: CI is green, every inline finding is answered, the latest verdict names the exact
 # current head with zero findings, and its base is either the current base or an ancestor of it
 # whose local `git diff` to the current base — the whole diff, both names of every rename, no API
 # page cap — names no file this PR touches, with GitHub reporting the merge clean now.
-echo "[merge-gate] PR #$PR: CI CLEAN, exact head review, $BASE_VERDICT, ACTIONABLE FINDINGS: 0. READ IT." >&2
+echo "[merge-gate] PR #$PR: CI CLEAN, exact head review, $BASE_VERDICT, ACTIONABLE FINDINGS: 0, $REVIEW_EVIDENCE. READ IT." >&2
 exit 0

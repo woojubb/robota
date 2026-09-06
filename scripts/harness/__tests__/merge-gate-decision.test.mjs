@@ -249,7 +249,10 @@ function stubbedPath({
       '    mine = mine.filter((c) => /actionable findings:\\s*[0-9]+/i.test(c.body));',
       '  }',
       '  mine.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));',
-      '  console.log(JSON.stringify(mine.at(-1) ?? {}));',
+      '  // The hook reads the full verdict set, then selects the newest entry locally. Returning',
+      '  // only the newest object would turn jq `length` into an object-key count and confuse',
+      '  // "one verdict" with "three fields".',
+      '  console.log(JSON.stringify(mine));',
       '  process.exit(0);',
       '}',
       '// The gate asks whether every inline finding was ANSWERED where it was raised. These cases',
@@ -553,6 +556,32 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output, 'a counted zero must not read like an absent count').toMatch(
       /ACTIONABLE FINDINGS: 0/,
     );
+  });
+
+  it('reports that one zero-finding verdict has no corroborating review', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [REVIEW('2026-07-28T10:05:00Z', 'ACTIONABLE FINDINGS: 0')],
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/1 verdict, 0 findings.*no corroborating review/i);
+  });
+
+  it('reports corroborated zero findings when multiple verdicts exist', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW('2026-07-28T10:05:00Z', 'first review\nACTIONABLE FINDINGS: 0'),
+        REVIEW('2026-07-28T10:06:00Z', 'second review\nACTIONABLE FINDINGS: 0'),
+      ],
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/2 verdicts, 0 findings/);
+    expect(verdict.output).not.toMatch(/no corroborating review/i);
   });
 
   it('does not depend on the head commit date when the exact OIDs are readable', () => {
@@ -1141,8 +1170,9 @@ describe('the verdict-selection jq program the hook actually sends', () => {
       ],
     });
 
-    expect(out.at).toBe('2026-08-01T11:00:00Z');
-    expect(out.body).toMatch(/ACTIONABLE FINDINGS: 2/);
+    const latest = out.at(-1);
+    expect(latest.at).toBe('2026-08-01T11:00:00Z');
+    expect(latest.body).toMatch(/ACTIONABLE FINDINGS: 2/);
   });
 
   it('matches the [bot] login spelling through the spliced pattern', () => {
@@ -1157,10 +1187,10 @@ describe('the verdict-selection jq program the hook actually sends', () => {
       reviews: [],
     });
 
-    expect(out.at).toBe('2026-08-01T10:00:00Z');
+    expect(out.at(-1).at).toBe('2026-08-01T10:00:00Z');
   });
 
-  it('returns an empty object when nothing carries the marker', () => {
+  it('returns an empty list when nothing carries the marker', () => {
     const out = pick({
       comments: [
         { author: { login: 'github-actions' }, createdAt: '2026-08-01T10:00:00Z', body: 'silence' },
@@ -1168,6 +1198,6 @@ describe('the verdict-selection jq program the hook actually sends', () => {
       reviews: [],
     });
 
-    expect(out).toEqual({});
+    expect(out).toEqual([]);
   });
 });
