@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-191: continue process-overhead reduction — lane-declaration table rows and contract-test log clarity'
-status: in-progress
+status: done
 created: 2026-09-06
+completed: 2026-09-07
 priority: medium
 urgency: soon
 area: scripts/harness
