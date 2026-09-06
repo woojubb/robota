@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-162: the strict status-check policy is neither declared nor reconciled, so a base-freshness change is invisible'
 issue: https://github.com/woojubb/robota/issues/2219
-status: todo
+status: done
 created: 2026-09-05
 priority: medium
 urgency: soon
@@ -233,6 +233,12 @@ trade-off. The original record's note that "the GATE-APPROVAL entry is written o
 conversation where the owner gives it" was correct for the session that wrote it (a relay); the
 authorization now in force is the one recorded in § "Prospective Recovery" below, given in the
 current conversation.
+
+## Outcome
+
+The declared strict-policy data, fail-closed offline/live reconciliation, and split declaration/live
+owners are already present on `origin/develop`; the implementation is covered by the recorded INFRA-162
+fixture and live checks. This archive closes the stale prospective Task without changing the live ruleset.
 
 ## User Execution Test Scenarios
 
