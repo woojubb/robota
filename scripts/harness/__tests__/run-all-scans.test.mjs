@@ -10,6 +10,7 @@ import {
   parseSkips,
   runScans,
   writeAdoptionBaseline,
+  ensureExaminedDeclaration,
 } from '../run-all-scans.mjs';
 
 function stubScan(name, exitCode) {
@@ -403,6 +404,14 @@ describe('how much did you look at', () => {
 });
 
 describe('a scan that skipped does not render as a tick', () => {
+  it('derives a runner-owned subject marker for command scans without native output', () => {
+    expect(ensureExaminedDeclaration({ examines: ['a', 'b'] }, 'clean\n')).toContain(
+      '::examined:: 2 registered subject boundary(ies)',
+    );
+    expect(ensureExaminedDeclaration({ examines: ['a'] }, '::examined:: 9 files\n')).toBe(
+      '::examined:: 9 files\n',
+    );
+  });
   /**
    * The runner decided a scan's mark from its exit code alone, so a scan that ran nothing and exited
    * 0 because it had no subject was indistinguishable from one that examined its whole subject and

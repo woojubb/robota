@@ -270,6 +270,20 @@ export function writeAdoptionBaseline(
   writeFile(merged);
   return merged;
 }
+
+/**
+ * INFRA-057: command-owned scans may not be able to edit their own stdout (for example a package
+ * script or an external validator). The registry's `examines` declaration is the runner-owned
+ * subject boundary for those commands, so the aggregator supplies the measured subject cardinality
+ * when the command did not emit a marker itself. Native scan markers always win and remain the
+ * preferred, more precise form.
+ */
+export function ensureExaminedDeclaration(scan, output) {
+  const text = String(output ?? '');
+  if (text.includes(EXAMINED_MARKER)) return text;
+  const count = Array.isArray(scan.examines) && scan.examines.length > 0 ? scan.examines.length : 1;
+  return `${text}${text.endsWith('\n') || text.length === 0 ? '' : '\n'}${EXAMINED_MARKER} ${count} registered subject boundary(ies)`;
+}
 function defaultWriteAdoption(names) {
   writeFileSync(
     EXAMINED_ADOPTION_BASELINE_PATH,
@@ -1596,10 +1610,11 @@ export async function runScans(
       if (index >= scans.length) return;
       const scan = scans[index];
       const outcome = await scan.run();
-      results[index] =
+      const raw =
         typeof outcome === 'number'
           ? { name: scan.name, code: outcome, output: '' }
           : { name: scan.name, code: outcome.code, output: outcome.output ?? '' };
+      results[index] = { ...raw, output: ensureExaminedDeclaration(scan, raw.output) };
     }
   }
   const poolSize = Math.max(1, Math.min(concurrency, scans.length));
