@@ -96,6 +96,47 @@ export function readReusableBranchRun({
   return run;
 }
 
+/**
+ * State-lost recovery may only reclaim `runId` when the branch pointer has released it: either the
+ * pointer is gone, or it still names that exact run and the run it names is no longer active.
+ * Throws naming the specific mismatch — an unreadable, malformed, foreign or still-active pointer
+ * each get their own message, because they call for different operator action.
+ */
+export function assertPointerReleasedFor({
+  pointerPath,
+  pointerOwner,
+  branch,
+  runId,
+  statePath,
+  readRun,
+}) {
+  if (!existsSync(pointerPath)) return;
+  let pointer;
+  try {
+    pointer = readJson(pointerPath, pointerOwner);
+  } catch {
+    throw new Error(`work-run branch pointer is unreadable for ${branch}`);
+  }
+  if (typeof pointer.runId !== 'string' || pointer.runId.length === 0) {
+    throw new Error(`work-run branch pointer is invalid for ${branch}`);
+  }
+  assertCanonicalRunId(pointer.runId);
+  if (existsSync(statePath(pointer.runId))) {
+    let pointedRun;
+    try {
+      pointedRun = readRun(pointer.runId);
+    } catch {
+      throw new Error(`work-run branch pointer state is unreadable for ${branch}`);
+    }
+    if (!['abandoned', 'excluded'].includes(reduceWorkRun(pointedRun.events).status)) {
+      throw new Error(`branch points to an active work run: ${pointer.runId}`);
+    }
+  }
+  if (pointer.runId !== runId) {
+    throw new Error(`state-lost recovery run ID does not match branch pointer: ${pointer.runId}`);
+  }
+}
+
 export function claimBranchRun(store, { branch, identity, at }) {
   const pointerPath = store.pointerPath(branch);
   const existing = store.reusableRun(pointerPath, branch, identity);
@@ -111,3 +152,4 @@ import { existsSync } from 'node:fs';
 
 import { createInitialWorkRun, reduceWorkRun } from './work-run-contract.mjs';
 import { atomicJson, readJson } from './work-run-json-store.mjs';
+import { assertCanonicalRunId } from './work-run-paths.mjs';

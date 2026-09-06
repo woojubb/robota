@@ -1,11 +1,21 @@
-import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { claimBranchRun, readReusableBranchRun } from './work-run-branch-pointer.mjs';
+
+import {
+  assertPointerReleasedFor,
+  claimBranchRun,
+  readReusableBranchRun,
+} from './work-run-branch-pointer.mjs';
 import { appendWorkRunEvent, reduceWorkRun } from './work-run-contract.mjs';
-import { withWorkRunLock } from './work-run-lock.mjs';
 import { atomicJson, immutableJson, readJson, sameJson } from './work-run-json-store.mjs';
-import { assertCanonicalRunId, workRunReceiptPath, workRunStatePath } from './work-run-paths.mjs';
+import {
+  assertSafeOwnedParent,
+  ensureOwnedDirectory,
+  workRunLockPath,
+  workRunReceiptPath,
+  workRunStatePath,
+} from './work-run-paths.mjs';
+import { branchKey, withWorkRunLock, workRunPointerPath } from './work-run-store-locking.mjs';
 import {
   exclusionReceipt,
   invalidationReceipt,
@@ -14,11 +24,13 @@ import {
   reconcileReceipt,
   stateLostReceipt,
 } from './work-run-receipts.mjs';
+
 export { projectLocalTerminalWorkRun } from './work-run-receipts.mjs';
+
 export const WORK_RUN_LOCAL_DIR = '.agents/evals/local-metrics/work-runs';
 export const WORK_RUN_RECEIPT_DIR = '.agents/evals/work-runs';
 const MAX_EVENTS = 10_000;
-const branchKey = (branch) => createHash('sha256').update(branch).digest('hex');
+
 export class WorkRunStore {
   constructor({ root, gitCommonDir, now = () => new Date().toISOString(), persistenceHooks = {} }) {
     this.root = root;
@@ -27,17 +39,15 @@ export class WorkRunStore {
     this.persistenceHooks = persistenceHooks;
     this.stateDir = path.join(root, WORK_RUN_LOCAL_DIR);
     this.receiptDir = path.join(root, WORK_RUN_RECEIPT_DIR);
+    this.lockDir = path.join(gitCommonDir, 'robota-work-runs', 'locks');
   }
+
   statePath(runId) {
     return workRunStatePath(this.stateDir, runId);
   }
+
   pointerPath(branch) {
-    return path.join(
-      this.gitCommonDir,
-      'robota-work-runs',
-      'branches',
-      `${branchKey(branch)}.json`,
-    );
+    return workRunPointerPath(this.gitCommonDir, branch);
   }
 
   receiptPath(runId, generation, revision) {
@@ -45,7 +55,7 @@ export class WorkRunStore {
   }
 
   withLock(runId, action) {
-    return withWorkRunLock({ gitCommonDir: this.gitCommonDir, runId, action });
+    return withWorkRunLock(this.gitCommonDir, this.lockDir, runId, action);
   }
 
   reusableRun(pointerPath, branch, identity) {
@@ -253,36 +263,14 @@ export class WorkRunStore {
         if (existsSync(this.statePath(runId))) {
           throw new Error(`work-run state still exists for ${runId}`);
         }
-
-        const pointerPath = this.pointerPath(branch);
-        if (existsSync(pointerPath)) {
-          let pointer;
-          try {
-            pointer = readJson(pointerPath, this.gitCommonDir);
-          } catch {
-            throw new Error(`work-run branch pointer is unreadable for ${branch}`);
-          }
-          if (typeof pointer.runId !== 'string' || pointer.runId.length === 0) {
-            throw new Error(`work-run branch pointer is invalid for ${branch}`);
-          }
-          assertCanonicalRunId(pointer.runId);
-          if (existsSync(this.statePath(pointer.runId))) {
-            let pointedRun;
-            try {
-              pointedRun = this.read(pointer.runId);
-            } catch {
-              throw new Error(`work-run branch pointer state is unreadable for ${branch}`);
-            }
-            if (!['abandoned', 'excluded'].includes(reduceWorkRun(pointedRun.events).status)) {
-              throw new Error(`branch points to an active work run: ${pointer.runId}`);
-            }
-          }
-          if (pointer.runId !== runId) {
-            throw new Error(
-              `state-lost recovery run ID does not match branch pointer: ${pointer.runId}`,
-            );
-          }
-        }
+        assertPointerReleasedFor({
+          pointerPath: this.pointerPath(branch),
+          pointerOwner: this.gitCommonDir,
+          branch,
+          runId,
+          statePath: (id) => this.statePath(id),
+          readRun: (id) => this.read(id),
+        });
 
         const receipt = stateLostReceipt(runId, identity);
         const receiptPath = this.receiptPath(runId, 0, 0);

@@ -43,5 +43,6 @@ the final scan result against the issue's recorded red baseline.
 The affected harness tests passed locally (115 tests), and the integration scan passed with its six
 declared skips. The changed harness paths are `scripts/harness/allocate-work-item-id.mjs`,
 `scripts/harness/new-spec.mjs`, `scripts/harness/scan-guard-scope-fail-closed.mjs`,
+<!-- evidence-superseded: a concurrently-landed work-run-store.mjs split (INFRA-181, issue #2620) extracted the same locking group into work-run-store-locking.mjs instead; merging both branches kept that version and removed this file as an unreferenced duplicate, and the line-count reduction this evidence cites still holds under the surviving extraction -->
 `scripts/harness/work-run-lock.mjs`, and `scripts/harness/work-run-store.mjs`; pull-request CI is
 the final acceptance signal for the pushed closure head.
