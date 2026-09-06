@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+  "generation": 3,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "codex/issue-2505-final3",
+    "baseCommit": "c651c769e27c9a0ee147be8ffda937cbc1072610",
+    "headCommit": "851030cec1e87d63e0bcb1ebbad1d39dd74b7d20",
+    "headTree": "92afeccd9d23dd6611f1428c340291b74a85a9fd",
+    "commitOids": [
+      "3b3787adbd99b8a8e925cac897bd2527239e4d54",
+      "f47c4e18d9a071d3d1099c5df9c131ed16353021",
+      "bd8050e28a0d2c27b971b96e77f3d6b1a0eba7c7",
+      "96e97f7daa731f9629281c0778e28acbd7e5a88b",
+      "f25ab8d5177660e86755f627ebc10cdc72df4818",
+      "dd161f502f1202b41726135f0cbc9c5482b95f8c",
+      "2e42a7c246b0740ddcf8d83ffb5fcd56d9d1309f",
+      "851030cec1e87d63e0bcb1ebbad1d39dd74b7d20"
+    ],
+    "trailerDigest": "7764b542a38a712e364887688f3302de87a9ec273f5cf38ef62240d5613c7cab",
+    "ownerFingerprint": "67c3371f71776dc0101e2b16c8dfc0d5b526ab031a2f98eaea8e47dc8eccfbd9"
+  },
+  "cohort": {
+    "key": "L1/infrastructure",
+    "lane": "L1",
+    "workKind": "infrastructure"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-06T05:35:31.600Z",
+      "data": {
+        "branch": "codex/issue-2505-final3"
+      },
+      "hash": "78252f24892cce2571bf700b52f86d941b93a27348b4fc588a66ff599071e244"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 2,
+      "previousHash": "78252f24892cce2571bf700b52f86d941b93a27348b4fc588a66ff599071e244",
+      "type": "work.bound",
+      "at": "2026-09-06T05:35:32.302Z",
+      "data": {
+        "workId": "INFRA-180",
+        "lane": "L1",
+        "workKind": "infrastructure"
+      },
+      "hash": "d6a7c5dfa244dd031973a1b9c77526203967056ac4ead98fb6cf2411f3dafb22"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 3,
+      "previousHash": "d6a7c5dfa244dd031973a1b9c77526203967056ac4ead98fb6cf2411f3dafb22",
+      "type": "work.started",
+      "at": "2026-09-06T05:35:32.731Z",
+      "data": {},
+      "hash": "8d940cee5002d266a975739a3b39233ccb1210683a9b3f0743a73549ed00b9cf"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 4,
+      "previousHash": "8d940cee5002d266a975739a3b39233ccb1210683a9b3f0743a73549ed00b9cf",
+      "type": "phase.started",
+      "at": "2026-09-06T05:35:33.192Z",
+      "data": {
+        "phase": "recommendation"
+      },
+      "hash": "00b55c6ce6640a5d2be4e6910b038eb62e9cf25e46ab904908500ae1d7db173c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 5,
+      "previousHash": "00b55c6ce6640a5d2be4e6910b038eb62e9cf25e46ab904908500ae1d7db173c",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:35:45.491Z",
+      "data": {
+        "phase": "recommendation"
+      },
+      "hash": "d5d4733590ae664290a599bb20a42a1389dba4eea99a43f866fc5d6a9a7434a2"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 6,
+      "previousHash": "d5d4733590ae664290a599bb20a42a1389dba4eea99a43f866fc5d6a9a7434a2",
+      "type": "phase.started",
+      "at": "2026-09-06T05:35:46.016Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "3ba9ef8f65357ac223a93faa7d7d1f01135430f56e4a6226c5fe24e08c51c252"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 7,
+      "previousHash": "3ba9ef8f65357ac223a93faa7d7d1f01135430f56e4a6226c5fe24e08c51c252",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:36:13.335Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "a8bc8a0817d1c78f97d0d8202074ba0031915eae30db373f81f03b06033728ee"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 8,
+      "previousHash": "a8bc8a0817d1c78f97d0d8202074ba0031915eae30db373f81f03b06033728ee",
+      "type": "work.ready",
+      "at": "2026-09-06T05:36:13.859Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "2ecd8f9e80240bdf83e9378422ab429e70ce833caf72fd84f60515548746d741"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 9,
+      "previousHash": "2ecd8f9e80240bdf83e9378422ab429e70ce833caf72fd84f60515548746d741",
+      "type": "work.reopened",
+      "at": "2026-09-06T05:40:32.141Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 1,
+        "revision": 0,
+        "authorization": {
+          "prNumber": 2636,
+          "head": "bd8050e28a0d2c27b971b96e77f3d6b1a0eba7c7",
+          "verdict": 0,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/actions/runs/34014475140/job/101435773711",
+          "scope": ".agents/spec-docs/done/INFRA-180-restore-full-harness-scan-green-for-issue-2505.md",
+          "approvedBy": "@woojubb",
+          "commentId": 5557243194,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2636#issuecomment-5557243194",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "05b0c2bb1ed1303f5cfcdc27f12ae68623ca66a26adc54b75730aad838877317"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 10,
+      "previousHash": "05b0c2bb1ed1303f5cfcdc27f12ae68623ca66a26adc54b75730aad838877317",
+      "type": "phase.started",
+      "at": "2026-09-06T05:40:32.625Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "b7cd324a07de12c9c07485db453449d0277917fd5f97d0d3b03d42237b4fc9f8"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 11,
+      "previousHash": "b7cd324a07de12c9c07485db453449d0277917fd5f97d0d3b03d42237b4fc9f8",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:40:38.624Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "2d4c7aeb2078d664fba4b4db857bc54106f1a2b8a17ec0e1dea8be524cb03cb3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 12,
+      "previousHash": "2d4c7aeb2078d664fba4b4db857bc54106f1a2b8a17ec0e1dea8be524cb03cb3",
+      "type": "work.ready",
+      "at": "2026-09-06T05:40:39.094Z",
+      "data": {
+        "generation": 1,
+        "revision": 0
+      },
+      "hash": "c2199c92f148241285fb0485b5ec3b88eccfdd7980c104148a7cb33318258e9c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 13,
+      "previousHash": "c2199c92f148241285fb0485b5ec3b88eccfdd7980c104148a7cb33318258e9c",
+      "type": "work.reopened",
+      "at": "2026-09-06T05:53:14.701Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 2,
+        "revision": 0,
+        "authorization": {
+          "prNumber": 2636,
+          "head": "f25ab8d5177660e86755f627ebc10cdc72df4818",
+          "verdict": 0,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/actions/runs/34014643056/job/101436235488",
+          "scope": "scripts/harness/__tests__/classify-changed-paths.test.mjs, scripts/harness/__tests__/guards-pass-silently.test.mjs, scripts/harness/__tests__/merge-gate-disposition.test.mjs",
+          "approvedBy": "@woojubb",
+          "commentId": 5557297283,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2636#issuecomment-5557297283",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "4e0ea966c49951b4b37cbe09f9fb47f8aafbc5ab95a5e448b31efbb32d9447f1"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 14,
+      "previousHash": "4e0ea966c49951b4b37cbe09f9fb47f8aafbc5ab95a5e448b31efbb32d9447f1",
+      "type": "phase.started",
+      "at": "2026-09-06T05:53:25.457Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "20d701e18adf93d41769b1d59cf8e0fcdaf57c776b999246c51244fa2832a762"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 15,
+      "previousHash": "20d701e18adf93d41769b1d59cf8e0fcdaf57c776b999246c51244fa2832a762",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:53:25.956Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "9dc81298d050477c83c3cfe22a777123529207ee30b420b7abea5ff24dc5482b"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 16,
+      "previousHash": "9dc81298d050477c83c3cfe22a777123529207ee30b420b7abea5ff24dc5482b",
+      "type": "work.ready",
+      "at": "2026-09-06T05:53:39.917Z",
+      "data": {
+        "generation": 2,
+        "revision": 0
+      },
+      "hash": "2d4090e7c7645ff0d5a07dbfd047fd0426dd7a7f25ad1121adab260444d2e39c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 17,
+      "previousHash": "2d4090e7c7645ff0d5a07dbfd047fd0426dd7a7f25ad1121adab260444d2e39c",
+      "type": "work.reopened",
+      "at": "2026-09-06T05:58:16.394Z",
+      "data": {
+        "ground": "red-check",
+        "generation": 3,
+        "revision": 0,
+        "authorization": {
+          "prNumber": 2636,
+          "head": "2e42a7c246b0740ddcf8d83ffb5fcd56d9d1309f",
+          "verdict": 0,
+          "action": "push",
+          "ground": "red-check",
+          "evidence": "https://github.com/woojubb/robota/actions/runs/34015119264/job/101437459367",
+          "scope": "scripts/harness/__tests__/shared-workspace-root.test.mjs",
+          "approvedBy": "@woojubb",
+          "commentId": 5557317279,
+          "commentUrl": "https://github.com/woojubb/robota/pull/2636#issuecomment-5557317279",
+          "commentAuthor": "woojubb",
+          "commentAuthorAssociation": "OWNER"
+        }
+      },
+      "hash": "869aa32a615c9a0e74ff5c53255248070e3fc3886620beeb8ecce2193ae960ad"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 18,
+      "previousHash": "869aa32a615c9a0e74ff5c53255248070e3fc3886620beeb8ecce2193ae960ad",
+      "type": "phase.started",
+      "at": "2026-09-06T05:58:58.721Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "49a5e0e50689b689bb0898ce143dcd4ec198eb5ee83c0f0a14e4a435fedd439a"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 19,
+      "previousHash": "49a5e0e50689b689bb0898ce143dcd4ec198eb5ee83c0f0a14e4a435fedd439a",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:58:59.247Z",
+      "data": {
+        "phase": "ci-fix"
+      },
+      "hash": "9db63e69343ef3b9cf66f2263f8b18c83207ee4631f08f8cc8f38a679bb48f7f"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "294e9b7a-e0c3-4752-b50e-15f5b4980c39",
+      "sequence": 20,
+      "previousHash": "9db63e69343ef3b9cf66f2263f8b18c83207ee4631f08f8cc8f38a679bb48f7f",
+      "type": "work.ready",
+      "at": "2026-09-06T06:00:11.351Z",
+      "data": {
+        "generation": 3,
+        "revision": 0
+      },
+      "hash": "5286c9633cc646c6fa054a3ed2146fcedf8f27ce94c5b06c27f54f86911d45d9"
+    }
+  ],
+  "durations": {
+    "wallMs": 114957,
+    "activeMs": 114957,
+    "pausedMs": 0,
+    "phases": {
+      "ci-fix": 526
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-06T05:35:31.600Z",
+    "readyAt": "2026-09-06T06:00:11.351Z"
+  },
+  "ground": "red-check",
+  "authorization": {
+    "prNumber": 2636,
+    "head": "2e42a7c246b0740ddcf8d83ffb5fcd56d9d1309f",
+    "verdict": 0,
+    "action": "push",
+    "ground": "red-check",
+    "evidence": "https://github.com/woojubb/robota/actions/runs/34015119264/job/101437459367",
+    "scope": "scripts/harness/__tests__/shared-workspace-root.test.mjs",
+    "approvedBy": "@woojubb",
+    "commentId": 5557317279,
+    "commentUrl": "https://github.com/woojubb/robota/pull/2636#issuecomment-5557317279",
+    "commentAuthor": "woojubb",
+    "commentAuthorAssociation": "OWNER"
+  }
+}
