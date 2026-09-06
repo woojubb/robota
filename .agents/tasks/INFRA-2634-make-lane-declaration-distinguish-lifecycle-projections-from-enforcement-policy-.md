@@ -28,6 +28,8 @@ unnecessary L2 promotion and delaying delivery.
 
 ## Test Plan
 
+**Delivery mode:** `single`
+
 | Criterion | Verification |
 | --- | --- |
 | TC-01 | Add a unified-diff fixture containing the active AGREEMENT lifecycle row and a done-spec evidence edit; assert that the filtered declaration has no L1/L2 conflict. |
