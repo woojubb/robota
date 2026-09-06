@@ -1,5 +1,5 @@
 ---
-title: 'HARNESS-057: complete examined-size adoption'
+title: 'HARNESS-2462: complete examined-size adoption'
 issue: https://github.com/woojubb/robota/issues/2462
 status: done
 created: 2026-09-06
@@ -10,7 +10,7 @@ area: scripts/harness
 depends_on: []
 ---
 
-# HARNESS-057: complete examined-size adoption
+# HARNESS-2462: complete examined-size adoption
 
 ## Objective
 

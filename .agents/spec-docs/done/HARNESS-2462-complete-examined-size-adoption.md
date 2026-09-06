@@ -6,7 +6,7 @@ tags: [harness, measurement]
 lane: L2
 ---
 
-# HARNESS-057: complete examined-size adoption
+# HARNESS-2462: complete examined-size adoption
 
 ## Problem
 
