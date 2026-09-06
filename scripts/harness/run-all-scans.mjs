@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { classifyRange } from './classify-changed-paths.mjs';
+import { loadScanCommands } from './discovery-loader.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
@@ -351,7 +352,7 @@ const CONTENT = under('content');
 const MARKDOWN = ['**', '*.md'].join('/');
 const REGISTRY = 'scripts/harness/run-all-scans.mjs';
 
-export const SCAN_COMMANDS = [
+const LEGACY_SCAN_COMMANDS = [
   {
     name: 'lane-declaration',
     command: ['node', 'scripts/harness/scan-lane-declaration.mjs'],
@@ -1338,6 +1339,13 @@ export const SCAN_COMMANDS = [
     examines: [under('scripts/docs'), PACKAGES],
   },
 ];
+
+// The legacy table remains the compatibility baseline while individual entrypoints migrate to
+// self-declared discovery. New scan/check modules are appended automatically by their own
+// scanDefinition export; they do not need a second edit in this runner.
+export const SCAN_COMMANDS = await loadScanCommands(LEGACY_SCAN_COMMANDS, {
+  root: WORKSPACE_ROOT,
+});
 
 /** The lanes a run can declare with `--context`; the default is the stricter one. */
 export const SCAN_CONTEXTS = ['pr', 'integration'];

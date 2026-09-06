@@ -71,7 +71,7 @@
  * Exit code 0 = every classified guard behaves as declared, 1 = violation found.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -892,7 +892,7 @@ export const PENDING_CLASSIFICATION = [
 export const measuredVacuous = () =>
   PENDING_CLASSIFICATION.filter((entry) => entry.measured === 'vacuous');
 
-/** Scan scripts registered in `run-all-scans.mjs`, as bare filenames. Parsed, never hand-listed. */
+/** Scan scripts registered in the runner or declared for discovery, as bare filenames. */
 export function registeredScanFiles(root = WORKSPACE_ROOT) {
   // Comments are stripped first (HARNESS-052): the raw text of the registration file names scans in
   // its own docstrings and in `// …` notes beside table entries, so a scan that had been COMMENTED
@@ -901,6 +901,12 @@ export function registeredScanFiles(root = WORKSPACE_ROOT) {
   // derivation. Structure lives in the array; comments are prose.
   const source = stripJsComments(readFileSync(path.join(root, REGISTRATION_FILE), 'utf8'));
   const files = [...source.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
+  const harnessDir = path.join(root, HARNESS_DIR);
+  for (const entry of readdirSync(harnessDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^(?:scan|check)-.+\.mjs$/.test(entry.name)) continue;
+    const candidate = readFileSync(path.join(harnessDir, entry.name), 'utf8');
+    if (/export\s+const\s+scanDefinition\s*=/.test(candidate)) files.push(entry.name);
+  }
   if (files.length === 0)
     throw new Error(
       `${REGISTRATION_FILE} parsed to zero registered scans. An empty registration list would ` +
