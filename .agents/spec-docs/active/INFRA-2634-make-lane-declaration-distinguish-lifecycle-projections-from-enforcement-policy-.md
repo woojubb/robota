@@ -316,3 +316,26 @@ No blocking reason remains.
   **Required action:** pass the build/test command(s) via --verify-cmd
 
 **Judged at:** HEAD `605f5ffba0e9` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `c57870c7778d` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Every item in the Task Plan is marked complete — PASS — all 4 plan items are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending — PASS — the Task Plan has no blocked or pending item.
+- GATE-VERIFY — Build passes for all affected packages — PASS — `pnpm build` exited 0.
+- GATE-VERIFY — Tests pass for the changed harness surface — PASS — `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` exited 0 with 54 tests passed.
+
+**Guardian verdict:** `GATE VERDICT: PASS` — The focused 54-test scanner suite, direct lane scan, and
+`pnpm build` sufficiently verify INFRA-2634's changed paths and completion criteria. The two TUI ANSI
+style failures from the full `pnpm test` run and the affected-scan baseline/document/work-run findings
+are unrelated pre-existing residuals and are explicitly disclosed here; they do not block this
+internal harness change.
+
+**Independent reviewer:** Raman (subagent) — read-only semantic GATE-VERIFY review, 2026-09-06.
+
+**Verification note:** `node scripts/harness/scan-lane-declaration.mjs --base origin/develop` exited 0
+with `violations=0`; the affected harness scan retained only pre-existing baseline/document/work-run
+findings outside this change's causal scope.
+
+**Judged at:** HEAD `b075c0a6e` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` (tracked)
