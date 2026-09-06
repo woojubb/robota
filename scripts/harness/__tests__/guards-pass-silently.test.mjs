@@ -248,6 +248,9 @@ const REGISTRY = [
   {
     hook: 'pre-push-check.sh',
     verb: 'git push',
+    speaks:
+      'the frozen-diff guard reports when its GitHub measurement is unavailable instead of ' +
+      'silently treating an unknown state as clean',
     setup: () => {
       const dir = repoWithOrigin('feat/probe');
       const rec = path.join(dir, '.agents/local-reviews');

@@ -34,6 +34,7 @@ auditable way to remove that run from the included measurement population.
 - Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
   reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
 - Focused work-run contract, store, validation, and report suites passed: 136 tests.
+- The implementation was delivered in PR #2622 and its completion was merged to `develop`.
 
 ## Test Plan
 

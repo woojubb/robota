@@ -10,10 +10,16 @@ const HARNESS_DIR = path.resolve(import.meta.dirname, '..');
 const OWN_CHECKOUT = path.resolve(HARNESS_DIR, '../..');
 const SCRIPT = path.join(HARNESS_DIR, 'scan-example.mjs');
 
-function resolve({ argv = ['node', SCRIPT], env = {}, cwd = '/elsewhere/cwd', fromCwd } = {}) {
+function resolve({
+  argv = ['node', SCRIPT],
+  env = {},
+  cwd = '/elsewhere/cwd',
+  fromCwd,
+  filename = SCRIPT,
+} = {}) {
   let printed = '';
   const root = resolveWorkspaceRoot(
-    { filename: SCRIPT },
+    { filename },
     { argv, env, cwd, fromCwd, out: { write: (text) => (printed += text) } },
   );
   return { root, printed };
@@ -71,6 +77,17 @@ describe('resolveWorkspaceRoot (issue #2413)', () => {
       env: { HARNESS_ROOT: '/elsewhere/env' },
     });
     expect(viaEquals.root).toBe(path.resolve('/elsewhere/eq'));
+  });
+
+  it('does not apply the entrypoint --root override when this module is only imported', () => {
+    const { root, printed } = resolve({
+      filename: path.join(HARNESS_DIR, 'other.mjs'),
+      argv: ['node', SCRIPT, '--root', '/elsewhere/flag'],
+      cwd: OWN_CHECKOUT,
+    });
+
+    expect(root).toBe(OWN_CHECKOUT);
+    expect(printed).toBe('');
   });
 
   it('announces nothing when the module is only imported', () => {

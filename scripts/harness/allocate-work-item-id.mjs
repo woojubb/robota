@@ -60,7 +60,6 @@ import {
   treeFreshness,
   UPSTREAM_REF,
 } from './work-item-id-claims.mjs';
-
 export {
   collectClaimed,
   idsFromCitations,
@@ -82,10 +81,8 @@ const TASKS_DIR = '.agents/tasks';
 export const WORK_ITEM_ID = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*)-(\d+)\b/g;
 const ISSUE_REPOSITORY = 'woojubb/robota';
 const REQUIRED_NEW_ISSUE_LABELS = ['enhancement', 'status:needs-triage'];
-
 const validIssueNumber = (value) =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value) ? value : null;
-
 /** Read issue numbers and titles for exact-title reuse before creating a duplicate. */
 export function listIssues({ run = defaultIssueList } = {}) {
   const result = run();
@@ -119,7 +116,6 @@ function defaultIssueList() {
     return null;
   }
 }
-
 function defaultIssueView(number) {
   const result = spawnSync(
     'gh',
@@ -159,7 +155,6 @@ export function closeCreatedIssue(number, closeIssue = defaultCloseIssue) {
   if (valid === null) throw new Error('cannot clean up an invalid GitHub issue number');
   return closeIssue(valid);
 }
-
 function defaultCreateIssue(title) {
   const body = [
     '## What was observed',
@@ -211,7 +206,6 @@ function defaultCreateIssue(title) {
   }
   return { number, title };
 }
-
 /** Resolve an existing Issue or create one, without writing a Task/spec before resolution succeeds. */
 export function resolveIssueNumber({
   requestedIssue = null,
@@ -454,10 +448,7 @@ function main(argv) {
     return 1;
   }
   try {
-    // `wx` — create-or-fail, in ONE syscall. An `existsSync` followed by a write is a check and a
-    // claim with a gap between them, which is the exact shape this script exists to remove one
-    // level up; writing it here would be the defect reproduced inside its own fix. Reported as
-    // `js/file-system-race` by CodeQL on the first push, which is how it came out.
+    // `wx` keeps the existence check and claim in one syscall (the original race fixed here).
     writeFileSync(absolute, document, { flag: 'wx' });
   } catch (error) {
     if (error?.code === 'EEXIST') {
