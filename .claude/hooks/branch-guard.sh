@@ -1552,10 +1552,18 @@ while read -r STMT_START STMT_LEN; do
 
   # Block commit on release branches. develop is an integration branch, but direct commits are
   # permitted by the repository policy when explicitly requested by the maintainer.
-  # Exception: allow merge commits (when .git/MERGE_HEAD exists — completing a git merge)
+  # Exception: allow merge commits (when MERGE_HEAD exists — completing a git merge). MERGE_HEAD is
+  # per-worktree state, not shared: in a worktree, `.git` is a `gitdir:` pointer FILE, not a
+  # directory, so `$PROJECT_DIR/.git/MERGE_HEAD` never exists there even mid-merge, and a real merge
+  # was reported as "no merge in progress" (issue #2644). `rev-parse --path-format=absolute
+  # --git-path` resolves the worktree indirection the same way git itself does, in both a
+  # worktree and an ordinary checkout, and returns an ABSOLUTE path so the `-f` test below does
+  # not depend on this script's own cwd (a relative `--git-path` answer is relative to the
+  # CALLER's cwd, not `$PROJECT_DIR`, whenever they differ).
   if [[ "$IS_COMMIT" == "true" ]]; then
     MERGE_IN_PROGRESS=false
-    [[ -f "$PROJECT_DIR/.git/MERGE_HEAD" ]] && MERGE_IN_PROGRESS=true
+    MERGE_HEAD_PATH=$(hook_git_in "$PROJECT_DIR" rev-parse --path-format=absolute --git-path MERGE_HEAD 2>/dev/null || printf '')
+    [[ -n "$MERGE_HEAD_PATH" && -f "$MERGE_HEAD_PATH" ]] && MERGE_IN_PROGRESS=true
     if [[ "$MERGE_IN_PROGRESS" == "false" ]]; then
       for branch in main master; do
         if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
