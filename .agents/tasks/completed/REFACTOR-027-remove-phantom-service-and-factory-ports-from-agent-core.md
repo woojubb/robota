@@ -1,8 +1,9 @@
 ---
 title: 'REFACTOR-027: remove phantom service and factory ports from agent-core'
 issue: https://github.com/woojubb/robota/issues/2064
-status: todo
+status: done
 created: 2026-09-03
+completed: 2026-09-06
 priority: medium
 urgency: soon
 area: packages/agent-core

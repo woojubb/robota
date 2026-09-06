@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [typescript]
 lane: L1
@@ -78,13 +78,13 @@ export count dropped by exactly the 8 removed symbols.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm --filter @robota-sdk/agent-core typecheck` → exits 0
-- [ ] TC-02: `pnpm --filter @robota-sdk/agent-core build` → exits 0
-- [ ] TC-03: `pnpm --filter @robota-sdk/agent-core test` → exits 0 (all pre-existing tests pass
+- [x] TC-01: `pnpm --filter @robota-sdk/agent-core typecheck` → exits 0
+- [x] TC-02: `pnpm --filter @robota-sdk/agent-core build` → exits 0
+- [x] TC-03: `pnpm --filter @robota-sdk/agent-core test` → exits 0 (all pre-existing tests pass
       unchanged; none reference the removed interfaces, confirmed by
       `grep -rn "IToolExecutionService\|IExecutionService\|IAgentFactory" packages apps` returning
       only the removed declaration sites before this change)
-- [ ] TC-04: `node scripts/harness/check-spec-public-surface.mjs` → exits 0, and
+- [x] TC-04: `node scripts/harness/check-spec-public-surface.mjs` → exits 0, and
       `scripts/harness/spec-surface-baseline.json`'s `@robota-sdk/agent-core` `type` count drops from
       229 to 221 (the 8 removed symbols)
 
@@ -105,7 +105,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` — todo
+- [x] `.agents/tasks/completed/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` — done
 
 ## Evidence Log
 
@@ -176,3 +176,98 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `aff91a876cd7` · base `origin/develop@aff91a876cd7` · document `.agents/spec-docs/draft/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `da1941add9a5` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm --filter @robota-sdk/agent-core typecheck`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+> @robota-sdk/agent-core@3.0.0-beta.79 typecheck /private/tmp/robota-worktrees/refactor-027-v2/packages/agent-core
+> tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.examples.json --noEmit
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `60880c017356` · base `origin/develop@aff91a876cd7` · document `.agents/spec-docs/todo/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `2b35803b4b72` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm --filter @robota-sdk/agent-core build`
+**Exit:** 0
+**Output:** (last 10 of 76 line(s))
+
+```
+ℹ [ESM] 12 files, total: 1.38 MB
+src/hooks/executors/command-executor.ts (17:22) [33m[UNRESOLVED_IMPORT] [0mCould not resolve 'node:child_process' in src/hooks/executors/command-executor.ts
+    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m src/hooks/executors/command-executor.ts:17:23 [38;5;246m][0m
+    [38;5;246m│[0m
+ [38;5;246m17 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mw[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m'node:child_process'[38;5;249m;[0m
+ [38;5;240m   │[0m                       ──────────┬─────────  
+ [38;5;240m   │[0m                                 ╰─────────── Module not found, treating it as an external dependency
+[38;5;246m────╯[0m
+
+✔ Build complete in 1144ms
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `60880c017356` · base `origin/develop@aff91a876cd7` · document `.agents/spec-docs/todo/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `a65c57e6fcdf` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm --filter @robota-sdk/agent-core test`
+**Exit:** 0
+**Output:** (last 10 of 117 line(s))
+
+```
+ ✓ src/hooks/__tests__/types.test.ts (3 tests) 2ms
+ ✓ src/context/model-pricing.test.ts (8 tests) 2ms
+ ✓ src/utils/bounded-output.test.ts (4 tests) 58ms
+ ✓ src/utils/path-containment.test.ts (2 tests) 3ms
+ ✓ src/services/__tests__/execution-usage.test.ts (2 tests) 1ms
+
+ Test Files  102 passed (102)
+      Tests  1305 passed (1305)
+   Start at  21:17:26
+   Duration  4.15s (transform 724ms, setup 0ms, collect 2.48s, tests 3.52s, environment 7ms, prepare 3.00s)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `60880c017356` · base `origin/develop@aff91a876cd7` · document `.agents/spec-docs/todo/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `37092caed1af` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/check-spec-public-surface.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+spec public-surface scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `60880c017356` · base `origin/develop@aff91a876cd7` · document `.agents/spec-docs/todo/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `0eb93fa24a9a` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → done
+
+**Ordering check:** prior gate `GATE-PLAN`, re-run rule `recorded-pass` (gate-catalogue.md § Prior-gate
+map). The `[GATE-PLAN] — ✅ PASS | 2026-09-06` entry above carries `**Status upgrade:** draft →
+approved`; the document's current frontmatter `status: approved` equals that entry's `Y`. Ordering
+satisfied.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` is marked complete (`[x]`): read the Task file's committed content — the file is tracked and has no working-tree modification (`git status` shows no entry for it; it is part of commit `60880c0173`). Its `## Plan` section holds exactly 4 items, all `- [x]`: "Inventory every exported service/factory port …", "Delete phantom declarations …", "Update package public-surface evidence …", "Run typecheck, package tests, build, and public-surface scans." No `- [ ]` item present. PASS.
+- GATE-VERIFY — No Plan item is blocked or pending: `grep -ni "blocked\|pending\|\[ \]" .agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` returned no match (exit 1) — none of the 4 items carries a blocked/pending marker or an unchecked box. PASS.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): satisfied by the `[GATE-COMPLETE: TC-02]` entry above — `pnpm --filter @robota-sdk/agent-core build` exit 0. The spec's Architecture Review § Affected Scope names only `packages/agent-core`, so this is the whole affected set. PASS.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): satisfied by the `[GATE-COMPLETE: TC-03]` entry above — `pnpm --filter @robota-sdk/agent-core test` exit 0, 1305/1305 tests passed. PASS.
+- GATE-COMPLETE — Each TC-N checkbox is `[x]` with a matching Evidence Log entry: `[GATE-COMPLETE: TC-01]` through `[GATE-COMPLETE: TC-04]` above each carry command, exit code and output; `git diff` on this file confirms all four `## Completion Criteria` boxes flipped `[ ]` → `[x]` in the same working-tree change that added the four entries. PASS.
+- GATE-COMPLETE — Every `## Test Plan` row carries a test-written or test-skipped record, none silently unaddressed: all 4 rows are `manual` with a non-empty Notes column stating the specific skip reason (compiler/build/public-surface scan is itself the check; no RED/GREEN test possible for a zero-consumer deletion). PASS.
+- GATE-COMPLETE — `## Tasks` section names the exact active task path: `## Tasks` lists `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`, matching the paired Task's actual path. PASS.
+- GATE-COMPLETE — Active task exists and is completion-ready (all tasks `[x]`, none pending/blocked): same Task file, same finding as the two GATE-VERIFY Plan checks above — 4/4 `[x]`, none blocked/pending. PASS.
+
+**Judged by:** `backlog-gate-guard` — semantic escalation of the 2 GATE-VERIFY criteria `gate.mjs` could
+not resolve mechanically (task-plan-items scan indeterminate); remaining criteria corroborated directly
+against `git diff`, `git log`, and the Task file's committed content rather than re-asserted from the
+prior mechanical entries.
+**Judged at:** HEAD `60880c0173561c9a57eeb2a11c7ec25f9b5795dd` · base `origin/develop@aff91a876cd74f82616d0d1708cd53480a7dfc63` · document `.agents/spec-docs/todo/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `eb72e1fda5ac7e1a3f315d62477fda3745b470e1` (modified) · Task `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` blob `adfc5275c65364ed863238e20d658b5802ba8912` (tracked)
