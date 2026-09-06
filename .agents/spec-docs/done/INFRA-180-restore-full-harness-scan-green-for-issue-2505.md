@@ -77,11 +77,11 @@ the behavior it documents.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | unit | focused Vitest suites | Exercise the changed harness consumers. |
+| TC-ID | Test Type   | Tool / Approach                              | Notes                                        |
+| ----- | ----------- | -------------------------------------------- | -------------------------------------------- |
+| TC-01 | unit        | focused Vitest suites                        | Exercise the changed harness consumers.      |
 | TC-02 | integration | `pnpm harness:scan -- --context integration` | Compare with issue #2505's recorded failure. |
-| TC-03 | CI | pull-request checks | Confirm the final pushed head is green. |
+| TC-03 | CI          | pull-request checks                          | Confirm the final pushed head is green.      |
 
 ## Tasks
 
