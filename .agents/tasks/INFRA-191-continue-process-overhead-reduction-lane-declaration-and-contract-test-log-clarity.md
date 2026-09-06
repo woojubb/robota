@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-191: continue process-overhead reduction — lane-declaration table rows and contract-test log clarity'
-status: todo
+status: in-progress
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -36,8 +36,10 @@ affected-set narrowing worked correctly.
 
 ## Test Plan
 
-- `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs scripts/harness/__tests__/harness-test-tiers.test.mjs`
-- `pnpm harness:scan` green.
+- TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs`
+- TC-02: `pnpm exec vitest run scripts/harness/__tests__/harness-test-tiers.test.mjs`
+- TC-03: `grep -n "reopen.*before the next content commit" .agents/rules/work-run-measurement.md`
+- TC-04: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` (`pnpm harness:scan` green)
 
 ## User Execution Test Scenarios
 

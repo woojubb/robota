@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [harness, cli]
 lane: L2
@@ -158,7 +158,7 @@ surface, CLI behavior, SDK contract, or product-facing interaction to execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md` — not yet implemented (planning checkpoint only)
+- [ ] `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md` — in progress
 
 ## Evidence Log
 
@@ -465,3 +465,57 @@ blob `94ccbe704f7a7deb1289e45f7f448d5c69ea97f2` (untracked)
 
 **Judged by:** `backlog-gate-guard` (semantic set, merged into the standing approval entry per `gate-operations.mjs`’s `mergeIntoLastApprovalEntry` contract — the verdict that counts is the last one, and a second PASS heading without the route fields would retire the one that carries them)
 **Judged at:** HEAD `c835fbee72ab2a8ddb429610d9176b43d3ca15b4` · base `origin/develop@c835fbee72ab2a8ddb429610d9176b43d3ca15b4` · document `.agents/spec-docs/backlog/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md` blob `ec39cedd8366029c076b9136c63bdb95cef0d5cb` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-07
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-07; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (4)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 409 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md",
+    ".agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `1669f7717750` · base `origin/develop@c835fbee72ab` · document `.agents/spec-docs/todo/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md` blob `783984dda472` (modified)
