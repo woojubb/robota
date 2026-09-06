@@ -1,12 +1,13 @@
 ---
 title: 'INFRA-2618: stabilize gate.mjs as shared entrypoint and isolate evaluator changes'
 issue: https://github.com/woojubb/robota/issues/2618
-status: in-progress
+status: done
 created: 2026-09-06
 priority: medium
 urgency: soon
 area: TODO
 depends_on: []
+completed: 2026-09-06
 ---
 
 # INFRA-2618: stabilize gate.mjs as shared entrypoint and isolate evaluator changes
@@ -18,16 +19,18 @@ harness-structure migration. Split its current CLI, document, catalogue, criteri
 responsibilities into owned modules. Preserve the existing command, exit-code, stdout, evidence, and
 fail-closed contracts while mechanically refusing accidental facade edits.
 
+Spec: `.agents/spec-docs/done/INFRA-2618-stabilize-gate-mjs-as-shared-entrypoint-and-isolate-evaluator-changes.md`
+
 ## Plan
 
-- [ ] Complete the approved INFRA-2618 spec and keep the implementation scope limited to the gate
+- [x] Complete the approved INFRA-2618 spec and keep the implementation scope limited to the gate
       entrypoint/evaluator boundary.
-- [ ] Extract CLI, document, catalogue, criteria, operation, and public-API modules; add the stable
+- [x] Extract CLI, document, catalogue, criteria, operation, and public-API modules; add the stable
       facade and preserve all supported exports/importers.
-- [ ] Update evaluator-isolation for all extracted evaluator modules, add the facade stability scan
+- [x] Update evaluator-isolation for all extracted evaluator modules, add the facade stability scan
       and its tests, and register the scan.
-- [ ] Update baselines/fixtures and run focused tests plus affected harness verification.
-- [ ] Record completion evidence and close the paired spec/Task together.
+- [x] Update baselines/fixtures and run focused tests plus affected harness verification.
+- [x] Record completion evidence and close the paired spec/Task together.
 
 ## Test Plan
 

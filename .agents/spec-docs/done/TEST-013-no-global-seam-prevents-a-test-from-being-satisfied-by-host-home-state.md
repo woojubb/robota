@@ -2,7 +2,7 @@
 status: done
 type: INFRA
 tags: [test]
-lane: L1
+lane: L2
 ---
 
 # TEST-013: Prevent a test from being satisfied by host home state
@@ -83,7 +83,9 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
+
+**Reason:** No runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
 
 Recorded as the rule's required choice rather than skipped.
 

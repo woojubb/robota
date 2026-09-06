@@ -42,7 +42,13 @@ export function commandTimeout(runtime, operation, requestedTimeout, label = 'gi
 }
 
 function executeGit(root, args, options, encoding) {
-  const { run = execFileSync, runtime = null, timeout: requestedTimeout, ...execOptions } = options;
+  const {
+    run = execFileSync,
+    runtime = null,
+    timeout: requestedTimeout,
+    input,
+    ...execOptions
+  } = options;
   const operation = args[0] ?? 'unknown operation';
   const timeout = commandTimeout(runtime, operation, requestedTimeout);
   try {
@@ -50,6 +56,7 @@ function executeGit(root, args, options, encoding) {
       cwd: root,
       maxBuffer: MAX_BUFFER,
       ...execOptions,
+      ...(input === undefined ? {} : { input }),
       encoding,
       timeout,
     });

@@ -2,7 +2,7 @@
 status: done
 type: INFRA
 tags: [process, harness]
-lane: L1
+lane: L2
 ---
 
 # INFRA-160: plan-order cannot ground an L0 implementation that repairs several historical records
@@ -147,7 +147,9 @@ exported classifier.
 
 ## User Execution Test Scenarios
 
-Not applicable — the change is a repository commit-ordering guard used by the pre-commit and pre-push
+Not applicable.
+
+The change is a repository commit-ordering guard used by the pre-commit and pre-push
 paths, and it ships no CLI command, TUI action, browser flow, or public SDK surface an end user can
 execute.
 

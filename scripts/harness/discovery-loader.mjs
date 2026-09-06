@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -17,6 +17,7 @@ export const NON_SCAN_ENTRYPOINTS = new Set([
 ]);
 
 function candidateFiles(harnessDir) {
+  if (!existsSync(harnessDir)) return [];
   return readdirSync(harnessDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && ENTRYPOINT_PATTERN.test(entry.name))
     .map((entry) => entry.name)

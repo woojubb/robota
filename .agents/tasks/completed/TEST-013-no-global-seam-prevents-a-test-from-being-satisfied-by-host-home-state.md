@@ -134,7 +134,7 @@ issue's own conclusion, and it is why remedy (1) is preferred over an audit.
 - [x] TC-03 — Run the full suite under the change and record the result beside the two-run
       measurement above, so the introduction order below is decided by a number rather than an
       estimate.
-- [ ] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** —
+- [ ] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** — allow-unmet-criterion: the measured TC-03 migration population is empty; no fixture migration is required —
       a fixture home it constructs — rather than restoring the real one.
 - [x] TC-05 — Add a negative-assertion fixture for the vacuous half named in the issue: a
       `not.toContain(...)` assertion that passes only because host state is absent is shown capable
