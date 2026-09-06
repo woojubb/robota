@@ -1,6 +1,14 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
-import { evaluateEntries, evidenceEntries } from '../scan-gate-verdict-attribution.mjs';
+import {
+  collectEntries,
+  examinedGateEvidenceCount,
+  evaluateEntries,
+  evidenceEntries,
+} from '../scan-gate-verdict-attribution.mjs';
+import { makeTemp } from './make-temp.mjs';
 
 const entry = (date, judgedBy = '') =>
   `### [GATE-VERIFY] — ✅ PASS | ${date}\n\n${judgedBy ? `**Judged by:** ${judgedBy}\n` : ''}`;
@@ -31,5 +39,19 @@ describe('gate verdict attribution scan', () => {
       `## Evidence Log\n\n${entry('2026-09-07', '`backlog-gate-guard`')}`,
     );
     expect(evaluateEntries(entries, '2026-09-06').violations).toHaveLength(0);
+  });
+
+  it('resets the exported examined counter on each collection', () => {
+    const root = makeTemp('robota-2269-counter-');
+    mkdirSync(`${root}/.agents/spec-docs/done`, { recursive: true });
+    writeFileSync(
+      `${root}/.agents/spec-docs/done/a.md`,
+      `## Evidence Log\n\n${entry('2026-09-06', '`test`')}`,
+    );
+    collectEntries(root);
+    expect(examinedGateEvidenceCount()).toBe(1);
+    writeFileSync(`${root}/.agents/spec-docs/done/a.md`, '# no log\n');
+    collectEntries(root);
+    expect(examinedGateEvidenceCount()).toBe(0);
   });
 });

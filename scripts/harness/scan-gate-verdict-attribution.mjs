@@ -15,6 +15,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 const ROOT = resolveWorkspaceRoot(import.meta);
 const DONE = path.join(ROOT, '.agents/spec-docs/done');
 const BASELINE = path.join(import.meta.dirname, 'gate-verdict-attribution-baseline.json');
+let examinedEntries = 0;
 
 function markdownFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -51,12 +52,20 @@ export function evidenceEntries(text, file = '') {
 }
 
 export function collectEntries(root = ROOT) {
-  return markdownFiles(path.join(root, '.agents/spec-docs/done')).flatMap((file) =>
+  const done = path.join(root, '.agents/spec-docs/done');
+  if (!existsSync(done)) throw new Error(`${done} missing — cannot judge gate attribution`);
+  const entries = markdownFiles(done).flatMap((file) =>
     evidenceEntries(
       readFileSync(file, 'utf8'),
       path.relative(root, file).split(path.sep).join('/'),
     ),
   );
+  examinedEntries = entries.length;
+  return entries;
+}
+
+export function examinedGateEvidenceCount() {
+  return examinedEntries;
 }
 
 export function evaluateEntries(entries, cutoffDate) {
