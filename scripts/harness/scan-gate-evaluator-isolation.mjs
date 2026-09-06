@@ -30,6 +30,10 @@ function git(args) {
   return result.stdout.split('\n').filter(Boolean);
 }
 
+function gitResult(args) {
+  return spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+}
+
 export function changedPaths(base = process.env.HARNESS_BASE_REF ?? 'origin/develop') {
   return git(['diff', '--name-only', `${base}...HEAD`]);
 }
@@ -39,8 +43,19 @@ function changedPathsForCommit(commit) {
     .split(/\s+/u)
     .filter(Boolean);
   if (parents.length !== 2) return git(['diff', '--name-only', `${commit}^`, commit]);
-  const automaticTree = git(['merge-tree', '--write-tree', parents[0], parents[1]])[0];
-  return git(['diff', '--name-only', automaticTree, commit]);
+  const mergeTree = gitResult(['merge-tree', '--write-tree', parents[0], parents[1]]);
+  if (mergeTree.status === 0) {
+    const automaticTree = mergeTree.stdout.split('\n').filter(Boolean)[0];
+    return git(['diff', '--name-only', automaticTree, commit]);
+  }
+  if (mergeTree.status === 1) {
+    // A merge commit can preserve an intentional conflict resolution even when Git cannot build
+    // the hypothetical automatic tree. Combined diff lists only paths whose merge result differs
+    // from a parent, which is the merge's own diff for this scan; it avoids treating every file
+    // brought in from the second parent as a new evaluator change.
+    return git(['diff', '--cc', '--name-only', commit]);
+  }
+  throw new Error(`git merge-tree --write-tree ${parents.join(' ')} failed: ${mergeTree.stderr.trim()}`);
 }
 
 /** `{commit, paths}` for every commit the branch adds, oldest first. A merge is read by its own diff. */
