@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [ci]
 lane: L2
@@ -626,3 +626,65 @@ blob `86ce15307e2878f73bae408fba59c7421015bfcc` (untracked).
 **Judged by:** backlog-gate-guard (5 mechanical criteria PASS per `node scripts/harness/gate.mjs judge --gate GATE-APPROVAL`'s original run against this entry; 3 semantic criteria judged fresh by the guardian and merged in above).
 **Judged at:** HEAD `c651c769e27c9a0ee147be8ffda937cbc1072610` · base `origin/develop@c651c769e27c9a0ee147be8ffda937cbc1072610` · document `.agents/spec-docs/backlog/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `7f95d7a5aa8cd0739b537c51aaf0a7e28a9c347a` (untracked)
 
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-06; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task carries 6 checkbox tasks for 6 criteria
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 627 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md",
+  "taskItems": [
+    {
+      "kind": "checkbox",
+      "value": "Disable the `review` job in `.github/workflows/claude-code-review.yml` with a job-level `if: false` and a rationale comment, keeping the `uses:`/`with:`/`prompt:` content intact for provenance and quick re-enable."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Extend `scripts/harness/scan-claude-review-coverage.mjs` to recognize a job-level `if: false` as a deliberate retirement and skip its shape/marker/prompt-language findings for that workflow, instead of failing the required `scans` job."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Update `scripts/harness/scan-guard-scope-fail-closed.mjs`'s `MANDATORY_TREE_GUARDS` entry/tests for the coverage scan if its fail-closed assertion needs adjustment for the new retired-state branch."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Add/adjust Vitest coverage in `scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` for the retired (`if: false`) case, and confirm `scan-review-token-supply.mjs` and `scan-workflow-permissions.mjs` stay green unmodified (YAML content, including `github_token:` and `permissions:`, is left in place)."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Update `.agents/skills/pr-finding-resolution-loop/SKILL.md` and `.agents/skills/automated-review-convergence/SKILL.md` Round B prose so they no longer describe the retired action as \"the reviewer on an open PR\"."
+    },
+    {
+      "kind": "checkbox",
+      "value": "Run `pnpm harness:scan`, the affected Vitest suites, and `pnpm harness:verify-like-ci` to confirm nothing else regresses."
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md",
+    ".agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `f12a321c05b1` (untracked)
