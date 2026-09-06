@@ -18,12 +18,20 @@ import type {
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IWsHandlerOptions, SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
 
-type TUsageReporters = Pick<
+export type TUsageReporters = Pick<
   IWsHandlerOptions,
   'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
 >;
+
+export function defaultCreateResumeBridge(
+  session: IInteractiveSession,
+  usageReporters?: TUsageReporters,
+): SessionResumeBridge {
+  return new SessionResumeBridge({ session, surface: 'remote', ...usageReporters });
+}
 
 export interface ITransportHooks {
   readonly onPaired: (result?: IPairingResult) => void;

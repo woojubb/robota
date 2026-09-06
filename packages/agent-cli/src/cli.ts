@@ -1,8 +1,3 @@
-/**
- * CLI entry point — pure composition root.
- * Parses arguments and delegates to startup modules, mode runners, and transports.
- */
-
 import { PrintTerminal } from './print-terminal.js';
 import {
   resolveLatestSessionId,
@@ -15,8 +10,7 @@ import {
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
-import { parseCliArgs, printHelp } from './utils/cli-args.js';
-import type { IParsedCliArgs } from './utils/cli-args.js';
+import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
@@ -36,7 +30,7 @@ import {
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
-import { createDefaultUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
   createRobotaPackSet,
@@ -195,21 +189,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     orgPolicy,
   } = buildCommandSetupOrExit(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
-  const wsDriverId = process.env['ROBOTA_WS_TOKEN'] ? 'app' : args.open ? 'browser' : 'remote:ws';
-  const wsSurface = process.env['ROBOTA_WS_TOKEN']
-    ? 'desktop-app'
-    : args.open
-      ? 'browser'
-      : 'remote';
   const {
     registry: transportRegistry,
     wsTransport,
     usageReporters,
-  } = createDefaultUsageTransportRegistry(
+  } = createCliUsageTransportRegistry(
     workspaceComposition.sessionStore,
     workspaceComposition.projectAccess.status === 'trusted',
-    wsDriverId,
-    wsSurface,
+    args.open,
   );
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters);

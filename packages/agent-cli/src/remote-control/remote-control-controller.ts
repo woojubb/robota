@@ -7,14 +7,9 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
-import { defaultCreateTransport } from './default-transport-factory.js';
+import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
+import type { TUsageReporters } from './default-transport-factory.js';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
-import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
-
-type TUsageReporters = Pick<
-  IWsHandlerOptions,
-  'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
->;
 
 import { hasTurnServer } from './ice-config.js';
 
@@ -31,19 +26,7 @@ import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-/**
- * Composition-root controller for `/remote-control` (REMOTE-008 Step 4).
- *
- * The command is a declarative trigger; ALL transport construction lives HERE (the composition root owns
- * settings, the transport registry, and the live session). On enable it mints a pairing secret + rendezvous,
- * builds a `WsSignalingClient` against the configured relay and a pairing-gated `WebRtcTransport`, registers
- * and starts it, and returns a QR + link the operator shares with the device. The `getStatus` view is read
- * by the command through the injected `ICommandHostAdapters.remoteControl` adapter over this same instance's
- * mutable state (the adapter is created before any transport exists).
- *
- * Fail-closed: no relay configured ⇒ do nothing (never a silent default to a public relay); a `werift`-absent
- * or start failure ⇒ report the error and stay off.
- */
+/** Composition-root controller for pairing-gated `/remote-control` lifecycle and reconnect state. */
 
 export interface IRemoteControlControllerDeps {
   /** The full transport registry (needs `register`, so not the view). */
@@ -181,21 +164,15 @@ export class RemoteControlController {
       }
     }
 
-    // REMOTE-013 E4: a session-scoped resume bridge (only when reconnect/E3 is active) that survives channel
-    // drops. Retain the config needed to re-arm reconnect signaling later.
+    // REMOTE-013 E4: retain the session bridge and inputs needed to re-arm reconnect signaling.
     this.relayUrl = relayUrl;
     this.iceConfig = { ...(iceServers ? { iceServers } : {}), forceTurn };
     this.reconnectConfig = reconnect;
     if (reconnect && !this.bridge) {
-      this.bridge = (
+      const createBridge =
         this.deps.createResumeBridge ??
-        ((s) =>
-          new SessionResumeBridge({
-            session: s,
-            surface: 'remote',
-            ...this.deps.usageReporters,
-          }))
-      )(session);
+        ((current) => defaultCreateResumeBridge(current, this.deps.usageReporters));
+      this.bridge = createBridge(session);
     }
 
     const pairing = generatePairingSecret();

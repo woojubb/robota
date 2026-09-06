@@ -70,7 +70,7 @@ type TUsageReporters = Pick<
 >;
 
 /** Remove absent reporters so exact-optional handler options remain truthful. */
-export function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
+function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
   return {
     ...(config.personalUsageReporter
       ? { personalUsageReporter: config.personalUsageReporter }
@@ -79,6 +79,20 @@ export function configuredUsageReporters(config: IWsTransportConfig): TUsageRepo
     ...(config.storedSessionUsageReporter
       ? { storedSessionUsageReporter: config.storedSessionUsageReporter }
       : {}),
+  };
+}
+
+type TConfiguredHandlerOptions = Pick<
+  IWsHandlerOptions,
+  'driverId' | 'surface' | 'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
+
+/** Project immutable transport attribution/reporters into each protocol handler. */
+export function configuredWsHandlerOptions(config: IWsTransportConfig): TConfiguredHandlerOptions {
+  return {
+    ...(config.driverId ? { driverId: config.driverId } : {}),
+    ...(config.surface ? { surface: config.surface } : {}),
+    ...configuredUsageReporters(config),
   };
 }
 

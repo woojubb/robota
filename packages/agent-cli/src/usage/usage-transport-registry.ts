@@ -6,7 +6,7 @@ import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
 /** Compose the host-owned report producers into the default WebSocket transport. */
-export function createDefaultUsageTransportRegistry(
+function createDefaultUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   driverId: TDriverId,
@@ -20,5 +20,20 @@ export function createDefaultUsageTransportRegistry(
     storedSessionUsageReporter,
     driverId,
     surface,
+  );
+}
+
+/** Resolve the trusted CLI/desktop/browser attribution before constructing the shared transports. */
+export function createCliUsageTransportRegistry(
+  projectStore: IInteractiveSessionStore,
+  projectTrusted: boolean,
+  open: boolean,
+): ReturnType<typeof createDefaultTransportRegistry> {
+  const desktop = Boolean(process.env['ROBOTA_WS_TOKEN']);
+  return createDefaultUsageTransportRegistry(
+    projectStore,
+    projectTrusted,
+    desktop ? 'app' : open ? 'browser' : 'remote:ws',
+    desktop ? 'desktop-app' : open ? 'browser' : 'remote',
   );
 }

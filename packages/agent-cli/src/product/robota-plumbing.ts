@@ -32,9 +32,10 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import type {
   IPersonalUsageReport,
   IPersonalUsageRequest,
+  IUsageBySourceReport,
 } from '@robota-sdk/agent-session-analytics';
-import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
-import type { IProtocolSession, IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
 
 /**
  * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
@@ -65,7 +66,7 @@ export function loadReplayProvider(logFile: string): IAIProvider {
  */
 export function createDefaultTransportRegistry(
   personalUsageReporter?: (request: IPersonalUsageRequest) => IPersonalUsageReport,
-  storedSessionUsageReporter?: (sessionId: string) => ReturnType<typeof summarizeUsageBySource>,
+  storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
   driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
   surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
 ): {
@@ -84,19 +85,7 @@ export function createDefaultTransportRegistry(
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
-  const usageReporter = (session: IProtocolSession): ReturnType<typeof summarizeUsageBySource> => {
-    const subject = session as IProtocolSession & {
-      getFullHistory?: () => import('@robota-sdk/agent-core').IHistoryEntry[];
-      getSession?: () => { getSessionId(): string };
-    };
-    if (!subject.getFullHistory || !subject.getSession) {
-      throw new Error('The attached session does not expose usage history.');
-    }
-    return summarizeUsageBySource({
-      id: subject.getSession().getSessionId(),
-      history: subject.getFullHistory(),
-    });
-  };
+  const usageReporter = reportCurrentSessionUsage;
   const wsTransport = new WsTransport({
     ...(wsToken ? { token: wsToken } : {}),
     ...(wsToken ? { allowedOrigins: ['file://'] } : {}),

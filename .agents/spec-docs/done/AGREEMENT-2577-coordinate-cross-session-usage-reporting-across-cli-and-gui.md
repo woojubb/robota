@@ -302,7 +302,6 @@ request ID, or silently catch to empty/success.
 
 ## Tasks
 
-- [x] AGREEMENT-2577 — done — `.agents/tasks/completed/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md`
 - [x] DATA-2577 — done — `.agents/tasks/completed/DATA-2577-persist-canonical-usage-identity-and-model-provider-surface-attribution.md`
 - [x] OBSERVABILITY-2577 — done — `.agents/tasks/completed/OBSERVABILITY-2577-aggregate-versioned-cross-session-personal-usage-reports.md`
 - [x] FLOW-2577 — done — `.agents/tasks/completed/FLOW-2577-expose-cross-session-usage-through-robota-usage-text-and-json.md`

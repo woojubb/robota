@@ -22,7 +22,8 @@ represented as `unknown` by downstream consumers.
 
 ## Existing Evidence
 
-- `IUsageSnapshot` currently carries tokens, cost, and execution source but no logical event identity,
+- `packages/agent-interface-analytics/src/usage-contracts.ts` showed that `IUsageSnapshot` carried
+  tokens, cost, and execution source but no logical event identity,
   provider/model, or surface.
 - Main and child usage paths sum usage-bearing assistant messages without a shared message-ID
   idempotency rule.

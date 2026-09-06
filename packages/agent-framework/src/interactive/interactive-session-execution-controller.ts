@@ -287,8 +287,7 @@ export class SessionExecutionController {
         },
       });
     } catch (error) {
-      // RUNTIME-003: preserve failures before `executePromptTurn` can route them through `onError`;
-      // otherwise the turn handle would replace the real cause with "ended without a result".
+      // RUNTIME-003: preserve pre-execution failures instead of replacing the real cause.
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {

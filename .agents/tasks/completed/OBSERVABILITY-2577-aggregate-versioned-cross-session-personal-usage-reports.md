@@ -22,8 +22,8 @@ not from usage-bearing messages or inferred provider requests.
 
 ## Existing Evidence
 
-- `summarizeUsageBySource` is a pure single-session reducer and assumes its usage entries are already
-  canonical.
+- `packages/agent-session-analytics/src/usage.ts` showed that `summarizeUsageBySource` was a pure
+  single-session reducer and assumed its usage entries were already canonical.
 - Existing CLI loading can see both user and project stores and currently gives the project record
   precedence for duplicate session IDs.
 - Store enumeration distinguishes valid, missing, corrupt, and unsupported records, but the current

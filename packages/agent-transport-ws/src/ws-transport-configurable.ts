@@ -21,7 +21,7 @@ import { WsSessionDelivery } from './ws-session-delivery.js';
 import {
   DEFAULT_MAX_RETRIES,
   DEFAULT_PORT,
-  configuredUsageReporters,
+  configuredWsHandlerOptions,
   transportLifecycleError,
   validTransportOptions,
 } from './ws-transport-config.js';
@@ -77,9 +77,7 @@ export class WsTransport
   private readonly token?: string;
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
-  private readonly driverId?: IWsTransportConfig['driverId'];
-  private readonly surface?: IWsTransportConfig['surface'];
-  private readonly usageReporters: ReturnType<typeof configuredUsageReporters>;
+  private readonly handlerOptions: ReturnType<typeof configuredWsHandlerOptions>;
   private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
@@ -92,9 +90,7 @@ export class WsTransport
     if (admission.token !== null) this.token = admission.token;
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
-    this.driverId = config.driverId;
-    this.surface = config.surface;
-    this.usageReporters = configuredUsageReporters(config);
+    this.handlerOptions = configuredWsHandlerOptions(config);
   }
 
   attach(session: IInteractiveSession): void;
@@ -255,9 +251,7 @@ export class WsTransport
           const handler = createWsHandler({
             session,
             deliver: delivery.deliver,
-            ...(this.driverId ? { driverId: this.driverId } : {}),
-            ...(this.surface ? { surface: this.surface } : {}),
-            ...this.usageReporters,
+            ...this.handlerOptions,
           });
           delivery.bindProtocolCleanup(handler.cleanup);
 
