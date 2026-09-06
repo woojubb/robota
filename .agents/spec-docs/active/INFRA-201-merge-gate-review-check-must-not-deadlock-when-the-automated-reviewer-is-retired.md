@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: INFRA
 tags: [harness, hooks]
 lane: L2
@@ -252,6 +252,7 @@ own word.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -284,7 +285,107 @@ own word.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `be9d6b0a91c7` · base `origin/develop@be9d6b0a91c7` · document `.agents/spec-docs/todo/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` blob `c1e9465cc4e7` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-07
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check:** GATE-VERIFY's prior gate is GATE-IMPLEMENT (`gate-catalogue.md` § Prior-gate map:
+`GATE-VERIFY | GATE-IMPLEMENT | in-progress`). The last-recorded entry on this document is
+`[GATE-IMPLEMENT] — ✅ PASS | 2026-09-07` (`**Status upgrade:** approved → in-progress`), and the
+document's current frontmatter `status: in-progress` (line 2) matches GATE-VERIFY's expected input;
+folder placement `.agents/spec-docs/active/` agrees with `spec-workflow.md`'s status↔folder mapping
+(`in-progress` → `.agents/spec-docs/active/`, line 257). Ordering check PASSES.
+
+**Flakiness investigation (independent).** The calling agent reported two prior GATE-VERIFY attempts on
+this exact document FAILed on `pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs
+scripts/harness/__tests__/merge-gate-disposition.test.mjs` because of an intermittent
+`[vitest-worker]: Timeout calling "onTaskUpdate"` IPC error under heavy concurrent system load, which
+flips the process exit code while every assertion still passes. This guardian did not accept that account
+at face value and reproduced independently: ran the identical command twice from a clean working tree
+(`git status --porcelain` empty, HEAD `a0408b6c9c88`) — run 1: exit 0, `Test Files 2 passed (2)`,
+`Tests 80 passed (80)`, Duration 57.60s; run 2: exit 0, `Test Files 2 passed (2)`, `Tests 80 passed (80)`,
+Duration 57.14s. `grep -i "unhandled\|IPC\|onTaskUpdate"` over both captured logs returned no matches in
+either. A third, in-band reproduction inside `gate.mjs judge --dry-run` (below) also exited 0. Three
+consecutive clean runs, 240 assertions total, zero exit-code flips observed in this session — this
+guardian did not personally witness the flip the caller described, so this entry does not itself confirm
+the flip mechanism, but it does independently confirm the tests are currently green and reproducible on
+demand, which is the substance the build/test criteria below require.
+
+**Mechanical set reproduced independently**, not taken on the caller's reported summary alone —
+`node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc
+.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md
+--lane L2 --dry-run --verify-cmd "pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs
+scripts/harness/__tests__/merge-gate-disposition.test.mjs" --verify-cmd "node
+scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip
+work-run-measurement"` at HEAD `a0408b6c9c88` → `5 criteria judged — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN`,
+matching the caller's reported counts exactly; both supplied commands exited 0 in this run too.
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: `[GATE-IMPLEMENT] —
+✅ PASS | 2026-09-07`; status `in-progress`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`) (`task-plan-items`): PASS (guardian). Read directly:
+  `.agents/tasks/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md`
+  carries no `## Plan` heading — `grep -n "^## "` on the Task returns exactly `## Problem`,
+  `## Resolution`, `## Test Plan`, `## User Execution Test Scenarios` (lines 14/24/33/39), the same
+  narrative shape as the three precedent Tasks this pattern was already established against
+  (`HARNESS-102-a-dropped-finding-leaves-no-artifact.md`,
+  `INFRA-174-reduce-local-push-process-overhead-for-direct-develop-work.md`,
+  `INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`),
+  not a checkbox-plan Task. Read `scan-task-plan-items.mjs` directly: `planSection()`
+  (`/^## Plan[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m`) returns `null` when no `## Plan` heading exists,
+  and the scan loop `continue`s past a `null` section without incrementing `examinedPlans` or recording
+  any finding (`scan-task-plan-items.mjs:93-94`). Confirmed live, not just by reading the source:
+  invoking `planSection()` directly against this Task's text returned `null`; `node
+scripts/harness/scan-task-plan-items.mjs` → exit 0, `::examined:: 259 Task Plan sections`,
+  `task-plan-items scan passed.` — this Task is correctly absent from the 259 examined sections.
+  `.agents/tasks/README.md` § "Plan Items" (lines 179-185) confirms `## Plan` is a named, optional
+  section ("holds the work, never its disposition"), not a mandatory Task section. "Every item … is
+  marked complete" is vacuously true over an empty/absent item set. Separately confirmed the mechanical
+  PENDING-GUARDIAN cause: `gate-operations.mjs:1311`'s `tasks-complete` judgement pattern is
+  `/All tasks in \`\.agents\/tasks\/<ID>\.md\` are marked complete/i`, which does not match the
+catalogue's current wording (quoted without inline code spans to survive markdown reflow) — Every
+item in the ## Plan section of .agents/tasks/ID.md is marked complete ([x]) — confirmed by reading
+`gate-operations.mjs` directly today; this is the already-documented stale-regex defect (issue #2375
+  follow-on), not a defect in this document.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS (guardian). Same absent-`## Plan` fact — there
+  is no Plan item of any kind in this Task, so none can be blocked or pending — vacuously satisfied for
+  the same reason as above. `gate-operations.mjs:1316`'s `no-blocked` judgement pattern is
+  `/No tasks are blocked or pending/i`, which does not match the catalogue's current wording "No Plan
+  item is blocked or pending" — confirmed by reading `gate-operations.mjs` directly today, the identical
+  stale-regex cause, not a defect in this document.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`) (`mechanical`, `gate.mjs`): PASS —
+  reproduced independently: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist
+--skip build-contracts --skip work-run-measurement` → exit 0 (`context: pr`; `66 scans not re-run:
+identical tree scanned at 2026-09-06T17:05:01.050Z` — a receipt-cache hit against a clean, unchanged
+  tree at HEAD `a0408b6c9c88`, the harness's documented receipt-cache behavior, not a skipped check);
+  matches the `gate.mjs` mechanical judgement's own PASS reproduced in the `--dry-run` above.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`) (`mechanical`, `gate.mjs`): PASS —
+  reproduced independently twice (see Flakiness investigation above): `pnpm exec vitest run
+scripts/harness/__tests__/merge-gate-decision.test.mjs
+scripts/harness/__tests__/merge-gate-disposition.test.mjs` → exit 0 both times, `Test Files 2 passed
+(2)`, `Tests 80 passed (80)` both times, no IPC/timeout text in either captured log; a third run inside
+  `gate.mjs judge --dry-run` also exited 0.
+
+**Delivery independently verified** (the content this gate authorises to move forward, not merely the
+document's narrative of it): `git log --oneline -5 -- .claude/hooks/merge-gate.sh
+scripts/harness/__tests__/merge-gate-decision.test.mjs
+scripts/harness/__tests__/merge-gate-disposition.test.mjs` shows commit `a0408b6c9`
+"fix(harness): merge-gate skips review when the automated reviewer never spoke (INFRA-201)" at HEAD,
+touching both `.claude/hooks/merge-gate.sh` (+44/-1) and the decision test file (+64/-15).
+`grep -n "INFRA-2631\|RETIRED\|retired 2026-09-06"` over `.claude/hooks/merge-gate.sh` confirms the
+early-exit branch and its retirement-naming notice are present verbatim in the working tree, matching
+the spec's `## Solution`. `git status --porcelain` is empty at HEAD — nothing uncommitted.
+
+**Judged by:** `gate.mjs` mechanical evaluator (ordering + build + tests) reproduced independently by
+this guardian via `--dry-run`, and this guardian directly for the 2 `PENDING-GUARDIAN` `## Plan`
+criteria (tagged `mechanical` in the catalogue but left unbound by `gate.mjs` due to the stale-regex
+defect documented above — judged here rather than left pending).
+**Judged at:** HEAD `a0408b6c9c88` · base `origin/develop@be9d6b0a91c7` · document
+`.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md`
+blob `1090b324c6db` (tracked)
