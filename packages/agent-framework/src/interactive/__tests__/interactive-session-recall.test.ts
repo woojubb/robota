@@ -221,7 +221,11 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     const store = createFakeStore(async () => {
       call += 1;
       return call === 1
-        ? { content: RECALL_BODY, references: [{ topic: 'deploy', path: 'deploy.md', score: 5, truncated: false }], truncated: false }
+        ? {
+            content: RECALL_BODY,
+            references: [{ topic: 'deploy', path: 'deploy.md', score: 5, truncated: false }],
+            truncated: false,
+          }
         : { content: '', references: [], truncated: false };
     });
     const session = new InteractiveSession({
