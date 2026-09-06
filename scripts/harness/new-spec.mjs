@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * Scaffold a spec document that passes GATE-WRITE's mechanical floor as generated (PROC-016, TC-06).
  *
@@ -56,7 +55,6 @@ import path from 'node:path';
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
-
 // stdout is the payload here (`--dry-run` prints the document, otherwise the created path), so the
 // root announcement goes to stderr — the document must not begin with a `::root::` line.
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
@@ -65,10 +63,8 @@ export const TASKS_DIR = '.agents/tasks';
 export const DRAFT_DIR = '.agents/spec-docs/draft';
 export const TEMPLATE_PATH = '.agents/templates/mini-spec-template.md';
 export const ISSUE_URL_BASE = 'https://github.com/woojubb/robota/issues/';
-
 /** The lanes that carry a spec document. L0 is refused by name, not by omission. */
 export const SPEC_LANES = ['L1', 'L2'];
-
 /** The 11 SDLC prefixes `backlog-writer` § Frontmatter enumerates; `check-spec-doc-frontmatter` refuses any other. */
 export const TYPES = [
   'SCREEN',
@@ -106,7 +102,6 @@ const BOOLEAN_FLAGS = new Set(['--dry-run', '--user-surface', '--no-user-surface
 export const USAGE =
   'usage: new-spec.mjs <ID> --type <TYPE> --issue <N> --lane L1|L2 [--title "<t>"] [--tags a,b] ' +
   '[--waive "<reason>"] [--user-surface|--no-user-surface] [--legacy-id] [--dry-run] [--root <dir>]';
-
 /**
  * Parse argv into options, or an error. Every unknown token is an error: the script that ignores an
  * argument passes silently over the one thing the caller asked it to change.
@@ -166,7 +161,6 @@ export function parseArgs(argv) {
   options.root = path.resolve(options.root);
   return { ok: true, options };
 }
-
 /**
  * The same slug `allocate-work-item-id.mjs` gives a Task record. The draft's name is not derived from
  * it — the Task's own basename is reused verbatim (see the header) — but the tests build Task records
@@ -179,7 +173,6 @@ export function slugify(title) {
     .replace(/^-|-$/g, '')
     .slice(0, 80);
 }
-
 /** First paragraph under a `## <heading>` section, or '' when the section is absent or a stub. */
 function sectionParagraph(body, heading) {
   const match = new RegExp(`^##\\s+${heading}\\s*$`, 'm').exec(body);
@@ -191,7 +184,6 @@ function sectionParagraph(body, heading) {
   if (paragraph === '' || /^(TODO|TBD)\b/.test(paragraph)) return '';
   return paragraph;
 }
-
 /**
  * The paired Task record for `id`: `null` when none exists, a `{ambiguous}` marker when several do.
  *
@@ -226,12 +218,10 @@ export function readTaskRecord(root, id) {
     objective: sectionParagraph(text, 'Objective'),
   };
 }
-
 /** The CLI-supplied id is data: `PROC-1.0+` must match its own spelling, never `PROC-1x0:`. */
 function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-
 /** A markdown table padded the way prettier pads it, so the generated file is already formatted. */
 export function formatTable(header, rows) {
   const all = [header, ...rows];
@@ -245,7 +235,6 @@ export function formatTable(header, rows) {
 }
 
 const bullets = (items) => items.map((item) => `- \`${item}\``).join('\n');
-
 /** Every `{{TOKEN}}` value for the template, decided by lane and by what the Task record carries. */
 export function buildFields(options, task) {
   const l1 = options.lane === 'L1';
@@ -356,7 +345,6 @@ export function buildFields(options, task) {
     USER_EXECUTION: userExecution,
   };
 }
-
 /**
  * Substitute every `{{TOKEN}}`; a token the fields do not cover is an error, never left in place.
  *
@@ -371,7 +359,6 @@ export function renderTemplate(template, fields) {
   });
   return rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 }
-
 /** Render the document for `options` against `root`; the exported seam the CLI and the tests share. */
 export function renderSpec(options) {
   const { root, id } = options;

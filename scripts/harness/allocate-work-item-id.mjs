@@ -44,9 +44,32 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { resolveWorkspaceRoot } from './shared.mjs';
+import {
+  collectClaimed,
+  idsFromCitations,
+  idsFromIssues,
+  idsFromRecords,
+  nextFreeId,
+  readExamined,
+  SENTINEL_FLOOR,
+  treeFreshness,
+  UPSTREAM_REF,
+} from './work-item-id-claims.mjs';
+
+export {
+  collectClaimed,
+  idsFromCitations,
+  idsFromIssues,
+  idsFromRecords,
+  nextFreeId,
+  readExamined,
+  SENTINEL_FLOOR,
+  treeFreshness,
+  UPSTREAM_REF,
+} from './work-item-id-claims.mjs';
 
 // stdout is the payload here (the allocated ID, and the file it was written to), so the root
 // announcement goes to stderr.
@@ -230,191 +253,6 @@ export function resolveIssueNumber({
   return { number: String(created.number), source: 'created' };
 }
 
-/**
- * Every ID that has a record file, live or completed.
- *
- * `completed/` counts. An archived item's number is still cited by the commits and pull requests
- * that delivered it, so handing it out again points every one of those citations at new work.
- */
-export function idsFromRecords(root = WORKSPACE_ROOT) {
-  const dirs = [path.join(root, TASKS_DIR), path.join(root, TASKS_DIR, 'completed')];
-  const ids = new Set();
-  for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith('.md')) continue;
-      const match = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)/.exec(name);
-      if (match) ids.add(match[1]);
-    }
-  }
-  return ids;
-}
-
-/**
- * Every ID cited by a tracked file, whether or not a record exists for it.
- *
- * Deliberately unfiltered: a fixture ID like `CLI-999` costs one skipped number and a missed real
- * claim costs a collision. The asymmetry decides it.
- */
-export function idsFromCitations(root = WORKSPACE_ROOT) {
-  // `-w`, not `\b`: Apple Git's `-E` has no `\b`, and the pattern then matched NOTHING — the
-  // citation source came back empty and the run said "0 from citations" as if that were a
-  // measurement (found while fixing issue #2390; the reporter's 1493 was read under GNU git).
-  const grep = spawnSync('git', ['grep', '-hoIwE', '[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]+'], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  // Exit 1 is "no match", which is a legitimate empty result; anything else means the tree was not
-  // read, and an allocator that treats "could not read" as "nothing is claimed" hands out live IDs.
-  if (grep.status !== 0 && grep.status !== 1) {
-    throw new Error(
-      `allocate-work-item-id: could not read tracked files (git grep exited ${grep.status}). ` +
-        'Refusing rather than allocating from a set that was never read.\n' +
-        `${grep.stderr ?? ''}`,
-    );
-  }
-  const ids = new Set();
-  for (const line of (grep.stdout ?? '').split('\n')) {
-    const trimmed = line.trim();
-    if (/^[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+$/.test(trimmed)) ids.add(trimmed);
-  }
-  return ids;
-}
-
-/**
- * Every ID named by an issue — its title OR its body — or `null` when the source could not be read.
- *
- * Bodies are read as well as titles because an ID is declared there too: issue #2049's body named
- * `ARCH-050` and `ARCH-060` with no record and no tracked citation, and a body is the one place an
- * ID can be claimed that no scan over the tree will ever reach (issue #2322). The source is one
- * field away from the titles this already read, and the reasoning for reading titles applies
- * unchanged.
- *
- * `null` is not an empty set and the two must not be conflated: an empty set says no issue claims
- * an ID, and `null` says nobody asked. The caller reports which one it got.
- */
-export function idsFromIssues({ run = defaultGh } = {}) {
-  const result = run();
-  if (result === null) return null;
-  const ids = new Set();
-  for (const text of result) {
-    for (const match of text.matchAll(WORK_ITEM_ID)) ids.add(match[0]);
-  }
-  return ids;
-}
-
-/** One line per issue title and per body line; the ID pattern never spans a line. */
-function defaultGh() {
-  const listed = spawnSync(
-    'gh',
-    [
-      'issue',
-      'list',
-      '--state',
-      'all',
-      '--limit',
-      '1000',
-      '--json',
-      'title,body',
-      '-q',
-      '.[] | .title, .body',
-    ],
-    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024 * 1024 },
-  );
-  if (listed.status !== 0) return null;
-  return (listed.stdout ?? '').split('\n').filter((line) => line.trim() !== '');
-}
-
-/**
- * RESET per union, so a run that reads nothing cannot report the previous run's number.
- *
- * Incremented as the union is built rather than taken from `claimed.size` afterwards: a size read
- * off a collection is the size of the collection, and a Set additionally swallows every duplicate —
- * which is precisely where the three sources overlap most.
- */
-let examinedCount = 0;
-
-export function readExamined() {
-  return examinedCount;
-}
-
-/** The union of every source that could be read. `null` from a source contributes nothing. */
-export function collectClaimed(records, citations, issues) {
-  examinedCount = 0;
-  const claimed = new Set();
-  for (const source of [records, citations, issues]) {
-    if (source === null) continue;
-    for (const id of source) {
-      if (claimed.has(id)) continue;
-      claimed.add(id);
-      examinedCount += 1;
-    }
-  }
-  return claimed;
-}
-
-/**
- * Numbers at or above this are fixture space, not allocations, and are skipped when counting up.
- *
- * MEASURED, not assumed. Of the 867 IDs with a record file on 2026-08-22, **zero** are at or above
- * 900. Of the 18 citations that are, every one is either a test fixture (`NOSUCH-999`, `CLI-996`
- * through `CLI-999`, `INFRA-900` through `INFRA-902`) or not a work-item ID at all (`CVE-2024`,
- * `ISO-8601`, `RFC-7807` — the pattern cannot tell them apart and does not need to, since nothing
- * allocates under those prefixes).
- *
- * Without this the first run of this script returned `INFRA-1000`, because `INFRA-999` is a fixture
- * in the collision scan's own test. Counting up from a sentinel is how a deliberately out-of-band
- * number becomes the sequence.
- */
-export const SENTINEL_FLOOR = 900;
-
-/**
- * Digits in an allocated number. MEASURED: all 916 record filenames use exactly three.
- *
- * Fixed rather than inferred from the claimed set, and that is the second attempt. Inferring it let
- * PROSE set the padding: `idsFromCitations` reads the working-tree content of every tracked file, so
- * a comment in this module that mentioned a four-digit form made that form the highest claim, and
- * the next allocation came back four digits wide. The number a citation claims is worth honouring;
- * the house style it appears to imply is not.
- *
- * A prefix that legitimately passes 999 needs this widened deliberately, which is the right amount
- * of friction for a decision that renames a convention.
- */
-export const RECORD_ID_WIDTH = 3;
-
-function formatId(prefix, number) {
-  return `${prefix}-${String(number).padStart(RECORD_ID_WIDTH, '0')}`;
-}
-
-/**
- * The legacy next ID for `prefix`: one above the highest number any source claims for it, and never
- * a number any source claims. New allocations do not call this helper; they use a GitHub Issue
- * number through `resolveIssueNumber` instead.
- *
- * Width follows the widest claim already in use, so a repository at `INFRA-099` moves to
- * `INFRA-100` rather than to `INFRA-0100`.
- *
- * Issue #2390: the sentinel floor is a convention, and two things met at it — a fixture at
- * `floor - 1` made `floor` the next allocation, and a live record AT the floor was skipped as
- * fixture space, so the one number about to be handed out was the one this function could not see
- * was taken. Two changes: a RECORD claims its number wherever it sits, and the candidate is walked
- * past anything the union claims (fixture or not) rather than proposed on top of it.
- */
-export function nextFreeId(prefix, claimed, sentinelFloor = SENTINEL_FLOOR, records = new Set()) {
-  const pattern = new RegExp(`^${prefix}-(\\d{3,})$`);
-  let highest = 0;
-  for (const id of claimed) {
-    const match = pattern.exec(id);
-    if (!match) continue;
-    const number = Number(match[1]);
-    if (number >= sentinelFloor && !records.has(id)) continue;
-    highest = Math.max(highest, number);
-  }
-  let candidate = highest + 1;
-  while (claimed.has(formatId(prefix, candidate))) candidate += 1;
-  return formatId(prefix, candidate);
-}
 
 /**
  * The LOCAL calendar date, `YYYY-MM-DD` — the same formula `gate.mjs` exports (issue #2415).
@@ -507,62 +345,6 @@ export function positionalArgs(argv, flagsTakingValue = ['--issue']) {
     positional.push(token);
   }
   return positional;
-}
-
-/** The integration branch every allocation must be current with. */
-export const UPSTREAM_REF = 'origin/develop';
-
-/**
- * Is this clone BEHIND the integration branch? (issue #2184)
- *
- * The sources above cover a source being UNREACHABLE. They do not cover every source being stale
- * TOGETHER: in a clone behind its upstream the records and the citations agree with each other and
- * the open-issue titles do not contradict them, so the allocator is internally consistent and
- * externally wrong — it returned `TRANS-005` minutes after PR #2182 had delivered and archived it.
- * A plausible number is the dangerous answer; a refusal is the honest one.
- *
- * Offline is NOT stale. A fetch that fails (no network) falls back to the `origin/develop` the clone
- * already has, and a clone with no such ref at all reports `unknown` so the caller can say the
- * measurement was unavailable rather than silently narrow. Only behind-and-knowable refuses.
- *
- * Returns `{ status: 'fresh' | 'stale' | 'unknown', behind, upstreamSha, fetched, reason }`.
- */
-export function treeFreshness({ root = WORKSPACE_ROOT, upstream = UPSTREAM_REF } = {}) {
-  const git = (args, timeout) =>
-    spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout, maxBuffer: 1024 * 1024 });
-  const [remote, ...branchParts] = upstream.split('/');
-  const branch = branchParts.join('/');
-  const fetch = git(['fetch', '--quiet', remote, branch], 30_000);
-  const fetched = fetch.status === 0;
-  const resolved = git(['rev-parse', '--verify', '--quiet', `${upstream}^{commit}`]);
-  if (resolved.status !== 0) {
-    return {
-      status: 'unknown',
-      behind: null,
-      upstreamSha: null,
-      fetched,
-      reason: `${upstream} is not a ref in this clone${fetched ? '' : ' and could not be fetched'}.`,
-    };
-  }
-  const upstreamSha = resolved.stdout.trim();
-  const count = git(['rev-list', '--count', `HEAD..${upstream}`]);
-  if (count.status !== 0) {
-    return {
-      status: 'unknown',
-      behind: null,
-      upstreamSha,
-      fetched,
-      reason: `git rev-list --count HEAD..${upstream} exited ${count.status}.`,
-    };
-  }
-  const behind = Number(count.stdout.trim());
-  return {
-    status: behind > 0 ? 'stale' : 'fresh',
-    behind,
-    upstreamSha,
-    fetched,
-    reason: fetched ? null : `${upstream} could not be fetched; measured against the local copy.`,
-  };
 }
 
 function main(argv) {
