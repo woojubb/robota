@@ -4,7 +4,7 @@ import { API } from '@typescript/native-preview/unstable/sync';
 import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
-import { buildTsconfig, extractBlocks } from '../check-doc-examples.mjs';
+import { buildTsconfig, examinedLine, extractBlocks } from '../check-doc-examples.mjs';
 
 describe('transport node documentation resolver preparation', () => {
   it('resolves a fixture-only node subpath from the generated source mapping', () => {
@@ -52,5 +52,11 @@ describe('extractBlocks', () => {
     const blocks = extractBlocks(md);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].skipReason).toBeNull();
+  });
+});
+
+describe('examinedLine', () => {
+  it('reports the examined block count before a failed scan can explain its findings', () => {
+    expect(examinedLine(3)).toBe('::examined:: 3 documentation code blocks');
   });
 });

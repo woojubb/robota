@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * The mechanical half of every spec-document gate, as a script (PROC-016, TC-04).
  *
@@ -149,7 +148,6 @@
  * A missing catalogue, rule, document or section is a refusal (exit 1) with the reason printed — a
  * gate that cannot read its own criteria has judged nothing ("Silence is not success").
  */
-
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -163,7 +161,6 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
 import {
   checkpointCheckboxItems,
@@ -190,43 +187,33 @@ import { repointCurrentSpec, vacantAdvanceDestination } from './gate-advance-con
 import { extractExamined } from './run-all-scans.mjs';
 import { AUTO_GENERATED_CHURN } from './verification-receipt-storage.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
-
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const DEFAULT_CATALOGUE = '.agents/specs/gate-catalogue.md';
 const DEFAULT_RULE = '.agents/rules/spec-workflow.md';
 const DEFAULT_BACKLOG_RULE = '.agents/rules/backlog-execution.md';
 /** The ledger the GATE-IMPLEMENT worktree criterion allows beside the paired spec/Task. */
 const PLAN_LEDGER_DIR = '.agents/loop-runs/';
-
 export const EXIT_PASS = 0;
 export const EXIT_FAIL = 1;
 export const EXIT_PENDING = 2;
-
 /** What the entry records for a semantic criterion under lane L1 — a PASS-class line, not pending. */
 export const L1_NOT_REQUIRED = 'N/A — not required for lane L1 (spec-workflow.md § Lanes)';
-
 /** What a GATE-APPROVAL criterion reports while no standing approval entry exists yet. */
 export const APPROVE_FIRST =
   'PENDING — run `gate.mjs approve` first (no standing [GATE-APPROVAL] entry)';
-
 /** The `## Problem` floor after HTML comments are stripped — see PROBLEM PROSE FLOOR in the header. */
 export const PROBLEM_MIN_SENTENCES = 2;
 export const PROBLEM_MIN_CHARS = 200;
-
 /** The `--verify-cmd` shapes GATE-VERIFY's two command criteria each need at least one of. */
 export const BUILD_COMMAND_SHAPE = /build|harness:scan|run-all-scans/i;
 export const TEST_COMMAND_SHAPE = /\btest|vitest/i;
-
 /** The GATE-IMPLEMENT judgements PLAN composes — Task-shaped and mechanical, never the inventory. */
 export const PLAN_IMPLEMENT_JUDGEMENTS = ['task-created', 'task-path-recorded', 'plan-outcome'];
-
 /** The GATE-APPROVAL field `approve` records the approved review under — stable, read back by name. */
 export const REVIEW_FINGERPRINT_LABEL = 'Review fingerprint';
-
 /** The Task line the PLAN-outcome criterion (and `scan-user-execution-plan-order`) binds to. */
 const AUTHOR_VERDICT_LINE =
   /^\*\*Author verdict:\*\*\s+`SCENARIO DRAFTED:\s*(not-applicable|automatable|manual)\s*\|\s*(0|[1-9]\d*)`\s*$/gm;
-
 const SPEC_GATES = [
   'GATE-WRITE',
   'GATE-APPROVAL',
@@ -234,7 +221,6 @@ const SPEC_GATES = [
   'GATE-VERIFY',
   'GATE-COMPLETE',
 ];
-
 /**
  * The L1 lane's two gates, each composed from the catalogue's own criterion sets. The status
  * upgrades are the lane's (PROC-016 § Decision): an L1 document goes `draft → approved → done` and
@@ -254,16 +240,10 @@ const LANE_L1 = {
     composes: ['GATE-VERIFY', 'GATE-COMPLETE'],
     select: {},
     upgrade: ['approved', 'done'],
-    // `undefined`, not a hardcoded object: the prior-gate pairing and its re-run rule are declared in
-    // gate-catalogue.md § Prior-gate map (the `GATE-DONE` row), read via `catalogue.priorGates`, the
-    // same path every non-L1 gate already uses (issue #2219/#2588 — the rule must be declared, not
-    // inferred in code).
     prior: undefined,
   },
 };
-
 // ── Argument parsing ─────────────────────────────────────────────────────────────────────────────
-
 export function parseArgs(argv) {
   const [subcommand, ...rest] = argv;
   const options = { _: [] };
@@ -413,7 +393,6 @@ export function statusUpgradeOf(entry) {
   }
   return null;
 }
-
 /** Append lines to the end of `## Evidence Log` (before the next `## ` heading, if any). */
 export function appendToEvidenceLog(text, entryLines) {
   const lines = String(text).split('\n');
@@ -482,13 +461,7 @@ export function parseCatalogue(text) {
   return { gates, priorGates: parsePriorGateMap(text) };
 }
 
-/**
- * The catalogue's prior-gate map: `| GATE-X | GATE-Y | \`status\` | <re-run rule> |` rows under
- * "Prior-gate map". A catalogue without the section is a refusal — an empty map would silently drop
- * every ordering check. The 4th (re-run rule) column is the declared exception to the default
- * last-entry ordering rule (issue #2219/#2588); blank means the default and is left off the parsed
- * value entirely, so a row with no declared rule parses identically to before this column existed.
- */
+/** Parse the catalogue's `| GATE-X | GATE-Y | \`status\` | <re-run rule> |` rows. */
 export function parsePriorGateMap(text) {
   const section = sectionBody(text, /^Prior-gate map$/i);
   const map = new Map();
@@ -511,7 +484,6 @@ export function parsePriorGateMap(text) {
   }
   return map;
 }
-
 // ── Document reading ─────────────────────────────────────────────────────────────────────────────
 
 function loadDocument(docPath, text = requireFile(docPath, 'spec document')) {
@@ -626,16 +598,10 @@ const pass = (observed) => ({ ok: true, observed });
 const fail = (observed, action) => ({ ok: false, observed, action });
 /** A mechanical criterion this script cannot decide on this document — the guardian's, never a pass. */
 const pending = (observed) => ({ ok: false, pending: true, observed });
-/**
- * True when `entry` was recorded under any of `gateNames` — the configured gate name a judgement runs
- * under AND, for a criterion judged inside an L1 composite gate, the COMPOSED gate name the document's
- * Evidence Log actually uses (a composite writes one entry per run, never one per component; issue
- * #2219/#2588 — matching the configured name alone misses every entry an L1 composite ever wrote).
- */
+/** True when an Evidence Log entry uses a configured or composed gate name. */
 function recordedGate(entry, ...gateNames) {
   return gateNames.includes(entry.gate);
 }
-
 function frontmatterChecks() {
   return [
     {
@@ -653,10 +619,7 @@ function frontmatterChecks() {
         const expected = /`status:\s*([a-z-]+)`/.exec(criterion.text)[1];
         const actual = doc.fm.status;
         if (actual === expected) return pass(`\`status: ${actual}\``);
-        // A re-run (STATUS ON A RE-RUN in the header): the prior PASS of this same gate upgraded the
-        // document to the status it now carries. Under an L1 composite (e.g. GATE-PLAN composing
-        // GATE-WRITE) the entry is recorded under the COMPOSED name, never the configured
-        // `criterionGate` alone — `recordedGate` accepts either.
+        // L1 composites record the configured judgement under the composed gate name.
         const prior = (evidenceEntries(doc.text) ?? [])
           .filter(
             (entry) =>
@@ -1907,12 +1870,7 @@ function orderingResult(catalogue, gate, doc) {
   const entries = (evidenceEntries(doc.text) ?? []).filter((entry) => entry.gate === prior.gate);
   const retriesFromLatestPass = gate.continuation || gate.correction;
   const last = entries.findLast((entry) => !retriesFromLatestPass || entry.verdict === '✅ PASS');
-  // `recorded-pass` (gate-catalogue.md § Prior-gate map, declared per row — issue #2219/#2588): a
-  // later, out-of-order re-run of the prior gate that FAILs does not retract an earlier PASS whose
-  // recorded Status upgrade already produced the status the document now carries. Read ONLY for a row
-  // the catalogue marks this way — every other pairing keeps the plain last-entry rule untouched, so
-  // `gate.test.mjs` › "keeps the last-entry rule for an ordinary gate after an older PASS and later
-  // FAIL" stays green exactly as before this existed.
+  // Only a catalogue-declared `recorded-pass` pairing may survive an out-of-order failed re-run.
   const recordedPass =
     prior.reRun === 'recorded-pass'
       ? entries.findLast(
@@ -1942,7 +1900,6 @@ function orderingResult(catalogue, gate, doc) {
     action: 'run the prior gate to PASS first',
   };
 }
-
 function passEntry(gateName, date, upgrade, results) {
   return [
     `### [${gateName}] — ✅ PASS | ${date}`,
@@ -1966,7 +1923,6 @@ function failEntry(gateName, date, current, failed) {
     ]),
   ];
 }
-
 /**
  * GATE-APPROVAL's PASS is written INTO the entry `approve` created rather than after it: the
  * standing-delegation scan reads the LAST `[GATE-APPROVAL] — ✅ PASS`, so a second PASS heading
@@ -2082,7 +2038,6 @@ export function runJudge(options) {
     approvePending: pendingApprove.length,
   };
 }
-
 // ── record ───────────────────────────────────────────────────────────────────────────────────────
 
 export function runRecord(options) {
@@ -2221,7 +2176,6 @@ export function runAdvance(options) {
   }
   return { exit: 0, from: upgrade.from, to: upgrade.to, path: target, moved, notes };
 }
-
 // ── approve ──────────────────────────────────────────────────────────────────────────────────────
 
 const LANE_SCAN = path.join(import.meta.dirname, 'scan-lane-declaration.mjs');

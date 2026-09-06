@@ -1,9 +1,10 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ROOT_MARKER, resolveWorkspaceRoot } from '../shared.mjs';
+import { ROOT_MARKER, isEntryPoint, resolveWorkspaceRoot } from '../shared.mjs';
+import { makeTemp } from './make-temp.mjs';
 
 const HARNESS_DIR = path.resolve(import.meta.dirname, '..');
 const OWN_CHECKOUT = path.resolve(HARNESS_DIR, '../..');
@@ -19,6 +20,16 @@ function resolve({ argv = ['node', SCRIPT], env = {}, cwd = '/elsewhere/cwd', fr
 }
 
 describe('resolveWorkspaceRoot (issue #2413)', () => {
+  it('recognizes a symlinked argv path as the invoked module', () => {
+    const fixture = makeTemp('robota-entrypoint-alias-');
+    const alias = path.join(fixture, 'shared.mjs');
+    symlinkSync(path.join(HARNESS_DIR, 'shared.mjs'), alias);
+
+    expect(isEntryPoint({ filename: path.join(HARNESS_DIR, 'shared.mjs') }, ['node', alias])).toBe(
+      true,
+    );
+  });
+
   it('reads the checkout the script lives in, not process.cwd(), and names it as the entry', () => {
     const { root, printed } = resolve();
     expect(root).toBe(OWN_CHECKOUT);

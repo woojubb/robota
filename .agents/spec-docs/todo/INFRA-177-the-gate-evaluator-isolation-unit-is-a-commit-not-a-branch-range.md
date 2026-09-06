@@ -2,7 +2,7 @@
 status: approved
 type: INFRA
 tags: [infra]
-lane: L1
+lane: L2
 ---
 
 # INFRA-177: the gate-evaluator isolation unit is a commit, not a branch range
@@ -30,7 +30,7 @@ ancestor` — the checkpoint is at the merge base, not after it;
   the current Decision contract`, whose repair needs a status the document has already left.
 
 `scripts/harness/gate.mjs` and everything under `.claude/hooks/` therefore cannot be changed at all.
-Four open issues sit behind this today: #2596, #2588, #2582 and #2580.
+Four open issues sit behind this today: issues #2596, #2588, #2582 and #2580.
 
 ## Prior Art Research
 

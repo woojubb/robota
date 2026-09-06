@@ -83,7 +83,7 @@
   "packages/dag-nodes/gemini-image-edit/src/runtime-core.ts": 318,
   "packages/dag-nodes/instant-node/src/index.ts": 574,
   "packages/dag-nodes/utility-text/src/index.ts": 626,
-  "scripts/harness/allocate-work-item-id.mjs": 492,
+  "scripts/harness/allocate-work-item-id.mjs": 472,
   "scripts/harness/check-agent-server-boundary.mjs": 728,
   "scripts/harness/check-background-workspace-conformance.mjs": 356,
   "scripts/harness/check-backlog-placement.mjs": 331,
@@ -107,7 +107,7 @@
   "scripts/harness/lessons-lib.mjs": 367,
   "scripts/harness/live-provider-smoke.mjs": 458,
   "scripts/harness/loop-run.mjs": 1010,
-  "scripts/harness/new-spec.mjs": 447,
+  "scripts/harness/new-spec.mjs": 446,
   "scripts/harness/promote.mjs": 346,
   "scripts/harness/record-local-review.mjs": 540,
   "scripts/harness/release-run.mjs": 544,
@@ -149,6 +149,6 @@
   "scripts/harness/scan-unearned-done-claims.mjs": 652,
   "scripts/harness/scan-user-execution-plan-order.mjs": 2415,
   "scripts/harness/scan-workflow-permissions.mjs": 388,
-  "scripts/harness/shared.mjs": 846,
-  "scripts/harness/worktree-gate.mjs": 436
+  "scripts/harness/shared.mjs": 839,
+  "scripts/harness/worktree-gate.mjs": 431
 }

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -14,9 +14,112 @@ import {
   examinedCommitCount,
   examinedRecordCount,
   findTaskMergedCitationFindings,
+  hasCompletionEvidence,
   openTaskRecords,
   workItemIdOf,
 } from '../scan-task-merged-citation.mjs';
+
+describe('task-merged-citation Plan-unit parsing', () => {
+  it('reads a cited unit and only completed units from the Plan section', () => {
+    expect(citedUnitOf('feat(harness): arm the gate (STRUCT-012 S1)', 'STRUCT-012')).toBe('S1');
+    expect(completedPlanUnits('## Plan\n\n- [x] S1 — done\n- [ ] S2 — next\n')).toEqual(
+      new Set(['S1']),
+    );
+  });
+
+  it('does not reconcile a delivering commit for a completed Plan unit', () => {
+    const root = workspace({
+      'STRUCT-012-x.md': {
+        status: 'in-progress',
+        body: '# record\n\n## Plan\n\n- [x] S1 — done\n- [ ] S2 — next\n',
+      },
+    });
+    expect(
+      findTaskMergedCitationFindings(root, {
+        ref: 'develop',
+        commits: [{ sha: 'aaaaaaaaa1', subject: 'feat(harness): arm the gate (STRUCT-012 S1)' }],
+        changedPaths: () => ['packages/x/src/a.ts'],
+      }),
+    ).toEqual([]);
+  });
+
+  it('still reconciles a delivering commit for an unchecked Plan unit', () => {
+    const root = workspace({
+      'STRUCT-012-x.md': {
+        status: 'in-progress',
+        body: '# record\n\n## Plan\n\n- [x] S1 — done\n- [ ] S2 — next\n',
+      },
+    });
+    const findings = findTaskMergedCitationFindings(root, {
+      ref: 'develop',
+      commits: [
+        { sha: 'aaaaaaaaa1', subject: 'feat(harness): wire the next stage (STRUCT-012 S2)' },
+      ],
+      changedPaths: () => ['packages/x/src/a.ts'],
+    });
+    expect(findings).toHaveLength(1);
+  });
+
+  it('still reconciles a delivering commit citing the bare work-item ID', () => {
+    const root = workspace({
+      'STRUCT-012-x.md': {
+        status: 'in-progress',
+        body: '# record\n\n## Plan\n\n- [x] S1 — done\n',
+      },
+    });
+    const findings = findTaskMergedCitationFindings(root, {
+      ref: 'develop',
+      commits: [{ sha: 'aaaaaaaaa1', subject: 'feat(harness): STRUCT-012 done' }],
+      changedPaths: () => ['packages/x/src/a.ts'],
+    });
+    expect(findings).toHaveLength(1);
+  });
+
+  it('does not treat a checked unit outside Plan as completed delivery', () => {
+    const root = workspace({
+      'STRUCT-012-x.md': {
+        status: 'in-progress',
+        body: '# record\n\n## Plan\n\n- [ ] S1 — next\n\n## Completion Criteria\n\n- [x] S1 — green\n',
+      },
+    });
+    const findings = findTaskMergedCitationFindings(root, {
+      ref: 'develop',
+      commits: [
+        { sha: 'aaaaaaaaa1', subject: 'feat(harness): wire the next stage (STRUCT-012 S1)' },
+      ],
+      changedPaths: () => ['packages/x/src/a.ts'],
+    });
+    expect(findings).toHaveLength(1);
+  });
+
+  it('reconciles a bare delivery only when the paired spec has complete gate evidence', () => {
+    const root = workspace({ 'INFRA-162-x.md': { status: 'todo' } });
+    mkdirSync(path.join(root, '.agents/spec-docs/todo'), { recursive: true });
+    const spec = [
+      '## Completion Criteria',
+      '',
+      '- [x] TC-01: delivered',
+      '- [x] TC-02: delivered',
+      '',
+      '## Evidence Log',
+      '',
+      '### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06',
+      '',
+      '### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06',
+      '',
+    ].join('\n');
+    writeFileSync(path.join(root, '.agents/spec-docs/todo/INFRA-162-x.md'), spec, 'utf8');
+    expect(hasCompletionEvidence(spec)).toBe(true);
+    expect(
+      findTaskMergedCitationFindings(root, {
+        ref: 'develop',
+        commits: [{ sha: 'aaaaaaaaa1', subject: 'feat: INFRA-162 delivered' }],
+        changedPaths: () => ['packages/x/src/a.ts'],
+        specContent: (file) => readFileSync(path.join(root, file), 'utf8'),
+      }),
+    ).toEqual([]);
+  });
+});
 
 function workspace(records) {
   const root = makeTemp('task-merged-citation-');

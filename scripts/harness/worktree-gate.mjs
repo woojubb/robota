@@ -38,13 +38,12 @@
  * rather than hidden, and the branch/worktree check below catches the consequence a missed variable
  * would produce. What this must never do is pass because a check could not run.
  */
-
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
-
 // A sibling harness module that imports nothing but node builtins, so this script still runs in a
 // worktree whose dependencies were never installed — one of the states it exists to diagnose.
+import { canonicalPath } from './canonical-path.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 /**
@@ -83,7 +82,6 @@ export function listWorktrees(cwd = process.cwd()) {
   }
   return worktrees;
 }
-
 /**
  * Variables that would send a git command somewhere other than where it appears to go.
  *
@@ -110,11 +108,10 @@ export function ambientGitEnvFindings(env = process.env) {
     }),
   );
 }
-
 /** A branch held by a worktree other than this one cannot be checked out here. */
 export function branchHeldElsewhereFindings(branch, cwd = process.cwd()) {
   if (!branch) return [];
-  const here = path.resolve(cwd);
+  const here = canonicalPath(cwd);
   let worktrees;
   try {
     worktrees = listWorktrees(cwd);
@@ -136,7 +133,7 @@ export function branchHeldElsewhereFindings(branch, cwd = process.cwd()) {
     ];
   }
   return worktrees
-    .filter((worktree) => worktree.branch === branch && path.resolve(worktree.path) !== here)
+    .filter((worktree) => worktree.branch === branch && canonicalPath(worktree.path) !== here)
     .map((worktree) => ({
       check: 'branch-held-elsewhere',
       detail:
@@ -145,7 +142,6 @@ export function branchHeldElsewhereFindings(branch, cwd = process.cwd()) {
         `checked out. Work in that worktree, or pick another branch.`,
     }));
 }
-
 /** A worktree whose dependencies were never installed cannot run anything it is asked to verify. */
 export function dependenciesInstalledFindings(cwd = process.cwd()) {
   if (existsSync(path.join(cwd, 'node_modules'))) return [];
@@ -159,7 +155,6 @@ export function dependenciesInstalledFindings(cwd = process.cwd()) {
     },
   ];
 }
-
 /** The newest modification time under a directory, or null when it has no files. */
 function newestMtime(dir, skip = new Set(['node_modules', '.git'])) {
   let newest = null;

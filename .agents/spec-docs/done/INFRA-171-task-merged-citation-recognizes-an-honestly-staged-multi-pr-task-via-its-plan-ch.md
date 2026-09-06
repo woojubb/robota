@@ -1,13 +1,13 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [infra]
-lane: L1
+lane: L2
 ---
 
 # INFRA-171: task-merged-citation recognizes an honestly staged multi-PR Task via its Plan checklist
 
-Paired with `.agents/tasks/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`. Arising from [issue #2586](https://github.com/woojubb/robota/issues/2586).
+Paired with `.agents/tasks/completed/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`. Arising from [issue #2586](https://github.com/woojubb/robota/issues/2586).
 
 ## Problem
 
@@ -89,13 +89,14 @@ this shape, and add the test TC-01 names so the symptom is refused mechanically 
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** This is a repository integration scan, not a user-facing product behavior; users do not
+run it directly.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md` — todo
+- [ ] `.agents/tasks/completed/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md` — todo
 
 ## Evidence Log
 
@@ -159,8 +160,8 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (60a50ea8f311) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/completed/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `aa2271fab6c7` · base `origin/develop@aa2271fab6c7` · document `.agents/spec-docs/draft/INFRA-171-task-merged-citation-recognizes-an-honestly-staged-multi-pr-task-via-its-plan-ch.md` blob `61c45a823616` (untracked)

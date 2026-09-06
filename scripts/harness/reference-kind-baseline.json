@@ -123,7 +123,7 @@
   ".agents/spec-docs/done/WORKFLOW-004-workflows-build-subcommand.md": 1,
   ".agents/spec-docs/rejected/AGREEMENT-002-complete-august-13-agent-architecture-findings.md": 5,
   ".agents/spec-docs/rejected/ARCH-037-published-contract-hygiene-from-the-arch-audit.md": 1,
-  ".agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md": 1,
+  ".agents/spec-docs/todo/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md": 2,
   ".agents/specs/harness-composition-design.md": 1,
   ".agents/specs/harness-composition-inventory.md": 4,
   ".agents/tasks/CLI-034-plugin-publish-one-official.md": 1,

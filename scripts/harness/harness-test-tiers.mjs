@@ -34,7 +34,7 @@ export {
 
 const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 export const DEFAULT_AFFECTED_DISTRIBUTION_THRESHOLD = 32;
-export const DEFAULT_DISTRIBUTED_AFFECTED_TIMEOUT_MS = 240_000;
+export const DEFAULT_DISTRIBUTED_AFFECTED_TIMEOUT_MS = 360_000;
 
 export function runHermeticTestsInStrippedRepository(root = DEFAULT_ROOT) {
   return runHermetic(root);
