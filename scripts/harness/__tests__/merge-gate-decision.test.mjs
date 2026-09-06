@@ -319,6 +319,41 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/READ IT/);
   });
 
+  // ── INFRA-201: the automated reviewer (github-actions[bot]) was retired 2026-09-06 (INFRA-2631)
+  // and posts nothing on any PR now. Review verification is skipped, not blocked, when nobody
+  // matching REVIEWER_RE has ever spoken on the PR — CI-clean is still required.
+
+  it('skips review verification when nobody matching the reviewer has ever commented', () => {
+    const verdict = judge({ state: 'CLEAN', headAt: '2026-07-28T10:00:00Z', comments: [] });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/Review verification SKIPPED/);
+    expect(verdict.output).toMatch(/INFRA-2631/);
+  });
+
+  it('still refuses on CI before it ever asks whether the reviewer spoke', () => {
+    const verdict = judge({ state: 'BLOCKED', headAt: '', comments: [] });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/is BLOCKED, not CLEAN/);
+    expect(verdict.output).not.toMatch(/Review verification SKIPPED/);
+  });
+
+  it('re-engages the full check the moment the reviewer identity comments again', () => {
+    // The early exit is not a standing bypass: a matching comment — the automation restored, or a
+    // replacement adopting the same login — routes straight back into the existing strict path,
+    // unchanged.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [REVIEW('2026-07-28T10:05:00Z', 'ACTIONABLE FINDINGS: 3\nfix them')],
+    });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).not.toMatch(/Review verification SKIPPED/);
+    expect(verdict.output).toMatch(/ACTIONABLE FINDINGS: 3/);
+  });
+
   // A verdict naming another BASE is no longer refused on identity alone — PROC-016 judges it by
   // whether the two changes interact. Those cases live in their own block below.
 
@@ -439,9 +474,11 @@ describe('the merge gate decides on CI and on a current review', () => {
     );
   });
 
-  it('routes a login merely CONTAINING the reviewer name to "wrong reviewer"', () => {
-    // The diagnostic judges logins with the same anchored pattern the selection uses — an
-    // unanchored substring match sent `not-github-actions-fan` into "never delivered a verdict".
+  it('does not read a login merely CONTAINING the reviewer name as the reviewer (INFRA-201)', () => {
+    // The identity check judges logins with the same anchored pattern the old diagnostic used — an
+    // unanchored substring match would misread `not-github-actions-fan` as "the reviewer spoke".
+    // Since INFRA-201, nobody matching REVIEWER_RE means review verification is SKIPPED, not
+    // blocked — the retired-reviewer case this early exit exists for.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -454,9 +491,9 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status).toBe(2);
+    expect(verdict.status, verdict.output).toBe(0);
     expect(verdict.output, 'a containing login was read as the reviewer').toMatch(
-      /no comment on #\d+ is from the reviewer/,
+      /Review verification SKIPPED/,
     );
   });
 
@@ -594,9 +631,11 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
-  it('names a reviewer mismatch instead of reporting no review', () => {
-    // The failure review predicted: if the reviewing account's login stops matching, every merge is
-    // refused forever with a message pointing at the wrong cause, and the override becomes routine.
+  it('skips review on a reviewer mismatch, PR #2649 reproduction (INFRA-201)', () => {
+    // Reproduces the exact PR #2649 shape: a real comment exists (an independent internal review,
+    // posted under the authenticated `woojubb` CLI login, not the retired `github-actions[bot]`),
+    // CI is clean, and before INFRA-201 this refused forever with "no review" — the failure review
+    // predicted that outcome. Since INFRA-201 this is the retired-reviewer case: skipped, not blocked.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -605,12 +644,9 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status).toBe(2);
-    expect(verdict.output, 'a login mismatch was reported as a missing review').toMatch(
-      /no comment on #\d+ is from the reviewer this gate looks for/,
-    );
-    expect(verdict.output, 'the message does not say which logins were seen').toMatch(
-      /someone-else/,
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'a login mismatch was reported as blocked instead of skipped').toMatch(
+      /Review verification SKIPPED/,
     );
   });
 

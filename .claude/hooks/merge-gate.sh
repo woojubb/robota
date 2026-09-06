@@ -189,6 +189,47 @@ if [[ "$STATE" != "CLEAN" ]]; then
 fi
 
 # --- 2. Review --------------------------------------------------------------------------------
+# WHO THE REVIEWER IS, asked once, up front (INFRA-2631 / issue: MERGE-GATE-REVIEWER-BOT-RETIRED).
+# Every check below this point assumes a comment or review from this identity exists to check —
+# none of them can be satisfied by construction once that identity has gone silent for good, which
+# is now the permanent case: `.github/workflows/claude-code-review.yml` (the only writer of
+# `github-actions[bot]` review comments) carries `if: false` and a `CLAUDE-CODE-REVIEW: RETIRED`
+# marker as of 2026-09-06, by owner direction. Reproduced directly on PR #2649: CI green, an
+# independent internal review posted with `ACTIONABLE FINDINGS: 0` under the `woojubb` login (the
+# authenticated `gh` account, not the retired bot), and this gate refused anyway — the only path
+# through was the GitHub web-UI Merge button, which this local hook never sees. Left as-is, every
+# `gh pr merge` refuses forever regardless of CI or content, and `MERGE_GATE_ACK=1` becomes the
+# routine override — the exact erosion this hook's own header warns about.
+#
+# So: if NO comment or review anywhere on the PR is from this identity — not "delivered no
+# verdict", not "wrong login present", but genuinely never spoke — review verification is skipped
+# outright, visibly, printed with the reason. This is a direct, deliberate scope narrowing (owner
+# instruction, 2026-09-06: no reviewer is configured "당분간" / for now; make merging possible
+# without one), not a guess. It self-repairs without another edit here: the moment a comment FROM
+# THIS LOGIN reappears — the automation restored, or a replacement adopts the same identity — every
+# check below re-engages exactly as it already does, unchanged. What does NOT skip: CI (checked
+# above). When a replacement reviewer is chosen, point REVIEWER_RE at its identity and remove this
+# early exit; see PROCESS-OVERHEAD-REPORT.md and MERGE-GATE-REVIEWER-BOT-RETIRED-ISSUE.md.
+REVIEWER_RE='^github-actions(\\[bot\\])?$'
+REVIEWER_RE_GREP="${REVIEWER_RE//\\\\/\\}"
+ALL_AUTHORS=$(bounded_gh pr view "$PR" --json comments,reviews --jq '([.comments[].author.login] + [.reviews[].author.login]) | unique | join(", ")' || echo "")
+REVIEWER_EVER_SPOKE=false
+if [[ -n "$ALL_AUTHORS" ]]; then
+  while IFS= read -r _AUTHOR; do
+    _AUTHOR="${_AUTHOR# }"
+    [[ -z "$_AUTHOR" ]] && continue
+    printf '%s' "$_AUTHOR" | grep -qE "$REVIEWER_RE_GREP" && REVIEWER_EVER_SPOKE=true
+  done <<< "${ALL_AUTHORS//,/$'\n'}"
+fi
+if [[ "$REVIEWER_EVER_SPOKE" == "false" ]]; then
+  echo "[merge-gate] PR #$PR: CI CLEAN. Review verification SKIPPED — no comment or review on this" >&2
+  echo "[merge-gate] PR is from the reviewer this gate looks for ($REVIEWER_RE), and that identity's" >&2
+  echo "[merge-gate] workflow was retired 2026-09-06 (INFRA-2631) and posts nothing on any PR now." >&2
+  echo "[merge-gate] No replacement reviewer is configured. See PROCESS-OVERHEAD-REPORT.md and" >&2
+  echo "[merge-gate] MERGE-GATE-REVIEWER-BOT-RETIRED-ISSUE.md." >&2
+  exit 0
+fi
+
 # The review identity is the ordered current base/head pair. A timestamp can say when somebody
 # wrote a comment; it cannot say which base comparison they reviewed.
 OID_PAIR=$(bounded_gh pr view "$PR" --json baseRefOid,headRefOid,baseRefName --jq '"\(.baseRefOid) \(.headRefOid) \(.baseRefName)"' || echo "")
@@ -245,7 +286,8 @@ fi
 # zero against the `[bot]` spelling. Both are accepted anyway — the exact normalisation is gh's to
 # change, and a gate that silently stops recognising reviews would block every merge and teach
 # everyone to pass MERGE_GATE_ACK=1, which is the bypass it exists to prevent.
-REVIEWER_RE='^github-actions(\\[bot\\])?$'
+# `REVIEWER_RE` is now defined earlier, at the top of this section (INFRA-201), so the never-spoke
+# early exit above can test it before any of this runs.
 # The newest VERDICT, not the newest comment from the right author — #1661's composition defect.
 # The reviewing bot posts more than reviews under one login: review-gate notices, thread replies,
 # and (measured on #1651) pull-request reviews with a ZERO-LENGTH body. Selecting by author alone
