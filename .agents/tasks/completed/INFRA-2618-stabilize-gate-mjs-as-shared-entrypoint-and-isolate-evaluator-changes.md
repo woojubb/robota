@@ -1,12 +1,13 @@
 ---
 title: 'INFRA-2618: stabilize gate.mjs as shared entrypoint and isolate evaluator changes'
 issue: https://github.com/woojubb/robota/issues/2618
-status: in-progress
+status: done
 created: 2026-09-06
 priority: medium
 urgency: soon
 area: TODO
 depends_on: []
+completed: 2026-09-06
 ---
 
 # INFRA-2618: stabilize gate.mjs as shared entrypoint and isolate evaluator changes
@@ -18,22 +19,27 @@ harness-structure migration. Split its current CLI, document, catalogue, criteri
 responsibilities into owned modules. Preserve the existing command, exit-code, stdout, evidence, and
 fail-closed contracts while mechanically refusing accidental facade edits.
 
+Spec: `.agents/spec-docs/done/INFRA-2618-stabilize-gate-mjs-as-shared-entrypoint-and-isolate-evaluator-changes.md`
+
 ## Plan
 
-- [ ] Complete the approved INFRA-2618 spec and keep the implementation scope limited to the gate
+- [x] Complete the approved INFRA-2618 spec and keep the implementation scope limited to the gate
       entrypoint/evaluator boundary.
-- [ ] Extract CLI, document, catalogue, criteria, operation, and public-API modules; add the stable
+- [x] Extract CLI, document, catalogue, criteria, operation, and public-API modules; add the stable
       facade and preserve all supported exports/importers.
-- [ ] Update evaluator-isolation for all extracted evaluator modules, add the facade stability scan
+- [x] Update evaluator-isolation for all extracted evaluator modules, add the facade stability scan
       and its tests, and register the scan.
-- [ ] Update baselines/fixtures and run focused tests plus affected harness verification.
-- [ ] Record completion evidence and close the paired spec/Task together.
+- [x] Update baselines/fixtures and run focused tests plus affected harness verification.
+- [x] Record completion evidence and close the paired spec/Task together.
 
 ## Test Plan
 
 - Run `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/scan-gate-evaluator-isolation.test.mjs scripts/harness/__tests__/scan-gate-entrypoint-stability.test.mjs` and require the complete focused suites to pass.
 - Run `pnpm exec vitest run scripts/harness/__tests__/gate-entrypoint-compatibility.test.mjs` and require the facade subprocess and stability-refusal assertions to pass.
 - Run `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` and require the affected harness scans to exit 0.
+
+The final verification is recorded by the affected harness scan and its Work-Run receipt after the
+completion commit; the receipt binds the measured topic range to the exact ready head.
 
 ## User Execution Test Scenarios
 
