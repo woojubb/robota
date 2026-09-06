@@ -131,6 +131,13 @@ export function createPrePushSteps({
       baseRef: runtime.basePlan.classificationBaseRef ?? runtime.baseRef,
       pushSubject: runtime.pushSubject,
     }),
+    reportMeasurementAdvisory: (measurement) =>
+      process.stderr.write(
+        `▶ work-run measurement advisory (not blocking): ${measurement.reason}\n` +
+          '  The receipt/trailer chain does not validate cleanly; the push proceeds because this ' +
+          'measures the work-run itself, not the pushed code. Run `pnpm harness:scan:work-run` ' +
+          'to inspect, or see .agents/rules/work-run-measurement.md to repair it later.\n',
+      ),
     findReusableReceipt: () =>
       findReusableVerification({
         baseRef: runtime.basePlan.receiptBaseRef,

@@ -504,6 +504,38 @@ describe('workspace affected planner', () => {
     });
   });
 
+  it('resolves an ordinary scripts/harness/*.mjs change as no-package, not an unknown-path global fallback', () => {
+    // Regression: no `packages/*`/`apps/*` build/test/typecheck graph reaches scripts/harness/ (it
+    // is harness tooling, the same reasoning already applied to `.agents/`), so before this an
+    // unrelated harness-script change resolved to neither an owner nor a no-package path and fell
+    // through to `unknown changed path`, forcing a full-workspace verification (process-overhead
+    // policy, 2026-09).
+    const plan = planWorkspaceAffected({
+      root: fixture(),
+      operation: 'test',
+      changedFiles: ['scripts/harness/allocate-work-item-id.mjs'],
+    });
+    expect(plan).toMatchObject({
+      mode: 'none',
+      packageDistributable: true,
+      globalFallback: false,
+      owners: [],
+      packages: [],
+    });
+  });
+
+  it('still resolves the scope-mapping harness files themselves as global, not no-package', () => {
+    // GLOBAL_PREFIXES is checked before NO_PACKAGE_PREFIXES — widening the latter for
+    // scripts/harness/ generally must not swallow the specific files that ARE the scope-mapping
+    // mechanism, which legitimately need full verification when they change.
+    const plan = planWorkspaceAffected({
+      root: fixture(),
+      operation: 'test',
+      changedFiles: ['scripts/harness/workspace-affected-plan.mjs'],
+    });
+    expect(plan).toMatchObject({ mode: 'global', globalFallback: true });
+  });
+
   it('maps rename ownership when both paths remain in known package trees', () => {
     const root = fixture();
     const plan = createWorkspaceAffectedPlan({

@@ -51,6 +51,7 @@ function recordingSteps(decision) {
       reportBaseResolution: record('report-base-resolution'),
       decideVerification: record('decide-verification', decision),
       validateWorkRunMeasurement: record('validate-work-run-measurement', { ok: true }),
+      reportMeasurementAdvisory: record('report-measurement-advisory'),
       findReusableReceipt: record('find-reusable-receipt', { reusable: false }),
       reportReceiptReused: record('report-receipt-reused'),
       reportSkipped: record('report-skipped'),
@@ -162,14 +163,50 @@ describe('runPrePushGate step order', () => {
     expect(order.filter((step) => step === 'report-base-resolution')).toHaveLength(1);
   });
 
-  it('refuses missing measurement before verification-receipt reuse', () => {
+  it('reports a failed measurement as advisory and still proceeds to verification-receipt reuse', () => {
+    // Advisory, not blocking (process-overhead policy, 2026-09): the receipt/trailer chain
+    // measures the work-run's own claim/reopen/ready lifecycle, not the pushed code, and CI's own
+    // scans-full.yml already excludes this same scan from the blocking integration suite.
     const { order, steps } = recordingSteps(VERIFY);
     steps.validateWorkRunMeasurement = () => {
       order.push('validate-work-run-measurement');
       return { ok: false, reason: 'missing-measurement' };
     };
-    expect(() => runPrePushGate(steps)).toThrow(/missing-measurement/);
-    expect(order).not.toContain('find-reusable-receipt');
+    expect(() => runPrePushGate(steps)).not.toThrow();
+    expect(order).toEqual([
+      'prune-worktrees',
+      'clean-working-tree',
+      'lockfile-consistency',
+      'report-base-resolution',
+      'decide-verification',
+      'validate-work-run-measurement',
+      'report-measurement-advisory',
+      'find-reusable-receipt',
+      'tree-prerequisites',
+      'run-verification',
+    ]);
+  });
+
+  it('never reports the advisory on a passing measurement', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    runPrePushGate(steps);
+    expect(order).not.toContain('report-measurement-advisory');
+  });
+
+  it('reports a thrown measurement error as advisory too, instead of crashing the push', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    steps.validateWorkRunMeasurement = () => {
+      order.push('validate-work-run-measurement');
+      throw new Error('work-run-measurement: invalid-closure-commit');
+    };
+    steps.reportMeasurementAdvisory = (measurement) => {
+      order.push(`report-measurement-advisory:${measurement.reason}`);
+    };
+    expect(() => runPrePushGate(steps)).not.toThrow();
+    expect(order).toContain(
+      'report-measurement-advisory:work-run-measurement: invalid-closure-commit',
+    );
+    expect(order).toContain('find-reusable-receipt');
   });
 });
 

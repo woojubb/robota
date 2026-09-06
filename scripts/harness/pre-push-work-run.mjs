@@ -118,9 +118,21 @@ export function runPrePushGate(steps) {
     return { verified: false, reason: decision.reason };
   }
 
-  const measurement = steps.validateWorkRunMeasurement();
+  // Advisory, not blocking (issue-registration/process-overhead policy, 2026-09): the receipt
+  // chain this validates is a measurement of the work-run's own lifecycle, not of the code being
+  // pushed, and its claim/reopen/ready ordering assumes a claim→PR flow. A direct-to-develop push
+  // (git-branch.md § Branch Policy) or an out-of-order recovery from a local mistake both leave a
+  // technically-invalid receipt with correct, reviewed code behind it — CI's own scans-full.yml
+  // already excludes this same scan (`--skip work-run-measurement`) from the blocking integration
+  // suite, so a local push holding it to a stricter bar than CI is the inconsistency, not the fix.
+  let measurement;
+  try {
+    measurement = steps.validateWorkRunMeasurement();
+  } catch (error) {
+    measurement = { ok: false, reason: error.message };
+  }
   if (!measurement.ok) {
-    throw new Error(`work-run measurement refused the push: ${measurement.reason}`);
+    steps.reportMeasurementAdvisory(measurement);
   }
 
   const receipt = steps.findReusableReceipt();

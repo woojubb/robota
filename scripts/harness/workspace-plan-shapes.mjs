@@ -35,7 +35,14 @@ const NO_PACKAGE_FILES = new Set([
   'README.md',
   'SECURITY.md',
 ]);
-const NO_PACKAGE_PREFIXES = ['.agents/', '.changeset/', 'docs/'];
+// `scripts/harness/` is the harness's own tooling, architecturally separate from every
+// `packages/*`/`apps/*` build/test/typecheck graph (no product package depends on it) — the same
+// reasoning already applied to `.agents/`. Its scope-mapping OWN files stay `GLOBAL_PREFIXES`
+// above (checked first), so this only widens the fallback for everything else under it: before
+// this, an ordinary `scripts/harness/*.mjs` change resolved to neither a package owner nor a
+// no-package path, fell through to `unknown changed path`, and forced a full-workspace
+// build/test/typecheck for a change no package graph reaches (process-overhead policy, 2026-09).
+const NO_PACKAGE_PREFIXES = ['.agents/', '.changeset/', 'docs/', 'scripts/harness/'];
 
 export function isGlobalPath(file) {
   return GLOBAL_FILES.has(file) || GLOBAL_PREFIXES.some((prefix) => file.startsWith(prefix));
