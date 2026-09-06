@@ -264,8 +264,8 @@ prior-gate map); this run's finding is the NON-COMPLIANCE above, not an ordering
 (`gate-catalogue.md` § Prior-gate map), exempt by construction. Independently verified the fact that
 resolves the prior `[GATE-WRITE] — 🔴 NON-COMPLIANCE | 2026-09-06` entry above: `git status --short` on
 HEAD `c835fbee72ab2a8ddb429610d9176b43d3ca15b4` (identical to `origin/develop`) shows exactly two
-untracked paths — `.agents/spec-docs/draft/INFRA-191-continue-process-overhead-lane-declaration-and-contract-test-log-clarity.md`
-and `.agents/tasks/INFRA-191-continue-process-overhead-lane-declaration-and-contract-test-log-clarity.md`
+untracked paths — `.agents/spec-docs/draft/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`
+and `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`
 — no modified, staged, renamed, or deleted path. Confirmed the five previously-uncommitted
 implementation files now read back to `origin/develop` content: `scan-lane-declaration.mjs` has no
 `LIFECYCLE_PROJECTION_TABLE_ROW`; `harness-contract-execution.mjs:75` still emits the unfixed
