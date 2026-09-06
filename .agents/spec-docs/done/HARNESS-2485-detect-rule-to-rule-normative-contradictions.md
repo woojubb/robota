@@ -93,6 +93,7 @@ scripts/harness/run-all-scans.mjs
 ## User Execution Test Scenarios
 
 Not applicable.
+Reason: This infrastructure-only scan has no user-facing execution path to exercise.
 
 Recorded as the rule's required choice rather than skipped.
 
