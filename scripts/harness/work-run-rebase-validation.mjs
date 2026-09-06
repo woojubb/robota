@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-import { tryGit, tryGitBytes } from './work-run-git-adapter.mjs';
+import { tryGit, tryGitBytes, tryGitWithInput } from './work-run-git-adapter.mjs';
 import {
   createWorkRunVerificationRuntime,
   takeWorkRunVerificationCommand,
@@ -34,8 +34,19 @@ export function ensureRebaseCommitAvailable(root, oid, runtime) {
 }
 
 function patchDigest(root, base, head, runtime) {
-  const patch = tryGitBytes(root, ['diff', '--binary', `${base}..${head}`], runtime);
-  return patch === null ? null : createHash('sha256').update(patch).digest('hex');
+  const patches = tryGitBytes(
+    root,
+    ['format-patch', '--stdout', '--binary', '--no-signature', `${base}..${head}`],
+    runtime,
+  );
+  if (patches === null) return null;
+  const patchIds = tryGitWithInput(root, ['patch-id', '--stable'], patches, runtime);
+  if (patchIds === null) return null;
+  const identities = patchIds
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split(' ')[0]);
+  return createHash('sha256').update(JSON.stringify(identities)).digest('hex');
 }
 
 export function standaloneRebaseProofMatches(

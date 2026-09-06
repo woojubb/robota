@@ -2,7 +2,7 @@
 status: done
 type: INFRA
 tags: [test]
-lane: L1
+lane: L2
 ---
 
 # TEST-013: Prevent a test from being satisfied by host home state

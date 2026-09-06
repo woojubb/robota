@@ -2,7 +2,7 @@
 status: done
 type: INFRA
 tags: [process, harness]
-lane: L1
+lane: L2
 ---
 
 # INFRA-160: plan-order cannot ground an L0 implementation that repairs several historical records

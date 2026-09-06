@@ -31,6 +31,8 @@ auditable way to remove that run from the included measurement population.
 - Added the hash-chained `work.invalidated` terminal event and `work-run invalidate --reason` route.
 - Added immutable invalidation receipts at the next generation-zero revision while retaining the original
   g0-r0 receipt and full event history.
+- Implementation is recorded in `scripts/harness/work-run-receipts.mjs` and
+  `scripts/harness/work-run-validation.mjs`.
 - Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
   reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
 - Focused work-run contract, store, validation, and report suites passed: 136 tests.

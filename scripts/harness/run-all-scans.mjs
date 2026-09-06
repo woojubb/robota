@@ -1163,6 +1163,11 @@ const LEGACY_SCAN_COMMANDS = [
     always: true,
   },
   {
+    name: 'gate-entrypoint-stability',
+    command: ['node', 'scripts/harness/scan-gate-entrypoint-stability.mjs'],
+    always: true,
+  },
+  {
     name: 'gate-closure-disposition',
     command: ['node', 'scripts/harness/scan-gate-closure-disposition.mjs'],
     examines: ['.agents/spec-docs/'],

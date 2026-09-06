@@ -56,6 +56,19 @@ export function tryGitBytes(root, args, runtime = null) {
   }
 }
 
+export function tryGitWithInput(root, args, input, runtime = null) {
+  try {
+    return git(root, args, {
+      runtime,
+      input,
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+  } catch (error) {
+    if (isWorkRunVerificationBudgetError(error)) throw error;
+    return null;
+  }
+}
+
 export function hasPathAt(root, revision, file, runtime = null) {
   return tryGit(root, ['cat-file', '-e', `${revision}:${file}`], runtime) !== null;
 }
