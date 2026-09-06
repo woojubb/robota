@@ -221,7 +221,7 @@ B: switch `develop` to `true`; Option C: add a required check that recomputes th
 typechecks it). The owner's 2026-09-05 selection is Option A. Its settled record, quoted verbatim
 from `/tmp/robota-issues/round2/DECISIONS.md`:
 
-> 2026-09-05 INFRA-158 별건 (#2219) 결정: A — strict 정책 선언(develop=false, main=true) + 라이브 룰셋
+> 2026-09-05 INFRA-158 별건 (issue #2219) 결정: A — strict 정책 선언(develop=false, main=true) + 라이브 룰셋
 > 대조(fail-closed), develop 은 켜지 않음. 머지 큐 후속은 만들지 않음(사용자 소유 저장소 불가); 잔여
 > 위험은 후일 B vs C.
 
