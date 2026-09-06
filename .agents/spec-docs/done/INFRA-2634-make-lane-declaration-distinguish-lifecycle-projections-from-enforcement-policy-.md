@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: INFRA
 tags: [ci, typescript]
 lane: L2
@@ -129,7 +129,7 @@ workflow; no end-user product surface or runnable Robota command is added or cha
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` — todo
+- [x] `.agents/tasks/completed/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` — verifying
 
 ## Evidence Log
 
@@ -340,3 +340,100 @@ with `violations=0`; the affected harness scan retained only pre-existing baseli
 findings outside this change's causal scope.
 
 **Judged at:** HEAD `b075c0a6e` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/scan-lane-declaration.test.mjs (54 tests) 2316ms
+   ✓ scan-lane-declaration — exit contract > reads the changed set, diff and trailer from git when no fixture flags are given  1595ms
+
+ Test Files  1 passed (1)
+      Tests  54 passed (54)
+   Start at  15:05:27
+   Duration  2.84s (transform 189ms, setup 0ms, collect 290ms, tests 2.32s, environment 0ms, prepare 53ms)
+```
+
+**Judged at:** HEAD `c3864e7ab270` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `8b0c9456ddab` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/scan-lane-declaration.test.mjs (54 tests) 2316ms
+   ✓ scan-lane-declaration — exit contract > reads the changed set, diff and trailer from git when no fixture flags are given  1595ms
+
+ Test Files  1 passed (1)
+      Tests  54 passed (54)
+   Start at  15:05:27
+   Duration  2.84s (transform 189ms, setup 0ms, collect 290ms, tests 2.32s, environment 0ms, prepare 53ms)
+```
+
+**Judged at:** HEAD `c3864e7ab270` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `2a15c7c73799` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/scan-lane-declaration.mjs --base origin/develop`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+::examined:: 4 changed path(s)
+  L0  .agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md
+  L0  .agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md
+  L1  scripts/harness/__tests__/scan-lane-declaration.test.mjs  ← `scripts/**` (non-comment change)
+  L2  scripts/harness/scan-lane-declaration.mjs  ← `scripts/harness/scan-lane-declaration.mjs`
+✅ Lane L2 (spec-doc frontmatter .agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md) is at or above the floor L2.
+lane-declaration summary: violations=0 result=PASS
+```
+
+**Judged at:** HEAD `c3864e7ab270` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `08dba3fac23c` (modified)
+
+### [GATE-COMPLETE: TC-04] — ❌ FAIL | 2026-09-06
+
+**Command:** `pnpm harness:scan -- --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 1
+**Output:** (last 10 of 128 line(s))
+
+```
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 2 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification: 1 finding(s) acknowledged in scripts/harness/progress-report-acknowledgments.json — 1 real violation(s) recorded, not cleared by editing history.
+⚑ reference-kind-qualified: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+6 of 60 scans failed
+ ELIFECYCLE  Command failed with exit code 1.
+```
+
+**Judged at:** HEAD `c3864e7ab270` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `54dfdced7ba7` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-06; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md
+
+**Judged at:** HEAD `c3864e7ab270` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `ff73f40f2cc3` (modified)

@@ -1,13 +1,16 @@
 ---
 title: 'INFRA-2634: Make lane declaration distinguish lifecycle projections from enforcement-policy changes'
 issue: https://github.com/woojubb/robota/issues/2634
-status: in-progress
+status: done
 created: 2026-09-06
 priority: medium
 urgency: soon
 area: scripts/harness/scan-lane-declaration.mjs, scripts/harness/__tests__/scan-lane-declaration.test.mjs
 depends_on: []
+completed: 2026-09-06
 ---
+
+Spec: `.agents/spec-docs/done/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md`
 
 # INFRA-2634: Make lane declaration distinguish lifecycle projections from enforcement-policy changes
 
