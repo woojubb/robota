@@ -144,7 +144,7 @@
   "scripts/harness/scan-shell-portability.mjs": 441,
   "scripts/harness/scan-standing-delegation-evidence.mjs": 456,
   "scripts/harness/scan-symlink-following-enumeration.mjs": 689,
-  "scripts/harness/scan-task-path-citations.mjs": 327,
+  "scripts/harness/scan-task-path-citations.mjs": 340,
   "scripts/harness/scan-unearned-done-claims.mjs": 652,
   "scripts/harness/scan-user-execution-plan-order.mjs": 2413,
   "scripts/harness/scan-workflow-permissions.mjs": 388,
