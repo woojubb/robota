@@ -128,14 +128,14 @@ originals. Then tighten `scripts/harness/file-size-baseline.json` in the same co
 
 ## Completion Criteria
 
-- [ ] TC-01: `node scripts/harness/scan-file-size.mjs` exits 0 with no finding. Red before: two
+- [x] TC-01: `node scripts/harness/scan-file-size.mjs` exits 0 with no finding. Red before: two
       `file-grew-past-baseline` findings naming these two files, plus one `ratchet-tighten`.
-- [ ] TC-02: every number the `scripts/harness/file-size-baseline.json` diff changes is LOWER than the
+- [x] TC-02: every number the `scripts/harness/file-size-baseline.json` diff changes is LOWER than the
       one it replaces, and no entry is added or raised.
-- [ ] TC-03: `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 and its
+- [x] TC-03: `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 and its
       `::examined:: <n> rule identifiers` count is not lower than on the integration base.
-- [ ] TC-04: `node scripts/harness/scan-measurement-provenance.mjs` exits 0.
-- [ ] TC-05: `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` and
+- [x] TC-04: `node scripts/harness/scan-measurement-provenance.mjs` exits 0.
+- [x] TC-05: `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` and
       `scripts/harness/__tests__/new-spec.test.mjs` both pass with no consumer file edited.
 
 ## Test Plan
@@ -229,3 +229,91 @@ scenario could be performed.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `072a7354d914` · base `origin/develop@072a7354d914` · document `.agents/spec-docs/draft/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `c17e8bdd9aa3` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Test skipped:** CI-smoke scan check, no dedicated unit test — verified by the scan command below.
+**Command:** `node scripts/harness/scan-file-size.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+harness file-size scan passed (152 baselined burn-down entries).
+```
+
+**Judged at:** HEAD `24773c79184c` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `0e23c923a644` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Test skipped:** doc/baseline-diff check, no automated test — verified by reading the diff below.
+**Command:** `git diff origin/develop -- scripts/harness/file-size-baseline.json`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+allocate-work-item-id.mjs 472->308, new-spec.mjs 446->377, run-all-scans.mjs 1914->1897; all lower, none raised
+```
+
+**Judged at:** HEAD `24773c79184c` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `10c23297b0d5` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Test skipped:** CI-smoke scan check, no dedicated unit test — verified by the scan command below.
+**Command:** `node scripts/harness/scan-rule-statement-floor.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+::examined:: 13 rule identifiers across 207 normative documents; rule-statement-floor scan passed.
+```
+
+**Judged at:** HEAD `24773c79184c` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `1e084c124ab3` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-06
+
+**Test skipped:** CI-smoke scan check, no dedicated unit test — verified by the scan command below.
+**Command:** `node scripts/harness/scan-measurement-provenance.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+measurement-provenance scan passed (58 subject(s) meet the floor; 58 recorded unmet in scripts/harness/measurement-provenance-pending.json).
+```
+
+**Judged at:** HEAD `24773c79184c` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `81f25d19be20` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-06
+
+**Command:** `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+Test Files 2 passed (2); Tests 86 passed (86)
+```
+
+**Judged at:** HEAD `24773c79184c` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `e59199048763` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm harness:scan` → exit 1 ( ⏎ 1 of 159 scans failed ⏎  ELIFECYCLE  Command failed with exit code 1.); `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/work-run-store.test.mjs scripts/harness/__tests__/work-run-lifecycle.test.mjs` → exit 0 (hint: Disable this message with "git config set advice.mergeConflict false" ⏎ Could not apply 03e9db5... # feat: old pull request ⏎ Rebasing (2/2)
+Successfully rebased and updated refs/heads/codex/work-run-lifecycle.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm harness:scan` → exit 1 ( ⏎ 1 of 159 scans failed ⏎  ELIFECYCLE  Command failed with exit code 1.); `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/work-run-store.test.mjs scripts/harness/__tests__/work-run-lifecycle.test.mjs` → exit 0 (hint: Disable this message with "git config set advice.mergeConflict false" ⏎ Could not apply 03e9db5... # feat: old pull request ⏎ Rebasing (2/2)
+Successfully rebased and updated refs/heads/codex/work-run-lifecycle.)
+  **Required action:** make every verify command exit 0
+- GATE-COMPLETE — The checkbox is checked (`[x]`): TC-01, TC-02, TC-03, TC-04, TC-05 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-01, TC-02, TC-03, TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-01, TC-02, TC-03, TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: TC-01, TC-02, TC-03, TC-04, TC-05 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-01, TC-02, TC-03, TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged at:** HEAD `a0841c39d3df` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `4f565a61e7c6` (modified)
