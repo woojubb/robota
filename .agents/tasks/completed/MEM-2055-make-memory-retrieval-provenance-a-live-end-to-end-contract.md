@@ -75,15 +75,18 @@ historical audit finding; this Task is the fresh, issue-backed record that actua
 
 **Applies** (`/memory used` is a user-facing command; memory is a CLI feature).
 
-**Author verdict:** `SCENARIO DRAFTED: manual | 1`
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
 
-- Prerequisites: built CLI + provider key; memory enabled; a stored memory the next prompt will recall.
-- Steps: send a prompt that recalls the stored memory, then run `/memory used`.
-- Expected (after fix): `/memory used` lists the recalled memory reference(s).
-- Expected (before fix, contrast): `/memory used` says "(no memory used in current turn)" even though a
-  memory was injected into the turn.
-- Cleanup: clear the stored memory.
-- Evidence: automated proof stands in for a manual run here — TC-07/TC-08/TC-09 in
-  `interactive-session-recall.test.ts` assert `getUsedMemoryReferences()` and the emitted
-  `memory_retrieved` `memory_event`s directly (the same code path `/memory used` reads), because the
-  live scenario needs a running provider session this record cannot spin up standalone.
+- Surface: `public-sdk-example` — a scripted `InteractiveSession` run through its public constructor,
+  a fake `IMemoryStore`, and `createScriptedProvider` (from `@robota-sdk/agent-core/testing`), so the
+  scenario needs no live provider credential.
+- Command: `pnpm exec tsx examples/verify-memory-recall-provenance.ts` (run inside
+  `packages/agent-framework`).
+- Prerequisites: none — the script builds its own temporary project directory and cleans it up.
+- Expected: the printed result's `usedMemoryReferences` contains the recalled reference and
+  `emittedMemoryEventTypes` contains one `memory_retrieved` entry — the same `getUsedMemoryReferences()`
+  and `memory_event` path `/memory used` reads.
+- Cleanup: the script removes its own temporary directory before exiting (`cleanupRemoved: true`).
+- Evidence: ran the command above — printed `{"scenario":"MEM-2055","usedMemoryReferences":[{"topic":
+"deploy","path":"deploy.md","score":5,"truncated":false}],"emittedMemoryEventTypes":
+["memory_retrieved"],"cleanupRemoved":true}`.
