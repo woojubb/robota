@@ -54,7 +54,7 @@ await session.compact('Focus on the API changes');
 | **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity   |
 | **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter               |
 | **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                      |
-| **Usage observations**     | Content-free top-level turn outcomes and invocation-scoped provider usage identities are preserved for cross-session analytics       |
+| **Usage observations**     | Content-free top-level turn outcomes and invocation-scoped provider usage identities are preserved for cross-session analytics     |
 | **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                         |
 
 ## Key Methods

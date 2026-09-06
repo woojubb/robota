@@ -56,32 +56,32 @@ Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 
 
 ## Public API Surface
 
-| Export                       | Kind     | Description                                                                                    |
-| ---------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `analyzeSession`             | function | Compute the timing report for one session record                                               |
-| `aggregateReports`           | function | Aggregate multiple single-session reports                                                      |
-| `computeTimingIntervals`     | function | Lower-level: classify a history array into timing intervals                                    |
-| `gapMs`                      | function | Millisecond gap between two timestamps                                                         |
-| `formatSingleSession`        | function | Render a single-session report as text                                                         |
-| `formatAggregateReport`      | function | Render an aggregate report as text                                                             |
-| `summarizeUsageBySource`     | function | Per-source token-usage breakdown from `usage-summary` history entries                           |
-| `formatUsageReport`          | function | Render the per-session usage breakdown as text                                                 |
-| `summarizePersonalUsage`     | function | Produce the versioned cross-session report with deterministic de-duplication and calendar bins |
-| `formatPersonalUsageReport`  | function | Render the cross-session report as readable terminal text                                      |
-| `TSessionAnalysisInput`      | type     | Canonical session-record input projection                                                      |
-| `TIntervalKind`              | type     | Timing-interval discriminator                                                                  |
-| `ITimingInterval`            | type     | One classified timing interval                                                                 |
-| `ITimingStats`               | type     | Aggregated timing statistics                                                                   |
-| `ISessionTimingReport`       | type     | One session's timing report                                                                    |
-| `IAggregateReport`           | type     | Multi-session timing summary                                                                   |
-| `IPersonalUsageSnapshot`     | type     | Immutable valid records plus unreadable-record coverage                                         |
-| `IPersonalUsageReport`       | type     | Provider-neutral cross-session usage report                                                    |
-| `IPersonalUsageRequest`      | type     | Period/timezone report request                                                                 |
-| `TUsageAnalysisInput`        | type     | Per-session usage reducer input                                                                |
-| `IUsageSourceTotals`         | type     | Totals for one execution source                                                                |
-| `IUsageBySourceReport`       | type     | Per-session usage report                                                                       |
-| `IRunTraceSpan`              | type     | Trace span projection                                                                          |
-| `IRunTraceTurn`              | type     | Trace spans grouped under one turn                                                             |
+| Export                      | Kind     | Description                                                                                    |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `analyzeSession`            | function | Compute the timing report for one session record                                               |
+| `aggregateReports`          | function | Aggregate multiple single-session reports                                                      |
+| `computeTimingIntervals`    | function | Lower-level: classify a history array into timing intervals                                    |
+| `gapMs`                     | function | Millisecond gap between two timestamps                                                         |
+| `formatSingleSession`       | function | Render a single-session report as text                                                         |
+| `formatAggregateReport`     | function | Render an aggregate report as text                                                             |
+| `summarizeUsageBySource`    | function | Per-source token-usage breakdown from `usage-summary` history entries                          |
+| `formatUsageReport`         | function | Render the per-session usage breakdown as text                                                 |
+| `summarizePersonalUsage`    | function | Produce the versioned cross-session report with deterministic de-duplication and calendar bins |
+| `formatPersonalUsageReport` | function | Render the cross-session report as readable terminal text                                      |
+| `TSessionAnalysisInput`     | type     | Canonical session-record input projection                                                      |
+| `TIntervalKind`             | type     | Timing-interval discriminator                                                                  |
+| `ITimingInterval`           | type     | One classified timing interval                                                                 |
+| `ITimingStats`              | type     | Aggregated timing statistics                                                                   |
+| `ISessionTimingReport`      | type     | One session's timing report                                                                    |
+| `IAggregateReport`          | type     | Multi-session timing summary                                                                   |
+| `IPersonalUsageSnapshot`    | type     | Immutable valid records plus unreadable-record coverage                                        |
+| `IPersonalUsageReport`      | type     | Provider-neutral cross-session usage report                                                    |
+| `IPersonalUsageRequest`     | type     | Period/timezone report request                                                                 |
+| `TUsageAnalysisInput`       | type     | Per-session usage reducer input                                                                |
+| `IUsageSourceTotals`        | type     | Totals for one execution source                                                                |
+| `IUsageBySourceReport`      | type     | Per-session usage report                                                                       |
+| `IRunTraceSpan`             | type     | Trace span projection                                                                          |
+| `IRunTraceTurn`             | type     | Trace spans grouped under one turn                                                             |
 
 ## Extension Points
 

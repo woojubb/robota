@@ -43,7 +43,9 @@ export function usePersonalUsageState(send: (msg: TClientMessage) => void): TPer
     useState<IWsSessionState['storedSessionUsageStatus']>('idle');
   const [storedSessionUsageReport, setStoredSessionUsageReport] =
     useState<TStoredSessionUsageReport | null>(null);
-  const [storedSessionUsageSessionId, setStoredSessionUsageSessionId] = useState<string | null>(null);
+  const [storedSessionUsageSessionId, setStoredSessionUsageSessionId] = useState<string | null>(
+    null,
+  );
   const [storedSessionUsageError, setStoredSessionUsageError] = useState<string | null>(null);
   const [currentSessionUsageStatus, setCurrentSessionUsageStatus] =
     useState<IWsSessionState['currentSessionUsageStatus']>('idle');
@@ -65,7 +67,10 @@ export function usePersonalUsageState(send: (msg: TClientMessage) => void): TPer
       setCurrentSessionUsageStatus('ready');
       return true;
     }
-    if (msg.type === 'stored_session_usage_report' || msg.type === 'stored_session_usage_report_error') {
+    if (
+      msg.type === 'stored_session_usage_report' ||
+      msg.type === 'stored_session_usage_report_error'
+    ) {
       if (storedRequestRef.current !== msg.requestId) return true;
       setStoredSessionUsageReport(msg.type === 'stored_session_usage_report' ? msg.report : null);
       setStoredSessionUsageSessionId(msg.sessionId);

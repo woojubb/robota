@@ -65,24 +65,24 @@ ARCH-105 was a split rather than a move.
 
 ## Public API Surface
 
-| Export                     | Kind | Description                                      |
-| -------------------------- | ---- | ------------------------------------------------ |
-| `IUsageSource`             | type | execution-source attribution contract            |
-| `IUsageSnapshot`           | type | per-turn token, context, and cost snapshot        |
-| `ISpanEntry`               | type | one recorded trace operation                      |
-| `IUsageSourceTotals`       | type | aggregate for one execution source                |
-| `IRunTraceSpan`            | type | span projected into a run trace                   |
-| `IRunTraceTurn`            | type | trace spans grouped under one turn                |
-| `IUsageBySourceReport`     | type | current or stored-session usage report            |
-| `IUsageObservation`        | type | canonical, deduplicable provider-usage observation |
-| `TUsageSurface`            | type | trusted product-surface attribution vocabulary     |
-| `IPersonalUsageRequest`    | type | period and timezone request                       |
-| `IPersonalUsageTotals`     | type | cross-session totals and cost confidence          |
-| `IPersonalUsageDimension`  | type | one grouped attribution row                       |
-| `IPersonalUsageActivity`   | type | privacy-safe tool/skill/plugin count              |
-| `IPersonalUsageDay`        | type | one complete local-calendar bucket                |
-| `IPersonalUsageCoverage`   | type | incomplete/legacy/duplicate coverage diagnostics  |
-| `IPersonalUsageReport`     | type | versioned provider-neutral personal usage report  |
+| Export                    | Kind | Description                                        |
+| ------------------------- | ---- | -------------------------------------------------- |
+| `IUsageSource`            | type | execution-source attribution contract              |
+| `IUsageSnapshot`          | type | per-turn token, context, and cost snapshot         |
+| `ISpanEntry`              | type | one recorded trace operation                       |
+| `IUsageSourceTotals`      | type | aggregate for one execution source                 |
+| `IRunTraceSpan`           | type | span projected into a run trace                    |
+| `IRunTraceTurn`           | type | trace spans grouped under one turn                 |
+| `IUsageBySourceReport`    | type | current or stored-session usage report             |
+| `IUsageObservation`       | type | canonical, deduplicable provider-usage observation |
+| `TUsageSurface`           | type | trusted product-surface attribution vocabulary     |
+| `IPersonalUsageRequest`   | type | period and timezone request                        |
+| `IPersonalUsageTotals`    | type | cross-session totals and cost confidence           |
+| `IPersonalUsageDimension` | type | one grouped attribution row                        |
+| `IPersonalUsageActivity`  | type | privacy-safe tool/skill/plugin count               |
+| `IPersonalUsageDay`       | type | one complete local-calendar bucket                 |
+| `IPersonalUsageCoverage`  | type | incomplete/legacy/duplicate coverage diagnostics   |
+| `IPersonalUsageReport`    | type | versioned provider-neutral personal usage report   |
 
 **No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
 vocabulary and its discriminators, and this package needs neither.

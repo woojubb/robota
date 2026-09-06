@@ -14,7 +14,10 @@ export type TStoredSessionUsageReport = Extract<
   TServerMessage,
   { type: 'stored_session_usage_report' }
 >['report'];
-export type TCurrentSessionUsageReport = Extract<TServerMessage, { type: 'usage_report' }>['report'];
+export type TCurrentSessionUsageReport = Extract<
+  TServerMessage,
+  { type: 'usage_report' }
+>['report'];
 
 export interface IConversationMessage {
   id: string;

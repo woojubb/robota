@@ -48,7 +48,11 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     const base = fakeSession().session;
     const submit = vi.fn().mockResolvedValue(undefined);
     const session = Object.assign(base, { submit });
-    const bridge = new SessionResumeBridge({ session, driverId: 'device-sha256', surface: 'remote' });
+    const bridge = new SessionResumeBridge({
+      session,
+      driverId: 'device-sha256',
+      surface: 'remote',
+    });
     bridge.attach(sink(), TEST_ATTACH_OPTIONS);
 
     bridge.onClientMessage(JSON.stringify({ type: 'submit', prompt: 'paired turn' }));

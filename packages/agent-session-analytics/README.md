@@ -9,16 +9,16 @@ write output.
 
 ## API
 
-| Export                      | Description                                          |
-| --------------------------- | ---------------------------------------------------- |
-| `analyzeSession(record)`    | Compute the timing report for one session record     |
-| `aggregateReports(reports)` | Aggregate multiple single-session reports            |
-| `computeTimingIntervals(h)` | Classify a history array into timing intervals       |
-| `gapMs(from, to)`           | Millisecond gap between two timestamps (string/Date) |
-| `formatSingleSession(r)`    | Render a single-session report as text               |
-| `formatAggregateReport(a)`  | Render an aggregate report as text                   |
+| Export                               | Description                                                                         |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `analyzeSession(record)`             | Compute the timing report for one session record                                    |
+| `aggregateReports(reports)`          | Aggregate multiple single-session reports                                           |
+| `computeTimingIntervals(h)`          | Classify a history array into timing intervals                                      |
+| `gapMs(from, to)`                    | Millisecond gap between two timestamps (string/Date)                                |
+| `formatSingleSession(r)`             | Render a single-session report as text                                              |
+| `formatAggregateReport(a)`           | Render an aggregate report as text                                                  |
 | `summarizePersonalUsage(s, request)` | Build a deterministic 7- or 30-day personal-usage report from an immutable snapshot |
-| `formatPersonalUsageReport(report)` | Render the personal-usage report as readable text |
+| `formatPersonalUsageReport(report)`  | Render the personal-usage report as readable text                                   |
 
 Operates on the canonical `IInteractiveSessionRecord` projection and `IHistoryEntry` — owns no
 duplicate record/history types.

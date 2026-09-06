@@ -248,13 +248,13 @@ request ID, or silently catch to empty/success.
 
 ## Test Plan
 
-| TC-ID | Test Type                         | Tool / Approach                                                                                                                                                     | Notes                                         |
-| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| TC-01 | Consumer-driven contract + codec  | `packages/agent-core/src/services/__tests__/provider-request-event.test.ts`; `packages/agent-framework/src/interactive/__tests__/interactive-session-usage.test.ts` | Started turns, invocation identity, codec     |
-| TC-02 | Observability reducer contract    | `packages/agent-session-analytics/src/__tests__/personal-usage.test.ts`                                                                                             | Store, turn, activity, timezone, coverage     |
-| TC-03 | CLI process integration           | `packages/agent-cli/examples/verify-personal-usage.ts`; `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`                                              | Text/JSON/error/privacy process assertions    |
-| TC-04 | WebSocket + GUI integration       | `apps/agent-app/e2e/usage-dashboard.mjs`; `packages/agent-transport-protocol/src/__tests__/personal-usage-report.test.ts`                                           | Admission, correlation, dashboard, drill-down |
-| TC-05 | Cross-consumer contract           | `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`; `packages/agent-transport-gui/src/hooks/__tests__/use-session-client-broadcast.test.tsx`            | Shared totals and privacy allowlist           |
+| TC-ID | Test Type                         | Tool / Approach                                                                                                                                                     | Notes                                                                                                  |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| TC-01 | Consumer-driven contract + codec  | `packages/agent-core/src/services/__tests__/provider-request-event.test.ts`; `packages/agent-framework/src/interactive/__tests__/interactive-session-usage.test.ts` | Started turns, invocation identity, codec                                                              |
+| TC-02 | Observability reducer contract    | `packages/agent-session-analytics/src/__tests__/personal-usage.test.ts`                                                                                             | Store, turn, activity, timezone, coverage                                                              |
+| TC-03 | CLI process integration           | `packages/agent-cli/examples/verify-personal-usage.ts`; `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`                                              | Text/JSON/error/privacy process assertions                                                             |
+| TC-04 | WebSocket + GUI integration       | `apps/agent-app/e2e/usage-dashboard.mjs`; `packages/agent-transport-protocol/src/__tests__/personal-usage-report.test.ts`                                           | Admission, correlation, dashboard, drill-down                                                          |
+| TC-05 | Cross-consumer contract           | `packages/agent-cli/src/usage/__tests__/usage-command.test.ts`; `packages/agent-transport-gui/src/hooks/__tests__/use-session-client-broadcast.test.tsx`            | Shared totals and privacy allowlist                                                                    |
 | TC-06 | Initiative lifecycle verification | `scripts/harness/check-task-archival.mjs`; `scripts/harness/scan-task-plan-items.mjs`                                                                               | Skip reason: lifecycle state is verified by the named harness scanners rather than a product test file |
 
 ## User Execution Test Scenarios
@@ -622,9 +622,9 @@ task-archival scan passed (159 active task file(s) examined, 1079 archived in .a
 **Status remains:** in-progress
 **Failed criteria:**
 
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
   **Required action:** make every verify command exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
   **Required action:** make every verify command exit 0
 
 **Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `65d645ea6ad9` (modified)
@@ -634,9 +634,9 @@ task-archival scan passed (159 active task file(s) examined, 1079 archived in .a
 **Status remains:** in-progress
 **Failed criteria:**
 
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 (    134|  ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 ( 134| ⏎ ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
   **Required action:** make every verify command exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 (    134|  ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `env -u NO_COLOR pnpm run -r --workspace-concurrency=1 --if-present test` → exit 1 ( 134| ⏎ ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
   **Required action:** make every verify command exit 0
 
 **Judged at:** HEAD `8634dd21c48f` · base `origin/develop@e20a85e1c6f5` · document `.agents/spec-docs/active/AGREEMENT-2577-coordinate-cross-session-usage-reporting-across-cli-and-gui.md` blob `463991601d0a` (modified)

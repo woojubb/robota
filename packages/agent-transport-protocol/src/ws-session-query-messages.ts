@@ -6,11 +6,7 @@ type TSessionQueryMessage = Extract<
   TClientMessage,
   {
     type:
-      | 'get-messages'
-      | 'get-context'
-      | 'get-executing'
-      | 'get-pending'
-      | 'get-execution-workspace';
+      'get-messages' | 'get-context' | 'get-executing' | 'get-pending' | 'get-execution-workspace';
   }
 >;
 
@@ -36,7 +32,10 @@ export function handleSessionQueryMessage(
   } else if (msg.type === 'get-executing') {
     deliver({ type: 'executing', executing: session.isExecuting() });
   } else if (msg.type === 'get-execution-workspace') {
-    deliver({ type: 'execution_workspace_event', snapshot: session.getExecutionWorkspaceSnapshot() });
+    deliver({
+      type: 'execution_workspace_event',
+      snapshot: session.getExecutionWorkspaceSnapshot(),
+    });
   } else {
     deliver({ type: 'pending', pending: session.getPendingPrompt() });
   }

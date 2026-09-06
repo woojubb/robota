@@ -72,7 +72,9 @@ type TUsageReporters = Pick<
 /** Remove absent reporters so exact-optional handler options remain truthful. */
 export function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
   return {
-    ...(config.personalUsageReporter ? { personalUsageReporter: config.personalUsageReporter } : {}),
+    ...(config.personalUsageReporter
+      ? { personalUsageReporter: config.personalUsageReporter }
+      : {}),
     ...(config.usageReporter ? { usageReporter: config.usageReporter } : {}),
     ...(config.storedSessionUsageReporter
       ? { storedSessionUsageReporter: config.storedSessionUsageReporter }

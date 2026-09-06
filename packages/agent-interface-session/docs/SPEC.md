@@ -47,18 +47,18 @@ symbols also redesign their composition.
 
 ## Type Ownership
 
-| Type                                                             | Location                              | Purpose                                                 |
-| ---------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------- |
-| `IInteractiveSession`, `IInteractiveSessionEvents`               | `src/session-contracts.ts`            | the session surface and its event map                   |
-| the 16 `ISession*` capability slices                             | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time        |
-| `IInteractiveSessionRecord`, `IInteractiveSessionStore`          | `src/session-contracts.ts`            | the persisted session and its store port                |
-| `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`       | `src/session-contracts.ts`            | goal, plan and branch state carried on a session        |
-| `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`        | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union |
-| `ISkillActivationEvent`, `IMemoryEvent`, `IContextReferenceItem` | `src/event-contracts.ts`              | session-event payloads                                  |
+| Type                                                             | Location                              | Purpose                                                   |
+| ---------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------- |
+| `IInteractiveSession`, `IInteractiveSessionEvents`               | `src/session-contracts.ts`            | the session surface and its event map                     |
+| the 16 `ISession*` capability slices                             | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time          |
+| `IInteractiveSessionRecord`, `IInteractiveSessionStore`          | `src/session-contracts.ts`            | the persisted session and its store port                  |
+| `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`       | `src/session-contracts.ts`            | goal, plan and branch state carried on a session          |
+| `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`        | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union   |
+| `ISkillActivationEvent`, `IMemoryEvent`, `IContextReferenceItem` | `src/event-contracts.ts`              | session-event payloads                                    |
 | `TDriverId`, `ISubmitOptions`, `IUiIntentEvent`                  | `src/driver-contracts.ts`             | driver identity, trusted usage surface, and routed events |
-| `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`            | `src/turn-contracts.ts`               | one turn's handle and outcome                           |
-| `ICompactEvent`, `TCompactTrigger`                               | `src/compact-contracts.ts`            | context compaction                                      |
-| `IResumableSessionSummary`                                       | `src/session-summary-contracts.ts`    | the resume-list projection                              |
+| `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`            | `src/turn-contracts.ts`               | one turn's handle and outcome                             |
+| `ICompactEvent`, `TCompactTrigger`                               | `src/compact-contracts.ts`            | context compaction                                        |
+| `IResumableSessionSummary`                                       | `src/session-summary-contracts.ts`    | the resume-list projection                                |
 
 85 declarations. `src/index.ts` is the single entry point.
 
