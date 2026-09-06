@@ -13,9 +13,11 @@ import {
   decideLane,
   fileTouchesTriggerSection,
   findLaneFloors,
+  gatherInputs,
   globToRegExp,
   hunkHasCodeChange,
   isCommentOrBlankLine,
+  isLifecycleProjectionOnly,
   parseLaneFloors,
   parseSpecTriggerSections,
   parseUnifiedDiff,
@@ -314,6 +316,57 @@ describe('scan-lane-declaration — diff reading', () => {
 });
 
 describe('scan-lane-declaration — declaration sources', () => {
+  it('recognizes only canonical lifecycle projection rows', () => {
+    const projection = parseUnifiedDiff(
+      diffFor('.agents/spec-docs/active/AGREEMENT-016.md', [
+        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+      ]),
+    ).get('.agents/spec-docs/active/AGREEMENT-016.md');
+    const mixed = parseUnifiedDiff(
+      diffFor('.agents/spec-docs/active/AGREEMENT-016.md', [
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+        '+ordinary active spec prose',
+      ]),
+    ).get('.agents/spec-docs/active/AGREEMENT-016.md');
+
+    expect(isLifecycleProjectionOnly(projection)).toBe(true);
+    expect(isLifecycleProjectionOnly(mixed)).toBe(false);
+  });
+
+  it('ignores done history and projection-only live rows but keeps ordinary live specs', () => {
+    const root = makeTemp('robota-lane-inputs-');
+    const activePath = '.agents/spec-docs/active/AGREEMENT-016.md';
+    const donePath = '.agents/spec-docs/done/INFRA-154.md';
+    mkdirSync(path.join(root, '.agents/spec-docs/active'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/spec-docs/done'), { recursive: true });
+    writeFileSync(path.join(root, activePath), '---\nlane: L2\n---\n');
+    writeFileSync(path.join(root, donePath), '---\nlane: L1\n---\n');
+    const projectionDiff = path.join(root, 'projection.diff');
+    writeFileSync(
+      projectionDiff,
+      diffFor(activePath, [
+        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+      ]) + diffFor(donePath, ['- evidence', '+repaired evidence']),
+    );
+
+    const projectionInputs = gatherInputs(
+      ['--changed', `${activePath},${donePath}`, '--diff-file', projectionDiff],
+      { root },
+    );
+    expect(projectionInputs.declaration).toMatchObject({ lane: null, conflicts: [] });
+
+    writeFileSync(
+      projectionDiff,
+      diffFor(activePath, ['-old prose', '+ordinary active spec prose']),
+    );
+    const ordinaryInputs = gatherInputs(['--changed', activePath, '--diff-file', projectionDiff], {
+      root,
+    });
+    expect(ordinaryInputs.declaration).toMatchObject({ lane: 'L2', conflicts: [] });
+  });
+
   it('reads the spec frontmatter first, then the trailer, then the PR body', () => {
     const spec = {
       path: '.agents/spec-docs/draft/X.md',

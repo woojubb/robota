@@ -130,6 +130,7 @@
   ".agents/tasks/HARNESS-049-rule-to-skill-agent-refactor.md": 10,
   ".agents/tasks/HARNESS-052-vacuous-green-sweep.md": 1,
   ".agents/tasks/HARNESS-078-single-segment-dotfiles-are-outside-both-name-checks.md": 1,
+  ".agents/tasks/completed/INFRA-162-the-strict-status-check-policy-is-neither-declared-nor-reconciled-so-a-base-fres.md": 1,
   ".agents/tasks/PEER-003-peer-input-coalescing-loses-conversation-turns.md": 1,
   ".agents/tasks/REL-023-changeset-reconciliation.md": 1,
   ".agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md": 2,

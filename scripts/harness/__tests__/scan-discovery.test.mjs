@@ -18,6 +18,13 @@ function fixtureRoot() {
 }
 
 describe('scan discovery', () => {
+  it('treats an absent optional harness directory as having no additional scans', async () => {
+    const root = makeTemp('robota-scan-discovery-empty-');
+    temporaryRoots.push(root);
+
+    await expect(discoverAdditionalScans({ root })).resolves.toEqual([]);
+  });
+
   it('loads a self-declared scan without a runner edit', async () => {
     const root = fixtureRoot();
     writeFileSync(
