@@ -319,13 +319,13 @@ describe('scan-lane-declaration — declaration sources', () => {
   it('recognizes only canonical lifecycle projection rows', () => {
     const projection = parseUnifiedDiff(
       diffFor('.agents/spec-docs/active/AGREEMENT-016.md', [
-        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154.md`',
-        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154.md`',
+        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
       ]),
     ).get('.agents/spec-docs/active/AGREEMENT-016.md');
     const mixed = parseUnifiedDiff(
       diffFor('.agents/spec-docs/active/AGREEMENT-016.md', [
-        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154.md`',
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
         '+ordinary active spec prose',
       ]),
     ).get('.agents/spec-docs/active/AGREEMENT-016.md');
@@ -346,8 +346,8 @@ describe('scan-lane-declaration — declaration sources', () => {
     writeFileSync(
       projectionDiff,
       diffFor(activePath, [
-        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154.md`',
-        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154.md`',
+        '- - [ ] INFRA-154 — todo — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
+        '+- [x] INFRA-154 — done — `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`',
       ]) + diffFor(donePath, ['- evidence', '+repaired evidence']),
     );
 
