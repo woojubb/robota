@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: INFRA
 tags: [harness, cli]
 lane: L2
@@ -479,6 +479,7 @@ blob `94ccbe704f7a7deb1289e45f7f448d5c69ea97f2` (untracked)
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -515,7 +516,102 @@ blob `94ccbe704f7a7deb1289e45f7f448d5c69ea97f2` (untracked)
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `1669f7717750` · base `origin/develop@c835fbee72ab` · document `.agents/spec-docs/todo/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md` blob `783984dda472` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-07
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check:** GATE-VERIFY's prior gate is GATE-IMPLEMENT (`gate-catalogue.md` § Prior-gate map:
+`GATE-VERIFY | GATE-IMPLEMENT | in-progress`). The last-recorded entry on this document is
+`[GATE-IMPLEMENT] — ✅ PASS | 2026-09-07` (`**Status upgrade:** approved → in-progress`), and the
+document's current frontmatter `status: in-progress` matches GATE-VERIFY's expected input; folder
+placement `.agents/spec-docs/active/` agrees with `spec-workflow.md`'s status↔folder mapping
+(`in-progress` → `.agents/spec-docs/active/`, line 257). Ordering check PASSES.
+
+**Mechanical set reproduced independently**, not taken on the caller's reported summary alone —
+`node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc
+.agents/spec-docs/active/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md
+--lane L2 --dry-run --verify-cmd "pnpm exec vitest run
+scripts/harness/__tests__/scan-lane-declaration.test.mjs
+scripts/harness/__tests__/harness-test-tiers.test.mjs" --verify-cmd "node
+scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip
+work-run-measurement"` at HEAD `3bf3ae6b4` → `5 criteria judged — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN`,
+matching the caller's reported counts.
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: `[GATE-IMPLEMENT] —
+✅ PASS | 2026-09-07`; status `in-progress`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`) (`task-plan-items`): PASS (guardian). Read directly:
+  `.agents/tasks/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`
+  carries no `## Plan` heading at all — `grep -n "^## "` on the Task returns exactly `## Problem`,
+  `## Resolution`, `## Test Plan`, `## User Execution Test Scenarios` — the same narrative
+  Problem/Resolution/Test-Plan/User-Execution-Test-Scenarios shape as the two precedent Tasks
+  (`.agents/tasks/completed/HARNESS-102-a-dropped-finding-leaves-no-artifact.md`,
+  `.agents/tasks/completed/INFRA-174-reduce-local-push-process-overhead-for-direct-develop-work.md`),
+  not a checkbox-plan Task. Read `scan-task-plan-items.mjs` directly: `planSection()`
+  (`/^## Plan[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m`) returns `null` when no `## Plan` heading exists,
+  and the scan loop `continue`s past a `null` section without incrementing `examinedPlans` or recording
+  any finding (`scan-task-plan-items.mjs:93-94`). Confirmed live, not just by reading the source:
+  invoking `planSection()` directly against this Task's text returned `null`; `node
+scripts/harness/scan-task-plan-items.mjs` → exit 0, `::examined:: 259 Task Plan sections`,
+  `task-plan-items scan passed.` — this Task is correctly absent from the 259 examined sections.
+  `.agents/tasks/README.md` § "Plan Items" (lines 179-185) confirms `## Plan` is a named, optional
+  section ("holds the work, never its disposition"), not a mandatory Task section. "Every item … is
+  marked complete" is vacuously true over an empty/absent item set — the same reading
+  `gate-operations.mjs`'s sibling `allTasksComplete` (GATE-COMPLETE's identically-shaped criterion)
+  already applies to a checkbox-free Task (`boxes.length === 0` → `pass('...carries no checkbox plan (a
+Task is the problem record, not a breakdown)')`, verified by reading `gate-operations.mjs:1255-1256`
+  directly today). `gate.mjs`'s `verifyChecks()` reports this criterion `PENDING-GUARDIAN` only because
+  its `tasks-complete` id's regex (`/All tasks in \`\.agents\/tasks\/<ID>\.md\` are marked complete/i`,
+`gate-operations.mjs:1311`) no longer matches the catalogue's current wording since issue #2375
+("Every item in the `## Plan`section … is marked complete") — a stale wording binding, independently
+re-confirmed by reading the source today, not an open question about this Task's content. This is the
+same fact pattern and mechanism already recorded against`HARNESS-102`'s and `INFRA-174`'s
+`[GATE-DONE]` entries; reproduced here against the current source and this Task's current content
+  rather than assumed from precedent.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS (guardian). Same absent-`## Plan` fact: there
+  is no Plan item of any kind in this Task, so none can be blocked or pending — vacuously satisfied for
+  the same reason as above. `gate.mjs`'s `no-blocked` id is `PENDING-GUARDIAN` for the identical
+  mechanical cause: its regex `/No tasks are blocked or pending/i` (`gate-operations.mjs:1316`) does not
+  match the catalogue's current "No Plan item is blocked or pending" wording — confirmed by reading
+  `gate-operations.mjs` directly today.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`) (`mechanical`, `gate.mjs`): PASS,
+  as already recorded by the script run above — build-shaped `node scripts/harness/run-all-scans.mjs
+--affected --context pr --skip dist --skip build-contracts --skip work-run-measurement` → exit 0;
+  reproduced identically in this guardian's own dry-run against a clean working tree (`git status
+--porcelain` empty at HEAD `3bf3ae6b4`).
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`) (`mechanical`, `gate.mjs`): PASS, as
+  already recorded by the script run above — test-shaped `pnpm exec vitest run
+scripts/harness/__tests__/scan-lane-declaration.test.mjs
+scripts/harness/__tests__/harness-test-tiers.test.mjs` → exit 0; reproduced identically in this
+  guardian's own dry-run.
+
+**Delivery independently verified** (the content this gate authorises to move forward, not merely the
+document's narrative of it): `git log --oneline -5 -- scripts/harness/scan-lane-declaration.mjs
+scripts/harness/harness-contract-execution.mjs scripts/harness/harness-test-tiers.mjs
+.agents/rules/work-run-measurement.md` shows commit `5ef3e577b` "fix(harness): lane-declaration table
+rows and contract-test log clarity (INFRA-191)" touching all four files, plus follow-up `3bf3ae6b4`
+"fix(harness): correct citation typo and test fixture path for INFRA-191". `git show 5ef3e577b`
+confirms each Solution item present verbatim: (1) `LIFECYCLE_PROJECTION_TABLE_ROW` added to
+`scan-lane-declaration.mjs` and OR'd into `isLifecycleProjectionOnly()`'s per-line match; (2)
+`harness-contract-execution.mjs`'s `runAffectedContractTier` recognizes `--distributed-shard` in argv,
+skips `resolveChangedContractInputs`, and sets `plan.reason = 'distributed shard: running its
+pre-filtered affected subset'` instead of the `changed-file resolution failed closed` text; (3)
+`harness-test-tiers.mjs`'s `completeFallbackArgs` now returns `[...result, '--distributed-shard']`
+instead of forcing `--base-ref HEAD --head-ref HEAD`; (4) `work-run-measurement.md`'s "Git and
+pull-request identity" bullet list gained the reopen-before-content-commit sentence —
+`grep -n "reopen.*before the next content commit" .agents/rules/work-run-measurement.md` → exits 0, at
+line 21. `git status --porcelain` is empty (clean working tree, everything committed); current branch
+`fix/harness-process-overhead-round2` is 4 commits ahead of `origin/develop`, HEAD `3bf3ae6b4`.
+
+**Judged by:** `backlog-gate-guard` (semantic set; mechanical set already judged 3 PASS / 0 FAIL / 2
+PENDING-GUARDIAN by `gate.mjs`, reproduced identically above)
+**Judged at:** HEAD `3bf3ae6b44114d7f79b1a2ab0ac3df56fb93a27e` · base
+`origin/develop@c835fbee72ab2a8ddb429610d9176b43d3ca15b4` · document
+`.agents/spec-docs/active/INFRA-191-continue-process-overhead-reduction-lane-declaration-and-contract-test-log-clarity.md`
+blob `45d6f2fafce6fc44c8612d5462a51d0618399674` (tracked)
