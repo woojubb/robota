@@ -26,6 +26,15 @@ unnecessary L2 promotion and delaying delivery.
 - [ ] Add regression coverage for ignored lifecycle/history changes and retained live spec changes.
 - [ ] Re-run affected scans and the complete lane scanner suite on the final clean head.
 
+## Test Plan
+
+| Criterion | Verification |
+| --- | --- |
+| TC-01 | Add a unified-diff fixture containing the active AGREEMENT lifecycle row and a done-spec evidence edit; assert that the filtered declaration has no L1/L2 conflict. |
+| TC-02 | Exercise `gatherInputs` with active projection-only, active ordinary prose, and done/history paths; assert only the ordinary active spec contributes its frontmatter lane. |
+| TC-03 | Run the lane scanner against the INFRA-154 topic shape and assert exit 0 with the existing L1 declaration. |
+| TC-04 | Run the focused Vitest file and the affected harness scan; both commands must exit 0. |
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of

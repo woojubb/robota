@@ -230,3 +230,15 @@ The design is explicit and bounded; no blocking reason remains.
 **Independent reviewer:** Laplace (subagent) — read-only semantic GATE-APPROVAL review, 2026-09-06.
 
 **Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/backlog/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `d6625007bcca` (untracked)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-06
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task Test Plan/Testing section is 0 chars (absent)
+  **Required action:** write a ≥50-char test plan in the Task
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 2 path(s) outside the paired spec/Task: scripts/harness/__tests__/scan-lane-declaration.test.mjs, scripts/harness/scan-lane-declaration.mjs
+  **Required action:** commit, stash, or remove them before this gate
+
+**Judged at:** HEAD `b2cfc2761207` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `7ef20dcf004a` (tracked)
