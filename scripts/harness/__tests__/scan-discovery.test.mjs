@@ -43,4 +43,11 @@ describe('scan discovery', () => {
       'without scanDefinition; declare what it reads',
     );
   });
+
+  it('resolves to [] for a root with no scripts/harness/ directory at all (issue #2635)', async () => {
+    const root = makeTemp('robota-scan-discovery-no-harness-dir-');
+    temporaryRoots.push(root);
+
+    await expect(discoverAdditionalScans({ root })).resolves.toEqual([]);
+  });
 });

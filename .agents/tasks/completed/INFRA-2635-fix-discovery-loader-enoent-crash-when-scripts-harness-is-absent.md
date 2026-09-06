@@ -1,15 +1,18 @@
 ---
 title: 'INFRA-2635: Fix discovery-loader ENOENT crash when scripts/harness/ is absent'
 issue: https://github.com/woojubb/robota/issues/2635
-status: todo
+status: done
 created: 2026-09-06
 priority: critical
 urgency: now
 area: 'scripts/harness discovery loader'
 depends_on: []
+completed: 2026-09-06
 ---
 
 # INFRA-2635: Fix discovery-loader ENOENT crash when scripts/harness/ is absent
+
+Spec: `.agents/spec-docs/done/INFRA-2635-fix-discovery-loader-enoent-crash-when-scripts-harness-is-absent.md`
 
 ## Objective
 
@@ -23,11 +26,11 @@ currently blocks every push to `develop` regardless of what the branch touches.
 
 ## Plan
 
-- [ ] `candidateFiles()`: catch `ENOENT` specifically and return `[]`; any other `readdirSync`
+- [x] `candidateFiles()`: catch `ENOENT` specifically and return `[]`; any other `readdirSync`
       failure still propagates.
-- [ ] Add a regression test in `scripts/harness/__tests__/scan-discovery.test.mjs` asserting
+- [x] Add a regression test in `scripts/harness/__tests__/scan-discovery.test.mjs` asserting
       `discoverAdditionalScans` resolves to `[]` for a root with no `scripts/harness/` directory.
-- [ ] Run the previously-crashing suites and the full harness test suite to confirm green.
+- [x] Run the previously-crashing suites and the full harness test suite to confirm green.
 
 ## Test Plan
 

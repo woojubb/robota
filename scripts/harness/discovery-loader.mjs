@@ -17,7 +17,16 @@ export const NON_SCAN_ENTRYPOINTS = new Set([
 ]);
 
 function candidateFiles(harnessDir) {
-  return readdirSync(harnessDir, { withFileTypes: true })
+  let entries;
+  try {
+    entries = readdirSync(harnessDir, { withFileTypes: true });
+  } catch (error) {
+    // A root with no `scripts/harness/` directory at all (e.g. an isolated test fixture that only
+    // builds the files one specific test needs) has nothing to discover — not an error (issue #2635).
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+  return entries
     .filter((entry) => entry.isFile() && ENTRYPOINT_PATTERN.test(entry.name))
     .map((entry) => entry.name)
     .sort();
