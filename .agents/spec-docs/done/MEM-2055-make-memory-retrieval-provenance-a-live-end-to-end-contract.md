@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [mem]
 lane: L1
@@ -111,16 +111,16 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm --filter @robota-sdk/agent-framework exec vitest run src/interactive/__tests__/interactive-session-recall.test.ts` → exits 0, and TC-07/TC-08/TC-09 exit 1 with the F11 fix reverted
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-cli test` → exits 0 on both whole suites, not only the new cases
+- [x] TC-01: `pnpm --filter @robota-sdk/agent-framework exec vitest run src/interactive/__tests__/interactive-session-recall.test.ts` → exits 0, and TC-07/TC-08/TC-09 exit 1 with the F11 fix reverted
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement` → exits 0 (work-run-measurement skipped to match `ci.yml`/`scans-full.yml`, which both exclude it — INFRA-174)
+- [x] TC-03: `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-cli test` → exits 0 on both whole suites, not only the new cases
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                    | Notes                                                          |
+| TC-ID | Test Type | Tool / Approach                                                     | Notes                                                           |
 | ----- | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
 | TC-01 | Unit      | `vitest run interactive-session-recall.test.ts` (TC-07/08/09)       | RED with F11 fix reverted (no provenance/events), GREEN with it |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`                          | Regression — the affected set, not the full suite               |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`                         | Regression — the affected set, not the full suite               |
 | TC-03 | Unit      | `pnpm --filter @robota-sdk/agent-framework test` + `agent-cli test` | Whole suites: no regression from the F12 config-shape change    |
 
 ## User Execution Test Scenarios
@@ -142,7 +142,7 @@ None
 
 ## Tasks
 
-- [ ] `.agents/tasks/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` — todo
+- [x] `.agents/tasks/completed/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` — done
 
 ## Evidence Log
 
@@ -213,3 +213,88 @@ None
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `35f1d907e0b5` · base `origin/develop@35f1d907e0b5` · document `.agents/spec-docs/draft/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` blob `f7cb25617a96` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/interactive/__tests__/interactive-session-recall.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:24:11 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /private/tmp/robota-worktrees/mem-001-v2/packages/agent-framework
+
+ ✓ src/interactive/__tests__/interactive-session-recall.test.ts (8 tests) 25ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  01:24:11
+   Duration  691ms (transform 349ms, setup 0ms, collect 531ms, tests 25ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `84835499b618` · base `origin/develop@35f1d907e0b5` · document `.agents/spec-docs/todo/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` blob `755ccfa4c7bd` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-07
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip work-run-measurement`
+**Exit:** 0
+**Output:** (last 10 of 137 line(s))
+
+```
+✓ docs-structure
+
+⚑ 3 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2235/3071 lines (72.8%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 349/791 lines (44.1%) outside the standard sections — consider extracting to docs/design/
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /Users/jungyoun/.claude/projects/-private-tmp-robota-worktrees-mem-001-v2; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+
+117 scans passed, 2 skipped (119 declared what they examined)
+scan receipt NOT written: working tree is not clean: M  packages/agent-cli/src/startup/__tests__/memory-enablement.test.ts, M  packages/agent-cli/src/startup/memory-enablement.ts, M  packages/agent-framework/src/interactive/__tests__/interactive-session-auto-capture.test.ts, M  packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts, M  packages/agent-framework/src/interactive/interactive-session-execution-controller.ts, M  packages/agent-framework/src/interactive/interactive-session-history-tracker.ts, M  packages/agent-framework/src/interactive/interactive-session-prompt.ts, M  packages/agent-framework/src/interactive/interactive-session.ts, M  packages/agent-framework/src/memory/__tests__/automatic-memory.test.ts, M  packages/agent-framework/src/memory/__tests__/file-system-memory-store.test.ts, M  packages/agent-framework/src/memory/__tests__/semantic-memory-store.test.ts, M  packages/agent-framework/src/memory/automatic-memory-controller.ts, M  packages/agent-framework/src/memory/automatic-memory-types.ts, M  scripts/harness/file-size-baseline.json
+EXIT:0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `84835499b618` · base `origin/develop@35f1d907e0b5` · document `.agents/spec-docs/todo/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` blob `f795a4c289c9` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework test && pnpm --filter @robota-sdk/agent-cli test`
+**Exit:** 0
+**Output:** (last 10 of 343 line(s))
+
+```
+ ✓ src/startup/__tests__/diagnose-settings-path.test.ts (3 tests) 2ms
+ ✓ src/modes/__tests__/org-policy-projection.test.ts (2 tests) 1ms
+ ↓ src/init/__tests__/sec-020-runtime-data-ignore.test.ts (5 tests | 5 skipped)
+
+ Test Files  66 passed | 1 skipped (67)
+      Tests  475 passed | 18 skipped (493)
+   Start at  01:24:36
+   Duration  5.05s (transform 981ms, setup 0ms, collect 7.83s, tests 4.79s, environment 5ms, prepare 2.10s)
+
+EXIT:0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `84835499b618` · base `origin/develop@35f1d907e0b5` · document `.agents/spec-docs/todo/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` blob `c1e98ba063ae` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-07
+
+**Status upgrade:** approved → done
+
+**Ordering check:** `[GATE-PLAN] — ✅ PASS | 2026-09-07` recorded above (`draft → approved`); re-run rule `recorded-pass` for this row — `Y` of that entry's Status-upgrade line ("approved") equals the document's current `status:` ("approved"). Document location `.agents/spec-docs/todo/` agrees with `approved` per `spec-workflow.md` § Spec-Document Status and Lifecycle Folders. Ordering check PASSES.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `gate.mjs` reported `PENDING-GUARDIAN` — its `verifyChecks()` binds this criterion by the stale pattern `/All tasks in .agents\/tasks\/<ID>\.md are marked complete/i`, which no longer matches the catalogue's current (issue #2375) wording, so no judgement bound (tool defect, not a document defect). Guardian read `.agents/tasks/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` `## Plan` directly (lines 46-64): 6/6 items `[x]`, 0 unchecked.
+- GATE-VERIFY — No Plan item is blocked or pending: same stale-pattern `PENDING-GUARDIAN` (bound regex `/No tasks are blocked or pending/i` does not match the current wording). Guardian read: none of the 6 Plan items contain "blocked"/"pending" language and none is unchecked; `node scripts/harness/scan-task-plan-items.mjs` corroborates — 260 Task Plan sections examined, scan passed (0 `plan-names-own-disposition` / `done-plan-item-unchecked` findings for this Task).
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): independently re-run (not merely cited) — `pnpm --filter @robota-sdk/agent-framework build` → exit 0 (tsdown, CJS+ESM, "Build complete"); `pnpm --filter @robota-sdk/agent-cli build` → exit 0 (tsdown, CJS+ESM, "Build complete"). Both are the packages named in `## Architecture Review > Affected Scope`.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): independently re-run — `pnpm --filter @robota-sdk/agent-framework test` → exit 0, 210 passed | 8 skipped test files, 1649 passed | 74 skipped tests; `pnpm --filter @robota-sdk/agent-cli test` → exit 0, 66 passed | 1 skipped test files, 475 passed | 18 skipped tests.
+- GATE-COMPLETE — TC-01/TC-02/TC-03 checkboxes `[x]` in `## Completion Criteria`: confirmed, all 3 `[x]`.
+- GATE-COMPLETE — a `[GATE-COMPLETE: TC-N]` entry with command/output/exit exists for each TC-N: confirmed present above for TC-01 (exit 0), TC-02 (exit 0), TC-03 (exit 0), each `Judged by: gate.mjs mechanical evaluator`.
+- GATE-COMPLETE — `## Test Plan` carries a test reference or skip reason for every TC-N, none silently unaddressed: TC-01 names `interactive-session-recall.test.ts` (TC-07/08/09); TC-02 names the affected-scope scan command; TC-03 names the two whole-suite commands — all Tool/Approach cells non-empty, no TC-N without a reference.
+- GATE-COMPLETE — `## Tasks` names the exact active task path: `.agents/tasks/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md`, which exists.
+- GATE-COMPLETE — that active task is completion-ready (all tasks `[x]`, none pending/blocked): same finding as the two GATE-VERIFY Plan criteria above — 6/6 `[x]`, none blocked/pending.
+
+**Judged by:** `backlog-gate-guard` (semantic judgement for the two GATE-VERIFY criteria `gate.mjs` could not bind to their current wording — tool defect, not a document defect; the remaining GATE-VERIFY/GATE-COMPLETE criteria independently corroborated rather than merely re-cited).
+**Judged at:** HEAD `84835499b618` · base `origin/develop@35f1d907e0b5` · document `.agents/spec-docs/todo/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md` blob `23d4222d5e56` (modified)

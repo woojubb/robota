@@ -1,8 +1,9 @@
 ---
 title: 'MEM-2055: make memory retrieval provenance a live end-to-end contract'
 issue: https://github.com/woojubb/robota/issues/2055
-status: todo
+status: done
 created: 2026-09-07
+completed: 2026-09-07
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-cli
@@ -10,6 +11,8 @@ depends_on: []
 ---
 
 # MEM-2055: make memory retrieval provenance a live end-to-end contract
+
+Spec: `.agents/spec-docs/done/MEM-2055-make-memory-retrieval-provenance-a-live-end-to-end-contract.md`
 
 ## Objective
 
@@ -37,7 +40,7 @@ historical audit finding; this Task is the fresh, issue-backed record that actua
   (`interactive-session-history-tracker.ts`), so `/memory used` permanently answered "(no memory used
   in current turn)" (`agent-command/src/memory/memory-command.ts:183`).
 - **Duplicate recall-budget contract (F12):** `memory/automatic-memory-types.ts` — `retrieval:
-  { maxTopics, maxTopicChars }` was a REQUIRED field of the surface-supplied config; the CLI filled it
+{ maxTopics, maxTopicChars }` was a REQUIRED field of the surface-supplied config; the CLI filled it
   (`agent-cli/src/startup/memory-enablement.ts`). Its only reader was
   `AutomaticMemoryController.retrieve()`, which had zero production callers; live per-turn recall
   budgeting comes from the separate `recallMemory.budget` seam (`interactive-session.ts`). Masked only
