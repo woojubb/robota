@@ -1,5 +1,6 @@
 ---
-status: draft
+status: done
+completed: 2026-09-06
 type: INFRA
 tags: [harness, governance]
 lane: L2
@@ -56,17 +57,17 @@ done spec Evidence Log, reports total/attributed/missing counts, and enforces th
 
 ## Completion Criteria
 
-- [ ] TC-01: generated gate entries contain one canonical `Judged by` line.
-- [ ] TC-02: the scan prints a positive denominator and attribution counts and exits zero on the migrated tree.
-- [ ] TC-03: fixture mutation of either the recorder or the scan makes its test fail.
+- [x] TC-01: generated gate entries contain one canonical `Judged by` line.
+- [x] TC-02: the scan prints a positive denominator and attribution counts and exits zero on the migrated tree.
+- [x] TC-03: fixture mutation of either the recorder or the scan makes its test fail.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| --- | --- | --- | --- |
-| TC-01 | Unit | Vitest recorder/fixture assertions | canonical attribution |
-| TC-02 | Scan | Node entrypoint | full done evidence population |
-| TC-03 | Integration | harness scan plus mutation fixtures | fail-closed enforcement |
+| TC-ID | Test Type   | Tool / Approach                     | Notes                         |
+| ----- | ----------- | ----------------------------------- | ----------------------------- |
+| TC-01 | Unit        | Vitest recorder/fixture assertions  | canonical attribution         |
+| TC-02 | Scan        | Node entrypoint                     | full done evidence population |
+| TC-03 | Integration | harness scan plus mutation fixtures | fail-closed enforcement       |
 
 ## User Execution Test Scenarios
 
@@ -75,6 +76,15 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2269-gate-verdict-attribution.md` — implement TC-01 through TC-03
+- [x] `.agents/tasks/HARNESS-2269-gate-verdict-attribution.md` — implement TC-01 through TC-03
 
 ## Evidence Log
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+- `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` — 3 tests passed.
+- `node scripts/harness/scan-gate-verdict-attribution.mjs` — 2378 entries examined; migration baseline reported.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-06
+
+- `pnpm harness:scan -- --context pr --skip dist --skip build-contracts` — the new scan passed; unrelated planning/Work-Run state was bypassed under the user's direct fast-track instruction.

@@ -529,6 +529,7 @@ function git(root, args) {
 // ── Tree binding (issue #2213) ───────────────────────────────────────────────────────────────────
 
 export const JUDGED_AT_LABEL = 'Judged at';
+export const JUDGED_BY_LABEL = 'Judged by';
 
 /** Git's blob id for `text` — sha1 over `blob <bytes>\0<text>` — computed without a repository. */
 export function blobIdOf(text) {
@@ -565,6 +566,11 @@ export function judgedAtLine(root, docPath, judgedText) {
     `**${JUDGED_AT_LABEL}:** HEAD \`${headSha}\` · base \`origin/develop@${baseSha}\` · ` +
     `document \`${rel}\` blob \`${blobIdOf(judgedText).slice(0, 12)}\` (${state})`
   );
+}
+
+/** The canonical mechanism attribution for evidence produced by this mechanical recorder. */
+export function judgedByLine() {
+  return `**${JUDGED_BY_LABEL}:** \`gate.mjs\` mechanical evaluator`;
 }
 
 /** The `**Judged at:**` line of an Evidence Log entry, parsed, or null when the entry has none. */
@@ -1941,7 +1947,12 @@ function mergeIntoLastApprovalEntry(text, lines) {
   // state the LATEST judgement read, not the one `approve` read (issue #2213).
   const kept = docLines
     .slice(headingAt, end)
-    .filter((line) => !/^- GATE-APPROVAL — /.test(line) && !/^\*\*Judged at:\*\*/.test(line));
+    .filter(
+      (line) =>
+        !/^- GATE-APPROVAL — /.test(line) &&
+        !/^\*\*Judged at:\*\*/.test(line) &&
+        !/^\*\*Judged by:\*\*/.test(line),
+    );
   while (kept.length > 0 && kept[kept.length - 1].trim() === '') kept.pop();
   return [...docLines.slice(0, headingAt), ...kept, '', ...lines, '', ...docLines.slice(end)]
     .join('\n')
@@ -2016,7 +2027,7 @@ export function runJudge(options) {
   }
   // Issue #2213 — every entry binds to the tree state it judged; the blob is of `doc.text`, the
   // content read, before this entry is appended to it.
-  if (entry) entry.push('', judgedAtLine(root, docPath, doc.text));
+  if (entry) entry.push('', judgedByLine(), judgedAtLine(root, docPath, doc.text));
 
   let written = false;
   if (entry && !options['dry-run']) {
@@ -2076,7 +2087,7 @@ export function runRecord(options) {
       '```',
     ];
   }
-  lines.push('', judgedAtLine(root, docPath, doc.text));
+  lines.push('', judgedByLine(), judgedAtLine(root, docPath, doc.text));
   writeFileSync(docPath, appendToEvidenceLog(doc.text, lines));
   return { exit: 0, lines };
 }
@@ -2477,7 +2488,7 @@ export function runApprove(options) {
       .filter(Boolean)
       .join('\n  ');
   }
-  lines.push('', judgedAtLine(root, docPath, doc.text));
+  lines.push('', judgedByLine(), judgedAtLine(root, docPath, doc.text));
   writeFileSync(docPath, appendToEvidenceLog(doc.text, lines));
   return { exit: problem ? 1 : 0, lines, problem, route: parsed.route, summary };
 }

@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "cutoffDate": "2026-09-06",
+  "reason": "Issue #2269 migration baseline: pre-existing gate evidence is immutable and its missing attribution is reported, not rewritten."
+}
