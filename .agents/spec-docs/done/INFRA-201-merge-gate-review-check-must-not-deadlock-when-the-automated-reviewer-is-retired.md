@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: INFRA
 tags: [harness, hooks]
 lane: L2
@@ -121,17 +121,17 @@ section starts asking `gh` for the PR's base/head OIDs:
 
 ## Completion Criteria
 
-- [ ] TC-01: With no `github-actions[bot]`-authored comment/review anywhere on a PR and CI green, `gh pr merge <N> --merge` (simulated via the hook's stdin contract) exits 0 with a printed notice naming the retirement — verified against a fixture PR/transcript, not a live GitHub call
-- [ ] TC-02: With a `github-actions[bot]`-authored comment present, the existing strict verification path is reached and behaves exactly as before (unchanged pass/fail outcomes) — verified against the hook's existing fixture-based test coverage
-- [ ] TC-03: `bash -n .claude/hooks/merge-gate.sh` (syntax check) and the hook's existing test suite both exit 0
+- [x] TC-01: With no `github-actions[bot]`-authored comment/review anywhere on a PR and CI green, `gh pr merge <N> --merge` (simulated via the hook's stdin contract) exits 0 with a printed notice naming the retirement — verified against a fixture PR/transcript, not a live GitHub call
+- [x] TC-02: With a `github-actions[bot]`-authored comment present, the existing strict verification path is reached and behaves exactly as before (unchanged pass/fail outcomes) — verified against the hook's existing fixture-based test coverage
+- [x] TC-03: `bash -n .claude/hooks/merge-gate.sh` (syntax check) and the hook's existing test suite both exit 0
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                             | Notes                                                                      |
-| ----- | --------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| TC-01 | Unit      | The hook's existing bats/shell test harness, new case: no reviewer comment, CI clean        | Confirms the early-exit path fires and prints the retirement notice        |
-| TC-02 | Unit      | The hook's existing bats/shell test harness, existing cases with a reviewer comment present | Regression — every existing pass/fail case must keep its outcome unchanged |
-| TC-03 | Static    | `bash -n` + the full existing test file for this hook                                       | Syntax and full regression                                                 |
+| TC-ID | Test Type | Tool / Approach                                                                                                                                                                                                                                                    | Notes                                                                      |
+| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| TC-01 | Unit      | Test written: `scripts/harness/__tests__/merge-gate-decision.test.mjs > the merge gate decides on CI and on a current review > skips review verification when nobody matching the reviewer has ever commented` (+ 2 sibling INFRA-201 cases)                       | Confirms the early-exit path fires and prints the retirement notice        |
+| TC-02 | Unit      | Test written: `scripts/harness/__tests__/merge-gate-decision.test.mjs > the merge gate decides on CI and on a current review > re-engages the full check the moment the reviewer identity comments again` (+ sibling `accepts the reviewer under either spelling`) | Regression — every existing pass/fail case must keep its outcome unchanged |
+| TC-03 | Static    | Test written: `bash -n .claude/hooks/merge-gate.sh` + full `merge-gate-decision.test.mjs` + `merge-gate-disposition.test.mjs` suite (80 tests)                                                                                                                     | Syntax and full regression                                                 |
 
 ## User Execution Test Scenarios
 
@@ -150,7 +150,7 @@ interaction to execute — it is repository contributor tooling, not the product
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` — not yet implemented (planning checkpoint only)
+- [x] `.agents/tasks/completed/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` — done
 
 ## Evidence Log
 
@@ -389,3 +389,86 @@ defect documented above — judged here rather than left pending).
 **Judged at:** HEAD `a0408b6c9c88` · base `origin/develop@be9d6b0a91c7` · document
 `.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md`
 blob `1090b324c6db` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs -t "skips review verification when nobody matching the reviewer has ever commented|does not read a login merely CONTAINING|skips review on a reviewer mismatch"`
+**Exit:** 0
+**Output:** (last 10 of 18 line(s))
+
+```
+   ✓ the merge gate decides on CI and on a current review > refuses when the reviewer never delivered a verdict  1038ms
+   ✓ the merge gate decides on CI and on a current review > does not read a login merely CONTAINING the reviewer name as the reviewer (INFRA-201)  536ms
+   ✓ the merge gate decides on CI and on a current review > skips review on a reviewer mismatch, PR #2649 reproduction (INFRA-201)  520ms
+   ✓ the merge gate decides on CI and on a current review > accepts the reviewer under either spelling of the bot login  2284ms
+   ✓ every inline finding is answered where it was raised > lets threads through when none of them are the reviewer's to answer  1104ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed | 57 skipped (68)
+   Start at  02:46:07
+   Duration  7.79s (transform 21ms, setup 0ms, collect 24ms, tests 7.64s, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2be8ffc089c3` · base `origin/develop@be9d6b0a91c7` · document `.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` blob `b700730562e5` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs -t "re-engages the full check the moment the reviewer identity comments again|accepts the reviewer under either spelling"`
+**Exit:** 0
+**Output:** (last 10 of 18 line(s))
+
+```
+   ✓ the merge gate decides on CI and on a current review > refuses when the reviewer never delivered a verdict  1038ms
+   ✓ the merge gate decides on CI and on a current review > does not read a login merely CONTAINING the reviewer name as the reviewer (INFRA-201)  536ms
+   ✓ the merge gate decides on CI and on a current review > skips review on a reviewer mismatch, PR #2649 reproduction (INFRA-201)  520ms
+   ✓ the merge gate decides on CI and on a current review > accepts the reviewer under either spelling of the bot login  2284ms
+   ✓ every inline finding is answered where it was raised > lets threads through when none of them are the reviewer's to answer  1104ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed | 57 skipped (68)
+   Start at  02:46:07
+   Duration  7.79s (transform 21ms, setup 0ms, collect 24ms, tests 7.64s, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2be8ffc089c3` · base `origin/develop@be9d6b0a91c7` · document `.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` blob `aadcd67e1e9b` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-07
+
+**Command:** `bash -n .claude/hooks/merge-gate.sh && pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs scripts/harness/__tests__/merge-gate-disposition.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 79 line(s))
+
+```
+   ✓ every inline finding is answered where it was raised > refuses a thread resolved with no reply under it  1069ms
+   ✓ every inline finding is answered where it was raised > refuses a FULL page, because the rest can no longer be proven resolved  987ms
+   ✓ every inline finding is answered where it was raised > does not refuse a short page  1015ms
+   ✓ every inline finding is answered where it was raised > lets threads through when none of them are the reviewer's to answer  986ms
+   ✓ every inline finding is answered where it was raised > refuses when it cannot read the thread state at all  991ms
+
+ Test Files  2 passed (2)
+      Tests  80 passed (80)
+   Start at  02:27:13
+   Duration  59.01s (transform 52ms, setup 0ms, collect 85ms, tests 67.68s, environment 0ms, prepare 65ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2be8ffc089c3` · base `origin/develop@be9d6b0a91c7` · document `.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` blob `68aeb59bb0a5` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-07
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-07; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (3)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (3) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: .agents/tasks/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md carries no checkbox plan (a Task is the problem record, not a breakdown)
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2be8ffc089c3` · base `origin/develop@be9d6b0a91c7` · document `.agents/spec-docs/active/INFRA-201-merge-gate-review-check-must-not-deadlock-when-the-automated-reviewer-is-retired.md` blob `4d2ac433d9cd` (modified)

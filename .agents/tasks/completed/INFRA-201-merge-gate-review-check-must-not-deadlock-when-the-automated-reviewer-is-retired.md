@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-201: merge-gate review check must not deadlock when the automated reviewer is retired'
-status: in-progress
+status: done
 created: 2026-09-07
+completed: 2026-09-07
 priority: high
 urgency: soon
 area: .claude/hooks
