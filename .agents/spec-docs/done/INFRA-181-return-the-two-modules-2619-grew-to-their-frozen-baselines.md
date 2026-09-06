@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [infra]
 lane: L1
@@ -317,3 +317,54 @@ Successfully rebased and updated refs/heads/codex/work-run-lifecycle.)
   **Required action:** name the test or record why it was skipped
 
 **Judged at:** HEAD `a0841c39d3df` · base `origin/develop@f322256413f9` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `4f565a61e7c6` (modified)
+
+### [GATE-DONE] — ⚠️ PARTIAL (guardian criteria only) | 2026-09-06
+
+**Ordering check:** PASS — prior gate `[GATE-PLAN] — ✅ PASS | 2026-09-06` recorded above; frontmatter `status: approved` matches the state GATE-DONE (lane L1) expects as input.
+
+**Scope of this judgement:** only the two PENDING-GUARDIAN criteria nested under GATE-VERIFY were evaluated against `.agents/tasks/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` `## Plan`. This is NOT a full GATE-DONE verdict — the two mechanical GATE-VERIFY criteria below remain FAIL and are recorded as-is, unresolved.
+
+**Guardian criteria (judged, this entry):**
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) — ✅ PASS: all three Plan items (U01, U02, U03) in the Task are `[x]`, each with a completion note naming the commit (`d440bed89`) and the extracted module/exports.
+- GATE-VERIFY — No Plan item is blocked or pending — ✅ PASS: no Plan item carries an unchecked box, a "blocked" marker, or a "pending" marker; all three read as finished work with commit provenance.
+
+**Mechanical criteria (NOT judged here, carried forward unresolved from the dry-run — out of scope for this guardian's remit):**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm harness:scan` → exit 1 (1 of 159 scans failed: `work-run-measurement`, a separate, already-known, in-progress receipt-closure step on this branch, not part of this Task's Plan). `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/work-run-store.test.mjs scripts/harness/__tests__/work-run-lifecycle.test.mjs` → exit 0. **Still FAIL, unresolved** — required action unchanged: make every verify command exit 0.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): same evidence and same **still FAIL, unresolved** status as above.
+
+**Verdict:** the two PENDING-GUARDIAN criteria this entry was scoped to judge both PASS. The composite GATE-DONE (lane L1) as a whole is **not** a PASS while the two mechanical build/test criteria remain FAIL pending this branch's `work-run-measurement` receipt-closure step — that resolution is out of scope for this guardian invocation and is not attempted here.
+
+**Judged at:** HEAD `3eb1d4c6f343b929eb684c9e619f0cd80baddcdf` · base `origin/develop@c651c769e27c9a0ee147be8ffda937cbc1072610` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `01d393354eba74aaee31505685ff3b5e2cd24969` (tracked)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → done
+
+**Ordering check:** PASS — prior gate `[GATE-PLAN] — ✅ PASS | 2026-09-06` recorded above is the PASS that upgraded the status; the later out-of-order `[GATE-DONE] — ❌ FAIL | 2026-09-06` and `[GATE-DONE] — ⚠️ PARTIAL (guardian criteria only) | 2026-09-06` entries do not revoke it. Frontmatter `status: approved` matches the state GATE-DONE (lane L1) expects as input.
+
+**Verify commands supplied to this dry-run (both real, correctly-scoped — not stand-ins):**
+
+- `pnpm build`
+- `npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/work-run-store.test.mjs scripts/harness/__tests__/work-run-lifecycle.test.mjs`
+
+Scope verified independently, not accepted on the caller's characterization: `git diff origin/develop...HEAD --stat` shows every non-markdown file this branch touches lives under `scripts/harness/` (a root-level tooling location, not a `packages/*` workspace member) — `allocate-work-item-id.mjs`, `new-spec.mjs`, `work-item-issue-binding.mjs`, `new-spec-task-record.mjs`, `work-run-store.mjs`, `work-run-store-locking.mjs`, `work-run-branch-pointer.mjs`, plus the `file-size-baseline.json` / `reference-kind-baseline.json` data files. `pnpm build` is `pnpm --filter "./packages/**" build:js && node scripts/build-types-ordered.mjs` (`package.json` line 16) — the real repository-wide build, not a stand-in; since no `packages/*` file is touched, a real green run is the correct "no affected package regressed" evidence. For test coverage, read every changed/added module's consumer test and confirmed each is exercised, not merely imported: `allocate-work-item-id.test.mjs` imports AND calls `closeCreatedIssue`/`resolveIssueNumber` (the exact functions `d440bed89` moved into `work-item-issue-binding.mjs` and re-exported); `new-spec.test.mjs` imports AND calls `readTaskRecord`/`slugify` (moved into `new-spec-task-record.mjs` and re-exported); `work-run-store.mjs` imports `branchKey`/`withWorkRunLock`/`workRunPointerPath` from `work-run-store-locking.mjs` and `assertPointerReleasedFor`/`claimBranchRun`/`readReusableBranchRun` from `work-run-branch-pointer.mjs`, all called from `WorkRunStore.withLock`/`.pointerPath`/`.withActiveRun`/`.claim`/`.invalidate`, which `work-run-store.test.mjs` and `work-run-lifecycle.test.mjs` exercise directly (confirmed `store.invalidate(...)` at `work-run-store.test.mjs:480` reaches the `assertPointerReleasedFor` call site at `work-run-store.mjs:266`). No file this branch changed is left without a suite in the supplied command. This is adequate "tests pass for all affected packages" evidence for this branch's actual diff.
+
+**Criteria (13 total — 11 mechanical from the dry-run below, verbatim, plus the 2 PENDING-GUARDIAN criteria carried forward from the confirmed `[GATE-DONE] — ⚠️ PARTIAL (guardian criteria only) | 2026-09-06` entry above):**
+
+- GATE-DONE — ordering (prior gate PASS + status match): PASS — see **Ordering check** above.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — carried forward from `[GATE-DONE] — ⚠️ PARTIAL (guardian criteria only) | 2026-09-06` above: all three Plan items (U01, U02, U03) in the Task are `[x]`, each with a completion note naming commit `d440bed89` and the extracted module/exports. Re-confirmed by a fresh read of `.agents/tasks/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` `## Plan` this run: U01/U02/U03 remain `[x]`, unchanged since that judgement.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — same source and same fresh re-read: no Plan item carries an unchecked box, a "blocked" marker, or a "pending" marker; all three read as finished work with commit provenance.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — dry-run: `build-shaped \`pnpm build\` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); all 2 supplied commands exit 0`. Scope adequacy independently confirmed (see above) — real command, correct for a branch touching no `packages/*` file.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — dry-run: `test-shaped \`npx vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/work-run-store.test.mjs scripts/harness/__tests__/work-run-lifecycle.test.mjs\` → exit 0 …; all 2 supplied commands exit 0`. Scope adequacy independently confirmed (see above) — every changed `.mjs` module has a suite in this command that actually calls its moved/changed functions, not just imports them.
+- GATE-COMPLETE — The checkbox is checked (`[x]`): PASS — 5/5 TC checkboxes `[x]`.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with command/output for every TC: PASS — a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5), recorded above in this document.
+- GATE-COMPLETE — One of Test written / Test skipped (with reason) is recorded for every Test Plan row: PASS — every Test Plan row (5) carries a test reference or a skip reason.
+- GATE-COMPLETE — No TC-N is silently unaddressed: PASS — every Test Plan row (5) carries a test reference or a skip reason.
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: PASS — 5/5 TC checkboxes `[x]`.
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: PASS — every Test Plan row (5) carries a test reference or a skip reason.
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: PASS — `## Tasks` names `.agents/tasks/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md`, which exists.
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks `[x]`, no pending or blocked item: PASS — 8/8 tasks `[x]` in `.agents/tasks/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md`.
+
+**Judged at:** HEAD `3eb1d4c6f343b929eb684c9e619f0cd80baddcdf` · base `origin/develop@c651c769e27c9a0ee147be8ffda937cbc1072610` · document `.agents/spec-docs/todo/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md` blob `4b0b8b03f6a3f6734b5ea9288b728ea1a2ce55a0` (modified)

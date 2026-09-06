@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-181: return the two modules PR #2619 grew to their frozen baselines'
 issue: https://github.com/woojubb/robota/issues/2620
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-06
 priority: high
 urgency: now
