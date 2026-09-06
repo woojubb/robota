@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-2631: Retire the non-functional Claude Code Review GitHub Action and its harness dependents'
-status: todo
+status: in-progress
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -11,6 +11,7 @@ issue: 2631
 
 # INFRA-2631: Retire the non-functional Claude Code Review GitHub Action and its harness dependents
 
+Spec: `.agents/spec-docs/done/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md`
 
 ## Objective
 
