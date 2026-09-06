@@ -309,6 +309,12 @@
       "timestamp": "2026-08-28T00:15:56.907Z",
       "ratio": "147/148",
       "reason": "Contained — INFRA-144. The same real violation recurred in a later status message: 147 of 148 was reported without its percentage (99.3%). Recorded separately because the repeat is evidence that post-hoc intent is not a pre-emission mechanism."
+    },
+    {
+      "transcript": "ac78d7f4-f988-4995-b6d8-0d2546b3f6e2.jsonl",
+      "timestamp": "2026-09-05T13:27:49.474Z",
+      "ratio": "57/60",
+      "reason": "A real violation, committed by me: a mid-work status reported 57/60 scans passing without the percentage (95%). The transcript is append-only, so this historic omission is recorded rather than edited; future progress reports state both the ratio and percentage."
     }
   ]
 }

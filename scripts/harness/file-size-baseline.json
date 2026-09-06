@@ -149,6 +149,6 @@
   "scripts/harness/scan-unearned-done-claims.mjs": 652,
   "scripts/harness/scan-user-execution-plan-order.mjs": 2415,
   "scripts/harness/scan-workflow-permissions.mjs": 388,
-  "scripts/harness/shared.mjs": 846,
-  "scripts/harness/worktree-gate.mjs": 436
+  "scripts/harness/shared.mjs": 839,
+  "scripts/harness/worktree-gate.mjs": 431
 }

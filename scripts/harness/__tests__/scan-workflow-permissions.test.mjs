@@ -298,6 +298,7 @@ describe('the examined count is what was read, not what was declared', () => {
     fs.copyFileSync(SCAN_SCRIPT_PATH, copied);
     // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
     for (const shared of [
+      'entrypoint.mjs',
       'shared.mjs',
       'git-base-ref-resolution.mjs',
       'manifest-change-classification.mjs',

@@ -8,7 +8,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -93,6 +93,14 @@ describe('a branch another worktree holds', () => {
     const current = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');
 
     expect(branchHeldElsewhereFindings(current, repo)).toEqual([]);
+  });
+
+  it('does not object when this worktree is addressed through a filesystem alias', () => {
+    const alias = path.join(root, 'repo-alias');
+    symlinkSync(repo, alias, 'dir');
+    const current = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');
+
+    expect(branchHeldElsewhereFindings(current, alias)).toEqual([]);
   });
 
   it('lists every worktree and the branch each one holds', () => {

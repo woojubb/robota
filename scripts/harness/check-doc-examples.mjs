@@ -94,6 +94,10 @@ export function extractBlocks(markdown) {
   return blocks;
 }
 
+export function examinedLine(count) {
+  return `::examined:: ${count} documentation code blocks`;
+}
+
 /**
  * PERF-006: this tsconfig carries NO `baseUrl`, and the `paths` values are absolute instead.
  *
@@ -178,12 +182,13 @@ export async function main() {
 
   if (!failed) {
     process.stdout.write(
-      `::examined:: ${manifest.length} documentation code blocks\n` +
+      `${examinedLine(manifest.length)}\n` +
         `doc-examples scan passed (${manifest.length} blocks typechecked, ${skipped} marked skip).\n`,
     );
     return;
   }
 
+  process.stdout.write(`${examinedLine(manifest.length)}\n`);
   process.stdout.write('doc-examples scan failed — README code blocks do not typecheck:\n');
   const bySource = new Map();
   for (const line of output.split('\n')) {

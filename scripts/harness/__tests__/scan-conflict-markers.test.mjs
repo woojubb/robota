@@ -132,6 +132,7 @@ describe('scan-conflict-markers CLI', () => {
     copyFileSync(SCAN_SCRIPT, scriptCopy);
     // The root resolver is the shared owner (issue #2413); the copy needs it and what it imports.
     for (const shared of [
+      'entrypoint.mjs',
       'shared.mjs',
       'git-base-ref-resolution.mjs',
       'manifest-change-classification.mjs',

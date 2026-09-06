@@ -47,6 +47,7 @@ const TASKS_DIR = '.agents/tasks';
 export const LEGACY_BASELINE = 'scripts/harness/task-merged-citation-legacy-baseline.json';
 /** Paths a citing commit may touch WITHOUT counting as a delivery: the records themselves. */
 const RECORD_PREFIX = '.agents/';
+const SPEC_FOLDERS = ['todo', 'active', 'backlog'];
 
 let examinedRecords = 0;
 let examinedCommits = 0;
@@ -74,6 +75,35 @@ function escapeRegExp(text) {
 /** Does a commit subject cite this ID as a whole token? `ARCH-1000` does not cite `ARCH-100`. */
 export function citesWorkItem(subject, id) {
   return new RegExp(`(^|[^A-Za-z0-9-])${escapeRegExp(id)}(?![A-Za-z0-9-])`).test(subject);
+}
+
+/** A legacy record is reconciled only by a paired spec with complete, recorded gate evidence. */
+export function hasCompletionEvidence(content) {
+  const criteria = String(content ?? '').match(/^[-*] \[x\] (TC-\d{2,})(?::|\s)/gm) ?? [];
+  if (criteria.length === 0) return false;
+  const ids = [...new Set(criteria.map((line) => line.match(/TC-\d{2,}/)?.[0]).filter(Boolean))];
+  return ids.every((id) =>
+    new RegExp(`^### \\[GATE-COMPLETE: ${escapeRegExp(id)}\\] — ✅ PASS`, 'm').test(content),
+  );
+}
+
+function pairedSpecContent(root, record, readSpec = null) {
+  const basename = record.file.slice(`${TASKS_DIR}/`.length);
+  for (const folder of SPEC_FOLDERS) {
+    const file = `.agents/spec-docs/${folder}/${basename}`;
+    const content = readSpec ? readSpec(file, record) : readFileIfPresent(root, file);
+    if (content !== null) return content;
+  }
+  return null;
+}
+
+function readFileIfPresent(root, file) {
+  try {
+    return readFileSync(path.join(root, file), 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 /** A commit delivers when it touches at least one path outside the records tree. */
@@ -210,6 +240,7 @@ export function findTaskMergedCitationFindings(root = WORKSPACE_ROOT, io = {}) {
     }
     // A commit citing a Plan unit the record itself already marks `[x]` complete is a staged,
     // honestly multi-PR delivery — not a premature-completion claim — and does not reconcile.
+    if (hasCompletionEvidence(pairedSpecContent(root, record, io.specContent) ?? '')) continue;
     const completedUnits = completedPlanUnits(taskContent(record.file));
     const unreconciled = delivering.filter((commit) => {
       const unit = citedUnitOf(commit.subject, record.id);

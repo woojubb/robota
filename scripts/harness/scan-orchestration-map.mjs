@@ -22,7 +22,7 @@ import path from 'node:path';
 // identity the map was checked against.
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
-import { resolveWorkspaceRoot } from './shared.mjs';
+import { isEntryPoint, resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
@@ -209,6 +209,6 @@ export function main() {
   process.exit(0);
 }
 
-if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+if (isEntryPoint(import.meta)) {
   main();
 }

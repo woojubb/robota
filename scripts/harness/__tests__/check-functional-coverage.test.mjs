@@ -205,6 +205,7 @@ describe('check-functional-coverage CLI', () => {
     );
     // The root resolver is the shared owner too (issue #2413); the copy needs it and what it imports.
     for (const name of [
+      'entrypoint.mjs',
       'shared.mjs',
       'git-base-ref-resolution.mjs',
       'manifest-change-classification.mjs',

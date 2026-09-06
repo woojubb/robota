@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * Run every harness scan and report ALL results in one pass.
  *
@@ -11,17 +10,14 @@
  *
  * Exit code 0 = all scans passed, 1 = at least one scan failed.
  */
-
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-
 import { classifyRange } from './classify-changed-paths.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
 import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
-
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
@@ -54,7 +50,6 @@ export const ADVISORY_MARKER = '::advisory::';
  */
 const ANSI_ESCAPE = '\u001b';
 const ANSI_SGR_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, 'g');
-
 /**
  * Advisory texts a scan emitted, in the order printed. Pure, so the rule is testable without
  * spawning anything.
@@ -102,7 +97,6 @@ export function extractAdvisories(output) {
  */
 export const EXAMINED_MARKER = '::examined::';
 export const EXPECTED_EMPTY_MARKER = '::expected-empty::';
-
 /**
  * Every examined-size declaration in a scan's output.
  *
@@ -132,7 +126,6 @@ export function extractExamined(output) {
   }
   return found;
 }
-
 /**
  * The verdict on one scan's declarations: what it examined, and whether a zero was earned.
  *
@@ -163,7 +156,6 @@ export function judgeExamined(name, output) {
   }
   return { declared: declarations.length > 0, skipped, problems };
 }
-
 /**
  * WHICH scans declare what they examined — a ratchet, and the reason it is one.
  *
@@ -186,7 +178,6 @@ export const EXAMINED_ADOPTION_BASELINE_PATH = path.join(
   WORKSPACE_ROOT,
   'scripts/harness/examined-adoption-baseline.json',
 );
-
 /**
  * @param declaringNames  scans that RAN and emitted `::examined::` (an earned zero counts)
  * @param evaluableNames  scans that RAN (the population this pass can judge)
@@ -251,7 +242,6 @@ export function judgeExaminedAdoption(
   }
   return { ok: true, message: null };
 }
-
 function defaultReadAdoption() {
   try {
     const parsed = JSON.parse(readFileSync(EXAMINED_ADOPTION_BASELINE_PATH, 'utf8')).declaring;
@@ -260,7 +250,6 @@ function defaultReadAdoption() {
     return null;
   }
 }
-
 /**
  * Re-freeze the baseline from an observed pass (invoked by `--write-adoption-baseline`). MERGES: for
  * scans that were evaluable this pass, take the observed declaring status; for scans NOT evaluated
@@ -288,7 +277,6 @@ export function writeAdoptionBaseline(
   writeFile(merged);
   return merged;
 }
-
 function defaultWriteAdoption(names) {
   writeFileSync(
     EXAMINED_ADOPTION_BASELINE_PATH,
@@ -1181,19 +1169,16 @@ export const SCAN_COMMANDS = [
     advisory: true,
   },
   {
-    // RULE-025 F1 — aged in-progress work with an already merged delivery has no terminal state.
     name: 'item-terminal-state',
     command: ['node', 'scripts/harness/scan-item-terminal-state.mjs'],
     always: true,
   },
   {
-    // RULE-025 F3 — the gate evaluator and the evidence it judges must not share one item.
     name: 'gate-evaluator-isolation',
     command: ['node', 'scripts/harness/scan-gate-evaluator-isolation.mjs'],
     always: true,
   },
   {
-    // RULE-025 F2 — tool-defect closure is an exact, auditable evidence form.
     name: 'gate-closure-disposition',
     command: ['node', 'scripts/harness/scan-gate-closure-disposition.mjs'],
     examines: ['.agents/spec-docs/'],
@@ -1508,7 +1493,6 @@ export function parseStatusPorcelain(output) {
   }
   return files;
 }
-
 /**
  * The changed paths of this checkout against a base: the committed delta (union across every merge
  * base, as `classify-changed-paths.mjs` computes it) plus whatever the working tree holds that the
@@ -1545,7 +1529,6 @@ export function resolveChangedPaths({
   }
   return { files: [...new Set([...range.files, ...working])].sort(), base, error: null };
 }
-
 function spawnScan(command) {
   return new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
@@ -1925,7 +1908,6 @@ export async function main() {
     );
   }
 }
-
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

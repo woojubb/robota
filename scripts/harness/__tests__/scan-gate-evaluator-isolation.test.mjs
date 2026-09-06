@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   commitIsolationFindings,
+  examinedLine,
+  evaluatorIsolationCommitFindings,
   evaluatorIsolationFindings,
 } from '../scan-gate-evaluator-isolation.mjs';
 
@@ -16,6 +18,21 @@ describe('gate-evaluator-isolation', () => {
 
   it('allows evidence changes without evaluator changes', () => {
     expect(evaluatorIsolationFindings(['.agents/spec-docs/active/RULE-025.md'])).toEqual([]);
+  });
+
+  it('allows evaluator and evidence changes in separate commits', () => {
+    expect(
+      evaluatorIsolationCommitFindings([
+        { sha: 'aaaaaaaaa', paths: ['scripts/harness/gate.mjs'] },
+        { sha: 'bbbbbbbbb', paths: ['.agents/spec-docs/active/RULE-025.md'] },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('explains an empty diff as expected when no paths are available to inspect', () => {
+    expect(examinedLine(0)).toContain(
+      '::examined:: 0 changed path(s) ::expected-empty:: HEAD is the merge base',
+    );
   });
 });
 
@@ -47,7 +64,10 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
   it('names the offending commit, so the reader knows which one to split', () => {
     const findings = commitIsolationFindings([
       { commit: 'aaa1111', paths: ['.agents/spec-docs/active/RULE-025.md'] },
-      { commit: 'ccc3333', paths: ['.claude/hooks/intake-guard.sh', '.agents/spec-docs/todo/X.md'] },
+      {
+        commit: 'ccc3333',
+        paths: ['.claude/hooks/intake-guard.sh', '.agents/spec-docs/todo/X.md'],
+      },
     ]);
     expect(findings).toHaveLength(1);
     expect(findings[0].detail).toContain('ccc3333');

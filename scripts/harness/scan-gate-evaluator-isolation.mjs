@@ -51,6 +51,11 @@ export function changedPathsPerCommit(base = process.env.HARNESS_BASE_REF ?? 'or
   }));
 }
 
+/** Compatibility adapter for fixtures that use the shorter `sha` field. */
+export function changedCommitPaths(base = process.env.HARNESS_BASE_REF ?? 'origin/develop') {
+  return changedPathsPerCommit(base).map(({ commit, paths }) => ({ sha: commit, paths }));
+}
+
 export function evaluatorIsolationFindings(paths) {
   const evaluatorChanges = paths.filter((file) =>
     EVALUATOR_PREFIXES.some((prefix) => file === prefix || file.startsWith(prefix)),
@@ -69,12 +74,22 @@ export function evaluatorIsolationFindings(paths) {
 
 /** One finding per commit that carries an evaluator change and gate evidence together. */
 export function commitIsolationFindings(commits) {
-  return commits.flatMap(({ commit, paths }) =>
+  return commits.flatMap(({ commit, sha, paths }) =>
     evaluatorIsolationFindings(paths).map((finding) => ({
       ...finding,
-      detail: `${commit}: ${finding.detail}`,
+      detail: `${commit ?? sha}: ${finding.detail}`,
     })),
   );
+}
+
+export function evaluatorIsolationCommitFindings(commits) {
+  return commitIsolationFindings(commits);
+}
+
+export function examinedLine(count) {
+  return count === 0
+    ? `${EXAMINED} 0 changed path(s) ::expected-empty:: HEAD is the merge base; no changed paths exist for this diff`
+    : `${EXAMINED} ${count} changed path(s)`;
 }
 
 export function main() {
@@ -85,7 +100,7 @@ export function main() {
       ? evaluatorIsolationFindings(changedPaths())
       : commitIsolationFindings(commits);
   const paths = commits.length === 0 ? changedPaths() : commits.flatMap((entry) => entry.paths);
-  process.stdout.write(`${EXAMINED} ${paths.length} changed path(s)\n`);
+  process.stdout.write(`${examinedLine(paths.length)}\n`);
   if (findings.length === 0) {
     process.stdout.write('gate-evaluator-isolation scan passed.\n');
     return 0;

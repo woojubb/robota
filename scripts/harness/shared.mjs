@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, readdirSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { isEntryPoint } from './entrypoint.mjs';
 import { createBoundedGitRefExists } from './git-base-ref-resolution.mjs';
 import {
   changedManifestKeys,
@@ -9,6 +10,7 @@ import {
 } from './manifest-change-classification.mjs';
 
 export { classifyRootManifestChange };
+export { isEntryPoint };
 
 export const ROOT_MARKER = '::root::';
 const ROOT_ENV = 'HARNESS_ROOT';
@@ -54,7 +56,7 @@ export function resolveWorkspaceRoot(
   if (override === null && env[ROOT_ENV]) override = env[ROOT_ENV];
   const defaultRoot = fromCwd ? path.resolve(cwd) : path.resolve(scriptDir, '../..');
   const root = override === null ? defaultRoot : path.resolve(override);
-  const isEntry = argv[1] !== undefined && path.resolve(argv[1]) === path.resolve(meta.filename);
+  const isEntry = isEntryPoint(meta, argv);
   if (isEntry && (override !== null || root !== path.resolve(cwd))) {
     out.write(
       `${ROOT_MARKER} ${root}${override === null ? '' : ` (override: ${env[ROOT_ENV] && override === env[ROOT_ENV] ? ROOT_ENV : '--root'})`}\n`,
@@ -62,7 +64,6 @@ export function resolveWorkspaceRoot(
   }
   return root;
 }
-
 export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
 
@@ -74,15 +75,12 @@ export async function pathExists(targetPath) {
     return false;
   }
 }
-
 export async function readJson(targetPath) {
   return JSON.parse(await fs.readFile(targetPath, 'utf8'));
 }
-
 export async function readText(targetPath) {
   return fs.readFile(targetPath, 'utf8');
 }
-
 /**
  * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
  *
@@ -102,7 +100,6 @@ export function harnessScripts(dir, prefix = '') {
   }
   return found;
 }
-
 /**
  * Escape a value for literal use inside a `RegExp`.
  *
@@ -114,7 +111,6 @@ export function harnessScripts(dir, prefix = '') {
 export function escapeForRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-
 export function hasCanonicalSpecReference(content) {
   return (
     content.includes('`SPEC.md`') ||
@@ -122,7 +118,6 @@ export function hasCanonicalSpecReference(content) {
     content.includes('](./SPEC.md)')
   );
 }
-
 export async function readWorkspacePatterns() {
   const content = await fs.readFile(PNPM_WORKSPACE_PATH, 'utf8');
   return content
@@ -136,7 +131,6 @@ export async function readWorkspacePatterns() {
         .replace(/^['"]|['"]$/g, ''),
     );
 }
-
 function parseGitStatusFiles(output) {
   return output
     .split(/\r?\n/)
@@ -157,7 +151,6 @@ function parseGitDiffFiles(output) {
     .map((line) => line.trim())
     .filter(Boolean);
 }
-
 export function resolveGitBaseRef(explicitBaseRef = null, env = process.env, options = {}) {
   return resolveBaseRef({
     explicitBaseRef,

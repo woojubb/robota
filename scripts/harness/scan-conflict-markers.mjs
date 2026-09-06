@@ -17,7 +17,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { resolveWorkspaceRoot } from './shared.mjs';
+import { isEntryPoint, resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
@@ -182,6 +182,6 @@ export function main() {
   }
 }
 
-if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+if (isEntryPoint(import.meta)) {
   main();
 }
