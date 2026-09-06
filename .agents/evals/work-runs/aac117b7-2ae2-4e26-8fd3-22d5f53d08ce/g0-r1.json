@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+  "generation": 0,
+  "revision": 1,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "codex/harness-gate-stability-clean",
+    "baseCommit": "f23f2bfe24244e42c3fbbdc8984896d18084339b",
+    "headCommit": "ddc46b4f876d8e3c8f5a502d2114774de1f4ee78",
+    "headTree": "661b6a81b4bebb1db031e93da7d654f53ed13b6e",
+    "commitOids": [
+      "e97b04c102cab7f43dd2de087db45a854c163c7f",
+      "ab6fc11b296f0a50d1b7aea7b10b93c2d10ff622",
+      "ab8a4c0e6ac355e74605d274a1c9b06e4c50c9d0",
+      "ddc46b4f876d8e3c8f5a502d2114774de1f4ee78"
+    ],
+    "trailerDigest": "8172980ddf3fcd275154dc1e790a71e9617d5bebfe8032add5f24ffb21ab856a",
+    "ownerFingerprint": "67c3371f71776dc0101e2b16c8dfc0d5b526ab031a2f98eaea8e47dc8eccfbd9"
+  },
+  "cohort": {
+    "key": "L2/implementation",
+    "lane": "L2",
+    "workKind": "implementation"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-06T06:25:26.694Z",
+      "data": {
+        "branch": "codex/harness-gate-stability-clean"
+      },
+      "hash": "24481b31548761e29924baa7be036dcc34248210dc9fd87aee65ab7e544d087b"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 2,
+      "previousHash": "24481b31548761e29924baa7be036dcc34248210dc9fd87aee65ab7e544d087b",
+      "type": "work.bound",
+      "at": "2026-09-06T06:25:35.012Z",
+      "data": {
+        "workId": "INFRA-2618",
+        "lane": "L2",
+        "workKind": "implementation"
+      },
+      "hash": "82026518f0284e68329676ea606dffefd4820f2068122c67ff6a1b052e1e95d6"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 3,
+      "previousHash": "82026518f0284e68329676ea606dffefd4820f2068122c67ff6a1b052e1e95d6",
+      "type": "work.started",
+      "at": "2026-09-06T06:25:35.358Z",
+      "data": {},
+      "hash": "040c9644016979a1e438f4ddc835df4b81423639da50ee30c70340f7a0eef560"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 4,
+      "previousHash": "040c9644016979a1e438f4ddc835df4b81423639da50ee30c70340f7a0eef560",
+      "type": "phase.started",
+      "at": "2026-09-06T06:25:35.881Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "251ad3ed153f006f04ab62d352fe3fd70a782f51ad8d2c902ee3d9f74abc7e8e"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 5,
+      "previousHash": "251ad3ed153f006f04ab62d352fe3fd70a782f51ad8d2c902ee3d9f74abc7e8e",
+      "type": "phase.completed",
+      "at": "2026-09-06T06:27:01.989Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "5823d402b90013445711350aaf2068f4f652ecc33d6482530ef8a5b63a698695"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 6,
+      "previousHash": "5823d402b90013445711350aaf2068f4f652ecc33d6482530ef8a5b63a698695",
+      "type": "work.ready",
+      "at": "2026-09-06T06:27:02.286Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "5a9c8cc8b1c6b7f980bb0e8a928aa9071ce0e423f8ae1b22b248f5c439019e7c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 7,
+      "previousHash": "5a9c8cc8b1c6b7f980bb0e8a928aa9071ce0e423f8ae1b22b248f5c439019e7c",
+      "type": "work.reopened",
+      "at": "2026-09-06T06:33:06.309Z",
+      "data": {
+        "ground": "local-fix",
+        "generation": 0,
+        "revision": 1
+      },
+      "hash": "e6f184984ed486df5358ed0966eeb0e7a6a514e2a3e54de248244f26ea167d6a"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 8,
+      "previousHash": "e6f184984ed486df5358ed0966eeb0e7a6a514e2a3e54de248244f26ea167d6a",
+      "type": "phase.started",
+      "at": "2026-09-06T06:33:07.908Z",
+      "data": {
+        "phase": "local-fix"
+      },
+      "hash": "bda1ec499ab0d222639ec17e5f37a2dc3e610e59fe2610128e352e1be0854c9d"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 9,
+      "previousHash": "bda1ec499ab0d222639ec17e5f37a2dc3e610e59fe2610128e352e1be0854c9d",
+      "type": "phase.completed",
+      "at": "2026-09-06T06:35:12.564Z",
+      "data": {
+        "phase": "local-fix"
+      },
+      "hash": "d4926a4058819120f7df5531ca77e65e0633be3cb914a6076e010b76d4e9f870"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "aac117b7-2ae2-4e26-8fd3-22d5f53d08ce",
+      "sequence": 10,
+      "previousHash": "d4926a4058819120f7df5531ca77e65e0633be3cb914a6076e010b76d4e9f870",
+      "type": "work.ready",
+      "at": "2026-09-06T06:35:12.979Z",
+      "data": {
+        "generation": 0,
+        "revision": 1
+      },
+      "hash": "ecfc17f6f192576d6ad444327e42a35e58ad4efa4f88e33dfa7f70978f9aec0b"
+    }
+  ],
+  "durations": {
+    "wallMs": 586285,
+    "activeMs": 586285,
+    "pausedMs": 0,
+    "phases": {
+      "implementation": 86108,
+      "local-fix": 124656
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-06T06:25:26.694Z",
+    "readyAt": "2026-09-06T06:35:12.979Z"
+  }
+}
