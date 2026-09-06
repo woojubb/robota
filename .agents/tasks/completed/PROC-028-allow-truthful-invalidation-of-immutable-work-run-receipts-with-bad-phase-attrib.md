@@ -36,7 +36,14 @@ auditable way to remove that run from the included measurement population.
 - Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
   reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
 - Focused work-run contract, store, validation, and report suites passed: 136 tests.
-- The implementation was delivered in PR #2622 and its completion was merged to `develop`.
+- Landed as `945f25880` (PR #2622), which carries the contract in
+  `scripts/harness/work-run-contract.mjs`, `scripts/harness/work-run-state-transition.mjs`,
+  `scripts/harness/work-run-receipts.mjs`, `scripts/harness/work-run-receipt-validation.mjs`,
+  `scripts/harness/work-run-report-metrics.mjs`, `scripts/harness/work-run-store.mjs` and
+  `scripts/harness/work-run-cli.mjs`, with the cases in
+  `scripts/harness/__tests__/work-run-contract.test.mjs`,
+  `scripts/harness/__tests__/work-run-store.test.mjs` and
+  `scripts/harness/__tests__/work-run-report.test.mjs`.
 
 ## Test Plan
 

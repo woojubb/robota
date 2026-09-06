@@ -134,8 +134,9 @@ issue's own conclusion, and it is why remedy (1) is preferred over an audit.
 - [x] TC-03 — Run the full suite under the change and record the result beside the two-run
       measurement above, so the introduction order below is decided by a number rather than an
       estimate.
-- [ ] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** — allow-unmet-criterion: TC-03's measured migration population was empty; the CI HOME isolation follow-up is tracked by issue #2300 and delivered in PR #2629.
-      A fixture home is therefore not required for this measured population, rather than restoring the real one.
+- [x] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** —
+      a fixture home it constructs — rather than restoring the real one. Ticked as satisfied over an
+      EMPTY population, not as work performed — see "### TC-04" below.
 - [x] TC-05 — Add a negative-assertion fixture for the vacuous half named in the issue: a
       `not.toContain(...)` assertion that passes only because host state is absent is shown capable
       of failing by constructing the state it denies, in the suite that owns the original incident.
@@ -232,11 +233,18 @@ is what the partial measurement recorded above predicted for one package, now me
 whole recursive suite. This is case 2 of the introduction order below: TC-01 lands with no
 migration.
 
-### TC-04 — left unchecked deliberately
+### TC-04 — satisfied over an empty population
 
 Its condition — "for each test that TC-03 turns red" — has an empty population, measured above. No
-test was migrated, so the box is not ticked: a tick would claim work that was not done. Nothing is
+test was migrated, so the tick records a criterion met vacuously, NOT work performed. Nothing is
 outstanding behind it.
+
+This record first left the box unchecked to avoid claiming work that was not done. That reading is
+refused by `task-plan-items` (issue #2375): GATE-VERIFY requires every Plan item `[x]`, and its only
+containment is `scripts/harness/task-plan-items-baseline.json`, whose `unchecked` list is by its own
+`$comment` the population that reached done BEFORE that floor — which this record did not. With no
+exemption open to it, the rule binds, so the box is ticked and this paragraph carries what the empty
+box was saying.
 
 ### The 39 remaining failures are the working tree's, not this change's
 
