@@ -86,6 +86,8 @@ None
 3. Add fixtures proving the required parent projection and done-spec edits no longer conflict,
    while an ordinary active-spec body edit still declares L2.
 
+**Delivery mode:** `single`
+
 ## Affected Files
 
 - `scripts/harness/scan-lane-declaration.mjs`
