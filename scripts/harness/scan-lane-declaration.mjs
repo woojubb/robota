@@ -77,7 +77,9 @@ const LANE_RANK = new Map(LANES.map((lane, index) => [lane, index]));
 /** Qualifiers a floor row may carry after `#`; anything else is refused, not ignored. */
 const KNOWN_QUALIFIERS = new Set(['trigger-sections', 'non-comment']);
 
-const SPEC_DOC_PATTERN = /^\.agents\/spec-docs\/.+\.md$/;
+const LIVE_SPEC_DOC_PATTERN = /^\.agents\/spec-docs\/(?:draft|backlog|todo|active)\/.+\.md$/;
+const LIFECYCLE_PROJECTION_ROW =
+  /^\s*-\s+\[[ xX]\]\s+[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\s+—\s+[a-z][a-z-]*\s+—\s+`[^`\n]+`\s*$/;
 const LANE_LINES = /^\s*Lane:\s*(L[0-2])\s*$/gim;
 const FAST_TRACK_LINE = /^\s*Fast-track:\s*(.+?)\s*$/im;
 
@@ -288,6 +290,24 @@ export function parseUnifiedDiff(diffText) {
     if (kind !== '-') newLine += 1;
   }
   return files;
+}
+
+/**
+ * Whether a parsed spec diff contains only a canonical Task/spec lifecycle projection row.
+ *
+ * These rows are required bookkeeping projections of a child Task's lifecycle. They must not turn
+ * an implementation-lane change into a second lane declaration, but any surrounding prose,
+ * frontmatter, or non-canonical markdown remains a real spec declaration.
+ */
+export function isLifecycleProjectionOnly(file) {
+  if (!file || file.binary || file.hunks.length === 0) return false;
+  const changedLines = file.hunks.flatMap((hunk) =>
+    hunk.lines.filter((line) => line.kind === '+' || line.kind === '-'),
+  );
+  return (
+    changedLines.length > 0 &&
+    changedLines.every((line) => LIFECYCLE_PROJECTION_ROW.test(line.text))
+  );
 }
 
 /**
@@ -738,10 +758,12 @@ export function gatherInputs(argv, { root = WORKSPACE_ROOT, env = process.env } 
     if (log.code !== 0) throw new Error(`lane-declaration: git log failed: ${log.stderr}`);
     trailersText = log.stdout;
   }
+  const diffFiles = parseUnifiedDiff(diffText);
   const specDocs = changedPaths
-    .filter((p) => SPEC_DOC_PATTERN.test(p))
+    .filter((p) => LIVE_SPEC_DOC_PATTERN.test(p))
     .map((p) => ({ path: p, text: readOptional(path.join(root, p)) }))
-    .filter((entry) => entry.text !== null);
+    .filter((entry) => entry.text !== null)
+    .filter((entry) => !isLifecycleProjectionOnly(diffFiles.get(entry.path)));
   const prBodyText = readOptional(prBodyFile) ?? '';
   return {
     base,
