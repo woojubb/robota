@@ -438,11 +438,24 @@ export class InteractiveSession
    * input) when a `recallMemory` policy was supplied. Recalls query-relevant durable memory through the SAME
    * injected `IMemoryStore` (SSOT with startup + capture) and renders it under a DISTINCT `<recalled-memory>`
    * label. Returns '' when there is nothing to recall. The controller guards this call (recall failure skips
-   * injection, never breaks the turn) and injects the result EPHEMERALLY (never persisted).
+   * injection, never breaks the turn) and injects the result EPHEMERALLY (never persisted) — UNLIKE the
+   * reference-level provenance below (MEM-2055), which IS recorded, for `/memory used`.
    */
   private async recallTurnMemory(query: string): Promise<string> {
     if (!this.recallMemory) return '';
     const result = await this.getMemoryStore().recall(query, this.recallMemory.budget);
+    if (result.references.length > 0) {
+      this.histTracker.recordUsedMemoryReferences(result.references);
+      const at = new Date().toISOString();
+      for (const { topic, path, score, truncated } of result.references) {
+        this.histTracker.recordMemoryEvent({
+          type: 'memory_retrieved',
+          at,
+          topic,
+          data: { path, score, truncated },
+        });
+      }
+    }
     return renderPerTurnRecall(result);
   }
 

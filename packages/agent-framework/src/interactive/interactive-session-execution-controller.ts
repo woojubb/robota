@@ -240,6 +240,7 @@ export class SessionExecutionController {
       this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
       this.callbacks.emit('user_message', displayInput ?? input);
       this.callbacks.emit('thinking', true);
+      this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
       if (this.callbacks.recallMemory) {
         try {
           const recalled = await this.callbacks.recallMemory(input);
@@ -258,7 +259,6 @@ export class SessionExecutionController {
         getHistory: () => this.histTracker.getHistory(),
         getContextReferences: () => this.histTracker.listInjectionContextReferences(),
         getActiveTools: () => this.activeTools,
-        resetUsedMemoryReferences: () => this.histTracker.resetUsedMemoryReferences(),
         recordContextReferenceUsage: (r) => this.histTracker.recordContextReferenceUsage(r),
         recordPromptContextReferences: (r) => this.histTracker.recordPromptContextReferences(r),
         beginEditCheckpointTurn: (p) => this.histTracker.beginEditCheckpointTurn(p),
