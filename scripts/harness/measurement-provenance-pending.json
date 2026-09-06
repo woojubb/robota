@@ -111,6 +111,7 @@
     "scripts/harness/scan-shell-portability.mjs",
     "scripts/harness/scan-skill-registration.mjs",
     "scripts/harness/scan-spec-research.mjs",
+    "scripts/harness/scan-ssot-five-axis.mjs",
     "scripts/harness/scan-task-merged-citation.mjs",
     "scripts/harness/scan-task-plan-items.mjs",
     "scripts/harness/scan-test-plan.mjs",
