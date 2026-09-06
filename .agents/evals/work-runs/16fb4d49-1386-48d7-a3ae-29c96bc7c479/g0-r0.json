@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+  "generation": 0,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "codex/harness-lane-projection",
+    "baseCommit": "c651c769e27c9a0ee147be8ffda937cbc1072610",
+    "headCommit": "7b327f818c7fe588c92ae1a6aacd6e4ac52bbdf8",
+    "headTree": "697381428c5d2affb3c1eea6ed78d29c7c978c60",
+    "commitOids": [
+      "b2cfc276120719a7f725af62ef2f321da3e0d6c5",
+      "688e2debaf244255ac76231c6757c5cde36bcf9e",
+      "e1f85f46066d640ae0f3d4a26968e908d65085c5",
+      "e47af39aae11464269289d8f40dc550216c60a12",
+      "af3df5715132b6e1080d8acdcde8e75e555e0177",
+      "cc847851f4c0b1173c0d15f9bc4e70399cc19c2d",
+      "cebcfa738ccb3768c230ba0be9e83685c5b17ac8",
+      "605f5ffba0e9ee2dfa513323da25cc864ad18a68",
+      "b075c0a6e7554bc389cc7f62d7d4e5f5457b8fc1",
+      "5dd40c24790ccc1a6372af7abd736e77f2bc2490",
+      "f0b07a35e6b955d93dbbce86abe3c61630c2f645",
+      "c3864e7ab2701776896d253f52d13a0443555356",
+      "50458e5f80c9c5c1344f832616da5d946cd1cffc",
+      "7b327f818c7fe588c92ae1a6aacd6e4ac52bbdf8"
+    ],
+    "trailerDigest": "012301ed1d2b34de5c8c235b615973bf625e709ebb090199cb2e700347a4fe46",
+    "ownerFingerprint": "67c3371f71776dc0101e2b16c8dfc0d5b526ab031a2f98eaea8e47dc8eccfbd9"
+  },
+  "cohort": {
+    "key": "L2/lane-enforcement",
+    "lane": "L2",
+    "workKind": "lane-enforcement"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-06T05:21:56.187Z",
+      "data": {
+        "branch": "codex/harness-lane-projection"
+      },
+      "hash": "1dcc30d155d643624f210fdc0c319c55de80c8cca5ebcd483ddf6235b7994b29"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 2,
+      "previousHash": "1dcc30d155d643624f210fdc0c319c55de80c8cca5ebcd483ddf6235b7994b29",
+      "type": "work.bound",
+      "at": "2026-09-06T05:24:52.662Z",
+      "data": {
+        "workId": "INFRA-2634",
+        "lane": "L2",
+        "workKind": "lane-enforcement"
+      },
+      "hash": "e531c0754ead6ca1fb3ea9c24f4b640edc3510e6170a08bc2e5fb17753cb267c"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 3,
+      "previousHash": "e531c0754ead6ca1fb3ea9c24f4b640edc3510e6170a08bc2e5fb17753cb267c",
+      "type": "work.started",
+      "at": "2026-09-06T05:38:10.878Z",
+      "data": {},
+      "hash": "7828c9e1f7c098eae9010b0fb53b42753edec13ae33f3cc4d09a6e0b89187ef7"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 4,
+      "previousHash": "7828c9e1f7c098eae9010b0fb53b42753edec13ae33f3cc4d09a6e0b89187ef7",
+      "type": "phase.started",
+      "at": "2026-09-06T05:38:11.226Z",
+      "data": {
+        "phase": "planning"
+      },
+      "hash": "f8f2da5d49ccc22aa039af88a6c7a8abba8544fde9930d4acf1e160626be7052"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 5,
+      "previousHash": "f8f2da5d49ccc22aa039af88a6c7a8abba8544fde9930d4acf1e160626be7052",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:47:58.908Z",
+      "data": {
+        "phase": "planning"
+      },
+      "hash": "b63136df1159d06a0e8c2269d1d791de3322eb52f7ad6c3f14c3a9b3039fc32d"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 6,
+      "previousHash": "b63136df1159d06a0e8c2269d1d791de3322eb52f7ad6c3f14c3a9b3039fc32d",
+      "type": "phase.started",
+      "at": "2026-09-06T05:47:59.209Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "adb6e03f4e128e0bc801a980e56d920e25e66a8ec6ffccd6001a1bd0b523948b"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 7,
+      "previousHash": "adb6e03f4e128e0bc801a980e56d920e25e66a8ec6ffccd6001a1bd0b523948b",
+      "type": "phase.completed",
+      "at": "2026-09-06T05:48:47.193Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "42e201b66df9114b4ff9e9e9c6338dc078f9b40be190f33e448dd7e4c0d46fd3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 8,
+      "previousHash": "42e201b66df9114b4ff9e9e9c6338dc078f9b40be190f33e448dd7e4c0d46fd3",
+      "type": "phase.started",
+      "at": "2026-09-06T05:48:47.482Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "94510015609c8bfa7193304bdfc4aaad9b2afb05fcfdc89ae110e02c7407b567"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 9,
+      "previousHash": "94510015609c8bfa7193304bdfc4aaad9b2afb05fcfdc89ae110e02c7407b567",
+      "type": "phase.completed",
+      "at": "2026-09-06T06:08:42.391Z",
+      "data": {
+        "phase": "verification"
+      },
+      "hash": "81826e36120e0d3a814f09cb473dfcd3fb7994f090c7d3115d8f983288189fe3"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "16fb4d49-1386-48d7-a3ae-29c96bc7c479",
+      "sequence": 10,
+      "previousHash": "81826e36120e0d3a814f09cb473dfcd3fb7994f090c7d3115d8f983288189fe3",
+      "type": "work.ready",
+      "at": "2026-09-06T06:21:24.933Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "2cebe1f2651707f3dd4dabbd6f387003ac46bc4af5f41558ed67d2569e5d9f33"
+    }
+  ],
+  "durations": {
+    "wallMs": 3568746,
+    "activeMs": 3568746,
+    "pausedMs": 0,
+    "phases": {
+      "planning": 587682,
+      "implementation": 47984,
+      "verification": 1194909
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-06T05:21:56.187Z",
+    "readyAt": "2026-09-06T06:21:24.933Z"
+  }
+}
