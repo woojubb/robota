@@ -337,8 +337,8 @@ describe('scan-lane-declaration — declaration sources', () => {
   it('recognizes the same lifecycle projection as a pipe-table row (INFRA-155 shape)', () => {
     const tableProjection = parseUnifiedDiff(
       diffFor('.agents/spec-docs/active/INFRA-155.md', [
-        '-| issue #2064 | `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` |',
-        '+| issue #2064  | `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`  |',
+        '-| issue #2064 | `.agents/tasks/completed/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md` |', // allow-missing-artifact: fixture string, not a live claim — named-artifact-resolves does not index `completed/`
+        '+| issue #2064  | `.agents/tasks/completed/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`  |', // allow-missing-artifact: fixture string, not a live claim — named-artifact-resolves does not index `completed/`
       ]),
     ).get('.agents/spec-docs/active/INFRA-155.md');
     const tableWithHeaderChange = parseUnifiedDiff(
