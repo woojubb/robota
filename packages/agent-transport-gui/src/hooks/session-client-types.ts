@@ -2,7 +2,7 @@ import type { TConnectionStatus, TClientMessage } from '../client/ws-session-cli
 import type { TPendingPrompt } from './prompt-state.js';
 import type { TUiIntentNotice } from './ui-intent-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type { IToolState, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
@@ -32,8 +32,8 @@ export interface IActiveTool {
   id: string;
   name: string;
   status: 'running' | 'done' | 'error';
-  input?: unknown;
-  result?: unknown;
+  input?: string;
+  result?: IToolState['result'];
 }
 
 export interface ISessionNotice {
