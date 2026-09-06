@@ -98,7 +98,7 @@ RETAIN IDs: issue #1989, issue #1990, issue #2066, issue #2067, issue #2073, iss
 | issue #2127  | `.agents/tasks/HANDOFF-005-reduce-transport-protocol-to-codecs-and-remove-the-cli-bridge.md`                  |
 | issue #2128  | `.agents/tasks/HOST-018-migrate-consumers-and-remove-the-agent-transport-umbrella.md`                         |
 | issue #2129  | `.agents/tasks/CMD-013-remove-parallel-command-contracts-and-registries.md`                                   |
-| issue #2518  | `.agents/tasks/completed/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md` |
+| issue #2518  | `.agents/tasks/INFRA-154-reuse-final-tree-verification-receipts-and-parallelize-independent-gates.md`              |
 | issue #2519  | `.agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md`                         |
 | issue #2521  | `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`                        |
 | issue #2523  | `.agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md`                            |
