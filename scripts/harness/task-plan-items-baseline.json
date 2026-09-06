@@ -19,7 +19,6 @@
   },
   "unchecked": {
     "ARCH-040-preset-projection-decisions.md": "reached done before #2375 with the item openly unchecked (measured in the issue)",
-    "INFRA-097-trusted-required-workflow-provenance.md": "reached done before #2375 with the item openly unchecked (measured in the issue)",
-    "TEST-013-no-global-seam-prevents-a-test-from-being-satisfied-by-host-home-state.md": "reached done before the plan-item floor was applied; TC-04 records an empty migration population and its explicit disposition"
+    "INFRA-097-trusted-required-workflow-provenance.md": "reached done before #2375 with the item openly unchecked (measured in the issue)"
   }
 }
