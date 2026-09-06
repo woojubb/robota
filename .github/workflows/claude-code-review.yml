@@ -54,8 +54,18 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
-    # Fork PRs have no access to secrets — skip so the run doesn't fail auth-less.
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}
+    # CLAUDE-CODE-REVIEW: RETIRED (INFRA-2631). 2026-09-06 — the owner directed that this action be
+    # treated as permanently non-functional and disabled. `if: false` below is a deliberate,
+    # git-tracked disable (the same idiom `review-gate.yml` already uses for its own retired steps),
+    # not an accident: every other line in this file — the action reference, the `with:` block, the
+    # full `prompt:`, and the incident history in the header comment above — is left byte-for-byte
+    # unchanged so the integration can be reinstated by reverting this `if:` line alone.
+    # `scripts/harness/scan-claude-review-coverage.mjs` recognizes this exact marker together with
+    # `if: false` and skips its shape checks for this job; removing either half without the other
+    # restores the full guard.
+    if: false
+    # Original condition, preserved for reinstatement:
+    # if: ${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}
     steps:
       - uses: actions/checkout@v7
         with:

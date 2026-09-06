@@ -8,7 +8,9 @@ import { makeTemp } from './make-temp.mjs';
 import {
   findClaudeReviewCoverageFindings,
   findWorkflowCoverageFindings,
+  isRetiredJob,
   readExamined,
+  RETIRED_MARKER,
 } from '../scan-claude-review-coverage.mjs';
 import { findTokenlessActionSteps } from '../scan-review-token-supply.mjs';
 import { parsePermissions } from '../scan-workflow-permissions.mjs';
@@ -198,6 +200,43 @@ describe('scan-claude-review-coverage (INFRA-098)', () => {
         expect.objectContaining({ detail: expect.stringMatching(/exact guarded condition/i) }),
       ]),
     );
+  });
+
+  it('rejects a bare `if: false` with no retirement marker (INFRA-2631)', () => {
+    const source = workflow().replace(
+      "    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}",
+      '    if: false',
+    );
+    expect(source).not.toContain(RETIRED_MARKER);
+    expect(findWorkflowCoverageFindings(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ detail: expect.stringMatching(/exact guarded condition/i) }),
+      ]),
+    );
+  });
+
+  it('accepts `if: false` only when the retirement marker is also present (INFRA-2631)', () => {
+    const source = workflow()
+      .replace(
+        "    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}",
+        `    # ${RETIRED_MARKER}\n    if: false`,
+      )
+      // A retired job's shape no longer matters: mutate the prompt too, and confirm it still passes.
+      .replace('Write the PR summary and every inline review comment in English.', 'Review it.');
+    expect(findWorkflowCoverageFindings(source)).toEqual([]);
+  });
+
+  it('isRetiredJob requires both the exact `false` value and the marker, independently', () => {
+    expect(isRetiredJob(`x\n# ${RETIRED_MARKER}\ny`, 'false')).toBe(true);
+    expect(isRetiredJob(`x\n# ${RETIRED_MARKER}\ny`, '${{ false }}')).toBe(true);
+    expect(isRetiredJob('no marker here', 'false')).toBe(false);
+    expect(isRetiredJob(`# ${RETIRED_MARKER}`, undefined)).toBe(false);
+    expect(
+      isRetiredJob(
+        `# ${RETIRED_MARKER}`,
+        '${{ github.event.pull_request.head.repo.full_name == github.repository }}',
+      ),
+    ).toBe(false);
   });
 
   it('composes the existing token and permission owners without copying their parsers', () => {
