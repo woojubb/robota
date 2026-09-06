@@ -2,7 +2,7 @@
 status: approved
 type: INFRA
 tags: [infra]
-lane: L1
+lane: L2
 ---
 
 # INFRA-177: the gate-evaluator isolation unit is a commit, not a branch range
