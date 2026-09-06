@@ -47,14 +47,8 @@ async function createMemoryStore(cwd: string): Promise<IMemoryStore> {
   return createWorkspaceMemoryStore(await createTrustedProjectStateFixture(cwd, 'memory'));
 }
 
-const APPROVAL: IAutomaticMemoryConfig = {
-  policy: 'approval_required',
-  retrieval: { maxTopics: 3, maxTopicChars: 3000 },
-};
-const AUTO_SAVE: IAutomaticMemoryConfig = {
-  policy: 'auto_save',
-  retrieval: { maxTopics: 3, maxTopicChars: 3000 },
-};
+const APPROVAL: IAutomaticMemoryConfig = { policy: 'approval_required' };
+const AUTO_SAVE: IAutomaticMemoryConfig = { policy: 'auto_save' };
 
 const CUE = 'remember that this project uses pnpm for package scripts';
 

@@ -80,7 +80,6 @@ describe('automatic memory pipeline', () => {
 
     const decision = evaluator.evaluate(makeCandidate({ text: 'api key is sk-test-secret' }), {
       policy: 'auto_save',
-      retrieval: { maxTopics: 3, maxTopicChars: 3000 },
     });
 
     expect(decision).toEqual({ action: 'skip', reason: 'sensitive-content' });
@@ -94,7 +93,7 @@ describe('automatic memory pipeline', () => {
       const store = await projectStore(cwd);
       const controller = new AutomaticMemoryController({
         now: () => NOW,
-        config: { policy: 'disabled', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        config: { policy: 'disabled' },
         memoryStore: createWorkspaceMemoryStore(
           await createTrustedProjectStateFixture(cwd, 'memory'),
           () => NOW,
@@ -125,7 +124,6 @@ describe('automatic memory pipeline', () => {
         now: () => NOW,
         config: {
           policy: 'approval_required',
-          retrieval: { maxTopics: 3, maxTopicChars: 3000 },
         },
         memoryStore: createWorkspaceMemoryStore(
           await createTrustedProjectStateFixture(cwd, 'memory'),
@@ -154,7 +152,7 @@ describe('automatic memory pipeline', () => {
       const cwd = makeProject();
       const controller = new AutomaticMemoryController({
         now: () => NOW,
-        config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        config: { policy: 'auto_save' },
         memoryStore: createWorkspaceMemoryStore(
           await createTrustedProjectStateFixture(cwd, 'memory'),
           () => NOW,

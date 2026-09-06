@@ -72,7 +72,6 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       expect(options.recallMemory).toEqual({ budget: DEFAULT_MEMORY_BUDGET });
       expect(options.automaticMemory).toEqual({
         policy: 'approval_required',
-        retrieval: DEFAULT_MEMORY_BUDGET,
       });
     });
 
