@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-181: return the two modules #2619 grew to their frozen baselines'
+title: 'INFRA-181: return the two modules PR #2619 grew to their frozen baselines'
 issue: https://github.com/woojubb/robota/issues/2620
 status: todo
 created: 2026-09-06
@@ -12,12 +12,12 @@ area:
 depends_on: []
 ---
 
-# INFRA-181: return the two modules #2619 grew to their frozen baselines
+# INFRA-181: return the two modules PR #2619 grew to their frozen baselines
 
 ## Objective
 
 `scripts/harness/allocate-work-item-id.mjs` is 479 lines against a frozen 472 and
-`scripts/harness/new-spec.mjs` is 449 against 446, both grown by `072a7354d` (#2619). `file-size`
+`scripts/harness/new-spec.mjs` is 449 against 446, both grown by `072a7354d` (PR #2619). `file-size`
 reports the whole repository in one verdict and is a scan-suite member, so `develop` is red and every
 branch whose diff selects that scan is blocked by growth it did not cause. Bring both back under by
 MOVING code out, never by raising a baseline.

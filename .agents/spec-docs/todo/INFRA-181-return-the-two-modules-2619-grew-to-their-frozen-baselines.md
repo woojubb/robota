@@ -5,7 +5,7 @@ tags: [infra]
 lane: L1
 ---
 
-# INFRA-181: return the two modules #2619 grew to their frozen baselines
+# INFRA-181: return the two modules PR #2619 grew to their frozen baselines
 
 Paired with `.agents/tasks/INFRA-181-return-the-two-modules-2619-grew-to-their-frozen-baselines.md`.
 Arising from [issue #2620](https://github.com/woojubb/robota/issues/2620).
@@ -20,7 +20,7 @@ harness file-size scan: 2 finding(s):
 - [file-grew-past-baseline] scripts/harness/new-spec.mjs: 449 lines (baseline froze it at 446).
 ```
 
-Both were grown by `072a7354d` — "fix(harness): enforce reference kinds during authoring (#2619)" —
+Both were grown by `072a7354d` — `fix(harness): enforce reference kinds during authoring (#2619)` —
 which is already merged. The scan reports the whole repository in ONE verdict and is a scan-suite
 member, so `develop` is red and every branch whose diff selects `file-size` is blocked by growth it did
 not cause. ARCH-054 stage 1 (issue #2158) is behind it and touches neither file.
