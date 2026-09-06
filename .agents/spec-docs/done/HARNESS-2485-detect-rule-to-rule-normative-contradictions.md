@@ -229,7 +229,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (5e4f5e51775f) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
-**Judged at:** HEAD `2e36e6d96201` · base `origin/develop@2e36e6d96201` · document `.agents/spec-docs/draft/HARNESS-2485-detect-rule-to-rule-normative-contradictions.md` blob `0b3ad98ffa08` (untracked)
+  **Judged at:** HEAD `2e36e6d96201` · base `origin/develop@2e36e6d96201` · document `.agents/spec-docs/draft/HARNESS-2485-detect-rule-to-rule-normative-contradictions.md` blob `0b3ad98ffa08` (untracked)
 
 ### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
 
