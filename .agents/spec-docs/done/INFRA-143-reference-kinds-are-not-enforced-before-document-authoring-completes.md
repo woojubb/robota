@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [infra]
 lane: L1
@@ -72,9 +72,9 @@ exemptions and report every finding with the prospective path, line, reference, 
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/document-authoring-reference.test.mjs` → exits 0; the red fixture rejects bare `#1916` before dry-run completion.
-- [ ] TC-02: `node scripts/harness/scan-reference-kind-qualified.mjs` → exits 0 without widening the frozen baseline.
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/reference-kind.test.mjs scripts/harness/__tests__/document-authoring-reference.test.mjs` → exits 0 for 89 tests.
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/document-authoring-reference.test.mjs` → exits 0; the red fixture rejects bare `#1916` before dry-run completion.
+- [x] TC-02: `node scripts/harness/scan-reference-kind-qualified.mjs` → exits 0 without widening the frozen baseline.
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/reference-kind.test.mjs scripts/harness/__tests__/document-authoring-reference.test.mjs` → exits 0 for 89 tests.
 
 ## Test Plan
 
@@ -86,15 +86,17 @@ exemptions and report every finding with the prospective path, line, reference, 
 
 ## User Execution Test Scenarios
 
-Not applicable — this change governs internal Markdown authoring and exposes no runnable CLI, UI,
-API, SDK, or runtime behaviour; verification evidence is recorded in the engineering test plan
-(TC-01 to TC-03).
+Not applicable.
+
+**Reason:** This change governs internal Markdown authoring and exposes no runnable CLI, UI, API,
+SDK, or runtime behaviour; verification evidence is recorded in the engineering test plan TC-01 to
+TC-03.
 
 Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-143-reference-kinds-are-not-enforced-before-document-authoring-completes.md` — todo
+- [x] `.agents/tasks/completed/INFRA-143-reference-kinds-are-not-enforced-before-document-authoring-completes.md` — done
 
 ## Evidence Log
 
@@ -185,3 +187,15 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged at:** HEAD `22330a174dc6` · base `origin/develop@22330a174dc6` · document `.agents/spec-docs/draft/INFRA-143-reference-kinds-are-not-enforced-before-document-authoring-completes.md` blob `4976a3052aad` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+- `pnpm exec vitest run scripts/harness/__tests__/document-authoring-reference.test.mjs scripts/harness/__tests__/new-spec.test.mjs scripts/harness/__tests__/reference-kind.test.mjs` → 3 files, 89 tests passed.
+- `node scripts/harness/scan-reference-kind-qualified.mjs` → exit 0; 3391 tracked documents examined and the frozen baseline was unchanged.
+- The red fixture proves a bare `#1916` is rejected before `new-spec` dry-run output is emitted; qualified, closing-keyword, and inline-code forms pass.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-06
+
+The common authoring adapter is wired before both the spec-generator return path and the allocator's
+single-syscall Task write. The Task is archived with status `done` and the paired spec is archived
+under `done/` in the same change.

@@ -52,6 +52,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
@@ -399,6 +400,8 @@ export function renderSpec(options) {
   // The Task's basename, verbatim: the pairing scan matches the two by basename, and `--title`
   // changes the H1 only.
   const file = `${DRAFT_DIR}/${path.basename(task.file)}`;
+  const referenceError = documentAuthoringReferenceError({ file, text: document });
+  if (referenceError !== null) return { ok: false, error: referenceError };
   return { ok: true, document, file };
 }
 
