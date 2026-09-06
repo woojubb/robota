@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [infra, harness]
 lane: L1
@@ -11,6 +11,8 @@ Paired with `.agents/tasks/INFRA-180-restore-full-harness-scan-green-for-issue-2
 from [issue #2505](https://github.com/woojubb/robota/issues/2505).
 
 ## User Execution Test Scenarios
+
+Not applicable.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
@@ -68,9 +70,10 @@ the behavior it documents.
 
 ## Completion Criteria
 
-- [ ] TC-01: the affected harness tests pass without changing their consumer assertions.
-- [ ] TC-02: the full integration scan exits 0 with no undeclared failures.
-- [ ] TC-03: the final pull-request CI scan is successful.
+- [x] TC-01: the affected harness tests pass without changing their consumer assertions.
+- [x] TC-02: the full integration scan exits 0 with no undeclared failures.
+- [ ] TC-03: the final pull-request CI scan is successful — allow-unmet-criterion: CI runs after the
+      receipt-only closure commit and is the final acceptance gate before merge.
 
 ## Test Plan
 
@@ -82,7 +85,7 @@ the behavior it documents.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-180-restore-full-harness-scan-green-for-issue-2505.md` — todo
+- [x] `.agents/tasks/completed/INFRA-180-restore-full-harness-scan-green-for-issue-2505.md` — done
 
 ## Evidence Log
 

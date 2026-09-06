@@ -1,18 +1,11 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-
 import { claimBranchRun, readReusableBranchRun } from './work-run-branch-pointer.mjs';
 import { appendWorkRunEvent, reduceWorkRun } from './work-run-contract.mjs';
+import { withWorkRunLock } from './work-run-lock.mjs';
 import { atomicJson, immutableJson, readJson, sameJson } from './work-run-json-store.mjs';
-import {
-  assertCanonicalRunId,
-  assertSafeOwnedParent,
-  ensureOwnedDirectory,
-  workRunLockPath,
-  workRunReceiptPath,
-  workRunStatePath,
-} from './work-run-paths.mjs';
+import { assertCanonicalRunId, workRunReceiptPath, workRunStatePath } from './work-run-paths.mjs';
 import {
   exclusionReceipt,
   invalidationReceipt,
@@ -21,17 +14,11 @@ import {
   reconcileReceipt,
   stateLostReceipt,
 } from './work-run-receipts.mjs';
-
 export { projectLocalTerminalWorkRun } from './work-run-receipts.mjs';
-
 export const WORK_RUN_LOCAL_DIR = '.agents/evals/local-metrics/work-runs';
 export const WORK_RUN_RECEIPT_DIR = '.agents/evals/work-runs';
 const MAX_EVENTS = 10_000;
-const LOCK_TIMEOUT_MS = 2_000;
-const LOCK_WAIT_MS = 20;
-
 const branchKey = (branch) => createHash('sha256').update(branch).digest('hex');
-
 export class WorkRunStore {
   constructor({ root, gitCommonDir, now = () => new Date().toISOString(), persistenceHooks = {} }) {
     this.root = root;
@@ -40,13 +27,10 @@ export class WorkRunStore {
     this.persistenceHooks = persistenceHooks;
     this.stateDir = path.join(root, WORK_RUN_LOCAL_DIR);
     this.receiptDir = path.join(root, WORK_RUN_RECEIPT_DIR);
-    this.lockDir = path.join(gitCommonDir, 'robota-work-runs', 'locks');
   }
-
   statePath(runId) {
     return workRunStatePath(this.stateDir, runId);
   }
-
   pointerPath(branch) {
     return path.join(
       this.gitCommonDir,
@@ -61,33 +45,7 @@ export class WorkRunStore {
   }
 
   withLock(runId, action) {
-    ensureOwnedDirectory(this.gitCommonDir, this.lockDir);
-    const lock = workRunLockPath(this.lockDir, runId);
-    const deadline = Date.now() + LOCK_TIMEOUT_MS;
-    let acquired = false;
-    while (!acquired) {
-      try {
-        assertSafeOwnedParent(this.gitCommonDir, lock);
-        mkdirSync(lock);
-        ensureOwnedDirectory(this.gitCommonDir, lock);
-        acquired = true;
-      } catch (error) {
-        if (error.code !== 'EEXIST' || Date.now() >= deadline) {
-          throw new Error(`timed out acquiring work-run lock for ${runId}`);
-        }
-        Atomics.wait(
-          new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT)),
-          0,
-          0,
-          LOCK_WAIT_MS,
-        );
-      }
-    }
-    try {
-      return action();
-    } finally {
-      rmSync(lock, { recursive: true, force: true });
-    }
+    return withWorkRunLock({ gitCommonDir: this.gitCommonDir, runId, action });
   }
 
   reusableRun(pointerPath, branch, identity) {

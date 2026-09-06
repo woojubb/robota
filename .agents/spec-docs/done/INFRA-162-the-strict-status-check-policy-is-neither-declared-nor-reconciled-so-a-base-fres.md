@@ -152,9 +152,9 @@ change — a policy nobody declared cannot be seen to move. B buys the residuals
 price this repository measured and declined, with no absorber available; C buys less than B for more
 CI time. The owner's settled selection of 2026-09-05, quoted verbatim from
 `/tmp/robota-issues/round2/DECISIONS.md` (where `INFRA-158` is the superseded label of this same
-item, #2219):
+item, issue #2219):
 
-> 2026-09-05 INFRA-158 별건 (#2219) 결정: A — strict 정책 선언(develop=false, main=true) + 라이브 룰셋
+> 2026-09-05 INFRA-158 별건 (issue #2219) 결정: A — strict 정책 선언(develop=false, main=true) + 라이브 룰셋
 > 대조(fail-closed), develop 은 켜지 않음. 머지 큐 후속은 만들지 않음(사용자 소유 저장소 불가); 잔여
 > 위험은 후일 B vs C.
 

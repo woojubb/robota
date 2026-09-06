@@ -47,8 +47,9 @@ export function resolveWorkspaceRoot(
   } = {},
 ) {
   const scriptDir = path.dirname(meta.filename);
+  const isEntry = isEntryPoint(meta, argv);
   let override = null;
-  for (let index = 2; index < argv.length; index += 1) {
+  for (let index = 2; isEntry && index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--root' && argv[index + 1]) override = argv[index + 1];
     else if (arg.startsWith('--root=')) override = arg.slice('--root='.length);
@@ -56,7 +57,6 @@ export function resolveWorkspaceRoot(
   if (override === null && env[ROOT_ENV]) override = env[ROOT_ENV];
   const defaultRoot = fromCwd ? path.resolve(cwd) : path.resolve(scriptDir, '../..');
   const root = override === null ? defaultRoot : path.resolve(override);
-  const isEntry = isEntryPoint(meta, argv);
   if (isEntry && (override !== null || root !== path.resolve(cwd))) {
     out.write(
       `${ROOT_MARKER} ${root}${override === null ? '' : ` (override: ${env[ROOT_ENV] && override === env[ROOT_ENV] ? ROOT_ENV : '--root'})`}\n`,

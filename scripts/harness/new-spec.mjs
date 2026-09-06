@@ -51,7 +51,6 @@
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-
 import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
 import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
@@ -59,7 +58,6 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 // stdout is the payload here (`--dry-run` prints the document, otherwise the created path), so the
 // root announcement goes to stderr — the document must not begin with a `::root::` line.
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
-
 export const TASKS_DIR = '.agents/tasks';
 export const DRAFT_DIR = '.agents/spec-docs/draft';
 export const TEMPLATE_PATH = '.agents/templates/mini-spec-template.md';
@@ -80,10 +78,8 @@ export const TYPES = [
   'SECURITY',
   'OBSERVABILITY',
 ];
-
 export const DEFAULT_WAIVER =
   "internal fix with no contract change; the remedy is the repository's own precedent";
-
 export const DEFAULT_NOT_APPLICABLE =
   'no runnable user-facing behaviour changes; verification evidence is recorded in the engineering ' +
   'test plan (TC-01 to TC-03)';

@@ -76,11 +76,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveWorkspaceRoot } from './shared.mjs';
-
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const HARNESS_DIR = path.join('scripts', 'harness');
 const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
-
 /**
  * Guards whose governed tree is MANDATORY in this repository: its absence means the scan is running
  * somewhere it cannot judge, which is an error and never a pass. Each must throw or report a finding
@@ -755,7 +753,6 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the spec-doc pipeline is the corpus and every stage directory was optional, so a root with none of them printed a pass over nothing',
   },
 ];
-
 /**
  * Registered finders NOT behaviourally pinned by this scan, each carrying the verdict actually
  * MEASURED when it was handed a root without its governed tree (2026-07-26, this tree).
@@ -887,26 +884,24 @@ export const PENDING_CLASSIFICATION = [
     measured: 'fail-closed',
   },
 ];
-
 /** Ledger entries measured to report a pass over an absent governed tree. */
 export const measuredVacuous = () =>
   PENDING_CLASSIFICATION.filter((entry) => entry.measured === 'vacuous');
-
 /** Scan scripts registered in the runner or declared for discovery, as bare filenames. */
 export function registeredScanFiles(root = WORKSPACE_ROOT) {
-  // Comments are stripped first (HARNESS-052): the raw text of the registration file names scans in
-  // its own docstrings and in `// …` notes beside table entries, so a scan that had been COMMENTED
-  // OUT of the table — or deleted from it and merely mentioned — still counted as registered. That
-  // is the presence-of-a-string shape this item's second axis is about, in this scan's own
-  // derivation. Structure lives in the array; comments are prose.
+  // Strip comments before parsing the runner; structure lives in the array, comments are prose.
   const source = stripJsComments(readFileSync(path.join(root, REGISTRATION_FILE), 'utf8'));
   const files = [...source.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
   const harnessDir = path.join(root, HARNESS_DIR);
-  for (const entry of readdirSync(harnessDir, { withFileTypes: true })) {
-    if (!entry.isFile() || !/^(?:scan|check)-.+\.mjs$/.test(entry.name)) continue;
-    const candidate = readFileSync(path.join(harnessDir, entry.name), 'utf8');
-    if (/export\s+const\s+scanDefinition\s*=/.test(candidate)) files.push(entry.name);
-  }
+  for (const entry of readdirSync(harnessDir, { withFileTypes: true }))
+    if (
+      entry.isFile() &&
+      /^(?:scan|check)-.+\.mjs$/.test(entry.name) &&
+      /export\s+const\s+scanDefinition\s*=/.test(
+        readFileSync(path.join(harnessDir, entry.name), 'utf8'),
+      )
+    )
+      files.push(entry.name);
   if (files.length === 0)
     throw new Error(
       `${REGISTRATION_FILE} parsed to zero registered scans. An empty registration list would ` +
@@ -914,7 +909,6 @@ export function registeredScanFiles(root = WORKSPACE_ROOT) {
     );
   return [...new Set(files)].sort();
 }
-
 /**
  * Exported finders of one harness script that take a `root`. The shape that makes a guard checkable
  * here.
