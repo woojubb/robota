@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-09-06
 type: INFRA
 tags: [harness, rules]
 lane: L2
@@ -98,7 +99,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2485-detect-rule-to-rule-normative-contradictions.md` — todo
+- [x] `.agents/tasks/HARNESS-2485-detect-rule-to-rule-normative-contradictions.md` — done
 
 ## Evidence Log
 
