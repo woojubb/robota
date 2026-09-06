@@ -55,7 +55,7 @@ sources, and expose a discoverable scan declaration with examined-size evidence.
 ## Affected Files
 
 scripts/harness/scan-ssot-five-axis.mjs
-scripts/harness/__tests__/scan-ssot-five-axis.test.mjs
+scripts/harness/**tests**/scan-ssot-five-axis.test.mjs
 scripts/harness/examined-adoption-baseline.json
 scripts/harness/measurement-provenance-pending.json
 
@@ -67,11 +67,11 @@ scripts/harness/measurement-provenance-pending.json
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| --- | --- | --- | --- |
-| TC-01 | Unit | Vitest fixture probes | refusal and control per axis |
-| TC-02 | Scan | Node scan entrypoint | tracked repository |
-| TC-03 | Integration | `pnpm harness:scan -- --context pr` | discovery and adoption |
+| TC-ID | Test Type   | Tool / Approach                     | Notes                        |
+| ----- | ----------- | ----------------------------------- | ---------------------------- |
+| TC-01 | Unit        | Vitest fixture probes               | refusal and control per axis |
+| TC-02 | Scan        | Node scan entrypoint                | tracked repository           |
+| TC-03 | Integration | `pnpm harness:scan -- --context pr` | discovery and adoption       |
 
 ## User Execution Test Scenarios
 
