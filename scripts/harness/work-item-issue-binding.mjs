@@ -1,6 +1,7 @@
 /**
- * The GitHub-issue half of `allocate-work-item-id.mjs`: reading, creating and closing the issue a
- * newly allocated work item is bound to.
+ * The GitHub-issue half of `allocate-work-item-id.mjs`: resolving the EXISTING issue a work item is
+ * bound to, by number or by an exact title match. It never creates or closes one — a person opens
+ * the Issue (`gh issue create` or the web UI) before allocating against it.
  *
  * Its own module because it is the only part of the allocator that leaves the machine. Every function
  * here shells out to `gh` and fails for network and authentication reasons the ID arithmetic never
@@ -17,7 +18,6 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 const ISSUE_REPOSITORY = 'woojubb/robota';
-const REQUIRED_NEW_ISSUE_LABELS = ['enhancement', 'status:needs-triage'];
 
 const validIssueNumber = (value) =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value) ? value : null;
@@ -70,92 +70,18 @@ function defaultIssueView(number) {
   }
 }
 
-function defaultCloseIssue(number) {
-  const closed = spawnSync(
-    'gh',
-    [
-      'issue',
-      'close',
-      number,
-      '--repo',
-      ISSUE_REPOSITORY,
-      '--reason',
-      'not planned',
-      '--comment',
-      'Closed automatically because work-item ID allocation could not complete safely.',
-    ],
-    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
-  );
-  return closed.status === 0;
-}
-
-/** Close an Issue created by this allocator when a later safety check refuses the allocation. */
-export function closeCreatedIssue(number, closeIssue = defaultCloseIssue) {
-  const valid = validIssueNumber(String(number));
-  if (valid === null) throw new Error('cannot clean up an invalid GitHub issue number');
-  return closeIssue(valid);
-}
-
-function defaultCreateIssue(title) {
-  const body = [
-    '## What was observed',
-    '',
-    title,
-    '',
-    '## Expected outcome',
-    '',
-    'Track this requested change as the canonical external work item before creating its Task/spec identifier.',
-    '',
-    '## Location / context',
-    '',
-    'Created by `allocate-work-item-id.mjs`; duplicate search was performed by exact title before creation.',
-    '',
-    '## Duplicate search',
-    '',
-    'Exact-title search found no existing Issue.',
-  ].join('\n');
-  const created = spawnSync(
-    'gh',
-    [
-      'issue',
-      'create',
-      '--repo',
-      ISSUE_REPOSITORY,
-      '--title',
-      title,
-      '--body',
-      body,
-      ...REQUIRED_NEW_ISSUE_LABELS.flatMap((label) => ['--label', label]),
-    ],
-    { cwd: WORKSPACE_ROOT, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 },
-  );
-  if (created.status !== 0) return null;
-  const number = /\/issues\/(\d+)\b/.exec(created.stdout ?? '')?.[1] ?? null;
-  if (number === null) return null;
-  const verified = defaultIssueView(number);
-  if (
-    verified === null ||
-    !REQUIRED_NEW_ISSUE_LABELS.every((label) =>
-      (verified.labels ?? []).some((entry) => entry.name === label),
-    )
-  ) {
-    const cleanedUp = closeCreatedIssue(number);
-    throw new Error(
-      `allocate-work-item-id: created issue #${number}, but required labels could not be verified; ` +
-        `refusing to allocate${cleanedUp ? ' (the newly created Issue was closed)' : ' (automatic cleanup failed; close the Issue manually)'}`,
-    );
-  }
-  return { number, title };
-}
-
-/** Resolve an existing Issue or create one, without writing a Task/spec before resolution succeeds. */
+/**
+ * Resolve an EXISTING Issue only. This allocator never creates one (issue-registration policy,
+ * 2026-09): a finding is recorded in `.agents/learn.md` as it is noticed, and a GitHub Issue is
+ * opened by a person — with `gh issue create` or the web UI — only when the work is ready to be
+ * tracked externally. Auto-creating one here, silently, on every title that had no exact match was
+ * the mechanism driving Issue-count growth the policy exists to stop.
+ */
 export function resolveIssueNumber({
   requestedIssue = null,
   title = '',
-  dryRun = false,
   viewIssue = defaultIssueView,
   issueList = () => defaultIssueList(),
-  createIssue = defaultCreateIssue,
 } = {}) {
   const requested = requestedIssue === null ? null : validIssueNumber(String(requestedIssue));
   if (requestedIssue !== null && requested === null) {
@@ -179,13 +105,10 @@ export function resolveIssueNumber({
     );
   }
   if (matches.length === 1) return { number: matches[0].number, source: 'existing-title' };
-  if (dryRun)
-    throw new Error('--dry-run cannot create a missing GitHub Issue; pass --issue explicitly');
-  const created = createIssue(normalizedTitle);
-  if (created === null || validIssueNumber(String(created.number)) === null) {
-    throw new Error(
-      'GitHub Issue creation did not return a valid issue number; refusing to allocate',
-    );
-  }
-  return { number: String(created.number), source: 'created' };
+  throw new Error(
+    `no open or closed GitHub Issue titled "${normalizedTitle}" was found in ${ISSUE_REPOSITORY}. ` +
+      'This allocator no longer files one automatically — open it yourself (`gh issue create`) and ' +
+      'pass its number with --issue, or record the finding in .agents/learn.md instead of allocating ' +
+      'a Task for it yet.',
+  );
 }

@@ -70,8 +70,10 @@ Two things it deliberately does not treat as collisions, and one it cannot see:
 
 **So a NEW record is Issue-backed.** Before creating a Task or its paired spec, resolve the registering
 GitHub Issue. If one exists, pass its number; if none exists, `allocate-work-item-id.mjs` searches for
-an exact title and creates a correctly labeled Issue, then uses the server-returned number. The new ID
-is `<PREFIX>-<issue-number>` (for example, `HARNESS-2401`), so it is not derived from a local counter.
+an exact title match and uses it — it does not file a new Issue itself (issue-registration policy,
+2026-09): open one by hand (`gh issue create`) first, or record the finding in `.agents/learn.md`
+instead of allocating a Task for it yet. The new ID is `<PREFIX>-<issue-number>` (for example,
+`HARNESS-2401`), so it is not derived from a local counter.
 The Task must still cite the Issue URL. Existing legacy IDs remain valid and are not renamed; a legacy
 record may be scaffolded explicitly with `new-spec.mjs … --legacy-id`.
 
@@ -99,13 +101,14 @@ record's ID".
    pnpm harness:task:allocate INFRA "the problem, as a sentence" --issue 2401
    ```
 
-   Omit `--issue` to reuse an exact existing Issue title or create a new enhancement Issue with
-   `status:needs-triage`; allocation stops if GitHub cannot resolve/create/read back the Issue. The
-   returned ID is `<PREFIX>-<issue-number>`.
+   Omit `--issue` to reuse an exact existing Issue title; it never creates one — allocation stops
+   and names the two remaining options (`gh issue create` yourself and pass `--issue`, or a
+   `.agents/learn.md` record) if no exact title match exists. The returned ID is
+   `<PREFIX>-<issue-number>`.
 
    The allocator still reads records, citations, and issue titles/bodies to refuse a legacy-ID
    collision. It never uses their highest number for a new allocation. Add `--dry-run` with an
-   explicit `--issue` to see the ID without writing the file or creating a remote Issue.
+   explicit `--issue` to see the ID without writing the file.
 
 2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
 3. When implementation is complete and all gates pass (see

@@ -1,11 +1,13 @@
 ---
 title: 'HARNESS-102: nothing can observe a finding that was noticed and dropped — the find-to-issue skill instructs the behaviour and no mechanism can tell whether it was followed, because the failure state is an absence'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-09-06
 priority: low
 urgency: later
 area: .agents/skills, scripts/harness
 depends_on: []
+no-issue: issue-registration policy alignment requested directly by the maintainer (stop auto-filing GitHub Issues from findings); no GitHub issue is the source record
 ---
 
 # HARNESS-102: the unmechanized half of find→issue
@@ -39,12 +41,39 @@ None is obviously correct; each is a hypothesis:
   recorded, dated statement to that effect — so a later session does not spend the same effort
   rediscovering the obstacle. That is a legitimate outcome for this item, not a failure of it.
 
+## Resolution (2026-09-06)
+
+Direction 1 ("make the absence leave a trace"), driven by a maintainer-requested policy change that
+widens this item's scope: `find-to-issue` no longer instructs filing a GitHub Issue at all — issue
+count growth measured against `allocate-work-item-id.mjs` traced back to two paths that filed one
+without being asked: `find-to-issue`'s own default action, and the allocator's silent
+create-if-no-title-match fallback. Both are closed in this change:
+
+1. `find-to-issue` now appends a five-field record to `.agents/learn.md` instead of filing an Issue —
+   the absence HARNESS-102 names becomes a presence: a stable ID, a timestamp and evidence, on every
+   mid-task finding, with no network call.
+2. `allocate-work-item-id.mjs` / `work-item-issue-binding.mjs` no longer create a GitHub Issue when
+   `--issue` is omitted and no exact title match exists; they refuse and name what to do instead
+   (pass `--issue`, or record the finding in `.agents/learn.md`).
+
+A GitHub Issue remains available for anyone to open by hand; what closes is the reflex of the harness
+filing one automatically, which is the artifact-observability gap this item was filed to solve.
+
 ## Test Plan
 
-- Whichever direction is chosen carries its own prove-it-fails, or the item closes with the
-  written finding that no mechanism is possible and why.
+- `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` — the allocator
+  refuses to create an Issue and requires `--issue` or an exact title match.
 - `pnpm harness:scan` green.
 
 ## User Execution Test Scenarios
 
-Not applicable — process change with no runnable user-facing behaviour.
+<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
+     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
+     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
+     evidence); otherwise write the scenario a user can run and raise the count. -->
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This changes internal harness/agent-workflow tooling (a Node CLI script and an agent
+skill's instructions); it has no end-user runtime surface, CLI behavior, SDK contract, or
+product-facing interaction to execute.

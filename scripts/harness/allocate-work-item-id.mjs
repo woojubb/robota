@@ -9,10 +9,13 @@
  * compatibility guard for legacy records, but it cannot serialize two unpublished sessions.
  * New records use the registering GitHub Issue number instead of reading a local highest number.
  *
- * GitHub already has the atomic allocator we need: an Issue number. This script resolves the
- * registering Issue (or creates one when the title is new), then writes `<PREFIX>-<issue-number>`.
- * The old counter helpers remain exported for historical compatibility tests, but the production
- * path never allocates a new number by scanning the tree.
+ * GitHub already has the atomic allocator we need: an Issue number. This script resolves an
+ * EXISTING registering Issue — by `--issue`, or by an exact title match — then writes
+ * `<PREFIX>-<issue-number>`. It never files a new Issue itself (issue-registration policy, 2026-09):
+ * open one by hand first (`gh issue create`) when the title matches nothing, or record the finding
+ * in `.agents/learn.md` instead of allocating a Task for it yet. The old counter helpers remain
+ * exported for historical compatibility tests, but the production path never allocates a new number
+ * by scanning the tree.
  *
  * ## What "claimed" means here, measured
  *
@@ -34,7 +37,7 @@
  *
  * Usage:
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "the issue title" --issue 2401
- *   node scripts/harness/allocate-work-item-id.mjs INFRA "the issue title" # find/create Issue
+ *   node scripts/harness/allocate-work-item-id.mjs INFRA "the issue title" # reuse by exact title
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --issue 2401 --dry-run
  *   node scripts/harness/allocate-work-item-id.mjs INFRA "…" --allow-stale  # behind origin/develop, knowingly
  *
@@ -48,9 +51,9 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
-import { closeCreatedIssue, listIssues, resolveIssueNumber } from './work-item-issue-binding.mjs';
+import { listIssues, resolveIssueNumber } from './work-item-issue-binding.mjs';
 
-export { closeCreatedIssue, listIssues, resolveIssueNumber };
+export { listIssues, resolveIssueNumber };
 import {
   collectClaimed,
   idsFromCitations,
@@ -218,7 +221,6 @@ function main(argv) {
     issueResolution = resolveIssueNumber({
       requestedIssue: issue,
       title,
-      dryRun,
     });
   } catch (error) {
     console.error(`allocate-work-item-id: ${error.message}`);
@@ -234,16 +236,9 @@ function main(argv) {
 
   const claimed = collectClaimed(records, citations, issues);
   if (claimed.has(id)) {
-    let cleanup = '';
-    if (issueResolution.source === 'created') {
-      cleanup = closeCreatedIssue(issueNumber)
-        ? ` The newly created Issue #${issueNumber} was closed because allocation was refused.`
-        : ` Automatic cleanup of newly created Issue #${issueNumber} failed; close it manually.`;
-    }
     console.error(
       `allocate-work-item-id: ${id} is already claimed by a tracked record, citation, or Issue; ` +
-        'refusing to create a duplicate. Choose a different prefix or reconcile the existing item.' +
-        cleanup,
+        'refusing to create a duplicate. Choose a different prefix or reconcile the existing item.',
     );
     return 1;
   }
