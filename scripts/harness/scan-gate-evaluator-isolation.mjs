@@ -21,7 +21,11 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
 const EXAMINED = ['::', 'examined::'].join('');
-const EVALUATOR_PREFIXES = ['scripts/harness/gate.mjs', '.claude/hooks/'];
+const EVALUATOR_PREFIXES = [
+  'scripts/harness/gate-operations.mjs',
+  'scripts/harness/gate-criteria.mjs',
+  '.claude/hooks/',
+];
 const SPEC_PREFIX = '.agents/spec-docs/';
 
 function git(args) {
