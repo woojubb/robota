@@ -51,6 +51,10 @@ beforeAll(() => {
     path.join(stubBin, 'gh'),
     [
       '#!/bin/bash',
+      'if [ "${STUB_GH_FAIL:-0}" = "1" ]; then',
+      '  printf "stub gh failed\\n" >&2',
+      '  exit 1',
+      'fi',
       "# Run the caller's own --jq over the per-case fixture payload, the way gh does.",
       'if [[ "$*" == *"pr checks"* ]]; then',
       '  printf \'%s\\n\' "$STUB_FAILING_CHECKS"',
@@ -120,6 +124,7 @@ function stubGh({
   approvalAssociation = 'OWNER',
   approvedBy = approvalAuthor,
   remoteHead = 'a'.repeat(40),
+  ghFailure = false,
 }) {
   // The payload real `gh` would have fetched, in the shape the hook's `--json comments,reviews` asks
   // for. The stub does NOT pre-compute an answer from it: it runs the hook's OWN `--jq` expression
@@ -167,6 +172,7 @@ function stubGh({
     STUB_GH_PAYLOAD: payloadPath,
     STUB_PR_NUMBER: String(prNumber),
     STUB_REMOTE_HEAD: remoteHead,
+    STUB_GH_FAIL: ghFailure ? '1' : '0',
   };
 }
 
@@ -181,6 +187,7 @@ function push({
   approvalAssociation,
   approvedBy,
   remoteHead,
+  ghFailure,
 }) {
   const dir = scratchRepo();
   const stubEnv = stubGh({
@@ -194,6 +201,7 @@ function push({
     approvalAssociation,
     approvedBy,
     remoteHead,
+    ghFailure,
   });
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
@@ -214,6 +222,13 @@ function push({
 }
 
 describe('pre-push open-PR freeze — RED direction', () => {
+  it('reports when the freeze measurement is unavailable instead of silently treating it as clean', () => {
+    const res = push({ findings: 0, ghFailure: true });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/Frozen-diff check unavailable/);
+    expect(res.output).toMatch(/no freeze verdict was established/);
+  });
+
   it('refuses a push when the open PR’s latest review reports zero findings', () => {
     const res = push({ findings: 0 });
     expect(res.status).toBe(2);

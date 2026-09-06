@@ -828,16 +828,22 @@ frozen_diff_refusal() {
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
   # shape, so a branch named `42` would be answered with pull request #42's state.
-  open_pr=$(cd "$PROJECT_DIR" &&
-    bounded_gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty' || echo "")
+  if ! open_pr=$(cd "$PROJECT_DIR" &&
+    bounded_gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty'); then
+    echo "[pre-push-check] Frozen-diff check unavailable: could not query open PR state; no freeze verdict was established." >&2
+    return 1
+  fi
   [[ "$open_pr" =~ ^[1-9][0-9]*$ ]] || return 1
   # The reviewer filter and the unanchored marker are merge-gate.sh's, deliberately: a gate whose
   # input its own subject can write is not a gate, and jq's regex does not anchor at line
   # boundaries. Unknown is NOT zero — a refusal on a failed measurement blocks correct work on no
   # evidence, so an unreadable count returns 1 and the push proceeds to the checks below.
-  latest_body=$( (cd "$PROJECT_DIR" &&
+  if ! latest_body=$(cd "$PROJECT_DIR" &&
     bounded_gh pr view "$open_pr" --json comments,reviews \
-      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null) || echo "")
+      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null); then
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read the PR findings verdict; no freeze verdict was established." >&2
+    return 1
+  fi
   latest_count=$(printf '%s\n' "$latest_body" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1)
   [[ "$latest_count" =~ ^[0-9]+$ ]] || return 1
   # The latest findings verdict governs the next action. A push is permitted only when a maintainer
@@ -848,7 +854,10 @@ frozen_diff_refusal() {
     echo "[pre-push-check] Blocked: latest findings verdict has no parseable REVIEWED HEAD; re-read the review before pushing." >&2
     return 0
   fi
-  actual_remote_head=$(cd "$PROJECT_DIR" && git ls-remote origin "refs/heads/$branch" | awk 'NR==1 {print $1}' || echo "")
+  if ! actual_remote_head=$(cd "$PROJECT_DIR" && git ls-remote origin "refs/heads/$branch" | awk 'NR==1 {print $1}'); then
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read the remote branch head; no freeze verdict was established." >&2
+    actual_remote_head=""
+  fi
   if [[ -n "$actual_remote_head" && "$actual_remote_head" != "$remote_head" ]]; then
     echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
     return 0
@@ -856,10 +865,13 @@ frozen_diff_refusal() {
   # `gh pr view --json comments` exposes `id` as a GraphQL node id (`IC_...`), while the
   # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
   # number from the same canonical URL the parser independently validates.
-  approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
+  if ! approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
     --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
     | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
-      --verdict "$latest_count" --actions push,rebase 2>/dev/null || echo "")
+      --verdict "$latest_count" --actions push,rebase 2>/dev/null); then
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read post-verdict authorization; no authorization was established." >&2
+    approved=""
+  fi
   if [[ "$approved" == "1" ]]; then
     echo "[pre-push-check] Approved post-verdict change request found for PR #$open_pr at head $remote_head." >&2
     return 1
