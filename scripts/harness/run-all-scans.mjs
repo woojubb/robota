@@ -685,6 +685,17 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-standing-delegation-evidence.mjs'],
     examines: [SPEC_DOCS, RULES, 'scripts/harness/standing-delegation-baseline.json'],
   },
+  // Issue #2269. Gate entries must identify the mechanism that judged them; the dated migration
+  // baseline keeps immutable historical evidence visible without rewriting it.
+  {
+    name: 'gate-verdict-attribution',
+    command: ['node', 'scripts/harness/scan-gate-verdict-attribution.mjs'],
+    examines: [
+      SPEC_DOCS,
+      'scripts/harness/gate.mjs',
+      'scripts/harness/gate-verdict-attribution-baseline.json',
+    ],
+  },
   // RULE-018. GitHub applies a missing Issue Form label silently, while PR gates consume three
   // exact-name labels from the same repository namespace. The registry and fixed consumer baseline
   // make both relations fail closed without claiming to discover arbitrary label-shaped strings.

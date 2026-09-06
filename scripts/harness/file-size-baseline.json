@@ -112,7 +112,7 @@
   "scripts/harness/record-local-review.mjs": 540,
   "scripts/harness/release-run.mjs": 544,
   "scripts/harness/review-change.mjs": 338,
-  "scripts/harness/run-all-scans.mjs": 1910,
+  "scripts/harness/run-all-scans.mjs": 1920,
   "scripts/harness/scan-action-references.mjs": 579,
   "scripts/harness/scan-aggregate-naming.mjs": 689,
   "scripts/harness/scan-api-pagination.mjs": 358,

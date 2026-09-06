@@ -132,6 +132,14 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the spec-document corpus IS the population this guard governs — over a root without it there is no GATE-APPROVAL entry to judge, and a silent empty pass would restate the defect the guard exists to end: a count nobody can check',
   },
   {
+    // Issue #2269. The evidence-log tree is the population; a bare root has no entries to count and
+    // must not be mistaken for a clean attribution result.
+    file: 'scan-gate-verdict-attribution.mjs',
+    finder: 'collectEntries',
+    tree: '.agents/spec-docs/done',
+    why: 'gate evidence entries are the governed population; without the done spec tree an empty count would certify attribution over nothing',
+  },
+  {
     // PROC-016. This finder was INVISIBLE to the previous comment stripper — the string
     // `'packages/*/dist'` opened a phantom block comment that ran to the `\/\*$/` of a later regex
     // and swallowed the export — so it was never classified. First measured 2026-08-28 as
