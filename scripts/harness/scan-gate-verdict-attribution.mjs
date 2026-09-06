@@ -16,6 +16,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 const ROOT = resolveWorkspaceRoot(import.meta);
 const DONE = path.join(ROOT, '.agents/spec-docs/done');
 const BASELINE = path.join(import.meta.dirname, 'gate-verdict-attribution-baseline.json');
+let examinedEntries = 0;
 
 function markdownFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -56,12 +57,19 @@ export function collectEntries(root = ROOT) {
     scan: 'gate-verdict-attribution',
     why: 'the done spec tree is the evidence population; without it no attribution can be judged',
   });
-  return markdownFiles(path.join(root, '.agents/spec-docs/done')).flatMap((file) =>
+  const done = path.join(root, '.agents/spec-docs/done');
+  const entries = markdownFiles(done).flatMap((file) =>
     evidenceEntries(
       readFileSync(file, 'utf8'),
       path.relative(root, file).split(path.sep).join('/'),
     ),
   );
+  examinedEntries = entries.length;
+  return entries;
+}
+
+export function examinedGateEvidenceCount() {
+  return examinedEntries;
 }
 
 export function evaluateEntries(entries, cutoffDate) {
