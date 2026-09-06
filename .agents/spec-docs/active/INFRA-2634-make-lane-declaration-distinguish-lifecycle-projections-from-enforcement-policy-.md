@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [ci, typescript]
 lane: L2
@@ -244,3 +244,63 @@ The design is explicit and bounded; no blocking reason remains.
   **Required action:** commit, stash, or remove them before this gate
 
 **Judged at:** HEAD `b2cfc2761207` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `7ef20dcf004a` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-06; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (4)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 647 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+**Guardian verdict:** `GATE VERDICT: PASS` — the SPEC/Task implementation scope and affected files are
+concrete, TC-01–TC-04 are each mapped to a test-plan row, and the design excludes only done/history
+inputs and lifecycle-only projections while retaining normal active-spec and direct L2 declarations.
+No blocking reason remains.
+
+**Independent reviewer:** Wegener (subagent) — read-only semantic GATE-IMPLEMENT review, 2026-09-06.
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md",
+    ".agents/tasks/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged at:** HEAD `af3df5715132` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `675b9e4d06a2` (tracked)
