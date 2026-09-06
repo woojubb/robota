@@ -28,8 +28,10 @@ annotation, and analysis-alert streams a PR carries — because those _are_ the 
 
 ## When to Use / When NOT to Use
 
-- **Use** whenever an open PR has **automated review feedback** — bot review comments, inline annotations, or
-  static-analysis alerts — and especially before the merge is armed.
+- **Use** whenever an open PR has **automated review feedback** — inline annotations or
+  static-analysis alerts — and especially before the merge is armed. (The Claude Code Review
+  GitHub Action is retired as of INFRA-2631 and no longer posts anything on a PR; do not wait
+  on it.)
 - **Do NOT use** as a substitute for the code-review gate the rules own. That gate decides whether the PR may
   merge at all; this loop only drives the automated feedback to a stable state so the gate has something
   honest to judge.

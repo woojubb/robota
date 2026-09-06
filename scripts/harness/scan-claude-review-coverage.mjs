@@ -3,12 +3,18 @@
 /**
  * Claude review coverage guard (INFRA-098).
  *
- * Scope: workflow files under `.github/workflows` that invoke
- * `anthropics/claude-code-action`. This guard owns PR event coverage, the exact verdict identity
- * markers, and the prompt output-language contract. Token supply and permission breadth remain
- * owned by their existing scans.
+ * Scope: workflow files under `.github/workflows` that invoke `anthropics/claude-code-action`. Owns
+ * PR event coverage, the exact verdict identity markers, and the prompt output-language contract.
+ * Token supply and permission breadth remain owned by their existing scans.
  *
- * Exit 0 = at least one governed workflow was examined and all pass; 1 = finding or unreadable tree.
+ * RETIREMENT (INFRA-2631): a governed job whose `if` normalizes to `false` AND whose file carries
+ * the literal `RETIRED_MARKER` skips every shape check below — it can never run, so none of those
+ * facts are load-bearing. `if: false` alone (no marker) still fails every check as before; the
+ * top-level "zero governed workflows" failure is untouched since it only fires with no action
+ * reference at all.
+ *
+ * Exit 0 = at least one governed workflow examined and all pass (retired ones included); 1 = finding
+ * or unreadable tree.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -24,7 +30,19 @@ const REQUIRED_JOB_IF =
   "${{ github.event.pull_request.head.repo.full_name == github.repository && (github.event.action != 'edited' || github.event.changes.base != null) }}";
 const REQUIRED_ENGLISH_OUTPUT = 'Write the PR summary and every inline review comment in English.';
 const HANGUL_PATTERN = /\p{Script=Hangul}/u;
+export const RETIRED_MARKER = 'CLAUDE-CODE-REVIEW: RETIRED (INFRA-2631)';
+/** Accepted "unconditionally disabled" `if:` spellings: `false` and `review-gate.yml`'s `${{ false }}`. */
+const RETIRED_JOB_IF_VALUES = new Set(['false', '${{false}}']);
 let examinedCount = 0;
+
+/** Is this action's owning job deliberately, explicitly retired (INFRA-2631)? */
+export function isRetiredJob(source, jobIf) {
+  return (
+    jobIf !== undefined &&
+    RETIRED_JOB_IF_VALUES.has(normalizeExpression(jobIf)) &&
+    source.includes(RETIRED_MARKER)
+  );
+}
 
 export function readExamined() {
   return examinedCount;
@@ -177,6 +195,9 @@ export function findWorkflowCoverageFindings(source) {
     ['ACTIONABLE FINDINGS', '<n>'],
   ];
   for (const actionIndex of actions) {
+    const job = owningJobBlock(lines, actionIndex);
+    const jobIf = jobLevelScalar(job, 'if');
+    if (isRetiredJob(source, jobIf)) continue; // retired (INFRA-2631): see module doc comment
     const prompt = promptBlock(lines, actionIndex);
     if (!prompt.some((line) => line.trim() === REQUIRED_ENGLISH_OUTPUT)) {
       findings.push({
@@ -196,8 +217,6 @@ export function findWorkflowCoverageFindings(source) {
         });
       }
     }
-    const job = owningJobBlock(lines, actionIndex);
-    const jobIf = jobLevelScalar(job, 'if');
     if (jobIf === undefined) {
       findings.push({ detail: 'review job is missing a job-level `if` condition' });
       continue;
