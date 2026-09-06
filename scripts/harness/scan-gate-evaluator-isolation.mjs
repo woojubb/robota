@@ -23,7 +23,6 @@ const ROOT = resolveWorkspaceRoot(import.meta);
 const EXAMINED = ['::', 'examined::'].join('');
 const EVALUATOR_PREFIXES = [
   'scripts/harness/gate-operations.mjs',
-  'scripts/harness/gate-criteria.mjs',
   '.claude/hooks/',
 ];
 const SPEC_PREFIX = '.agents/spec-docs/';

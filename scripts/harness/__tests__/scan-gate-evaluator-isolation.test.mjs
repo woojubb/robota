@@ -10,7 +10,7 @@ describe('gate-evaluator-isolation', () => {
   it('rejects evaluator and evidence changes in one diff', () => {
     expect(
       evaluatorIsolationFindings([
-        'scripts/harness/gate-criteria.mjs',
+        'scripts/harness/gate-operations.mjs',
         '.agents/spec-docs/active/RULE-025.md',
       ]),
     ).toHaveLength(1);
@@ -46,7 +46,7 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
       commitIsolationFindings([
         {
           commit: 'abc1234',
-          paths: ['scripts/harness/gate-criteria.mjs', '.agents/spec-docs/active/RULE-025.md'],
+          paths: ['scripts/harness/gate-operations.mjs', '.agents/spec-docs/active/RULE-025.md'],
         },
       ]),
     ).toHaveLength(1);
@@ -76,7 +76,7 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
   it('still refuses when a merge commit itself carries both', () => {
     expect(
       commitIsolationFindings([
-        { commit: 'ddd4444', paths: ['scripts/harness/gate-criteria.mjs', '.agents/spec-docs/todo/Y.md'] },
+        { commit: 'ddd4444', paths: ['scripts/harness/gate-operations.mjs', '.agents/spec-docs/todo/Y.md'] },
         { commit: 'eee5555', paths: ['README.md'] },
       ]),
     ).toHaveLength(1);

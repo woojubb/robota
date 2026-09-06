@@ -22,7 +22,7 @@ describe('gate-entrypoint-stability', () => {
       evaluateStability({
         facadeText: facade,
         baselineText: baseline,
-        changedPaths: ['scripts/harness/gate-criteria.mjs'],
+        changedPaths: ['scripts/harness/gate-operations.mjs'],
         baseHasBaseline: true,
       }),
     ).toEqual([]);
@@ -46,7 +46,7 @@ describe('gate-entrypoint-stability', () => {
       evaluateStability({
         facadeText: facade,
         baselineText: forged,
-        changedPaths: ['scripts/harness/gate-criteria.mjs'],
+        changedPaths: ['scripts/harness/gate-operations.mjs'],
         baseHasBaseline: true,
       }),
     ).toContain(`${FACADE_PATH} digest differs from the frozen baseline`);

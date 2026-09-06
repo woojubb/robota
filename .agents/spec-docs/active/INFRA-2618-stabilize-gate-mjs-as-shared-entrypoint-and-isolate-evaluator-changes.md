@@ -57,7 +57,7 @@ catalogue-as-SSOT rule while moving implementation ownership behind that surface
 - `scripts/harness/gate-cli.mjs` — argument parsing, command dispatch, usage, and process exit only.
 - `scripts/harness/gate-document.mjs` — document/Markdown/evidence parsing and rendering helpers.
 - `scripts/harness/gate-catalogue.mjs` — catalogue and prior-gate contract readers.
-- `scripts/harness/gate-criteria.mjs` — mechanical criterion registry and criterion implementations.
+- `scripts/harness/gate-operations.mjs` — gate lifecycle operations and mechanical criterion evaluation.
 - `scripts/harness/gate-operations.mjs` — judge/record/approve/advance operations composed from the
   document, catalogue, and criteria modules.
 - `scripts/harness/gate-public-api.mjs` — compatibility export surface for existing consumers.

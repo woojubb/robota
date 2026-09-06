@@ -42,7 +42,7 @@ export {
   parsePriorGateMap,
 } from './gate-catalogue.mjs';
 
-export { JUDGEMENTS, judgeCriteria, PLAN_IMPLEMENT_JUDGEMENTS, resolveLane } from './gate-criteria.mjs';
+export { JUDGEMENTS, judgeCriteria, PLAN_IMPLEMENT_JUDGEMENTS, resolveLane } from './gate-operations.mjs';
 
 export {
   boundClassMeasurement,
