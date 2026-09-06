@@ -321,10 +321,10 @@ No blocking reason remains.
 
 **Status upgrade:** in-progress → verifying
 
-- GATE-VERIFY — Every item in the Task Plan is marked complete — PASS — all 4 plan items are `[x]`.
-- GATE-VERIFY — No Plan item is blocked or pending — PASS — the Task Plan has no blocked or pending item.
-- GATE-VERIFY — Build passes for all affected packages — PASS — `pnpm build` exited 0.
-- GATE-VERIFY — Tests pass for the changed harness surface — PASS — `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` exited 0 with 54 tests passed.
+- GATE-VERIFY — Every item in the Task Plan is marked complete: PASS — all 4 plan items are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the Task Plan has no blocked or pending item.
+- GATE-VERIFY — Build passes for all affected packages: PASS — `pnpm build` exited 0.
+- GATE-VERIFY — Tests pass for the changed harness surface: PASS — `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` exited 0 with 54 tests passed.
 
 **Guardian verdict:** `GATE VERDICT: PASS` — The focused 54-test scanner suite, direct lane scan, and
 `pnpm build` sufficiently verify INFRA-2634's changed paths and completion criteria. The two TUI ANSI
