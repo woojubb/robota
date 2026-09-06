@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
@@ -51,6 +52,10 @@ export function evidenceEntries(text, file = '') {
 }
 
 export function collectEntries(root = ROOT) {
+  requireGovernedTree(root, ['.agents/spec-docs/done'], {
+    scan: 'gate-verdict-attribution',
+    why: 'the done spec tree is the evidence population; without it no attribution can be judged',
+  });
   return markdownFiles(path.join(root, '.agents/spec-docs/done')).flatMap((file) =>
     evidenceEntries(
       readFileSync(file, 'utf8'),
