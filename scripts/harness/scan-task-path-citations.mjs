@@ -113,6 +113,19 @@ const SENTENCE_CONTRADICTS_REPAIR = [
     outcome: 'conflict',
     why: 'same conflict as the gate script, and the surrounding prose says DIST-002 too — renumbering one without the other would be worse',
   },
+  // A third shape: the repair is unambiguous (the citation really did move), but the citing
+  // document is an ACTIVE, single-delivery lane: L2 tracker (INFRA-155). Repointing this row
+  // directly would set the whole branch's lane-declaration floor to L2 (spec-workflow.md § Lane
+  // floors) for a one-line path fix belonging to an unrelated, already-closed L1 Task — and its
+  // "ABSORB Issue | Exact live Task" table row is a lifecycle-projection bookkeeping cell exactly
+  // like AGREEMENT-008's checklist-bullet rows, just in a shape scan-lane-declaration.mjs's
+  // isLifecycleProjectionOnly() does not recognize yet. Left for the INFRA-155 owner's own pass.
+  {
+    file: '.agents/spec-docs/active/INFRA-155-authorize-the-final-rule-023-bulk-migration.md',
+    cited: `${TASKS_DIR}REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`,
+    outcome: 'moved',
+    why: "INFRA-155 is an active, single-delivery lane: L2 tracker; repointing this row would set this branch's lane floor to L2 for an unrelated one-line fix — see the exemption list comment above",
+  },
 ];
 
 /**

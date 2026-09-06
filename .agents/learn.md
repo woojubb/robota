@@ -49,3 +49,24 @@ near-duplicates happens in batch, at lesson time.
 - related: git-branch.md's maintainer-direct-push allowance vs track-work-run's "claim through
   first PR" framing; the several chore/allow-develop-direct-merge* branches on this repo suggest
   the same gap is already being worked elsewhere
+
+### LRN-lane-declaration-table-row-projection
+
+- observed-at: 2026-09-06T13:07:58Z
+- observation: `scan-lane-declaration.mjs`'s `isLifecycleProjectionOnly()` recognizes a child
+  Task's lifecycle-bookkeeping update only in the checklist-bullet shape
+  (`- [x] ID — status — \`path\``, as AGREEMENT-008 uses). The identical bookkeeping fact recorded
+as a markdown table row (INFRA-155's `| ABSORB Issue | Exact live Task |`mapping) is NOT
+recognized, so closing an L1 child Task and repointing its citation in an L2 parent's table
+forces that L1 branch's lane-declaration floor to L2 — disproportionate for a one-line path fix.
+Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_REPAIR`
+  exemption instead of fixing the row directly.
+- evidence: scripts/harness/scan-lane-declaration.mjs (`LIFECYCLE_PROJECTION_ROW` regex,
+  `isLifecycleProjectionOnly`); scripts/harness/scan-task-path-citations.mjs (exemption added for
+  `.agents/spec-docs/active/INFRA-155-authorize-the-final-rule-023-bulk-migration.md`); repro: any
+  edit to INFRA-155's ABSORB table row on a branch declaring `Lane: L1` fails
+  `lane-declaration summary: ... result=FAIL` with "conflicting declarations"
+- source: fix/refactor-027-phantom-ports-v2 (REFACTOR-027 work)
+- related: AGREEMENT-008's exempted checklist-bullet rows (same bookkeeping purpose, recognized
+  shape); a follow-up would extend `LIFECYCLE_PROJECTION_ROW` (or add a sibling pattern) to also
+  match a `| issue #NNNN | \`<task-path>\` |` table row whose only changed content is the path
