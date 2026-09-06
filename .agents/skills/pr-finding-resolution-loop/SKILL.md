@@ -123,11 +123,14 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    finding; re-enter here once the head is green. This precondition belongs HERE and only here: the merge
    round must judge what will actually merge, and `merge-gate` requires a verdict for the exact current
    base/head SHA pair.
-1. **Read the review CI produced. Do not perform one.** The reviewer on an open PR is the review
-   automation the pull request runs; this loop RESOLVES what it reports. Fetch its findings —
-   [automated-review-convergence](../automated-review-convergence/SKILL.md) owns that procedure,
-   including the trap that a green check is not an absence of findings — and count the actionable ones.
-   (Do NOT judge them yourself at this step — take the set as given; judging is step 2.)
+1. **Read the review CI produced. Do not perform one.** Fetch whatever automated review feedback the
+   pull request's CI actually runs — [automated-review-convergence](../automated-review-convergence/SKILL.md)
+   owns that procedure, including the trap that a green check is not an absence of findings — and
+   count the actionable ones; this loop RESOLVES what it reports. The Claude Code Review GitHub
+   Action is retired as of INFRA-2631 and posts nothing, so an empty result here is the expected
+   steady state, not a missing step: treat it as zero findings, not as a reason to wait or to
+   perform the review yourself. (Do NOT judge any findings that do exist yourself at this step —
+   take the set as given; judging is step 2.)
 
    **Dispatching a reviewer agent here is the defect this step exists to prevent.** It pays for the
    review twice, and the second opinion is the one without the PR's comment history, so it cannot see

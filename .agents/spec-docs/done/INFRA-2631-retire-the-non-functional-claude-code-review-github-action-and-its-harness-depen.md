@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci]
 lane: L2
@@ -204,22 +204,22 @@ this change.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` →
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` →
       exits 0 with the retirement branch present, and the new "no marker" mutation case exits 1 with
       the retirement branch reverted (red-proof of the guard's specificity).
-- [ ] TC-02: `node scripts/harness/scan-claude-review-coverage.mjs` → exits 0 against the live,
+- [x] TC-02: `node scripts/harness/scan-claude-review-coverage.mjs` → exits 0 against the live,
       now-disabled `claude-code-review.yml` (one workflow examined, zero findings).
-- [ ] TC-03: `node scripts/harness/scan-review-token-supply.mjs` and
+- [x] TC-03: `node scripts/harness/scan-review-token-supply.mjs` and
       `node scripts/harness/scan-workflow-permissions.mjs` → both exit 0 unmodified against the live
       workflow, proving the `github_token`/`permissions` content was left intact.
-- [ ] TC-04: `node scripts/harness/scan-guard-scope-fail-closed.mjs` → exits 0, confirming its
+- [x] TC-04: `node scripts/harness/scan-guard-scope-fail-closed.mjs` → exits 0, confirming its
       `MANDATORY_TREE_GUARDS` assertion for the coverage scan still holds. (The full `pnpm
 harness:scan` has pre-existing, unrelated red findings on files this change never touches —
       confirmed via `git diff --stat` and stash-isolated reproduction on clean `origin/develop`; see
       GATE-VERIFY evidence.)
-- [ ] TC-05: the repository's pinned actionlint invocation (the same command `ci.yml` owns) → exits 0
+- [x] TC-05: the repository's pinned actionlint invocation (the same command `ci.yml` owns) → exits 0
       for the edited `claude-code-review.yml`.
-- [ ] TC-06: `! (tr '\n' ' ' < .agents/skills/pr-finding-resolution-loop/SKILL.md | tr -s ' ' | grep -qF "The reviewer on an open PR is the review automation the pull request runs") && ! (tr '\n' ' ' < .agents/skills/automated-review-convergence/SKILL.md | tr -s ' ' | grep -qF "bot review comments") && (tr '\n' ' ' < .agents/skills/pr-finding-resolution-loop/SKILL.md | tr -s ' ' | grep -qF "retired as of INFRA-2631") && (tr '\n' ' ' < .agents/skills/automated-review-convergence/SKILL.md | tr -s ' ' | grep -qF "retired as of INFRA-2631") && echo "TC-06: PASS"`
+- [x] TC-06: `! (tr '\n' ' ' < .agents/skills/pr-finding-resolution-loop/SKILL.md | tr -s ' ' | grep -qF "The reviewer on an open PR is the review automation the pull request runs") && ! (tr '\n' ' ' < .agents/skills/automated-review-convergence/SKILL.md | tr -s ' ' | grep -qF "bot review comments") && (tr '\n' ' ' < .agents/skills/pr-finding-resolution-loop/SKILL.md | tr -s ' ' | grep -qF "retired as of INFRA-2631") && (tr '\n' ' ' < .agents/skills/automated-review-convergence/SKILL.md | tr -s ' ' | grep -qF "retired as of INFRA-2631") && echo "TC-06: PASS"`
       → exits 0 and prints `TC-06: PASS`; whitespace is normalized (`tr '\n' ' ' | tr -s ' '`) before
       each check so a soft-wrapped sentence cannot make the negated half vacuously true — confirmed
       today, against the live unfixed files, that this exact command does NOT print `TC-06: PASS`
@@ -250,7 +250,7 @@ product capability is hidden behind an unwired seam.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` — in-progress
+- [x] `.agents/tasks/completed/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` — complete
 
 ## Evidence Log
 
@@ -688,3 +688,145 @@ blob `86ce15307e2878f73bae408fba59c7421015bfcc` (untracked).
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `f12a321c05b1` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** in-progress → verifying
+
+`node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc <this path> --verify-cmd "pnpm build" --verify-cmd "pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs"` reported 5 criteria judged — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN; the two pending are judged below by the guardian, directly against the paired Task's `## Plan` section and the live tree (not taken on the Task's word).
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: PASS — last recorded `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-06` entry above; document frontmatter reads `status: in-progress`, the exact input state `gate-catalogue.md`'s GATE-VERIFY row requires.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` is marked complete (`[x]`) (`task-plan-items`): PASS — direct read of the Task file confirms all 6 `## Plan` items are `- [x]` with no unchecked box.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — none of the 6 items contains blocked/pending language, and each item's substantive claim was independently re-verified against the live tree rather than accepted on the Task's word:
+  - Item 1 (disable the `review` job): confirmed by direct read of `.github/workflows/claude-code-review.yml` — job carries `if: false`, the exact literal marker `CLAUDE-CODE-REVIEW: RETIRED (INFRA-2631)`, and the `uses:`/`with:`/`prompt:` block is unchanged.
+  - Item 2 (extend the coverage scan): confirmed by `git diff -- scripts/harness/scan-claude-review-coverage.mjs` — exports `RETIRED_MARKER` and `isRetiredJob(source, jobIf)`, gated in `findWorkflowCoverageFindings` before the shape/marker/prompt-language checks.
+  - Item 3 (guard-scope-fail-closed needs no change): confirmed by reading `scan-guard-scope-fail-closed.mjs`'s `MANDATORY_TREE_GUARDS` entry for the coverage scan (only fires when `.github/workflows` itself is absent, untouched by this diff) and by running `node scripts/harness/scan-guard-scope-fail-closed.mjs` directly → exit 0, `93 guard(s) proven fail-closed by execution`.
+  - Item 4 (Vitest coverage + sibling scans stay green): ran `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` directly → exit 0, 22/22 tests passed, including the new retired-marker cases; ran `node scripts/harness/scan-review-token-supply.mjs` and `node scripts/harness/scan-workflow-permissions.mjs` directly → both exit 0 against the live, disabled workflow.
+  - Item 5 (SKILL.md prose): `git diff` on both files confirms the flagged sentence ("The reviewer on an open PR is the review automation the pull request runs") and phrase ("bot review comments") are gone, replaced with prose stating the action is retired as of INFRA-2631.
+  - Item 6 (full-suite regression check): ran `pnpm harness:scan` (full) directly → 8 of 159 scans fail: `reference-kind-qualified`, `task-path-citations`, `spec-user-execution-section`, `work-run-measurement`, `unearned-done-claims`, `task-plan-items`, `backlog-placement`, `file-size`. Every finding under every one of these 8 names a file this change does not touch (`INFRA-162`, `INFRA-160`, `TEST-013`, `PROC-028` records; `allocate-work-item-id.mjs`/`new-spec.mjs`/`scan-guard-scope-fail-closed.mjs`/`work-run-store.mjs`/`run-all-scans.mjs` file-size baseline drift; a 345-item archived-Task baseline). `claude-review-coverage` itself shows `✓` in this run. Also ran `node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop` directly → 6 of 86 scans fail, the same unrelated-file pattern (`task-path-citations`, `spec-user-execution-section`, `work-run-measurement`, `unearned-done-claims`, `task-plan-items`, `backlog-placement`). Note for the record: the Task's own item-6 text names a slightly different, stale enumeration (it says `unearned-done-claims, task-plan-items, backlog-placement, dist, and file-size`, omitting `reference-kind-qualified`/`task-path-citations`/`spec-user-execution-section`/`work-run-measurement` and wrongly naming `dist`, which passes `✓` in this run) — the substantive claim (no red finding traces to a file this change touches) still holds under independent verification, but the specific list drifted since the item was written.
+  - Independently verified the separately-flagged `pnpm harness:test` full-suite claim (not part of this Task's Plan, but load-bearing for "no regression"): 7 files fail (`classify-changed-paths.test.mjs`, `gate.test.mjs`, `guards-pass-silently.test.mjs`, `merge-gate-disposition.test.mjs`, `scan-spec-user-execution-section.test.mjs`, `scan-unearned-done-claims.test.mjs`, `task-complete.test.mjs`), none of which import `scan-claude-review-coverage.mjs` (`grep -l` returns no hits) and none of which this diff touches (`git diff --stat HEAD` lists only the 7 files named in item 6's Affected Scope). Ran `task-complete.test.mjs` and `gate.test.mjs` directly: both reproduce the identical `ENOENT: no such file or directory, scandir '.../scripts/harness'` trace at `discovery-loader.mjs:20` (`candidateFiles`) → `discoverAdditionalScans` → `loadScanCommands` → `run-all-scans.mjs:1346`, against a temp fixture lacking a `scripts/harness` subdirectory; `discovery-loader.mjs` itself carries no uncommitted diff (`git diff --stat HEAD -- scripts/harness/discovery-loader.mjs` is empty) and its last change was commit `3381a7d4a` ("discover self-declared scan entrypoints", already on `develop`, unrelated to and preceding this work). `gate.test.mjs` has 76/93 failing tests in this run; 65 show the identical ENOENT trace directly, and the remaining 11 fail on downstream symptoms of the same crash (e.g. `expect(judge(...).status).toBe(0)` receiving `1`, or `expect(result.stdout).toMatch(...)` receiving `''`) rather than a distinct defect — consistent with the shared root cause, not a second regression.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — ran `pnpm build` directly → `✓ done`, `✓ All build:types complete.`, exit 0.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — ran `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs` directly → `Test Files 1 passed (1)`, `Tests 22 passed (22)`, exit 0. (The pre-existing, unrelated `pnpm harness:test` failures documented above are not "tests for affected packages" under this criterion — none of the 7 failing files, nor the module raising the shared ENOENT, is touched by this change — and this criterion's own scope, per `gate.mjs`'s own verify-cmd contract, is the caller-supplied test command, which passes.)
+
+**Judged by:** backlog-gate-guard (3 mechanical criteria PASS per `node scripts/harness/gate.mjs judge --gate GATE-VERIFY`; 2 PENDING-GUARDIAN criteria judged fresh above, directly against the Task file and the live tree).
+**Judged at:** HEAD `c651c769e27c9a0ee147be8ffda937cbc1072610` · base `origin/develop@c651c769e27c9a0ee147be8ffda937cbc1072610` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `9c66511a918f0a0d55cf8973050e453ccc151e48` (untracked; the blob of the content immediately BEFORE this entry's own append, hashed at read time — this entry's append is the record of that judgement, not part of the judged content)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-06
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-claude-review-coverage.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+3:25:20 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-6
+
+ ✓ scripts/harness/__tests__/scan-claude-review-coverage.test.mjs (22 tests) 16ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  15:25:20
+   Duration  242ms (transform 44ms, setup 0ms, collect 55ms, tests 16ms, environment 0ms, prepare 38ms)
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `d3bd50810853` (untracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/scan-claude-review-coverage.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 1 governed workflow(s)
+claude-review-coverage: PASS
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `70497d32fd52` (untracked)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/scan-review-token-supply.mjs; node scripts/harness/scan-workflow-permissions.mjs`
+**Exit:** 0
+**Output:** (last 5 of 5 line(s))
+
+```
+::examined:: 1 workflow files
+review-token-supply scan passed: every claude-code-action step in .github/workflows/claude-code-review.yml supplies github_token.
+---
+::examined:: 10 write scopes read from workflows on disk
+workflow-permissions scan passed: 10 declared write scope(s), each justified. (offline — live default not read)
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `142a1d77a5af` (untracked)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-06
+
+**Command:** `node scripts/harness/scan-guard-scope-fail-closed.mjs`
+**Exit:** 0
+**Output:** (last 5 of 5 line(s))
+
+```
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+::examined:: 93 pinned guards
+guard-scope-fail-closed scan passed (93 guard(s) proven fail-closed by execution; 3 measured VACUOUS and recorded unfixed in HARNESS-052, 14 fail closed but are not pinned here). This is not a claim that no guard can be satisfied vacuously.
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `20493e990df7` (untracked)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-06
+
+**Command:** `actionlint -color .github/workflows/claude-code-review.yml (pinned v1.7.7)`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `75d4ef297869` (untracked)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-06
+
+**Command:** `grep chain over the two Round B SKILL.md files (see Completion Criteria)`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+TC-06: PASS
+```
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `c028520249a2` (untracked)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-06
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-02, TC-03, TC-04, TC-05, TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-02, TC-03, TC-04, TC-05, TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-02, TC-03, TC-04, TC-05, TC-06: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `110464df9222` (untracked)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-06
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-06; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 6/6 tasks `[x]` in .agents/tasks/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md
+
+**Judged at:** HEAD `c651c769e27c` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2631-retire-the-non-functional-claude-code-review-github-action-and-its-harness-depen.md` blob `51e3b9ab62ca` (untracked)
