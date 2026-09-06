@@ -37,6 +37,7 @@ import type { TExecutionWorkspaceUpdateCause } from '../background-tasks/index.j
 import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
@@ -224,6 +225,8 @@ export class SessionExecutionController {
     let turnError: Error | undefined;
     let turnOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
     let ephemeralSystemContext: string | undefined;
+    // MEM-2055: recall runs before the turn's own messages reach history — stash events, record in `finally`.
+    let pendingMemoryEvents: IMemoryEvent[] = [];
     try {
       await checkAndRefreshContextIfStale(
         agentsFileEntries,
@@ -244,7 +247,8 @@ export class SessionExecutionController {
       if (this.callbacks.recallMemory) {
         try {
           const recalled = await this.callbacks.recallMemory(input);
-          if (recalled && recalled.trim().length > 0) ephemeralSystemContext = recalled;
+          if (recalled.context.trim().length > 0) ephemeralSystemContext = recalled.context;
+          pendingMemoryEvents = recalled.events;
         } catch {
           // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
           // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
@@ -296,6 +300,8 @@ export class SessionExecutionController {
       } catch (error) {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
+      // MEM-2055: turn's own messages are already in history now, so this renders after them.
+      for (const event of pendingMemoryEvents) this.histTracker.recordMemoryEvent(event);
       // SELFHOST-008 P2: post-turn auto-capture, awaited here so its events land in THIS turn's record.
       await capturePostTurnMemory({
         capture: this.callbacks.captureMemory,
