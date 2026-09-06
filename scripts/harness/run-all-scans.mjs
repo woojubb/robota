@@ -136,9 +136,6 @@ export function extractExamined(output) {
 export function judgeExamined(name, output) {
   const declarations = extractExamined(output);
   const problems = [];
-  // A scan that declared a zero AND said why is a SKIP, not a pass. It ran, found no subject, and
-  // said so — which is a different fact from "examined the subject and found it clean", and the
-  // summary is the line people actually read.
   const skipped = declarations.some((d) => d.size === 0 && Boolean(d.expectedEmpty));
   for (const d of declarations) {
     if (d.size === null) {
@@ -201,9 +198,6 @@ export function judgeExaminedAdoption(
   const frozenSet = new Set(frozen);
   const declaring = new Set(declaringNames);
   const evaluable = new Set(evaluableNames);
-  // `knownNames` is the full scan registry when the caller has it. A frozen name absent from it was
-  // deleted or renamed OUT of existence — it can never run again, so it would otherwise sit in the
-  // baseline forever, un-FELL and un-pruned (the SET's blind spot the old count caught as a shrink).
   // When it is not supplied (fixture callers), the GONE check is simply skipped.
   const known = knownNames === null ? null : new Set(knownNames);
   const rel = path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH);
@@ -213,8 +207,6 @@ export function judgeExaminedAdoption(
   const rose = [...declaring].filter((name) => !frozenSet.has(name)).sort();
   // GONE: a frozen scan that is no longer a registered scan at all.
   const gone = known === null ? [] : [...frozenSet].filter((name) => !known.has(name)).sort();
-  // All three are reported TOGETHER — a set diff can carry more than one, and surfacing only the
-  // first would spend a review round per finding, the waste this repo's culture is closing.
   const parts = [];
   if (fell.length > 0) {
     parts.push(
@@ -361,9 +353,6 @@ const REGISTRY = 'scripts/harness/run-all-scans.mjs';
 
 export const SCAN_COMMANDS = [
   {
-    // PROC-016. A pull request declares the lane it runs in (`Lane: L0|L1|L2`) and the lane's lower
-    // bound is derived from the diff, so this reads the declaration AND the whole diff against the
-    // base — there is no path it can be told is out of its reach.
     name: 'lane-declaration',
     command: ['node', 'scripts/harness/scan-lane-declaration.mjs'],
     always: true,
@@ -409,9 +398,6 @@ export const SCAN_COMMANDS = [
     examines: [GITHUB, PACKAGES, APPS, SCRIPTS],
   },
   {
-    // INFRA-078 — `hooks-have-execution-coverage` proves a hook CAN run; nothing read the file that
-    // decides whether the deployment CALLS it, so a hook registered to no event, and a matcher
-    // naming a deleted file, both stayed green.
     name: 'hook-registration',
     command: ['node', 'scripts/harness/scan-hook-registration.mjs'],
     examines: ['.claude/settings.json', HOOKS],
@@ -437,17 +423,11 @@ export const SCAN_COMMANDS = [
     examines: [GITHUB],
   },
   {
-    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an (allow-missing-artifact: INFRA-058 deleted the workflow; this names why the scan exists)
-    // unresolvable `uses:` dies at `Set up job`, so there is no failing step to read and a skipped
-    // job reports the run green. The resolvability half runs in CI (see the scan's header for why
-    // it stays off on a promotion to `main`); the static half runs everywhere.
     name: 'action-references',
     command: ['node', 'scripts/harness/scan-action-references.mjs'],
     examines: [GITHUB, REGISTRY],
   },
   {
-    // A rule or routing document that names a mechanism (a harness script, a hook, a package
-    // script, an MCP server) must name one that resolves — a phantom name reads as satisfiable.
     name: 'named-mechanism-resolves',
     command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
     examines: [RULES, 'AGENTS.md', SCRIPTS, 'package.json', CLAUDE],
@@ -458,9 +438,6 @@ export const SCAN_COMMANDS = [
     examines: [HOOKS],
   },
   {
-    // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
-    // 53 skills on disk, 5 registered, 3 of those dangling, and every project-skill invocation
-    // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
     name: 'skill-registration',
     command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
     examines: [under('.claude/skills'), SKILLS, HOOKS, REGISTRY],
@@ -996,6 +973,12 @@ export const SCAN_COMMANDS = [
     name: 'loop-contract',
     command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
     examines: [SKILLS, RULES, '.agents/specs/orchestration-map.md'],
+  },
+  {
+    // HARNESS-2485 — compare explicit normative claims across distinct rule documents.
+    name: 'rule-contradictions',
+    command: ['node', 'scripts/harness/scan-rule-contradictions.mjs'],
+    examines: [RULES],
   },
   {
     name: 'loop-run-records',
