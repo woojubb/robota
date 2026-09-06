@@ -1093,6 +1093,14 @@ no route from it ends in `status: done`.
 
 Completion is a single atomic act, not a sequence that usually finishes:
 
+The atomic completion commit is the final content commit in the shared Work-Run order. First finish
+substantive verification; then update the Task/spec terminal state and archive them together. Only
+after that commit may `pnpm harness:work-run -- ready` bind the head, followed by its one receipt-only
+closure commit. The final `pnpm harness:scan` is run after that closure (with the correct
+`pre-push`/`post-push` observation), so it certifies the closed head rather than being an impossible
+prerequisite for producing it. `work-run ready` mechanically refuses an open/root Task or a paired
+spec that is not in `done/` with `status: done`.
+
 1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the Task
    file's frontmatter. For items that will not be implemented, use `status: wontfix`, `skipped`,
    or `superseded`; every terminal status requires the date.

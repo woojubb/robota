@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-150: Work-Run receipt closure and Task completion form a circular full-scan dependency'
 issue: https://github.com/woojubb/robota/issues/2568
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-02
 priority: medium
 urgency: soon
@@ -12,6 +13,8 @@ depends_on: []
 # INFRA-150: Work-Run receipt closure and Task completion form a circular full-scan dependency
 
 ## Objective
+
+Spec: `.agents/spec-docs/done/INFRA-150-work-run-receipt-closure-and-task-completion-form-a-circular-full-scan-dependenc.md`
 
 Define one repository-wide ordering contract for substantive verification, Task/spec terminalization,
 Work-Run readiness and receipt-only closure, and the final full scan. The contract must remove the
@@ -31,10 +34,10 @@ head again. This is a repository-wide sequencing defect, not an INFRA-148-specif
 
 ## Plan
 
-- [ ] Reproduce the cycle in contract tests using a Task/spec lifecycle change and a Work-Run receipt.
-- [ ] Design one canonical ordering shared by backlog completion and Work-Run measurement.
-- [ ] Update the owning rule/skill and scanners without introducing local Task exceptions.
-- [ ] Verify substantive pre-completion checks and the final full scan both pass at their declared heads.
+- [x] Reproduce the cycle in contract tests using a Task/spec lifecycle change and a Work-Run receipt.
+- [x] Design one canonical ordering shared by backlog completion and Work-Run measurement.
+- [x] Update the owning rule/skill and scanners without introducing local Task exceptions.
+- [x] Verify substantive pre-completion checks and the final full scan both pass at their declared heads.
 
 ## Completion Criteria
 
@@ -55,3 +58,11 @@ head again. This is a repository-wide sequencing defect, not an INFRA-148-specif
 
 Not applicable. This Task changes repository-internal lifecycle governance and exposes no Robota CLI,
 TUI, browser, or public SDK behavior. Its observable proof belongs in harness contract tests.
+
+## Completion Evidence
+
+- `scripts/harness/work-run-ready-order.mjs` makes Task/spec terminalization a prerequisite of
+  `work-run ready`.
+- The final content commit now precedes the receipt-only closure, and the final full scan observes
+  that immutable closure head.
+- Focused lifecycle and ready-order contract tests pass as recorded in the paired spec.
