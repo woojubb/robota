@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-09-06
 type: INFRA
 tags: [harness, typescript]
 lane: L2
@@ -60,9 +61,9 @@ scripts/harness/measurement-provenance-pending.json
 
 ## Completion Criteria
 
-- [ ] TC-01: each axis has a failing fixture and a passing control.
-- [ ] TC-02: the real repository scan exits 0 with a positive denominator.
-- [ ] TC-03: the scan is discovered by the full harness suite and adoption is frozen.
+- [x] TC-01: each axis has a failing fixture and a passing control.
+- [x] TC-02: the real repository scan exits 0 with a positive denominator.
+- [x] TC-03: the scan is discovered by the full harness suite and adoption is frozen.
 
 ## Test Plan
 
@@ -79,7 +80,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2253-promote-five-axis-ssot-checker.md` — in-progress
+- [x] `.agents/tasks/completed/HARNESS-2253-promote-five-axis-ssot-checker.md` — done
 
 ## Evidence Log
 
@@ -116,3 +117,8 @@ Not applicable.
 
 <!-- checkpoint-evidence:v1:end -->
 
+### [GATE-VERIFY] — ✅ PASS | 2026-09-06
+
+- `pnpm exec vitest run scripts/harness/__tests__/scan-ssot-five-axis.test.mjs` — 6 tests passed.
+- `node scripts/harness/scan-ssot-five-axis.mjs` — examined 61 package SPEC/root pairs; passed.
+- `pnpm harness:scan -- --context pr --skip dist --skip build-contracts` — all non-Work-Run scans passed; the Work-Run failure was the expected terminalization ordering and is closed by the receipt-only step.
