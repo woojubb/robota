@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-143: reference kinds are not enforced before document authoring completes'
 issue: https://github.com/woojubb/robota/issues/2510
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -40,13 +41,13 @@ only after free-form prose already exists.
 
 ## Plan
 
-- [ ] Identify every governed document-authoring entry point and select one canonical pre-completion
+- [x] Identify every governed document-authoring entry point and select one canonical pre-completion
       validation boundary.
-- [ ] Add a failing fixture that authors a new document with a bare issue reference and proves the
+- [x] Add a failing fixture that authors a new document with a bare issue reference and proves the
       omission is rejected before completion.
-- [ ] Wire the canonical reference-kind judgement into that boundary without duplicating parsing.
-- [ ] Prove correctly qualified issue, PR, discussion, and non-GitHub references remain accepted.
-- [ ] Remove `Contained — INFRA-143.` holds only after the pre-completion mechanism lands.
+- [x] Wire the canonical reference-kind judgement into that boundary without duplicating parsing.
+- [x] Prove correctly qualified issue, PR, closing-keyword, and non-GitHub/code references remain accepted.
+- [x] Remove `Contained — INFRA-143.` holds only after the pre-completion mechanism lands.
 
 ## Completion Criteria
 
@@ -66,5 +67,17 @@ only after free-form prose already exists.
 
 ## User Execution Test Scenarios
 
-Not applicable. This Task changes internal document governance and exposes no CLI, TUI, browser, or
-public SDK behavior. Its observable proof belongs to authoring fixtures and enforcing scans.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This Task changes only internal governed-document authoring and exposes no user-facing
+CLI, TUI, browser, API, SDK, output, or runtime behavior.
+
+## Resolution
+
+Implemented `scripts/harness/document-authoring-reference.mjs` as the shared adapter over the
+canonical `reference-kind.mjs` predicate. `new-spec.mjs` now rejects a prospective draft before
+printing or writing it, and `allocate-work-item-id.mjs` rejects a prospective Task before its atomic
+`wx` write. The diagnostic reports the target path, line, reference, and accepted qualified forms.
+
+Focused verification passed on 2026-09-06: 3 Vitest files, 89 tests; the independent
+`reference-kind-qualified` scan examined 3391 tracked documents and exited 0.

@@ -46,6 +46,7 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 import {
   collectClaimed,
@@ -446,12 +447,18 @@ function main(argv) {
   const file = path.join(TASKS_DIR, `${id}-${slug}.md`);
   const absolute = path.join(WORKSPACE_ROOT, file);
   const today = localDate();
+  const document = recordStub({ id, title, today, issue });
+  const referenceError = documentAuthoringReferenceError({ file, text: document });
+  if (referenceError !== null) {
+    console.error(`allocate-work-item-id: ${referenceError}`);
+    return 1;
+  }
   try {
     // `wx` — create-or-fail, in ONE syscall. An `existsSync` followed by a write is a check and a
     // claim with a gap between them, which is the exact shape this script exists to remove one
     // level up; writing it here would be the defect reproduced inside its own fix. Reported as
     // `js/file-system-race` by CodeQL on the first push, which is how it came out.
-    writeFileSync(absolute, recordStub({ id, title, today, issue }), { flag: 'wx' });
+    writeFileSync(absolute, document, { flag: 'wx' });
   } catch (error) {
     if (error?.code === 'EEXIST') {
       console.error(`${file} already exists — refusing to overwrite a record.`);
