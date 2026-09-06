@@ -99,9 +99,10 @@ export count dropped by exactly the 8 removed symbols.
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-04).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** No runnable user-facing behaviour changes; verification evidence is recorded in the
+engineering test plan (TC-01 to TC-04) instead.
 
 ## Tasks
 
