@@ -61,7 +61,7 @@ RETAIN IDs: issue #1989, issue #1990, issue #2066, issue #2067, issue #2073, iss
 | ------------ | ------------------------------------------------------------------------------------------------------------- |
 | issue #2061  | `.agents/tasks/AGREEMENT-007-coordinate-the-single-command-definition-migration.md`                           |
 | issue #2062  | `.agents/tasks/AGREEMENT-009-coordinate-the-kind-safe-background-task-migration.md`                           |
-| issue #2064  | `.agents/tasks/completed/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`                      |
+| issue #2064  | `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`                      |
 | issue #2065  | `.agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md`                  |
 | issue #2069  | `.agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md`                           |
 | issue #2071  | `.agents/tasks/AGREEMENT-010-coordinate-the-remote-control-host-extraction.md`                                |
