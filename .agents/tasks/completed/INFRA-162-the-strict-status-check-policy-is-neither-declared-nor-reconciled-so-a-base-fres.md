@@ -2,6 +2,7 @@
 title: 'INFRA-162: the strict status-check policy is neither declared nor reconciled, so a base-freshness change is invisible'
 issue: https://github.com/woojubb/robota/issues/2219
 status: done
+completed: 2026-09-06
 created: 2026-09-05
 priority: medium
 urgency: soon

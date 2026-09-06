@@ -2,6 +2,7 @@
 title: 'TEST-013: no global seam prevents a test from being satisfied by host home state'
 issue: https://github.com/woojubb/robota/issues/2300
 status: done
+completed: 2026-09-06
 created: 2026-09-04
 priority: high
 urgency: soon

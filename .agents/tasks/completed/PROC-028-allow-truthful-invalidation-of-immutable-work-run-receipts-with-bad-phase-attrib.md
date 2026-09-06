@@ -2,6 +2,7 @@
 title: 'PROC-028: Allow truthful invalidation of immutable work-run receipts with bad phase attribution'
 issue: https://github.com/woojubb/robota/issues/2562
 status: done
+completed: 2026-09-06
 created: 2026-08-31
 priority: medium
 urgency: soon
