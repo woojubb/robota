@@ -89,7 +89,7 @@ function completeFallbackArgs(argv) {
     }
     result.push(argv[index]);
   }
-  return [...result, '--base-ref', 'HEAD', '--head-ref', 'HEAD'];
+  return [...result, '--distributed-shard'];
 }
 
 async function runAffectedContractTier(argv, root, tiers) {

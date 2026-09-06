@@ -334,6 +334,24 @@ describe('scan-lane-declaration — declaration sources', () => {
     expect(isLifecycleProjectionOnly(mixed)).toBe(false);
   });
 
+  it('recognizes the same lifecycle projection as a pipe-table row (INFRA-155 shape)', () => {
+    const tableProjection = parseUnifiedDiff(
+      diffFor('.agents/spec-docs/active/INFRA-155.md', [
+        '-| issue #2064  | `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`  |',
+        '+| issue #2064  | `.agents/tasks/REFACTOR-027-remove-phantom-ports.md`                                       |',
+      ]),
+    ).get('.agents/spec-docs/active/INFRA-155.md');
+    const tableWithHeaderChange = parseUnifiedDiff(
+      diffFor('.agents/spec-docs/active/INFRA-155.md', [
+        '-| ABSORB Issue | Exact live Task |',
+        '+| ABSORB Issue (updated) | Exact live Task |',
+      ]),
+    ).get('.agents/spec-docs/active/INFRA-155.md');
+
+    expect(isLifecycleProjectionOnly(tableProjection)).toBe(true);
+    expect(isLifecycleProjectionOnly(tableWithHeaderChange)).toBe(false);
+  });
+
   it('ignores done history and projection-only live rows but keeps ordinary live specs', () => {
     const root = makeTemp('robota-lane-inputs-');
     const activePath = '.agents/spec-docs/active/AGREEMENT-016.md';

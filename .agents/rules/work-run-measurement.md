@@ -18,6 +18,11 @@ This rule owns the lifecycle and denominator vocabulary; skills only route comma
 
 - Commits carry one exact `Work-Run` plus `Work-Receipt` trailer pair. Partial, duplicate, or conflicting
   pairs are refused. Amend, merge, and squash sources preserve an exact pair and never invent one.
+- `reopen` before the next content commit, never after: `prepare-commit-msg` stamps a commit's trailer
+  pair from whatever generation/revision is current in local state at commit time, not from anything
+  `ready` computes later. A content commit made before `reopen` is stamped with the revision that was
+  current before it, and no later `reopen` rewrites that already-made commit — the mismatch surfaces
+  downstream as `invalid-commit-trailers`, correctable only via the recovery sequence below.
 - Ready binds repository, branch, base/head commit, head tree, correlated commits/trailer digest, schema,
   and owner fingerprint. Only one receipt-only closure commit may follow the bound ready head.
 - The latest pre-PR `g0-rN` closure is sealed before PR creation by one unedited GitHub commit comment binding its
