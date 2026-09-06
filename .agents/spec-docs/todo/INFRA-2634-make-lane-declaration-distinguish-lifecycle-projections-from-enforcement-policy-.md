@@ -64,6 +64,8 @@ and an active-spec file is excluded only when every changed content line is an e
 projection row. A normal active-spec body change continues to declare its frontmatter lane; direct
 changes to `scan-lane-declaration.mjs` remain L2 and continue to require the full L2 path.
 
+**Delivery mode:** `single`
+
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료
@@ -85,8 +87,6 @@ None
    refusal semantics.
 3. Add fixtures proving the required parent projection and done-spec edits no longer conflict,
    while an ordinary active-spec body edit still declares L2.
-
-**Delivery mode:** `single`
 
 ## Affected Files
 
