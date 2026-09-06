@@ -72,7 +72,6 @@ export {
   treeFreshness,
   UPSTREAM_REF,
 } from './work-item-id-claims.mjs';
-
 // stdout is the payload here (the allocated ID, and the file it was written to), so the root
 // announcement goes to stderr.
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
@@ -80,7 +79,6 @@ const TASKS_DIR = '.agents/tasks';
 
 /** A work-item ID: one or more uppercase segments, then a number. `ARCH-FIX-020` is one. */
 export const WORK_ITEM_ID = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*)-(\d+)\b/g;
-
 const ISSUE_REPOSITORY = 'woojubb/robota';
 const REQUIRED_NEW_ISSUE_LABELS = ['enhancement', 'status:needs-triage'];
 
