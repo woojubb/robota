@@ -15,19 +15,15 @@ describe('ARCH-042 scenario — GIT_DIR/GIT_WORK_TREE leak (BEHAVIOR-2650)', () 
       encoding: 'utf8',
     }).trim();
 
-    const output = execFileSync(
-      'pnpm',
-      ['exec', 'tsx', '--conditions=source', SCENARIO_PATH],
-      {
-        cwd: fileURLToPath(new URL('../..', import.meta.url)),
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          GIT_DIR: leakedGitDir,
-          GIT_WORK_TREE: process.cwd(),
-        },
+    const output = execFileSync('pnpm', ['exec', 'tsx', '--conditions=source', SCENARIO_PATH], {
+      cwd: fileURLToPath(new URL('../..', import.meta.url)),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GIT_DIR: leakedGitDir,
+        GIT_WORK_TREE: process.cwd(),
       },
-    );
+    });
 
     expect(JSON.parse(output)).toMatchObject({ scenario: 'ARCH-042', cleanupRemoved: true });
   });
