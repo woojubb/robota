@@ -151,7 +151,7 @@ describe('SELFHOST-008 TC-04 — curate queue + sensitive-content refusal', () =
     const evaluator = new MemoryPolicyEvaluator();
     const decision = evaluator.evaluate(
       candidate({ text: 'my api_key is sk-live-123 and password is hunter2' }),
-      { policy: 'auto_save', retrieval: { maxTopics: 5, maxTopicChars: 100 } },
+      { policy: 'auto_save' },
     );
     expect(decision.action).toBe('skip');
     expect(decision.reason).toBe('sensitive-content');
@@ -269,7 +269,7 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
       };
 
       const controller = new AutomaticMemoryController({
-        config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+        config: { policy: 'auto_save' },
         memoryStore: spy,
         extractor: { extract: () => [candidate({ confidence: 0.99, text: 'stored via port' })] },
       });

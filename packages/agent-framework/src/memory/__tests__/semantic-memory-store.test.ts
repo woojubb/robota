@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AutomaticMemoryController } from '../automatic-memory-controller.js';
 import { createSemanticMemoryStore, SemanticMemoryStore } from '../semantic-memory-store.js';
 
 import type {
@@ -143,18 +142,14 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     expect(adapter.index).toHaveBeenCalledTimes(1); // index was attempted (then threw + was swallowed)
   });
 
-  it('TC-06: capability-preservation/swap — a fake adapter upgrades recall, consumed transparently by AutomaticMemoryController', async () => {
+  it('TC-06: capability-preservation/swap — a fake adapter upgrades recall, consumed transparently through IMemoryStore.recall (MEM-001: the sole live recall path — AutomaticMemoryController.retrieve() was dead code, removed)', async () => {
     const base = createFakeBase();
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
     const decorated = createSemanticMemoryStore(base, adapter);
 
-    // The controller consumes IMemoryStore; injecting the decorated store needs NO controller/library change.
-    const controller = new AutomaticMemoryController({
-      config: { policy: 'approval_required', retrieval: BUDGET },
-      memoryStore: decorated,
-    });
-
-    const result = await controller.retrieve('paraphrased');
+    // Any IMemoryStore consumer (InteractiveSession.recallTurnMemory in production) calls `.recall`
+    // directly; injecting the decorated store needs NO consumer/library change.
+    const result = await decorated.recall('paraphrased', BUDGET);
     expect(adapter.query).toHaveBeenCalledWith('paraphrased', BUDGET);
     expect(result.content).toBe('<semantic body>');
   });

@@ -31,10 +31,6 @@ export interface IMemoryCaptureResult {
 
 export const DEFAULT_AUTOMATIC_MEMORY_CONFIG: IAutomaticMemoryConfig = {
   policy: 'approval_required',
-  retrieval: {
-    maxTopics: 3,
-    maxTopicChars: 3000,
-  },
 };
 
 export function normalizeAutomaticMemoryConfig(
@@ -42,11 +38,6 @@ export function normalizeAutomaticMemoryConfig(
 ): IAutomaticMemoryConfig {
   return {
     policy: input?.policy ?? DEFAULT_AUTOMATIC_MEMORY_CONFIG.policy,
-    retrieval: {
-      maxTopics: input?.retrieval?.maxTopics ?? DEFAULT_AUTOMATIC_MEMORY_CONFIG.retrieval.maxTopics,
-      maxTopicChars:
-        input?.retrieval?.maxTopicChars ?? DEFAULT_AUTOMATIC_MEMORY_CONFIG.retrieval.maxTopicChars,
-    },
   };
 }
 
@@ -62,13 +53,6 @@ export class AutomaticMemoryController {
     this.extractor = options.extractor ?? new RegexMemoryCandidateExtractor();
     this.now = options.now ?? (() => new Date());
     this.store = options.memoryStore;
-  }
-
-  async retrieve(query: string): Promise<IMemoryRetrievalResult> {
-    if (this.config.policy === 'disabled') {
-      return { content: '', references: [], truncated: false };
-    }
-    return this.store.recall(query, this.config.retrieval);
   }
 
   async capture(input: Omit<IMemoryExtractionInput, 'now'>): Promise<IMemoryCaptureResult> {

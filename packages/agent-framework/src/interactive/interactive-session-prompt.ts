@@ -67,7 +67,6 @@ export interface IPromptTurnContext {
   getHistory: () => IHistoryEntry[];
   getContextReferences: () => readonly IContextReferenceItem[];
   getActiveTools: () => IToolState[];
-  resetUsedMemoryReferences: () => void;
   recordContextReferenceUsage: (records: readonly IPromptFileReferenceRecord[]) => void;
   recordPromptContextReferences: (records: readonly IPromptFileReferenceRecord[]) => void;
   beginEditCheckpointTurn: (prompt: string) => Promise<void>;
@@ -92,7 +91,6 @@ export async function executePromptTurn(
   history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
   ctx.onWorkspaceUpdated();
   const historyBefore = ctx.getSession().getHistory().length;
-  ctx.resetUsedMemoryReferences();
 
   // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
   // they can be projected onto history under the owning turn (drained just before its usage-summary).

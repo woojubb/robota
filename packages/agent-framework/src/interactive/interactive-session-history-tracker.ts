@@ -266,6 +266,11 @@ export class SessionHistoryTracker {
     return [...this.usedMemoryReferences];
   }
 
+  recordUsedMemoryReferences(references: readonly IMemoryReference[]): void {
+    if (references.length === 0) return;
+    this.usedMemoryReferences = [...this.usedMemoryReferences, ...references];
+    this.persistSession();
+  }
   recordMemoryEvent(event: IMemoryEvent): void {
     this.memoryEvents.push(event);
     if (VISIBLE_MEMORY_EVENT_TYPES.has(event.type)) {
