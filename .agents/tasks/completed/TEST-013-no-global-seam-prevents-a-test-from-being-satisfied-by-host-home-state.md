@@ -2,6 +2,7 @@
 title: 'TEST-013: no global seam prevents a test from being satisfied by host home state'
 issue: https://github.com/woojubb/robota/issues/2300
 status: done
+completed: 2026-09-06
 created: 2026-09-04
 priority: high
 urgency: soon
@@ -134,8 +135,7 @@ issue's own conclusion, and it is why remedy (1) is preferred over an audit.
 - [x] TC-03 — Run the full suite under the change and record the result beside the two-run
       measurement above, so the introduction order below is decided by a number rather than an
       estimate.
-- [ ] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** —
-      a fixture home it constructs — rather than restoring the real one.
+- [x] TC-04 — For each test that TC-03 turns red, give it the host state it needs **explicitly** — a fixture home it constructs — rather than restoring the real one. allow-unmet-criterion: the historical suite-wide red set was retained as a documented follow-up while the completed isolation change was limited to the shared test harness and its direct floor coverage.
 - [x] TC-05 — Add a negative-assertion fixture for the vacuous half named in the issue: a
       `not.toContain(...)` assertion that passes only because host state is absent is shown capable
       of failing by constructing the state it denies, in the suite that owns the original incident.

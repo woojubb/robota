@@ -2,6 +2,7 @@
 title: 'INFRA-160: plan-order cannot ground an L0 implementation that repairs several historical records'
 issue: https://github.com/woojubb/robota/issues/2539
 status: done
+completed: 2026-09-06
 created: 2026-09-04
 priority: medium
 urgency: soon

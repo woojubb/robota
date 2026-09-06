@@ -147,9 +147,7 @@ exported classifier.
 
 ## User Execution Test Scenarios
 
-Not applicable — the change is a repository commit-ordering guard used by the pre-commit and pre-push
-paths, and it ships no CLI command, TUI action, browser flow, or public SDK surface an end user can
-execute.
+Not applicable.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 

@@ -2,6 +2,7 @@
 title: 'PROC-028: Allow truthful invalidation of immutable work-run receipts with bad phase attribution'
 issue: https://github.com/woojubb/robota/issues/2562
 status: done
+completed: 2026-09-06
 created: 2026-08-31
 priority: medium
 urgency: soon
@@ -34,6 +35,8 @@ auditable way to remove that run from the included measurement population.
 - Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
   reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
 - Focused work-run contract, store, validation, and report suites passed: 136 tests.
+- Verification: `scripts/harness/__tests__/work-run-validation.test.mjs` and the related work-run
+  contract suites provide the recorded 136-test result.
 
 ## Test Plan
 
