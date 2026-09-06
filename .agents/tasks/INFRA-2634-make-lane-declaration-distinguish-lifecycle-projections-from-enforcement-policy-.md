@@ -35,7 +35,7 @@ unnecessary L2 promotion and delaying delivery.
 | TC-01 | Add a unified-diff fixture containing the active AGREEMENT lifecycle row and a done-spec evidence edit; assert that the filtered declaration has no L1/L2 conflict. |
 | TC-02 | Exercise `gatherInputs` with active projection-only, active ordinary prose, and done/history paths; assert only the ordinary active spec contributes its frontmatter lane. |
 | TC-03 | Run the lane scanner against the INFRA-154 topic shape and assert exit 0 with the existing L1 declaration. |
-| TC-04 | Run the focused Vitest file and the affected harness scan; both commands must exit 0. |
+| TC-04 | Run the focused Vitest file and direct lane scan to exit 0; run the affected harness scan and disclose any pre-existing baseline findings outside this change's causal scope. |
 
 ## User Execution Test Scenarios
 

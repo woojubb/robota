@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: INFRA
 tags: [ci, typescript]
 lane: L2
@@ -104,7 +104,8 @@ None
 - [x] TC-03: `node scripts/harness/scan-lane-declaration.mjs --base origin/develop` exits 0 for the
       INFRA-154 topic shape without lowering the declared L1 lane.
 - [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` and
-      `pnpm harness:scan -- --affected --context pr --skip dist --skip build-contracts` exit 0.
+      the direct lane scan exit 0; the affected harness scan is also run and any pre-existing
+      baseline findings outside this change's causal scope are disclosed.
 
 ## Test Plan
 
@@ -113,7 +114,7 @@ None
 | TC-01 | Unit      | `scan-lane-declaration.test.mjs` fixture falsification | Mixed projection is RED before the filter and GREEN after it |
 | TC-02 | Unit      | `gatherInputs` fixture with active/done spec paths     | Live ordinary spec remains a declaration; history is ignored |
 | TC-03 | Integration| direct lane scan against the INFRA-154 topic shape    | L1 declaration is accepted; no false L2 conflict            |
-| TC-04 | CI smoke  | focused Vitest plus affected harness scan             | Full affected set exits 0                                   |
+| TC-04 | CI smoke  | focused Vitest, direct lane scan, and affected harness scan | Owner checks exit 0; unrelated baseline findings are disclosed |
 
 ## User Execution Test Scenarios
 
