@@ -47,6 +47,7 @@
     "fixture-floor",
     "functional-coverage",
     "gate-closure-disposition",
+    "gate-entrypoint-stability",
     "gate-evaluator-isolation",
     "gate-verdict-attribution",
     "ghost-package-refs",
