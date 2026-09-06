@@ -23,6 +23,7 @@ import { pendingTerminalReceiptCorrelation } from './work-run-pending-receipt.mj
 import { assertCanonicalRunId } from './work-run-paths.mjs';
 import { WorkRunStore } from './work-run-store.mjs';
 import { claimWorkRunSubject, createWorkRunSubjectGuard } from './work-run-subject-guard.mjs';
+import { assertWorkRunReadyOrder } from './work-run-ready-order.mjs';
 
 const PROTECTED_BRANCHES = new Set(['develop', 'main', 'master']);
 
@@ -178,6 +179,7 @@ function reopenArguments(argv, context, subject, state, run, at) {
 }
 
 function handleReady(argv, context, store, run, state, subject, at) {
+  assertWorkRunReadyOrder(context.root, state.workId);
   const receiptPath = store.receiptPath(run.runId, state.generation, state.revision);
   const allowed = pendingReceiptPath(context.root, receiptPath);
   const status = boundedGitStatus(context.root);

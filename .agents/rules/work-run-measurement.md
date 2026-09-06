@@ -31,6 +31,25 @@ This rule owns the lifecycle and denominator vocabulary; skills only route comma
   one tree-identical correlated bind commit and its exact receipt-only closure may follow the proven
   rebased head before the force push.
 
+## Shared completion order
+
+The repository-wide completion sequence is ordered around immutable Git heads:
+
+1. Run substantive verification against the implementation tree.
+2. In the same final content change, terminalize and archive the paired Task and spec (when a spec
+   exists), including their completion evidence.
+3. Run `work-run ready` against that terminalized tree; `work-run` refuses an open or root Task and
+   refuses a non-`done` paired spec.
+4. Commit the one receipt file emitted by `ready` as the receipt-only closure commit, then stop
+   changing the content tree.
+5. Run the final full scan against that closure head. Local pre-push mirrors use the `pre-push`
+   observation; hosted CI uses the published `post-push` observation.
+
+This removes the circular dependency: the full scan is acceptance evidence for the already-closed
+head, not a prerequisite for creating the receipt that the scan validates. The ordering is enforced
+at the `work-run ready` boundary by `scripts/harness/work-run-ready-order.mjs`; missing or malformed
+Task/spec lifecycle state still fails closed.
+
 ## Population and reporting
 
 Reports always state `included`, `superseded`, `excluded`, `invalid`, and `unavailable`. They report
