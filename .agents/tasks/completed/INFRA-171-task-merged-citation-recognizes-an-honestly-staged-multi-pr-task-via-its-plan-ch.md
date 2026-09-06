@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-171: task-merged-citation recognizes an honestly staged multi-PR Task via its Plan checklist'
 issue: https://github.com/woojubb/robota/issues/2586
-status: todo
+status: done
+completed: 2026-09-06
 created: 2026-09-05
 priority: medium
 urgency: soon
