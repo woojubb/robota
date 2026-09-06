@@ -22,7 +22,7 @@
   "packages/agent-framework/src/interactive/interactive-session-background-tracker.ts": 334,
   "packages/agent-framework/src/interactive/interactive-session-base.ts": 394,
   "packages/agent-framework/src/interactive/interactive-session-execution-controller.ts": 412,
-  "packages/agent-framework/src/interactive/interactive-session-history-tracker.ts": 358,
+  "packages/agent-framework/src/interactive/interactive-session-history-tracker.ts": 359,
   "packages/agent-framework/src/interactive/interactive-session-skill-router.ts": 341,
   "packages/agent-framework/src/interactive/interactive-session.ts": 1017,
   "packages/agent-framework/src/testing/scripted-session-harness.ts": 454,

@@ -212,6 +212,15 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     expect(emitted).toHaveLength(2);
     expect(emitted[0]).toMatchObject({ type: 'memory_retrieved', topic: 'deploy' });
     expect(emitted[1]).toMatchObject({ type: 'memory_retrieved', topic: 'pnpm' });
+
+    // MEM-2055: the visible notice renders AFTER the turn's own messages, never ahead of them —
+    // recall runs before `executePromptTurn`, so recording it immediately (the first cut of this
+    // fix) put it first instead.
+    const kinds = session.getFullHistory().map((entry) => entry.type);
+    const userIndex = kinds.indexOf('user');
+    const memoryEventIndex = kinds.indexOf('memory-event');
+    expect(userIndex).toBeGreaterThanOrEqual(0);
+    expect(memoryEventIndex).toBeGreaterThan(userIndex);
   });
 
   it('TC-08 (MEM-001): usedMemoryReferences resets each turn — no leftover from a prior recall', async () => {
