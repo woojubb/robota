@@ -1,8 +1,9 @@
 ---
 title: 'BEHAVIOR-2650: ARCH-042 scenario leaks ambient GIT_DIR breaking identity isolation in a git-hook context'
 issue: https://github.com/woojubb/robota/issues/2650
-status: todo
+status: done
 created: 2026-09-07
+completed: 2026-09-07
 priority: medium
 urgency: soon
 area: packages/agent-framework
@@ -10,6 +11,8 @@ depends_on: []
 ---
 
 # BEHAVIOR-2650: ARCH-042 scenario leaks ambient GIT_DIR breaking identity isolation in a git-hook context
+
+Spec: `.agents/spec-docs/done/BEHAVIOR-2650-arch-042-scenario-leaks-ambient-git-dir-breaking-identity-isolation-in-a-git-hoo.md`
 
 ## Objective
 
