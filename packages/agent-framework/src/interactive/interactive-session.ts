@@ -437,26 +437,25 @@ export class InteractiveSession
    * SELFHOST-008 P3 — per-turn recall, invoked by the execution controller at turn START (query = the turn
    * input) when a `recallMemory` policy was supplied. Recalls query-relevant durable memory through the SAME
    * injected `IMemoryStore` (SSOT with startup + capture) and renders it under a DISTINCT `<recalled-memory>`
-   * label. Returns '' when there is nothing to recall. The controller guards this call (recall failure skips
-   * injection, never breaks the turn) and injects the result EPHEMERALLY (never persisted) — UNLIKE the
-   * reference-level provenance below (MEM-2055), which IS recorded, for `/memory used`.
+   * label. `context` is '' when there is nothing to recall. The controller guards this call (recall failure
+   * skips injection, never breaks the turn) and injects `context` EPHEMERALLY (never persisted). `events`
+   * are NOT recorded here — this runs before the turn's own messages reach history, so the controller
+   * records them itself, mirroring `captureMemory`, once those messages are already there (MEM-2055).
    */
-  private async recallTurnMemory(query: string): Promise<string> {
-    if (!this.recallMemory) return '';
+  private async recallTurnMemory(
+    query: string,
+  ): Promise<{ context: string; events: IMemoryEvent[] }> {
+    if (!this.recallMemory) return { context: '', events: [] };
     const result = await this.getMemoryStore().recall(query, this.recallMemory.budget);
+    const events: IMemoryEvent[] = [];
     if (result.references.length > 0) {
       this.histTracker.recordUsedMemoryReferences(result.references);
       const at = new Date().toISOString();
       for (const { topic, path, score, truncated } of result.references) {
-        this.histTracker.recordMemoryEvent({
-          type: 'memory_retrieved',
-          at,
-          topic,
-          data: { path, score, truncated },
-        });
+        events.push({ type: 'memory_retrieved', at, topic, data: { path, score, truncated } });
       }
     }
-    return renderPerTurnRecall(result);
+    return { context: renderPerTurnRecall(result), events };
   }
 
   get sessionId(): string {

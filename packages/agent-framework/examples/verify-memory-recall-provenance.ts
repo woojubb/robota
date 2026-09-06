@@ -50,7 +50,7 @@ async function main(): Promise<void> {
       recallMemory: RECALL_MEMORY,
     });
     const emitted: string[] = [];
-    session.on('memory_event', (event) => emitted.push((event as { type: string }).type));
+    session.on('memory_event', (event) => emitted.push(event.type));
 
     await session.submit(PROMPT);
 
