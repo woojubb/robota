@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [process, harness]
 lane: L2
@@ -121,7 +121,7 @@ observable proof is the hook's own red/green fixture cases in `## Test Plan`.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2644-branch-guard-sh-cannot-detect-an-in-progress-merge-inside-a-git-worktree.md` — todo
+- [x] `.agents/tasks/completed/INFRA-2644-branch-guard-sh-cannot-detect-an-in-progress-merge-inside-a-git-worktree.md` — done
 
 ## Evidence Log
 
@@ -438,7 +438,7 @@ blob `820203abe3762a901bcd26980214a5dc2860a6eb` (untracked)
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-06
 
 **Status upgrade:** review-ready → approved
-**Approval route:** `DIRECT` (unchanged from the immediately preceding recorded approval)
+**Approval route:** `DIRECT`
 **Instruction (verbatim):** "승인 — develop에 병합 진행"
 **Given:** 2026-09-06, this conversation
 **Review fingerprint:** 99423ceb58cb (review bc62417d, type/tags 7622c4ed) — unchanged since the

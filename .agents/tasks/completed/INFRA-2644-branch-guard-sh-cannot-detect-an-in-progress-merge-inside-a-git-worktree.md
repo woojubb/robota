@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-2644: branch-guard.sh cannot detect an in-progress merge inside a git worktree'
 issue: https://github.com/woojubb/robota/issues/2644
-status: in-progress
+status: done
+completed: 2026-09-06
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -48,3 +49,17 @@ pre-existing non-worktree merge case (must still be allowed). Then run every exi
 **Reason:** This is a repository-internal PreToolUse hook that mediates the agent's own `git`
 commands; it ships no CLI command, TUI action, browser flow, or public SDK surface for an end user
 to run, and its own red/green fixture cases in `## Test Plan` are the observable proof.
+
+## Completion Evidence
+
+`.claude/hooks/branch-guard.sh`'s merge-in-progress check now resolves `MERGE_HEAD` via
+`hook_git_in "$PROJECT_DIR" rev-parse --path-format=absolute --git-path MERGE_HEAD` instead of the
+hardcoded `$PROJECT_DIR/.git/MERGE_HEAD` path that never resolves inside a git worktree.
+`scripts/harness/__tests__/branch-guard-worktree-merge.test.mjs` (3 tests, new) and all five
+pre-existing `branch-guard-*.test.mjs` files (115 tests) pass — 118 tests total, 6 files, no
+regressions. `pnpm exec vitest run scripts/harness/__tests__/branch-guard-worktree-merge.test.mjs
+scripts/harness/__tests__/branch-guard-aliases.test.mjs
+scripts/harness/__tests__/branch-guard-reads-nested-commands.test.mjs
+scripts/harness/__tests__/branch-guard-judges-each-statement.test.mjs
+scripts/harness/__tests__/branch-guard-unmerged.test.mjs
+scripts/harness/__tests__/branch-guard-reads-git-branch.test.mjs` exits 0.
