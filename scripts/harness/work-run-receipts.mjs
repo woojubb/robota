@@ -110,6 +110,27 @@ export function stateLostReceipt(runId, identity) {
   };
 }
 
+export function invalidationReceipt(run, state, identity) {
+  const terminal = run.events.at(-1);
+  if (state.status !== 'invalid' || terminal?.type !== 'work.invalidated') {
+    throw new Error('invalidation receipt requires invalidated work');
+  }
+  return {
+    schemaVersion: 1,
+    disposition: 'invalid',
+    reason: terminal.data.reason,
+    runId: run.runId,
+    generation: state.generation,
+    revision: state.revision,
+    identity: structuredClone(identity),
+    invalidatedReceipt: terminal.data.invalidatedReceipt,
+    cohort: receiptCohort(state),
+    events: run.events,
+    durations: projectWorkRunDurations(run.events),
+    timestamps: { claimedAt: run.events[0].at, invalidatedAt: terminal.at },
+  };
+}
+
 export function reconcileExclusionReceipt({
   current,
   receiptPath,

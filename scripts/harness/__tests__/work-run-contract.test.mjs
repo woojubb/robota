@@ -50,6 +50,7 @@ describe('work-run contract', () => {
       'work.reopened',
       'work.abandoned',
       'work.excluded',
+      'work.invalidated',
     ]);
     const run = legalRun();
     expect(run.events.map((event) => event.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -189,6 +190,27 @@ describe('work-run contract', () => {
         data: { workId: 'OBSERVABILITY-002', lane: 'L3', workKind: 'observability' },
       }),
     ).toThrow(/lane.*L0.*L1.*L2/i);
+  });
+
+  it('keeps the original generation-zero phase history when invalidating a ready run', () => {
+    const ready = legalRun();
+    const invalidated = appendWorkRunEvent(ready, {
+      type: 'work.invalidated',
+      at: at(13),
+      data: {
+        generation: 0,
+        revision: 1,
+        reason: 'bad-phase-attribution',
+        invalidatedReceipt: 'g0-r0',
+      },
+    });
+
+    expect(reduceWorkRun(invalidated.events)).toMatchObject({
+      status: 'invalid',
+      generation: 0,
+      revision: 1,
+    });
+    expect(projectWorkRunDurations(invalidated.events).phases).toEqual({ implementation: 7_000 });
   });
 
   it('projects generation rework from its revision-zero reopen', () => {

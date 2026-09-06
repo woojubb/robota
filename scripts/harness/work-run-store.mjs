@@ -15,6 +15,7 @@ import {
 } from './work-run-paths.mjs';
 import {
   exclusionReceipt,
+  invalidationReceipt,
   readyReceipt,
   reconcileExclusionReceipt,
   reconcileReceipt,
@@ -239,6 +240,46 @@ export class WorkRunStore {
       });
       state = reduceWorkRun(run.events);
       const receipt = exclusionReceipt(run, state, identity);
+      immutableJson(receiptPath, receipt, this.root);
+      this.persistenceHooks.afterReceiptPersist?.({ receiptPath, receipt });
+      atomicJson(this.statePath(runId), run, this.root);
+      return { receiptPath, receipt };
+    });
+  }
+
+  invalidate({ runId, identity, reason, at = this.now() }) {
+    return this.withLock(runId, () => {
+      let run = this.read(runId);
+      let state = reduceWorkRun(run.events);
+      if (!reason) throw new Error('invalidate requires a reason');
+      if (state.status === 'invalid') {
+        const receiptPath = this.receiptPath(runId, state.generation, state.revision);
+        const existing = readJson(receiptPath, this.root);
+        const expected = invalidationReceipt(run, state, identity);
+        if (!sameJson(existing, expected)) {
+          throw new Error(`immutable work-run receipt conflict: ${receiptPath}`);
+        }
+        return { receiptPath, receipt: existing };
+      }
+      if (state.generation !== 0 || state.revision !== 0 || state.status !== 'ready') {
+        throw new Error('only a ready generation-zero work run may be invalidated');
+      }
+      const originalPath = this.receiptPath(runId, 0, 0);
+      if (!existsSync(originalPath)) {
+        throw new Error('invalidation requires the original generation-zero receipt');
+      }
+      const original = readJson(originalPath, this.root);
+      if (original.disposition !== 'included') {
+        throw new Error('invalidation requires an included generation-zero receipt');
+      }
+      run = appendWorkRunEvent(run, {
+        type: 'work.invalidated',
+        at,
+        data: { generation: 0, revision: 1, reason, invalidatedReceipt: 'g0-r0' },
+      });
+      state = reduceWorkRun(run.events);
+      const receiptPath = this.receiptPath(runId, state.generation, state.revision);
+      const receipt = invalidationReceipt(run, state, identity);
       immutableJson(receiptPath, receipt, this.root);
       this.persistenceHooks.afterReceiptPersist?.({ receiptPath, receipt });
       atomicJson(this.statePath(runId), run, this.root);

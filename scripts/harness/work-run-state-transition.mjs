@@ -185,6 +185,21 @@ function transitionTerminal(state, event, data) {
   state.status = 'excluded';
 }
 
+function transitionInvalidated(state, data) {
+  if (state.status !== 'ready') throw new Error('only ready work may be invalidated');
+  validateCoordinates(data, 'invalidated');
+  if (data.generation !== state.generation || data.revision !== state.revision + 1) {
+    throw new Error('invalidated generation and revision must advance the current state');
+  }
+  if (!data.reason) throw new Error('work.invalidated needs a reason');
+  if (typeof data.invalidatedReceipt !== 'string' || !/^g0-r0$/u.test(data.invalidatedReceipt)) {
+    throw new Error('work.invalidated needs the original generation-zero receipt');
+  }
+  state.status = 'invalid';
+  state.generation = data.generation;
+  state.revision = data.revision;
+}
+
 export function applyWorkRunTransition(state, event) {
   const data = event.data ?? {};
   if (['work.claimed', 'work.bound', 'work.started'].includes(event.type)) {
@@ -199,6 +214,8 @@ export function applyWorkRunTransition(state, event) {
     transitionReopened(state, data);
   } else if (['work.abandoned', 'work.excluded'].includes(event.type)) {
     transitionTerminal(state, event, data);
+  } else if (event.type === 'work.invalidated') {
+    transitionInvalidated(state, data);
   } else {
     throw new Error(`unknown event type: ${event.type}`);
   }

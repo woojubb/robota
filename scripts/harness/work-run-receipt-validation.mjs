@@ -38,6 +38,20 @@ const STATE_LOST_RECEIPT_KEYS = Object.freeze([
   'identity',
   'timestamps',
 ]);
+const INVALIDATION_RECEIPT_KEYS = Object.freeze([
+  'schemaVersion',
+  'disposition',
+  'reason',
+  'runId',
+  'generation',
+  'revision',
+  'identity',
+  'invalidatedReceipt',
+  'cohort',
+  'events',
+  'durations',
+  'timestamps',
+]);
 
 function decodeReceipt(receiptValue) {
   try {
@@ -54,16 +68,45 @@ function decodeReceipt(receiptValue) {
       receipt.timestamps.claimedAt === null &&
       receipt.timestamps.readyAt === null;
     if (
-      receipt.reason !== 'state-lost' ||
-      !exactKeys(receipt, STATE_LOST_RECEIPT_KEYS) ||
-      receipt.generation !== 0 ||
-      receipt.revision !== 0 ||
-      !validateWorkRunIdentity(receipt.identity) ||
-      !timestampsValid
+      receipt.reason === 'state-lost' &&
+      exactKeys(receipt, STATE_LOST_RECEIPT_KEYS) &&
+      receipt.generation === 0 &&
+      receipt.revision === 0 &&
+      validateWorkRunIdentity(receipt.identity) &&
+      timestampsValid
     ) {
-      throw new Error();
+      return { ok: true, receipt, state: null };
     }
-    return { ok: true, receipt, state: null };
+    if (
+      receipt.reason === 'bad-phase-attribution' &&
+      exactKeys(receipt, INVALIDATION_RECEIPT_KEYS) &&
+      Array.isArray(receipt.events) &&
+      receipt.events.length > 0 &&
+      validateWorkRunIdentity(receipt.identity) &&
+      receipt.generation === 0 &&
+      receipt.revision === 1 &&
+      receipt.invalidatedReceipt === 'g0-r0'
+    ) {
+      const state = reduceWorkRun(receipt.events);
+      const terminal = receipt.events.at(-1);
+      const timestamps =
+        exactKeys(receipt.timestamps, ['claimedAt', 'invalidatedAt']) &&
+        receipt.timestamps.claimedAt === receipt.events[0].at &&
+        receipt.timestamps.invalidatedAt === terminal.at;
+      if (
+        state.status === 'invalid' &&
+        terminal.type === 'work.invalidated' &&
+        terminal.data?.reason === receipt.reason &&
+        terminal.data?.invalidatedReceipt === receipt.invalidatedReceipt &&
+        state.generation === receipt.generation &&
+        state.revision === receipt.revision &&
+        timestamps &&
+        validateProjection(receipt, state)
+      ) {
+        return { ok: true, receipt, state };
+      }
+    }
+    throw new Error();
   } catch {
     return { ok: false, reason: 'malformed-receipt' };
   }

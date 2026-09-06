@@ -117,7 +117,8 @@ function preservedTrailerCorrelation(argv) {
 
 function handleTerminal(command, argv, context, store, run, subject, at) {
   const exclude = command === 'exclude';
-  const identity = exclude
+  const invalidate = command === 'invalidate';
+  const identity = exclude || invalidate
     ? currentIdentity(
         context.root,
         subject.branch,
@@ -128,7 +129,7 @@ function handleTerminal(command, argv, context, store, run, subject, at) {
   const state = reduceWorkRun(run.events);
   const receiptPath = store.receiptPath(run.runId, state.generation, state.revision);
   const allowedReceiptPath = exclude ? pendingReceiptPath(context.root, receiptPath) : null;
-  const workingTreeStatus = exclude ? boundedGitStatus(context.root) : '';
+  const workingTreeStatus = exclude || invalidate ? boundedGitStatus(context.root) : '';
   return terminalizeWorkRun({
     command,
     store,
@@ -137,7 +138,7 @@ function handleTerminal(command, argv, context, store, run, subject, at) {
     reason: exclude ? option(argv, '--reason') : option(argv, '--reason', 'unspecified'),
     identity,
     workingTreeStatus,
-    allowedReceiptPath,
+    allowedReceiptPath: invalidate ? pendingReceiptPath(context.root, receiptPath) : allowedReceiptPath,
   });
 }
 
@@ -217,7 +218,7 @@ function handleBoundCommand(command, argv, runtime) {
   }
   const simple = appendSimple(command, argv, store, run.runId, at);
   if (simple !== null) return simple;
-  if (command === 'abandon' || command === 'exclude') {
+  if (command === 'abandon' || command === 'exclude' || command === 'invalidate') {
     return handleTerminal(command, argv, context, store, run, subject, at);
   }
   if (command === 'reopen')
@@ -234,7 +235,7 @@ function execute(input, now) {
   const command = argv[0];
   if (!command)
     throw new Error(
-      'usage: work-run <claim|bind|start|phase-start|phase-complete|pause|resume|ready|reopen|exclude|abandon|recover|trailers|cutover-plan|cutover-seal>',
+      'usage: work-run <claim|bind|start|phase-start|phase-complete|pause|resume|ready|reopen|exclude|invalidate|abandon|recover|trailers|cutover-plan|cutover-seal>',
     );
   const context = repoContext(option(argv, '--root', process.cwd()));
   const store = new WorkRunStore({

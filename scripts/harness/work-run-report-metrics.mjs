@@ -186,9 +186,18 @@ function projectFirstPullRequests(root, queryPullRequests, budget) {
 }
 
 function selectLatest(normalized) {
+  const invalidated = new Set(
+    normalized
+      .filter((receipt) => receipt.disposition === 'invalid' && receipt.invalidatedReceipt)
+      .map((receipt) => `${receipt.runId}/${receipt.invalidatedReceipt}`),
+  );
   const latest = new Map();
   for (const receipt of normalized) {
-    if (receipt.disposition !== 'included') continue;
+    if (
+      receipt.disposition !== 'included' ||
+      invalidated.has(`${receipt.runId}/g${receipt.generation ?? 0}-r${receipt.revision ?? 0}`)
+    )
+      continue;
     const key = `${receipt.runId}/${receipt.generation ?? 0}`;
     const previous = latest.get(key);
     if (!previous || (receipt.revision ?? 0) > (previous.revision ?? 0)) latest.set(key, receipt);
