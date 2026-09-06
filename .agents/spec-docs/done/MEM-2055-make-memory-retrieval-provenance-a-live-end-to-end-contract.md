@@ -125,20 +125,20 @@ None
 
 ## User Execution Test Scenarios
 
-**Applies** — `/memory used` is a user-facing CLI command whose output this fix changes directly.
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
 
-**Author verdict:** `SCENARIO DRAFTED: manual | 1`
+### Scenario 1: /memory used reflects a recalled reference
 
-- Prerequisites: built CLI + provider key; memory enabled; a stored memory the next prompt will recall.
-- Steps: send a prompt that recalls the stored memory, then run `/memory used`.
-- Expected (after fix): `/memory used` lists the recalled memory reference(s).
-- Expected (before fix, contrast): `/memory used` says "(no memory used in current turn)" even though a
-  memory was injected into the turn.
-- Cleanup: clear the stored memory.
-- Evidence: automated proof stands in for a manual run — TC-01 (`interactive-session-recall.test.ts`
-  TC-07/TC-08/TC-09) asserts `getUsedMemoryReferences()` and the emitted `memory_retrieved` `memory_event`s
-  directly, the same code path `/memory used` reads; the live end-to-end run needs a real provider
-  session this record cannot spin up standalone.
+- **executability:** agent-executable
+- **product surface:** public-sdk-example
+- **surface rationale:** shipped-interface=public-sdk-example
+- **prerequisites:** none — the script builds its own temporary project directory, a scripted provider, and a fake memory store, then removes the directory before exiting
+- **command:** `pnpm exec tsx examples/verify-memory-recall-provenance.ts`
+- **observable type:** sdk-result
+- **observable rationale:** source=public-sdk-return
+- **expected observable:** result=printed JSON has one entry in `usedMemoryReferences` and `emittedMemoryEventTypes` equal to `["memory_retrieved"]`
+- **cleanup:** the script removes its own temporary directory before exiting
+- **evidence:** ran `pnpm exec tsx examples/verify-memory-recall-provenance.ts` inside `packages/agent-framework` — printed `{"scenario":"MEM-2055","usedMemoryReferences":[{"topic":"deploy","path":"deploy.md","score":5,"truncated":false}],"emittedMemoryEventTypes":["memory_retrieved"],"cleanupRemoved":true}`
 
 ## Tasks
 
