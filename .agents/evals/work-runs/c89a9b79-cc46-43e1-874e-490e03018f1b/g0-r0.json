@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "disposition": "included",
+  "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+  "generation": 0,
+  "revision": 0,
+  "identity": {
+    "repository": "woojubb/robota",
+    "branch": "fix/mem-2055-memory-recall-provenance-v2",
+    "baseCommit": "754c9e239eec0a1622334c9f7b022f9dd64f01c1",
+    "headCommit": "e6dfd072be163479c128f4a4077eac43190aa1fa",
+    "headTree": "dff0b53d6b4cd9b3447429a9305fa4ec7880b4dd",
+    "commitOids": [
+      "39c19fe27c4db6fd665f0f85959188ef85a66aee",
+      "f2c23b0d947c87984ddeb3dd240688ad62828239",
+      "469bcf71fe090f61ac022f3d4004d270d7188866",
+      "e6dfd072be163479c128f4a4077eac43190aa1fa"
+    ],
+    "trailerDigest": "86b8d3317d44271be9e15a0a93fde6f534b252f35206843ab0386741edc40041",
+    "ownerFingerprint": "67c3371f71776dc0101e2b16c8dfc0d5b526ab031a2f98eaea8e47dc8eccfbd9"
+  },
+  "cohort": {
+    "key": "L1/refactor",
+    "lane": "L1",
+    "workKind": "refactor"
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 1,
+      "previousHash": null,
+      "type": "work.claimed",
+      "at": "2026-09-06T18:15:06.971Z",
+      "data": {
+        "branch": "fix/mem-2055-memory-recall-provenance-v2"
+      },
+      "hash": "0249fbf1d9183d32a3ee67d236d0171e642fcfbad653726ed88ed5eb87981eb8"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 2,
+      "previousHash": "0249fbf1d9183d32a3ee67d236d0171e642fcfbad653726ed88ed5eb87981eb8",
+      "type": "work.bound",
+      "at": "2026-09-06T18:19:06.646Z",
+      "data": {
+        "workId": "MEM-2055",
+        "lane": "L1",
+        "workKind": "refactor"
+      },
+      "hash": "77c312fe75d1cacdb23e5cc073ee536c2f7a912ca7ba2d163a8ac3da14d191d4"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 3,
+      "previousHash": "77c312fe75d1cacdb23e5cc073ee536c2f7a912ca7ba2d163a8ac3da14d191d4",
+      "type": "work.started",
+      "at": "2026-09-06T18:19:10.123Z",
+      "data": {},
+      "hash": "a51d4c57fd4048f3a9769c026ede34a44a440dde424a22be999a865bca5ecd9b"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 4,
+      "previousHash": "a51d4c57fd4048f3a9769c026ede34a44a440dde424a22be999a865bca5ecd9b",
+      "type": "phase.started",
+      "at": "2026-09-06T18:20:05.475Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "551cb911d16ae2f0c313f58edfe9b23a89ceab58d257c866e12cd8ddb1c04c46"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 5,
+      "previousHash": "551cb911d16ae2f0c313f58edfe9b23a89ceab58d257c866e12cd8ddb1c04c46",
+      "type": "phase.completed",
+      "at": "2026-09-06T18:20:30.169Z",
+      "data": {
+        "phase": "implementation"
+      },
+      "hash": "c959d98bfb4fa7f44894c7a0ee8b91e45e94e510fc0a0edee456545d3b2e7c95"
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "c89a9b79-cc46-43e1-874e-490e03018f1b",
+      "sequence": 6,
+      "previousHash": "c959d98bfb4fa7f44894c7a0ee8b91e45e94e510fc0a0edee456545d3b2e7c95",
+      "type": "work.ready",
+      "at": "2026-09-06T18:21:29.401Z",
+      "data": {
+        "generation": 0,
+        "revision": 0
+      },
+      "hash": "ef32c02a876c9635d18b59c8780406c906557f5d3fca381e8c765b0918b2d31a"
+    }
+  ],
+  "durations": {
+    "wallMs": 382430,
+    "activeMs": 382430,
+    "pausedMs": 0,
+    "phases": {
+      "implementation": 24694
+    }
+  },
+  "timestamps": {
+    "claimedAt": "2026-09-06T18:15:06.971Z",
+    "readyAt": "2026-09-06T18:21:29.401Z"
+  }
+}
