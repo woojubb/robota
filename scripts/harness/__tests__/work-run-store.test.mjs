@@ -13,7 +13,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
@@ -457,6 +457,48 @@ describe('work-run store', () => {
     });
     expect(JSON.parse(readFileSync(revised.receiptPath, 'utf8')).revision).toBe(1);
     expect(JSON.parse(readFileSync(revised.receiptPath, 'utf8')).generation).toBe(0);
+  });
+
+  it('invalidates a ready generation-zero receipt without rewriting the original', () => {
+    const root = makeTemp('work-run-invalidation-');
+    mkdirSync(join(root, '.git'), { recursive: true });
+    const store = new WorkRunStore({ root, gitCommonDir: join(root, '.git') });
+    const run = store.claim({ branch: identity.branch, at: '2026-08-30T00:00:00.000Z' });
+    store.append(run.runId, {
+      type: 'work.bound',
+      at: '2026-08-30T00:00:01.000Z',
+      data: { workId: 'OBSERVABILITY-002', lane: 'L2', workKind: 'observability' },
+    });
+    store.append(run.runId, {
+      type: 'work.started',
+      at: '2026-08-30T00:00:02.000Z',
+      data: {},
+    });
+    const ready = store.ready({ runId: run.runId, identity, at: '2026-08-30T00:00:03.000Z' });
+    const original = readFileSync(ready.receiptPath, 'utf8');
+
+    const invalidated = store.invalidate({
+      runId: run.runId,
+      identity,
+      reason: 'bad-phase-attribution',
+      at: '2026-08-30T00:00:04.000Z',
+    });
+
+    expect(readFileSync(ready.receiptPath, 'utf8')).toBe(original);
+    expect(invalidated.receiptPath).toContain('/g0-r1.json');
+    expect(invalidated.receipt).toMatchObject({
+      disposition: 'invalid',
+      reason: 'bad-phase-attribution',
+      invalidatedReceipt: 'g0-r0',
+    });
+    expect(validateWorkRunReceipt(invalidated.receipt, {
+      receiptPath: relative(root, invalidated.receiptPath),
+    }).ok).toBe(true);
+    expect(store.invalidate({
+      runId: run.runId,
+      identity,
+      reason: 'bad-phase-attribution',
+    }).receipt).toEqual(invalidated.receipt);
   });
 
   it('recovers state from an immutable receipt after persistence fails between receipt and state', () => {

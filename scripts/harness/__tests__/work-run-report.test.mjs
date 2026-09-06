@@ -549,6 +549,41 @@ describe('work-run report', () => {
     expect(report.metrics.wallMs).toEqual({ p50: 10, p90: 20 });
   });
 
+  it('removes an invalidated generation-zero receipt from included measurement', () => {
+    const original = includedReceipt({ runId: 'invalidated-run', wallMs: 20 });
+    let run = { schemaVersion: 1, runId: original.runId, events: original.events };
+    run = appendWorkRunEvent(run, {
+      type: 'work.invalidated',
+      at: '2026-08-30T00:00:00.030Z',
+      data: {
+        generation: 0,
+        revision: 1,
+        reason: 'bad-phase-attribution',
+        invalidatedReceipt: 'g0-r0',
+      },
+    });
+    const state = reduceWorkRun(run.events);
+    const invalidated = {
+      schemaVersion: 1,
+      disposition: 'invalid',
+      reason: 'bad-phase-attribution',
+      runId: run.runId,
+      generation: 0,
+      revision: 1,
+      identity: receiptIdentity,
+      invalidatedReceipt: 'g0-r0',
+      cohort: { key: cohortKey(state), lane: state.lane, workKind: state.workKind },
+      events: run.events,
+      durations: projectWorkRunDurations(run.events),
+      timestamps: { claimedAt: run.events[0].at, invalidatedAt: run.events.at(-1).at },
+    };
+
+    const report = reportWorkRuns([original, invalidated]);
+
+    expect(report.populations).toMatchObject({ included: 0, invalid: 1 });
+    expect(report.invalidReasons).toEqual({ 'bad-phase-attribution': 1 });
+  });
+
   it('joins first PR when the ready head starts the proven PR-head commit range', () => {
     const receipt = {
       runId: 'run-1',

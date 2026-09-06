@@ -16,6 +16,7 @@ export const WORK_RUN_EVENT_TYPES = Object.freeze([
   'work.reopened',
   'work.abandoned',
   'work.excluded',
+  'work.invalidated',
 ]);
 
 const EVENT_TYPE_SET = new Set(WORK_RUN_EVENT_TYPES);
@@ -97,7 +98,7 @@ export function projectWorkRunDurations(events) {
   const scopedEvents = events.slice(scopeStart);
   const first = instant(scopedEvents[0].at);
   const terminal = scopedEvents.findLast((event) =>
-    ['work.ready', 'work.abandoned', 'work.excluded'].includes(event.type),
+    ['work.ready', 'work.abandoned', 'work.excluded', 'work.invalidated'].includes(event.type),
   );
   const last = instant((terminal ?? scopedEvents.at(-1)).at);
   let pauseStart = null;

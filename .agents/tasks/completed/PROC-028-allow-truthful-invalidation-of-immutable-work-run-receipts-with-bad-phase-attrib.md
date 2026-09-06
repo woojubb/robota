@@ -1,7 +1,7 @@
 ---
 title: 'PROC-028: Allow truthful invalidation of immutable work-run receipts with bad phase attribution'
 issue: https://github.com/woojubb/robota/issues/2562
-status: todo
+status: done
 created: 2026-08-31
 priority: medium
 urgency: soon
@@ -19,12 +19,21 @@ auditable way to remove that run from the included measurement population.
 
 ## Plan
 
-- [ ] Define a terminal invalidation contract for a sealed pre-PR receipt whose event chain is structurally
+- [x] Define a terminal invalidation contract for a sealed pre-PR receipt whose event chain is structurally
       valid but whose phase attribution is semantically false.
-- [ ] Ensure generation-zero revisions cannot present inherited incorrect phase durations as corrected or
+- [x] Ensure generation-zero revisions cannot present inherited incorrect phase durations as corrected or
       included measurement.
-- [ ] Update the reducer, receipt validation, reporting population, CLI routing, scans, and fixtures without
+- [x] Update the reducer, receipt validation, reporting population, CLI routing, scans, and fixtures without
       permitting receipt rewriting or synthetic backdated events.
+
+## Completion evidence
+
+- Added the hash-chained `work.invalidated` terminal event and `work-run invalidate --reason` route.
+- Added immutable invalidation receipts at the next generation-zero revision while retaining the original
+  g0-r0 receipt and full event history.
+- Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
+  reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
+- Focused work-run contract, store, validation, and report suites passed: 136 tests.
 
 ## Test Plan
 

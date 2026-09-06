@@ -221,5 +221,10 @@ export function terminalizeWorkRun({
     if (!reason) throw new Error('exclude requires --reason');
     return store.exclude({ runId, at, reason, identity });
   }
+  if (command === 'invalidate') {
+    assertReadyWorkingTreeClean(workingTreeStatus, allowedReceiptPath);
+    if (!reason) throw new Error('invalidate requires --reason');
+    return store.invalidate({ runId, at, reason, identity });
+  }
   throw new Error(`unsupported terminal work-run command: ${command}`);
 }
