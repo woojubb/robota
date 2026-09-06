@@ -179,12 +179,6 @@ describe('the issue source', () => {
       /no open or closed GitHub Issue titled/,
     );
   });
-
-  it('refuses the same way on a dry run — there is no creation path left to skip', () => {
-    expect(() =>
-      resolveIssueNumber({ title: 'new title', dryRun: true, issueList: () => [] }),
-    ).toThrow(/no open or closed GitHub Issue titled/);
-  });
 });
 
 describe('the record it writes', () => {

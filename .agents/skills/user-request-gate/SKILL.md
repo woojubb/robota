@@ -52,7 +52,8 @@ use this exception, including changes to the checker that implements it.
    `Fast-track:` line quoting the user's instruction verbatim) on the branch and the pull request, and
    go to Phase 4 — `scan-lane-declaration` refuses the declaration if the diff's floor is higher.
    **L1** first resolves the registering GitHub Issue and allocates `<PREFIX>-<issue-number>` with
-   `pnpm harness:task:allocate` (omitting `--issue` finds an exact title or creates the Issue), then
+   `pnpm harness:task:allocate` (omitting `--issue` reuses an exact title match; it never files a new
+   Issue — open one by hand first, or pass `--issue` explicitly), then
    uses `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1` to scaffold the draft.
    The scaffold writes the `Waived:` line research.md accepts, so step 4's research dispatch is not
    required for L1 (the author may still research) — fills Problem, Decision and the TC-N criteria,
