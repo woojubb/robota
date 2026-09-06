@@ -49,16 +49,19 @@
  *       [--legacy-id] [--dry-run] [--root <dir>]
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+
 import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
-import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 // stdout is the payload here (`--dry-run` prints the document, otherwise the created path), so the
 // root announcement goes to stderr — the document must not begin with a `::root::` line.
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
-export const TASKS_DIR = '.agents/tasks';
+
+import { TASKS_DIR, formatTable, readTaskRecord, slugify } from './new-spec-task-record.mjs';
+
+export { TASKS_DIR, formatTable, readTaskRecord, slugify };
 export const DRAFT_DIR = '.agents/spec-docs/draft';
 export const TEMPLATE_PATH = '.agents/templates/mini-spec-template.md';
 export const ISSUE_URL_BASE = 'https://github.com/woojubb/robota/issues/';
@@ -78,8 +81,10 @@ export const TYPES = [
   'SECURITY',
   'OBSERVABILITY',
 ];
+
 export const DEFAULT_WAIVER =
   "internal fix with no contract change; the remedy is the repository's own precedent";
+
 export const DEFAULT_NOT_APPLICABLE =
   'no runnable user-facing behaviour changes; verification evidence is recorded in the engineering ' +
   'test plan (TC-01 to TC-03)';
@@ -158,79 +163,6 @@ export function parseArgs(argv) {
   options.root = path.resolve(options.root);
   return { ok: true, options };
 }
-/**
- * The same slug `allocate-work-item-id.mjs` gives a Task record. The draft's name is not derived from
- * it — the Task's own basename is reused verbatim (see the header) — but the tests build Task records
- * with it, and it stays the one owner of the slug shape on this side.
- */
-export function slugify(title) {
-  return String(title)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80);
-}
-/** First paragraph under a `## <heading>` section, or '' when the section is absent or a stub. */
-function sectionParagraph(body, heading) {
-  const match = new RegExp(`^##\\s+${heading}\\s*$`, 'm').exec(body);
-  if (!match) return '';
-  const rest = body.slice(match.index + match[0].length);
-  const end = rest.search(/^#{1,3}\s/m);
-  const section = (end === -1 ? rest : rest.slice(0, end)).trim();
-  const paragraph = section.split(/\n\s*\n/)[0].trim();
-  if (paragraph === '' || /^(TODO|TBD)\b/.test(paragraph)) return '';
-  return paragraph;
-}
-/**
- * The paired Task record for `id`: `null` when none exists, a `{ambiguous}` marker when several do.
- *
- * Only the live half is read. A record in `completed/` is finished work, and a spec drafted against
- * it would be planning what already shipped.
- */
-export function readTaskRecord(root, id) {
-  const dir = path.join(root, TASKS_DIR);
-  const idPrefix = new RegExp(`^${escapeRegExp(id)}:\\s*`);
-  const matches = readdirSync(dir)
-    .filter((name) => name.endsWith('.md') && name.startsWith(`${id}-`))
-    .sort();
-  if (matches.length === 0) return null;
-  if (matches.length > 1) return { ambiguous: matches.map((name) => `${TASKS_DIR}/${name}`) };
-
-  const file = `${TASKS_DIR}/${matches[0]}`;
-  const text = readFileSync(path.join(root, file), 'utf8');
-  const fm = frontmatterObject(text);
-  const fmTitle = asScalar(fm.title).replace(idPrefix, '');
-  const h1 = /^#\s+(.+)$/m.exec(text)?.[1]?.replace(idPrefix, '') ?? '';
-  const issue = asScalar(fm.issue).match(/(\d+)\s*$/)?.[1];
-  const area = asList(fm.area)
-    .flatMap((entry) => entry.split(','))
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '' && !/^(TODO|TBD)$/i.test(entry));
-  return {
-    file,
-    title: (fmTitle || h1).trim(),
-    status: asScalar(fm.status) || 'todo',
-    issue,
-    area,
-    objective: sectionParagraph(text, 'Objective'),
-  };
-}
-/** The CLI-supplied id is data: `PROC-1.0+` must match its own spelling, never `PROC-1x0:`. */
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-/** A markdown table padded the way prettier pads it, so the generated file is already formatted. */
-export function formatTable(header, rows) {
-  const all = [header, ...rows];
-  const widths = header.map((_, column) =>
-    Math.max(3, ...all.map((row) => [...row[column]].length)),
-  );
-  const line = (row) =>
-    `| ${row.map((cell, column) => cell + ' '.repeat(widths[column] - [...cell].length)).join(' | ')} |`;
-  const rule = `| ${widths.map((width) => '-'.repeat(width)).join(' | ')} |`;
-  return [line(header), rule, ...rows.map(line)].join('\n');
-}
-
 const bullets = (items) => items.map((item) => `- \`${item}\``).join('\n');
 /** Every `{{TOKEN}}` value for the template, decided by lane and by what the Task record carries. */
 export function buildFields(options, task) {
