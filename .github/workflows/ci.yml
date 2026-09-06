@@ -472,6 +472,11 @@ jobs:
         run: |
           set +e
           mkdir -p .cache/eslint
+          # Issue #2300: tests must not be satisfied by the author's runner HOME (for example,
+          # unrelated ~/.claude skills). Keep the test process hermetic while leaving typecheck and
+          # lint on the normal runner environment; tests that need host-like state must fixture it.
+          empty_home="${RUNNER_TEMP}/empty-home"
+          mkdir -p "$empty_home"
           labels=()
           pids=()
           logs=()
@@ -487,11 +492,11 @@ jobs:
           }
 
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
-            start_check test pnpm test
+            start_check test env HOME="$empty_home" pnpm test
             start_check typecheck pnpm typecheck
             start_check lint pnpm lint
           else
-            start_check test pnpm test:affected
+            start_check test env HOME="$empty_home" pnpm test:affected
             start_check typecheck pnpm typecheck:affected
             start_check lint pnpm lint:affected
           fi
