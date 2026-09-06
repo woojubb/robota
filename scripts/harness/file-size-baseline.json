@@ -127,7 +127,7 @@
   "scripts/harness/scan-hook-enforcement-reachable.mjs": 609,
   "scripts/harness/scan-interface-family-owner.mjs": 509,
   "scripts/harness/scan-interface-runtime.mjs": 523,
-  "scripts/harness/scan-lane-declaration.mjs": 813,
+  "scripts/harness/scan-lane-declaration.mjs": 835,
   "scripts/harness/scan-legacy-typescript.mjs": 697,
   "scripts/harness/scan-loop-contract.mjs": 399,
   "scripts/harness/scan-main-required-checks.mjs": 466,
