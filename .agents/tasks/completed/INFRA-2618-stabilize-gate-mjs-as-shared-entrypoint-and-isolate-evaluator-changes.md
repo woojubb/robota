@@ -38,6 +38,9 @@ Spec: `.agents/spec-docs/done/INFRA-2618-stabilize-gate-mjs-as-shared-entrypoint
 - Run `pnpm exec vitest run scripts/harness/__tests__/gate-entrypoint-compatibility.test.mjs` and require the facade subprocess and stability-refusal assertions to pass.
 - Run `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` and require the affected harness scans to exit 0.
 
+The final verification is recorded by the affected harness scan and its Work-Run receipt after the
+completion commit; the receipt binds the measured topic range to the exact ready head.
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
