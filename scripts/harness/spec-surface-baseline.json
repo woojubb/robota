@@ -9,7 +9,7 @@
   },
   "@robota-sdk/agent-core": {
     "runtime": 93,
-    "type": 229
+    "type": 221
   },
   "@robota-sdk/agent-executor": {
     "runtime": 1,

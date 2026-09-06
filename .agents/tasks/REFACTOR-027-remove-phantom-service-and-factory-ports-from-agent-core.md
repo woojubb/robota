@@ -17,10 +17,10 @@ Remove exported service and factory abstractions that have no truthful productio
 
 ## Plan
 
-- [ ] Inventory every exported service/factory port named by the source Issue and prove implementer and consumer counts.
-- [ ] Delete phantom declarations and their stranded exports without replacing them with compatibility aliases.
-- [ ] Update package public-surface evidence and affected specifications.
-- [ ] Run typecheck, package tests, build, and public-surface scans.
+- [x] Inventory every exported service/factory port named by the source Issue and prove implementer and consumer counts.
+- [x] Delete phantom declarations and their stranded exports without replacing them with compatibility aliases.
+- [x] Update package public-surface evidence and affected specifications.
+- [x] Run typecheck, package tests, build, and public-surface scans.
 
 ## User Execution Test Scenarios
 
