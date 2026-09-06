@@ -40,7 +40,7 @@ frontmatter, and the fact that none of the product outcomes has been delivered y
 
 ## Children
 
-- [ ] REFACTOR-027 — todo — `.agents/tasks/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`
+- [x] REFACTOR-027 — done — `.agents/tasks/completed/REFACTOR-027-remove-phantom-service-and-factory-ports-from-agent-core.md`
 - [ ] REFACTOR-028 — todo — `.agents/tasks/REFACTOR-028-finish-removing-the-ghost-workflow-subsystem-from-agent-core.md`
 - [ ] TRANS-011 — todo — `.agents/tasks/TRANS-011-the-transport-registry-erases-heterogeneous-exact-session-capabilities-into-one-.md`
 - [ ] TRANS-012 — todo — `.agents/tasks/TRANS-012-coordinate-exact-session-capability-transport-bindings.md`

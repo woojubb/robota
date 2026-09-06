@@ -122,15 +122,7 @@ export type {
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './media-provider';
 
-export type {
-  TAgentCreationMetadata,
-  TManagerToolParameters,
-  IConfigValidationResult,
-  IAgentCreationOptions,
-  IAgentFactory,
-  IAIProviderManager,
-  IToolManager,
-} from './manager';
+export type { TManagerToolParameters, IAIProviderManager, IToolManager } from './manager';
 
 export type {
   ITool,
@@ -197,18 +189,14 @@ export {
 export type {
   TConversationContextMetadata,
   TToolExecutionParameters,
-  TExecutionMetadata,
   TResponseMetadata,
   IToolExecutionRequest,
   IConversationContext,
   IConversationResponse,
   IStreamingChunk,
   IContextOptions,
-  IExecutionServiceOptions,
   IConversationServiceOptions,
   IConversationService,
-  IToolExecutionService,
-  IExecutionService,
 } from './service';
 
 export type {
