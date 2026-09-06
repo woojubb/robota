@@ -1,4 +1,3 @@
-import type { IAgentConfig, IAgent } from './agent';
 import type { IAIProvider, IToolSchema } from './provider';
 import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
 import type { TUniversalValue } from './types';
@@ -8,12 +7,6 @@ import type { TUniversalValue } from './types';
  */
 
 /**
- * Agent creation metadata type
- * Used for storing additional information about agent creation and configuration
- */
-export type TAgentCreationMetadata = Record<string, string | number | boolean | Date>;
-
-/**
  * Tool execution parameters for manager operations
  * Used for tool parameter validation and execution in manager context
  */
@@ -21,15 +14,6 @@ export type TManagerToolParameters = Record<
   string,
   string | number | boolean | string[] | number[] | boolean[]
 >;
-
-/**
- * Configuration validation result
- */
-export interface IConfigValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings?: string[];
-}
 
 /**
  * AI Provider Manager interface for provider registration and selection
@@ -123,44 +107,4 @@ export interface IToolManager {
    * Get allowed tools
    */
   getAllowedTools(): string[] | undefined;
-}
-
-/**
- * Agent creation options
- */
-export interface IAgentCreationOptions {
-  /** Override default configuration */
-  overrides?: Partial<IAgentConfig>;
-  /** Validation options */
-  validation?: {
-    strict?: boolean;
-    skipOptional?: boolean;
-  };
-  /** Additional metadata */
-  metadata?: TAgentCreationMetadata;
-}
-
-/**
- * Agent Factory interface for agent creation and configuration
- */
-export interface IAgentFactory {
-  /**
-   * Create agent instance
-   */
-  createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgent<IAgentConfig>;
-
-  /**
-   * Validate agent configuration
-   */
-  validateConfig(config: IAgentConfig): IConfigValidationResult;
-
-  /**
-   * Get default configuration
-   */
-  getDefaultConfig(): IAgentConfig;
-
-  /**
-   * Merge configurations
-   */
-  mergeConfig(base: IAgentConfig, override: Partial<IAgentConfig>): IAgentConfig;
 }
