@@ -10,7 +10,7 @@ describe('gate-evaluator-isolation', () => {
   it('rejects evaluator and evidence changes in one diff', () => {
     expect(
       evaluatorIsolationFindings([
-        'scripts/harness/gate.mjs',
+        'scripts/harness/gate-operations.mjs',
         '.agents/spec-docs/active/RULE-025.md',
       ]),
     ).toHaveLength(1);
@@ -23,7 +23,7 @@ describe('gate-evaluator-isolation', () => {
   it('allows evaluator and evidence changes in separate commits', () => {
     expect(
       evaluatorIsolationCommitFindings([
-        { sha: 'aaaaaaaaa', paths: ['scripts/harness/gate.mjs'] },
+        { sha: 'aaaaaaaaa', paths: ['scripts/harness/gate-operations.mjs'] },
         { sha: 'bbbbbbbbb', paths: ['.agents/spec-docs/active/RULE-025.md'] },
       ]),
     ).toEqual([]);
@@ -46,7 +46,7 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
       commitIsolationFindings([
         {
           commit: 'abc1234',
-          paths: ['scripts/harness/gate.mjs', '.agents/spec-docs/active/RULE-025.md'],
+          paths: ['scripts/harness/gate-operations.mjs', '.agents/spec-docs/active/RULE-025.md'],
         },
       ]),
     ).toHaveLength(1);
@@ -56,7 +56,7 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
     expect(
       commitIsolationFindings([
         { commit: 'aaa1111', paths: ['.agents/spec-docs/active/RULE-025.md'] },
-        { commit: 'bbb2222', paths: ['scripts/harness/gate.mjs'] },
+        { commit: 'bbb2222', paths: ['scripts/harness/gate-operations.mjs'] },
       ]),
     ).toEqual([]);
   });
@@ -76,7 +76,10 @@ describe('the unit of "the same diff" is a commit, not a branch range (issue #26
   it('still refuses when a merge commit itself carries both', () => {
     expect(
       commitIsolationFindings([
-        { commit: 'ddd4444', paths: ['scripts/harness/gate.mjs', '.agents/spec-docs/todo/Y.md'] },
+        {
+          commit: 'ddd4444',
+          paths: ['scripts/harness/gate-operations.mjs', '.agents/spec-docs/todo/Y.md'],
+        },
         { commit: 'eee5555', paths: ['README.md'] },
       ]),
     ).toHaveLength(1);
