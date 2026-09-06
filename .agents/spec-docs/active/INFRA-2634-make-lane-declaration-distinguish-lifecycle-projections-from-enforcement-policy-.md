@@ -97,13 +97,13 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: the lane fixture reproduces the mixed parent-projection/child-L1 conflict before the
+- [x] TC-01: the lane fixture reproduces the mixed parent-projection/child-L1 conflict before the
       filter and passes with no declaration conflict after it.
-- [ ] TC-02: a normal active-spec body change still contributes its frontmatter lane, while a
+- [x] TC-02: a normal active-spec body change still contributes its frontmatter lane, while a
       historical `done/` spec evidence change does not contribute a declaration.
-- [ ] TC-03: `node scripts/harness/scan-lane-declaration.mjs --base origin/develop` exits 0 for the
+- [x] TC-03: `node scripts/harness/scan-lane-declaration.mjs --base origin/develop` exits 0 for the
       INFRA-154 topic shape without lowering the declared L1 lane.
-- [ ] TC-04: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` and
+- [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` and
       `pnpm harness:scan -- --affected --context pr --skip dist --skip build-contracts` exit 0.
 
 ## Test Plan
@@ -304,3 +304,15 @@ No blocking reason remains.
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged at:** HEAD `af3df5715132` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/todo/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `675b9e4d06a2` (tracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-06
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged at:** HEAD `605f5ffba0e9` · base `origin/develop@c651c769e27c` · document `.agents/spec-docs/active/INFRA-2634-make-lane-declaration-distinguish-lifecycle-projections-from-enforcement-policy-.md` blob `c57870c7778d` (tracked)

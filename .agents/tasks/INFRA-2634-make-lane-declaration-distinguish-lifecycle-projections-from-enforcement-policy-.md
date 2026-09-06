@@ -20,11 +20,11 @@ unnecessary L2 promotion and delaying delivery.
 
 ## Plan
 
-- [ ] Reproduce the conflict with the exact parent projection and historical done-spec shape.
-- [ ] Make only live planning specs and non-projection changes contribute a spec-frontmatter lane
+- [x] Reproduce the conflict with the exact parent projection and historical done-spec shape.
+- [x] Make only live planning specs and non-projection changes contribute a spec-frontmatter lane
       declaration; preserve L2 refusal for actual lane-policy and gate-enforcement changes.
-- [ ] Add regression coverage for ignored lifecycle/history changes and retained live spec changes.
-- [ ] Re-run affected scans and the complete lane scanner suite on the final clean head.
+- [x] Add regression coverage for ignored lifecycle/history changes and retained live spec changes.
+- [x] Re-run affected scans and the complete lane scanner suite on the final clean head.
 
 ## Test Plan
 
