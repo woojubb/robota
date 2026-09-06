@@ -29,3 +29,23 @@ near-duplicates happens in batch, at lesson time.
 ## Records
 
 <!-- Append new `### LRN-<id>` entries below this line. Nothing above it is a record. -->
+
+### LRN-work-run-measurement-direct-push-gap
+
+- observed-at: 2026-09-06T09:55:00Z
+- observation: `pre-push-work-run.mjs` assumes a claim→PR lifecycle and throws an uncaught,
+  stack-trace-shaped error (`invalid-closure-commit`, `invalid-commit-trailers`) instead of a
+  readable `[pre-push-check]`-style message when a direct-to-`develop` push (no PR) hits it; a
+  local CLI misuse (`work-run.mjs abandon` with no args executes immediately instead of failing
+  closed like `exclude`) forced recovering by rewriting local commit trailers with
+  `git filter-branch`. `.github/workflows/scans-full.yml` already excludes this same scan
+  (`--skip work-run-measurement`) from the blocking integration suite, so CI does not trust it
+  either.
+- evidence: scripts/harness/pre-push-work-run.mjs:121; scripts/harness/work-run-git-adapter.mjs:228
+  (validateCommitCorrelation requires every commitOid's trailer to equal the CURRENT runId, so
+  claim→abandon→re-claim leaves earlier commits permanently mismatched without a rewrite);
+  full account: /tmp/robota-session-difficulties-report-2026-09-06.md
+- source: fix/issue-registration-no-auto-create (HARNESS-102 work)
+- related: git-branch.md's maintainer-direct-push allowance vs track-work-run's "claim through
+  first PR" framing; the several chore/allow-develop-direct-merge* branches on this repo suggest
+  the same gap is already being worked elsewhere
