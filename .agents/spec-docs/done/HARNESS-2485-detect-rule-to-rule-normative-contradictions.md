@@ -3,7 +3,7 @@ status: done
 completed: 2026-09-06
 type: INFRA
 tags: [harness, rules]
-lane: L1
+lane: L2
 ---
 
 # HARNESS-2485: detect rule-to-rule normative contradictions
