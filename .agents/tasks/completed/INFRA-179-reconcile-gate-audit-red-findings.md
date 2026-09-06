@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-179: reconcile the gate audit red findings and restore a truthful green harness'
-status: in-progress
+status: done
 created: 2026-09-06
 priority: high
 urgency: now
@@ -11,6 +11,8 @@ area:
   - documentation examples
 depends_on: []
 issue: https://github.com/woojubb/robota/issues/2578
+Spec: `.agents/spec-docs/done/INFRA-179-reconcile-gate-audit-red-findings.md`
+completed: 2026-09-06
 ---
 
 # INFRA-179: reconcile the gate audit red findings and restore a truthful green harness
