@@ -1,7 +1,7 @@
 ---
 title: 'TEST-013: no global seam prevents a test from being satisfied by host home state'
 issue: https://github.com/woojubb/robota/issues/2300
-status: todo
+status: done
 created: 2026-09-04
 priority: high
 urgency: soon
@@ -327,3 +327,11 @@ alters no shipped code path, adds no Robota CLI command, no TUI action, no brows
 public SDK export, so a user of the published packages has no product surface whose observable
 behaviour changes; the production signatures keep their existing defaults for real callers, and the
 effect is visible only inside the repository's own test processes.
+
+## Outcome
+
+The implementation and regression test are present on `origin/develop`: `vitest.shared.ts` isolates
+HOME/USERPROFILE per Vitest process and `packages/agent-framework/src/__tests__/vitest-home-isolation.test.ts`
+pins the seam. TC-04 had an empty migration population in the recorded comparison, so no test needed
+an explicit fixture-home migration. The unrelated pre-existing trust-boundary failures remain recorded
+as residual risk rather than being hidden.
