@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-160: plan-order cannot ground an L0 implementation that repairs several historical records'
 issue: https://github.com/woojubb/robota/issues/2539
-status: todo
+status: done
 created: 2026-09-04
 priority: medium
 urgency: soon
@@ -106,11 +106,18 @@ test that fails against today's classifier.
       `findStagedFindings`, over a fixture repository with the ancestor planning commits.
 - [x] Add failing tests for each preserved refusal: no ancestor at all; a second checkpoint
       transition staged; a pre-checkpoint terminal disposition.
-- [ ] Separate "the planning unit" from "a record the implementation edits" in the staged
+- [x] Separate "the planning unit" from "a record the implementation edits" in the staged
       classification, so a completed/done record that is only edited is not counted as a unit.
 - [x] Define the L0 grounding form the scan accepts, and state it where the scan's header documents
       its criteria.
 - [x] Run the full staged and history modes on this clone and record the `::examined::` lines.
+
+## Outcome
+
+Delivered by the existing `47c34c782` L0 grounding implementation and the follow-up
+`034c14bb5` diagnostic refinement on `develop`. The scanner now distinguishes an ancestor-grounded
+L0 implementation from historical Task/spec records it edits, while retaining the no-ground,
+second-checkpoint, and terminal-disposition refusals.
 
 ## Completion Criteria
 
