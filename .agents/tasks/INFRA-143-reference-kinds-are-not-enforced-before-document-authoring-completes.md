@@ -45,7 +45,7 @@ only after free-form prose already exists.
 - [ ] Add a failing fixture that authors a new document with a bare issue reference and proves the
       omission is rejected before completion.
 - [ ] Wire the canonical reference-kind judgement into that boundary without duplicating parsing.
-- [ ] Prove correctly qualified issue, PR, discussion, and non-GitHub references remain accepted.
+- [ ] Prove correctly qualified issue, PR, closing-keyword, and non-GitHub/code references remain accepted.
 - [ ] Remove `Contained — INFRA-143.` holds only after the pre-completion mechanism lands.
 
 ## Completion Criteria
@@ -66,5 +66,7 @@ only after free-form prose already exists.
 
 ## User Execution Test Scenarios
 
-Not applicable. This Task changes internal document governance and exposes no CLI, TUI, browser, or
-public SDK behavior. Its observable proof belongs to authoring fixtures and enforcing scans.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This Task changes only internal governed-document authoring and exposes no user-facing
+CLI, TUI, browser, API, SDK, output, or runtime behavior.
