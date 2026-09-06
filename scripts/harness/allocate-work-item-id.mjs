@@ -253,7 +253,6 @@ export function resolveIssueNumber({
   return { number: String(created.number), source: 'created' };
 }
 
-
 /**
  * The LOCAL calendar date, `YYYY-MM-DD` — the same formula `gate.mjs` exports (issue #2415).
  *
