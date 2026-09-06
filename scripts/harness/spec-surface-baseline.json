@@ -19,9 +19,6 @@
     "runtime": 149,
     "type": 291
   },
-  "@robota-sdk/agent-interface-analytics": {
-    "type": 7
-  },
   "@robota-sdk/agent-interface-command": {
     "type": 21
   },
@@ -67,10 +64,6 @@
   },
   "@robota-sdk/agent-session": {
     "type": 18
-  },
-  "@robota-sdk/agent-session-analytics": {
-    "runtime": 8,
-    "type": 10
   },
   "@robota-sdk/agent-tools": {
     "type": 49

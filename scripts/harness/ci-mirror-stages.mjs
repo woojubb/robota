@@ -72,8 +72,17 @@ export const CI_STAGES = [
   {
     name: 'binary-e2e',
     needsBuildOutput: true,
-    mirrors: [{ job: 'build', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
-    why: 'black-box e2e over the BUILT robota binary; no unit suite covers the packaged entry point',
+    mirrors: [
+      {
+        job: 'build',
+        steps: [
+          'Binary e2e (agent-cli bintests, dist-dependent)',
+          'Desktop Electron session e2e',
+          'Desktop Electron usage and protocol reachability e2e',
+        ],
+      },
+    ],
+    why: 'black-box e2e over built CLI and desktop entry points; unit suites do not cover packaged product wiring',
   },
   {
     name: 'examples-typecheck',

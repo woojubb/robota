@@ -178,6 +178,7 @@ export async function resolveRunContext(baseRef, { forceFull = false } = {}) {
     examplesChanged: local.examplesChanged,
     windowsChanged: local.windowsChanged,
     cliChanged: local.cliChanged,
+    agentAppChanged: forceFull || plan.scopes.some((scope) => scope.scope === 'apps/agent-app'),
     harnessChanged: local.classification.harness,
     missingDist,
     buildReason: describeBuildReason({
@@ -234,9 +235,12 @@ export function stageGate(name, context) {
         ? { run: true }
         : { run: false, note: 'product capability is not affected — CI reports product build N/A' };
     case 'binary-e2e':
-      return context.cliChanged
+      return context.cliChanged || context.agentAppChanged
         ? { run: true }
-        : { run: false, note: 'CLI capability is not affected — CI reports binary e2e N/A' };
+        : {
+            run: false,
+            note: 'CLI and desktop capabilities are not affected — CI reports e2e N/A',
+          };
     case 'package-quality':
     case 'scan-suite':
       return context.productChanged

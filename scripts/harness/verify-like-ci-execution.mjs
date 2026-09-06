@@ -81,9 +81,20 @@ export const STAGE_RUNNERS = {
   build: runBuild,
   'scan-suite': runScanSuite,
   'package-quality': runPackageQuality,
-  'binary-e2e': async () => ({
-    code: await run('pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']),
-  }),
+  'binary-e2e': async (_options, context) => {
+    const commands = [];
+    if (context.cliChanged)
+      commands.push(['pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']]);
+    if (context.agentAppChanged) {
+      commands.push(['node', ['apps/agent-app/e2e/run-e2e.mjs']]);
+      commands.push(['node', ['apps/agent-app/e2e/usage-dashboard.mjs']]);
+    }
+    for (const [command, args] of commands) {
+      const code = await run(command, args);
+      if (code !== 0) return { code };
+    }
+    return { code: 0 };
+  },
   'examples-typecheck': (options, context) =>
     runProductStage('examples-typecheck', options, context),
   'tui-e2e': async () => ({

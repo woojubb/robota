@@ -543,6 +543,7 @@ describe('stageGate', () => {
     tuiChanged: false,
     examplesChanged: false,
     cliChanged: false,
+    agentAppChanged: false,
     harnessChanged: false,
     fullProductVerification: false,
     missingDist: [],
@@ -568,6 +569,7 @@ describe('stageGate', () => {
 
   it('gates binary-e2e and the e2e suites on the same conditions CI gates their jobs on', () => {
     expect(stageGate('binary-e2e', { ...base, cliChanged: true }).run).toBe(true);
+    expect(stageGate('binary-e2e', { ...base, agentAppChanged: true }).run).toBe(true);
     expect(stageGate('binary-e2e', base).run).toBe(false);
     expect(stageGate('tui-e2e', { ...base, tuiChanged: true }).run).toBe(true);
     expect(stageGate('tui-e2e', base).run).toBe(false);
