@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-102: nothing can observe a finding that was noticed and dropped — the find-to-issue skill instructs the behaviour and no mechanism can tell whether it was followed, because the failure state is an absence'
-status: todo
+status: done
 created: 2026-08-16
+completed: 2026-09-06
 priority: low
 urgency: later
 area: .agents/skills, scripts/harness
