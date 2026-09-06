@@ -80,6 +80,13 @@ const KNOWN_QUALIFIERS = new Set(['trigger-sections', 'non-comment']);
 const LIVE_SPEC_DOC_PATTERN = /^\.agents\/spec-docs\/(?:draft|backlog|todo|active)\/.+\.md$/;
 const LIFECYCLE_PROJECTION_ROW =
   /^\s*-\s+\[[ xX]\]\s+[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\s+—\s+[a-z][a-z-]*\s+—\s+`[^`\n]+`\s*$/;
+// Same lifecycle-projection bookkeeping as LIFECYCLE_PROJECTION_ROW, in a pipe-table row instead of
+// a checklist bullet: `| issue #NNNN | \`<task-path>\` |` (INFRA-155's "ABSORB Issue | Exact live
+// Task" table is the canonical example — LRN-lane-declaration-table-row-projection). The rule's
+// intent (a child Task's lifecycle bookkeeping does not itself declare a lane) does not depend on
+// which markdown structure carries the row.
+const LIFECYCLE_PROJECTION_TABLE_ROW =
+  /^\s*\|\s*issue #\d+\s*\|\s*`\.agents\/tasks\/[^`\n]+\.md`\s*\|\s*$/;
 const LANE_LINES = /^\s*Lane:\s*(L[0-2])\s*$/gim;
 const FAST_TRACK_LINE = /^\s*Fast-track:\s*(.+?)\s*$/im;
 
@@ -306,7 +313,10 @@ export function isLifecycleProjectionOnly(file) {
   );
   return (
     changedLines.length > 0 &&
-    changedLines.every((line) => LIFECYCLE_PROJECTION_ROW.test(line.text))
+    changedLines.every(
+      (line) =>
+        LIFECYCLE_PROJECTION_ROW.test(line.text) || LIFECYCLE_PROJECTION_TABLE_ROW.test(line.text),
+    )
   );
 }
 

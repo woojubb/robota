@@ -56,7 +56,15 @@ function changedRefs(argv) {
 }
 
 export async function runAffectedContractTier(argv, root, tiers) {
-  const resolved = resolveChangedContractInputs({ root, ...changedRefs(argv) });
+  // A caller that already narrowed `tiers` to a pre-filtered affected+isolated subset (the
+  // distributed-shard path in harness-test-tiers.mjs) passes this instead of real refs: there is
+  // nothing left to diff, and re-resolving would either repeat the same git calls for no reason or,
+  // worse, print a `changed-file resolution failed closed` line that reads as an error for a subset
+  // that was in fact correctly and efficiently narrowed (process-overhead policy, 2026-09).
+  const preNarrowed = argv.includes('--distributed-shard');
+  const resolved = preNarrowed
+    ? { ok: false, reason: null }
+    : resolveChangedContractInputs({ root, ...changedRefs(argv) });
   let registry;
   try {
     registry = createContractTestRegistry(root, tiers.contract);
@@ -70,7 +78,10 @@ export async function runAffectedContractTier(argv, root, tiers) {
     changedFiles: resolved.ok ? resolved.files : [],
     registry,
   });
-  if (!resolved.ok) {
+  if (preNarrowed) {
+    plan.mode = 'complete';
+    plan.reason = 'distributed shard: running its pre-filtered affected subset';
+  } else if (!resolved.ok) {
     plan.mode = 'complete';
     plan.reason = `changed-file resolution failed closed: ${resolved.reason}`;
   }

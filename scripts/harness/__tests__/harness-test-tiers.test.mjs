@@ -318,4 +318,26 @@ describe('harness test tiers', () => {
     expect(scripts['harness:test']).not.toContain('--tier all');
     expect(scripts['harness:test:tiers:guard']).toContain('--verify-hermetic-stripped');
   });
+
+  it('reports a clear reason for --distributed-shard instead of the empty-diff message', async () => {
+    const { runAffectedContractTier } = tierOwner;
+    const result = await runAffectedContractTier(['--distributed-shard'], REPO_ROOT, {
+      contract: [],
+      isolatedContract: [],
+    });
+    expect(result.mode).toBe('complete');
+    expect(result.reason).toBe('distributed shard: running its pre-filtered affected subset');
+    expect(result.status).toBe(0);
+  });
+
+  it('keeps the fail-closed reason for a genuine empty-diff resolution without the flag', async () => {
+    const { runAffectedContractTier } = tierOwner;
+    const result = await runAffectedContractTier(
+      ['--base-ref', 'HEAD', '--head-ref', 'HEAD'],
+      REPO_ROOT,
+      { contract: [], isolatedContract: [] },
+    );
+    expect(result.mode).toBe('complete');
+    expect(result.reason).toContain('changed-file resolution failed closed');
+  });
 });
