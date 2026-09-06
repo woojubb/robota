@@ -206,9 +206,22 @@ function write(root, file, content) {
   writeFileSync(absolute, content);
 }
 
-function rawPatchDigest(root, base, head) {
-  const patch = execFileSync('git', ['diff', '--binary', `${base}..${head}`], { cwd: root });
-  return createHash('sha256').update(patch).digest('hex');
+function commitPatchDigest(root, base, head) {
+  const patches = execFileSync(
+    'git',
+    ['format-patch', '--stdout', '--binary', '--no-signature', `${base}..${head}`],
+    { cwd: root },
+  );
+  const patchIds = execFileSync('git', ['patch-id', '--stable'], {
+    cwd: root,
+    input: patches,
+    encoding: 'utf8',
+  });
+  const identities = patchIds
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split(' ')[0]);
+  return createHash('sha256').update(JSON.stringify(identities)).digest('hex');
 }
 
 function receiptEvents({
@@ -1302,7 +1315,7 @@ describe('work-run validation', () => {
     ['trailing spaces', 'value   \n'],
     ['missing EOF newline', 'value'],
     ['binary payload', Buffer.from('\0binary payload')],
-  ])('hashes exact --binary patch bytes for %s', (_label, payload) => {
+  ])('hashes stable commit patches for %s', (_label, payload) => {
     const fixture = repositoryFixture();
     write(fixture.root, 'zz-raw-patch/payload.bin', payload);
     git(fixture.root, ['add', 'zz-raw-patch/payload.bin']);
@@ -1317,7 +1330,7 @@ describe('work-run validation', () => {
     git(fixture.root, ['rebase', 'develop']);
     const newHead = git(fixture.root, ['rev-parse', 'HEAD']);
     const proof = createRebaseProof(fixture.root, 'develop', oldHead, newHead);
-    const expectedDigest = rawPatchDigest(fixture.root, fixture.baseCommit, oldHead);
+    const expectedDigest = commitPatchDigest(fixture.root, fixture.baseCommit, oldHead);
     const receipt = {
       authorization: { head: oldHead },
       generation: 1,
@@ -1344,7 +1357,7 @@ describe('work-run validation', () => {
     git(fixture.root, ['switch', 'codex/work']);
     git(fixture.root, ['rebase', 'develop']);
     const newHead = git(fixture.root, ['rev-parse', 'HEAD']);
-    const patchDigest = rawPatchDigest(fixture.root, oldBase, oldHead);
+    const patchDigest = commitPatchDigest(fixture.root, oldBase, oldHead);
     const receipt = {
       authorization: { head: oldHead },
       generation: 1,

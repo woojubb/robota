@@ -173,16 +173,23 @@ export function createRebaseProof(root, baseRef, oldHead, newHead = 'HEAD', opti
   const oldBase = git(root, ['merge-base', resolvedOldHead, newBase], gitOptions);
   const oldPatch = gitBytes(
     root,
-    ['diff', '--binary', `${oldBase}..${resolvedOldHead}`],
+    ['format-patch', '--stdout', '--binary', '--no-signature', `${oldBase}..${resolvedOldHead}`],
     gitOptions,
   );
   const newPatch = gitBytes(
     root,
-    ['diff', '--binary', `${newBase}..${resolvedNewHead}`],
+    ['format-patch', '--stdout', '--binary', '--no-signature', `${newBase}..${resolvedNewHead}`],
     gitOptions,
   );
-  const oldDigest = createHash('sha256').update(oldPatch).digest('hex');
-  const newDigest = createHash('sha256').update(newPatch).digest('hex');
+  const patchDigest = (patch) => {
+    const identities = git(root, ['patch-id', '--stable'], { ...gitOptions, input: patch })
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => line.split(' ')[0]);
+    return createHash('sha256').update(JSON.stringify(identities)).digest('hex');
+  };
+  const oldDigest = patchDigest(oldPatch);
+  const newDigest = patchDigest(newPatch);
   if (oldDigest !== newDigest) {
     throw new Error('rebase result does not preserve the authorized topic change');
   }
