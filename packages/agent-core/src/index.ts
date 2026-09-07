@@ -156,7 +156,12 @@ export {
 } from './plugins/event-emitter-plugin';
 
 // Tool registry primitives (SSOT, DATA-005) + CLI-1990's assembly-enforced residency invariant.
-export { FunctionTool, ToolRegistry, assertResidentToolRemains } from './tool-registry';
+export {
+  FunctionTool,
+  ToolRegistry,
+  assertResidentToolRemains,
+  DEFERRED_WITHOUT_LOADER_MESSAGE,
+} from './tool-registry';
 
 // Core agent
 export { Robota } from './core/robota';

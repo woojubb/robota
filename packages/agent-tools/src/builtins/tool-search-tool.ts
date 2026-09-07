@@ -24,6 +24,7 @@
  * tell that apart from "the server holding it is down" — without a contract change here.
  */
 
+import { TOOL_SEARCH_TOOL_NAME } from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
 import { DEFAULT_TOOL_SEARCH_LIMIT, matchDeferredTools } from './tool-search-matching.js';
@@ -41,8 +42,11 @@ import type {
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
 
-/** The registered name. Kept in step with agent-core's `TOOL_SEARCH_TOOL_NAME`, asserted in tests. */
-export const TOOL_SEARCH_NAME = 'ToolSearch';
+/**
+ * The registered name — agent-core's own constant, re-exported under this package's name so the
+ * execution layer's unknown-tool remedy and this tool can never name two different things.
+ */
+export const TOOL_SEARCH_NAME = TOOL_SEARCH_TOOL_NAME;
 
 const ToolSearchSchema = z.object({
   query: z

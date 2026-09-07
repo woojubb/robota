@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { AbstractTool } from '../../abstracts/abstract-tool';
 import { TOOL_SEARCH_TOOL_NAME } from '../../interfaces/tool-search';
 import { UNKNOWN_TOOL_ERROR_CODE } from '../../services/tool-execution-service';
+import { DEFERRED_WITHOUT_LOADER_MESSAGE } from '../../tool-registry';
 import { evaluatePermission } from '../../permissions/permission-gate';
 import { createScriptedProvider, type TScriptedTurn } from '../../testing/scripted-provider';
 import { Robota } from '../robota';
@@ -313,5 +314,30 @@ describe('CLI-1990 — deferred tool schemas reach the model only once loaded', 
     const [, probeResult] = toolMessages(robota);
     expect(String(probeResult?.content)).toContain('Permission denied');
     expect(gate()).toBe('deny');
+  });
+});
+
+describe('CLI-1990 review — a withheld schema needs a loader', () => {
+  it('refuses a run that withholds a deferred tool while no ToolSearch tool is offered', async () => {
+    // The framework adds the loader whenever a declared tool is deferred; an SDK-direct configuration
+    // that defers tools without registering it would otherwise withhold them silently — the model
+    // could neither see nor load them, and the unknown-tool remedy would name a tool that is not there.
+    const { robota } = buildAgent([{ text: 'done' }], {
+      tools: [new SchemaTool(RESIDENT_SCHEMA), new SchemaTool(DEFERRED_PROBE_SCHEMA)],
+      toolSearch: 'on',
+    });
+    await expect(robota.run('probe something')).rejects.toThrow(DEFERRED_WITHOUT_LOADER_MESSAGE);
+  });
+
+  it('still runs when deferral is off, the identity projection needing no loader', async () => {
+    const { robota, scripted } = buildAgent([{ text: 'done' }], {
+      tools: [new SchemaTool(RESIDENT_SCHEMA), new SchemaTool(DEFERRED_PROBE_SCHEMA)],
+      toolSearch: 'off',
+    });
+    await robota.run('probe something');
+    expect((scripted.chatOptions[0]?.tools ?? []).map((tool) => tool.name)).toEqual([
+      RESIDENT_SCHEMA.name,
+      DEFERRED_PROBE_SCHEMA.name,
+    ]);
   });
 });

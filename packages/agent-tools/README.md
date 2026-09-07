@@ -75,6 +75,7 @@ carry no root, and a file tool with no root has no boundary.
 | `createEditTool`      | Edit            | Replace a specific string in a file                                           |
 | `createGlobTool`      | Glob            | Find files matching a glob pattern (fast-glob)                                |
 | `createGrepTool`      | Grep            | Search file contents with regex patterns                                      |
+| `createToolSearchTool` | ToolSearch      | Load withheld (deferred) tool schemas by query or exact name; resident so the model can reach it |
 | `webFetchTool`        | WebFetch        | Fetch URL content (HTML-to-text conversion)                                   |
 | `webSearchTool`       | WebSearch       | Web search via Brave Search API                                               |
 | `askUserQuestionTool` | AskUserQuestion | Model asks the user structured questions (options/multi-select/free text)     |

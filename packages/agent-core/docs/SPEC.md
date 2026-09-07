@@ -495,6 +495,7 @@ published.
 | Export                      | Kind     | Description                                                                                                                                       |
 | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `assertResidentToolRemains` | function | Throws when a non-empty tool set declares `deferLoading` on every entry — the "at least one tool must stay resident" invariant, at assembly time. |
+| `DEFERRED_WITHOUT_LOADER_MESSAGE` | const | The message `projectOfferedTools` throws when deferral withholds a schema and no `ToolSearch` tool is offered — a withheld tool with no loader is unreachable, refused rather than sent silently. Published so a session assembler can raise the same error at its own seam. |
 | `estimateToolSchemaTokens`  | function | What a set of tool schemas costs on every request, by the same chars-per-token heuristic the message estimate uses. Powers `/context`.            |
 | `TOOL_SEARCH_TOOL_NAME`     | const    | The registered name of the model-facing search tool (`'ToolSearch'`). Owned here because the execution layer names it in the unknown-tool remedy. |
 | `IDeferredToolCatalog`      | type     | The narrow list/load port a search tool loads through, carried on `IToolExecutionContext.deferredTools`.                                          |
@@ -1363,6 +1364,16 @@ mirrors the vendor's own 400 (`At least one tool must have defer_loading=false`)
 reason: a request that withholds everything offers the model nothing to call and nothing to search
 with. Session assembly checks the invariant over the DECLARED tool set, before the framework adds
 its own resident search tool — a check that ran afterwards could never fail.
+
+**A withheld schema needs a loader.** The second half of the same invariant: when deferral is engaged
+and the projection withholds at least one schema, `projectOfferedTools` also refuses a request that
+offers no tool named `ToolSearch` (`TOOL_SEARCH_TOOL_NAME`), throwing
+`a tool schema was withheld but no ToolSearch tool is offered; register the loader or turn tool search off`
+(`DEFERRED_WITHOUT_LOADER_MESSAGE`). Session assembly satisfies it by adding the loader whenever a
+declared tool is deferred, and a subagent session carries the parent's loader with any deferred tool
+that survives its allow/deny lists. An SDK-direct configuration that defers tools must register the
+loader itself: a tool the model can neither see nor load is unreachable, and the policy refuses that
+rather than withholding silently (No Fallback Policy).
 
 **The tool list is read PER ROUND.** `IResolvedProviderInfo.readAvailableTools()` replaced the
 per-run `availableTools` snapshot. `resolveProviderAndTools` binds a getter over the registry rather

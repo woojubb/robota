@@ -291,9 +291,15 @@ there is no provider-rejection path to catch.
    case-insensitively against each deferred tool's name, description, and parameter names/descriptions;
    `names` loads exactly those; it returns `{ loaded: [{name, description}], unavailableSources: [] }`
    and marks the matches loaded for the run. An empty match returns `loaded: []` — a normal result, not
-   an error. An unknown entry in `names` is an error naming the entry. Registered resident in
-   `createDefaultTools` (`packages/agent-tool-defaults/src/create-default-tools.ts:72`) when the policy
-   is `'on'`.
+   an error. An unknown entry in `names` is an error naming the entry. Registered resident by
+   `assembleSessionTools` (`packages/agent-framework/src/assembly/assemble-session-tools.ts`) whenever
+   the assembled set contains a deferred tool — not in `createDefaultTools`, which cannot see the
+   deferrable set, and not gated on the policy, so the loader is present whenever there is something to
+   load (as shipped; this paragraph was corrected after implementation to describe the shipped design).
+   Loads are session-lived, not per-run. A subagent session carries the parent's loader with any deferred
+   tool that survives its allow/deny lists and receives the same roster (§ Solution 6). The projection
+   itself refuses a request that withholds a schema while no loader is offered
+   (`DEFERRED_WITHOUT_LOADER_MESSAGE`), so an SDK-direct configuration cannot withhold silently.
 5. **The invariant** — assembly throws when every tool would be deferred, with the message
    `at least one tool must stay resident; all tools cannot be deferred`.
 6. **Prompt roster** — `create-session-runtime.ts:35` `DEFAULT_TOOL_DESCRIPTIONS` gains a deferred
@@ -328,7 +334,7 @@ there is no provider-rejection path to catch.
 - `packages/agent-core/src/interfaces/tool-schema.ts` — `deferLoading`
 - `packages/agent-core/src/services/execution-types.ts` — `readAvailableTools`
 - `packages/agent-core/src/services/execution-service-helpers.ts` — resolver, forced-tool load
-- `packages/agent-core/src/services/execution-service.ts` — call site
+- `packages/agent-core/src/services/execution-service.ts` — unchanged as shipped; the per-round read lives in `execution-service-helpers.ts`
 - `packages/agent-core/src/services/execution-round-provider.ts` — residency projection
 - `packages/agent-core/src/services/execution-round-streaming.ts` — replay envelope
 - `packages/agent-core/src/services/tool-search-policy.ts` — new
@@ -345,7 +351,9 @@ there is no provider-rejection path to catch.
 - `packages/agent-tools/src/tool-permission-profiles.ts` — profile for `ToolSearch`
 - `packages/agent-tools/src/builtins/__tests__/tool-search-tool.test.ts` — new (TC-05)
 - `packages/agent-tools/docs/SPEC.md`
-- `packages/agent-tool-defaults/src/create-default-tools.ts` — resident set + `ToolSearch`
+- `packages/agent-tool-defaults/src/create-default-tools.ts` — unchanged as shipped; `ToolSearch` is added by `packages/agent-framework/src/assembly/assemble-session-tools.ts`
+- `packages/agent-session/src/session-base.ts` — `getOfferedToolSchemas()` accessor (the TC-12 seam)
+- `packages/agent-framework/src/assembly/create-subagent-session.ts`, `subagent-prompts.ts` — the residency contract carried into subagent sessions (review finding)
 - `packages/agent-tool-defaults/src/__tests__/` — TC-11 case (residency of the ten built-ins)
 - `packages/agent-tool-defaults/docs/SPEC.md`
 - `packages/agent-framework/src/assembly/assemble-session-tools.ts` — residency through dedupe

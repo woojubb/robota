@@ -34,7 +34,7 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] `IToolSchema.deferLoading?` residency marker; `createZodFunctionTool` forwards it (spec § Solution 1) — TC-01, TC-02
 - [x] Per-round tool read: `IResolvedProviderInfo.readAvailableTools()` replaces the `availableTools` snapshot; `buildRoundChatOptions` applies the residency projection each round (§ Solution 2) — TC-02, TC-01
 - [x] `resolveToolSearchMode` threshold policy + `estimateToolSchemaTokens` (§ Solution 3) — TC-04
-- [x] `ToolSearch` builtin: `query` / `names` / `limit`, empty match is a normal result, unknown name is an error, registered resident when the policy is `on` (§ Solution 4) — TC-03, TC-05
+- [x] `ToolSearch` builtin: `query` / `names` / `limit`, empty match is a normal result, unknown name is an error, registered resident by `assembleSessionTools` whenever a declared tool is deferred (§ Solution 4, as shipped) — TC-03, TC-05
 - [x] Assembly invariant: throw `at least one tool must stay resident; all tools cannot be deferred` (§ Solution 5) — TC-11
 - [x] `DEFAULT_TOOL_DESCRIPTIONS` deferred roster so the model knows what exists to search for (§ Solution 6) — TC-16
 - [x] `formatUnknownToolError` names `ToolSearch` for an existing-but-deferred tool (§ Solution 7) — TC-06
@@ -46,6 +46,7 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] `'tool_search'` capability member; the Anthropic table declares it, the other three do not, OpenAI keeps no table (§ Solution 11) — TC-15
 - [x] `ToolSearch` permission profile (closes verdict (g)'s named gap) — TC-17
 - [x] SPEC.md updates across `agent-core`, `agent-tools`, `agent-tool-defaults`, `agent-framework`, `agent-command`, incl. the corrected premise (§ Solution 12) — TC-14
+  Site docs (`content/`): no page enumerates the builtin tools or the `/context` line items (`content/guide/cli.md` describes commands generically), so no `content/` page becomes stale; the package README builtin table gains the `ToolSearch` row.
 - [ ] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13
 
 ## Test Plan

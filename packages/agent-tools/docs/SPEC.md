@@ -150,7 +150,7 @@ Types owned by this package (SSOT):
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
 | `createToolSearchTool`                  | Function | CLI-1990 — the resident `ToolSearch` tool: loads withheld tool schemas by query or exact name through the runtime's deferred-tool catalog                    |
 | `toolSearchTool`                        | Const    | CLI-1990 — a default `ToolSearch` instance, as the other builtins publish one                                                                                |
-| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — the registered name (`'ToolSearch'`), kept in step with agent-core's `TOOL_SEARCH_TOOL_NAME`                                                      |
+| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — agent-core's `TOOL_SEARCH_TOOL_NAME` re-exported under this package's name (one owner, no second literal)                                                      |
 | `matchDeferredTools`                    | Function | CLI-1990 — the pure match/rank half: which withheld tools a query selects, best match first, capped at a limit                                               |
 | `DEFAULT_TOOL_SEARCH_LIMIT`             | Const    | CLI-1990 — default results per query (5), the default both vendors use                                                                                       |
 | `IToolSearchOutput`                     | Type     | CLI-1990 — the tool's result payload: `{ loaded, unavailableSources }`                                                                                       |

@@ -13,6 +13,8 @@
  * agent, through `resolveToolSearchMode`. Neither is decided here.
  */
 
+import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
+
 import type { IToolSchema } from '../interfaces/tool-schema';
 import type { TToolSearchMode } from '../interfaces/tool-search';
 
@@ -22,6 +24,16 @@ import type { TToolSearchMode } from '../interfaces/tool-search';
  */
 export const ALL_TOOLS_DEFERRED_MESSAGE =
   'at least one tool must stay resident; all tools cannot be deferred';
+
+/**
+ * The second half of the same invariant: a withheld schema the model has no way to load is not
+ * deferred, it is unreachable. Session assembly adds the loader whenever a declared tool is deferred;
+ * an SDK-direct configuration that defers tools must register it itself. Refused, never repaired
+ * silently (No Fallback Policy).
+ */
+export const DEFERRED_WITHOUT_LOADER_MESSAGE =
+  `a tool schema was withheld but no ${TOOL_SEARCH_TOOL_NAME} tool is offered; ` +
+  'register the loader or turn tool search off';
 
 /** Whether a schema declares itself deferred. Omission means resident. */
 export function isDeferredTool(schema: IToolSchema): boolean {
@@ -42,6 +54,10 @@ export function projectOfferedTools(
   const offered = schemas.filter((schema) => !isDeferredTool(schema) || loaded.has(schema.name));
   if (schemas.length > 0 && offered.length === 0) {
     throw new Error(ALL_TOOLS_DEFERRED_MESSAGE);
+  }
+  const withheld = offered.length < schemas.length;
+  if (withheld && !offered.some((schema) => schema.name === TOOL_SEARCH_TOOL_NAME)) {
+    throw new Error(DEFERRED_WITHOUT_LOADER_MESSAGE);
   }
   return offered;
 }

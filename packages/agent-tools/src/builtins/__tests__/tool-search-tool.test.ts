@@ -10,6 +10,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { TOOL_SEARCH_TOOL_NAME } from '@robota-sdk/agent-core';
+
 import { createToolSearchTool, TOOL_SEARCH_NAME } from '../tool-search-tool';
 
 import type {
@@ -85,8 +87,9 @@ function loadedNames(outcome: IToolSearchOutcome): string[] {
 
 describe('CLI-1990 TC-05 — ToolSearch', () => {
   it('registers under the name the execution layer names in its unknown-tool remedy', () => {
+    expect(TOOL_SEARCH_NAME).toBe(TOOL_SEARCH_TOOL_NAME);
     expect(TOOL_SEARCH_NAME).toBe('ToolSearch');
-    expect(createToolSearchTool().schema.name).toBe('ToolSearch');
+    expect(createToolSearchTool().schema.name).toBe(TOOL_SEARCH_TOOL_NAME);
   });
 
   it('is itself resident — a search tool the model cannot see is a catalog with no way in', () => {
