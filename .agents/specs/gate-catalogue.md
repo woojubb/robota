@@ -125,7 +125,7 @@ answer to "what precedes this gate, and what state must the document already be 
 
 | This gate                     | Prior gate that must show PASS | Expected input status / folder                | Re-run rule     |
 | ----------------------------- | ------------------------------ | --------------------------------------------- | --------------- |
-| GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                |                 |
+| GATE-APPROVAL                 | GATE-WRITE                     | `review-ready`                                | `recorded-pass` |
 | GATE-IMPLEMENT                | GATE-APPROVAL                  | `approved`                                    |                 |
 | GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | `in-progress` (delivery sequenced across PRs) |                 |
 | GATE-IMPLEMENT (correction)   | GATE-IMPLEMENT                 | `in-progress` (legacy v1 recovery only)       |                 |
@@ -147,14 +147,20 @@ FAIL" is the named regression that protects this default for every row that does
 `recorded-pass`: an entry for the prior gate anywhere in the Evidence Log counts as satisfying this
 row when it is `✅ PASS` AND its own `**Status upgrade:** X → Y` line's `Y` equals the document's
 CURRENT `status:` — the document's own state corroborates the passage independently of entry order.
-Declared ONLY for `GATE-DONE`'s check on `GATE-PLAN`: `GATE-PLAN` is L1's own composite gate (composes
-GATE-WRITE + GATE-APPROVAL + three GATE-IMPLEMENT criteria into ONE entry), so a later, out-of-order
-re-run of `judge --gate PLAN` on the already-advanced document can only produce a fresh `[GATE-PLAN]`
-entry that FAILs or is NON-COMPLIANCE — its first-write preconditions (`status: draft`, an empty
-Evidence Log) were consumed by the very passage it is re-judging, and reading the LAST entry would
-then block `GATE-DONE` permanently with no recoverable route short of falsifying the record. Do not
-add `recorded-pass` to another row without also updating the named regression above — that test
-exists specifically to keep every other pairing on the plain last-entry rule.
+Declared for two rows, both for the same structural reason: the prior gate's FIRST criterion consumes
+a precondition (an empty Evidence Log, or `status: draft`) that only ever holds true once, so ANY
+out-of-order re-run of that prior gate after it already passed is structurally guaranteed to produce
+a fresh entry that FAILs or is NON-COMPLIANCE — and reading the LAST entry would then block this gate
+permanently with no recoverable route short of falsifying the record (issue #2588, CLI-1997).
+
+- `GATE-DONE`'s check on `GATE-PLAN`: `GATE-PLAN` is L1's own composite gate (composes GATE-WRITE +
+  GATE-APPROVAL + three GATE-IMPLEMENT criteria into ONE entry), consumed the moment it first passes.
+- `GATE-APPROVAL`'s check on `GATE-WRITE`: GATE-WRITE's first criterion is "Evidence Log empty (first
+  run)" (see `### GATE-WRITE` above) — true only before its own first PASS, so any later re-run against
+  the same (now non-empty) document fails on that criterion alone, regardless of what the re-run was for.
+  Do not add `recorded-pass` to another row without first checking it shares this same structural
+  property, and without also updating the named regression above — that test exists specifically to
+  keep every other pairing on the plain last-entry rule.
 
 ---
 

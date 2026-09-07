@@ -74,7 +74,7 @@ const CATALOGUE = `# Gate Catalogue
 
 | This gate      | Prior gate that must show PASS | Expected input status / folder | Re-run rule |
 | -------------- | ------------------------------ | ------------------------------ | ----------- |
-| GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               |             |
+| GATE-APPROVAL  | GATE-WRITE                     | \`review-ready\`               | \`recorded-pass\` |
 | GATE-IMPLEMENT | GATE-APPROVAL                  | \`approved\`                   |             |
 | GATE-IMPLEMENT (continuation) | GATE-IMPLEMENT                 | \`in-progress\` (delivery sequenced across PRs) | |
 | GATE-IMPLEMENT (correction) | GATE-IMPLEMENT                 | \`in-progress\` (legacy v1 recovery only) | |
@@ -473,16 +473,19 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
       expect(section.criteria.length, `${gate} criteria`).toBeGreaterThanOrEqual(4);
       expect(section.upgrade, `${gate} upgrade`).not.toBeNull();
     }
+    // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588, CLI-1997): GATE-APPROVAL → GATE-WRITE
+    // and GATE-DONE → GATE-PLAN both declare `recorded-pass` — the two rows this repository excepts
+    // from the default last-entry rule, because both prior gates' first criterion consumes a
+    // once-only precondition (an empty Evidence Log / `status: draft`).
     expect(parsePriorGateMap(text).get('GATE-APPROVAL')).toEqual({
       gate: 'GATE-WRITE',
       status: 'review-ready',
+      reRun: 'recorded-pass',
     });
     expect(parsePriorGateMap(text).get('GATE-IMPLEMENT (continuation)')).toEqual({
       gate: 'GATE-IMPLEMENT',
       status: 'in-progress',
     });
-    // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588): the GATE-DONE → GATE-PLAN pairing
-    // declares `recorded-pass`, the one row this repository excepts from the default last-entry rule.
     expect(parsePriorGateMap(text).get('GATE-DONE')).toEqual({
       gate: 'GATE-PLAN',
       status: 'approved',
@@ -1690,6 +1693,33 @@ describe('lane L1 — PLAN and DONE compose the catalogue sets', () => {
     expect(result.stdout).toContain(
       '(the PASS that upgraded the status; a later out-of-order entry does not revoke it)',
     );
+  });
+
+  /**
+   * G3 (issue #2588, CLI-1997): the sibling case to the GATE-DONE/GATE-PLAN one above, on the
+   * GATE-APPROVAL/GATE-WRITE row. GATE-WRITE's first criterion is "Evidence Log empty (first run)",
+   * so ANY out-of-order re-run against an already-`review-ready` document fails on that criterion
+   * alone. Before gate-catalogue.md declared `recorded-pass` for this row too, that later FAIL
+   * became the ordering check's "last [GATE-WRITE] entry" and blocked GATE-APPROVAL permanently —
+   * CLI-1997's actual failure mode, with no route back short of forging the record.
+   */
+  it('APPROVAL still judges the ordering criterion PASS on GATE-WRITE when an out-of-order re-run recorded a later FAIL (G3, gate-catalogue.md `recorded-pass`)', () => {
+    const spec =
+      conformingSpec({ status: 'review-ready', folder: 'backlog' }) +
+      `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n\n- GATE-WRITE — a criterion: judged\n` +
+      `\n### [GATE-WRITE] — ❌ FAIL | ${DATE}\n\n**Status remains:** review-ready\n\n**Failed criteria:**\n\n- GATE-WRITE — Evidence Log empty (first run): entries already exist\n  **Required action:** none — this entry simulates the CLI-1997 mistaken re-run\n`;
+    const { root, doc } = makeWorkspace({ spec, folder: 'backlog' });
+    const result = judge(root, doc, 'GATE-APPROVAL', ['--lane', 'L1']);
+    expect(result.stdout).toContain(
+      'GATE-APPROVAL — ordering: prior gate GATE-WRITE PASS and status `review-ready`',
+    );
+    expect(result.stdout).toContain(
+      '(the PASS that upgraded the status; a later out-of-order entry does not revoke it)',
+    );
+    // The ordering criterion itself is not what leaves this run PENDING-GUARDIAN — the rest of
+    // GATE-APPROVAL's criteria are, because no `approve` ever ran on this fixture. That is this
+    // test's boundary: it isolates the ordering check, not the full approval flow.
+    expect(result.stdout).not.toMatch(/FAIL\s+GATE-APPROVAL — ordering/);
   });
 
   /**
