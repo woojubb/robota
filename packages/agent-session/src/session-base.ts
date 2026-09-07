@@ -233,6 +233,17 @@ export abstract class SessionBase {
     return this.model;
   }
 
+  /**
+   * The tool schemas the model is offered at the next request (CLI-1990).
+   *
+   * The offered set, not the registered one: a deferred tool that has not been loaded is absent,
+   * because it is absent from the request. `/context` reads this to report what the tool schemas
+   * actually cost, which is the only surface that makes deferral's saving observable.
+   */
+  getOfferedToolSchemas(): IToolSchema[] {
+    return this.agent.getOfferedToolSchemas();
+  }
+
   getProviderId(): string {
     return this.aiProvider.name;
   }

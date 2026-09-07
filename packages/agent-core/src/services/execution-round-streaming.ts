@@ -97,6 +97,9 @@ export async function callRoundProviderWithEvents(
       // `conversationMessages` does not contain, and a `provider_request` logging the caller's own
       // array would describe a request that was never sent — `agent-session/docs/SPEC.md` promises
       // this event carries the request envelope, and a replay has to be able to reproduce it.
+      // The same rule holds for `tools` (CLI-1990): the wire carries the residency projection and
+      // whatever the model-capability guard removed, so the envelope logs the options as sent, not
+      // the registry the round was assembled from.
       (request) => {
         fullContext.onExecutionEvent?.('provider_request', {
           executionId,
@@ -105,7 +108,7 @@ export async function callRoundProviderWithEvents(
           provider: resolved.currentInfo.provider,
           model: config.defaultModel.model,
           messages: request.messages,
-          tools: resolved.availableTools,
+          tools: request.options.tools,
         } as TExecutionEventData);
         // CORE-043: which transport actually carried the schema. The OUTCOME, not the resolution —
         // "the table declares json_schema" describes a catalog, while "the schema was sent as a

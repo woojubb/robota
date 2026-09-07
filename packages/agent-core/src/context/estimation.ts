@@ -1,6 +1,7 @@
 import { readTokenUsageFromMessage } from './token-usage.js';
 
 import type { TUniversalMessage } from '../interfaces/messages.js';
+import type { IToolSchema } from '../interfaces/tool-schema.js';
 
 export const CONTEXT_ESTIMATE_CHARS_PER_TOKEN = 4;
 
@@ -17,6 +18,16 @@ export interface IContextTokenEstimate {
 
 export function estimateSerializedContextTokens(messages: readonly TUniversalMessage[]): number {
   return Math.ceil(JSON.stringify(messages).length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN);
+}
+
+/**
+ * CLI-1990: what a set of tool schemas costs on every request, by the same chars-per-token heuristic
+ * the message estimate uses — a serialised schema is what the adapters put on the wire. An empty set
+ * costs nothing, stated rather than left to the two-character `[]`.
+ */
+export function estimateToolSchemaTokens(schemas: readonly IToolSchema[]): number {
+  if (schemas.length === 0) return 0;
+  return Math.ceil(JSON.stringify(schemas).length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN);
 }
 
 export function estimateContextTokensFromMessages(

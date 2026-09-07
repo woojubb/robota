@@ -174,6 +174,9 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     backgroundProcessToolDeps,
     modelVisibleSkills,
     agentDefinitions,
+    // CLI-1990: the assembled set, so the prompt can name what is deferred (and therefore
+    // searchable). Passed here rather than recomputed: this is the list the session actually holds.
+    tools,
   );
 
   const defaultAllow = [

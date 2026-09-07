@@ -13,7 +13,8 @@ import type { IStructuredOutputTransportOutcome } from './execution-structured-o
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
-import type { IChatOptions } from '../interfaces/provider';
+import type { IChatOptions, TToolChoice } from '../interfaces/provider';
+import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 
@@ -50,6 +51,22 @@ export function computeRoundThinkingContext(
   return { thinkingNodeId, previousThinkingNodeId };
 }
 
+/**
+ * CLI-1990: a forcing directive that names a deferred tool loads it before the round assembles, so
+ * `toolChoice: { tool }` fetches the schema rather than failing `assertToolChoiceValid` against a
+ * list the tool is withheld from. A resident or already-loaded name is not in the catalog and
+ * nothing happens; an unknown name is left for the assertion to report as it always has.
+ */
+function loadForcedDeferredTool(
+  toolChoice: TToolChoice | undefined,
+  catalog: IDeferredToolCatalog,
+): void {
+  if (toolChoice === undefined || typeof toolChoice !== 'object') return;
+  if (catalog.listDeferredTools().some((schema) => schema.name === toolChoice.tool)) {
+    catalog.loadDeferredTools([toolChoice.tool]);
+  }
+}
+
 /** Assemble the wire options for one round, before any capability guard has adjusted them. */
 function buildRoundChatOptions(
   model: string,
@@ -58,6 +75,10 @@ function buildRoundChatOptions(
   overrides: Partial<IChatOptions> | undefined,
 ): IChatOptions {
   const responseFormat = buildChatResponseFormat(config.responseFormat);
+  // CLI-1990: read PER ROUND. The tool list used to be a per-run snapshot spread here each round, so
+  // a tool loaded by round N's ToolSearch call was invisible to round N+1 — the one property a
+  // search tool needs. The manager applies the residency projection inside this read.
+  const tools = resolved.readAvailableTools();
   return {
     model,
     // Default the reasoning-effort dial to 'high' at the framework→provider seam so every
@@ -72,7 +93,7 @@ function buildRoundChatOptions(
     ...(config.defaultModel?.toolChoice !== undefined && {
       toolChoice: config.defaultModel.toolChoice,
     }),
-    ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
+    ...(tools.length > 0 && { tools }),
     ...(responseFormat ? { responseFormat } : {}),
     ...overrides,
   };
@@ -104,6 +125,11 @@ export async function callProviderWithCache(
   }
 
   const model = config.defaultModel.model;
+  // The directive this round will carry: the round override, else the config default (CORE-017).
+  loadForcedDeferredTool(
+    overrides?.toolChoice ?? config.defaultModel.toolChoice,
+    resolved.deferredTools,
+  );
   const chatOptions = buildRoundChatOptions(model, config, resolved, overrides);
   assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
   // PROV-006: what this MODEL can be asked to do, as opposed to what its vendor can.

@@ -31,21 +31,21 @@ names) and § Decision records the design.
 
 One item per spec sub-item, each naming the Completion Criteria it is verified by.
 
-- [ ] `IToolSchema.deferLoading?` residency marker; `createZodFunctionTool` forwards it (spec § Solution 1) — TC-01, TC-02
-- [ ] Per-round tool read: `IResolvedProviderInfo.readAvailableTools()` replaces the `availableTools` snapshot; `buildRoundChatOptions` applies the residency projection each round (§ Solution 2) — TC-02, TC-01
-- [ ] `resolveToolSearchMode` threshold policy + `estimateToolSchemaTokens` (§ Solution 3) — TC-04
-- [ ] `ToolSearch` builtin: `query` / `names` / `limit`, empty match is a normal result, unknown name is an error, registered resident when the policy is `on` (§ Solution 4) — TC-03, TC-05
-- [ ] Assembly invariant: throw `at least one tool must stay resident; all tools cannot be deferred` (§ Solution 5) — TC-11
-- [ ] `DEFAULT_TOOL_DESCRIPTIONS` deferred roster so the model knows what exists to search for (§ Solution 6) — TC-16
-- [ ] `formatUnknownToolError` names `ToolSearch` for an existing-but-deferred tool (§ Solution 7) — TC-06
-- [ ] Forced `toolChoice` on a deferred tool loads it before `assertToolChoiceValid` (§ Solution 8) — TC-07
-- [ ] Replay honesty: `provider_request` logs `request.options.tools`, the wire (§ Solution 9) — TC-08
-- [ ] Deferral does not widen authority: a loaded deferred tool is permission-gated identically (§ Solution 4/5 invariant) — TC-10
-- [ ] No new run option smuggled in (`run-options-audit`) — TC-09
-- [ ] `/context` gains a `toolSchemaTokens` line (§ Solution 10) — TC-12
-- [ ] `'tool_search'` capability member; the Anthropic table declares it, the other three do not, OpenAI keeps no table (§ Solution 11) — TC-15
-- [ ] `ToolSearch` permission profile (closes verdict (g)'s named gap) — TC-17
-- [ ] SPEC.md updates across `agent-core`, `agent-tools`, `agent-tool-defaults`, `agent-framework`, `agent-command`, incl. the corrected premise (§ Solution 12) — TC-14
+- [x] `IToolSchema.deferLoading?` residency marker; `createZodFunctionTool` forwards it (spec § Solution 1) — TC-01, TC-02
+- [x] Per-round tool read: `IResolvedProviderInfo.readAvailableTools()` replaces the `availableTools` snapshot; `buildRoundChatOptions` applies the residency projection each round (§ Solution 2) — TC-02, TC-01
+- [x] `resolveToolSearchMode` threshold policy + `estimateToolSchemaTokens` (§ Solution 3) — TC-04
+- [x] `ToolSearch` builtin: `query` / `names` / `limit`, empty match is a normal result, unknown name is an error, registered resident when the policy is `on` (§ Solution 4) — TC-03, TC-05
+- [x] Assembly invariant: throw `at least one tool must stay resident; all tools cannot be deferred` (§ Solution 5) — TC-11
+- [x] `DEFAULT_TOOL_DESCRIPTIONS` deferred roster so the model knows what exists to search for (§ Solution 6) — TC-16
+- [x] `formatUnknownToolError` names `ToolSearch` for an existing-but-deferred tool (§ Solution 7) — TC-06
+- [x] Forced `toolChoice` on a deferred tool loads it before `assertToolChoiceValid` (§ Solution 8) — TC-07
+- [x] Replay honesty: `provider_request` logs `request.options.tools`, the wire (§ Solution 9) — TC-08
+- [x] Deferral does not widen authority: a loaded deferred tool is permission-gated identically (§ Solution 4/5 invariant) — TC-10
+- [x] No new run option smuggled in (`run-options-audit`) — TC-09
+- [x] `/context` gains a `toolSchemaTokens` line (§ Solution 10) — TC-12
+- [x] `'tool_search'` capability member; the Anthropic table declares it, the other three do not, OpenAI keeps no table (§ Solution 11) — TC-15
+- [x] `ToolSearch` permission profile (closes verdict (g)'s named gap) — TC-17
+- [x] SPEC.md updates across `agent-core`, `agent-tools`, `agent-tool-defaults`, `agent-framework`, `agent-command`, incl. the corrected premise (§ Solution 12) — TC-14
 - [ ] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13
 
 ## Test Plan
@@ -59,23 +59,23 @@ records its test-file path here when green; the commands are the spec's § Compl
 
 | TC | Test file / command | Status |
 | --- | --- | --- |
-| TC-01 | `agent-core/src/core/__tests__/fresh-agent-api.test.ts`, `entry-point-parity.test.ts` (existing, regression) | pending |
-| TC-02 | `agent-core/src/core/__tests__/deferred-tool-schemas.test.ts` (new) | pending |
-| TC-03 | same file — `names`, empty match, unknown name | pending |
-| TC-04 | `agent-core/src/services/__tests__/tool-search-policy.test.ts` (new) | pending |
-| TC-05 | `agent-tools/src/builtins/__tests__/tool-search-tool.test.ts` (new) | pending |
-| TC-06 | same file as TC-02 — unknown-tool remedy | pending |
-| TC-07 | same file as TC-02 — forced deferred tool | pending |
-| TC-08 | `agent-core/src/services/__tests__/provider-request-event.test.ts` (existing) | pending |
-| TC-09 | `agent-core/src/interfaces/__tests__/run-options-audit.test.ts` (existing) | pending |
-| TC-10 | same file as TC-02 — permission gating unchanged | pending |
-| TC-11 | `agent-tool-defaults` suite + `agent-framework/src/__tests__/create-session-default-tools.test.ts` | pending |
-| TC-12 | `agent-command/src/context/__tests__` (existing) | pending |
+| TC-01 | `agent-core/src/core/__tests__/fresh-agent-api.test.ts`, `entry-point-parity.test.ts` (existing, regression) | green |
+| TC-02 | `agent-core/src/core/__tests__/deferred-tool-schemas.test.ts` (new) | green |
+| TC-03 | same file — `names`, empty match, unknown name | green |
+| TC-04 | `agent-core/src/services/__tests__/tool-search-policy.test.ts` (new) | green |
+| TC-05 | `agent-tools/src/builtins/__tests__/tool-search-tool.test.ts` (new) | green |
+| TC-06 | same file as TC-02 — unknown-tool remedy | green |
+| TC-07 | same file as TC-02 — forced deferred tool | green |
+| TC-08 | `agent-core/src/services/__tests__/provider-request-event.test.ts` (existing) | green |
+| TC-09 | `agent-core/src/interfaces/__tests__/run-options-audit.test.ts` (existing) | green |
+| TC-10 | same file as TC-02 — permission gating unchanged | green |
+| TC-11 | `agent-tool-defaults` suite + `agent-framework/src/__tests__/create-session-default-tools.test.ts` | green |
+| TC-12 | `agent-command/src/context/__tests__` (existing) | green |
 | TC-13 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | pending |
-| TC-14 | `grep` over the six SPEC.md files | pending |
-| TC-15 | `agent-core/src/interfaces/__tests__` + anthropic and openai provider suites | pending |
-| TC-16 | `agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (existing) | pending |
-| TC-17 | `agent-tools/src/__tests__/tool-permission-profiles.test.ts` (existing) | pending |
+| TC-14 | `grep` over the six SPEC.md files | green |
+| TC-15 | `agent-core/src/interfaces/__tests__` + anthropic and openai provider suites | green |
+| TC-16 | `agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (existing) | green |
+| TC-17 | `agent-tools/src/__tests__/tool-permission-profiles.test.ts` (existing) | green |
 
 ## User Execution Test Scenarios
 

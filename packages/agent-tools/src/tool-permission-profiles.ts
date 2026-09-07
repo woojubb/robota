@@ -39,6 +39,12 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   // Asking the user changes nothing, and prompting for permission to prompt is not a decision
   // anyone wants to make.
   AskUserQuestion: { riskClass: 'inspect' },
+  // CLI-1990: loading a withheld tool SCHEMA is not calling the tool — the tool it loads is gated on
+  // its own name when the model actually calls it, exactly as it would be were it never deferred.
+  // Classified so a rule naming `ToolSearch` is evaluable rather than falling to 'unevaluable' →
+  // prompt, which in plan mode is a refusal to let the agent discover what it may read.
+  // `query` is the narrowable argument, matched as text like the other search tools'.
+  ToolSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // SELFHOST-010: looking at the screen is perception, decided like a read.
   ComputerView: { riskClass: 'inspect' },
 

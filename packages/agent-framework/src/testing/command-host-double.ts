@@ -152,6 +152,9 @@ export function createTestSessionRuntime(
     setAutoCompactThreshold: () => {},
     getSessionTokenUsage: () => undefined,
     getModelId: () => undefined,
+    // CLI-1990: no tools by default, so a fixture that does not care about the tool surface reports
+    // zero schema tokens rather than a made-up figure. A case that does care overrides it.
+    getOfferedToolSchemas: () => [],
     applyModelOptions: () => {},
     applyAgentName: () => {},
     getActivePresetId: () => 'default',

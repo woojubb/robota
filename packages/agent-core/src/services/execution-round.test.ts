@@ -25,7 +25,8 @@ function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> 
       maxTokens: undefined,
     },
     toolsInfo: [],
-    availableTools: [],
+    readAvailableTools: () => [],
+    deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
     ...overrides,
   };
 }

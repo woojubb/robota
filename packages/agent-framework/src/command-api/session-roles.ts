@@ -11,6 +11,7 @@ import type { IModelReapplyOptions } from './host-context.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
+  IToolSchema,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -52,6 +53,18 @@ export interface ICommandSessionPermissions {
   }): void;
 }
 
+/**
+ * The tool schemas this session puts in front of the model (CLI-1990).
+ *
+ * The OFFERED set, not the registered one: with deferral engaged, a withheld tool's schema never
+ * reaches the request, and `/context` reports what the request actually costs. Reading it is how the
+ * saving deferral produces becomes observable at all — before this, no surface separated the tool
+ * schemas from the system prompt they are billed alongside.
+ */
+export interface ICommandSessionTools {
+  getOfferedToolSchemas(): IToolSchema[];
+}
+
 /** Who this session is, and what it has spent. */
 export interface ICommandSessionIdentity {
   getSessionId(): string;
@@ -86,7 +99,7 @@ export interface ICommandSessionPreset {
   setParallelSubagentsEnabled(enabled: boolean): void;
 }
 
-/** Aggregate: all 18 members remain source-compatible. Declare a role port instead of this. */
+/** Aggregate: every member remains source-compatible. Declare a role port instead of this. */
 export interface ICommandSessionRuntime
   extends
     ICommandSessionHistory,
@@ -94,4 +107,5 @@ export interface ICommandSessionRuntime
     ICommandSessionPermissions,
     ICommandSessionIdentity,
     ICommandSessionModel,
-    ICommandSessionPreset {}
+    ICommandSessionPreset,
+    ICommandSessionTools {}

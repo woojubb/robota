@@ -148,6 +148,13 @@ Types owned by this package (SSOT):
 | `createComputerActTool`                 | Function | SELFHOST-010 — the `Computer` act tool (one typed mutating action → post-action screenshot); permission-gated `approve`/`deny` like `Shell`                  |
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — reference `IComputerDriver` adapter over an injected duck-typed page object (no browser SDK dependency)                                       |
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
+| `createToolSearchTool`                  | Function | CLI-1990 — the resident `ToolSearch` tool: loads withheld tool schemas by query or exact name through the runtime's deferred-tool catalog                    |
+| `toolSearchTool`                        | Const    | CLI-1990 — a default `ToolSearch` instance, as the other builtins publish one                                                                                |
+| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — the registered name (`'ToolSearch'`), kept in step with agent-core's `TOOL_SEARCH_TOOL_NAME`                                                      |
+| `matchDeferredTools`                    | Function | CLI-1990 — the pure match/rank half: which withheld tools a query selects, best match first, capped at a limit                                               |
+| `DEFAULT_TOOL_SEARCH_LIMIT`             | Const    | CLI-1990 — default results per query (5), the default both vendors use                                                                                       |
+| `IToolSearchOutput`                     | Type     | CLI-1990 — the tool's result payload: `{ loaded, unavailableSources }`                                                                                       |
+| `IFunctionToolResidencyOptions`         | Type     | CLI-1990 — what `createZodFunctionTool` accepts about residency (`deferLoading`); omission means resident                                                    |
 | `IComputerDriver`                       | Type     | SELFHOST-010 — computer-use driver port: `screenshot()` (perceive) + `act(action)` (typed mutating action → screenshot) + optional takeover hooks            |
 | `IComputerToolOptions`                  | Type     | SELFHOST-010 — tool-factory options carrying the computer-use driver (mirror `ISandboxToolOptions`)                                                          |
 | `TComputerAction`                       | Type     | SELFHOST-010 — the whole typed mutating-action union (`click`/`double_click`/`type`/`keypress`/`scroll`/`drag`/`wait`/`takeover`)                            |
@@ -269,6 +276,44 @@ as a contract, not as incidental strings:
 Contract tests: `src/__tests__/builtin-descriptions.test.ts` (policy-phrase absence, derived
 names, registry-subset routing hints, override seam) and `src/__tests__/web-search-provider.test.ts`
 (vendor-literal absence at the tool layer).
+
+## ToolSearch — Loading Deferred Tool Schemas (CLI-1990)
+
+`ToolSearch` (`src/builtins/tool-search-tool.ts`) is the model-facing half of client-side tool
+deferral. A tool whose schema declares `deferLoading` is withheld from the request entirely while
+the tool-search policy is engaged (agent-core `docs/SPEC.md` § Tool Residency and Tool Search owns
+that contract); this tool is how the model gets the schema back. Matches become resident for the
+rest of the session, so they are on the wire from the next round.
+
+- **Arguments** — `{ query?: string; names?: string[]; limit?: number }`. `query` is matched
+  case-insensitively against each withheld tool's name, description, and its parameters' names and
+  descriptions, so an exact tool name is a valid query. `names` loads exactly those, skipping the
+  search. `limit` defaults to `DEFAULT_TOOL_SEARCH_LIMIT` (5), the default both vendors use. A call
+  carrying neither `query` nor `names` is refused rather than guessed at.
+- **Ordering is total and deterministic** — `matchDeferredTools` ranks exact-name, then name, then
+  description, then parameter matches, breaking ties by name. The same catalog and query always
+  return the same tools in the same sequence, which is what makes a cap meaningful.
+- **An empty match is a normal result**, `{ loaded: [], unavailableSources: [] }` — mirroring the
+  vendor's own empty `tool_references` array. **An unknown entry in `names` is an error** naming the
+  entry, and nothing is loaded. The distinction is the contract: one is an answer, the other a
+  mistake to correct.
+- **`unavailableSources` is present and empty from day one.** MCP-003 fills it with servers that
+  failed or need auth, so "nothing matched" can be told apart from "the server holding it is down"
+  without a contract change here.
+- **The tool is itself always resident**, and it refuses to run without
+  `IToolExecutionContext.deferredTools` rather than reporting an empty catalog for a search that was
+  never run. It is registered by session assembly, not by `createDefaultTools`.
+- **Residency is declarable at construction** — `createZodFunctionTool(..., { deferLoading })`
+  forwards the marker onto the schema. Omission leaves the member absent, so a resident tool's
+  schema is byte-identical to what it was before residency existed.
+
+Permission profile: `ToolSearch` is classified `inspect` with `query` as its narrowable argument.
+Loading a schema is not calling the tool it describes — the loaded tool is gated on its own name
+when the model actually calls it, exactly as it would be were it never deferred. Classifying it is
+what keeps a rule naming `ToolSearch` evaluable instead of falling to `'unevaluable'` → prompt.
+
+Contract tests: `src/builtins/__tests__/tool-search-tool.test.ts`,
+`src/__tests__/tool-permission-profiles.test.ts`.
 
 ## Error Taxonomy
 

@@ -1,6 +1,7 @@
 import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { IUserInteraction } from './interaction';
 import type { IToolSchema } from './provider';
+import type { IDeferredToolCatalog } from './tool-search';
 import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
 // Re-export canonical tool parameter types from the shared "types" axis.
@@ -140,6 +141,13 @@ export interface IToolExecutionContext {
    * available" (never a silent guess).
    */
   ask?: IUserInteraction['ask'];
+
+  /**
+   * CLI-1990: the deferred-tool catalog the runtime injects (`ToolExecutionService`), so a search
+   * tool can list what is withheld and load it for the rest of the session. Present on every tool
+   * call the execution loop issues; a tool other than the search tool has no reason to read it.
+   */
+  deferredTools?: IDeferredToolCatalog;
 }
 
 /**

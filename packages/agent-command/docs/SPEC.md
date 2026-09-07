@@ -180,6 +180,24 @@ that command value, while the framework projection follows the declaration.
 
 `InteractiveSession` (in `agent-framework`) handles `blockedCommands` and the `provider-hot-swap-requested` effect for `allowedProviders` checks at the session layer.
 
+### `/context` reports what the tool schemas cost (CLI-1990)
+
+`formatFullContextBreakdown` renders a **Tool schemas (sent every turn)** section beside the system
+prompt one, listing the offered tool names and their estimated token cost
+(`estimateToolSchemaTokens` over `ICommandSessionRuntime.getOfferedToolSchemas()`), and returns the
+figure as `data.toolSchemaTokens` so a caller can compare configurations without parsing the
+message back out.
+
+It reads the **offered** set, not the registered one: with deferral engaged (agent-core
+`docs/SPEC.md` § Tool Residency and Tool Search), a tool declaring `deferLoading` that the model has
+not yet loaded through `ToolSearch` never reaches the request, so it is not counted, and the figure
+falls. That fall is the point — before this line, nothing
+separated the tool schemas from the system prompt they are billed alongside
+(`estimateSerializedContextTokens` covers messages only, and the existing tool line counts tool
+*results*), so the saving deferral exists to produce had no observable at all.
+
+Contract test: `src/context/__tests__/context-command-module.test.ts` § CLI-1990 TC-12.
+
 ## Error Taxonomy
 
 This package does not define custom error classes. All execution errors surface as `ICommandResult` values with `success: false` and a human-readable `message`. Thrown errors are limited to:

@@ -2972,6 +2972,38 @@ With no contributed `Write`/`Edit` this is byte-identical to the previous behavi
 Absent `defaultTools` **and** absent a duplicate name, the whole assembly is byte-identical to
 before ARCH-006.
 
+### Tool residency through session assembly (CLI-1990)
+
+A tool schema may declare `deferLoading`, withholding it from the request until the model loads it —
+agent-core `docs/SPEC.md` § Tool Residency and Tool Search owns that contract. Assembly is where a
+session's residency split is decided, and it does three things:
+
+1. **Dedupe preserves the surviving entry's residency.** First occurrence wins, and it keeps its own
+   marker: a deferred contributed tool colliding with a resident default does not make the default
+   deferred, and a surviving deferred entry stays deferred. Nothing here rewrites a marker.
+2. **The all-deferred configuration is refused**, with
+   `at least one tool must stay resident; all tools cannot be deferred`. The check runs over the
+   **declared** set — every configured tier, before the framework adds anything of its own.
+   Ordering is the substance, not a detail: were the check to run after `ToolSearch` was added, an
+   all-deferred configuration would silently acquire the one resident tool that satisfies it and
+   never be reported, which is precisely the misconfiguration the check exists to name.
+3. **`ToolSearch` is added — resident — exactly when some assembled tool is deferred.** It is not
+   part of the `agent-tool-defaults` tier, because that tier cannot see whether anything is
+   deferred. A session with no deferred tool is therefore unchanged: no eleventh tool appears in a
+   prompt that has nothing to load.
+
+**The system prompt names what is deferred.** `formatDeferredToolRoster` derives a
+`name — description` roster from the assembled set and `buildSessionSystemPrompt` appends it to the
+tool descriptions. Unlike the hard-coded `DEFAULT_TOOL_DESCRIPTIONS` beside it, this part **is**
+derived — it has to be, since which tools a session withholds is a per-session fact. It is appended
+after the `options.toolDescriptions` override branch on purpose: a caller supplying its own
+descriptions owns which resident tools are described, but no caller can know what this session
+deferred, and a deferred tool the model is never told about cannot be searched for. With nothing
+deferred the roster is empty and the prompt is byte-identical to today's.
+
+Contract tests: `src/__tests__/create-session-default-tools.test.ts` § CLI-1990 TC-11,
+`src/assembly/__tests__/default-tool-descriptions.test.ts` § CLI-1990 TC-16.
+
 ### Model-Requested Agent Invocation
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command`. The command module
