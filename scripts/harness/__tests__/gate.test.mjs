@@ -1205,6 +1205,121 @@ describe('approve', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('registered 2026-08-20, after the 2026-08-01 instruction');
   });
+
+  /**
+   * HARNESS-2661. `--evidence` is CLASS-only, and on DIRECT it used to be accepted, dropped, and
+   * exit 0: the operator believed provenance was recorded, the guard read an entry that carried
+   * none, and neither was told. It is refused rather than recorded because a DIRECT entry carries
+   * what the USER said — an agent-authored note may not stand as evidence of the scope of the
+   * agent's own authority, which is the split `backlog-execution.md` § Delegated Approval Classes
+   * exists to keep. The refusal names what to do instead, so the cost is one command, at the moment
+   * of the mistake, rather than a guard FAIL much later.
+   */
+  it('DIRECT refuses --evidence, names the alternatives, and writes nothing', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    gitInit(root);
+    const before = readFileSync(doc, 'utf8');
+    const result = approve(root, doc, [
+      '--route',
+      'DIRECT',
+      '--instruction',
+      '승인, 진행해',
+      '--evidence',
+      'approval enumerated ARCH-108, ARCH-110',
+    ]);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain('--evidence');
+    expect(result.stderr).toContain('CLASS');
+    expect(result.stderr).toContain('--instruction');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  /** The same shape: DIRECT hardcodes `Given: <date>, this conversation`, so --conversation is dropped. */
+  it('DIRECT refuses --conversation, whose value it hardcodes, and writes nothing', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    gitInit(root);
+    const before = readFileSync(doc, 'utf8');
+    const result = approve(root, doc, [
+      '--route',
+      'DIRECT',
+      '--instruction',
+      'go',
+      '--conversation',
+      'some other session',
+    ]);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain('--conversation');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  /** Control: CLASS still takes both, so the refusal is route-scoped, not a removal of the flags. */
+  it('CLASS still accepts --evidence and --conversation (control)', () => {
+    const { root, doc } = makeWorkspace({
+      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      folder: 'backlog',
+    });
+    gitInit(root);
+    const result = approve(root, doc, [
+      '--route',
+      'CLASS',
+      '--class',
+      'DOC-TYPO',
+      '--instruction',
+      'typo fixes go straight through',
+      '--evidence',
+      '`git diff --numstat` → 1 line',
+      '--conversation',
+      'the registering session',
+    ]);
+    expect(result.status, result.stderr).toBe(0);
+    const text = readFileSync(doc, 'utf8');
+    expect(text).toContain('**Evidence condition met:** `git diff --numstat` → 1 line');
+    expect(text).toContain('the registering session');
+  });
+});
+
+/**
+ * HARNESS-2661. An argument a subcommand does not read is a silent pass over the thing the caller
+ * asked for. `new-spec.mjs` already refuses one (HARNESS-095) — `gate.mjs`'s `parseArgs` stored any
+ * `--key value` for any subcommand and validated nothing, so `judge --rule` (documented at the CLI,
+ * read only by `advance`) and every misspelling were accepted and dropped.
+ */
+describe('a flag the named subcommand does not use is refused, never ignored', () => {
+  it('judge --rule is refused — `options.rule` is read by advance alone', () => {
+    const { root, doc } = makeWorkspace();
+    const before = readFileSync(doc, 'utf8');
+    const result = judge(root, doc, 'GATE-WRITE', ['--rule', 'x']);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain('--rule');
+    expect(result.stderr).toContain('judge');
+    expect(readFileSync(doc, 'utf8')).toBe(before);
+  });
+
+  it('a misspelled flag is refused rather than dropped', () => {
+    const { root, doc } = makeWorkspace();
+    const result = run(root, ['advance', '--doc', doc, '--dco', 'x']);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain('--dco');
+  });
+
+  it('a flag another subcommand owns is refused on the one that does not', () => {
+    const { root, doc } = makeWorkspace();
+    const result = run(root, ['record', '--doc', doc, '--tc', 'TC-01', '--skip', 'x', '--lane', 'L1']);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain('--lane');
+  });
+
+  it('every flag the usage documents for its subcommand is still accepted (control)', () => {
+    const { root, doc } = makeWorkspace();
+    const result = judge(root, doc, 'GATE-WRITE', ['--lane', 'L1', '--dry-run']);
+    expect(result.stderr).not.toMatch(/does not use|unknown argument/);
+  });
 });
 
 /**

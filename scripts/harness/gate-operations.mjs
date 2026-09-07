@@ -253,32 +253,9 @@ const LANE_L1 = {
   },
 };
 // ── Argument parsing ─────────────────────────────────────────────────────────────────────────────
-export function parseArgs(argv) {
-  const [subcommand, ...rest] = argv;
-  const options = { _: [] };
-  for (let i = 0; i < rest.length; i += 1) {
-    const arg = rest[i];
-    if (!arg.startsWith('--')) {
-      options._.push(arg);
-      continue;
-    }
-    const key = arg.slice(2);
-    const flagOnly = key === 'dry-run' || key === 'continuation' || key === 'correction';
-    if (flagOnly) {
-      options[key] = true;
-      continue;
-    }
-    const value = rest[i + 1];
-    if (value === undefined) throw new Error(`--${key} needs a value`);
-    i += 1;
-    if (key === 'verify-cmd') {
-      options['verify-cmd'] = [...(options['verify-cmd'] ?? []), value];
-    } else {
-      options[key] = value;
-    }
-  }
-  return { subcommand, options };
-}
+// The parser lives in gate-arguments.mjs (HARNESS-2661); re-exported so gate-cli.mjs and
+// gate-public-api.mjs keep importing it from here.
+export { parseArgs } from './gate-arguments.mjs';
 
 function resolveFrom(root, given, fallback) {
   const candidate = given ?? fallback;
@@ -2157,6 +2134,27 @@ export function runApprove(options) {
     throw new Error('approve needs --route DIRECT|CLASS');
   if (!options.instruction || options.instruction.trim() === '')
     throw new Error('approve needs --instruction "<verbatim>"');
+  // HARNESS-2661: `--evidence` and `--conversation` are CLASS-only, and DIRECT used to accept both
+  // and drop them — the operator believed provenance was recorded, the guard read an entry that
+  // carried none, and neither was told. They are REFUSED rather than recorded: a DIRECT entry
+  // carries what the USER said, so an agent-authored note may not stand as evidence of the scope of
+  // the agent's own authority — the split `backlog-execution.md` § Delegated Approval Classes
+  // exists to keep. `Given` is "this conversation" by construction on this route.
+  if (route === 'DIRECT') {
+    if (options.evidence != null)
+      throw new Error(
+        'approve --route DIRECT: --evidence is CLASS-only — a DIRECT entry records the ' +
+          "user's instruction verbatim, not a note about it. For an approval that covers a " +
+          'category use --route CLASS --class <ID>; to record THIS approval\'s scope, put it ' +
+          'inside --instruction "<verbatim>".',
+      );
+    if (options.conversation != null)
+      throw new Error(
+        'approve --route DIRECT: --conversation is CLASS-only — a DIRECT approval is given in ' +
+          'this conversation by definition, which is what Given records. Use --route CLASS ' +
+          '--class <ID> for an instruction given elsewhere.',
+      );
+  }
   const docPath = resolveFrom(root, options.doc, '');
   const doc = loadDocument(docPath);
   const date = today(options);

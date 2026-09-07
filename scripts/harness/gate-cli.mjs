@@ -14,10 +14,11 @@ import {
 
 const USAGE = [
   'usage:',
-  '  gate.mjs judge   --gate <GATE> --doc <spec> [--continuation|--correction] [--lane L1|L2] [--catalogue <p>] [--rule <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
+  '  gate.mjs judge   --gate <GATE> --doc <spec> [--continuation|--correction] [--lane L1|L2] [--catalogue <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]',
   '  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]',
   '  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]',
-  '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--evidence "<note>"] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',
+  '  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]',
+  '                   route CLASS only: [--evidence "<the measurement>"] [--conversation "<where the instruction was given>"] — DIRECT refuses both rather than dropping them',
   "dates default to the LOCAL calendar date; the document's `lane:` is authoritative (--lane may only equal it); L1 order: approve (does not change status) → judge --gate PLAN (does not change status) → advance (performs the status transition) → one planning commit; a stacked branch sets HARNESS_BASE_REF=<parent branch> for the measured diff",
 ].join('\n');
 

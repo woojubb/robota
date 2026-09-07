@@ -100,7 +100,7 @@
   "scripts/harness/checkpoint-evidence-contract.mjs": 463,
   "scripts/harness/cleanup-drift.mjs": 541,
   "scripts/harness/commit-message-claims.mjs": 384,
-  "scripts/harness/gate-operations.mjs": 2290,
+  "scripts/harness/gate-operations.mjs": 2288,
   "scripts/harness/github-api.mjs": 356,
   "scripts/harness/github-issue-triage.mjs": 1303,
   "scripts/harness/lessons-lib.mjs": 367,
