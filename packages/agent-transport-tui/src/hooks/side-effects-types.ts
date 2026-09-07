@@ -23,7 +23,6 @@ export interface IUseSideEffectsOptions {
    * session (a fork being attached to). The surface's existing session-switch path: a new channel
    * from the factory with the previous one stopped first. A view switch, never a merge.
    */
-  switchSession?: (sessionId: string) => void;
 }
 
 export interface IUseSideEffectsResult {

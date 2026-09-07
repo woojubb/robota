@@ -14,11 +14,20 @@
 
 import { resolveExecutionAttach } from '@robota-sdk/agent-framework';
 
-import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 /** The `switch-session` member of the command layer's UI-intent union, narrowed to itself. */
-export type TSwitchSessionIntent = Extract<TCommandUiIntent, { type: 'switch-session' }>;
+/**
+ * What an attach did: the session this terminal was pointed at.
+ *
+ * Deliberately NOT a `TCommandUiIntent` member. Attach starts at a keypress in this surface's own
+ * background panel, not at a command, so routing it through the requester-routed intent bus would
+ * add a hop with no second consumer at the end of it — and the intent's `useSideEffects` case had no
+ * emitter, which is a reader with no writer.
+ */
+export interface IForkAttachOutcome {
+  readonly sessionId: string;
+}
 
 export interface IForkAttachDeps {
   /** Whether the forked record is still in the store this surface would switch onto. */
@@ -39,13 +48,12 @@ export interface IForkAttachDeps {
 export function attachToForkedSession(
   entry: IExecutionWorkspaceEntry,
   deps: IForkAttachDeps,
-): TSwitchSessionIntent | undefined {
+): IForkAttachOutcome | undefined {
   const outcome = resolveExecutionAttach(entry, { hasSessionRecord: deps.hasSessionRecord });
   if (outcome.type === 'refused') {
     deps.notify(outcome.reason);
     return undefined;
   }
-  const intent: TSwitchSessionIntent = { type: 'switch-session', sessionId: outcome.sessionId };
-  deps.switchSession(intent.sessionId);
-  return intent;
+  deps.switchSession(outcome.sessionId);
+  return { sessionId: outcome.sessionId };
 }

@@ -43,8 +43,8 @@ const FORK_AGENT_TYPE = 'general-purpose';
  *
  * A fork inherits the parent's whole conversation and its assembled system message, so there is
  * nothing left to brief it about — this is a minimal continuation cue, deliberately NOT a prompt.
- * The spec asked for an empty string; a turn with no user content is rejected by providers, and one
- * word is the smallest thing that is not. Anything longer would be this neutral command layer
+ * § Solution 5 asked for an empty string; a turn with no user content is rejected by providers, and
+ * one word is the smallest thing that is not — the divergence is recorded in the spec beside it. Anything longer would be this neutral command layer
  * deciding how a forked agent should behave, which is the product layer's call
  * (`scan-prompt-prose` is the mechanical form of that rule).
  */
@@ -92,7 +92,8 @@ function describeFork(name: string, taskId: string, isolation: TBackgroundTaskIs
   return [
     `Forked this conversation into "${name}" (${taskId}), running ${where}.`,
     'The fork is a copy: this session keeps going, and the two are separate records.',
-    'See it with /background list; attach to it from the background panel.',
+    'See its progress with /background list. Attaching from the background panel points this',
+    "terminal at the copy as it was forked; the fork's own turns stay in its task transcript.",
   ].join('\n');
 }
 

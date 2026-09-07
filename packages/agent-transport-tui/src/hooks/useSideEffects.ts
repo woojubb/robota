@@ -26,8 +26,6 @@ interface IUiEventHandlers {
   setSessionName: (name: string) => void;
   refreshStatusLineSettings: () => void;
   openAgentSwitcher?: (() => void) | undefined;
-  /** CLI-1994: point this terminal at another persisted session (attach). A view switch, not a merge. */
-  switchSession?: ((sessionId: string) => void) | undefined;
 }
 
 interface IScreenSetters {
@@ -59,11 +57,6 @@ function subscribeToSessionUiEvents(
       case 'show-agent-switcher':
         handlersRef.current.openAgentSwitcher?.();
         return;
-      case 'switch-session':
-        // CLI-1994: the same path the session picker takes — a new channel from the factory with
-        // the previous one stopped first. The record the surface leaves is not written or merged.
-        handlersRef.current.switchSession?.(event.intent.sessionId);
-        return;
     }
   };
   const onSessionRenamed = (event: ISessionRenamedEvent): void => {
@@ -84,7 +77,6 @@ export function useSideEffects({
   refreshStatusLineSettings,
   showSessionPickerOnStart,
   openAgentSwitcher,
-  switchSession,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
@@ -96,13 +88,11 @@ export function useSideEffects({
     setSessionName,
     refreshStatusLineSettings,
     openAgentSwitcher,
-    switchSession,
   });
   handlersRef.current = {
     setSessionName,
     refreshStatusLineSettings,
     openAgentSwitcher,
-    switchSession,
   };
 
   useEffect(

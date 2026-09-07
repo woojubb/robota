@@ -212,14 +212,20 @@ renders the conditional hint above.
 **Attaching is a view switch, not a merge.** Pressing `a` calls `attachToForkedSession`
 (`src/flows/fork-attach-flow.ts`), which asks the framework's `resolveExecutionAttach` — the owner of
 the decision, beside the projection that offers the control, so this surface cannot invent a second
-answer — and on approval produces the command layer's `{ type: 'switch-session', sessionId }` intent
-and takes the **same session-switch path the session picker uses**: a new channel from the factory
-with the previous one stopped first. The session the terminal leaves and the one it opens stay
-separate records; nothing is read from one into the other, and a fork is a **copy** that never merges
-back.
+answer — and on approval takes the **same session-switch path the session picker uses**: `App`'s one
+`onSessionSwitch`, a new channel from the factory with the previous one stopped first. One switch
+path, reached by both, because both call the same function. The session the terminal leaves and the
+one it opens stay separate records; nothing is read from one into the other, and a fork is a **copy**
+that never merges back.
 
-The same `switch-session` intent arriving as a requester-routed `ui_intent` session event is handled
-identically by `useSideEffects`, so there is one switch path and not two.
+Attach is deliberately NOT routed through a `ui_intent` session event. It starts at a keypress in
+this surface's own background panel rather than at a command, so the requester-routed intent bus
+would add a hop with no second consumer at the end of it.
+
+**What attach currently shows.** The record it opens is the copy as it stood when `/fork` was run.
+The forked job's own turns are not written back into that record — `createSubagentSession` composes
+no session store — so they live in the background task's transcript, which `/background` shows, and
+not in the session the terminal switches to. Closing that gap is [issue #2675](https://github.com/woojubb/robota/issues/2675).
 
 **Refusals are stated, never silent.** Attach declines — with the reason written into the transcript
 as a system entry, and no intent emitted — when the entry is not a fork, when the task reached a

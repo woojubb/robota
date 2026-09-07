@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildForkedSessionRecord,
+  writeForkedSessionRecord,
   type TForkSourceSession,
 } from '../interactive-session-fork-record.js';
 import { listedRecords, loadedRecord } from './session-load-helpers.js';
@@ -171,5 +172,52 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
     // The persisted copy reads back as the copy — the same conversation under the new id.
     expect(loadedRecord(store, fork.id).messages).toEqual(MESSAGES);
     expect(loadedRecord(store, SOURCE_ID).name).toBe(SOURCE_NAME);
+  });
+
+  /**
+   * CLI-1994 — a fork's name has to be one no other record answers to.
+   *
+   * `resolveSessionIdByIdOrName` matches by name with `.find()`, so the moment two records share a
+   * name, `--resume <name>` picks an arbitrary one. The first version of this guard compared only
+   * against the SOURCE's name, which left the commonest case open: forking the same parent twice.
+   */
+  describe('CLI-1994 — the fork name is unique in the store', () => {
+    function write(requestedName?: string): { sessionId: string; name: string } {
+      return writeForkedSessionRecord({
+        source: sourceSession(),
+        fullHistory: () => sourceSession().getFullHistory(),
+        sessionStore: store,
+        sourceId: SOURCE_ID,
+        sourceName: SOURCE_NAME,
+        cwd,
+        requestedName,
+      });
+    }
+
+    it('counts up when the same parent is forked twice', () => {
+      expect(write().name).toBe(`${SOURCE_NAME} (fork)`);
+      expect(write().name).toBe(`${SOURCE_NAME} (fork 2)`);
+      expect(write().name).toBe(`${SOURCE_NAME} (fork 3)`);
+    });
+
+    it('refuses an explicit name another session already answers to', () => {
+      const first = write('experiment');
+      expect(first.name).toBe('experiment');
+      expect(() => write('experiment')).toThrow(/already answers to that name/);
+    });
+
+    it("still refuses the source session's own name", () => {
+      expect(() => write(SOURCE_NAME)).toThrow(/source session's name/);
+    });
+
+    it('leaves every written record findable by its own name', () => {
+      const names = [write().name, write().name, write('side-quest').name];
+      const stored = listedRecords(store)
+        .map((record) => record.name)
+        .filter((name): name is string => name !== undefined);
+      for (const name of names) {
+        expect(stored.filter((candidate) => candidate === name)).toHaveLength(1);
+      }
+    });
   });
 });

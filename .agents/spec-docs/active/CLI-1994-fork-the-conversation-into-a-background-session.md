@@ -239,6 +239,34 @@ label: name, mode: 'background', prompt: '', resumeSessionId, isolation: 'worktr
    host member), `agent-command` (`/fork`), `agent-executor` (pass-through), `agent-transport-tui`
    (attach), each stating that a fork is a _copy_ and that attach is a view switch, not a merge.
 
+### Corrections against the tree (2026-09-08, after independent review)
+
+Four points where the shipped code deliberately differs from § Solution / § Decision above. Each is
+here rather than edited into the prose, so the plan and what shipped can both be read.
+
+1. **The first turn is `'Continue.'`, not `''`** (§ Solution 5). A turn with no user content is
+   rejected by providers; one word is the smallest thing that is not, and anything longer would be
+   the neutral command layer deciding how a forked agent behaves.
+2. **`switch-session` is not a `TCommandUiIntent` member** (§ Solution 6). Attach starts at a
+   keypress in the TUI's own background panel, not at a command, so the requester-routed intent bus
+   would add a hop with no second consumer. The union member and its `useSideEffects` case were a
+   reader with no writer and are removed; attach and the session picker call `App`'s one
+   `onSessionSwitch`, so "one switch path" holds through the shared function.
+3. **Worktree isolation is honoured only by the runtime-shell runner.** § Decision's adversarial pass
+   said the mechanism was plumbed end to end; the in-process runner refuses it outright
+   (`in-process-subagent-runner.ts`). The shipped binary selects the child-process runner, so a bare
+   `/fork` works there; under `--session-log` or an embedding that supplies its own
+   `providerDefinitions`, `/fork --same-dir` is the route. The refusal now names that recovery where
+   the operator meets it.
+4. **A fork's own turns are not written back to its record.** `createSubagentSession` composes no
+   session store, so attach opens the copy as it stood at fork time. Recorded as a known limitation
+   in `agent-transport-tui/docs/SPEC.md`, stated in `/fork`'s own message, and filed as
+   [issue 2675](https://github.com/woojubb/robota/issues/2675).
+
+The generated fork name also counts up (`(fork)`, `(fork 2)`, …) and an explicit name already in the
+store is refused: checking only against the SOURCE's name left the commonest collision — forking the
+same parent twice — open.
+
 ## Affected Files
 
 - `packages/agent-interface-execution/src/background-task-contracts.ts` — `resumeSessionId`

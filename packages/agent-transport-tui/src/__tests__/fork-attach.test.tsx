@@ -4,7 +4,7 @@
  * Attach is the only genuinely new user surface this item adds, and the whole of its meaning is that
  * it is a VIEW switch: the terminal starts looking at the fork's own session record, and neither
  * record is written or merged. So what these cases pin is the pair — which entries offer the
- * control, and that selecting it produces the command layer's `switch-session` intent for the
+ * control, and that selecting it switches this terminal onto the FORK's record — reporting the
  * FORK's id — plus the three refusals, each of which must reach the operator with its reason rather
  * than leaving the terminal pointed at nothing.
  */
@@ -73,17 +73,17 @@ function storeWith(ids: readonly string[]): (sessionId: string) => boolean {
 }
 
 describe('attaching to a fork switches the view (CLI-1994 TC-08)', () => {
-  it('a forked entry produces a switch-session intent for the FORK, not the parent', () => {
+  it('a forked entry switches to the FORK, not the parent', () => {
     const switchSession = vi.fn();
     const notify = vi.fn();
 
-    const intent = attachToForkedSession(makeForkEntry(), {
+    const outcome = attachToForkedSession(makeForkEntry(), {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
       switchSession,
       notify,
     });
 
-    expect(intent).toEqual({ type: 'switch-session', sessionId: FORK_SESSION_ID });
+    expect(outcome).toEqual({ sessionId: FORK_SESSION_ID });
     expect(switchSession).toHaveBeenCalledWith(FORK_SESSION_ID);
     // A view switch, not a merge: the only thing that happened is the switch.
     expect(notify).not.toHaveBeenCalled();
@@ -199,7 +199,7 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
     expect(reason).toContain('no longer in the session store');
   });
 
-  it('a running fork whose record exists is the ONLY case that switches', () => {
+  it('a live fork whose record exists is the ONLY case that switches', () => {
     const switchSession = vi.fn();
 
     attachToForkedSession(makeForkEntry({ status: 'waiting_permission' }), {

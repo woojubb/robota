@@ -158,7 +158,13 @@ function extractFirstArg(toolArgs?: TToolArgs): string | undefined {
 
 function assertSupportedIsolation(job: ISubagentJobStart): void {
   if (job.request.isolation === 'worktree') {
-    throw new Error('Worktree isolation requires a runtime shell subagent runner');
+    // The message names the recovery because this is where the operator meets it: the manager marks
+    // the task failed and shows this text, after the command that spawned it has already returned.
+    throw new Error(
+      'Worktree isolation requires a runtime shell subagent runner, and this session runs subagents ' +
+        'in-process. Ask for the job without isolation — `/fork --same-dir`, or `isolation: "none"` ' +
+        'on a spawn — or run under a composition whose providers the child process can rebuild.',
+    );
   }
 }
 

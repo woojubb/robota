@@ -21,7 +21,7 @@ branch), then spawns a background job that carries only `resumeSessionId`, so th
 record and the conversation never crosses the child-process wire (ARCH-044 holds). The background panel
 gains an `attach` control that switches the terminal to the forked session — a view switch, not a
 merge. The plan is `.agents/spec-docs/active/CLI-1994-fork-the-conversation-into-a-background-session.md`;
-its § Decision records that the issue's stated dependency on #1988 is not real.
+its § Decision records that the issue's stated dependency on issue #1988 is not real.
 
 ## Spec
 

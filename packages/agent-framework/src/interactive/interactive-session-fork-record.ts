@@ -82,29 +82,57 @@ export function applyForkedSystemPrompt(
 /** The suffix a fork's default name carries, so `<source> (fork)` never collides with `<source>`. */
 const FORK_NAME_SUFFIX = ' (fork)';
 
+/** Every name already in the store — the set a fork's name must not join. */
+function takenNames(sessionStore: IInteractiveSessionStore): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const entry of sessionStore.list()) {
+    if (entry.outcome.status === 'valid' && entry.outcome.record.name !== undefined) {
+      names.add(entry.outcome.record.name);
+    }
+  }
+  return names;
+}
+
 /**
- * The fork's name: the operator's, or `<source name or id> (fork)`.
+ * The fork's name: the operator's, or `<source name or id> (fork)`, and in every case a name no
+ * other record answers to.
  *
- * REFUSES the source's own name rather than accepting it. `resolveSessionIdByIdOrName` matches a
- * record by name, so two records answering to one name would make `--resume <name>` pick either —
- * the "is a copy" property lost through the lookup rather than through the data.
+ * `resolveSessionIdByIdOrName` matches by name with `.find()`, so two records sharing one name make
+ * `--resume <name>` pick an arbitrary one — the "is a copy" property lost through the lookup rather
+ * than through the data. Checking only against the SOURCE's name was not enough: forking the same
+ * parent twice produced two records both called `<source> (fork)`, which is the same defect one step
+ * removed. The generated name therefore counts up — `(fork)`, `(fork 2)`, `(fork 3)` — while an
+ * operator's explicit name is REFUSED when it is taken, because silently renaming what they typed
+ * would hand them a fork they cannot find by the name they chose.
  */
 function resolveForkName(
   requested: string | undefined,
   sourceName: string | undefined,
   sourceId: string,
+  taken: ReadonlySet<string>,
 ): string {
   const trimmed = requested?.trim();
-  if (trimmed === undefined || trimmed.length === 0) {
-    return `${sourceName ?? sourceId}${FORK_NAME_SUFFIX}`;
+  if (trimmed !== undefined && trimmed.length > 0) {
+    if (trimmed === sourceName) {
+      throw new Error(
+        `A fork cannot be named "${trimmed}": that is the source session's name, and a name lookup ` +
+          'could then resolve to either record.',
+      );
+    }
+    if (taken.has(trimmed)) {
+      throw new Error(
+        `A fork cannot be named "${trimmed}": another session already answers to that name, and a ` +
+          'name lookup could then resolve to either record.',
+      );
+    }
+    return trimmed;
   }
-  if (trimmed === sourceName) {
-    throw new Error(
-      `A fork cannot be named "${trimmed}": that is the source session's name, and a name lookup ` +
-        'could then resolve to either record.',
-    );
-  }
-  return trimmed;
+  const stem = `${sourceName ?? sourceId}${FORK_NAME_SUFFIX}`;
+  if (!taken.has(stem)) return stem;
+  const numbered = (n: number): string => `${sourceName ?? sourceId} (fork ${n})`;
+  let n = 2;
+  while (taken.has(numbered(n))) n += 1;
+  return numbered(n);
 }
 
 export interface IWriteForkedSessionRecordInput {
@@ -124,7 +152,12 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
   sessionId: string;
   name: string;
 } {
-  const name = resolveForkName(input.requestedName, input.sourceName, input.sourceId);
+  const name = resolveForkName(
+    input.requestedName,
+    input.sourceName,
+    input.sourceId,
+    takenNames(input.sessionStore),
+  );
   const record = buildForkedSessionRecord({
     source: {
       getHistory: () => input.source.getHistory(),

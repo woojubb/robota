@@ -62,8 +62,8 @@ export function resolveExecutionAttach(
     return {
       type: 'refused',
       reason:
-        `${entry.title} is ${entry.status}; a finished fork cannot be attached to. ` +
-        `Resume its record instead: robota --resume ${sessionId}`,
+        `${entry.title} is ${entry.status}; attach follows a fork that is still running. ` +
+        `Its record is still there — open it with: robota --resume ${sessionId}`,
     };
   }
   if (!input.hasSessionRecord(sessionId)) {

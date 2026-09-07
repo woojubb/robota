@@ -191,7 +191,6 @@ function AppInner(
     refreshStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
-    switchSession: onSessionSwitch, // CLI-1994: the session picker's own switch path.
   });
 
   useEffect(() => {
