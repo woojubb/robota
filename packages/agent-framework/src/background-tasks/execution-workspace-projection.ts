@@ -93,6 +93,8 @@ function createBackgroundTaskEntry(
     visibility: createTaskVisibility(state),
     updatedAt: state.lastActivityAt ?? state.updatedAt,
     controls: createTaskControls(state),
+    // CLI-1994: the forked session record an `attach` control switches the view onto.
+    ...(state.resumeSessionId !== undefined ? { resumeSessionId: state.resumeSessionId } : {}),
   };
 }
 
@@ -147,6 +149,9 @@ function createTaskControls(state: IBackgroundTaskState): readonly TExecutionCon
   else controls.push('cancel');
   if (state.kind === 'agent' && state.status === 'running') controls.push('send');
   if (state.logPath || state.transcriptPath) controls.push('read_log');
+  // CLI-1994: a task that resumed a forked record can be ATTACHED to — offered whenever the request
+  // carried the id; a terminal task or a missing record is refused at attach time, with the reason.
+  if (state.kind === 'agent' && state.resumeSessionId !== undefined) controls.push('attach');
   return controls;
 }
 
@@ -175,16 +180,21 @@ function truncateWakePreview(instruction: string): string {
     : trimmed;
 }
 
+/** Seconds in a minute, and minutes in an hour — the two rollovers below. */
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const MS_PER_SECOND = 1000;
+
 function formatNextFireAt(isoString: string): string {
   const date = new Date(isoString);
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
   if (diffMs <= 0) return 'now';
-  const diffSec = Math.round(diffMs / 1000);
-  if (diffSec < 60) return `${diffSec}s`;
-  const diffMin = Math.round(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m`;
-  return `${Math.round(diffMin / 60)}h`;
+  const diffSec = Math.round(diffMs / MS_PER_SECOND);
+  if (diffSec < SECONDS_PER_MINUTE) return `${diffSec}s`;
+  const diffMin = Math.round(diffSec / SECONDS_PER_MINUTE);
+  if (diffMin < MINUTES_PER_HOUR) return `${diffMin}m`;
+  return `${Math.round(diffMin / MINUTES_PER_HOUR)}h`;
 }
 
 function createTaskPreview(state: IBackgroundTaskState): string | undefined {

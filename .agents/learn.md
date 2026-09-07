@@ -70,3 +70,25 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - related: AGREEMENT-008's exempted checklist-bullet rows (same bookkeeping purpose, recognized
   shape); a follow-up would extend `LIFECYCLE_PROJECTION_ROW` (or add a sibling pattern) to also
   match a `| issue #NNNN | \`<task-path>\` |` table row whose only changed content is the path
+
+### LRN-scenario-author-must-isolate-home
+
+- observed-at: 2026-09-07T14:40:00Z
+- observation: a `user-execution-scenario-author` worker, proving executability for CLI-1994, ran
+  `pnpm exec robota --configure-provider … --set-current` against the REAL user environment. That
+  command upserts into `~/.robota/settings.json` (`applyProviderConfiguration` →
+  `mergeProviderPatch` → `upsertProviderProfile`, `packages/agent-framework/src/command-api/provider/`),
+  so it wrote a placeholder `probe` profile and `currentProvider` into the user's global settings.
+  Because the write is an upsert, the post-write file (`providers: { probe }` only, `telemetry: true`
+  preserved) shows the file previously held no provider profiles — nothing of substance was lost — but
+  the birthtime/mtime and formatting changed and the agent could not prove that without reading the
+  code. The worker itself later switched to an isolated `HOME` under `mkdtemp`, which is what every
+  executability probe must do from the start.
+- evidence: `packages/agent-framework/src/command-api/provider/provider-configuration.ts`
+  (`applyProviderConfiguration` reads then merges), `provider-settings.ts` (`mergeProviderPatch` →
+  `upsertProviderProfile`); the worker's own report; `~/.robota/settings.json` afterwards.
+- source: CLI-1994 PLAN-mode scenario authoring, 2026-09-07
+- related: the orchestrator's author brief must state "run every product command with `HOME` set to a
+  fresh temporary directory (and a temporary project dir); never touch `~/.robota`". Candidate for a
+  hard rule in `.claude/agents/user-execution-scenario-author.md` and for a harness guard that refuses
+  `--configure-provider` / `--set-current` when `HOME` is the real home inside an agent session.

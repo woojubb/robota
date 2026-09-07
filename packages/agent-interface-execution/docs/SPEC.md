@@ -69,6 +69,22 @@ A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (is
 
 60 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
 
+### Forking a conversation into a background task (CLI-1994)
+
+`IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child **restores**
+before its first turn. It is how a **fork** — a COPY of a live conversation, written under a fresh id
+by `/fork` — reaches a background job. Only the id travels: the conversation itself never rides on the
+request and therefore never crosses the child-process wire, so the ARCH-044 projection boundary is
+unchanged; the child reads the record from the session store, exactly as `--fork-session` does at
+startup. `IBackgroundTaskState.resumeSessionId?` carries it onto the task's state so a surface can
+tell a fork's task from an ordinary one. Absent ⇒ the child starts with an empty conversation, as
+before.
+
+A fork is a **copy**, not a branch of one live thing: from the moment the record is written the two
+conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for exactly
+that reason — attaching to a fork is a **view switch** onto its record, never a merge, and the entry
+carries the `resumeSessionId` the view switches onto.
+
 ## Public API Surface
 
 | Export           | Kind | Description                               |

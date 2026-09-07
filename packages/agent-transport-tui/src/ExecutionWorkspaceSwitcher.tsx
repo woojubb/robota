@@ -36,11 +36,30 @@ export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
   { keys: 'Ctrl+B/Esc', label: 'Close' },
 ];
 
+/**
+ * CLI-1994: the extra hint shown only while a forked entry is focused. Appended rather than always
+ * present, because a key that does nothing on most rows reads as a broken key, not an unused one.
+ */
+export const EXECUTION_WORKSPACE_ATTACH_HINT: IKeyHint = { keys: 'a', label: 'Attach' };
+
+/** The key that attaches to a forked session. Lower-case only; `A` is left free. */
+const ATTACH_KEY = 'a';
+
 interface IProps {
   snapshot: IExecutionWorkspaceSnapshot | null;
   selectedEntryId?: string;
   onSelect: (entryId: string) => void;
   onClose: () => void;
+  /**
+   * CLI-1994: attach to the focused entry's forked session — a VIEW switch onto that record, never
+   * a merge. Absent when the surface cannot switch sessions; the control is then not offered.
+   */
+  onAttach?: (entry: IExecutionWorkspaceEntry) => void;
+}
+
+/** CLI-1994: `attach` is offered by the projection; the switcher only reads what it was handed. */
+function offersAttach(entry: IExecutionWorkspaceEntry | undefined): boolean {
+  return entry?.controls.includes('attach') === true;
 }
 
 export default function ExecutionWorkspaceSwitcher({
@@ -48,6 +67,7 @@ export default function ExecutionWorkspaceSwitcher({
   selectedEntryId,
   onSelect,
   onClose,
+  onAttach,
 }: IProps): React.ReactElement {
   const entries = [...(snapshot?.entries ?? [])];
   const { normalized, visibleEntries, applyAction } = useWorkspaceSwitcherSelection({
@@ -56,6 +76,8 @@ export default function ExecutionWorkspaceSwitcher({
     onSelect,
     onClose,
   });
+  const focusedEntry = entries[normalized.selectedIndex];
+  const canAttach = onAttach !== undefined && offersAttach(focusedEntry);
 
   // CLI-2004: the switcher is an arrow-key menu, so the mode gives it numbers and a typed answer.
   const screenReader = useScreenReader();
@@ -71,7 +93,16 @@ export default function ExecutionWorkspaceSwitcher({
   });
 
   useInput(
-    (_input, key) => {
+    (input, key) => {
+      // CLI-1994: `a` attaches to the focused fork. Guarded against the modifiers because Ink
+      // reports Ctrl+A as the letter with `ctrl` set, and a chord must not attach silently.
+      if (canAttach && input === ATTACH_KEY && key.ctrl !== true && key.meta !== true && focusedEntry) {
+        // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
+        // switch between — it closes itself rather than making every caller remember to.
+        onAttach(focusedEntry);
+        onClose();
+        return;
+      }
       const action = getVerticalSelectionInputAction(key);
       if (action !== undefined) applyAction(action);
     },
@@ -120,7 +151,13 @@ export default function ExecutionWorkspaceSwitcher({
           invalid={numbered.invalid}
         />
       ) : (
-        <KeyHintFooter hints={EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS} />
+        <KeyHintFooter
+          hints={
+            canAttach
+              ? [...EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS, EXECUTION_WORKSPACE_ATTACH_HINT]
+              : EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS
+          }
+        />
       )}
     </Box>
   );

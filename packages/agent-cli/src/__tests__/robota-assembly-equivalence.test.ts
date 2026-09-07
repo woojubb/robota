@@ -53,7 +53,9 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * change that adds it — which is the point: the baseline exists to make an accidental gain or loss
  * visible, and an entry appearing without a reason in the diff is the thing it catches.
  * `agent-command-peers` was added by PEER-004 (issue #1863); `agent-command-handoff` by
- * HANDOFF-001 (issue #1864).
+ * HANDOFF-001 (issue #1864); `agent-command-fork` by CLI-1994 (issue #1994), which registers `/fork`
+ * beside `/background` because the two spawn the same kind of child and differ only in what context
+ * it starts from.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -64,6 +66,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-preset',
   'agent-command-language',
   'agent-command-background',
+  'agent-command-fork',
   'agent-command-goal',
   'agent-command-plan',
   'agent-command-shell',

@@ -3,12 +3,14 @@ import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -91,6 +93,14 @@ export interface IInProcessSubagentRunnerDeps {
    */
   sandboxClient?: ISandboxClient;
   sandboxType?: string;
+  /**
+   * CLI-1994: the interactive-session record store a job's `resumeSessionId` names a record in — the
+   * store `/fork` wrote the copy to. The runner only ever READS it, to restore the copied conversation
+   * and its assembled system message into the child session before the first turn; the conversation
+   * itself never travels on the request (ARCH-044). A fork job on a runner with no store fails, stated
+   * as such, rather than starting empty.
+   */
+  resumeSessionStore?: IInteractiveSessionStore;
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
@@ -150,6 +160,27 @@ function assertSupportedIsolation(job: ISubagentJobStart): void {
   if (job.request.isolation === 'worktree') {
     throw new Error('Worktree isolation requires a runtime shell subagent runner');
   }
+}
+
+/**
+ * CLI-1994: a job that names a session record restores it — messages and assembled system message —
+ * into the freshly built child before its first turn. Only the id reached this runner; the record is
+ * read here. No store means the fork cannot be honoured, and that is a failed job, not an empty one.
+ */
+function resumeRequestedRecord(
+  job: ISubagentJobStart,
+  session: ReturnType<typeof createSubagentSession>,
+  resumeSessionStore: IInteractiveSessionStore | undefined,
+): void {
+  const resumeSessionId = job.request.resumeSessionId;
+  if (resumeSessionId === undefined) return;
+  if (resumeSessionStore === undefined) {
+    throw new Error(
+      `Subagent job ${job.taskId} asks to resume session ${resumeSessionId}, but this runner was ` +
+        'composed without a session record store (resumeSessionStore).',
+    );
+  }
+  restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, session);
 }
 
 function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExecutionEvent): void {
@@ -221,6 +252,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           deps.onToolExecution?.(event);
         },
       });
+      resumeRequestedRecord(job, session, deps.resumeSessionStore);
 
       return {
         taskId: job.taskId,

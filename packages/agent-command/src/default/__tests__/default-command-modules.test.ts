@@ -40,11 +40,11 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 27 modules (SELFHOST-002 added
-    // `/plan`; PEER-004 added `/peers`). The list below is the assertion that matters — a length on
-    // its own can be restored by any substitution, and the count exists only to catch an addition
-    // that also removed something.
-    expect(names).toHaveLength(28);
+    // No-regression: the default set length is the documented 29 modules (SELFHOST-002 added
+    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`). The list below is the assertion
+    // that matters — a length on its own can be restored by any substitution, and the count exists
+    // only to catch an addition that also removed something.
+    expect(names).toHaveLength(29);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -54,6 +54,8 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-preset',
       'agent-command-language',
       'agent-command-background',
+      // CLI-1994: registered beside `/background`, because a fork IS a background job.
+      'agent-command-fork',
       'agent-command-goal',
       'agent-command-plan',
       'agent-command-shell',

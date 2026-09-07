@@ -62,6 +62,15 @@ keep it.
 
 21 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
 
+### `switch-session` — attaching to a fork (CLI-1994)
+
+`TCommandUiIntent` carries `{ type: 'switch-session'; sessionId }`: point the surface's view at
+another persisted session. It is what **attaching to a fork** asks of the UI. A fork is a COPY of a
+conversation under its own record (`/fork` in `@robota-sdk/agent-command`), so switching to it is a
+**view switch, not a merge** — the surface stops looking at one record and starts looking at another,
+and neither record is read into, written to, or joined with the other. Like every UI intent it is
+requester-routed: only the surface that issued the command renders it.
+
 ## Public API Surface
 
 | Export           | Kind | Description                               |

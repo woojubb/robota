@@ -15,6 +15,7 @@ import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
 import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
 import { useExecutionDetailPage } from './hooks/useExecutionDetailPage.js';
+import { useForkAttach } from './hooks/useForkAttach.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useScreenReaderTurnSignals } from './hooks/useScreenReaderTurnSignals.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
@@ -107,7 +108,7 @@ function AppInner(
   },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const { channel } = props;
+  const { channel, onSessionSwitch, sessionStore } = props;
   // TERM-002: terminal-handoff suspension gate (renders nothing while a child owns the terminal).
   const handoffSuspended = useTerminalHandoffSuspension(channel.terminalHandoffController);
 
@@ -190,6 +191,7 @@ function AppInner(
     refreshStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
+    switchSession: onSessionSwitch, // CLI-1994: the session picker's own switch path.
   });
 
   useEffect(() => {
@@ -382,11 +384,15 @@ function AppInner(
     };
   }, [handleShutdown, exit, isShuttingDown]);
 
+  // CLI-1994 and CLI-2004 each extracted this read into a hook of their own; the one that landed
+  // first is the one kept, so there is a single detail-page reader rather than two.
   const executionDetail = useExecutionDetailPage({
     entry: selectedExecutionEntry,
     snapshot: executionWorkspaceSnapshot,
     read: readExecutionWorkspaceDetail,
   });
+  // CLI-1994: attach to a forked conversation — a view switch onto its record, never a merge.
+  const attachToFork = useForkAttach({ sessionStore, onSessionSwitch, addEntry });
 
   // CLI-2004: the mode's non-visual half — the attention bell and the OSC 133 turn marks. Inert
   // when the mode is off, so there is one code path rather than a branch here.
@@ -397,6 +403,7 @@ function AppInner(
     activeTools,
     awaitingAnswer: permissionRequest !== null || pendingUserAction !== null,
   });
+
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
@@ -483,6 +490,7 @@ function AppInner(
               selectedEntryId={selectedExecutionEntryId}
               onSelect={selectExecutionWorkspaceEntry}
               onClose={() => setShowExecutionWorkspaceSwitcher(false)}
+              onAttach={attachToFork}
             />
           )}
           {permissionRequest && <PermissionPrompt request={permissionRequest} />}

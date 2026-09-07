@@ -19,12 +19,12 @@ terminal instead of running beside it. Verified in the tree:
    framework as `IInteractiveSessionOptions.forkSession`
    (`packages/agent-framework/src/interactive/interactive-session-options.ts:59`), where its entire
    mechanism is one line — `const sessionId = options.resumeSessionId && !options.forkSession ?
-   options.resumeSessionId : undefined;`
+options.resumeSessionId : undefined;`
    (`packages/agent-framework/src/interactive/interactive-session-init.ts:130-131`). There is no
    command, tool, or API that reaches it from inside a live session. Bare `--fork-session` without
    `-c`/`-r` is accepted and silently does nothing, because the restore path is gated on
    `options.resumeSessionId`.
-2. **The copy takes over the terminal.** The forked session *is* the process's session; the original
+2. **The copy takes over the terminal.** The forked session _is_ the process's session; the original
    is not running. Nothing in the repo starts a session copy as a background job.
 3. **No child path carries a conversation or the parent's prompt.** Every existing child —
    `createSubagentSession` (`packages/agent-framework/src/assembly/create-subagent-session.ts:196`),
@@ -68,7 +68,7 @@ the copy is the foreground session, and its system prompt is rebuilt from scratc
 
 ## Prior Art Research
 
-Waived: the reference behaviour for this item is two sentences of Claude Code product documentation already quoted verbatim in issue #1994's own checklist — https://code.claude.com/docs/en/commands ("Copy the current conversation into a new background session and keep working here") and https://code.claude.com/docs/en/sub-agents (a subagent "runs its own" system prompt, unlike a fork). Both were re-read live on 2026-09-07 and both still hold; the changelog range v2.1.238–v2.1.263 contains no entry changing either. The design question this spec must answer is not "what do comparable products do" — the five checklist lines are already the answer, and no second product documents a *background* conversation fork — but "which of this repository's two existing copy mechanisms does the fork extend", which is a repo-survey question answered in § Architecture Review from the tree. A full `prior-art-researcher` pass was therefore not dispatched; the sibling seams surveyed instead are `--fork-session` (CLI-073), `createSubagentSession`, and the handoff carrier, each cited below with file and line.
+Waived: the reference behaviour for this item is two sentences of Claude Code product documentation already quoted verbatim in issue #1994's own checklist — https://code.claude.com/docs/en/commands ("Copy the current conversation into a new background session and keep working here") and https://code.claude.com/docs/en/sub-agents (a subagent "runs its own" system prompt, unlike a fork). Both were re-read live on 2026-09-07 and both still hold; the changelog range v2.1.238–v2.1.263 contains no entry changing either. The design question this spec must answer is not "what do comparable products do" — the five checklist lines are already the answer, and no second product documents a _background_ conversation fork — but "which of this repository's two existing copy mechanisms does the fork extend", which is a repo-survey question answered in § Architecture Review from the tree. A full `prior-art-researcher` pass was therefore not dispatched; the sibling seams surveyed instead are `--fork-session` (CLI-073), `createSubagentSession`, and the handoff carrier, each cited below with file and line.
 
 ## Architecture Review
 
@@ -97,7 +97,7 @@ Waived: the reference behaviour for this item is two sentences of Claude Code pr
 - `.agents/tasks/CLI-1994-fork-the-conversation-into-a-background-session.md`.
 
 Not in scope, stated so the boundary is explicit: output styles (issue #1988 / `CLI-082`, `skipped`) —
-see the Decision's line-3 verdict for why this is deliberately *not* a dependency; checkpoint branching
+see the Decision's line-3 verdict for why this is deliberately _not_ a dependency; checkpoint branching
 (`SELFHOST-007` `forkCheckpointBranch`, a different fork concept over filesystem checkpoints in the same
 session); cross-device handoff (`HANDOFF-001`, which carries a whole record to another machine); and the
 kind-safe background-contract migration (`DATA-011`) and `/background` relocation (`CMD-015`), both open
@@ -139,26 +139,26 @@ feature; it is a different one that fails most of the gate list.
 
 Checklist verdicts (issue #1994, one per line):
 
-| # | Line | Verdict | Reason |
-|---|---|---|---|
-| 1 | One command forks from **inside** the conversation | **Adopt** | `/fork [name]` — a `userInvocable`, `modelInvocable: false`, `lifecycle: 'inline'` command module mirroring `packages/agent-command/src/peers/peers-command-module.ts`. It reads the live conversation through `ICommandSessionHistory` (`packages/agent-framework/src/command-api/session-roles.ts:19-24`) and the prompt through `session.getSystemMessage()`, writes the record through a new host capability, and spawns the job. |
-| 2 | Runs in the **background**; the original stays interactive | **Adopt** | `spawnAgentJobFromSession({ mode: 'background', … , resumeSessionId })`. The parent is never blocked — this half is entirely existing machinery. |
-| 3 | Inherits the parent's full system prompt, **including the output style**, unlike a subagent | **Adapt** | Specified as *"inherits the parent's **assembled system message**"*. That is strictly stronger and removes the dependency on issue #1988: `getSystemMessage()` already contains every `buildSystemPrompt` section (preset prompt, persona, self-verification, AGENTS.md, CLAUDE.md, memory, cwd, response language, tool descriptions, skills), and an output style would be one more section inside the same string, so the fork picks it up for free whenever #1988 lands. Output styles do not exist in the tree — `grep -rn "outputStyle\|output-style" packages apps` returns zero code occurrences, independently confirmed by `CLI-082`'s research pass — so a line worded against a named style would block this item on an unstarted one for no gain. Mechanically: `record.systemPrompt` is already written and read by nobody; this spec makes the restore path read it and the fork apply it, which also retires a dead field. |
-| 4 | Appears in the background list; can be **attached to**, peeked at, and stopped | **Adapt** | List / peek / stop / send are existing behaviour the moment the fork is a `kind: 'agent'` background task (`/background list`, `read`/`open`, `cancel`, `close`, and the TUI panel). **Attach is new** and is the only genuinely new user surface: `TExecutionControl` gains `'attach'` and the command layer gains a `{ type: 'switch-session'; sessionId }` UI intent that the TUI honours by pointing its channel at the forked session id — reusing the existing session-switch path (`session-switch-channel.test.tsx` pins that the factory is the sole channel source and the previous channel is stopped first). Attaching is a *view* switch, not a merge: the two sessions stay separate records. |
-| 5 | Is a copy — work in it does not affect the original | **Adopt, and close two known leaks** | The append-only property is established (`fork-restores-context.test.ts` TC-03 asserts the source file is byte-identical; `print-mode-integration.test.ts` TC-03 asserts two records and an unchanged source message count). Two leaks are closed here rather than inherited: (a) the fork gets a **distinct name** — `<source name or id> (fork)`, or the operator's `/fork <name>` — instead of `interactive-session.ts:318`'s inherited one, so `resolveSessionIdByIdOrName` cannot match two records; (b) the fork job declares `isolation: 'worktree'` by default so filesystem work does not collide with the parent's cwd, with `/fork --same-dir` to opt out. Fields the startup fork already drops — `sandboxSnapshotId`, `goal`, `plan`, `activeBranch` (`interactive-session.ts:326-332`) — are dropped identically. |
+| #   | Line                                                                                        | Verdict                              | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | One command forks from **inside** the conversation                                          | **Adopt**                            | `/fork [name]` — a `userInvocable`, `modelInvocable: false`, `lifecycle: 'inline'` command module mirroring `packages/agent-command/src/peers/peers-command-module.ts`. It reads the live conversation through `ICommandSessionHistory` (`packages/agent-framework/src/command-api/session-roles.ts:19-24`) and the prompt through `session.getSystemMessage()`, writes the record through a new host capability, and spawns the job.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2   | Runs in the **background**; the original stays interactive                                  | **Adopt**                            | `spawnAgentJobFromSession({ mode: 'background', … , resumeSessionId })`. The parent is never blocked — this half is entirely existing machinery.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 3   | Inherits the parent's full system prompt, **including the output style**, unlike a subagent | **Adapt**                            | Specified as _"inherits the parent's **assembled system message**"_. That is strictly stronger and removes the dependency on issue #1988: `getSystemMessage()` already contains every `buildSystemPrompt` section (preset prompt, persona, self-verification, AGENTS.md, CLAUDE.md, memory, cwd, response language, tool descriptions, skills), and an output style would be one more section inside the same string, so the fork picks it up for free whenever #1988 lands. Output styles do not exist in the tree — `grep -rn "outputStyle\|output-style" packages apps` returns zero code occurrences, independently confirmed by `CLI-082`'s research pass — so a line worded against a named style would block this item on an unstarted one for no gain. Mechanically: `record.systemPrompt` is already written and read by nobody; this spec makes the restore path read it and the fork apply it, which also retires a dead field. |
+| 4   | Appears in the background list; can be **attached to**, peeked at, and stopped              | **Adapt**                            | List / peek / stop / send are existing behaviour the moment the fork is a `kind: 'agent'` background task (`/background list`, `read`/`open`, `cancel`, `close`, and the TUI panel). **Attach is new** and is the only genuinely new user surface: `TExecutionControl` gains `'attach'` and the command layer gains a `{ type: 'switch-session'; sessionId }` UI intent that the TUI honours by pointing its channel at the forked session id — reusing the existing session-switch path (`session-switch-channel.test.tsx` pins that the factory is the sole channel source and the previous channel is stopped first). Attaching is a _view_ switch, not a merge: the two sessions stay separate records.                                                                                                                                                                                                                                |
+| 5   | Is a copy — work in it does not affect the original                                         | **Adopt, and close two known leaks** | The append-only property is established (`fork-restores-context.test.ts` TC-03 asserts the source file is byte-identical; `print-mode-integration.test.ts` TC-03 asserts two records and an unchanged source message count). Two leaks are closed here rather than inherited: (a) the fork gets a **distinct name** — `<source name or id> (fork)`, or the operator's `/fork <name>` — instead of `interactive-session.ts:318`'s inherited one, so `resolveSessionIdByIdOrName` cannot match two records; (b) the fork job declares `isolation: 'worktree'` by default so filesystem work does not collide with the parent's cwd, with `/fork --same-dir` to opt out. Fields the startup fork already drops — `sandboxSnapshotId`, `goal`, `plan`, `activeBranch` (`interactive-session.ts:326-332`) — are dropped identically.                                                                                                            |
 
 Validation (spec-workflow.md § "Validated Recommendation Before Approval" — this adds members to two
 interface packages):
 
-- *Reachability.* `IAgentBackgroundTaskRequest.resumeSessionId?` is optional, so every existing spawn is
+- _Reachability._ `IAgentBackgroundTaskRequest.resumeSessionId?` is optional, so every existing spawn is
   unchanged; `TExecutionControl` and the UI-intent union are unions whose consumers switch on the member
   (adding one is a compile error only where a switch is exhaustive, which TC-08 asserts is handled).
   `record.systemPrompt` is already written by every persist, so no migration is needed for existing
   records — a record without it simply rebuilds the prompt as today.
-- *Capability preservation.* `--fork-session` keeps its current semantics; this adds a second entry
+- _Capability preservation._ `--fork-session` keeps its current semantics; this adds a second entry
   point to the same restore path rather than changing it. `runSkillInFork` is untouched.
-- *Adversarial pass.* (a) A forked record whose `systemPrompt` is stale relative to the current
-  AGENTS.md is still the *parent's* prompt, which is what "inherits" means — the fork is a copy of the
+- _Adversarial pass._ (a) A forked record whose `systemPrompt` is stale relative to the current
+  AGENTS.md is still the _parent's_ prompt, which is what "inherits" means — the fork is a copy of the
   conversation as it was, and TC-04 pins that the applied prompt equals the parent's at fork time.
   (b) The child-process runner never receives the conversation on the wire; it reads the record from the
   project state directory, so ARCH-044's projection boundary is intact — TC-06 asserts the wire DTO
@@ -177,7 +177,7 @@ interface packages):
 - [x] Sibling scan 완료 — the repository's three existing copy/child mechanisms were scanned and each is
       cited above: `--fork-session` (CLI-073, `.agents/spec-docs/done/CLI-073-fork-restores-context.md`)
       whose restore path this reuses; `createSubagentSession` / `runSkillInFork` (ARCH-010) which start
-      empty and are explicitly *not* extended; and the handoff carrier
+      empty and are explicitly _not_ extended; and the handoff carrier
       (`packages/agent-interface-session-mobility/src/handoff-contracts.ts:116`, whole-record transfer to
       another machine) which is the only other full-record copy and is out of scope. `SELFHOST-007`'s
       `forkCheckpointBranch` was checked and is a different concept (checkpoint branches within one
@@ -223,11 +223,11 @@ is an explicit refusal that names the reason rather than a silent no-op.
    (`interactive-session-agent-jobs.ts:63-70`) forwarded at `:93`; `SubagentManager.spawn`
    (`packages/agent-executor/src/subagents/subagent-manager.ts:81-84`) passes it through; the in-process
    runner (`in-process-subagent-runner.ts:189`) and the child-process worker construct the child session
-   with `resumeSessionId` + `forkSession: false` so it *restores* that record rather than starting empty.
+   with `resumeSessionId` + `forkSession: false` so it _restores_ that record rather than starting empty.
 5. **The command** — new `packages/agent-command/src/fork/{fork-command-module.ts,fork-command.ts,index.ts}`,
    registered in `default-command-modules.ts` beside `/background`. `/fork [name] [--same-dir]`:
    calls `context.getSession().forkSession({ name })`, then `spawnAgentJob({ agentType: 'general-purpose',
-   label: name, mode: 'background', prompt: '', resumeSessionId, isolation: 'worktree' | 'none' })`, and
+label: name, mode: 'background', prompt: '', resumeSessionId, isolation: 'worktree' | 'none' })`, and
    reports the task id and the new session name. `sessionRequirements: ['agent-runtime']`.
 6. **Attach** — `TExecutionControl` gains `'attach'`; the execution-workspace detail exposes it for a
    `background_task` entry whose request carries a `resumeSessionId`; selecting it emits the new
@@ -237,7 +237,7 @@ is an explicit refusal that names the reason rather than a silent no-op.
 7. **Docs** — SPEC.md of `agent-interface-execution` (the request field and the control),
    `agent-interface-command` (the intent), `agent-framework` (the fork record, the prompt restore, the
    host member), `agent-command` (`/fork`), `agent-executor` (pass-through), `agent-transport-tui`
-   (attach), each stating that a fork is a *copy* and that attach is a view switch, not a merge.
+   (attach), each stating that a fork is a _copy_ and that attach is a view switch, not a merge.
 
 ## Affected Files
 
@@ -323,23 +323,22 @@ Test strategy (type FLOW, tags `[cli, typescript]`): process/session integration
 session store and the scripted provider, plus component tests for the attach control. Every criterion is
 command-form.
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Unit | vitest, new `fork-record.test.ts` over a real `FileSessionStore` fixture | Record shape and the dropped fields |
-| TC-02 | Integration | same file (byte-compare of the source file, as `fork-restores-context.test.ts` TC-03 does) | The copy invariant |
-| TC-03 | Integration | vitest, new `fork-job-resumes-record.test.ts` with `createScriptedProvider` | The conversation reaches the child; RED without forwarding |
-| TC-04 | Integration | vitest, existing `fork-restores-context.test.ts` | The dead `systemPrompt` field becomes live; the no-prompt path unchanged |
-| TC-05 | Unit | vitest, existing agent-jobs test (manager `spawn` captured) | Request field plumbing |
-| TC-06 | Unit | vitest, existing start-DTO test | ARCH-044 boundary held (key-set assertion) |
-| TC-07 | Unit | vitest, new `fork-command.test.ts` (host context stubbed) | Command behaviour incl. flags and the failure path |
-| TC-08 | Component + Type | vitest + `ink-testing-library`, new `fork-attach.test.tsx`; `tsgo` via the package `typecheck` | The new control and the union's exhaustive switches |
-| TC-09 | Component | same file | Attach refusals |
-| TC-10 | Regression | vitest, existing print-mode and cli-args suites | `--fork-session` untouched |
-| TC-11 | Suite | `run-all-scans.mjs --affected --context pr` | Regression over the affected set |
-| TC-12 | Command | `grep` | SPEC coverage incl. the two stated semantics |
+| TC-ID | Test Type        | Tool / Approach                                                                                | Notes                                                                    |
+| ----- | ---------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| TC-01 | Unit             | vitest, new `fork-record.test.ts` over a real `FileSessionStore` fixture                       | Record shape and the dropped fields                                      |
+| TC-02 | Integration      | same file (byte-compare of the source file, as `fork-restores-context.test.ts` TC-03 does)     | The copy invariant                                                       |
+| TC-03 | Integration      | vitest, new `fork-job-resumes-record.test.ts` with `createScriptedProvider`                    | The conversation reaches the child; RED without forwarding               |
+| TC-04 | Integration      | vitest, existing `fork-restores-context.test.ts`                                               | The dead `systemPrompt` field becomes live; the no-prompt path unchanged |
+| TC-05 | Unit             | vitest, existing agent-jobs test (manager `spawn` captured)                                    | Request field plumbing                                                   |
+| TC-06 | Unit             | vitest, existing start-DTO test                                                                | ARCH-044 boundary held (key-set assertion)                               |
+| TC-07 | Unit             | vitest, new `fork-command.test.ts` (host context stubbed)                                      | Command behaviour incl. flags and the failure path                       |
+| TC-08 | Component + Type | vitest + `ink-testing-library`, new `fork-attach.test.tsx`; `tsgo` via the package `typecheck` | The new control and the union's exhaustive switches                      |
+| TC-09 | Component        | same file                                                                                      | Attach refusals                                                          |
+| TC-10 | Regression       | vitest, existing print-mode and cli-args suites                                                | `--fork-session` untouched                                               |
+| TC-11 | Suite            | `run-all-scans.mjs --affected --context pr`                                                    | Regression over the affected set                                         |
+| TC-12 | Command          | `grep`                                                                                         | SPEC coverage incl. the two stated semantics                             |
 
 ## User Execution Test Scenarios
-
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
      not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
@@ -421,7 +420,15 @@ guard as expected on a non-Linux host, per the executability note above.
 // scratch/src/* is gitignored and disposable — recreate this file from the Task's
 // "Fixture script" section before running.
 
-import { mkdirSync, readdirSync, readFileSync, rmSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  mkdtempSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -484,7 +491,10 @@ function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
   };
 }
 
-async function run(argv: string[], scripted: IScriptedProvider): Promise<{ exitCode: number; stdout: string }> {
+async function run(
+  argv: string[],
+  scripted: IScriptedProvider,
+): Promise<{ exitCode: number; stdout: string }> {
   process.argv = ['node', 'robota', ...argv];
   const chunks: string[] = [];
   const originalWrite = process.stdout.write.bind(process.stdout);
@@ -494,7 +504,8 @@ async function run(argv: string[], scripted: IScriptedProvider): Promise<{ exitC
     chunks.push(String(chunk));
     return true;
   }) as typeof process.stdout.write;
-  (process.stderr as unknown as { write: unknown }).write = (() => true) as typeof process.stderr.write;
+  (process.stderr as unknown as { write: unknown }).write = (() =>
+    true) as typeof process.stderr.write;
   let exitCode = -1;
   const trap = new Error('__exit_trap__');
   (process as unknown as { exit: unknown }).exit = ((code?: number) => {
@@ -525,7 +536,9 @@ function sessionFiles(): string[] {
 }
 
 function readSession(file: string): IPersistedSessionFile {
-  return JSON.parse(readFileSync(join(project, '.robota', 'sessions', file), 'utf8')) as IPersistedSessionFile;
+  return JSON.parse(
+    readFileSync(join(project, '.robota', 'sessions', file), 'utf8'),
+  ) as IPersistedSessionFile;
 }
 
 async function main(): Promise<void> {
@@ -550,7 +563,9 @@ async function main(): Promise<void> {
     );
     const beforeFiles = sessionFiles();
     if (beforeFiles.length !== 1) {
-      throw new Error(`expected exactly 1 session file after context turn, got ${beforeFiles.length}`);
+      throw new Error(
+        `expected exactly 1 session file after context turn, got ${beforeFiles.length}`,
+      );
     }
     const sourceFile = beforeFiles[0]!;
     const sourceBefore = readSession(sourceFile);
@@ -580,15 +595,18 @@ async function main(): Promise<void> {
         forkedNameDistinctFromSource: forkedAfter?.record.name !== sourceBefore.record.name,
         forkedMessagesEqualSourceMessages:
           forkedAfter !== null &&
-          JSON.stringify(forkedAfter.record.messages) === JSON.stringify(sourceBefore.record.messages),
+          JSON.stringify(forkedAfter.record.messages) ===
+            JSON.stringify(sourceBefore.record.messages),
         forkedSystemPromptEqualsSource:
-          forkedAfter !== null && forkedAfter.record.systemPrompt === sourceBefore.record.systemPrompt,
+          forkedAfter !== null &&
+          forkedAfter.record.systemPrompt === sourceBefore.record.systemPrompt,
         // Precedent: packages/agent-cli/src/__tests__/e2e/scripted-e2e.test.ts CLI-073 case —
         // a resume/fork run may refresh the source file's updatedAt via init-time persist, so the
         // invariant is id+messages equality, not full byte identity.
         sourceIdAndMessagesUnchangedAfterFork:
           sourceAfter.record.id === sourceBefore.record.id &&
-          JSON.stringify(sourceAfter.record.messages) === JSON.stringify(sourceBefore.record.messages),
+          JSON.stringify(sourceAfter.record.messages) ===
+            JSON.stringify(sourceBefore.record.messages),
       })}`,
     );
   } finally {
@@ -789,6 +807,7 @@ quote the defect. All 7 semantic criteria were re-judged independently against t
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -857,6 +876,7 @@ quote the defect. All 7 semantic criteria were re-judged independently against t
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -907,6 +927,7 @@ tool defect.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -976,6 +997,7 @@ tool defect.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

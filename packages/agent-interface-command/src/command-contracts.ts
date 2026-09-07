@@ -132,7 +132,13 @@ export type TCommandUiIntent =
   | { type: 'show-plugin-manager' }
   | { type: 'show-settings' }
   | { type: 'show-session-picker' }
-  | { type: 'show-agent-switcher' };
+  | { type: 'show-agent-switcher' }
+  /**
+   * CLI-1994: point the surface's view at another persisted session — the way a fork is ATTACHED
+   * to. A view switch through the surface's existing session-switch path, never a merge: the
+   * session the surface leaves and the one it opens stay separate records.
+   */
+  | { type: 'switch-session'; sessionId: string };
 
 export type TCommandResultDataValue =
   TUniversalValue | Record<string, unknown> | readonly Record<string, unknown>[];

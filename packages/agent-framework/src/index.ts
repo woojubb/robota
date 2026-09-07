@@ -94,10 +94,12 @@ export {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
+  restoreSessionRecordIntoSession,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './interactive/index.js';
+export type { ISessionRecordRestoreResult } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
@@ -558,8 +560,15 @@ export {
   createMainThreadExecutionEntryId,
   EXECUTION_ORIGIN_METADATA_KEYS,
   parseExecutionWorkspaceEntryId,
+  // CLI-1994: a surface asks this whether an entry can be attached to; the answer is the framework's
+  // because the same module decides when the `attach` control is offered.
+  resolveExecutionAttach,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
+export type {
+  IResolveExecutionAttachInput,
+  TExecutionAttachOutcome,
+} from './background-tasks/execution-workspace-attach.js';
 // ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel
 // and had NO external importer — this barrel was their only consumer, re-publishing what nothing
 // asked for. The per-symbol exemption made that visible; they are imported from

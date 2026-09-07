@@ -19,7 +19,13 @@ export type TExecutionEntryKind = 'main_thread' | 'background_task' | 'backgroun
 export type TExecutionWorkspaceStatus = 'active' | 'idle' | TBackgroundTaskStatus;
 export type TExecutionAttention = 'none' | 'unread' | 'failed' | 'permission' | 'completed';
 export type TExecutionWorkspaceVisibility = 'default' | 'collapsed';
-export type TExecutionControl = 'select' | 'cancel' | 'close' | 'send' | 'read_log' | 'wait';
+/**
+ * `attach` (CLI-1994) is offered on a `background_task` entry whose request carried a
+ * `resumeSessionId` — a forked conversation. Selecting it is a VIEW SWITCH onto that session record,
+ * not a merge: the parent and the fork stay separate records.
+ */
+export type TExecutionControl =
+  'select' | 'cancel' | 'close' | 'send' | 'read_log' | 'wait' | 'attach';
 export type TExecutionOriginKind =
   | 'user_prompt'
   | 'slash_command'
@@ -66,6 +72,8 @@ export interface IExecutionWorkspaceEntry {
   readonly visibility: TExecutionWorkspaceVisibility;
   readonly updatedAt: string;
   readonly controls: readonly TExecutionControl[];
+  /** CLI-1994: the forked session record an `attach` control switches the view onto. */
+  readonly resumeSessionId?: string;
 }
 
 export interface IExecutionWorkspaceFilter {

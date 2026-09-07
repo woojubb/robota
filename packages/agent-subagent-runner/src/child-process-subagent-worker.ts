@@ -8,6 +8,7 @@ import {
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
+import { resumeRequestedRecord } from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 
@@ -144,6 +145,7 @@ async function runInitialPrompt(
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
     });
+    resumeRequestedRecord(payload, composition, session);
     const output = await session.run(payload.request.prompt);
     if (cancelled) {
       sendTerminalMessageAndExit(

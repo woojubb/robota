@@ -197,6 +197,36 @@ out of this contract:
 - `ExecutionWorkspaceDetailPane.tsx` uses `▸` as a **group-summary disclosure glyph** (content, not a
   cursor); a future pass must not "fix" it into the selection convention.
 
+**Conditional hints (CLI-1994).** `EXECUTION_WORKSPACE_ATTACH_HINT` (`a Attach`) is appended to the
+workspace switcher's footer **only while the focused entry offers the `attach` control**. This is the
+Esc-suppression invariant applied to a key that exists on some rows and not others: a footer must
+list exactly the keys that do something, so a hint for a key most rows ignore would read as a broken
+key rather than an unused one. The key is likewise inert on a row without the control.
+
+## Attaching to a Forked Session (CLI-1994)
+
+`/fork` copies a live conversation into a background session. Its task carries a `resumeSessionId`,
+which is why the framework's projection offers that entry the `attach` control, and the switcher
+renders the conditional hint above.
+
+**Attaching is a view switch, not a merge.** Pressing `a` calls `attachToForkedSession`
+(`src/flows/fork-attach-flow.ts`), which asks the framework's `resolveExecutionAttach` — the owner of
+the decision, beside the projection that offers the control, so this surface cannot invent a second
+answer — and on approval produces the command layer's `{ type: 'switch-session', sessionId }` intent
+and takes the **same session-switch path the session picker uses**: a new channel from the factory
+with the previous one stopped first. The session the terminal leaves and the one it opens stay
+separate records; nothing is read from one into the other, and a fork is a **copy** that never merges
+back.
+
+The same `switch-session` intent arriving as a requester-routed `ui_intent` session event is handled
+identically by `useSideEffects`, so there is one switch path and not two.
+
+**Refusals are stated, never silent.** Attach declines — with the reason written into the transcript
+as a system entry, and no intent emitted — when the entry is not a fork, when the task reached a
+terminal status (the reason names the status), when the record is gone from the session store, or
+when this surface was composed without a session store at all. Leaving the terminal pointed at
+nothing is the one outcome the operator could not diagnose.
+
 ## Color & Motion Contract (SCREEN-006)
 
 Colors and motion values live in exactly three token modules; components never spell color names

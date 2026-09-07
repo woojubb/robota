@@ -79,6 +79,13 @@ export interface ICreateSessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: IInteractiveSessionStore;
+  /**
+   * CLI-1994: the interactive-session record store a subagent RESUMES a `resumeSessionId` from — the
+   * store `/fork` wrote the copy to. Read-only at the runner; distinct from `sessionStore`, which is
+   * the underlying `Session`'s own persistence seam and would make the runtime a second writer of the
+   * same records. Absent ⇒ a fork job cannot restore its record and fails, stated as such.
+   */
+  resumeSessionStore?: IInteractiveSessionStore;
   /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */

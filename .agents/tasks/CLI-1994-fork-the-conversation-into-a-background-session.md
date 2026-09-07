@@ -15,33 +15,33 @@ depends_on: []
 
 A user who wants to try something without disturbing the current conversation has no way to branch it:
 the only fork today is the print-mode `--fork-session` flag, and a background job always starts from an
-empty context. Add `/fork [name] [--same-dir]`: the session writes a *copy* of its own record under a
+empty context. Add `/fork [name] [--same-dir]`: the session writes a _copy_ of its own record under a
 fresh id (messages, system prompt, tool schemas, full history; no sandbox snapshot, goal, plan or
 branch), then spawns a background job that carries only `resumeSessionId`, so the child restores that
 record and the conversation never crosses the child-process wire (ARCH-044 holds). The background panel
 gains an `attach` control that switches the terminal to the forked session — a view switch, not a
-merge. The plan is `.agents/spec-docs/todo/CLI-1994-fork-the-conversation-into-a-background-session.md`;
+merge. The plan is `.agents/spec-docs/active/CLI-1994-fork-the-conversation-into-a-background-session.md`;
 its § Decision records that the issue's stated dependency on #1988 is not real.
 
 ## Spec
 
-`.agents/spec-docs/todo/CLI-1994-fork-the-conversation-into-a-background-session.md`
+`.agents/spec-docs/active/CLI-1994-fork-the-conversation-into-a-background-session.md`
 
 ## Plan
 
 One item per spec sub-item, each naming the Completion Criteria it is verified by.
 
-- [ ] `buildForkedSessionRecord` in `interactive-session-fork-record.ts` — fresh id, copied messages / system prompt / tool schemas / full history, distinct name, dropped fields (spec § Solution 1) — TC-01
-- [ ] Copy invariant: writing the forked record leaves the source record byte-identical (§ Solution 1) — TC-02
-- [ ] Prompt restore: `loadSessionRecord` returns `restoredSystemPrompt` and `interactive-session-init.ts` applies it, so the dead `systemPrompt` field becomes live (§ Solution 2) — TC-04
-- [ ] `ICommandHostSessionAccess.forkSession({ name? })` role-port member implemented on `InteractiveSession` (§ Solution 3) — TC-07
-- [ ] `IAgentBackgroundTaskRequest.resumeSessionId?` → `ISpawnAgentJobInput` → `SubagentManager.spawn` → in-process runner and child-process worker construct the child with `resumeSessionId` + `forkSession: false` (§ Solution 4) — TC-03, TC-05
-- [ ] ARCH-044 boundary held: the worker start DTO's key set is unchanged, no conversation crosses the wire (§ Solution 4) — TC-06
-- [ ] `/fork [name] [--same-dir]` command module registered beside `/background`, incl. flags and the failure path (§ Solution 5) — TC-07
-- [ ] `TExecutionControl` gains `'attach'`; the `{ type: 'switch-session' }` UI intent; the TUI's existing session-switch path handles it (§ Solution 6) — TC-08
-- [ ] Attach refusals: missing record or terminal task refused with the task's status (§ Solution 6) — TC-09
-- [ ] `--fork-session` print-mode path and `cli-args` untouched (regression) — TC-10
-- [ ] SPEC.md updates across `agent-interface-execution`, `agent-interface-command`, `agent-framework`, `agent-command`, `agent-executor`, `agent-transport-tui`, each stating that a fork is a copy and attach is a view switch (§ Solution 7) — TC-12
+- [x] `buildForkedSessionRecord` in `interactive-session-fork-record.ts` — fresh id, copied messages / system prompt / tool schemas / full history, distinct name, dropped fields (spec § Solution 1) — TC-01
+- [x] Copy invariant: writing the forked record leaves the source record byte-identical (§ Solution 1) — TC-02
+- [x] Prompt restore: `loadSessionRecord` returns `restoredSystemPrompt` and `interactive-session-init.ts` applies it, so the dead `systemPrompt` field becomes live (§ Solution 2) — TC-04
+- [x] `ICommandHostSessionAccess.forkSession({ name? })` role-port member implemented on `InteractiveSession` (§ Solution 3) — TC-07
+- [x] `IAgentBackgroundTaskRequest.resumeSessionId?` → `ISpawnAgentJobInput` → `SubagentManager.spawn` → in-process runner and child-process worker construct the child with `resumeSessionId` + `forkSession: false` (§ Solution 4) — TC-03, TC-05
+- [x] ARCH-044 boundary held: the worker start DTO's key set is unchanged, no conversation crosses the wire (§ Solution 4) — TC-06
+- [x] `/fork [name] [--same-dir]` command module registered beside `/background`, incl. flags and the failure path (§ Solution 5) — TC-07
+- [x] `TExecutionControl` gains `'attach'`; the `{ type: 'switch-session' }` UI intent; the TUI's existing session-switch path handles it (§ Solution 6) — TC-08
+- [x] Attach refusals: missing record or terminal task refused with the task's status (§ Solution 6) — TC-09
+- [x] `--fork-session` print-mode path and `cli-args` untouched (regression) — TC-10
+- [x] SPEC.md updates across `agent-interface-execution`, `agent-interface-command`, `agent-framework`, `agent-command`, `agent-executor`, `agent-transport-tui`, each stating that a fork is a copy and attach is a view switch (§ Solution 7) — TC-12
 - [ ] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-11
 
 ## Test Plan
@@ -53,20 +53,20 @@ without `resumeSessionId` forwarding. TC-06 is a key-set assertion on the worker
 TC-11 runs the affected-set scan suite; TC-12 greps the SPEC.md files for `fork`. Each TC records its
 test-file path here when green; the commands are the spec's § Completion Criteria verbatim.
 
-| TC | Test file / command | Status |
-| --- | --- | --- |
-| TC-01 | `packages/agent-framework/src/interactive/__tests__/fork-record.test.ts` (new) | pending |
-| TC-02 | same file — byte-compare of the source record | pending |
-| TC-03 | `packages/agent-framework/src/subagents/__tests__/fork-job-resumes-record.test.ts` (new) | pending |
-| TC-04 | `packages/agent-framework/src/interactive/__tests__/fork-restores-context.test.ts` | pending |
-| TC-05 | `packages/agent-framework/src/interactive/__tests__/interactive-session-agent-jobs.semantic-roles.test.ts` | pending |
-| TC-06 | `packages/agent-subagent-runner/src/__tests__/subagent-worker-start-dto.test.ts` | pending |
-| TC-07 | `packages/agent-command/src/fork/__tests__/fork-command.test.ts` (new) | pending |
-| TC-08 | `packages/agent-transport-tui/src/__tests__/fork-attach.test.tsx` (new) + package `typecheck` | pending |
-| TC-09 | same file — attach refusals | pending |
-| TC-10 | `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts`, `src/utils/__tests__/cli-args.test.ts` | pending |
-| TC-11 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | pending |
-| TC-12 | `grep -n "fork"` over the six SPEC.md files | pending |
+| TC    | Test file / command                                                                                             | Status  |
+| ----- | --------------------------------------------------------------------------------------------------------------- | ------- |
+| TC-01 | `packages/agent-framework/src/interactive/__tests__/fork-record.test.ts` (new)                                  | green   |
+| TC-02 | same file — byte-compare of the source record                                                                   | green   |
+| TC-03 | `packages/agent-framework/src/subagents/__tests__/fork-job-resumes-record.test.ts` (new)                        | green   |
+| TC-04 | `packages/agent-framework/src/interactive/__tests__/fork-restores-context.test.ts`                              | green   |
+| TC-05 | `packages/agent-framework/src/interactive/__tests__/interactive-session-agent-jobs.semantic-roles.test.ts`      | green   |
+| TC-06 | `packages/agent-subagent-runner/src/__tests__/subagent-worker-start-dto.test.ts`                                | green   |
+| TC-07 | `packages/agent-command/src/fork/__tests__/fork-command.test.ts` (new)                                          | green   |
+| TC-08 | `packages/agent-transport-tui/src/__tests__/fork-attach.test.tsx` (new) + package `typecheck`                   | green   |
+| TC-09 | same file — attach refusals                                                                                     | green   |
+| TC-10 | `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts`, `src/utils/__tests__/cli-args.test.ts` | green   |
+| TC-11 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`             | pending |
+| TC-12 | `grep -n "fork"` over the six SPEC.md files                                                                     | green   |
 
 ## User Execution Test Scenarios
 
@@ -150,7 +150,15 @@ guard as expected on a non-Linux host, per the executability note above.
 // scratch/src/* is gitignored and disposable — recreate this file from the Task's
 // "Fixture script" section before running.
 
-import { mkdirSync, readdirSync, readFileSync, rmSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  mkdtempSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -213,7 +221,10 @@ function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
   };
 }
 
-async function run(argv: string[], scripted: IScriptedProvider): Promise<{ exitCode: number; stdout: string }> {
+async function run(
+  argv: string[],
+  scripted: IScriptedProvider,
+): Promise<{ exitCode: number; stdout: string }> {
   process.argv = ['node', 'robota', ...argv];
   const chunks: string[] = [];
   const originalWrite = process.stdout.write.bind(process.stdout);
@@ -223,7 +234,8 @@ async function run(argv: string[], scripted: IScriptedProvider): Promise<{ exitC
     chunks.push(String(chunk));
     return true;
   }) as typeof process.stdout.write;
-  (process.stderr as unknown as { write: unknown }).write = (() => true) as typeof process.stderr.write;
+  (process.stderr as unknown as { write: unknown }).write = (() =>
+    true) as typeof process.stderr.write;
   let exitCode = -1;
   const trap = new Error('__exit_trap__');
   (process as unknown as { exit: unknown }).exit = ((code?: number) => {
@@ -254,7 +266,9 @@ function sessionFiles(): string[] {
 }
 
 function readSession(file: string): IPersistedSessionFile {
-  return JSON.parse(readFileSync(join(project, '.robota', 'sessions', file), 'utf8')) as IPersistedSessionFile;
+  return JSON.parse(
+    readFileSync(join(project, '.robota', 'sessions', file), 'utf8'),
+  ) as IPersistedSessionFile;
 }
 
 async function main(): Promise<void> {
@@ -279,7 +293,9 @@ async function main(): Promise<void> {
     );
     const beforeFiles = sessionFiles();
     if (beforeFiles.length !== 1) {
-      throw new Error(`expected exactly 1 session file after context turn, got ${beforeFiles.length}`);
+      throw new Error(
+        `expected exactly 1 session file after context turn, got ${beforeFiles.length}`,
+      );
     }
     const sourceFile = beforeFiles[0]!;
     const sourceBefore = readSession(sourceFile);
@@ -309,15 +325,18 @@ async function main(): Promise<void> {
         forkedNameDistinctFromSource: forkedAfter?.record.name !== sourceBefore.record.name,
         forkedMessagesEqualSourceMessages:
           forkedAfter !== null &&
-          JSON.stringify(forkedAfter.record.messages) === JSON.stringify(sourceBefore.record.messages),
+          JSON.stringify(forkedAfter.record.messages) ===
+            JSON.stringify(sourceBefore.record.messages),
         forkedSystemPromptEqualsSource:
-          forkedAfter !== null && forkedAfter.record.systemPrompt === sourceBefore.record.systemPrompt,
+          forkedAfter !== null &&
+          forkedAfter.record.systemPrompt === sourceBefore.record.systemPrompt,
         // Precedent: packages/agent-cli/src/__tests__/e2e/scripted-e2e.test.ts CLI-073 case —
         // a resume/fork run may refresh the source file's updatedAt via init-time persist, so the
         // invariant is id+messages equality, not full byte identity.
         sourceIdAndMessagesUnchangedAfterFork:
           sourceAfter.record.id === sourceBefore.record.id &&
-          JSON.stringify(sourceAfter.record.messages) === JSON.stringify(sourceBefore.record.messages),
+          JSON.stringify(sourceAfter.record.messages) ===
+            JSON.stringify(sourceBefore.record.messages),
       })}`,
     );
   } finally {
@@ -463,19 +482,15 @@ them decided the verdict above, and none is a PASS:
 
 **Ordering:** DONE-GATE-STAGE-1 has no prior gate (gate-catalogue.md § Prior-gate map), so only the
 input-state half of the check applies, and it holds on the remedied tree: `**Author verdict:**
-\`SCENARIO DRAFTED: automatable | 1\`` is present; `## Plan` is 0/12 ticked and `## Test Plan` 12/12
-`pending`; HEAD `754c9e239eec` equals `origin/develop`; `git status --short` lists only this Task, the
-spec and `.agents/loop-runs/user-execution-scenario.jsonl`; no implementation path is in the tree
-(`packages/agent-command/src/fork/` absent, `TExecutionControl` at `workspace-contracts.ts:22` still the
-six-member union, `switch-session` and a subagent-side `resumeSessionId` occur nowhere under `packages/`).
+\`SCENARIO DRAFTED: automatable | 1\``is present;`## Plan`is 0/12 ticked and`## Test Plan`12/12`pending`; HEAD `754c9e239eec`equals`origin/develop`; `git status --short`lists only this Task, the
+spec and`.agents/loop-runs/user-execution-scenario.jsonl`; no implementation path is in the tree
+(`packages/agent-command/src/fork/`absent,`TExecutionControl`at`workspace-contracts.ts:22`still the
+six-member union,`switch-session`and a subagent-side`resumeSessionId`occur nowhere under`packages/`).
 The 2026-09-08 NON-COMPLIANCE's required actions were checked, not assumed: (b) ticks reverted — yes;
-(c) the parked work is where the Task says — the tarball exists, its `status.txt` inventory is the 58
-status paths (46 modified + 12 untracked, including `.agents/learn.md` and
-`scripts/harness/file-size-baseline.json`), `tar -tf` lists 63 entries (58 plus the expansion of
-`packages/agent-command/src/fork/`), `deleted.txt` is empty; (a) the trail — the spec's `[RECORD NOTE]`
+(c) the parked work is where the Task says — the tarball exists, its `status.txt`inventory is the 58
+status paths (46 modified + 12 untracked, including`.agents/learn.md`and`scripts/harness/file-size-baseline.json`), `tar -tf`lists 63 entries (58 plus the expansion of`packages/agent-command/src/fork/`), `deleted.txt`is empty; (a) the trail — the spec's`[RECORD NOTE]`
 now states the 2026-09-07 guardian "was stopped by the orchestrator before it recorded anything",
-corroborated by the sibling record it cites (`cli-2004-screen-reader` Task line 134:
-`[DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-09-07`), and this Task's only Stage-1 entry is the
+corroborated by the sibling record it cites (`cli-2004-screen-reader`Task line 134:`[DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-09-07`), and this Task's only Stage-1 entry is the
 2026-09-08 one, so no verdict is claimed that does not exist. Residual, recorded and not decided on: the
 Task itself still does not say the 2026-09-07 entry was never written, and the RECORD NOTE still says
 "stashed" where the Task says `tar`. Implementation-before-Stage-1 is already recorded as NON-COMPLIANCE
@@ -488,7 +503,7 @@ parked work may return after the checkpoint is GATE-IMPLEMENT's and `user-execut
   expected observable result, and an evidence field: MET. Scenario 1 carries `Command:`, `Prerequisites:`,
   `Expected observable:` and `Evidence:` (`validateApplicableScenarioSection` → `ok: true`, 1 entry). The
   attach view-switch block (lines 336–360) now carries `UI steps:`, `Prerequisites:`, `Expected
-  observable:` and `Evidence:`, so the 2026-09-08 finding that it was unwritten is cleared. Noted: its
+observable:` and `Evidence:`, so the 2026-09-08 finding that it was unwritten is cleared. Noted: its
   step "press `a`" comes from the parked implementation (`ExecutionWorkspaceSwitcher.tsx`:
   `ATTACH_KEY = 'a'`, hint `{ keys: 'a', label: 'Attach' }`), not from spec § Solution 6, which names no key.
 - DONE-GATE-STAGE-1 — Every scenario carries its executability decision: MET. Scenario 1 is
@@ -528,7 +543,7 @@ parked work may return after the checkpoint is GATE-IMPLEMENT's and `user-execut
   prerequisite explicitly: **NOT MET** (attach). Scenario 1 states "no network access or API key needed"
   with its mechanism (scripted provider via `startCli`'s `providerDefinitions`) and its Linux requirement
   with its cause (`project-relative-writer.ts:46` verified: `if (process.platform !== 'linux') …
-  refuseProjectRead(…)`). The attach scenario requires "the CLI built" and "a session with at least one
+refuseProjectRead(…)`). The attach scenario requires "the CLI built" and "a session with at least one
   turn" produced interactively — every provider definition in the tree that declares the flag declares
   `requiresApiKey: true` (anthropic, gemini, openai, deepseek, gemma, qwen; no key-free definition under
   `packages/agent-provider-*`), so that turn needs a live provider credential or an external model
@@ -545,7 +560,7 @@ parked work may return after the checkpoint is GATE-IMPLEMENT's and `user-execut
   set with no exception the catalogue defines.
   **Required action:** Re-author the attach scenario in canonical form — `Command:` with its
   `robota`/`pnpm exec robota` start command, `Observable type: ui-state`, `Observable rationale:
-  source=rendered-product-ui`, `Expected observable: visible=<state>`, explanatory prose moved out of the
+source=rendered-product-ui`, `Expected observable: visible=<state>`, explanatory prose moved out of the
   field list, barrier trio kept — and bring the verdict into a form the rule recognises: a
   `### Scenario N` heading under a verdict/count that binds every drafted scenario. If one verdict
   genuinely cannot bind an automatable and a manual scenario together, that is an amendment for the
@@ -589,22 +604,17 @@ in the scenario set.
 
 **Ordering:** DONE-GATE-STAGE-1 has no prior gate (gate-catalogue.md § Prior-gate map), so only the
 input-state half applies, and it holds: the Task sits under `.agents/tasks/`, carries `## User Execution
-Test Scenarios` with `**Author verdict:** \`SCENARIO DRAFTED: automatable | 1\``, `## Plan` 0/12 ticked,
-`## Test Plan` 12/12 `pending`; HEAD `754c9e239eec` equals `origin/develop`; `git status --short` lists
-`.agents/learn.md` (M), `.agents/loop-runs/user-execution-scenario.jsonl` (M), the spec (AM) and this Task
-(AM); no implementation path is in the tree — `packages/agent-command/src/fork/` absent, `switch-session`
-zero hits under `packages/`, `TExecutionControl` at `workspace-contracts.ts:22` still the six-member union,
-`resumeSessionId` occurs only in the pre-existing CLI/print/serve modes, none of `fork-record.test.ts`,
+Test Scenarios` with `**Author verdict:** \`SCENARIO DRAFTED: automatable | 1\``, `## Plan`0/12 ticked,`## Test Plan`12/12`pending`; HEAD `754c9e239eec`equals`origin/develop`; `git status --short`lists`.agents/learn.md`(M),`.agents/loop-runs/user-execution-scenario.jsonl`(M), the spec (AM) and this Task
+(AM); no implementation path is in the tree —`packages/agent-command/src/fork/`absent,`switch-session`zero hits under`packages/`, `TExecutionControl`at`workspace-contracts.ts:22`still the six-member union,`resumeSessionId`occurs only in the pre-existing CLI/print/serve modes, none of`fork-record.test.ts`,
 `fork-job-resumes-record.test.ts`, `fork-command.test.ts`, `fork-attach.test.tsx`,
-`interactive-session-fork-record.ts` tracked or on disk. The parked work is where the Task says: the
-tarball exists (1,139,200 bytes, `tar -tf` 63 entries, `status.txt` 58 lines, `deleted.txt` empty, plus a
-`task-ticked.md` copy of the ticked Task). The prior FAIL's required actions were checked, not assumed:
+`interactive-session-fork-record.ts`tracked or on disk. The parked work is where the Task says: the
+tarball exists (1,139,200 bytes,`tar -tf`63 entries,`status.txt`58 lines,`deleted.txt`empty, plus a`task-ticked.md` copy of the ticked Task). The prior FAIL's required actions were checked, not assumed:
 credential named for attach — yes (`ANTHROPIC_API_KEY`); `Observable type: ui-state`, `Observable
-rationale: source=rendered-product-ui`, `Expected observable: visible=…`, a `Command:` line and the barrier
+rationale: source=rendered-product-ui`, `Expected observable: visible=…`, a `Command:`line and the barrier
 trio — present; the prose moved out of the field list — no (8 lines remain inside it); the verdict brought
-into a form the rule recognises — no (heading `### Written but uncounted — …`, count still `| 1`). Residuals
+into a form the rule recognises — no (heading`### Written but uncounted — …`, count still `| 1`). Residuals
 from the prior entry are closed: the Task now states the 2026-09-07 entry was never written, and the spec's
-`[RECORD NOTE]` now says "parked in a tarball outside the tree (not `git stash` …)".
+`[RECORD NOTE]`now says "parked in a tarball outside the tree (not`git stash` …)".
 
 **Per-criterion record:**
 
@@ -650,19 +660,15 @@ from the prior entry are closed: the Task now states the 2026-09-07 entry was ne
   value — the rule lists exactly three (`shipped-entrypoint=robota`, `shipped-interface=robota-browser-ui`,
   `shipped-interface=public-sdk-example`) and `robota-tui` maps to `shipped-entrypoint=robota`
   (`user-execution-scenario-contract.mjs:96-97`); (c) `Command: \`pnpm exec robota\` (interactive; then the
-  UI steps)` — `tokenizeCanonicalShell` returns null on the trailing text, so
-  `productSurfaceInvocation('robota-tui', …)` is null. With (a)+(b)+(c) corrected the block binds under
-  `manual` (invocation `pnpm exec robota`, `ui-state`, barrier `accessibility-tree-unavailable`). (d) Its
-  heading is not `### Scenario N`, so `scenarioEntries` sees one scenario where two are drafted, and the
-  author verdict `| 1` misstates the drafted set; the catalogue's PASS evidence must name each scenario and
-  the `doneGateStageOne` record must bind the authored scenario fields exactly, so a PASS naming both cannot
-  bind against a section that declares one and a PASS naming one omits a written scenario. The exception
-  claimed ("written but uncounted", under `LRN-scenario-contract-single-executability` in
-  `.agents/learn.md`) is not one the catalogue defines — its only Stage-1 exception is for a scenario
-  genuinely impossible to WRITE — and AGENTS.md sets the floor for an amendment attempt at a filed backlog
-  item; the learn.md entry itself records "Not yet allocated a Task". The underlying claim is true and is
-  recorded as such: `matchingExecutability` (contract lines 128-148) requires `agent-executable` under
-  `automatable` and `manual-only:` under `manual`, so one verdict cannot bind this mixed pair — which is why
+  UI steps)`—`tokenizeCanonicalShell`returns null on the trailing text, so`productSurfaceInvocation('robota-tui', …)`is null. With (a)+(b)+(c) corrected the block binds under`manual`(invocation`pnpm exec robota`, `ui-state`, barrier `accessibility-tree-unavailable`). (d) Its
+heading is not `### Scenario N`, so `scenarioEntries`sees one scenario where two are drafted, and the
+author verdict`| 1`misstates the drafted set; the catalogue's PASS evidence must name each scenario and
+the`doneGateStageOne`record must bind the authored scenario fields exactly, so a PASS naming both cannot
+bind against a section that declares one and a PASS naming one omits a written scenario. The exception
+claimed ("written but uncounted", under`LRN-scenario-contract-single-executability`in`.agents/learn.md`) is not one the catalogue defines — its only Stage-1 exception is for a scenario
+genuinely impossible to WRITE — and AGENTS.md sets the floor for an amendment attempt at a filed backlog
+item; the learn.md entry itself records "Not yet allocated a Task". The underlying claim is true and is
+recorded as such: `matchingExecutability`(contract lines 128-148) requires`agent-executable`under`automatable`and`manual-only:`under`manual`, so one verdict cannot bind this mixed pair — which is why
   the compliant routes are the ones the prior entry named, not an uncounted block.
 - DONE-GATE-STAGE-1 — A scenario requiring live credentials or an external service states that
   prerequisite explicitly: MET. The attach block names the provider, `ANTHROPIC_API_KEY`, the configure
@@ -677,20 +683,19 @@ from the prior entry are closed: the Task now states the 2026-09-07 entry was ne
 
 - The scenario uses a canonical product-surface identity and matching invocation: the attach view-switch
   block is non-canonical on three fields (prose inside the field list; `Surface rationale:
-  shipped-interface=robota-tui` where `robota-tui` requires `shipped-entrypoint=robota`; a `Command:` line
+shipped-interface=robota-tui` where `robota-tui` requires `shipped-entrypoint=robota`; a `Command:` line
   carrying `(interactive; then the UI steps)` that the invocation tokenizer rejects) and it remains outside
   the numbered, counted set under an exception the catalogue does not define and an amendment attempt that
   has not reached the filed-backlog-item floor.
   **Required action:** Make the block canonical — delete the prose between its heading and its first
   field (move any explanation above the `**Author verdict:**` line or into a paragraph outside the
   scenario), set `Surface rationale: shipped-entrypoint=robota`, set `Command:` to exactly
-  `\`pnpm exec robota\`` with the interaction left to `UI steps:` — and then take one of the three
-  compliant routes: (1) file the backlog item for the contract amendment (open the GitHub Issue, allocate
-  the Task) and cite it here, keeping the block outside the count until the amendment lands; (2) split the
-  attach behaviour into its own subject-bound work unit with its own `manual | 1` verdict and remove the
-  block from this Task; or (3) redesign attach as agent-executable (pty-driven start plus a scratch
-  provider whose turn stays open on a signal) so both scenarios bind under `automatable | 2` with
-  `### Scenario 2` as its heading. Then re-run DONE-GATE-STAGE-1 in its own invocation.
+  `\`pnpm exec robota\``with the interaction left to`UI steps:`— and then take one of the three
+compliant routes: (1) file the backlog item for the contract amendment (open the GitHub Issue, allocate
+the Task) and cite it here, keeping the block outside the count until the amendment lands; (2) split the
+attach behaviour into its own subject-bound work unit with its own`manual | 1`verdict and remove the
+block from this Task; or (3) redesign attach as agent-executable (pty-driven start plus a scratch
+provider whose turn stays open on a signal) so both scenarios bind under`automatable | 2`with`### Scenario 2` as its heading. Then re-run DONE-GATE-STAGE-1 in its own invocation.
 
 **Observations (not criteria; recorded for the next round and Stage 2):**
 

@@ -137,6 +137,20 @@ Design rules:
 
 Hook event types and hook execution are owned by `agent-core`.
 
+#### Forked conversations pass through, they are not interpreted (CLI-1994)
+
+`ISubagentSpawnRequest` is derived `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so
+`resumeSessionId?` — the persisted session record a **fork** job restores before its first turn —
+arrives here for free, and `SubagentManager.toBackgroundRequest` (`{ kind: 'agent', ...request }`)
+carries it through untouched. `createQueuedBackgroundTaskState` copies it onto
+`IBackgroundTaskState.resumeSessionId` so a surface can tell a fork's task from an ordinary one and
+offer the `attach` control.
+
+This package never reads the record. Only the id passes through it; resolving the id into a
+conversation is the runner's job, on whichever side of the process boundary it runs. A fork is a
+**copy** of a conversation under its own record — the parent's record is neither read nor written by
+the job — and attaching to it is a **view switch, not a merge**.
+
 ## Public API Surface
 
 ### Public API: Background Tasks
