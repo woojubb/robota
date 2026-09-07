@@ -196,3 +196,92 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
     expect(names).toEqual(createDefaultTools({ cwd: process.cwd() }).map((t) => t.getName()));
   });
 });
+
+/** As `namedTool`, but declaring itself deferred — schemas withheld until loaded (CLI-1990). */
+function deferredTool(name: string, marker: string): IToolWithEventService {
+  const tool = namedTool(name, marker);
+  return {
+    ...tool,
+    schema: { ...tool.schema, deferLoading: true },
+  } as unknown as IToolWithEventService;
+}
+
+describe('CLI-1990 TC-11 — tool residency through session assembly', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('refuses a session in which every tool is deferred, naming the invariant', async () => {
+    // The vendor's own 400 as a Robota-level error: a request that withholds every tool offers the
+    // model nothing to call and nothing to search with.
+    await expect(
+      assembleToolNames({
+        defaultTools: [],
+        additionalTools: [deferredTool('a_tool', 'a'), deferredTool('b_tool', 'b')],
+      }),
+    ).rejects.toThrow('at least one tool must stay resident');
+  });
+
+  it('does NOT satisfy that invariant by quietly adding its own resident search tool', async () => {
+    // The check runs over the DECLARED set, before the framework adds anything. Were it to run
+    // after, an all-deferred configuration would silently acquire the one resident tool that
+    // satisfies it and never be reported.
+    await expect(
+      assembleToolNames({ defaultTools: [], additionalTools: [deferredTool('only', 'only')] }),
+    ).rejects.toThrow('all tools cannot be deferred');
+  });
+
+  it('adds the resident ToolSearch when a tool is deferred', async () => {
+    const { names } = await assembleToolNames({
+      defaultTools: [namedTool('Read', 'resident-Read')],
+      additionalTools: [deferredTool('postgres_query', 'deferred')],
+    });
+    expect(names).toEqual(['Read', 'postgres_query', 'ToolSearch']);
+  });
+
+  it("adds NO search tool when nothing is deferred — today's sessions are unchanged", async () => {
+    // The no-regression half: a session of resident tools gets exactly what it gets today, with no
+    // eleventh tool appearing in a prompt that has nothing to load.
+    const { names } = await assembleToolNames({
+      defaultTools: [namedTool('Read', 'resident-Read')],
+    });
+    expect(names).toEqual(['Read']);
+  });
+
+  it('leaves the search tool itself resident — it is the way into the withheld catalog', async () => {
+    const { tools } = await assembleToolNames({
+      defaultTools: [namedTool('Read', 'resident-Read')],
+      additionalTools: [deferredTool('postgres_query', 'deferred')],
+    });
+    const search = tools.find((tool) => tool.getName() === 'ToolSearch');
+    expect(search?.schema.deferLoading).toBeUndefined();
+  });
+
+  it('preserves the residency flag of the entry that SURVIVES dedupe', async () => {
+    // First occurrence wins, and it keeps its own marker: a deferred contributed tool colliding with
+    // a resident default does not make the default deferred, and the reverse is equally true.
+    const { tools } = await assembleToolNames({
+      defaultTools: [namedTool('Read', 'resident-Read')],
+      additionalTools: [
+        deferredTool('Read', 'deferred-Read'),
+        deferredTool('postgres_query', 'deferred'),
+      ],
+    });
+    const read = tools.find((tool) => tool.getName() === 'Read');
+    expect(read?.getDescription()).toBe('resident-Read');
+    expect(read?.schema.deferLoading).toBeUndefined();
+    expect(tools.find((tool) => tool.getName() === 'postgres_query')?.schema.deferLoading).toBe(
+      true,
+    );
+  });
+
+  it('keeps a surviving DEFERRED entry deferred when it wins the collision', async () => {
+    const { tools } = await assembleToolNames({
+      defaultTools: [deferredTool('Read', 'deferred-Read'), namedTool('Write', 'resident-Write')],
+      additionalTools: [namedTool('Read', 'contributed-Read')],
+    });
+    const read = tools.find((tool) => tool.getName() === 'Read');
+    expect(read?.getDescription()).toBe('deferred-Read');
+    expect(read?.schema.deferLoading).toBe(true);
+  });
+});

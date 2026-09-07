@@ -6,7 +6,7 @@
  * came from dispatches subcommands and writes thresholds and references.
  */
 
-import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN } from '@robota-sdk/agent-core';
+import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN, estimateToolSchemaTokens } from '@robota-sdk/agent-core';
 import {
   listCommandContextReferences,
   readAutoCompactThreshold,
@@ -180,6 +180,11 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
   const rawMessages = context.getSession().getHistory();
   const msgTokens = computeMessageTokensByRole(rawMessages);
+  // CLI-1990: what the TOOL SCHEMAS cost on every request — the offered set, so a deferred tool that
+  // has not been loaded is not counted, because it is not sent. Until now nothing separated this
+  // from the system prompt it is billed alongside, so the saving deferral produces had no observable.
+  const offeredToolSchemas = context.getSession().getOfferedToolSchemas();
+  const toolSchemaTokens = estimateToolSchemaTokens(offeredToolSchemas);
   const display = buildToolDisplayList(context.getSession().getFullHistory());
   const references = listCommandContextReferences(context);
 
@@ -238,6 +243,12 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
       systemRefs.map(formatContextReferenceLine),
     ),
     '',
+    formatSection(
+      'Tool schemas (sent every turn)',
+      toolSchemaTokens,
+      offeredToolSchemas.map((schema) => schema.name),
+    ),
+    '',
     convSection,
     '',
     formatSection('Manually added', manualTokens, manualRefs.map(formatContextReferenceLine)),
@@ -255,6 +266,9 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
     data: {
       references,
       history: { turnCount: display.turnCount, toolResults: display.toolResults },
+      // CLI-1990: machine-readable beside the rendered line, so a caller can compare the figure
+      // across configurations rather than parsing the message back out.
+      toolSchemaTokens,
     },
   };
 }

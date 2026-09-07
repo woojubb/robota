@@ -124,6 +124,10 @@ export { isImageGenerationProvider, isVideoGenerationProvider } from './media-pr
 
 export type { TManagerToolParameters, IAIProviderManager, IToolManager } from './manager';
 
+// CLI-1990: tool residency vocabulary — the deferred-tool catalog port and the policy settings.
+export type { IDeferredToolCatalog, TToolSearchMode, TToolSearchSetting } from './tool-search';
+export { TOOL_SEARCH_TOOL_NAME } from './tool-search';
+
 export type {
   ITool,
   IFunctionTool,

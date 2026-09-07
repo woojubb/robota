@@ -215,7 +215,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `PeerMessageIngress`                         | class    | PEER-002/PEER-006: the receiving side of peer messaging for one session — fails closed on admission, submits with `turnSource: 'peer'` and the peer's driver id, and translates turn settlement into an ack. Published so a composition root can wire a carrier to a session; it owns no queue, because the session's pending queue already answers that                                                                                      |
 | `createTestCommandHost`                      | function | ARCH-029: the conformant, cast-free `ICommandHostContext` double, published from `@robota-sdk/agent-framework/testing`. Every default answers "this host has nothing of that kind"; the compiler refuses it the moment the contract gains a member it does not answer                                                                                                                                                                         |
 | `createTestAgentJobHost`                     | function | ARCH-029: the same for `IAgentJobHostContext` — 15 members, none optional                                                                                                                                                                                                                                                                                                                                                                     |
-| `createTestSessionRuntime`                   | function | ARCH-029: the same for `ICommandSessionRuntime` — 18 members. Published because making the members required turned every hand-rolled runtime fixture into a compile error with nothing honest to reach for                                                                                                                                                                                                                                    |
+| `createTestSessionRuntime`                   | function | ARCH-029: the same for `ICommandSessionRuntime` — 19 members (18 from ARCH-029 plus `ICommandSessionTools.getOfferedToolSchemas`, CLI-1990). Published because making the members required turned every hand-rolled runtime fixture into a compile error with nothing honest to reach for                                                                                                                                                                                                                                    |
 | `resolveRoleModel`                           | function | SELFHOST-006: resolve a role's PRIMARY `IModelRef` from a `TRoleModelMap` (opaque key; undefined if unmapped)                                                                                                                                                                                                                                                                                                                                 |
 | `resolveRoleFallbackChain`                   | function | SELFHOST-006: the role's full ordered fallback chain (primary first); empty if unmapped                                                                                                                                                                                                                                                                                                                                                       |
 | `runWithRoleFallback`                        | function | SELFHOST-006: walk a role's fallback chain, trying each `IModelRef` over the provider DIP until one succeeds (alternate provider+model on error)                                                                                                                                                                                                                                                                                              |
@@ -2971,6 +2971,38 @@ With no contributed `Write`/`Edit` this is byte-identical to the previous behavi
 
 Absent `defaultTools` **and** absent a duplicate name, the whole assembly is byte-identical to
 before ARCH-006.
+
+### Tool residency through session assembly (CLI-1990)
+
+A tool schema may declare `deferLoading`, withholding it from the request until the model loads it —
+agent-core `docs/SPEC.md` § Tool Residency and Tool Search owns that contract. Assembly is where a
+session's residency split is decided, and it does three things:
+
+1. **Dedupe preserves the surviving entry's residency.** First occurrence wins, and it keeps its own
+   marker: a deferred contributed tool colliding with a resident default does not make the default
+   deferred, and a surviving deferred entry stays deferred. Nothing here rewrites a marker.
+2. **The all-deferred configuration is refused**, with
+   `at least one tool must stay resident; all tools cannot be deferred`. The check runs over the
+   **declared** set — every configured tier, before the framework adds anything of its own.
+   Ordering is the substance, not a detail: were the check to run after `ToolSearch` was added, an
+   all-deferred configuration would silently acquire the one resident tool that satisfies it and
+   never be reported, which is precisely the misconfiguration the check exists to name.
+3. **`ToolSearch` is added — resident — exactly when some assembled tool is deferred.** It is not
+   part of the `agent-tool-defaults` tier, because that tier cannot see whether anything is
+   deferred. A session with no deferred tool is therefore unchanged: no eleventh tool appears in a
+   prompt that has nothing to load.
+
+**The system prompt names what is deferred.** `formatDeferredToolRoster` derives a
+`name — description` roster from the assembled set and `buildSessionSystemPrompt` appends it to the
+tool descriptions. Unlike the hard-coded `DEFAULT_TOOL_DESCRIPTIONS` beside it, this part **is**
+derived — it has to be, since which tools a session withholds is a per-session fact. It is appended
+after the `options.toolDescriptions` override branch on purpose: a caller supplying its own
+descriptions owns which resident tools are described, but no caller can know what this session
+deferred, and a deferred tool the model is never told about cannot be searched for. With nothing
+deferred the roster is empty and the prompt is byte-identical to today's.
+
+Contract tests: `src/__tests__/create-session-default-tools.test.ts` § CLI-1990 TC-11,
+`src/assembly/__tests__/default-tool-descriptions.test.ts` § CLI-1990 TC-16.
 
 ### Model-Requested Agent Invocation
 

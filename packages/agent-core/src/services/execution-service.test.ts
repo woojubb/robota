@@ -120,7 +120,7 @@ describe('ExecutionService', () => {
     vi.spyOn(aiProviders, 'getProviderCount').mockReturnValue(1);
 
     // Create mock tools manager with interface methods
-    tools = new Tools();
+    tools = new Tools({ resolveToolSearchMode: () => 'off' });
     vi.spyOn(tools, 'getTools').mockReturnValue([
       {
         name: 'testTool',

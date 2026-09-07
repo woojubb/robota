@@ -1,6 +1,7 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
 import { buildAgentRuntime } from './build-agent-runtime.js';
+import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -45,8 +46,10 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
 ];
 
-// Re-exported so existing importers of the assembly module keep one entry point.
+// Re-exported so existing importers of the assembly module keep one entry point — CLI-1990's
+// deferred roster included, since its one consumer is the prompt build below.
 export { buildAgentRuntime };
+export { DEFERRED_TOOL_ROSTER_HEADER, formatDeferredToolRoster } from './deferred-tool-roster.js';
 export type { IAgentRuntimeResult } from './build-agent-runtime.js';
 
 /**
@@ -157,6 +160,7 @@ export function buildSessionSystemPrompt(
     disableModelInvocation?: boolean;
   }>,
   agentDefinitions: IAgentDefinition[],
+  assembledTools: readonly IToolWithEventService[] = [],
 ): ISystemPromptResult {
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
@@ -167,7 +171,7 @@ export function buildSessionSystemPrompt(
         )
       : []),
   ];
-  const resolvedToolDescriptions =
+  const listedToolDescriptions =
     options.toolDescriptions ??
     (backgroundProcessToolDeps
       ? [
@@ -175,6 +179,13 @@ export function buildSessionSystemPrompt(
           'BackgroundProcess — start long-running shell commands as managed background tasks',
         ]
       : defaultToolDescriptions);
+  // CLI-1990: appended AFTER the override branch, deliberately. A caller supplying its own
+  // `toolDescriptions` owns which resident tools are described, but no caller can know what this
+  // session deferred — and a deferred tool the model is never told about cannot be searched for.
+  const resolvedToolDescriptions = [
+    ...listedToolDescriptions,
+    ...formatDeferredToolRoster(assembledTools),
+  ];
 
   // PRESET-014: persona is mutable for the lifetime of this closure. A live preset switch can
   // re-apply a new persona mid-session (via `rebuildSystemMessage(..., { persona })`); later

@@ -1,4 +1,5 @@
 import { executeBatch } from './tool-execution-batch';
+import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
@@ -12,6 +13,7 @@ import type {
   TToolParameters,
   TToolMetadata,
 } from '../interfaces/tool';
+import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 
 /**
  * ToolExecutionService owned events
@@ -47,10 +49,16 @@ export class ToolExecutionService {
   private tools: IToolManager;
   private logger: ILogger;
   private askHandler?: IUserInteraction['ask'];
+  /** CLI-1990: the narrow port a search tool loads through — no tool ever holds the manager. */
+  private readonly deferredToolCatalog: IDeferredToolCatalog;
 
   constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
     this.tools = tools;
     this.logger = logger;
+    this.deferredToolCatalog = {
+      listDeferredTools: () => this.tools.listDeferredTools(),
+      loadDeferredTools: (names) => this.tools.loadDeferredTools(names),
+    };
   }
 
   /**
@@ -82,12 +90,18 @@ export class ToolExecutionService {
         );
       }
 
-      if (!this.tools.hasTool(toolName)) {
+      // CLI-1990: a deferred tool the model has not loaded is refused like an unknown one — the model
+      // was never shown its schema — and the remedy names the tool that loads it, so the two rounds
+      // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
+      const withheld =
+        this.tools.getToolSchema(toolName)?.deferLoading === true &&
+        !this.tools.isToolOffered(toolName);
+      if (!this.tools.hasTool(toolName) || withheld) {
         const availableTools = this.tools
-          .getTools()
+          .getOfferedTools()
           .map((tool) => tool.name)
           .sort();
-        const error = formatUnknownToolError(toolName, availableTools);
+        const error = formatUnknownToolError(toolName, availableTools, withheld);
         const eventService = context.eventService;
         if (eventService) {
           const errorEvent: IToolEventData = {
@@ -213,6 +227,7 @@ export class ToolExecutionService {
         ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
         metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined,
         ...(this.askHandler ? { ask: this.askHandler } : {}),
+        deferredTools: this.deferredToolCatalog,
       };
     });
   }
@@ -253,8 +268,19 @@ function decodeToolCallArguments(callId: string, toolName: string, raw: string):
   return decoded as TToolParameters;
 }
 
-function formatUnknownToolError(toolName: string, availableTools: string[]): string {
+function formatUnknownToolError(
+  toolName: string,
+  availableTools: string[],
+  withheld: boolean,
+): string {
   const available =
     availableTools.length > 0 ? availableTools.join(', ') : 'no registered tools are available';
+  if (withheld) {
+    return (
+      `Tool "${toolName}" is registered but deferred and not yet loaded, so the tool call was not executed. ` +
+      `Call ${TOOL_SEARCH_TOOL_NAME} with names: ["${toolName}"] to load it, then call it again. ` +
+      `Available tools: ${available}.`
+    );
+  }
   return `Tool "${toolName}" is not registered, so the tool call was not executed. Available tools: ${available}.`;
 }

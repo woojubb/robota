@@ -485,6 +485,23 @@ table. Documented here are the ones a caller is expected to branch on by type.
 | `FunctionTool` | class | Dependency-free JS-function tool primitive (`implements IFunctionTool`); honors `parameters.additionalProperties` validation (DATA-005 canonical). |
 | `ToolRegistry` | class | Dependency-free tool registry primitive (`implements IToolRegistry`); central registration, lookup, and schema retrieval.                          |
 
+### Tool Residency (CLI-1990)
+
+The contract these five surface is § Tool Residency and Tool Search below. The residency PROJECTION,
+the threshold POLICY and their constants stay internal to this package on purpose: only the layer
+that assembles a tool set has a reason to reach them, and only the invariant it must enforce is
+published.
+
+| Export                      | Kind     | Description                                                                                                                                       |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assertResidentToolRemains` | function | Throws when a non-empty tool set declares `deferLoading` on every entry — the "at least one tool must stay resident" invariant, at assembly time. |
+| `DEFERRED_WITHOUT_LOADER_MESSAGE` | const | The message `projectOfferedTools` throws when deferral withholds a schema and no `ToolSearch` tool is offered — a withheld tool with no loader is unreachable, refused rather than sent silently. Published so a session assembler can raise the same error at its own seam. |
+| `estimateToolSchemaTokens`  | function | What a set of tool schemas costs on every request, by the same chars-per-token heuristic the message estimate uses. Powers `/context`.            |
+| `TOOL_SEARCH_TOOL_NAME`     | const    | The registered name of the model-facing search tool (`'ToolSearch'`). Owned here because the execution layer names it in the unknown-tool remedy. |
+| `IDeferredToolCatalog`      | type     | The narrow list/load port a search tool loads through, carried on `IToolExecutionContext.deferredTools`.                                          |
+| `TToolSearchSetting`        | type     | `IAgentConfig.toolSearch` — `'auto' \| 'on' \| 'off'`.                                                                                            |
+| `TToolSearchMode`           | type     | The resolved answer — `'on' \| 'off'` — whether deferred schemas are withheld.                                                                    |
+
 NOTE: agent-core is the **single owner (SSOT)** of the concrete `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the package barrel and constructed directly by the zero-dep `tool-manager`) — they are dependency-free runtime primitives whose contracts (`IToolRegistry` / `IFunctionTool`) already live in core (DATA-005, resolves ARL-01). The `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer and construct core's `FunctionTool`; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. `FunctionTool` parameter validation honors `schema.parameters.additionalProperties` (`true` / object-form accept extra props; `false`/omitted reject) via `src/tool-registry/parameter-validator.ts`. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
 
 ### Interaction (CMD-004)
@@ -1316,6 +1333,83 @@ from the final `{ done: true, value }` iterator result).
   text after tool rounds complete.
 - **Interface note**: the structured overloads are visible on `Robota` directly; through the
   generic `IAgent` interface `run` remains `Promise<string>`-typed.
+
+## Tool Residency and Tool Search (CLI-1990)
+
+Every registered tool's full JSON schema used to be put in front of the model on every request, with
+no way for the model or the operator to load one on demand. Residency is the contract that changes
+that.
+
+**Three words, used consistently across every layer that reads `tool-registry/tool-residency.ts`:**
+
+- **resident** — a schema that does not declare `deferLoading`. Always offered. Omission is the
+  declaration, so every schema that existed before this contract is resident and unchanged.
+- **deferred** — declares `deferLoading: true`. Withheld while deferral is engaged, until loaded.
+- **offered** — what the next request actually carries: every registered tool while deferral is off,
+  the resident ones plus the loaded deferred ones once it is on.
+
+**Deferral is CLIENT-SIDE: the schema leaves the request entirely.** This is deliberately stronger
+than the vendor feature it is named after. Anthropic's `defer_loading` (and OpenAI's hosted
+equivalent) keeps a definition out of the model's context window while the request still carries
+every one of them — the API needs them server-side to run its own search. Robota withholds the
+schema from `IChatOptions.tools` itself, so both wire bytes and context tokens fall, and the same
+behaviour runs on every provider — including Gemini, which documents no comparable feature —
+because the model-visible artifact is an ordinary function tool over a catalog we own.
+
+**At least one tool must stay resident.** A configuration in which every tool declares
+`deferLoading` is refused, not repaired: `assertResidentToolRemains` throws
+`at least one tool must stay resident; all tools cannot be deferred`, and `projectOfferedTools`
+throws the same message rather than sending an empty tool array over a non-empty registry. This
+mirrors the vendor's own 400 (`At least one tool must have defer_loading=false`), and for the same
+reason: a request that withholds everything offers the model nothing to call and nothing to search
+with. Session assembly checks the invariant over the DECLARED tool set, before the framework adds
+its own resident search tool — a check that ran afterwards could never fail.
+
+**A withheld schema needs a loader.** The second half of the same invariant: when deferral is engaged
+and the projection withholds at least one schema, `projectOfferedTools` also refuses a request that
+offers no tool named `ToolSearch` (`TOOL_SEARCH_TOOL_NAME`), throwing
+`a tool schema was withheld but no ToolSearch tool is offered; register the loader or turn tool search off`
+(`DEFERRED_WITHOUT_LOADER_MESSAGE`). Session assembly satisfies it by adding the loader whenever a
+declared tool is deferred, and a subagent session carries the parent's loader with any deferred tool
+that survives its allow/deny lists. An SDK-direct configuration that defers tools must register the
+loader itself: a tool the model can neither see nor load is unreachable, and the policy refuses that
+rather than withholding silently (No Fallback Policy).
+
+**The tool list is read PER ROUND.** `IResolvedProviderInfo.readAvailableTools()` replaced the
+per-run `availableTools` snapshot. `resolveProviderAndTools` binds a getter over the registry rather
+than copying it, and `buildRoundChatOptions` calls it as each round assembles. A tool loaded by a
+round-N tool call is therefore on the wire in round N+1 — the one property a search tool needs, and
+the property the snapshot made impossible.
+
+**Deferral engages by THRESHOLD, never unconditionally.** `resolveToolSearchMode(config, model,
+tools)` answers `'on'` only when the deferrable tools number more than
+`TOOL_SEARCH_DEFERRABLE_COUNT_THRESHOLD` (15) or their estimated schema tokens
+(`estimateToolSchemaTokens`) reach `TOOL_SEARCH_CONTEXT_WINDOW_SHARE` (10 %) of the model's context
+window. Only _deferrable_ schemas are measured, because deferral cannot save what is resident.
+`IAgentConfig.toolSearch` is `'auto' | 'on' | 'off'`, defaulting to `'auto'`; an explicit setting
+wins over both bands. At the ten resident built-ins of today's tree the answer is `'off'`, so
+nothing regresses, and a tool set that later crosses the band switches itself on with no flag day.
+The policy is evaluated on every projection and never cached — its inputs are the config, the model
+and the registered set, each of which can change between rounds.
+
+**Loading.** `IDeferredToolCatalog` (`listDeferredTools`, `loadDeferredTools`) is the narrow port
+`IToolExecutionContext.deferredTools` carries into every tool call the loop issues, so a search tool
+can list and load without ever holding the tool manager. A load is session-lived. An unknown name
+throws naming the entry, and every name is resolved before the first is loaded, so a partial load is
+impossible; a query matching nothing is a normal empty result, not an error.
+
+**Two paths besides the search tool reach the same state.** A `toolChoice` that forces a deferred
+tool loads it before `assertToolChoiceValid` runs, so forcing fetches rather than throwing. And a
+model calling a deferred tool it has not loaded gets the unknown-tool error with a remedy naming
+`TOOL_SEARCH_TOOL_NAME` — recoverable within the two rounds before
+`MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS` force-summarises the run.
+
+**Deferral never widens authority.** The permission gate decides by name and never consults the
+registry, so a rule naming a tool has the same effect before and after it is loaded.
+
+**`'tool_search'` on `TProviderModelCapability` is declaration-only in v1.** It records that a vendor
+documents a server-side tool search; no vendor block is emitted regardless of the flag. It exists so
+a later offload can be gated on the capability table rather than on a provider name.
 
 ## Disposal Contract (CORE-013)
 

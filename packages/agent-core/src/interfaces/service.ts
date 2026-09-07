@@ -9,6 +9,7 @@ import type { TUniversalMessage } from './messages';
 import type { IToolCall } from './messages';
 import type { IToolSchema, IAIProvider, ITokenUsage } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
+import type { IDeferredToolCatalog } from './tool-search';
 
 /**
  * Reusable type definitions for service layer
@@ -53,6 +54,8 @@ export interface IToolExecutionRequest {
   baseEventService?: IEventService;
   /** Injected "ask the user" port propagated into the tool's execution context (CMD-005). */
   ask?: IUserInteraction['ask'];
+  /** The deferred-tool catalog propagated into the tool's execution context (CLI-1990). */
+  deferredTools?: IDeferredToolCatalog;
 }
 
 /**

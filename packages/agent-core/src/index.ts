@@ -155,8 +155,13 @@ export {
   type IEventEmitterHierarchicalEventData,
 } from './plugins/event-emitter-plugin';
 
-// Tool registry primitives (SSOT — dependency-free runtime primitives, DATA-005)
-export { FunctionTool, ToolRegistry } from './tool-registry';
+// Tool registry primitives (SSOT, DATA-005) + CLI-1990's assembly-enforced residency invariant.
+export {
+  FunctionTool,
+  ToolRegistry,
+  assertResidentToolRemains,
+  DEFERRED_WITHOUT_LOADER_MESSAGE,
+} from './tool-registry';
 
 // Core agent
 export { Robota } from './core/robota';
@@ -227,8 +232,7 @@ export {
   composeEventName,
 } from './event-service/event-service';
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
-export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
-export type { TUserEvent } from './event-service/user-events';
+export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service/user-events';
 export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
 export type { TSpanEvent, ISpanCompletionEventData } from './event-service/span-events';
 export { generateSpanId } from './event-service/event-service';
@@ -296,6 +300,7 @@ export {
   DEFAULT_MAX_OUTPUT,
   estimateContextTokensFromMessages,
   estimateSerializedContextTokens,
+  estimateToolSchemaTokens,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,

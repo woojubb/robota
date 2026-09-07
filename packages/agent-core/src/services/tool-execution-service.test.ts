@@ -42,6 +42,11 @@ function createMockToolManager(overrides: Partial<IToolManager> = {}): IToolMana
     getTool: vi.fn(),
     getToolSchema: vi.fn(),
     getTools: vi.fn().mockReturnValue([]),
+    // CLI-1990: with nothing deferred the offered set IS the registered set.
+    getOfferedTools: vi.fn().mockReturnValue([]),
+    isToolOffered: vi.fn().mockReturnValue(true),
+    listDeferredTools: vi.fn().mockReturnValue([]),
+    loadDeferredTools: vi.fn().mockReturnValue([]),
     executeTool: vi.fn().mockResolvedValue('tool result'),
     hasTool: vi.fn().mockReturnValue(true),
     setAllowedTools: vi.fn(),
@@ -164,6 +169,7 @@ describe('ToolExecutionService', () => {
     it('should not execute unknown tools and should explain why execution was skipped', async () => {
       const tools = createMockToolManager({
         getTools: vi.fn().mockReturnValue([{ name: 'ExecuteCommand' }, { name: 'Read' }]),
+        getOfferedTools: vi.fn().mockReturnValue([{ name: 'ExecuteCommand' }, { name: 'Read' }]),
         hasTool: vi.fn().mockReturnValue(false),
         executeTool: vi.fn(),
       });

@@ -91,6 +91,10 @@
     "count": 1,
     "hashes": ["ce963a6db86a"]
   },
+  "packages/agent-tools/src/builtins/tool-search-tool.ts": {
+    "count": 5,
+    "hashes": ["6f1ea93415e6", "3086f8a85c11", "0ea9cedabb56", "ccedf99438cf", "c6cd17e407fa"]
+  },
   "packages/agent-tools/src/builtins/web-fetch-tool.ts": {
     "count": 3,
     "hashes": ["ea125dcccbc8", "cd49392dafe1", "9f96c805da23"]

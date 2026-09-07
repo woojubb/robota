@@ -142,3 +142,55 @@ describe('CORE-049 — this package declares the kind of every argument it scope
     ).not.toBe('deny');
   });
 });
+
+/**
+ * CLI-1990 TC-17 — `ToolSearch` has a registered profile.
+ *
+ * This closes the gap the spec's § Decision verdict (g) names. A rule may legitimately name a tool
+ * that is not loaded — the gate decides by NAME and never consults the registry — but an
+ * argument-scoped rule on a tool with no registered profile falls to `'unevaluable'` and prompts,
+ * which in plan mode is a refusal. Classifying `ToolSearch` is what keeps a rule naming it
+ * answerable, and profiles register at module import, so a deferred BUILT-IN keeps its own profile
+ * after deferral for exactly the same reason.
+ */
+describe('CLI-1990 TC-17 — the ToolSearch permission profile', () => {
+  it('is registered with a riskClass, so a rule naming it is evaluable', () => {
+    expect(AGENT_TOOL_PERMISSION_PROFILES['ToolSearch']?.riskClass).toBe('inspect');
+  });
+
+  it('is inspection: loading a schema is not calling the tool it describes', () => {
+    // The loaded tool is gated on its own name when the model actually calls it, exactly as it
+    // would be were it never deferred — so deferral never widens authority, and never narrows it
+    // into a plan-mode refusal to discover what may be read.
+    expect(evaluatePermission('ToolSearch', {}, 'plan')).toBe('auto');
+    expect(evaluatePermission('ToolSearch', {}, 'default')).toBe('auto');
+  });
+
+  it('narrows by query, so an argument-scoped rule is answered rather than prompted', () => {
+    expect(AGENT_TOOL_PERMISSION_PROFILES['ToolSearch']?.argument).toEqual({
+      key: 'query',
+      kind: 'text',
+    });
+    const deny = ['ToolSearch(*secret*)'];
+    expect(evaluatePermission('ToolSearch', { query: 'a secret tool' }, 'default', { deny })).toBe(
+      'deny',
+    );
+    expect(evaluatePermission('ToolSearch', { query: 'postgres' }, 'default', { deny })).not.toBe(
+      'deny',
+    );
+  });
+
+  it('a bare-name rule matches regardless of load state — the gate never reads the registry', () => {
+    const deny = toolNamesToPatterns(['ToolSearch']);
+    expect(evaluatePermission('ToolSearch', { query: 'anything' }, 'default', { deny })).toBe(
+      'deny',
+    );
+  });
+
+  it('a rule may name a tool that is deferred and not loaded', () => {
+    // The property verdict (g) asserts: `postgres_query` is registered nowhere in this package and
+    // may not be loaded at all, and the rule still decides.
+    const deny = toolNamesToPatterns(['postgres_query']);
+    expect(evaluatePermission('postgres_query', {}, 'default', { deny })).toBe('deny');
+  });
+});

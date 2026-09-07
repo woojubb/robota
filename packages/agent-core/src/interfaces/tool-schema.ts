@@ -90,4 +90,15 @@ export interface IToolSchema {
    * to regain `required`, which `IParameterSchema` now carries at every level.
    */
   outputSchema?: IParameterSchema;
+  /**
+   * CLI-1990: withheld from the model's tool list until loaded; omission means resident.
+   *
+   * A CLIENT-SIDE marker — the schema leaves the request entirely, not merely the context window,
+   * which is what the vendor's `defer_loading` does. Deferral engages only when the tool-search
+   * policy says so (`resolveToolSearchMode`); until then a deferred tool is offered like any other,
+   * so declaring it costs nothing at today's tool counts. Loaded by the search tool (by query or by
+   * name) or by a `toolChoice` that forces the tool, and it stays loaded for the session. Provider
+   * adapters never emit it: it is not part of any vendor wire format.
+   */
+  deferLoading?: boolean;
 }

@@ -26,7 +26,10 @@ const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
 
+import { DEFERRED_WITHOUT_LOADER_MESSAGE, TOOL_SEARCH_TOOL_NAME } from '@robota-sdk/agent-core';
+
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { DEFERRED_TOOL_ROSTER_HEADER } from '../assembly/deferred-tool-roster.js';
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -682,5 +685,69 @@ describe('createSubagentSession', () => {
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
     expect(passedOptions['maxTurns']).toBeUndefined();
+  });
+});
+
+describe('CLI-1990 review — the residency contract crosses into the child', () => {
+  function makeDeferredTool(name: string): IToolWithEventService {
+    const tool = makeTool(name);
+    (tool.schema as { deferLoading?: boolean }).deferLoading = true;
+    return tool;
+  }
+
+  beforeEach(() => {
+    mockSessionConstructor.mockClear();
+  });
+
+  it('carries the parent loader with a deferred tool the allowlist keeps, and tells the child what is withheld', () => {
+    const parentTools = [makeTool('Read'), makeDeferredTool('Grep'), makeTool(TOOL_SEARCH_TOOL_NAME)];
+    createSubagentSession({
+      agentDefinition: makeAgentDef({ tools: ['Read', 'Grep'] }),
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools,
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+    const options = mockSessionConstructor.mock.calls[0]?.[0] as {
+      tools: IToolWithEventService[];
+      systemMessage: string;
+    };
+    expect(options.tools.map((tool) => tool.getName())).toEqual(['Read', 'Grep', TOOL_SEARCH_TOOL_NAME]);
+    expect(options.systemMessage).toContain(DEFERRED_TOOL_ROSTER_HEADER);
+    expect(options.systemMessage).toContain('Grep — Mock Grep tool');
+  });
+
+  it('refuses a child whose deferred tool has no loader anywhere in the parent', () => {
+    expect(() =>
+      createSubagentSession({
+        agentDefinition: makeAgentDef({ tools: ['Read', 'Grep'] }),
+        parentConfig: makeParentConfig(),
+        parentContext: makeParentContext(),
+        parentTools: [makeTool('Read'), makeDeferredTool('Grep')],
+        provider: mockProvider,
+        terminal: makeTerminal(),
+        cwd: SUBAGENT_ROOT,
+      }),
+    ).toThrow(DEFERRED_WITHOUT_LOADER_MESSAGE);
+  });
+
+  it('leaves a child with no deferred tool exactly as before — no roster, no loader added', () => {
+    createSubagentSession({
+      agentDefinition: makeAgentDef({ tools: ['Read'] }),
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read'), makeDeferredTool('Grep'), makeTool(TOOL_SEARCH_TOOL_NAME)],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+    const options = mockSessionConstructor.mock.calls[0]?.[0] as {
+      tools: IToolWithEventService[];
+      systemMessage: string;
+    };
+    expect(options.tools.map((tool) => tool.getName())).toEqual(['Read']);
+    expect(options.systemMessage).not.toContain(DEFERRED_TOOL_ROSTER_HEADER);
   });
 });
