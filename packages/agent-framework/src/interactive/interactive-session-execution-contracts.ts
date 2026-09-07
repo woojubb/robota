@@ -41,10 +41,13 @@ export interface IExecutionControllerCallbacks {
   /**
    * SELFHOST-008 P3: optional per-turn recall. When set (surface supplied a `recallMemory` policy), it is
    * called at turn START with the turn's input and returns a rendered `<recalled-memory>` block (or '') to
-   * inject EPHEMERALLY into that turn's model call (never persisted). Absent ⇒ recall OFF (startup-only
-   * injection). The controller guards this call — a recall failure skips injection, never breaks the turn.
+   * inject EPHEMERALLY into that turn's model call (never persisted), plus the `memory_retrieved` events the
+   * recall produced (MEM-2055). Absent ⇒ recall OFF (startup-only injection). The controller guards the call
+   * (a recall failure skips injection, never breaks the turn) and — mirroring `captureMemory` above — records
+   * the returned events itself in the `finally`, AFTER the turn's own messages are in history, so a recall
+   * notice never renders ahead of the user message that triggered it.
    */
-  recallMemory?: (query: string) => Promise<string>;
+  recallMemory?: (query: string) => Promise<{ context: string; events: IMemoryEvent[] }>;
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */

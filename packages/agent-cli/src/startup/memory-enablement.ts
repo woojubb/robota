@@ -125,7 +125,6 @@ export function buildMemorySessionOptions(
     recallMemory: { budget },
     automaticMemory: {
       policy: resolved.autoSave ? 'auto_save' : 'approval_required',
-      retrieval: budget,
     },
   };
 }

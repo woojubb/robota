@@ -12,10 +12,6 @@ export type TMemoryDecisionAction = 'skip' | 'queue' | 'save';
 
 export interface IAutomaticMemoryConfig {
   policy: TMemoryPolicyMode;
-  retrieval: {
-    maxTopics: number;
-    maxTopicChars: number;
-  };
 }
 
 export interface IMemoryCandidate {
