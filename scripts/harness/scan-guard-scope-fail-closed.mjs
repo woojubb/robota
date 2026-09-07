@@ -132,6 +132,15 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the spec-document corpus IS the population this guard governs — over a root without it there is no GATE-APPROVAL entry to judge, and a silent empty pass would restate the defect the guard exists to end: a count nobody can check',
   },
   {
+    // Issue #2660. Resolution is relative to the workspace package set. Over a root without
+    // `packages`, every filter token is unresolvable, the scan's one reported condition can never
+    // hold, and the empty result would certify the corpus rather than admit it read nothing.
+    file: 'scan-filter-script-resolves.mjs',
+    finder: 'findFilterScriptFindings',
+    tree: 'packages',
+    why: 'the workspace package set is what a filter is resolved against; without it no filter can be judged and an empty pass would certify every command in the corpus',
+  },
+  {
     // Issue #2269. The evidence-log tree is the population; a bare root has no entries to count and
     // must not be mistaken for a clean attribution result.
     file: 'scan-gate-verdict-attribution.mjs',

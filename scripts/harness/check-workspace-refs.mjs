@@ -86,27 +86,40 @@ function listHelperScripts(root) {
  * doc/package guards (e.g. check-ghost-package-refs) reuse the exact same name
  * set rather than re-deriving their own list.
  *
- * Nesting-aware for `packages/` (via workspace-packages.mjs) so nested-group
- * members like `packages/dag-nodes/<name>` are included — the depth-1
- * `listPackageJsonFiles` script corpus alone would miss them. This can only
- * grow the resolved-name set, so it never adds check-workspace-refs findings.
+ * The walk itself is `readWorkspaceManifests` below; this is its name projection. It is
+ * nesting-aware for `packages/` (via workspace-packages.mjs) so nested-group members like
+ * `packages/dag-nodes/<name>` are included — the depth-1 `listPackageJsonFiles` script corpus alone
+ * would miss them. This can only grow the resolved-name set, so it never adds
+ * check-workspace-refs findings.
  */
 export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
-  const names = new Set();
-  const addName = (pkgPath) => {
+  return new Set(readWorkspaceManifests(root).keys());
+}
+
+/**
+ * The same walk, keyed by package `name` and carrying the whole manifest.
+ *
+ * `listWorkspacePackageNames` is now a projection of this, rather than a second traversal, because
+ * HARNESS-2660's guard needs each package's `scripts` block and a second walk would be a second
+ * answer to "which packages are in this workspace" — the exact fork this module's docstring says it
+ * exists to prevent.
+ */
+export function readWorkspaceManifests(root = WORKSPACE_ROOT) {
+  const manifests = new Map();
+  const addManifest = (pkgPath) => {
     if (!existsSync(pkgPath)) return;
-    const name = readJson(pkgPath).name;
-    if (typeof name === 'string') names.add(name);
+    const manifest = readJson(pkgPath);
+    if (typeof manifest.name === 'string') manifests.set(manifest.name, manifest);
   };
-  addName(path.join(root, 'package.json'));
-  for (const dir of listManifestPackageDirs(root)) addName(path.join(dir, 'package.json'));
+  addManifest(path.join(root, 'package.json'));
+  for (const dir of listManifestPackageDirs(root)) addManifest(path.join(dir, 'package.json'));
   const appsDir = path.join(root, 'apps');
   if (existsSync(appsDir)) {
     for (const entry of readdirSync(appsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) addName(path.join(appsDir, entry.name, 'package.json'));
+      if (entry.isDirectory()) addManifest(path.join(appsDir, entry.name, 'package.json'));
     }
   }
-  return names;
+  return manifests;
 }
 
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
