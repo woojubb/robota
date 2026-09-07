@@ -579,6 +579,14 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-workspace-refs.mjs'],
     examines: [...WORKSPACE, SCRIPTS],
   },
+  // Issue #2660. Both filter guards ask only whether the package NAME resolves, so a `--filter`
+  // naming a real package that does not declare the script after it passed them both while running
+  // nothing. The class is a package split moving a file away from the filter its comment names.
+  {
+    name: 'filter-script-resolves',
+    command: ['node', 'scripts/harness/scan-filter-script-resolves.mjs'],
+    examines: [MARKDOWN, ...WORKSPACE, SCRIPTS],
+  },
   {
     name: 'ghost-package-refs',
     command: ['node', 'scripts/harness/check-ghost-package-refs.mjs'],

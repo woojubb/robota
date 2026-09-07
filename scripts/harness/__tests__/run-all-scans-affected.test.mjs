@@ -271,9 +271,14 @@ describe('the runner on the live registry (TC-07)', () => {
     };
   }
 
-  it('a one-file change under scripts/harness/ selects fewer than 40 scans and prints the excluded count', () => {
+  // The budget moved 40 → 41 when `filter-script-resolves` landed (issue #2660). It examines
+  // `scripts/**` because the defect it guards lived in a source COMMENT, so a comment-only change to
+  // a harness script is exactly the edit it must re-run for — narrowing its `examines` to hold the
+  // old number would have bought the budget with a false green. The property being pinned is that
+  // this path selects a strict SUBSET and says what it excluded, not the round number itself.
+  it('a one-file change under scripts/harness/ selects fewer than 41 scans and prints the excluded count', () => {
     const run = list(['--changed', 'scripts/harness/x.mjs']);
-    expect(run.selected).toBeLessThan(40);
+    expect(run.selected).toBeLessThan(41);
     expect(run.selected + run.excluded).toBe(SCAN_COMMANDS.length);
     expect(run.excluded).toBeGreaterThan(0);
     expect(run.stdout).toMatch(/excluded \(/);

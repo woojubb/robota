@@ -81,8 +81,16 @@ export const GHOST_PACKAGE_ALLOWLIST = new Set([
  */
 export const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
 
-/** Doc trees that are immutable historical records — a defunct name there is history, not drift. */
-function isExcludedDoc(rel) {
+/**
+ * Doc trees that are immutable historical records — a defunct name there is history, not drift.
+ *
+ * EXPORTED because a second guard now asks the same question (HARNESS-2660,
+ * `scan-filter-script-resolves`): a `--filter` naming a script the package no longer declares is
+ * the same shape of claim as a name that no longer resolves, and a record that was CORRECT when it
+ * was written must not be rewritten to satisfy either. One predicate, one owner — the alternative
+ * was a second copy of this list, which drifts the first time a tree is added to only one of them.
+ */
+export function isImmutableHistoricalRecord(rel) {
   if (path.basename(rel) === 'CHANGELOG.md') return true; // append-only release history (changesets)
   const p = `/${rel.split(path.sep).join('/')}`;
   if (/\/\.changeset\//.test(p)) return true; // pending changelog fragments (same class as CHANGELOG.md; a removal changeset must name the removed package)
@@ -170,7 +178,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
 
   for (const docPath of listMarkdownFiles(root)) {
     const rel = path.relative(root, docPath);
-    if (isExcludedDoc(rel)) continue;
+    if (isImmutableHistoricalRecord(rel)) continue;
     const isSpec = `${rel.split(path.sep).join('/')}`.endsWith('docs/SPEC.md');
 
     let inFence = false;
