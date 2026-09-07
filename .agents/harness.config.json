@@ -462,8 +462,6 @@
   "fileSizeAdditionalScope": {
     "$comment": "OBSERVABILITY-002 adopts every top-level harness production module into the 300-line anti-monolith ratchet. Existing oversized debt is frozen in file-size-baseline.json; every new module is strict and no changed helper can fall outside the mechanism.",
     "exactFiles": [
-      "scripts/harness/work-run.mjs",
-      "scripts/harness/scan-work-run-measurement.mjs",
       "scripts/harness/post-findings-authorization.mjs",
       "scripts/harness/verification-receipt.mjs",
       "scripts/harness/scan-file-size.mjs",

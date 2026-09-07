@@ -22,7 +22,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createPrePushSteps,
-  createWorkRunMeasurementInput,
   prerequisitesFor,
   runPostVerdictGuard,
   runPrePushGate,
@@ -30,8 +29,6 @@ import {
 import { createPrePushCommandRunner } from '../pre-push-command-runner.mjs';
 import { runPrePushVerification } from '../pre-push-verification-execution.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
-
-const WORK_RUN_PR_OBSERVATION_ENV = 'HARNESS_WORK_RUN_PR_OBSERVATION';
 
 /** Steps that record their own names instead of touching git, pnpm or the filesystem. */
 function recordingSteps(decision) {
@@ -50,8 +47,6 @@ function recordingSteps(decision) {
       assertLockfileConsistency: record('lockfile-consistency'),
       reportBaseResolution: record('report-base-resolution'),
       decideVerification: record('decide-verification', decision),
-      validateWorkRunMeasurement: record('validate-work-run-measurement', { ok: true }),
-      reportMeasurementAdvisory: record('report-measurement-advisory'),
       findReusableReceipt: record('find-reusable-receipt', { reusable: false }),
       reportReceiptReused: record('report-receipt-reused'),
       reportSkipped: record('report-skipped'),
@@ -75,7 +70,6 @@ describe('runPrePushGate step order', () => {
       'lockfile-consistency',
       'report-base-resolution',
       'decide-verification',
-      'validate-work-run-measurement',
       'find-reusable-receipt',
       'tree-prerequisites',
       'run-verification',
@@ -143,7 +137,6 @@ describe('runPrePushGate step order', () => {
       'lockfile-consistency',
       'report-base-resolution',
       'decide-verification',
-      'validate-work-run-measurement',
       'find-reusable-receipt',
       'report-receipt-reused',
     ]);
@@ -161,150 +154,6 @@ describe('runPrePushGate step order', () => {
     };
     runPrePushGate(steps);
     expect(order.filter((step) => step === 'report-base-resolution')).toHaveLength(1);
-  });
-
-  it('reports a failed measurement as advisory and still proceeds to verification-receipt reuse', () => {
-    // Advisory, not blocking (process-overhead policy, 2026-09): the receipt/trailer chain
-    // measures the work-run's own claim/reopen/ready lifecycle, not the pushed code, and CI's own
-    // scans-full.yml already excludes this same scan from the blocking integration suite.
-    const { order, steps } = recordingSteps(VERIFY);
-    steps.validateWorkRunMeasurement = () => {
-      order.push('validate-work-run-measurement');
-      return { ok: false, reason: 'missing-measurement' };
-    };
-    expect(() => runPrePushGate(steps)).not.toThrow();
-    expect(order).toEqual([
-      'prune-worktrees',
-      'clean-working-tree',
-      'lockfile-consistency',
-      'report-base-resolution',
-      'decide-verification',
-      'validate-work-run-measurement',
-      'report-measurement-advisory',
-      'find-reusable-receipt',
-      'tree-prerequisites',
-      'run-verification',
-    ]);
-  });
-
-  it('never reports the advisory on a passing measurement', () => {
-    const { order, steps } = recordingSteps(VERIFY);
-    runPrePushGate(steps);
-    expect(order).not.toContain('report-measurement-advisory');
-  });
-
-  it('reports a thrown measurement error as advisory too, instead of crashing the push', () => {
-    const { order, steps } = recordingSteps(VERIFY);
-    steps.validateWorkRunMeasurement = () => {
-      order.push('validate-work-run-measurement');
-      throw new Error('work-run-measurement: invalid-closure-commit');
-    };
-    steps.reportMeasurementAdvisory = (measurement) => {
-      order.push(`report-measurement-advisory:${measurement.reason}`);
-    };
-    expect(() => runPrePushGate(steps)).not.toThrow();
-    expect(order).toContain(
-      'report-measurement-advisory:work-run-measurement: invalid-closure-commit',
-    );
-    expect(order).toContain('find-reusable-receipt');
-  });
-});
-
-describe('pre-push work-run subject', () => {
-  it('passes already-resolved push identity into the shared range validator', () => {
-    expect(
-      createWorkRunMeasurementInput({
-        root: '/repo',
-        baseRef: 'origin/develop',
-        pushSubject: {
-          localObjectId: 'a'.repeat(40),
-          localRef: 'refs/heads/codex/work',
-          branch: 'codex/work',
-        },
-      }),
-    ).toEqual({
-      root: '/repo',
-      baseRef: 'origin/develop',
-      subjectRef: 'a'.repeat(40),
-      subjectBranch: 'codex/work',
-      prObservation: 'pre-push',
-    });
-  });
-
-  it('refuses a branch label that does not match the resolved local ref', () => {
-    expect(() =>
-      createWorkRunMeasurementInput({
-        root: '/repo',
-        baseRef: 'origin/develop',
-        pushSubject: {
-          localObjectId: 'a'.repeat(40),
-          localRef: 'refs/heads/codex/work',
-          branch: 'codex/other',
-        },
-      }),
-    ).toThrow(/local ref.*branch/i);
-  });
-});
-
-describe('nested scans preserve the pre-push observation (INFRA-148)', () => {
-  const runtime = {
-    prePushMode: 'fast',
-    baseRef: 'origin/develop',
-    baseArgs: ['--base', 'origin/develop'],
-    scopeExpansionArgs: [],
-    changeClassification: { harness: true, product: false },
-    basePlan: { classificationBaseRef: 'origin/develop' },
-  };
-
-  it('adds the observation overlay only to the nested harness:scan command', () => {
-    const calls = [];
-    let clock = 0;
-
-    runPrePushVerification(runtime, {
-      createMirror: () => [
-        ['pnpm', ['harness:test:contracts']],
-        ['pnpm', ['harness:scan', '--', '--affected']],
-      ],
-      now: () => (clock += 1_000),
-      run: (...args) => calls.push(args),
-      write: () => {},
-    });
-
-    const nestedScan = calls.find(([, args]) => args[0] === 'harness:scan');
-    expect(nestedScan).toEqual([
-      'pnpm',
-      ['harness:scan', '--', '--affected'],
-      { env: { [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push' } },
-    ]);
-    expect(
-      calls.filter(([, args]) => args[0] !== 'harness:scan').every((call) => call[2] === undefined),
-    ).toBe(true);
-  });
-
-  it('merges the overlay without discarding inherited child-process environment entries', () => {
-    const spawn = vi.fn(() => ({ status: 0 }));
-    const run = createPrePushCommandRunner({
-      root: '/tmp/repository',
-      spawn,
-      inheritedEnvironment: { PATH: '/bin', KEEP_ME: 'yes' },
-      write: () => {},
-    });
-
-    run('pnpm', ['harness:scan'], {
-      env: { [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push' },
-    });
-
-    expect(spawn).toHaveBeenCalledWith(
-      'pnpm',
-      ['harness:scan'],
-      expect.objectContaining({
-        env: {
-          PATH: '/bin',
-          KEEP_ME: 'yes',
-          [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push',
-        },
-      }),
-    );
   });
 });
 
@@ -429,57 +278,5 @@ describe('pre-push command runner characterization (INFRA-148)', () => {
     run('pnpm', ['harness:scan']);
 
     expect(exit).toHaveBeenCalledWith(7);
-  });
-});
-
-describe('pre-push production runner composition (INFRA-148)', () => {
-  it('carries the nested scan observation through createPrePushSteps into spawn', () => {
-    const runtime = {
-      prePushMode: 'fast',
-      baseRef: 'origin/develop',
-      baseArgs: ['--base', 'origin/develop'],
-      scopeExpansionArgs: [],
-      changeClassification: { harness: true, product: false },
-      basePlan: { classificationBaseRef: 'origin/develop' },
-      pushSubject: {
-        localObjectId: 'a'.repeat(40),
-        localRef: 'refs/heads/codex/work',
-        branch: 'codex/work',
-      },
-    };
-    const spawn = vi.fn(() => ({ status: 0 }));
-    const createCommandRunner = vi.fn(createPrePushCommandRunner);
-    const steps = createPrePushSteps({
-      runtime,
-      createCommandRunner,
-      commandRunnerOptions: {
-        spawn,
-        inheritedEnvironment: { PATH: '/bin', KEEP_ME: 'yes' },
-        write: () => {},
-      },
-    });
-    const productionCompositionWasUsed = createCommandRunner.mock.calls.length === 1;
-
-    if (productionCompositionWasUsed) {
-      const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-      try {
-        steps.runVerification();
-      } finally {
-        stdout.mockRestore();
-      }
-    }
-
-    expect(productionCompositionWasUsed).toBe(true);
-    const nestedScan = spawn.mock.calls.find(([, args]) => args[0] === 'harness:scan');
-    expect(nestedScan?.[2]?.env).toEqual({
-      PATH: '/bin',
-      KEEP_ME: 'yes',
-      [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push',
-    });
-    expect(
-      spawn.mock.calls
-        .filter(([, args]) => args[0] !== 'harness:scan')
-        .every(([, , options]) => options.env === undefined),
-    ).toBe(true);
   });
 });

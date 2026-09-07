@@ -84,7 +84,7 @@ describe('scans-full only auto-runs for verification ownership changes', () => {
     const live = executableLines(SCANS_FULL);
     expect(live).toMatch(/^  workflow_dispatch:$/m);
     expect(live).toContain(
-      'pnpm harness:scan -- --context integration --skip dist --skip build-contracts --skip work-run-measurement',
+      'pnpm harness:scan -- --context integration --skip dist --skip build-contracts',
     );
     expect(live).toMatch(
       /^      - name: File or update the red-suite issue\n        if: failure\(\)$/m,

@@ -112,7 +112,7 @@ describe('PR-free develop required-context benchmark', () => {
     const scans = jobBlock(ci, 'scans');
     expect(scans).toContain("BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}");
     expect(scans).toContain(
-      'scan_args+=(--skip lane-declaration --skip user-execution-plan-order --skip work-run-measurement)',
+      'scan_args+=(--skip lane-declaration --skip user-execution-plan-order)',
     );
   });
 });

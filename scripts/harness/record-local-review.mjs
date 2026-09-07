@@ -350,6 +350,9 @@ export function parseArgs(argv) {
     unknown: [],
   };
   for (let i = 0; i < argv.length; i++) {
+    // `pnpm run <script> -- <args>` forwards the separator itself as the first arg. It carries no
+    // data of its own — unlike a real flag, dropping it silently loses nothing the caller wrote.
+    if (argv[i] === '--') continue;
     if (argv[i] === '--show') args.show = true;
     else if (argv[i] === '--findings') args.findings = Number(argv[++i]);
     else if (argv[i] === '--notes') args.notes = String(argv[++i] ?? '');

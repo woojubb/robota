@@ -95,5 +95,4 @@ knowing any history, and it must hold for a repository that shares none of this 
 | [finding-depth.md](finding-depth.md)                   | A review finding is classified by DEPTH before it is fixed (LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED); a foundational one is filed, not patched |
 | [helper-limits.md](helper-limits.md)                   | A helper's stated limits are re-judged at every consumer whose consequences differ                                                                   |
 | [measurement-provenance.md](measurement-provenance.md) | A size a check reports about itself is produced by the traversal that did the work, and is tested as the output it is                                |
-| [work-run-measurement.md](work-run-measurement.md)     | Topic-work lifecycle, Git/PR identity, durable receipt populations, and pre-push/CI enforcement                                                      |
 | [learning-loop.md](learning-loop.md)                   | Lesson capture, contract-before-automation, and mechanical enforcement preference                                                                    |

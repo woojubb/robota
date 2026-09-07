@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
-set -e
-
-ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-git symbolic-ref --quiet HEAD >/dev/null 2>&1 || exit 0
-exec node "$ROOT/scripts/harness/work-run.mjs" claim
+# work-run measurement (which drove this hook) was removed 2026-09-08 (§7, harness overhead
+# report). This file must exist and stay executable: .husky/_/post-checkout fails closed
+# when its tracked target is missing, by design, so it cannot be deleted outright.
+exit 0

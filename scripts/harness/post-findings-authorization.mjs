@@ -5,7 +5,7 @@ import {
   fetchVerifiedGitHubAuthorizationComments,
 } from './post-findings-github-comment-verification.mjs';
 import { isPostFindingsMaintainer } from './post-findings-approver-policy.mjs';
-import { createWorkRunVerificationRuntime } from './work-run-verification-runtime.mjs';
+import { createVerificationRuntime } from './verification-budget-runtime.mjs';
 
 const REQUIRED = Object.freeze([
   'PR',
@@ -131,7 +131,7 @@ export function fetchPostFindingsAuthorization({
   commentId,
   authorizedAt = null,
   runGh,
-  runtime = createWorkRunVerificationRuntime(),
+  runtime = createVerificationRuntime(),
 }) {
   const comment = fetchVerifiedGitHubAuthorizationComment({
     repository,
@@ -148,7 +148,7 @@ export function fetchPostFindingsAuthorizations({
   prNumber,
   requests,
   runGh,
-  runtime = createWorkRunVerificationRuntime(),
+  runtime = createVerificationRuntime(),
 }) {
   const comments = fetchVerifiedGitHubAuthorizationComments({
     repository,

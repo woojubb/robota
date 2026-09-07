@@ -9,7 +9,7 @@ import {
   parsePostFindingsAuthorization,
   selectPostFindingsAuthorization,
 } from '../post-findings-authorization.mjs';
-import { createWorkRunVerificationRuntime } from '../work-run-verification-runtime.mjs';
+import { createVerificationRuntime } from '../verification-budget-runtime.mjs';
 
 const head = 'a'.repeat(40);
 const body = `POST_FINDINGS_ACTION_REQUEST
@@ -296,9 +296,9 @@ describe('post-findings authorization', () => {
         repository: 'woojubb/robota',
         commentId: 7,
         runGh,
-        runtime: createWorkRunVerificationRuntime({ queryBudget: 0 }),
+        runtime: createVerificationRuntime({ queryBudget: 0 }),
       }),
-    ).toThrow('work-run verification query budget exhausted');
+    ).toThrow('verification query budget exhausted');
     expect(runGh).not.toHaveBeenCalled();
   });
 
