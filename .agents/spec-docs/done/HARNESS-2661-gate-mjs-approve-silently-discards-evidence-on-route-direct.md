@@ -133,19 +133,22 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
+| TC-ID | Test Type | Tool / Approach                             | Notes                                                                                                                   |
+| ----- | --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | TC-01 | Unit      | `pnpm exec vitest run` on `gate.test.mjs`   | `gate.test.mjs` > `approve` + `a flag the named subcommand does not use is refused, never ignored` — RED before the fix |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` | SKIPPED — see the Evidence Log entry; residual finding is pre-existing on the base |
-| TC-03 | Unit      | `pnpm exec vitest run gate.test.mjs`        | `gate.test.mjs` — all 100 tests, not only the new cases |
-| TC-04 | Unit      | `gate.test.mjs` — DIRECT + `--evidence`     | `gate.test.mjs` > `DIRECT refuses --evidence, names the alternatives, and writes nothing` |
-| TC-05 | Unit      | `gate.test.mjs` — `judge --rule`            | `gate.test.mjs` > `judge --rule is refused — `options.rule` is read by advance alone` |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` | SKIPPED — see the Evidence Log entry; residual finding is pre-existing on the base                                      |
+| TC-03 | Unit      | `pnpm exec vitest run gate.test.mjs`        | `gate.test.mjs` — all 100 tests, not only the new cases                                                                 |
+| TC-04 | Unit      | `gate.test.mjs` — DIRECT + `--evidence`     | `gate.test.mjs` > `DIRECT refuses --evidence, names the alternatives, and writes nothing`                               |
+| TC-05 | Unit      | `gate.test.mjs` — `judge --rule`            | `gate.test.mjs` > `judge --rule is refused — `options.rule` is read by advance alone`                                   |
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-05).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** This change is confined to the repository's internal harness gate command line
+interface, which ships in no published package and is reachable from no Robota product surface —
+not the SDK, the agent runtime, any transport, the installed command line tool, or the web
+interface. No end user of Robota can invoke or observe this behaviour.
 
 ## Tasks
 
