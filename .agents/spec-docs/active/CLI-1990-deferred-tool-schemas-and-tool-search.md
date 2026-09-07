@@ -462,7 +462,7 @@ criterion is command-form.
 
 Redrafted from the spec's § User Execution Test Scenarios (which predates this exact machine-grammar
 contract and is not edited here). Two scenarios, chosen against
-[Scenario Design Preference Order](../rules/backlog-execution.md#scenario-design-preference-order):
+[Scenario Design Preference Order](../../rules/backlog-execution.md#scenario-design-preference-order):
 a live model turn deciding to call `ToolSearch` needs a real provider key, which is not
 credential-free — so Scenario 1 substitutes the package's own **published** scripted-provider fixture
 (`@robota-sdk/agent-core/testing`, the same fixture TC-02/TC-06/TC-07/TC-08 use) for the model's
@@ -942,3 +942,29 @@ tool defect.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `754c9e239eec` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `1e6cbf27a9a8` (untracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-08
+
+**Status upgrade:** in-progress → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "#2004, #1990, #1994, #2054 모두 승인"
+**Given:** 2026-09-08, this conversation
+**Review fingerprint:** f1874c36d329 (review 09d7b6a8, type/tags eeb7432a)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-08, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f1874c36d329) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `f5dbccebe5d3` · base `origin/develop@3ee0f2026b2d` · document `.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `7bb6333b1aa6` (tracked)
+
+### [RECORD NOTE] — 2026-09-08
+
+Not a gate verdict. The `[GATE-APPROVAL] — ✅ PASS | 2026-09-08` entry immediately above was written by
+`gate.mjs approve` to re-record the route, instruction and fingerprint fields that the guardian's
+2026-09-07 GATE-APPROVAL PASS entry omitted (the scan `standing-delegation-evidence` reads the LAST
+✅ PASS entry and fails closed on a missing route). Its `**Status upgrade:** in-progress → approved` line
+is the tool's template, not a transition: the document stays `in-progress`; the approval it records is
+the same one the guardian judged ("#2004, #1990, #1994, #2054 모두 승인", 2026-09-07).
