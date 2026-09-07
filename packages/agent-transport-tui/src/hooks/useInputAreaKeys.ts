@@ -39,10 +39,9 @@ export interface IUseInputAreaKeysInputs {
   onCancelQueue?: (() => void) | undefined;
 }
 
-/** Register the autocomplete-popup, prompt-history and queued-prompt bindings. */
-export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
-  const { showPopup, isDisabled, pendingPrompt, filteredCommands, selectedIndex } = inputs;
-
+/** The autocomplete popup's own keys: move the selection, close it, or take the completion. */
+function useAutocompletePopupKeys(inputs: IUseInputAreaKeysInputs): void {
+  const { showPopup, isDisabled, filteredCommands, selectedIndex } = inputs;
   useInput(
     (
       _input: string,
@@ -63,6 +62,13 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
     },
     { isActive: showPopup && !isDisabled },
   );
+}
+
+/** Register the autocomplete-popup, prompt-history and queued-prompt bindings. */
+export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
+  const { showPopup, isDisabled, pendingPrompt } = inputs;
+
+  useAutocompletePopupKeys(inputs);
 
   useInput(
     (_input, key) => {

@@ -24,6 +24,8 @@
 // keeps one declaration for one concept (no cross-package duplicate of the same union).
 import type { TScreenReaderChannel } from '@robota-sdk/agent-transport-tui';
 
+import type { TSettingsData } from '@robota-sdk/agent-framework';
+
 /** The resolved enablement decision after applying settings ← env ← flag precedence. */
 export interface IResolvedScreenReaderEnablement {
   enabled: boolean;
@@ -58,9 +60,7 @@ const READER_HINT_PREFIXES = ['NVDA', 'JAWS', 'VOICEOVER', 'ORCA_'] as const;
  * Returns `undefined` when absent or not a boolean — the resolver then treats it as default OFF.
  * Unknown or malformed values are ignored, never a throw.
  */
-export function readScreenReaderSetting(
-  settings: Record<string, unknown> | undefined,
-): boolean | undefined {
+export function readScreenReaderSetting(settings: TSettingsData | undefined): boolean | undefined {
   const raw = settings?.['screenReader'];
   return typeof raw === 'boolean' ? raw : undefined;
 }
@@ -141,7 +141,7 @@ function isExplicitlyDisabled(
  * verdict was chosen to avoid.
  */
 export function resolveScreenReaderRenderFields(
-  settings: Record<string, unknown> | undefined,
+  settings: TSettingsData | undefined,
   flagEnabled: boolean | undefined,
   env: Readonly<Record<string, string | undefined>>,
 ): IScreenReaderRenderFields {

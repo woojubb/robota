@@ -1,8 +1,5 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-
-const PENDING_PROMPT_DISPLAY_MAX = 50;
-const PENDING_PROMPT_TAIL_KEEP = 47;
 import { Box, useWindowSize } from 'ink';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 
 import CjkTextInput from './CjkTextInput.js';
 import {
@@ -27,6 +24,9 @@ import WaveText from './WaveText.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
+
+const PENDING_PROMPT_DISPLAY_MAX = 50;
+const PENDING_PROMPT_TAIL_KEEP = 47;
 
 interface IProps {
   onSubmit: (value: string) => void;

@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 
 export interface IExecutionDetailState {
@@ -23,7 +24,7 @@ export interface IUseExecutionDetailPageInputs {
   /** The selected entry, or undefined / the main thread when no detail is shown. */
   entry: IExecutionWorkspaceEntry | undefined;
   /** Re-read trigger: the snapshot the entry came from. */
-  snapshot: unknown;
+  snapshot: IExecutionWorkspaceSnapshot | null;
   read: (entryId: string) => Promise<IExecutionDetailPage>;
 }
 

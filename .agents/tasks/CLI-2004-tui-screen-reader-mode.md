@@ -181,6 +181,14 @@ them, and are fixed in the same commit:
   exists for that case and now carries the reason on those four lines; nothing the gate recorded is
   altered.
 
+CI then failed the repository's ESLint warning ceiling (`--max-warnings 2356`), which counts the
+whole tree: this branch's 27 new modules carried 24 warnings past it. Removed by naming the pty
+tests' wait budgets, repairing an import group the earlier extraction had split, typing two
+`unknown` parameters against their real contracts (`TSettingsData`, `IExecutionWorkspaceSnapshot`),
+and decomposing four over-long functions (`printHelp`, `useInputAreaKeys`, `MultiSelectList` into
+`ChecklistRow` / `ChecklistAnswer` / `ChecklistView` / `useChecklistSelection`, and the pty
+describes). The tree is at 2356 exactly, with no warning left in a file this branch adds.
+
 ### [USER DISPOSITION] — 2026-09-08
 
 **Instruction (verbatim):** "문제가 될 것 같은 절차는 다 임시로 무력화 하고 진행하세요"

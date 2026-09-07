@@ -116,6 +116,118 @@ function useChecklistArrowKeys(inputs: {
   );
 }
 
+/** How the checklist asks for an answer: a spoken range in the mode, the key hints otherwise. */
+function ChecklistAnswer(props: {
+  screenReader: boolean;
+  itemCount: number;
+  numbered: { buffer: string; invalid: boolean };
+  canConfirm: boolean;
+  minSelect: number;
+}): React.ReactElement {
+  if (props.screenReader) {
+    return (
+      <NumberedSelectionPrompt
+        itemCount={props.itemCount}
+        cancellable
+        buffer={props.numbered.buffer}
+        invalid={props.numbered.invalid}
+      />
+    );
+  }
+  return (
+    <KeyHintFooter
+      hints={getMultiSelectFooterHints({
+        canConfirm: props.canConfirm,
+        minSelect: props.minSelect,
+      })}
+    />
+  );
+}
+
+/** The rendered checklist: the rows, and whichever answer affordance the mode calls for. */
+function ChecklistView(props: {
+  title: string;
+  description?: string;
+  options: readonly IActionOption[];
+  cursor: number;
+  selected: ReadonlySet<string>;
+  screenReader: boolean;
+  canConfirm: boolean;
+  minSelect: number;
+  numbered: { buffer: string; invalid: boolean };
+}): React.ReactElement {
+  const { title, description, options, cursor, selected, screenReader, numbered } = props;
+  return (
+    <Box
+      flexDirection="column"
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning} bold>
+        {title}
+      </Text>
+      {description !== undefined && description.length > 0 && <Text dimColor>{description}</Text>}
+      {options.map((option, index) => (
+        <ChecklistRow
+          key={option.value}
+          label={option.label}
+          index={index}
+          isCursor={index === cursor}
+          isChecked={selected.has(option.value)}
+          screenReader={screenReader}
+        />
+      ))}
+      <ChecklistAnswer
+        screenReader={screenReader}
+        itemCount={options.length}
+        numbered={numbered}
+        canConfirm={props.canConfirm}
+        minSelect={props.minSelect}
+      />
+    </Box>
+  );
+}
+
+/** The checklist's own state: which row the cursor is on, what is ticked, and how it commits. */
+function useChecklistSelection(inputs: {
+  options: readonly IActionOption[];
+  minSelect: number;
+  maxSelect: number;
+  defaultValues?: readonly string[];
+  onConfirm: (values: string[]) => void;
+}): {
+  cursor: number;
+  setCursor: React.Dispatch<React.SetStateAction<number>>;
+  selected: ReadonlySet<string>;
+  toggleAt: (index: number) => void;
+  confirmIfAllowed: () => void;
+} {
+  const { options, minSelect, maxSelect, defaultValues, onConfirm } = inputs;
+  const [cursor, setCursor] = useState(0);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set(defaultValues ?? []));
+
+  const toggleAt = (index: number): void => {
+    const option = options[index];
+    if (option === undefined) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(option.value)) {
+        next.delete(option.value);
+      } else if (next.size < maxSelect) {
+        next.add(option.value);
+      }
+      return next;
+    });
+  };
+  const confirmIfAllowed = (): void => {
+    if (selected.size >= minSelect) onConfirm([...selected]);
+  };
+
+  return { cursor, setCursor, selected, toggleAt, confirmIfAllowed };
+}
+
 export default function MultiSelectList({
   title,
   description,
@@ -126,30 +238,16 @@ export default function MultiSelectList({
   onConfirm,
   onCancel,
 }: IMultiSelectListProps): React.ReactElement {
-  const [cursor, setCursor] = useState(0);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set(defaultValues ?? []));
   // CLI-2004: the checklist keeps its own reducer (Space toggles, Enter confirms) — what the mode
   // changes is the ROW: a spoken number replaces the `> ` cursor, and typing that number toggles it.
   const screenReader = useScreenReader();
-
-  const toggle = (value: string): void => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) {
-        next.delete(value);
-      } else if (next.size < maxSelect) {
-        next.add(value);
-      }
-      return next;
-    });
-  };
-  const confirmIfAllowed = (): void => {
-    if (selected.size >= minSelect) onConfirm([...selected]);
-  };
-  const toggleAt = (index: number): void => {
-    const option = options[index];
-    if (option !== undefined) toggle(option.value);
-  };
+  const { cursor, setCursor, selected, toggleAt, confirmIfAllowed } = useChecklistSelection({
+    options,
+    minSelect,
+    maxSelect,
+    defaultValues,
+    onConfirm,
+  });
 
   // CLI-2004: the checklist answers by number in the mode, through the SAME reducer every other
   // numbered menu uses — `multi` is what keeps it open after a toggle and makes an empty Enter the
@@ -176,37 +274,16 @@ export default function MultiSelectList({
   const canConfirm = selected.size >= minSelect;
 
   return (
-    <Box
-      flexDirection="column"
-      {...(screenReader
-        ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
-      paddingX={1}
-    >
-      <Text color={PALETTE.text.warning} bold>
-        {title}
-      </Text>
-      {description !== undefined && description.length > 0 && <Text dimColor>{description}</Text>}
-      {options.map((option, index) => (
-        <ChecklistRow
-          key={option.value}
-          label={option.label}
-          index={index}
-          isCursor={index === cursor}
-          isChecked={selected.has(option.value)}
-          screenReader={screenReader}
-        />
-      ))}
-      {screenReader ? (
-        <NumberedSelectionPrompt
-          itemCount={options.length}
-          cancellable
-          buffer={numbered.buffer}
-          invalid={numbered.invalid}
-        />
-      ) : (
-        <KeyHintFooter hints={getMultiSelectFooterHints({ canConfirm, minSelect })} />
-      )}
-    </Box>
+    <ChecklistView
+      title={title}
+      {...(description !== undefined ? { description } : {})}
+      options={options}
+      cursor={cursor}
+      selected={selected}
+      screenReader={screenReader}
+      canConfirm={canConfirm}
+      minSelect={minSelect}
+      numbered={numbered}
+    />
   );
 }

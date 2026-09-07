@@ -7,13 +7,11 @@
  * Re-exported from `cli-args.ts` so every existing import site keeps working unchanged.
  */
 
-/** Return CLI usage help text. */
-export function printHelp(): string {
-  return `
+const USAGE = `
 Usage: robota [options] [-p <prompt>]
+`;
 
-Options:
-  -p <prompt>                Run in print (headless) mode with the given prompt
+const OPTIONS = `  -p <prompt>                Run in print (headless) mode with the given prompt
   --output-format <format>   Output format: text | json | stream-json (default: text)
   --system-prompt <text>     Override the system prompt for this session
   --append-system-prompt <t> Append text to the system prompt
@@ -66,4 +64,10 @@ Examples:
   robota -p "Refactor the auth module" --dry-run   Plan only, no execution
   robota --continue                Resume the last session
 `;
+
+/** Return CLI usage help text. */
+export function printHelp(): string {
+  return `${USAGE}
+Options:
+${OPTIONS}`;
 }
