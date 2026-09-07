@@ -94,6 +94,8 @@
   ".agents/spec-docs/done/HARNESS-112-a-loop-run-leaves-no-record.md": 5,
   ".agents/spec-docs/done/HARNESS-113-a-new-orchestration-ships-unproven.md": 5,
   ".agents/spec-docs/done/HARNESS-114-no-metric-answers-whether-a-loop-earned-its-cost.md": 5,
+  ".agents/spec-docs/done/HARNESS-2660-a-filter-must-name-a-package-that-declares-the-script.md": 3,
+  ".agents/spec-docs/done/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md": 1,
   ".agents/spec-docs/done/INFRA-015-harness-lessons-skill-updates.md": 7,
   ".agents/spec-docs/done/INFRA-028-self-contained-agent-cli-bundle.md": 3,
   ".agents/spec-docs/done/INFRA-029-publish-single-otp-flow.md": 3,

@@ -124,7 +124,7 @@ export interface IScreenReaderRenderFields {
  * `ROBOTA_SCREEN_READER=0`. Distinct from merely being off by default, which is the state the
  * advisory line exists to tell someone about.
  */
-export function isExplicitlyDisabled(
+function isExplicitlyDisabled(
   flagEnabled: boolean | undefined,
   env: Readonly<Record<string, string | undefined>>,
 ): boolean {
