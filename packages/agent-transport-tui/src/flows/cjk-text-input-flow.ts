@@ -1,9 +1,19 @@
 import stringWidth from 'string-width';
 
+import { moveCursorHorizontally, moveCursorVertically } from './cjk-cursor-motion.js';
+import {
+  deleteCharBeforeCursor,
+  deleteLineBeforeCursor,
+  deleteWordBeforeCursor,
+  type ICjkDeletion,
+} from './cjk-text-deletion.js';
+
 const PASTE_START = '[200~';
 const PASTE_END = '[201~';
 const LAST_ASCII_CONTROL_CODE = 0x1f;
 const DELETE_CONTROL_CODE = 0x7f;
+
+export { charIndexAtDisplayOffset, displayOffset } from './cjk-cursor-motion.js';
 
 export interface ICjkTextInputFlowState {
   value: string;
@@ -31,9 +41,12 @@ export interface ICjkTextInputFlowOptions {
   enableVerticalNavigation?: boolean;
 }
 
+/** CLI-2004: a word/line delete is announced; a single-character backspace is not (it is heard). */
+export type TCjkDeletionScope = 'word' | 'line';
+
 export type TCjkTextInputEffect =
   | { type: 'none' }
-  | { type: 'change'; value: string }
+  | { type: 'change'; value: string; deleted?: string; deletedScope?: TCjkDeletionScope }
   | { type: 'submit'; value: string }
   | { type: 'paste'; text: string; cursor: number }
   | { type: 'render' };
@@ -115,6 +128,11 @@ function applyControlInput(
   if ((key.ctrl === true && input === 'c') || key.tab === true) {
     return { state, effect: { type: 'none' } };
   }
+  if (key.ctrl === true && (input === 'w' || input === 'u')) {
+    const scope: TCjkDeletionScope = input === 'w' ? 'word' : 'line';
+    const remove = scope === 'word' ? deleteWordBeforeCursor : deleteLineBeforeCursor;
+    return applyDeletion(state, remove(state.value, state.cursor), scope);
+  }
   if (key.return === true) {
     return { state, effect: { type: 'submit', value: state.value } };
   }
@@ -149,7 +167,7 @@ function applyCursorInput(
     return moveCursorHorizontally(state, 'right');
   }
   if (key.backspace === true || key.delete === true) {
-    return deleteBeforeCursor(state);
+    return applyDeletion(state, deleteCharBeforeCursor(state.value, state.cursor));
   }
   return undefined;
 }
@@ -173,29 +191,6 @@ export function insertAtCursor(
 ): { value: string; cursor: number } {
   const next = value.slice(0, cursor) + input + value.slice(cursor);
   return { value: next, cursor: cursor + input.length };
-}
-
-export function displayOffset(chars: string[], charIndex: number, width: number): number {
-  let offset = 0;
-  for (let i = 0; i < charIndex && i < chars.length; i++) {
-    const w = stringWidth(chars[i]!);
-    const col = offset % width;
-    if (col + w > width) offset += width - col;
-    offset += w;
-  }
-  return offset;
-}
-
-export function charIndexAtDisplayOffset(chars: string[], target: number, width: number): number {
-  let offset = 0;
-  for (let i = 0; i < chars.length; i++) {
-    if (offset >= target) return i;
-    const w = stringWidth(chars[i]!);
-    const col = offset % width;
-    if (col + w > width) offset += width - col;
-    offset += w;
-  }
-  return chars.length;
 }
 
 function startBracketedPaste(
@@ -224,48 +219,25 @@ function continueBracketedPaste(
   return applyCjkTextPaste(nextState, state.pasteBuffer + beforeMarker, options);
 }
 
-function moveCursorVertically(
+/**
+ * Apply a deletion result. A word/line delete carries the removed text so the caller can announce
+ * it; a character delete does not — the reader already heard the character go.
+ */
+function applyDeletion(
   state: ICjkTextInputFlowState,
-  direction: 'up' | 'down',
-  availableWidth: number | undefined,
+  deletion: ICjkDeletion | undefined,
+  scope?: TCjkDeletionScope,
 ): ICjkTextInputFlowResult {
-  if (!availableWidth || availableWidth <= 0) {
+  if (deletion === undefined) {
     return { state, effect: { type: 'none' } };
   }
-  const chars = [...state.value];
-  const offset = displayOffset(chars, state.cursor, availableWidth);
-  const target = direction === 'up' ? offset - availableWidth : offset + availableWidth;
-  if (target < 0) {
-    return { state, effect: { type: 'none' } };
-  }
-  const cursor = charIndexAtDisplayOffset(chars, target, availableWidth);
-  if (cursor === state.cursor) {
-    return { state, effect: { type: 'none' } };
-  }
-  return { state: { ...state, cursor }, effect: { type: 'render' } };
-}
-
-function moveCursorHorizontally(
-  state: ICjkTextInputFlowState,
-  direction: 'left' | 'right',
-): ICjkTextInputFlowResult {
-  if (direction === 'left' && state.cursor > 0) {
-    return { state: { ...state, cursor: state.cursor - 1 }, effect: { type: 'render' } };
-  }
-  if (direction === 'right' && state.cursor < state.value.length) {
-    return { state: { ...state, cursor: state.cursor + 1 }, effect: { type: 'render' } };
-  }
-  return { state, effect: { type: 'none' } };
-}
-
-function deleteBeforeCursor(state: ICjkTextInputFlowState): ICjkTextInputFlowResult {
-  if (state.cursor === 0) {
-    return { state, effect: { type: 'none' } };
-  }
-  const value = state.value.slice(0, state.cursor - 1) + state.value.slice(state.cursor);
   return {
-    state: { ...state, value, cursor: state.cursor - 1 },
-    effect: { type: 'change', value },
+    state: { ...state, value: deletion.value, cursor: deletion.cursor },
+    effect: {
+      type: 'change',
+      value: deletion.value,
+      ...(scope !== undefined ? { deleted: deletion.deleted, deletedScope: scope } : {}),
+    },
   };
 }
 

@@ -53,12 +53,8 @@ import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
-import {
-  buildMemorySessionOptions,
-  printMemoryEnableNoticeOnce,
-  readMemorySettings,
-  resolveMemoryEnablement,
-} from './startup/memory-enablement.js';
+import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
+import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 
 export type { IStartCliOptions };
 
@@ -342,20 +338,16 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
-  // SELFHOST-008 P6: resolve the one memory switch (default OFF, opt-in) once and thread the resolved
-  // fields into every construction site (print/serve/TUI). settings.json memory.enabled (SSOT) ←
-  // --memory/--no-memory ← ROBOTA_MEMORY=1|0 (env wins). Disabled ⇒ {} injects nothing (today's behavior).
-  const memoryEnablement = resolveMemoryEnablement({
-    settings: readMemorySettings(userSettings),
-    flagEnabled: args.memory,
-    flagAutoSave: args.memoryAutoSave,
-    env: process.env['ROBOTA_MEMORY'],
+  // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
+  // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
+  // deliberately the OTHER way round (the flag wins) — see both resolvers' SPEC entries.
+  const memorySessionOptions = resolveMemorySurfaceOptions({
+    settings: userSettings,
+    args,
+    memoryStore: workspaceComposition.memoryStore,
+    cwd,
   });
-  const memorySessionOptions = buildMemorySessionOptions(
-    memoryEnablement,
-    workspaceComposition.memoryStore,
-  );
-  if (memoryEnablement.enabled) printMemoryEnableNoticeOnce(cwd);
+  const screenReader = resolveScreenReaderRenderFields(userSettings, args.screenReader, process.env);
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
@@ -421,7 +413,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
   commandHostAdapters.process = createTuiProcessAdapter();
   if (isFirstRun()) {
-    printFirstRunWelcome(terminal);
+    printFirstRunWelcome(terminal, screenReader);
     markOnboarded();
   }
 
@@ -457,6 +449,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
+    // CLI-2004: off ⇒ today's byte stream is unchanged.
+    ...screenReader,
     cliAdapter: createDefaultTuiCliAdapter({
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,

@@ -3,6 +3,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { formatStatusActivity } from './status-activity.js';
 import { PALETTE } from './tui-palette.js';
 
@@ -109,8 +110,16 @@ function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): Reac
   );
 }
 
-function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
-  return permissionMode !== 'default';
+/**
+ * CLI-2004 verdict (l): outside the mode the `default` mode is hidden as noise. In the mode it is
+ * ALWAYS rendered — with no key-based cycling to announce, the status line is the only place a
+ * reader can find which permission mode it is in, and a hidden `default` leaves nothing to find.
+ */
+function shouldShowPermissionMode(
+  permissionMode: TPermissionMode,
+  screenReader: boolean,
+): boolean {
+  return screenReader || permissionMode !== 'default';
 }
 
 function PresetText({ activePresetId }: { activePresetId: string }): React.ReactElement {
@@ -148,17 +157,25 @@ function ProviderText({
 function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   const shouldShowGitBranch =
     props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
-  const showPermissionMode = shouldShowPermissionMode(props.permissionMode);
+  // CLI-2004 § Solution 13: one rule applied to fields of different VOLATILITY. The activity text
+  // and the context percentage re-render on their own cadence and on every token, so a reader
+  // reviewing the status line would re-announce them continuously while the operator types — they
+  // are suppressed. The permission mode, the preset and the model change only when the operator
+  // changes them: those are anchors, and they stay.
+  const screenReader = useScreenReader();
+  const showPermissionMode = shouldShowPermissionMode(props.permissionMode, screenReader);
   const activePresetId = props.activePresetId;
   const showActivePreset = shouldShowActivePreset(activePresetId);
   return (
     <Text>
-      <StatusActivityText
-        isThinking={props.isThinking}
-        activeToolCount={props.activeToolCount}
-        activeBackgroundTaskCount={props.activeBackgroundTaskCount}
-        hasPendingPrompt={props.hasPendingPrompt}
-      />
+      {!screenReader && (
+        <StatusActivityText
+          isThinking={props.isThinking}
+          activeToolCount={props.activeToolCount}
+          activeBackgroundTaskCount={props.activeBackgroundTaskCount}
+          hasPendingPrompt={props.hasPendingPrompt}
+        />
+      )}
       {showPermissionMode && (
         <>
           {SEP}
@@ -185,12 +202,16 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
       )}
       {SEP}
       <ProviderText modelName={props.modelName} providerDisplayName={props.providerDisplayName} />
-      {SEP}
-      <ContextText
-        percentage={props.contextPercentage}
-        usedTokens={props.contextUsedTokens}
-        maxTokens={props.contextMaxTokens}
-      />
+      {!screenReader && (
+        <>
+          {SEP}
+          <ContextText
+            percentage={props.contextPercentage}
+            usedTokens={props.contextUsedTokens}
+            maxTokens={props.contextMaxTokens}
+          />
+        </>
+      )}
     </Text>
   );
 }

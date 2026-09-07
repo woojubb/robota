@@ -9,13 +9,16 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
   SELECTION_INDICATOR,
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 /** Footer for the interactive menu state. */
@@ -54,6 +57,17 @@ export default function MenuSelect({
   const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = useRef(state);
   const isEnabled = !loading && !error;
+  const screenReader = useScreenReader();
+  const numbered = useNumberedSelection({
+    enabled: screenReader && isEnabled,
+    itemCount: items.length,
+    cancellable: true,
+    onSelect: (index) => {
+      const item = items[index];
+      if (item !== undefined) onSelect(item.value);
+    },
+    onCancel: onBack,
+  });
   const applyAction = useCallback(
     (action: TSelectionInputAction): void => {
       const result = applySelectionInput(stateRef.current, action, {
@@ -74,18 +88,34 @@ export default function MenuSelect({
     [isEnabled, items, onBack, onSelect],
   );
 
-  useInput((input, key) => {
-    const action = getVerticalSelectionInputAction(key);
-    if (action !== undefined) {
-      applyAction(action);
-    }
-  });
+  useInput(
+    (input, key) => {
+      const action = getVerticalSelectionInputAction(key);
+      if (action !== undefined) {
+        applyAction(action);
+      }
+    },
+    { isActive: !screenReader },
+  );
 
   const normalizedState = normalizeSelectionState(state, { itemCount: items.length });
   if (normalizedState !== state) {
     stateRef.current = normalizedState;
   }
   const selected = normalizedState.selectedIndex;
+
+  if (screenReader) {
+    return (
+      <NumberedList
+        title={title}
+        options={loading ? [] : error ? [] : items.map((item) => item.label)}
+        description={loading ? 'Loading...' : error}
+        cancellable
+        buffer={numbered.buffer}
+        invalid={numbered.invalid}
+      />
+    );
+  }
 
   return (
     <Box

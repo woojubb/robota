@@ -63,6 +63,39 @@ describe('renderMarkdown', () => {
     expect(output).toContain('const value: string = "ok";');
   });
 
+  /**
+   * CLI-2004 TC-04 — the `Header: value` flattening, asserted at the single choke point every
+   * render path shares. A box-drawn grid is read aloud as its rules; the pairing is the content.
+   */
+  describe('CLI-2004 TC-04: screen-reader table flattening', () => {
+    const TABLE = ['| A | B |', '|---|---|', '| 1 | 2 |'].join('\n');
+    const BOX_DRAWING = /[\u2502\u2500\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c]/u;
+
+    it('flattens a table to one `Header: value` line per cell in the mode', () => {
+      const output = renderMarkdown(TABLE, { color: false, screenReader: true });
+
+      const lines = output.split('\n').map((line) => line.trim());
+      expect(lines).toContain('A: 1');
+      expect(lines).toContain('B: 2');
+      expect(lines.indexOf('A: 1')).toBeLessThan(lines.indexOf('B: 2'));
+      expect(output).not.toMatch(BOX_DRAWING);
+    });
+
+    it('separates rows with a blank line so the row boundary is audible', () => {
+      const twoRows = ['| A | B |', '|---|---|', '| 1 | 2 |', '| 3 | 4 |'].join('\n');
+      const output = renderMarkdown(twoRows, { color: false, screenReader: true });
+
+      expect(output).toContain('A: 1\nB: 2\n\nA: 3\nB: 4');
+    });
+
+    it('leaves the box-drawn grid exactly as it is outside the mode', () => {
+      const output = renderMarkdown(TABLE, { color: false });
+
+      expect(output).toMatch(BOX_DRAWING);
+      expect(output).not.toContain('A: 1');
+    });
+  });
+
   it('keeps inline markdown formatting readable', () => {
     const output = renderMarkdown('Use **bold** and `code` here.', { color: false });
 

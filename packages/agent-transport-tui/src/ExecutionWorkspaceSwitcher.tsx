@@ -10,13 +10,16 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
   SELECTION_INDICATOR,
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 import type {
@@ -54,16 +57,31 @@ export default function ExecutionWorkspaceSwitcher({
     onClose,
   });
 
-  useInput((_input, key) => {
-    const action = getVerticalSelectionInputAction(key);
-    if (action !== undefined) applyAction(action);
+  // CLI-2004: the switcher is an arrow-key menu, so the mode gives it numbers and a typed answer.
+  const screenReader = useScreenReader();
+  const numbered = useNumberedSelection({
+    enabled: screenReader && entries.length > 0,
+    itemCount: entries.length,
+    cancellable: true,
+    onSelect: (index) => {
+      const entry = entries[index];
+      if (entry) onSelect(entry.id);
+    },
+    onCancel: onClose,
   });
+
+  useInput(
+    (_input, key) => {
+      const action = getVerticalSelectionInputAction(key);
+      if (action !== undefined) applyAction(action);
+    },
+    { isActive: !screenReader },
+  );
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={PALETTE.border.focused}
+      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.focused })}
       paddingX={1}
     >
       <Text color={PALETTE.text.accent} bold>
@@ -72,6 +90,16 @@ export default function ExecutionWorkspaceSwitcher({
       <Box flexDirection="column" marginTop={1}>
         {visibleEntries.length === 0 ? (
           <Text dimColor>No workspace entries</Text>
+        ) : screenReader ? (
+          entries.map((entry, index) => (
+            <ExecutionWorkspaceSwitcherRow
+              key={entry.id}
+              entry={entry}
+              isFocused={false}
+              selectedEntryId={selectedEntryId}
+              rowNumber={index}
+            />
+          ))
         ) : (
           visibleEntries.map((entry, index) => (
             <ExecutionWorkspaceSwitcherRow
@@ -83,7 +111,15 @@ export default function ExecutionWorkspaceSwitcher({
           ))
         )}
       </Box>
-      <KeyHintFooter hints={EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS} />
+      {screenReader ? (
+        <ScreenReaderSelectionPrompt
+          itemCount={entries.length}
+          buffer={numbered.buffer}
+          invalid={numbered.invalid}
+        />
+      ) : (
+        <KeyHintFooter hints={EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS} />
+      )}
     </Box>
   );
 }
@@ -182,20 +218,48 @@ function createNormalizedSelection(input: {
   );
 }
 
+/** The typed-selection prompt, re-printed verbatim after an out-of-range answer. */
+function ScreenReaderSelectionPrompt({
+  itemCount,
+  buffer,
+  invalid,
+}: {
+  itemCount: number;
+  buffer: string;
+  invalid: boolean;
+}): React.ReactElement {
+  const prompt = formatNumberedSelectionPrompt(itemCount, true);
+  return (
+    <Box flexDirection="column">
+      <Text>
+        {prompt}
+        {buffer.length > 0 ? ` ${buffer}` : ''}
+      </Text>
+      {invalid && <Text>{prompt}</Text>}
+    </Box>
+  );
+}
+
 function ExecutionWorkspaceSwitcherRow({
   entry,
   isFocused,
   selectedEntryId,
+  rowNumber,
 }: {
   entry: IExecutionWorkspaceEntry;
   isFocused: boolean;
   selectedEntryId?: string;
+  rowNumber?: number;
 }): React.ReactElement {
   const row = formatExecutionWorkspaceEntryRow(entry, { selectedEntryId });
   return (
     <Text>
       <Text color={isFocused ? PALETTE.text.accent : undefined} bold={isFocused}>
-        {isFocused ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+        {rowNumber !== undefined
+          ? numberedRowPrefix(rowNumber)
+          : isFocused
+            ? SELECTION_INDICATOR
+            : SELECTION_INDICATOR_NONE}
       </Text>
       <Text color={row.color}>{row.radio}</Text>
       <Text

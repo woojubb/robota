@@ -7,6 +7,12 @@
  * prompt + status bar stay pinned at the bottom. Once committed content is in scrollback and the input
  * is pinned, native terminal scroll-back is the terminal's own behavior (not the app's), so this is
  * the automatable essence of TC-05.
+ *
+ * CLI-2004 TC-22 adds the same proof under `--screen-reader`. Ink's `alternateScreen` defaults to
+ * false and nothing in the tree sets it — this is the GUARD on that, not new behaviour: the
+ * alternate screen has no scrollback, and reviewing earlier output is the whole reason a reader can
+ * use this TUI at all. The flagless case above cannot serve as the guard, because it asserts on the
+ * boot banner and on `Idle`, both of which the mode suppresses.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -60,5 +66,33 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
 
     // The status bar is also pinned in the live region.
     expect(snap.lastIndexOf('Idle')).toBeGreaterThan(committedIdx);
+  }, 60_000);
+
+  it('CLI-2004 TC-22: --screen-reader never switches to the alternate screen and keeps history in scrollback', async () => {
+    session = spawnTui({
+      projectDir,
+      homeDir: join(projectDir, 'home'),
+      rows: 16,
+      args: ['--screen-reader'],
+      env: { ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+    });
+
+    await session.waitFor(/Type a message or \/help/, 30_000);
+
+    await session.sendKeys('/help');
+    await session.pressEnter();
+    await session.waitFor(/Available commands|\/exit/i, 20_000);
+
+    // No alternate-screen switch at ANY point in the run — the mode must not buy a tidy frame at
+    // the price of the terminal's own scrollback.
+    expect(session.raw()).not.toContain('\x1b[?1049h');
+
+    const snap = session.snapshot();
+    const committedIdx = snap.search(/Available commands|\/exit/i);
+    expect(committedIdx).toBeGreaterThanOrEqual(0);
+
+    // The input stays pinned below the committed history — asserted without the banner or `Idle`,
+    // which the mode suppresses.
+    expect(snap.lastIndexOf('Type a message')).toBeGreaterThan(committedIdx);
   }, 60_000);
 });

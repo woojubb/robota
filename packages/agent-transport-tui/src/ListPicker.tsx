@@ -15,8 +15,11 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 
 /** Default number of visible items */
 const DEFAULT_MAX_VISIBLE = 3;
@@ -73,15 +76,51 @@ export default function ListPicker<T>({
     [items, maxVisible, onCancel, onSelect],
   );
 
-  useInput((_input, key) => {
-    const action = getVerticalSelectionInputAction(key);
-    if (action !== undefined) {
-      applyAction(action);
-    }
+  // CLI-2004: the viewport is a sighted affordance — `↑ N more above` tells a reader nothing about
+  // where it is. The mode lists every item with its number and asks for one.
+  const screenReader = useScreenReader();
+  const numbered = useNumberedSelection({
+    enabled: screenReader && items.length > 0,
+    itemCount: items.length,
+    cancellable: true,
+    onSelect: (index) => {
+      const item = items[index];
+      if (item !== undefined) onSelect(item);
+    },
+    onCancel,
   });
+
+  useInput(
+    (_input, key) => {
+      const action = getVerticalSelectionInputAction(key);
+      if (action !== undefined) {
+        applyAction(action);
+      }
+    },
+    { isActive: !screenReader },
+  );
 
   if (items.length === 0) {
     return <Box />;
+  }
+
+  if (screenReader) {
+    const prompt = formatNumberedSelectionPrompt(items.length, true);
+    return (
+      <Box flexDirection="column">
+        {items.map((item, index) => (
+          <Box key={index}>
+            <Text>{numberedRowPrefix(index)}</Text>
+            {renderItem(item, false)}
+          </Box>
+        ))}
+        <Text>
+          {prompt}
+          {numbered.buffer.length > 0 ? ` ${numbered.buffer}` : ''}
+        </Text>
+        {numbered.invalid && <Text>{prompt}</Text>}
+      </Box>
+    );
   }
 
   const normalizedState = normalizeSelectionState(state, { itemCount: items.length, maxVisible });

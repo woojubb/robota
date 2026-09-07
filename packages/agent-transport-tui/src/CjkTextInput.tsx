@@ -49,6 +49,11 @@ interface IProps {
   cursorHint?: number | null;
   /** When false, parent flows own up/down arrow behavior. */
   enableVerticalNavigation?: boolean;
+  /**
+   * CLI-2004: called with the text a word/line delete removed. A reader announces what is LEFT on
+   * the line, so the removed text is the one thing it cannot tell you.
+   */
+  onDeletedText?: (deleted: string) => void;
 }
 
 interface IInputHandlerOptions {
@@ -59,6 +64,7 @@ interface IInputHandlerOptions {
   availableWidth?: number;
   focus: boolean;
   enableVerticalNavigation: boolean;
+  onDeletedText?: (deleted: string) => void;
   forceRender: React.Dispatch<React.SetStateAction<number>>;
   /** CLI-061: deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
   deferState: IDeferSubmitState;
@@ -75,6 +81,7 @@ export default function CjkTextInput({
   availableWidth,
   cursorHint = null,
   enableVerticalNavigation = true,
+  onDeletedText,
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
@@ -94,6 +101,7 @@ export default function CjkTextInput({
     availableWidth,
     focus,
     enableVerticalNavigation,
+    ...(onDeletedText !== undefined ? { onDeletedText } : {}),
     forceRender,
     deferState: deferRef.current,
   });
@@ -177,6 +185,7 @@ function applyCjkTextInputEffect(
   effect: ReturnType<typeof applyCjkTextInput>['effect'],
 ): void {
   if (effect.type === 'change') {
+    if (effect.deleted !== undefined) options.onDeletedText?.(effect.deleted);
     options.onChange(effect.value);
   } else if (effect.type === 'submit') {
     // CLI-061: DEFER the submit and re-read the LIVE `stateRef.current.value` at fire time — never the stale

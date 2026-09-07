@@ -8,6 +8,8 @@ import { renderMarkdown } from './render-markdown.js';
 import { RoleLabel } from './RoleLabel.js';
 import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { SCREEN_READER_LABELS, type TScreenReaderLabelKind } from './screen-reader-labels.js';
 import { STATUS_GLYPH } from './status-glyph.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
@@ -21,6 +23,27 @@ import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-
 
 interface IProps {
   history: IHistoryEntry[];
+}
+
+/**
+ * CLI-2004: one transcript label. In screen-reader mode it speaks the shared vocabulary and drops
+ * the colour — the searchable word IS the cue there — and outside it renders exactly as before.
+ */
+function EntryLabel({
+  kind,
+  text,
+  color,
+}: {
+  kind: TScreenReaderLabelKind;
+  text: string;
+  color: string;
+}): React.ReactElement {
+  if (useScreenReader()) return <Text>{SCREEN_READER_LABELS[kind]} </Text>;
+  return (
+    <Text color={color} bold>
+      {text}
+    </Text>
+  );
 }
 
 function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
@@ -45,9 +68,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <Text color={PALETTE.text.emphasis} bold>
-            Tool:{' '}
-          </Text>
+          <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
           {toolName && (
             <Text color={PALETTE.text.emphasis} dimColor>
               [{humanizeToolName(toolName)}]
@@ -75,9 +96,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.emphasis} bold>
-          Tool:{' '}
-        </Text>
+        <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
         {toolName && (
           <Text color={PALETTE.text.emphasis} dimColor>
             [{sanitizeTerminalText(toolName)}]
@@ -104,9 +123,7 @@ function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.Rea
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.error} bold>
-          ✖ Error:{' '}
-        </Text>
+        <EntryLabel kind="error" text="✖ Error: " color={PALETTE.text.error} />
       </Box>
       <Box marginLeft={2} flexDirection="column">
         <Text color={PALETTE.text.error} wrap="wrap">
@@ -135,6 +152,7 @@ const MessageItem = React.memo(function MessageItem({
 
   const content = message.content ?? '';
   const isInterrupted = message.state === 'interrupted';
+  const screenReader = useScreenReader();
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -151,7 +169,9 @@ const MessageItem = React.memo(function MessageItem({
         {isAssistantMessage(message) ? (
           // `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours.
           <RenderedText wrap="wrap">
-            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))}
+            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''), {
+              screenReader,
+            })}
           </RenderedText>
         ) : (
           <Text wrap="wrap">{content}</Text>
@@ -175,9 +195,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <Text color={PALETTE.text.emphasis} bold>
-            Tool:{' '}
-          </Text>
+          <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
         </Box>
         <Text> </Text>
         {tools.map((tool, i) => {
@@ -205,9 +223,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.emphasis} bold>
-          Tool:{' '}
-        </Text>
+        <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
       </Box>
       <Text> </Text>
       {lines.map((line, i) => (
@@ -237,9 +253,7 @@ function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.warning} bold>
-          System:{' '}
-        </Text>
+        <EntryLabel kind="warning" text="System: " color={PALETTE.text.warning} />
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>

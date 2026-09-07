@@ -17,7 +17,9 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IActionOption } from '@robota-sdk/agent-core';
@@ -61,6 +63,9 @@ export default function MultiSelectList({
 }: IMultiSelectListProps): React.ReactElement {
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set(defaultValues ?? []));
+  // CLI-2004: the checklist keeps its own reducer (Space toggles, Enter confirms) — what the mode
+  // changes is the ROW: a spoken number replaces the `> ` cursor, and typing that number toggles it.
+  const screenReader = useScreenReader();
 
   const toggle = (value: string): void => {
     setSelected((prev) => {
@@ -75,6 +80,11 @@ export default function MultiSelectList({
   };
 
   useInput((input, key) => {
+    if (screenReader && /^[1-9]$/.test(input)) {
+      const option = options[Number.parseInt(input, 10) - 1];
+      if (option !== undefined) toggle(option.value);
+      return;
+    }
     if (key.upArrow) {
       setCursor((c) => (c <= 0 ? options.length - 1 : c - 1));
     } else if (key.downArrow) {
@@ -94,8 +104,7 @@ export default function MultiSelectList({
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={PALETTE.border.attention}
+      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
       paddingX={1}
     >
       <Text color={PALETTE.text.warning} bold>
@@ -105,6 +114,15 @@ export default function MultiSelectList({
       {options.map((option, index) => {
         const isCursor = index === cursor;
         const isChecked = selected.has(option.value);
+        if (screenReader) {
+          return (
+            <Text key={option.value}>
+              {numberedRowPrefix(index)}
+              {isChecked ? '[x] ' : '[ ] '}
+              {option.label}
+            </Text>
+          );
+        }
         return (
           <Text key={option.value} color={isCursor ? PALETTE.text.accent : undefined}>
             {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}

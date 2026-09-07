@@ -159,6 +159,7 @@ the transport boundary.
 | `ITuiPickerItem`                                                            | type        | One selectable item in a TUI picker interaction                         |
 | `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types       | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
 | `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types       | Union of interaction contracts; missing-args action discriminator       |
+| `TScreenReaderChannel`                                                      | type        | Which input turned screen-reader mode on (`flag`/`env`/`settings`) — declared here because this package PRINTS it, and imported by the surface that resolves it, so one union exists for one concept |
 
 ## Interaction Affordance Contract (SCREEN-005)
 
@@ -238,6 +239,95 @@ comes from the ramp's contrast span, not faster flicker.
 and hex, but not a future TS helper returning a bare color-name string (the old `getContextColor`
 shape); today's instances of that shape were removed by the SCREEN-006 adoption pass, and
 extending the floor to bare strings is deferred until one actually recurs.
+
+## Screen Reader Mode (CLI-2004)
+
+An explicit, opt-in plain-text mode. **Default off**: with no flag, environment variable or setting,
+not one byte of today's output changes — the `screen-006-no-color` and `screen-010-scrollback` PTY
+fixtures spawn the binary flagless and are asserted to keep passing unchanged.
+
+**Activation and precedence** are owned by `agent-cli` (`startup/screen-reader-enablement.ts`, and
+that package's SPEC). This package receives ONE resolved boolean plus the channel that set it.
+
+**How it is threaded.** `IRenderOptions.screenReader` → Ink's own `isScreenReaderEnabled` option AND
+a React context (`screen-reader-context.tsx`). Every component reads it through `useScreenReader()`;
+no component takes it as a prop. The field is also carried in `toChannelOptions`, the hand-maintained
+projection ARCH-110 records as able to drop an option silently.
+
+**Confirmation line.** The first line the process prints in the mode is
+`[Screen reader mode: on via flag|env|settings]`. When the mode is OFF and the environment looks like
+a reader is running, one advisory line instead: `[Screen reader mode: off — run with --screen-reader]`.
+The mode is never enabled by detection — a false positive prints one line, it does not reshape a
+sighted user's interface.
+
+**What the mode changes.**
+
+| Surface | Off | On |
+| ------- | --- | -- |
+| Chrome | `borderStyle` boxes, hand-drawn rules, the `│` diff gutter, `├`/`└` task connectors, the ASCII banner, the framed first-run welcome | all omitted (the border props are DROPPED, never restyled — the palette floor forbids substituting a literal) |
+| Motion | `WaveText` colour ramp on a 400 ms interval; multi-line streaming indicator | text written once, no interval scheduled; one static status line |
+| Transcript labels | `You:` / `Robota:` / `System:` / `Tool:` | the role-derived vocabulary below |
+| Menus | arrow keys + `> ` cursor | `N. <option>` rows and `Enter selection (1-<n>)` |
+| Yes/no prompts | two-option arrow menu | `Answer y or n and press Enter` (`y`/`n`/`yes`/`no`) |
+| Markdown tables | `marked-terminal`'s box-drawn grid | one `Header: value` line per cell, blank line between rows |
+| Status line | activity text and context percentage shown; `default` permission mode hidden | activity and context suppressed (volatile); permission mode always shown (stable anchor) |
+| Deletion | silent | `[deleted: <text>]` once, for `Ctrl+W` / `Ctrl+U` |
+| Attention | none | terminal bell on reply completion, on a prompt/dialog, and on a tool that ran past `LONG_TOOL_BELL_MS` (5000) |
+| Turn boundaries | none | OSC 133 `A`/`B`/`C`/`D` |
+
+**Label vocabulary** (`screen-reader-labels.ts`, SSOT — nine entries, all lowercase):
+`you:` `assistant:` `thinking:` `tool:` `tool error:` `error:` `warning:` `permission required:`
+`cost:`. Derived from the message ROLE, never the vendor, so the transcript is identical under every
+`agent-provider-*`; a test asserts no value matches a provider or vendor name.
+
+**Numbered-list contract** (`numbered-list.tsx` — the menu counterpart of the footer grammar above).
+Rows are `N. <option>` starting at 1. The prompt literal is `Enter selection (1-<n>)`, suffixed
+` or Escape to cancel` where the menu is cancellable. A non-numeric or out-of-range entry re-prints
+the SAME literal and selects nothing — the range is the correction. The selection itself stays owned
+by `flows/selection-flow.ts` (`applyNumericSelection`), so a menu resolves identically however it was
+driven. `SlashAutocomplete` takes the numbering but not the prompt: it is a completion popup driven
+by the input line, which owns those keystrokes.
+
+**Pacing** (`screen-reader-pacing.ts`). Two waits, both tunable, both `0` when the mode is off:
+
+| Variable | Default | Bound | Purpose |
+| -------- | ------- | ----- | ------- |
+| `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` | `900` | `600000` | let the reader finish the confirmation line before the first prompt frame; any keypress ends it early |
+| `ROBOTA_SCREEN_READER_PREPARK_MS` | `40` | `5000` | move the cursor to column 0 and pause before a changed line, so a caret-tracking reader restarts on it |
+
+Defaults are measured against THIS render loop, not copied: `40` is one Ink frame at its default
+`maxFps: 30` (33.3 ms) plus margin, and `900` is this binary's observed boot-to-first-prompt interval
+doubled. `0` means "no wait" exactly; a value above the bound is clamped **and reported on stderr**;
+a non-numeric value is refused with a note and the default stands — nothing is silently substituted.
+
+**Native scrollback is a guarded invariant.** Ink's `alternateScreen` defaults to `false` and nothing
+here sets it. The alternate screen has no scrollback, and reviewing earlier output is how a reader
+uses a long session, so `screen-010-scrollback.ptytest.ts` asserts `\x1b[?1049h` never appears — in
+the mode as well as out of it.
+
+**OSC 133 support table.** The marks are emitted unconditionally in the mode wherever
+`supportsTurnMarks()` allows; an emulator that does not implement OSC 133 discards the sequence.
+
+| Terminal | Behaviour |
+| -------- | --------- |
+| VS Code integrated terminal | navigates between marks (`Ctrl`/`Cmd`+`Up`/`Down`) |
+| iTerm2 | prompt marks in the left margin; `Cmd-Shift-Up`/`Down` |
+| WezTerm | **not emitted** — it owns OSC 133 for the shell, and a second emitter corrupts its prompt tracking. Override with `ROBOTA_TURN_MARKS=1` |
+| macOS Terminal.app | emitted, ignored — no navigation results |
+| Any other emulator | unknown sequence, discarded silently |
+| Non-TTY stdout | **not emitted** — nothing consumes the marks in a pipe |
+
+**Known limitations.**
+
+- Ink 7.1.1 self-describes its screen-reader support as "basic"; its output shape is not a contract
+  this package controls. Labels, pacing, the bell and the OSC 133 marks are written here for that
+  reason.
+- The marks do nothing in the terminals listed above as ignoring them, and are withheld in WezTerm.
+- The mode never turns itself on. A reader-shaped environment gets one advisory line, nothing more.
+- Cost is not announced per turn.
+- There is no permission-mode-cycling announcement, because no key-based cycling exists in this
+  repository; the mode is changed by command. The mode is instead rendered permanently in the status
+  line so a reader can find it. If key cycling is added, the announcement is added with it.
 
 ## IME Real-Cursor Contract (CLI-062)
 

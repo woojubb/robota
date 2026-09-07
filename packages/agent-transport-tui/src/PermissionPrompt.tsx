@@ -9,13 +9,17 @@ import {
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
+import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
   SELECTION_INDICATOR,
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IPendingPermissionRequest } from './types.js';
@@ -67,12 +71,45 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     [request],
   );
 
-  useInput((input, key) => {
-    const action = getPermissionPromptInputAction(input, key);
-    if (action !== undefined) {
-      applyAction(action);
-    }
+  const screenReader = useScreenReader();
+  const options = permissionPromptOptionsFor(
+    consentScopeFor(request.toolName, request.toolArgs),
+  );
+  const numbered = useNumberedSelection({
+    enabled: screenReader,
+    itemCount: options.length,
+    onSelect: (index) => {
+      const result = applyPermissionPromptInput(stateRef.current, {
+        type: 'shortcut',
+        index,
+      });
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'resolve') request.resolve(result.effect.decision);
+    },
   });
+
+  useInput(
+    (input, key) => {
+      const action = getPermissionPromptInputAction(input, key);
+      if (action !== undefined) {
+        applyAction(action);
+      }
+    },
+    { isActive: !screenReader },
+  );
+
+  if (screenReader) {
+    return (
+      <NumberedList
+        title={SCREEN_READER_LABELS.permissionRequired}
+        description={`${request.toolName} — ${formatArgs(request.toolArgs)}`}
+        options={options}
+        buffer={numbered.buffer}
+        invalid={numbered.invalid}
+      />
+    );
+  }
 
   return (
     <Box

@@ -8,7 +8,10 @@ import React, { useState, useRef, useCallback } from 'react';
 
 import {
   applyConfirmPromptInput,
+  applyTypedConfirmInput,
+  createTypedConfirmState,
   getConfirmPromptInputAction,
+  type ITypedConfirmState,
   type TConfirmPromptInputAction,
 } from './flows/confirm-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
@@ -19,7 +22,11 @@ import {
   type IKeyHint,
 } from './key-hint-footer.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
+
+/** The typed-answer prompt. Authored here beside the reducer that accepts it. */
+export const CONFIRM_PROMPT_TYPED_LITERAL = 'Answer y or n and press Enter';
 
 /**
  * Footer for the confirm prompt. Names the canonical keys for a horizontal row (←→; the reducer
@@ -59,12 +66,41 @@ export default function ConfirmPrompt({
     [onSelect, options.length],
   );
 
-  useInput((input, key) => {
-    const action = getConfirmPromptInputAction(input, key, options.length);
-    if (action !== undefined) {
-      applyAction(action);
-    }
-  });
+  const screenReader = useScreenReader();
+  const [typed, setTyped] = useState<ITypedConfirmState>(createTypedConfirmState);
+  const typedRef = useRef(typed);
+
+  useInput(
+    (input, key) => {
+      const result = applyTypedConfirmInput(typedRef.current, input, key);
+      typedRef.current = result.state;
+      setTyped(result.state);
+      if (result.effect.type === 'select') onSelect(result.effect.index);
+    },
+    { isActive: screenReader },
+  );
+
+  useInput(
+    (input, key) => {
+      const action = getConfirmPromptInputAction(input, key, options.length);
+      if (action !== undefined) {
+        applyAction(action);
+      }
+    },
+    { isActive: !screenReader },
+  );
+
+  if (screenReader) {
+    return (
+      <Box flexDirection="column">
+        <Text>{message}</Text>
+        <Text>
+          {CONFIRM_PROMPT_TYPED_LITERAL}
+          {typed.buffer.length > 0 ? ` ${typed.buffer}` : ''}
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box

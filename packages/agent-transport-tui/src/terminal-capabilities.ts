@@ -36,3 +36,26 @@ export function supportsImeCursorPositioning(): boolean {
   if (process.env.TERM_PROGRAM === 'Apple_Terminal') return false; // I5
   return Boolean(process.stdout.isTTY);
 }
+
+/**
+ * CLI-2004 — may this process write OSC 133 shell-integration marks at agent-turn boundaries?
+ *
+ * The marks are otherwise harmless: every emulator surveyed discards an unknown OSC sequence, so
+ * this gate carries DOCUMENTED negatives, not a capability probe. Robota's support table (the TUI
+ * package's docs/SPEC.md) is the user-facing half of the same list.
+ *
+ * Precedence:
+ *  - `ROBOTA_TURN_MARKS=1` → on (opt back in on a terminal listed below).
+ *  - `ROBOTA_TURN_MARKS=0` → off (kill switch).
+ *  - `TERM_PROGRAM=WezTerm` → off: WezTerm treats OSC 133 as shell-owned and a non-shell emitter
+ *    corrupts its own prompt tracking, so the marks are withheld rather than emitted uselessly.
+ *  - otherwise → on only when stdout is an interactive TTY. Nothing consumes the marks in a pipe,
+ *    and they would land in a captured transcript as noise.
+ */
+export function supportsTurnMarks(): boolean {
+  const override = process.env.ROBOTA_TURN_MARKS;
+  if (override === '1') return true;
+  if (override === '0') return false;
+  if (process.env.TERM_PROGRAM === 'WezTerm') return false;
+  return Boolean(process.stdout.isTTY);
+}

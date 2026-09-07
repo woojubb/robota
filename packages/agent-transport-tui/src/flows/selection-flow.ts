@@ -49,6 +49,69 @@ export function getDirectionalSelectionInputAction(
   return undefined;
 }
 
+/**
+ * CLI-2004 — the typed-number branch of a selection.
+ *
+ * Screen-reader mode replaces arrow-key navigation with a numbered list and a typed answer, but the
+ * SELECTION itself must stay owned by this module: two reducers deciding what "selected" means is
+ * how a menu ends up resolving differently depending on how you drove it. `applyNumericSelection`
+ * accumulates digits and resolves on Enter; everything downstream is the same `TSelectionEffect`.
+ */
+export interface INumericSelectionState {
+  /** Digits typed so far, before Enter. */
+  buffer: string;
+  /** The last Enter was outside `1..itemCount` (or empty) — the caller re-prints the prompt. */
+  invalid: boolean;
+  resolved: boolean;
+}
+
+export interface INumericSelectionOptions {
+  itemCount: number;
+  /** Escape resolves as a cancel only when the menu offers one. */
+  cancellable?: boolean;
+}
+
+export function createNumericSelectionState(): INumericSelectionState {
+  return { buffer: '', invalid: false, resolved: false };
+}
+
+/**
+ * Apply one keystroke to a numbered selection. Digits accumulate; Backspace edits; Enter resolves or
+ * marks the entry invalid; Escape cancels when the menu is cancellable. A non-digit character is
+ * ignored rather than treated as an answer — the invalid signal is reserved for a completed entry.
+ */
+export function applyNumericSelection(
+  state: INumericSelectionState,
+  input: string,
+  key: ISelectionInputKey & { backspace?: boolean; delete?: boolean },
+  options: INumericSelectionOptions,
+): { state: INumericSelectionState; effect: TSelectionEffect } {
+  if (state.resolved) return { state, effect: { type: 'none' } };
+  if (key.escape === true && options.cancellable === true) {
+    return { state: { ...state, resolved: true }, effect: { type: 'cancel' } };
+  }
+  if (key.backspace === true || key.delete === true) {
+    return { state: { ...state, buffer: state.buffer.slice(0, -1) }, effect: { type: 'none' } };
+  }
+  if (key.return === true) {
+    const index = Number.parseInt(state.buffer, 10) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= options.itemCount) {
+      return { state: { ...state, buffer: '', invalid: true }, effect: { type: 'none' } };
+    }
+    return {
+      state: { ...state, buffer: '', invalid: false, resolved: true },
+      effect: { type: 'select', index },
+    };
+  }
+  if (/^[0-9]+$/.test(input)) {
+    return {
+      state: { ...state, buffer: state.buffer + input, invalid: false },
+      effect: { type: 'none' },
+    };
+  }
+  return { state, effect: { type: 'none' } };
+}
+
 export function applySelectionInput(
   state: ISelectionFlowState,
   action: TSelectionInputAction,

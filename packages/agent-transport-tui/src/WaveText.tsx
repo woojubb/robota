@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react';
 
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { MOTION, PALETTE } from './tui-palette.js';
 
@@ -19,7 +20,12 @@ export default function WaveText({ text }: IProps): React.ReactElement {
   // Animate only on an interactive color terminal (shared with the markdown color
   // gate via terminal-capabilities). Non-TTY / NO_COLOR / FORCE_COLOR=0 → static,
   // no interval, no motion (SCREEN-006/008).
-  const animate = isInteractiveColorTerminal();
+  //
+  // CLI-2004: screen-reader mode is a THIRD gate on the same interval, not a second mechanism. A
+  // colour ramp is silent to a reader, but the repaint it causes is not — every tick re-emits the
+  // line, and the reader announces it again.
+  const screenReader = useScreenReader();
+  const animate = isInteractiveColorTerminal() && !screenReader;
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -29,6 +35,11 @@ export default function WaveText({ text }: IProps): React.ReactElement {
     }, MOTION.waveIntervalMs);
     return () => clearInterval(timer);
   }, [animate]);
+
+  if (screenReader) {
+    // No colour prop at all: the mode drops the cue rather than substituting a value.
+    return <Text>{text}</Text>;
+  }
 
   if (!animate) {
     return <Text color={PALETTE.text.muted}>{text}</Text>;
