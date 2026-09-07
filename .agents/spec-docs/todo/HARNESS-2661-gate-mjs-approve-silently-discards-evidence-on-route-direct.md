@@ -121,25 +121,25 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exits 0, and the new
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exits 0, and the new
       DIRECT-refusal case exits 1 with the fix reverted (the red-proof of the refusal)
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exits 0 on the whole
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs` → exits 0 on the whole
       file, not only the new cases
-- [ ] TC-04: `node scripts/harness/gate.mjs approve --doc <spec> --route DIRECT --instruction "go" --evidence "x"`
+- [x] TC-04: `node scripts/harness/gate.mjs approve --doc <spec> --route DIRECT --instruction "go" --evidence "x"`
       → exits non-zero, names route CLASS as the alternative, and leaves the document byte-identical
-- [ ] TC-05: `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc <spec> --rule x` → exits
+- [x] TC-05: `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc <spec> --rule x` → exits
       non-zero naming `--rule` as a flag `judge` does not use
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach                             | Notes                                             |
 | ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on `gate.test.mjs`   | RED with the fix reverted, GREEN with it          |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` | Regression — the affected set, not the full suite |
-| TC-03 | Unit      | `pnpm exec vitest run gate.test.mjs`        | The whole test file                               |
-| TC-04 | Unit      | `gate.test.mjs` — DIRECT + `--evidence`     | Exit non-zero, document unchanged, remedy named   |
-| TC-05 | Unit      | `gate.test.mjs` — `judge --rule`            | Exit non-zero, unknown-flag refusal               |
+| TC-01 | Unit      | `pnpm exec vitest run` on `gate.test.mjs`   | `gate.test.mjs` > `approve` + `a flag the named subcommand does not use is refused, never ignored` — RED before the fix |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` | SKIPPED — see the Evidence Log entry; residual finding is pre-existing on the base |
+| TC-03 | Unit      | `pnpm exec vitest run gate.test.mjs`        | `gate.test.mjs` — all 100 tests, not only the new cases |
+| TC-04 | Unit      | `gate.test.mjs` — DIRECT + `--evidence`     | `gate.test.mjs` > `DIRECT refuses --evidence, names the alternatives, and writes nothing` |
+| TC-05 | Unit      | `gate.test.mjs` — `judge --rule`            | `gate.test.mjs` > `judge --rule is refused — `options.rule` is read by advance alone` |
 
 ## User Execution Test Scenarios
 
@@ -220,3 +220,89 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `754c9e239eec` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/draft/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `580946f79880` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1894ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  807ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks does not exist  572ms
+
+ Test Files  1 passed (1)
+      Tests  100 passed (100)
+   Start at  22:21:41
+   Duration  19.04s (transform 173ms, setup 0ms, collect 271ms, tests 18.62s, environment 0ms, prepare 35ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `ca77bcc54c76` (tracked)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1894ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  807ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks does not exist  572ms
+
+ Test Files  1 passed (1)
+      Tests  100 passed (100)
+   Start at  22:21:41
+   Duration  19.04s (transform 173ms, setup 0ms, collect 271ms, tests 18.62s, environment 0ms, prepare 35ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `5d56567fba4b` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-07
+
+**Command:** `node scripts/harness/gate.mjs approve --doc .agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md --route DIRECT --instruction "go" --evidence "x"; test $? -ne 0`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+❌ approve --route DIRECT: --evidence is CLASS-only — a DIRECT entry records the user's instruction verbatim, not a note about it. For an approval that covers a category use --route CLASS --class <ID>; to record THIS approval's scope, put it inside --instruction "<verbatim>".
+REFUSED as required
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `01b32b5b2f3e` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-07
+
+**Command:** `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc .agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md --rule x; test $? -ne 0`
+**Exit:** 0
+**Output:** (last 9 of 9 line(s))
+
+```
+❌ --rule is not a flag `judge` uses — accepting it would drop it silently. `judge` accepts: --backlog-rule, --catalogue, --continuation, --correction, --date, --doc, --dry-run, --gate, --lane, --root, --verify-cmd
+usage:
+  gate.mjs judge   --gate <GATE> --doc <spec> [--continuation|--correction] [--lane L1|L2] [--catalogue <p>] [--backlog-rule <p>] [--root <p>] [--date YYYY-MM-DD] [--verify-cmd "<cmd>"]... [--dry-run]
+  gate.mjs record  --doc <spec> --tc TC-NN (--command "<cmd>" --exit <n> --output-file <p> | --skip "<reason>") [--date YYYY-MM-DD]
+  gate.mjs advance --doc <spec> [--rule <p>] [--root <p>]
+  gate.mjs approve --doc <spec> --route DIRECT|CLASS --instruction "<verbatim>" [--class <ID>] [--given YYYY-MM-DD] [--date YYYY-MM-DD] [--backlog-rule <p>] [--catalogue <p>] [--root <p>]
+                   route CLASS only: [--evidence "<the measurement>"] [--conversation "<where the instruction was given>"] — DIRECT refuses both rather than dropping them
+dates default to the LOCAL calendar date; the document's `lane:` is authoritative (--lane may only equal it); L1 order: approve (does not change status) → judge --gate PLAN (does not change status) → advance (performs the status transition) → one planning commit; a stacked branch sets HARNESS_BASE_REF=<parent branch> for the measured diff
+REFUSED as required
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `61b6c8d864cd` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-07
+
+**Test skipped:** the affected scan RAN (`node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`) and 61 of 63 scans passed. Its two findings are both outside this change: (1) `file-size` on `scripts/harness/scan-lane-declaration.mjs` — 845 lines against a baseline of 835, a file byte-identical to origin/develop with an unchanged baseline entry, so it is pre-existing red on the base (issue #2633) and sits on an L2 path this L1 item may not touch; (2) `work-run-measurement` — the receipt-before-completion circularity of issue #2568, which clears with this item's ready receipt that track-work-run step 4 places AFTER terminalization. Build and the full gate test file both exit 0 and are recorded under TC-01/TC-03. Not skipped for convenience: no change available to this lane can make the criterion's literal exit-0 hold.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `3479d04a8667` (modified)
