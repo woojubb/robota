@@ -10,7 +10,7 @@
   "packages/agent-core/src/abstracts/abstract-module.ts": 315,
   "packages/agent-core/src/abstracts/abstract-workflow-converter.ts": 319,
   "packages/agent-core/src/core/robota.ts": 408,
-  "packages/agent-core/src/index.ts": 331,
+  "packages/agent-core/src/index.ts": 336,
   "packages/agent-core/src/managers/agent-factory.ts": 344,
   "packages/agent-core/src/permissions/argument-matchers.ts": 336,
   "packages/agent-core/src/plugins/event-emitter-plugin.ts": 310,
