@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [harness, cli]
 lane: L1
@@ -243,6 +243,28 @@ exit=0
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `a3055924bab4` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `ca77bcc54c76` (tracked)
 
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-07
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs (red-proof: reverted the fix, re-ran, restored)`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+  × a flag the named subcommand does not use is refused... > judge --rule is refused
+  × a flag the named subcommand does not use is refused... > a misspelled flag is refused
+  × a flag the named subcommand does not use is refused... > a flag another subcommand owns is refused
+
+Fixed files restored from backup (byte-identical to the committed a3055924ba blobs); re-run:
+
+  pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs
+  Test Files  1 passed (1)
+       Tests  100 passed (100)
+       exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `030b2b48f78a` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `bccbb69490fe` (modified)
+
 ### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-07
 
 **Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs`
@@ -336,25 +358,3 @@ REFUSED as required
 
 **Judged by:** backlog-gate-guard (2 PENDING-GUARDIAN criteria judged fresh from the Task and git; 10 mechanical criteria + the ordering check independently re-measured rather than taken from `gate.mjs`'s reported summary)
 **Judged at:** HEAD `030b2b48f78a` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `ce8d4ef5ff4b` (tracked)
-
-### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-07
-
-**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs (red-proof: reverted the fix, re-ran, restored)`
-**Exit:** 0
-**Output:** (last 10 of 22 line(s))
-
-```
-  × a flag the named subcommand does not use is refused... > judge --rule is refused
-  × a flag the named subcommand does not use is refused... > a misspelled flag is refused
-  × a flag the named subcommand does not use is refused... > a flag another subcommand owns is refused
-
-Fixed files restored from backup (byte-identical to the committed a3055924ba blobs); re-run:
-
-  pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs
-  Test Files  1 passed (1)
-       Tests  100 passed (100)
-       exit=0
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `030b2b48f78a` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/HARNESS-2661-gate-mjs-approve-silently-discards-evidence-on-route-direct.md` blob `bccbb69490fe` (modified)

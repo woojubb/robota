@@ -1,8 +1,9 @@
 ---
 title: 'HARNESS-2661: gate.mjs approve silently discards --evidence on route DIRECT'
 issue: https://github.com/woojubb/robota/issues/2661
-status: in-progress
+status: done
 created: 2026-09-07
+completed: 2026-09-07
 priority: medium
 urgency: soon
 area: harness
