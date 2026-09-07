@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * gate.mjs's command-line argument parsing — the CLI surface alone, no gate evaluation.
  *
