@@ -149,9 +149,7 @@ describe('CLI-2004 TC-19: StreamingIndicator in screen-reader mode', () => {
   }
 
   it('renders a single static line for a thinking turn', () => {
-    const frame = renderInMode(
-      <StreamingIndicator text="" activeTools={[]} isThinking={true} />,
-    );
+    const frame = renderInMode(<StreamingIndicator text="" activeTools={[]} isThinking={true} />);
     expect(frame.split('\n').filter((line) => line.trim().length > 0)).toHaveLength(1);
     expect(frame).toContain('thinking:');
     expect(frame).not.toContain('Thinking...');

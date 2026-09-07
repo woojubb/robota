@@ -256,7 +256,11 @@ describe('CLI-2004: the status line in screen-reader mode', () => {
   });
 
   it('TC-21: renders all four exactly as today outside the mode', () => {
-    const frame = renderStatus(false, { isThinking: true, activeToolCount: 2, permissionMode: 'plan' });
+    const frame = renderStatus(false, {
+      isThinking: true,
+      activeToolCount: 2,
+      permissionMode: 'plan',
+    });
 
     expect(frame).toContain('Context:');
     expect(frame).toContain('42%');

@@ -98,7 +98,11 @@ describe('TC-09: the OSC 133 turn marks', () => {
 
   it('emits nothing when the mode is off', () => {
     const sink = collector();
-    const marks = createTurnMarkWriter({ enabled: false, supported: () => true, write: sink.write });
+    const marks = createTurnMarkWriter({
+      enabled: false,
+      supported: () => true,
+      write: sink.write,
+    });
     marks.emit('promptStart');
     marks.emit('turnEnd');
     expect(sink.written).toEqual([]);
@@ -106,7 +110,11 @@ describe('TC-09: the OSC 133 turn marks', () => {
 
   it('emits nothing when supportsTurnMarks() is false', () => {
     const sink = collector();
-    const marks = createTurnMarkWriter({ enabled: true, supported: () => false, write: sink.write });
+    const marks = createTurnMarkWriter({
+      enabled: true,
+      supported: () => false,
+      write: sink.write,
+    });
     marks.emit('promptStart');
     marks.emit('turnEnd');
     expect(sink.written).toEqual([]);

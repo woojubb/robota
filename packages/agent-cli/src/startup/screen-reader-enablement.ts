@@ -120,8 +120,25 @@ export interface IScreenReaderRenderFields {
 }
 
 /**
+ * True when the operator said "off" in so many words — `--no-screen-reader`, or
+ * `ROBOTA_SCREEN_READER=0`. Distinct from merely being off by default, which is the state the
+ * advisory line exists to tell someone about.
+ */
+export function isExplicitlyDisabled(
+  flagEnabled: boolean | undefined,
+  env: Readonly<Record<string, string | undefined>>,
+): boolean {
+  if (flagEnabled === false) return true;
+  return env['ROBOTA_SCREEN_READER']?.trim() === '0';
+}
+
+/**
  * The whole screen-reader decision as ONE call for the composition root: resolve the switch from all
  * three channels, and decide whether the OFF case has earned its advisory line.
+ *
+ * An explicit "off" has NOT earned it: the line tells someone the flag exists, and the operator who
+ * just used the flag to say no already knows. Nudging them on every run is the noise the opt-in
+ * verdict was chosen to avoid.
  */
 export function resolveScreenReaderRenderFields(
   settings: Record<string, unknown> | undefined,
@@ -137,6 +154,7 @@ export function resolveScreenReaderRenderFields(
   return {
     screenReader: resolved.enabled,
     screenReaderChannel: resolved.channel,
-    screenReaderHint: !resolved.enabled && detectScreenReaderHint(env),
+    screenReaderHint:
+      !resolved.enabled && !isExplicitlyDisabled(flagEnabled, env) && detectScreenReaderHint(env),
   };
 }

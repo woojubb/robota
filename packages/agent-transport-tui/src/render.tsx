@@ -248,21 +248,21 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
 
   const instance = render(
     <ScreenReaderProvider enabled={screenReader}>
-    <App
-      cwd={options.cwd}
-      createChannel={createChannel}
-      providerOverride={options.providerOverride}
-      providerType={options.providerType}
-      modelId={options.modelId}
-      permissionMode={options.permissionMode}
-      version={options.version}
-      sessionStore={options.sessionStore}
-      resumeSessionId={options.resumeSessionId}
-      showSessionPickerOnStart={options.showSessionPickerOnStart}
-      startupUpdateNotice={options.startupUpdateNotice}
-      transportRegistry={options.transportRegistry}
-      cliAdapter={options.cliAdapter}
-    />
+      <App
+        cwd={options.cwd}
+        createChannel={createChannel}
+        providerOverride={options.providerOverride}
+        providerType={options.providerType}
+        modelId={options.modelId}
+        permissionMode={options.permissionMode}
+        version={options.version}
+        sessionStore={options.sessionStore}
+        resumeSessionId={options.resumeSessionId}
+        showSessionPickerOnStart={options.showSessionPickerOnStart}
+        startupUpdateNotice={options.startupUpdateNotice}
+        transportRegistry={options.transportRegistry}
+        cliAdapter={options.cliAdapter}
+      />
     </ScreenReaderProvider>,
     { exitOnCtrlC: false, isScreenReaderEnabled: screenReader },
   );

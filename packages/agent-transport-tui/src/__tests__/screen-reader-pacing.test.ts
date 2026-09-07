@@ -1,21 +1,21 @@
 /**
- * CLI-2004 TC-20 — the two pacing waits.
+ * CLI-2004 TC-20 — the startup quiet period.
  *
- * The bounds matter more than the defaults: a mistyped `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` is
+ * The bound matters more than the default: a mistyped `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` is
  * how a session appears to hang forever, and a silently-swallowed value is how it appears to have no
  * effect at all. Every rejection and every clamp is REPORTED, and this asserts the report.
+ *
+ * The last case is the one the review added: "any keypress ends the wait" is only true if something
+ * puts a TTY stdin into raw mode first, because a canonical-mode terminal delivers nothing until
+ * Enter. Asserting it against a synthetic source alone would have proved a behaviour the product
+ * does not have.
  */
 
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   awaitStartupQuietPeriod,
-  COLUMN_ZERO,
-  DEFAULT_PREPARK_MS,
   DEFAULT_STARTUP_QUIET_MS,
-  parkThenWrite,
-  PREPARK_ENV,
-  PREPARK_MS_MAX,
   resolvePacing,
   STARTUP_QUIET_ENV,
   STARTUP_QUIET_MS_MAX,
@@ -27,36 +27,29 @@ function collectWarnings(): { notes: string[]; warn: (message: string) => void }
 }
 
 describe('TC-20: resolvePacing', () => {
-  it('returns the documented defaults when neither variable is set', () => {
+  it('returns the documented default when the variable is not set', () => {
     expect(resolvePacing({ enabled: true, env: {} })).toEqual({
       startupQuietMs: DEFAULT_STARTUP_QUIET_MS,
-      preparkMs: DEFAULT_PREPARK_MS,
     });
   });
 
   it('honours an explicit 0 exactly — the documented way to ask for no wait', () => {
-    const pacing = resolvePacing({
-      enabled: true,
-      env: { [STARTUP_QUIET_ENV]: '0', [PREPARK_ENV]: '0' },
+    expect(resolvePacing({ enabled: true, env: { [STARTUP_QUIET_ENV]: '0' } })).toEqual({
+      startupQuietMs: 0,
     });
-    expect(pacing).toEqual({ startupQuietMs: 0, preparkMs: 0 });
   });
 
-  it('clamps both variables to their sanity bounds AND reports each clamp', () => {
+  it('clamps the variable to its sanity bound AND reports the clamp', () => {
     const sink = collectWarnings();
     const pacing = resolvePacing({
       enabled: true,
-      env: { [STARTUP_QUIET_ENV]: '999999', [PREPARK_ENV]: '99999' },
+      env: { [STARTUP_QUIET_ENV]: '999999' },
       warn: sink.warn,
     });
 
-    expect(pacing).toEqual({
-      startupQuietMs: STARTUP_QUIET_MS_MAX,
-      preparkMs: PREPARK_MS_MAX,
-    });
-    expect(sink.notes).toHaveLength(2);
+    expect(pacing).toEqual({ startupQuietMs: STARTUP_QUIET_MS_MAX });
+    expect(sink.notes).toHaveLength(1);
     expect(sink.notes[0]).toContain(`clamping 999999 to the ${STARTUP_QUIET_MS_MAX} ms`);
-    expect(sink.notes[1]).toContain(`clamping 99999 to the ${PREPARK_MS_MAX} ms`);
   });
 
   it('refuses a non-numeric value with a note instead of silently treating it as 0', () => {
@@ -72,13 +65,10 @@ describe('TC-20: resolvePacing', () => {
     expect(sink.notes[0]).toContain('ignoring "soon"');
   });
 
-  it('resolves both waits to 0 when the mode is off, whatever the variables say', () => {
-    expect(
-      resolvePacing({
-        enabled: false,
-        env: { [STARTUP_QUIET_ENV]: '5000', [PREPARK_ENV]: '500' },
-      }),
-    ).toEqual({ startupQuietMs: 0, preparkMs: 0 });
+  it('resolves the wait to 0 when the mode is off, whatever the variable says', () => {
+    expect(resolvePacing({ enabled: false, env: { [STARTUP_QUIET_ENV]: '5000' } })).toEqual({
+      startupQuietMs: 0,
+    });
   });
 });
 
@@ -123,24 +113,45 @@ describe('TC-20: the startup quiet period', () => {
     ).resolves.toBe('elapsed');
     expect(touched).toBe(false);
   });
-});
 
-describe('TC-20: the pre-write park', () => {
-  it('emits a column-0 move BEFORE the waited write', async () => {
-    const written: string[] = [];
-    await parkThenWrite(0, 'assistant: hello', (chunk) => void written.push(chunk));
-    expect(written).toEqual([COLUMN_ZERO, 'assistant: hello']);
-  });
-
-  it('waits between the park and the write when a park is configured', async () => {
+  it('puts a TTY stdin into raw mode for the wait and restores it — without raw mode only Enter arrives', async () => {
     vi.useFakeTimers();
     try {
-      const written: string[] = [];
-      const done = parkThenWrite(DEFAULT_PREPARK_MS, 'line', (chunk) => void written.push(chunk));
-      expect(written).toEqual([COLUMN_ZERO]);
-      await vi.advanceTimersByTimeAsync(DEFAULT_PREPARK_MS);
-      await done;
-      expect(written).toEqual([COLUMN_ZERO, 'line']);
+      const modes: boolean[] = [];
+      let onData: (() => void) | undefined;
+      const keys = {
+        once: (_event: 'data', listener: () => void): void => void (onData = listener),
+        off: (): void => {},
+        resume: (): void => {},
+        pause: (): void => {},
+        isTTY: true,
+        setRawMode: (mode: boolean): void => void modes.push(mode),
+      };
+
+      const settled = awaitStartupQuietPeriod(600_000, keys);
+      expect(modes).toEqual([true]);
+      onData?.();
+      await expect(settled).resolves.toBe('keypress');
+      expect(modes).toEqual([true, false]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves a non-TTY stdin alone — there is no raw mode to set on a pipe', async () => {
+    vi.useFakeTimers();
+    try {
+      let touchedRawMode = false;
+      const keys = {
+        once: (): void => {},
+        off: (): void => {},
+        isTTY: false,
+        setRawMode: (): void => void (touchedRawMode = true),
+      };
+      const settled = awaitStartupQuietPeriod(200, keys);
+      await vi.advanceTimersByTimeAsync(200);
+      await expect(settled).resolves.toBe('elapsed');
+      expect(touchedRawMode).toBe(false);
     } finally {
       vi.useRealTimers();
     }

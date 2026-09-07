@@ -68,7 +68,9 @@ export default function TextPrompt({
   return (
     <Box
       flexDirection="column"
-      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
       paddingX={1}
     >
       <Text color={PALETTE.text.warning} bold>

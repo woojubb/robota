@@ -151,6 +151,8 @@ robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --model claude-sonnet-4-6     # Override provider model for this session
 robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
+robota --screen-reader              # Screen-reader mode: no chrome, no motion, numbered menus, role labels
+robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show complete buckets for the last 30 calendar days

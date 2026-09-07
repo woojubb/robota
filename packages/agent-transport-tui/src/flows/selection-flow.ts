@@ -16,7 +16,11 @@ export interface ISelectionInputKey {
 export type TSelectionInputAction = 'cancel' | 'select' | 'previous' | 'next';
 
 export type TSelectionEffect =
-  { type: 'none' } | { type: 'cancel' } | { type: 'select'; index: number };
+  | { type: 'none' }
+  | { type: 'cancel' }
+  | { type: 'select'; index: number }
+  // CLI-2004: a checklist toggles many times and then commits; only the numbered branch emits it.
+  | { type: 'confirm' };
 
 export interface ISelectionFlowOptions {
   itemCount: number;
@@ -69,6 +73,11 @@ export interface INumericSelectionOptions {
   itemCount: number;
   /** Escape resolves as a cancel only when the menu offers one. */
   cancellable?: boolean;
+  /**
+   * A checklist: a number TOGGLES its row and the menu stays open, so Enter on an empty buffer is
+   * the commit rather than an invalid entry. A single-choice menu resolves on the first number.
+   */
+  multi?: boolean;
 }
 
 export function createNumericSelectionState(): INumericSelectionState {
@@ -94,12 +103,18 @@ export function applyNumericSelection(
     return { state: { ...state, buffer: state.buffer.slice(0, -1) }, effect: { type: 'none' } };
   }
   if (key.return === true) {
+    // A checklist commits on an empty Enter; a single-choice menu has nothing to commit, so the
+    // same keystroke there is an entry that named no row.
+    if (options.multi === true && state.buffer === '') {
+      return { state: { ...state, invalid: false, resolved: true }, effect: { type: 'confirm' } };
+    }
     const index = Number.parseInt(state.buffer, 10) - 1;
     if (!Number.isInteger(index) || index < 0 || index >= options.itemCount) {
       return { state: { ...state, buffer: '', invalid: true }, effect: { type: 'none' } };
     }
     return {
-      state: { ...state, buffer: '', invalid: false, resolved: true },
+      // A toggle leaves the menu open — only a single-choice selection resolves it.
+      state: { ...state, buffer: '', invalid: false, resolved: options.multi !== true },
       effect: { type: 'select', index },
     };
   }

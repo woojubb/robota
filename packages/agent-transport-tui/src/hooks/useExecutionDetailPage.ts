@@ -8,7 +8,10 @@
 
 import { useEffect, useState } from 'react';
 
-import type { IExecutionDetailPage, IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionDetailPage,
+  IExecutionWorkspaceEntry,
+} from '@robota-sdk/agent-interface-execution';
 
 export interface IExecutionDetailState {
   page: IExecutionDetailPage | null;

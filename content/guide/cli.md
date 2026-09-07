@@ -255,6 +255,33 @@ The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates
 - Background subagent work renders as tree rows with status activity instead of a flat list.
 - Print/headless mode skips startup update checks so scripted stdout/stderr remain deterministic.
 
+### Screen Reader Mode
+
+The TUI draws boxes, repaints a live region, and asks for menu answers with arrow keys — none of
+which a screen reader can follow. `--screen-reader` replaces all three: borders, rules, the banner
+and the spinners are omitted, every message carries a role label (`you:`, `assistant:`, `tool:`),
+menus render as `1. option` lines answered by typing the number, markdown tables are flattened to
+`Header: value`, word and line deletions are announced, and the terminal bell rings when a reply or
+a long tool finishes. The mode is off by default and is never enabled by detection.
+
+Three ways to turn it on, and a flag beats the environment, which beats the settings file:
+
+| Channel                        | Value                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `--screen-reader`              | on for this run — wins over both channels below                     |
+| `--no-screen-reader`           | off for this run — wins over both channels below                    |
+| `ROBOTA_SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also enables |
+| `"screenReader": true`         | on, in `~/.robota/settings.json`                                    |
+
+The precedence is deliberately the opposite of `ROBOTA_MEMORY`'s: a per-invocation flag has to be
+able to turn the mode on for one run on a machine whose environment says otherwise, which is the
+remote-shell case this exists for. The first line the TUI prints names the mode and the channel that
+set it: `[Screen reader mode: on via flag]`.
+
+`ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how long the CLI waits after that line
+before drawing the first prompt, so the reader can finish speaking it; any keypress ends the wait
+early and `0` skips it.
+
 ### TuiInteractionChannel and useTuiChannel
 
 `TuiInteractionChannel` (in `agent-transport-tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:

@@ -200,7 +200,11 @@ function resolveMemoryArgs(
  */
 function resolveScreenReaderArgs(values: TParsedArgValues): Pick<IParsedCliArgs, 'screenReader'> {
   const screenReader =
-    values['no-screen-reader'] === true ? false : values['screen-reader'] === true ? true : undefined;
+    values['no-screen-reader'] === true
+      ? false
+      : values['screen-reader'] === true
+        ? true
+        : undefined;
   return { screenReader };
 }
 

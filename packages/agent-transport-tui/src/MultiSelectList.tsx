@@ -11,13 +11,14 @@
 import { Box, useInput } from 'ink';
 import React, { useState } from 'react';
 
+import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
   SELECTION_INDICATOR,
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
-import { numberedRowPrefix } from './numbered-list.js';
+import { NumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
@@ -40,6 +41,42 @@ export function getMultiSelectFooterHints(input: {
   ];
 }
 
+/**
+ * One checklist row. The mode swaps the position cue — a spoken number for the `> ` cursor and its
+ * colour — and nothing else: the checkbox is what says selected, in both.
+ */
+function ChecklistRow({
+  label,
+  index,
+  isCursor,
+  isChecked,
+  screenReader,
+}: {
+  label: string;
+  index: number;
+  isCursor: boolean;
+  isChecked: boolean;
+  screenReader: boolean;
+}): React.ReactElement {
+  const box = isChecked ? '[x] ' : '[ ] ';
+  if (screenReader) {
+    return (
+      <Text>
+        {numberedRowPrefix(index)}
+        {box}
+        {label}
+      </Text>
+    );
+  }
+  return (
+    <Text color={isCursor ? PALETTE.text.accent : undefined}>
+      {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+      {box}
+      {label}
+    </Text>
+  );
+}
+
 export interface IMultiSelectListProps {
   title: string;
   description?: string;
@@ -49,6 +86,34 @@ export interface IMultiSelectListProps {
   defaultValues?: readonly string[];
   onConfirm: (values: string[]) => void;
   onCancel: () => void;
+}
+
+/** The arrow-key driver: cursor motion, Space toggles, Enter confirms. Inactive in the mode. */
+function useChecklistArrowKeys(inputs: {
+  active: boolean;
+  itemCount: number;
+  setCursor: React.Dispatch<React.SetStateAction<number>>;
+  onToggleAtCursor: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}): void {
+  const { active, itemCount, setCursor } = inputs;
+  useInput(
+    (input, key) => {
+      if (key.upArrow) {
+        setCursor((c) => (c <= 0 ? itemCount - 1 : c - 1));
+      } else if (key.downArrow) {
+        setCursor((c) => (c >= itemCount - 1 ? 0 : c + 1));
+      } else if (input === ' ') {
+        inputs.onToggleAtCursor();
+      } else if (key.return) {
+        inputs.onConfirm();
+      } else if (key.escape) {
+        inputs.onCancel();
+      }
+    },
+    { isActive: active },
+  );
 }
 
 export default function MultiSelectList({
@@ -78,25 +143,34 @@ export default function MultiSelectList({
       return next;
     });
   };
+  const confirmIfAllowed = (): void => {
+    if (selected.size >= minSelect) onConfirm([...selected]);
+  };
+  const toggleAt = (index: number): void => {
+    const option = options[index];
+    if (option !== undefined) toggle(option.value);
+  };
 
-  useInput((input, key) => {
-    if (screenReader && /^[1-9]$/.test(input)) {
-      const option = options[Number.parseInt(input, 10) - 1];
-      if (option !== undefined) toggle(option.value);
-      return;
-    }
-    if (key.upArrow) {
-      setCursor((c) => (c <= 0 ? options.length - 1 : c - 1));
-    } else if (key.downArrow) {
-      setCursor((c) => (c >= options.length - 1 ? 0 : c + 1));
-    } else if (input === ' ') {
-      const option = options[cursor];
-      if (option !== undefined) toggle(option.value);
-    } else if (key.return) {
-      if (selected.size >= minSelect) onConfirm([...selected]);
-    } else if (key.escape) {
-      onCancel();
-    }
+  // CLI-2004: the checklist answers by number in the mode, through the SAME reducer every other
+  // numbered menu uses — `multi` is what keeps it open after a toggle and makes an empty Enter the
+  // commit. A local digit branch would have capped it at nine rows and skipped the shared prompt.
+  const numbered = useNumberedSelection({
+    enabled: screenReader,
+    itemCount: options.length,
+    cancellable: true,
+    multi: true,
+    onSelect: toggleAt,
+    onConfirm: confirmIfAllowed,
+    onCancel,
+  });
+
+  useChecklistArrowKeys({
+    active: !screenReader,
+    itemCount: options.length,
+    setCursor,
+    onToggleAtCursor: () => toggleAt(cursor),
+    onConfirm: confirmIfAllowed,
+    onCancel,
   });
 
   const canConfirm = selected.size >= minSelect;
@@ -104,34 +178,35 @@ export default function MultiSelectList({
   return (
     <Box
       flexDirection="column"
-      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
       paddingX={1}
     >
       <Text color={PALETTE.text.warning} bold>
         {title}
       </Text>
       {description !== undefined && description.length > 0 && <Text dimColor>{description}</Text>}
-      {options.map((option, index) => {
-        const isCursor = index === cursor;
-        const isChecked = selected.has(option.value);
-        if (screenReader) {
-          return (
-            <Text key={option.value}>
-              {numberedRowPrefix(index)}
-              {isChecked ? '[x] ' : '[ ] '}
-              {option.label}
-            </Text>
-          );
-        }
-        return (
-          <Text key={option.value} color={isCursor ? PALETTE.text.accent : undefined}>
-            {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-            {isChecked ? '[x] ' : '[ ] '}
-            {option.label}
-          </Text>
-        );
-      })}
-      <KeyHintFooter hints={getMultiSelectFooterHints({ canConfirm, minSelect })} />
+      {options.map((option, index) => (
+        <ChecklistRow
+          key={option.value}
+          label={option.label}
+          index={index}
+          isCursor={index === cursor}
+          isChecked={selected.has(option.value)}
+          screenReader={screenReader}
+        />
+      ))}
+      {screenReader ? (
+        <NumberedSelectionPrompt
+          itemCount={options.length}
+          cancellable
+          buffer={numbered.buffer}
+          invalid={numbered.invalid}
+        />
+      ) : (
+        <KeyHintFooter hints={getMultiSelectFooterHints({ canConfirm, minSelect })} />
+      )}
     </Box>
   );
 }

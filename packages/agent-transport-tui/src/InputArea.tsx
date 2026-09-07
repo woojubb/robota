@@ -16,11 +16,7 @@ import {
 } from './flows/input-area-flow.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
 import { useInputAreaKeys } from './hooks/useInputAreaKeys.js';
-import {
-  DeletionAnnouncement,
-  InputBottomRule,
-  InputTopRule,
-} from './input-area-rules.js';
+import { DeletionAnnouncement, InputBottomRule, InputTopRule } from './input-area-rules.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import SlashAutocomplete from './SlashAutocomplete.js';

@@ -17,7 +17,9 @@ export function ContextWarningBanner({ percentage }: IProps): React.ReactElement
   if (percentage >= CRITICAL_THRESHOLD) {
     return (
       <Box
-        {...(screenReader ? {} : { borderStyle: 'single' as const, borderColor: PALETTE.border.error })}
+        {...(screenReader
+          ? {}
+          : { borderStyle: 'single' as const, borderColor: PALETTE.border.error })}
         paddingX={1}
       >
         <Text color={PALETTE.text.error} bold>

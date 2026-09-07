@@ -23,12 +23,11 @@ import type { TUniversalMessage } from '@robota-sdk/agent-core';
 /** Every provider package this repo ships, plus the vendor names behind them. */
 const VENDOR_WORDS = /(claude|anthropic|openai|gpt|gemini|google|robota|llama|mistral|copilot)/i;
 
-function renderLabel(
-  role: TUniversalMessage['role'],
-  enabled: boolean,
-  driverId?: string,
-): string {
-  const label = React.createElement(RoleLabel, driverId === undefined ? { role } : { role, driverId });
+function renderLabel(role: TUniversalMessage['role'], enabled: boolean, driverId?: string): string {
+  const label = React.createElement(
+    RoleLabel,
+    driverId === undefined ? { role } : { role, driverId },
+  );
   const { lastFrame, unmount } = render(
     React.createElement(ScreenReaderProvider, { enabled, children: label }),
   );

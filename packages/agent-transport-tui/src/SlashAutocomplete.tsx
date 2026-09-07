@@ -115,7 +115,9 @@ export default function SlashAutocomplete({
   return (
     <Box
       flexDirection="column"
-      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.muted })}
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.muted })}
       paddingX={1}
     >
       {visibleCommands.map((cmd, i) => (

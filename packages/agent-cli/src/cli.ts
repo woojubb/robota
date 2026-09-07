@@ -347,7 +347,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     memoryStore: workspaceComposition.memoryStore,
     cwd,
   });
-  const screenReader = resolveScreenReaderRenderFields(userSettings, args.screenReader, process.env);
+  const screenReader = resolveScreenReaderRenderFields(
+    userSettings,
+    args.screenReader,
+    process.env,
+  );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {

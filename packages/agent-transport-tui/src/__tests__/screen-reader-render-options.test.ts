@@ -15,7 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BANNER_GLYPHS, BANNER_ART } from '../app-banner.js';
 import { buildStaticItems } from '../app-static-items.js';
-import { screenReaderAnnouncement, writeScreenReaderAnnouncement } from '../screen-reader-announcement.js';
+import {
+  screenReaderAnnouncement,
+  writeScreenReaderAnnouncement,
+} from '../screen-reader-announcement.js';
 import { toChannelOptions } from '../render.js';
 
 import type { IRenderOptions } from '../render.js';
@@ -34,7 +37,9 @@ vi.mock('ink', async (importOriginal) => {
 });
 
 // The App boots a channel and starts I/O; the mode's threading is what is under test, not the App.
-vi.mock('../App.js', () => ({ default: (): React.ReactElement => React.createElement('robota-app') }));
+vi.mock('../App.js', () => ({
+  default: (): React.ReactElement => React.createElement('robota-app'),
+}));
 
 function baseOptions(): IRenderOptions {
   return {
@@ -128,7 +133,9 @@ describe('TC-18: the advisory line, and its two negatives', () => {
   it('is the first line when the mode is off and a reader-shaped hint is present', () => {
     const written: string[] = [];
     writeScreenReaderAnnouncement({ enabled: false, hint: true }, (text) => written.push(text));
-    expect(written.join('').split('\n')[0]).toBe('[Screen reader mode: off — run with --screen-reader]');
+    expect(written.join('').split('\n')[0]).toBe(
+      '[Screen reader mode: off — run with --screen-reader]',
+    );
   });
 
   it('is absent when the mode is off and there is no hint', () => {

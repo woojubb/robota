@@ -72,9 +72,7 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
   );
 
   const screenReader = useScreenReader();
-  const options = permissionPromptOptionsFor(
-    consentScopeFor(request.toolName, request.toolArgs),
-  );
+  const options = permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs));
   const numbered = useNumberedSelection({
     enabled: screenReader,
     itemCount: options.length,

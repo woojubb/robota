@@ -71,7 +71,11 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
       // SCREEN-014: ↓ on an empty input that is not browsing history falls through into the
       // background-work list (where it is a no-op for the input today). The parent decides whether
       // there is a list to focus.
-      if (action === 'next' && inputs.historyState.selectedIndex === null && inputs.value.length === 0) {
+      if (
+        action === 'next' &&
+        inputs.historyState.selectedIndex === null &&
+        inputs.value.length === 0
+      ) {
         inputs.onRequestFocusBackgroundList?.();
         return;
       }

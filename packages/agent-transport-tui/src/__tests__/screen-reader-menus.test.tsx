@@ -166,7 +166,9 @@ describe('TC-07: PermissionPrompt and ConfirmPrompt', () => {
 
   it('ConfirmPrompt accepts `no` + Enter', async () => {
     const onSelect = vi.fn();
-    const { stdin, unmount } = renderInMode(<ConfirmPrompt message="Proceed?" onSelect={onSelect} />);
+    const { stdin, unmount } = renderInMode(
+      <ConfirmPrompt message="Proceed?" onSelect={onSelect} />,
+    );
     await tick();
     stdin.write('n');
     await tick();
@@ -181,7 +183,9 @@ describe('TC-07: PermissionPrompt and ConfirmPrompt', () => {
 
   it('ConfirmPrompt rejects anything else without selecting', async () => {
     const onSelect = vi.fn();
-    const { stdin, unmount } = renderInMode(<ConfirmPrompt message="Proceed?" onSelect={onSelect} />);
+    const { stdin, unmount } = renderInMode(
+      <ConfirmPrompt message="Proceed?" onSelect={onSelect} />,
+    );
     await tick();
     stdin.write('m');
     await tick();

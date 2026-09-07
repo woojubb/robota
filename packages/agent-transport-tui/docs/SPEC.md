@@ -150,15 +150,15 @@ the transport boundary.
 
 ## Public API Surface
 
-| Export                                                                      | Kind        | Description                                                             |
-| --------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
-| `renderApp`                                                                 | function    | Mount the Ink application                                               |
-| `createDefaultTuiCliAdapter`                                                | function    | Default CLI adapter for the renderer                                    |
-| `TuiInteractionChannel` + option types                                      | class/types | Session-owning TUI surface and its delivery-error callback seam         |
-| `ITuiCliAdapter` + option types                                             | types       | Adapter contracts                                                       |
-| `ITuiPickerItem`                                                            | type        | One selectable item in a TUI picker interaction                         |
-| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types       | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
-| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types       | Union of interaction contracts; missing-args action discriminator       |
+| Export                                                                      | Kind        | Description                                                                                                                                                                                          |
+| --------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renderApp`                                                                 | function    | Mount the Ink application                                                                                                                                                                            |
+| `createDefaultTuiCliAdapter`                                                | function    | Default CLI adapter for the renderer                                                                                                                                                                 |
+| `TuiInteractionChannel` + option types                                      | class/types | Session-owning TUI surface and its delivery-error callback seam                                                                                                                                      |
+| `ITuiCliAdapter` + option types                                             | types       | Adapter contracts                                                                                                                                                                                    |
+| `ITuiPickerItem`                                                            | type        | One selectable item in a TUI picker interaction                                                                                                                                                      |
+| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types       | Command/picker/confirm interaction contracts (`command-interaction.ts`)                                                                                                                              |
+| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types       | Union of interaction contracts; missing-args action discriminator                                                                                                                                    |
 | `TScreenReaderChannel`                                                      | type        | Which input turned screen-reader mode on (`flag`/`env`/`settings`) — declared here because this package PRINTS it, and imported by the surface that resolves it, so one union exists for one concept |
 
 ## Interaction Affordance Contract (SCREEN-005)
@@ -254,26 +254,28 @@ a React context (`screen-reader-context.tsx`). Every component reads it through 
 no component takes it as a prop. The field is also carried in `toChannelOptions`, the hand-maintained
 projection ARCH-110 records as able to drop an option silently.
 
-**Confirmation line.** The first line the process prints in the mode is
-`[Screen reader mode: on via flag|env|settings]`. When the mode is OFF and the environment looks like
-a reader is running, one advisory line instead: `[Screen reader mode: off — run with --screen-reader]`.
-The mode is never enabled by detection — a false positive prints one line, it does not reshape a
-sighted user's interface.
+**Confirmation line.** The first line `renderApp` prints in the mode is
+`[Screen reader mode: on via flag|env|settings]` — first of the TUI's own output, though `agent-cli`
+may have printed a welcome or a memory notice before handing over. When the mode is OFF and the
+environment looks like a reader is running, one advisory line instead:
+`[Screen reader mode: off — run with --screen-reader]`, and not even that when the operator turned
+the mode off explicitly. The mode is never enabled by detection — a false positive prints one line,
+it does not reshape a sighted user's interface.
 
 **What the mode changes.**
 
-| Surface | Off | On |
-| ------- | --- | -- |
-| Chrome | `borderStyle` boxes, hand-drawn rules, the `│` diff gutter, `├`/`└` task connectors, the ASCII banner, the framed first-run welcome | all omitted (the border props are DROPPED, never restyled — the palette floor forbids substituting a literal) |
-| Motion | `WaveText` colour ramp on a 400 ms interval; multi-line streaming indicator | text written once, no interval scheduled; one static status line |
-| Transcript labels | `You:` / `Robota:` / `System:` / `Tool:` | the role-derived vocabulary below |
-| Menus | arrow keys + `> ` cursor | `N. <option>` rows and `Enter selection (1-<n>)` |
-| Yes/no prompts | two-option arrow menu | `Answer y or n and press Enter` (`y`/`n`/`yes`/`no`) |
-| Markdown tables | `marked-terminal`'s box-drawn grid | one `Header: value` line per cell, blank line between rows |
-| Status line | activity text and context percentage shown; `default` permission mode hidden | activity and context suppressed (volatile); permission mode always shown (stable anchor) |
-| Deletion | silent | `[deleted: <text>]` once, for `Ctrl+W` / `Ctrl+U` |
-| Attention | none | terminal bell on reply completion, on a prompt/dialog, and on a tool that ran past `LONG_TOOL_BELL_MS` (5000) |
-| Turn boundaries | none | OSC 133 `A`/`B`/`C`/`D` |
+| Surface           | Off                                                                                                                                 | On                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Chrome            | `borderStyle` boxes, hand-drawn rules, the `│` diff gutter, `├`/`└` task connectors, the ASCII banner, the framed first-run welcome | all omitted (the border props are DROPPED, never restyled — the palette floor forbids substituting a literal) |
+| Motion            | `WaveText` colour ramp on a 400 ms interval; multi-line streaming indicator                                                         | text written once, no interval scheduled; one static status line                                              |
+| Transcript labels | `You:` / `Robota:` / `System:` / `Tool:`                                                                                            | the role-derived vocabulary below                                                                             |
+| Menus             | arrow keys + `> ` cursor                                                                                                            | `N. <option>` rows and `Enter selection (1-<n>)`                                                              |
+| Yes/no prompts    | two-option arrow menu                                                                                                               | `Answer y or n and press Enter` (`y`/`n`/`yes`/`no`)                                                          |
+| Markdown tables   | `marked-terminal`'s box-drawn grid                                                                                                  | one `Header: value` line per cell, blank line between rows                                                    |
+| Status line       | activity text and context percentage shown; `default` permission mode hidden                                                        | activity and context suppressed (volatile); permission mode always shown (stable anchor)                      |
+| Deletion          | `Ctrl+W` deletes the word before the cursor, `Ctrl+U` the line, both silently                                                       | the same edit, plus `[deleted: <text>]` once                                                                  |
+| Attention         | none                                                                                                                                | terminal bell on reply completion, on a prompt/dialog, and on a tool that ran past `LONG_TOOL_BELL_MS` (5000) |
+| Turn boundaries   | none                                                                                                                                | OSC 133 `A`/`B`/`C`/`D`                                                                                       |
 
 **Label vocabulary** (`screen-reader-labels.ts`, SSOT — nine entries, all lowercase):
 `you:` `assistant:` `thinking:` `tool:` `tool error:` `error:` `warning:` `permission required:`
@@ -288,17 +290,18 @@ by `flows/selection-flow.ts` (`applyNumericSelection`), so a menu resolves ident
 driven. `SlashAutocomplete` takes the numbering but not the prompt: it is a completion popup driven
 by the input line, which owns those keystrokes.
 
-**Pacing** (`screen-reader-pacing.ts`). Two waits, both tunable, both `0` when the mode is off:
+**Pacing** (`screen-reader-pacing.ts`). One wait, tunable, `0` when the mode is off:
 
-| Variable | Default | Bound | Purpose |
-| -------- | ------- | ----- | ------- |
-| `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` | `900` | `600000` | let the reader finish the confirmation line before the first prompt frame; any keypress ends it early |
-| `ROBOTA_SCREEN_READER_PREPARK_MS` | `40` | `5000` | move the cursor to column 0 and pause before a changed line, so a caret-tracking reader restarts on it |
+| Variable                                | Default | Bound    | Purpose                                                                                               |
+| --------------------------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` | `900`   | `600000` | let the reader finish the confirmation line before the first prompt frame; any keypress ends it early |
 
-Defaults are measured against THIS render loop, not copied: `40` is one Ink frame at its default
-`maxFps: 30` (33.3 ms) plus margin, and `900` is this binary's observed boot-to-first-prompt interval
-doubled. `0` means "no wait" exactly; a value above the bound is clamped **and reported on stderr**;
-a non-numeric value is refused with a note and the default stands — nothing is silently substituted.
+The default is measured against THIS render loop, not copied: `900` is this binary's observed
+boot-to-first-prompt interval doubled. `0` means "no wait" exactly; a value above the bound is
+clamped **and reported on stderr**; a non-numeric value is refused with a note and the default
+stands — nothing is silently substituted. "Any keypress" is literal because the wait puts a TTY
+stdin into raw mode for its duration and restores it; in canonical mode the terminal would deliver
+nothing until Enter.
 
 **Native scrollback is a guarded invariant.** Ink's `alternateScreen` defaults to `false` and nothing
 here sets it. The alternate screen has no scrollback, and reviewing earlier output is how a reader
@@ -308,14 +311,17 @@ the mode as well as out of it.
 **OSC 133 support table.** The marks are emitted unconditionally in the mode wherever
 `supportsTurnMarks()` allows; an emulator that does not implement OSC 133 discards the sequence.
 
-| Terminal | Behaviour |
-| -------- | --------- |
-| VS Code integrated terminal | navigates between marks (`Ctrl`/`Cmd`+`Up`/`Down`) |
-| iTerm2 | prompt marks in the left margin; `Cmd-Shift-Up`/`Down` |
-| WezTerm | **not emitted** — it owns OSC 133 for the shell, and a second emitter corrupts its prompt tracking. Override with `ROBOTA_TURN_MARKS=1` |
-| macOS Terminal.app | emitted, ignored — no navigation results |
-| Any other emulator | unknown sequence, discarded silently |
-| Non-TTY stdout | **not emitted** — nothing consumes the marks in a pipe |
+| Terminal                    | Behaviour                                                                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| VS Code integrated terminal | navigates between marks (`Ctrl`/`Cmd`+`Up`/`Down`)                                                                                      |
+| iTerm2                      | prompt marks in the left margin; `Cmd-Shift-Up`/`Down`                                                                                  |
+| WezTerm                     | **not emitted** — it owns OSC 133 for the shell, and a second emitter corrupts its prompt tracking. Override with `ROBOTA_TURN_MARKS=1` |
+| macOS Terminal.app          | emitted, ignored — no navigation results                                                                                                |
+| Any other emulator          | unknown sequence, discarded silently                                                                                                    |
+| Non-TTY stdout              | **not emitted** — nothing consumes the marks in a pipe                                                                                  |
+
+`ROBOTA_TURN_MARKS` overrides the whole table in either direction: `=1` emits where this package
+would withhold, `=0` withholds where it would emit.
 
 **Known limitations.**
 
@@ -328,6 +334,12 @@ the mode as well as out of it.
 - There is no permission-mode-cycling announcement, because no key-based cycling exists in this
   repository; the mode is changed by command. The mode is instead rendered permanently in the status
   line so a reader can find it. If key cycling is added, the announcement is added with it.
+- **The pre-write park is not shipped.** § Decision verdict (i) adopted a second wait — a column-0
+  move and a pause before each changed line. Every transcript line is written by Ink's own frame
+  loop, synchronously, so wrapping that write with a delay means blocking the event loop or
+  reordering frames. A documented tunable that silently did nothing would be worse than its absence,
+  so `ROBOTA_SCREEN_READER_PREPARK_MS` is not read at all. Reaching it needs an owned write path
+  (an Ink `stdout` wrapper that can defer a frame), which is its own change.
 
 ## IME Real-Cursor Contract (CLI-062)
 

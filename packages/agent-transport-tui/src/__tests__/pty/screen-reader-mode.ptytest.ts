@@ -115,7 +115,9 @@ describe('CLI-2004 screen-reader mode through the real binary', () => {
 
     await session.waitFor(/Type a message or \/help/, 30_000);
 
-    expect(session.snapshot().trimStart().startsWith('[Screen reader mode: on via env]')).toBe(true);
+    expect(session.snapshot().trimStart().startsWith('[Screen reader mode: on via env]')).toBe(
+      true,
+    );
   }, 90_000);
 
   it('TC-12: --screen-reader beats ROBOTA_SCREEN_READER=0 and says so', async () => {

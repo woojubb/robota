@@ -29,9 +29,23 @@ export interface IUseScreenReaderTurnSignalsInputs {
   awaitingAnswer: boolean;
 }
 
-/** Stable key for one tool run within a turn. */
+/**
+ * Stable key for one tool run within a turn.
+ *
+ * `executionId` where the session supplies one; otherwise the position, which `onToolEnd` preserves
+ * (it replaces the entry at its index rather than removing it).
+ */
 function toolKey(tool: IToolState, index: number): string {
-  return `${tool.toolName}#${index}`;
+  return tool.executionId ?? `${tool.toolName}#${index}`;
+}
+
+/** The keys of the tools currently RUNNING — not merely present in the array. */
+function runningKeys(activeTools: readonly IToolState[]): Set<string> {
+  const running = new Set<string>();
+  activeTools.forEach((tool, index) => {
+    if (tool.isRunning) running.add(toolKey(tool, index));
+  });
+  return running;
 }
 
 /** Wire the bell and the turn marks to the App's turn lifecycle. */
@@ -69,14 +83,19 @@ export function useScreenReaderTurnSignals(inputs: IUseScreenReaderTurnSignalsIn
   }, [awaitingAnswer, bell]);
 
   // Long-running tools: record each start, ring on the completions that outlived the threshold.
+  //
+  // Completion is the `isRunning` true→false transition, NOT the entry leaving the array. The
+  // session's `onToolEnd` replaces the finished entry in place (same index, same name, so the same
+  // key) and only `onThinking(false)` empties the array — so a membership test would report every
+  // tool as completing at turn end, judging its duration against the whole turn.
   useEffect(() => {
-    const current = new Set(activeTools.map((tool, index) => toolKey(tool, index)));
-    for (const key of current) {
+    const running = runningKeys(activeTools);
+    for (const key of running) {
       if (!runningTools.current.has(key)) bell.toolStarted(key);
     }
     for (const key of runningTools.current) {
-      if (!current.has(key)) bell.toolCompleted(key);
+      if (!running.has(key)) bell.toolCompleted(key);
     }
-    runningTools.current = current;
+    runningTools.current = running;
   }, [activeTools, bell]);
 }

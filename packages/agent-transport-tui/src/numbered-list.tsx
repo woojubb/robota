@@ -33,6 +33,41 @@ export function numberedRowPrefix(index: number): string {
   return `${index + 1}. `;
 }
 
+export interface INumberedSelectionPromptProps {
+  /** How many rows the prompt names. Zero ⇒ nothing is rendered: `(1-0)` names no answer. */
+  itemCount: number;
+  cancellable?: boolean;
+  /** Digits typed so far, echoed after the prompt. */
+  buffer?: string;
+  /** The last entry was out of range ⇒ the same literal is re-printed. */
+  invalid?: boolean;
+}
+
+/**
+ * The prompt line, separated from `NumberedList` so a menu that renders its own rows — the
+ * checklist, whose rows carry a checkbox — asks its question in the same words rather than
+ * inventing a dialect.
+ */
+export function NumberedSelectionPrompt({
+  itemCount,
+  cancellable = false,
+  buffer = '',
+  invalid = false,
+}: INumberedSelectionPromptProps): React.ReactElement | null {
+  if (itemCount === 0) return null;
+  const prompt = formatNumberedSelectionPrompt(itemCount, cancellable);
+  return (
+    <>
+      <Text>
+        {prompt}
+        {buffer.length > 0 ? ` ${buffer}` : ''}
+      </Text>
+      {/* An out-of-range answer re-prints the SAME literal: the range is the correction. */}
+      {invalid && <Text>{prompt}</Text>}
+    </>
+  );
+}
+
 export interface INumberedListProps {
   /** Heading line, e.g. the menu title or the permission question. */
   title?: string;
@@ -57,7 +92,6 @@ export function NumberedList({
   buffer = '',
   invalid = false,
 }: INumberedListProps): React.ReactElement {
-  const prompt = formatNumberedSelectionPrompt(options.length, cancellable);
   return (
     <Box flexDirection="column">
       {title !== undefined && title.length > 0 && <Text>{title}</Text>}
@@ -68,12 +102,12 @@ export function NumberedList({
           {option}
         </Text>
       ))}
-      <Text>
-        {prompt}
-        {buffer.length > 0 ? ` ${buffer}` : ''}
-      </Text>
-      {/* An out-of-range answer re-prints the SAME literal: the range is the correction. */}
-      {invalid && <Text>{prompt}</Text>}
+      <NumberedSelectionPrompt
+        itemCount={options.length}
+        cancellable={cancellable}
+        buffer={buffer}
+        invalid={invalid}
+      />
     </Box>
   );
 }

@@ -115,10 +115,7 @@ function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): Reac
  * ALWAYS rendered — with no key-based cycling to announce, the status line is the only place a
  * reader can find which permission mode it is in, and a hidden `default` leaves nothing to find.
  */
-function shouldShowPermissionMode(
-  permissionMode: TPermissionMode,
-  screenReader: boolean,
-): boolean {
+function shouldShowPermissionMode(permissionMode: TPermissionMode, screenReader: boolean): boolean {
   return screenReader || permissionMode !== 'default';
 }
 

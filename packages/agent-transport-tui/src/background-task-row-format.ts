@@ -55,11 +55,7 @@ export function formatBackgroundTaskRow(
     label: row.title,
     segments,
     preview: row.preview,
-    accessibleText: [
-      `${connector} ${marker} ${row.title}`,
-      ...segments,
-      row.preview,
-    ]
+    accessibleText: [`${connector} ${marker} ${row.title}`, ...segments, row.preview]
       .filter((part): part is string => typeof part === 'string' && part.length > 0)
       .join(' · '),
   };

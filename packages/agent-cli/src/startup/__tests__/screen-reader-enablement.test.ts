@@ -14,6 +14,7 @@ import {
   detectScreenReaderHint,
   readScreenReaderSetting,
   resolveScreenReaderEnablement,
+  resolveScreenReaderRenderFields,
 } from '../screen-reader-enablement.js';
 import { parseCliArgs, printHelp } from '../../utils/cli-args.js';
 
@@ -36,7 +37,7 @@ describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
     });
   });
 
-  it("INK_SCREEN_READER=true alone enables the mode as an equal env-tier input", () => {
+  it('INK_SCREEN_READER=true alone enables the mode as an equal env-tier input', () => {
     expect(resolveScreenReaderEnablement({ inkEnv: 'true' })).toEqual({
       enabled: true,
       channel: 'env',
@@ -58,9 +59,9 @@ describe('resolveScreenReaderEnablement — CLI-2004 TC-01', () => {
   });
 
   it('--screen-reader wins over ROBOTA_SCREEN_READER=0 AND a false setting', () => {
-    expect(
-      resolveScreenReaderEnablement({ settings: false, env: '0', flagEnabled: true }),
-    ).toEqual({ enabled: true, channel: 'flag' });
+    expect(resolveScreenReaderEnablement({ settings: false, env: '0', flagEnabled: true })).toEqual(
+      { enabled: true, channel: 'flag' },
+    );
   });
 
   it('--no-screen-reader wins over every enabling input', () => {
@@ -95,7 +96,7 @@ describe('readScreenReaderSetting', () => {
   });
 });
 
-describe('detectScreenReaderHint — the advisory line\'s only trigger', () => {
+describe("detectScreenReaderHint — the advisory line's only trigger", () => {
   it('fires when INK_SCREEN_READER is set to a non-"true" value', () => {
     expect(detectScreenReaderHint({ INK_SCREEN_READER: '1' })).toBe(true);
   });
@@ -111,8 +112,43 @@ describe('detectScreenReaderHint — the advisory line\'s only trigger', () => {
     expect(detectScreenReaderHint({ TERM: 'xterm-256color', HOME: '/root' })).toBe(false);
   });
 
-  it('does not fire when INK_SCREEN_READER already reads as Ink\'s enabling literal', () => {
+  it("does not fire when INK_SCREEN_READER already reads as Ink's enabling literal", () => {
     expect(detectScreenReaderHint({ INK_SCREEN_READER: 'true' })).toBe(false);
+  });
+});
+
+describe('the advisory line is withheld from an operator who said no', () => {
+  const READER_ENV = { NVDA: '1' };
+
+  it('offers the flag when the mode is merely off by default', () => {
+    expect(resolveScreenReaderRenderFields(undefined, undefined, READER_ENV)).toMatchObject({
+      screenReader: false,
+      screenReaderHint: true,
+    });
+  });
+
+  it('says nothing after --no-screen-reader — the operator just used the flag it would name', () => {
+    expect(resolveScreenReaderRenderFields(undefined, false, READER_ENV)).toMatchObject({
+      screenReader: false,
+      screenReaderHint: false,
+    });
+  });
+
+  it('says nothing under ROBOTA_SCREEN_READER=0, the other explicit off', () => {
+    expect(
+      resolveScreenReaderRenderFields(undefined, undefined, {
+        ...READER_ENV,
+        ROBOTA_SCREEN_READER: '0',
+      }),
+    ).toMatchObject({ screenReader: false, screenReaderHint: false });
+  });
+
+  it('never carries a hint while the mode is ON — there is nothing to advise', () => {
+    expect(resolveScreenReaderRenderFields(undefined, true, READER_ENV)).toMatchObject({
+      screenReader: true,
+      screenReaderChannel: 'flag',
+      screenReaderHint: false,
+    });
   });
 });
 

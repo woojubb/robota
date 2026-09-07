@@ -81,7 +81,9 @@ export default function ExecutionWorkspaceSwitcher({
   return (
     <Box
       flexDirection="column"
-      {...(screenReader ? {} : { borderStyle: 'round' as const, borderColor: PALETTE.border.focused })}
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.focused })}
       paddingX={1}
     >
       <Text color={PALETTE.text.accent} bold>
