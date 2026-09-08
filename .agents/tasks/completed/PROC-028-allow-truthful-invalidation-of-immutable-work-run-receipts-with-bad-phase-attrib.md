@@ -32,18 +32,34 @@ auditable way to remove that run from the included measurement population.
 - Added the hash-chained `work.invalidated` terminal event and `work-run invalidate --reason` route.
 - Added immutable invalidation receipts at the next generation-zero revision while retaining the original
   g0-r0 receipt and full event history.
+<!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
 - Implementation is recorded in `scripts/harness/work-run-receipts.mjs` and
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
   `scripts/harness/work-run-validation.mjs`.
 - Receipt validation now checks the invalidation terminal, projection, and original-receipt coordinates;
   reporting removes the invalidated included receipt from measurement while retaining the invalid reason.
 - Focused work-run contract, store, validation, and report suites passed: 136 tests.
+<!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
 - Landed as `945f25880` (PR #2622), which carries the contract in
-  `scripts/harness/work-run-contract.mjs`, `scripts/harness/work-run-state-transition.mjs`,
-  `scripts/harness/work-run-receipts.mjs`, `scripts/harness/work-run-receipt-validation.mjs`,
-  `scripts/harness/work-run-report-metrics.mjs`, `scripts/harness/work-run-store.mjs` and
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-contract.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-state-transition.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-receipts.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-receipt-validation.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-report-metrics.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+  `scripts/harness/work-run-store.mjs` and
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
   `scripts/harness/work-run-cli.mjs`, with the cases in
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
   `scripts/harness/__tests__/work-run-contract.test.mjs`,
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
   `scripts/harness/__tests__/work-run-store.test.mjs` and
+  <!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
   `scripts/harness/__tests__/work-run-report.test.mjs`.
 
 ## Test Plan

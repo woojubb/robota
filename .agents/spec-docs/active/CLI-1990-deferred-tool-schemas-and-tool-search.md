@@ -412,7 +412,7 @@ there is no provider-rejection path to catch.
 - [x] TC-12: `pnpm --filter @robota-sdk/agent-command exec vitest run src/context/__tests__`
       → exits 0; the `/context` breakdown reports a `toolSchemaTokens` figure greater than zero for a
       session with tools, and a smaller one when tools are deferred.
-- [ ] TC-13: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-13: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       → exits 0.
 - [x] TC-14: `grep -n "deferLoading\|ToolSearch\|tool_search" packages/agent-core/docs/SPEC.md packages/agent-tools/docs/SPEC.md packages/agent-tool-defaults/docs/SPEC.md packages/agent-framework/docs/SPEC.md packages/agent-command/docs/SPEC.md`
       → at least one match in each of the five files, and `agent-core/docs/SPEC.md` states both that
@@ -976,3 +976,38 @@ Not a gate verdict. The `[GATE-APPROVAL] — ✅ PASS | 2026-09-08` entry immedi
 ✅ PASS entry and fails closed on a missing route). Its `**Status upgrade:** in-progress → approved` line
 is the tool's template, not a transition: the document stays `in-progress`; the approval it records is
 the same one the guardian judged ("#2004, #1990, #1994, #2054 모두 승인", 2026-09-07).
+
+### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-08
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 83 line(s))
+
+```
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+56 scans passed, 5 skipped, 1 advisory failure(s) tolerated (pr context) (62 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9d9503b3be7f` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `c0752c9b8d19` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-08
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9d9503b3be7f` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `5a8e6035a51c` (modified)

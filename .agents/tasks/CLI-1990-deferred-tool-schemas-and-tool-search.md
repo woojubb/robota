@@ -47,7 +47,7 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] `ToolSearch` permission profile (closes verdict (g)'s named gap) — TC-17
 - [x] SPEC.md updates across `agent-core`, `agent-tools`, `agent-tool-defaults`, `agent-framework`, `agent-command`, incl. the corrected premise (§ Solution 12) — TC-14
   Site docs (`content/`): no page enumerates the builtin tools or the `/context` line items (`content/guide/cli.md` describes commands generically), so no `content/` page becomes stale; the package README builtin table gains the `ToolSearch` row.
-- [ ] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13
+- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13
 
 ## Test Plan
 
@@ -72,7 +72,7 @@ records its test-file path here when green; the commands are the spec's § Compl
 | TC-10 | same file as TC-02 — permission gating unchanged | green |
 | TC-11 | `agent-tool-defaults` suite + `agent-framework/src/__tests__/create-session-default-tools.test.ts` | green |
 | TC-12 | `agent-command/src/context/__tests__` (existing) | green |
-| TC-13 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | pending |
+| TC-13 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | green — 55 selected scans, 0 failures |
 | TC-14 | `grep` over the six SPEC.md files | green |
 | TC-15 | `agent-core/src/interfaces/__tests__` + anthropic and openai provider suites | green |
 | TC-16 | `agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (existing) | green |
