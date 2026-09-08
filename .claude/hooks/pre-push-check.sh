@@ -202,14 +202,6 @@ while read -r PS_START PS_LEN; do
   # applies to IT — a background `&` and a pipe `|` bind to the command on their LEFT — while a
   # pipe on the connector BEFORE binds to the command on its right. `||`/`&&` are two-char and
   # must not be mistaken for the single `|`/`&`. (#1667 review)
-  PS_AFTER="${COMMAND:$PS_STMT_END}"
-  PS_AFTER="${PS_AFTER#"${PS_AFTER%%[![:space:]]*}"}"
-  PS_SUBSHELLED=false
-  [[ "$PS_CONNECTOR" != *'||'* && "$PS_CONNECTOR" == *'|'* ]] && PS_SUBSHELLED=true
-  case "$PS_AFTER" in
-    '||'* | '&&'*) : ;;
-    '|'* | '&'*) PS_SUBSHELLED=true ;;
-  esac
   # This statement's mask is a SLICE of the once-tokenized whole-command mask — the same bytes
   # `hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN"` returned, since the mask is byte-aligned with
   # the command, but without a fresh awk fork per statement (HARNESS-083). The whole-command tokenize
@@ -367,6 +359,17 @@ while read -r PS_START PS_LEN; do
       && [[ "$PS_RAW_STMT" =~ ^[[:alnum:][:space:]_./:=+@,%-]*$ ]]; then
       continue
     fi
+    # Only a statement that may change directory needs to inspect the connector after it. Doing
+    # this for every ordinary statement copied the entire remaining command once per statement,
+    # turning the long-chain regression fixture into an accidental O(N²) string operation.
+    PS_AFTER="${COMMAND:$PS_STMT_END}"
+    PS_AFTER="${PS_AFTER#"${PS_AFTER%%[![:space:]]*}"}"
+    PS_SUBSHELLED=false
+    [[ "$PS_CONNECTOR" != *'||'* && "$PS_CONNECTOR" == *'|'* ]] && PS_SUBSHELLED=true
+    case "$PS_AFTER" in
+      '||'* | '&&'*) : ;;
+      '|'* | '&'*) PS_SUBSHELLED=true ;;
+    esac
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides
     # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
     # A statement whose words cannot be READ is a statement whose directory changes cannot be
