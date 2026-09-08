@@ -64,9 +64,6 @@ describe('contract-test input registry ownership', () => {
 
     const byTest = new Map(registry.map((entry) => [entry.test, entry]));
     expect(
-      byTest.get('scripts/harness/__tests__/work-run-git.test.mjs')?.implementationInputs,
-    ).toContain('scripts/harness/work-run-git.mjs');
-    expect(
       byTest.get('scripts/harness/__tests__/harness-smoke.test.mjs')?.implementationInputs,
     ).toEqual(
       expect.arrayContaining([

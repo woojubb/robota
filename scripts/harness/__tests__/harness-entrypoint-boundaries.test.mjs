@@ -67,7 +67,6 @@ describe('harness entrypoint boundaries', () => {
         'CI_SCANS_JOB_MIRROR',
         'createCiScansJobMirror',
         'createPrePushSteps',
-        'createWorkRunMeasurementInput',
         'prerequisitesFor',
         'runPostVerdictGuard',
         'runPrePushGate',

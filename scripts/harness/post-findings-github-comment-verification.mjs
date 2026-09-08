@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-import { takeWorkRunVerificationQuery } from './work-run-verification-runtime.mjs';
+import { takeVerificationQuery } from './verification-budget-runtime.mjs';
 
 const GITHUB_COMMENT_TIMEOUT_MS = 15_000;
 const GITHUB_COMMENT_MAX_BYTES = 256 * 1024;
@@ -104,7 +104,7 @@ function verifyCommentWasNeverEdited(comment, commentId, runGh, runtime) {
   if (typeof comment.node_id !== 'string' || comment.node_id.length === 0) {
     throw new Error('GitHub authorization comment lacks an immutable node identity');
   }
-  const timeout = takeWorkRunVerificationQuery(runtime);
+  const timeout = takeVerificationQuery(runtime);
   const result = runGh(
     ['api', 'graphql', '-f', `query=${COMMENT_EDIT_QUERY}`, '-f', `nodeId=${comment.node_id}`],
     {
@@ -213,7 +213,7 @@ export function fetchVerifiedGitHubAuthorizationComments({
   const found = new Map();
   let after = null;
   for (let page = 0; page < MAX_COMMENT_PAGES && found.size < wanted.size; page += 1) {
-    const timeout = takeWorkRunVerificationQuery(runtime);
+    const timeout = takeVerificationQuery(runtime);
     const result = runGh(batchArgs(repository, prNumber, after), {
       timeout: Math.min(GITHUB_COMMENT_TIMEOUT_MS, timeout),
       maxBuffer: GITHUB_COMMENT_MAX_BYTES,
@@ -242,7 +242,7 @@ export function fetchVerifiedGitHubAuthorizationComment({
   runGh = defaultRunGh,
 }) {
   validateRequest(repository, commentId);
-  const timeout = takeWorkRunVerificationQuery(runtime);
+  const timeout = takeVerificationQuery(runtime);
   const result = runGh(['api', `/repos/${repository}/issues/comments/${commentId}`], {
     timeout: Math.min(GITHUB_COMMENT_TIMEOUT_MS, timeout),
     maxBuffer: GITHUB_COMMENT_MAX_BYTES,

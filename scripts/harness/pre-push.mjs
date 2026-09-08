@@ -19,7 +19,7 @@ export {
   createPrePushSteps,
   resolvePrePushMode,
 } from './pre-push-runtime.mjs';
-export { createWorkRunMeasurementInput, runPrePushGate } from './pre-push-work-run.mjs';
+export { runPrePushGate } from './pre-push-work-run.mjs';
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   if (!runPostVerdictGuard()) process.exit(2);

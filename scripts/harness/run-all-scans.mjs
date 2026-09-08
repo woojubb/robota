@@ -18,7 +18,6 @@ import { classifyRange } from './classify-changed-paths.mjs';
 import { loadScanCommands } from './discovery-loader.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
-import { createWorkRunMeasurementScan } from './work-run-scan-registration.mjs';
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
@@ -696,7 +695,6 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
     always: true,
   },
-  createWorkRunMeasurementScan('scripts/harness/scan-work-run-measurement.mjs'),
   // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
   // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
   // 43 and 52 — not a counting bug, but three private definitions of a term the rule never defined.

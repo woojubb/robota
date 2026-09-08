@@ -1,4 +1,3 @@
-import { validateWorkRunRange } from './scan-work-run-measurement.mjs';
 import { isDeletedRefUpdate } from './pre-push-updates.mjs';
 import { classifyFiles, classifyRange } from './classify-changed-paths.mjs';
 
@@ -118,23 +117,6 @@ export function runPrePushGate(steps) {
     return { verified: false, reason: decision.reason };
   }
 
-  // Advisory, not blocking (issue-registration/process-overhead policy, 2026-09): the receipt
-  // chain this validates is a measurement of the work-run's own lifecycle, not of the code being
-  // pushed, and its claim/reopen/ready ordering assumes a claim→PR flow. A direct-to-develop push
-  // (git-branch.md § Branch Policy) or an out-of-order recovery from a local mistake both leave a
-  // technically-invalid receipt with correct, reviewed code behind it — CI's own scans-full.yml
-  // already excludes this same scan (`--skip work-run-measurement`) from the blocking integration
-  // suite, so a local push holding it to a stricter bar than CI is the inconsistency, not the fix.
-  let measurement;
-  try {
-    measurement = steps.validateWorkRunMeasurement();
-  } catch (error) {
-    measurement = { ok: false, reason: error.message };
-  }
-  if (!measurement.ok) {
-    steps.reportMeasurementAdvisory(measurement);
-  }
-
   const receipt = steps.findReusableReceipt();
   if (receipt.reusable) {
     steps.reportReceiptReused(receipt);
@@ -144,22 +126,4 @@ export function runPrePushGate(steps) {
   steps.assertTreePrerequisites();
   steps.runVerification();
   return { verified: true, reason: null };
-}
-
-export function createWorkRunMeasurementInput({ root, baseRef, pushSubject }) {
-  if (pushSubject.localRef !== `refs/heads/${pushSubject.branch}`) {
-    throw new Error('resolved local ref does not match the resolved branch');
-  }
-  return {
-    root,
-    baseRef,
-    subjectRef: pushSubject.localObjectId,
-    subjectBranch: pushSubject.branch,
-    prObservation: 'pre-push',
-  };
-}
-
-export function createWorkRunMeasurementStep(input, validate = validateWorkRunRange) {
-  const measurementInput = createWorkRunMeasurementInput(input);
-  return () => validate(measurementInput);
 }

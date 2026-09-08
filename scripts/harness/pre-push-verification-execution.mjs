@@ -1,5 +1,3 @@
-import { WORK_RUN_PR_OBSERVATION_ENV } from './work-run-observation.mjs';
-
 export function reportPrePushBaseResolution(
   { baseResolution, baseRef },
   write = process.stdout.write.bind(process.stdout),
@@ -21,13 +19,7 @@ function runMirroredScans(runtime, operations) {
   });
   for (const [command, args] of mirror) {
     const started = operations.now();
-    if (args[0] === 'harness:scan') {
-      operations.run(command, args, {
-        env: { [WORK_RUN_PR_OBSERVATION_ENV]: 'pre-push' },
-      });
-    } else {
-      operations.run(command, args);
-    }
+    operations.run(command, args);
     operations.write(
       `▶ ${args[0]} wall time: ${((operations.now() - started) / 1000).toFixed(1)}s\n`,
     );

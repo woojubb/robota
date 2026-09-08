@@ -276,6 +276,18 @@ describe('a disposition is published to the PR as part of recording it', () => {
     expect(verdict.status).not.toBe(0);
     expect(verdict.output).toMatch(/--disposition/);
   });
+
+  it('accepts the -- separator pnpm forwards ahead of the real flags', () => {
+    // `pnpm harness:review:record -- --findings 0` — the documented invocation (AGENTS.md) — put a
+    // literal `--` in argv ahead of the flags. Treating it as an unrecognised argument rejected the
+    // exact command the docs told the caller to run.
+    const dir = repoWithBacklog('feat/clean', []);
+
+    const verdict = recordIn(dir, ['--', '--findings', '0']);
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).not.toMatch(/unrecognised argument/);
+  });
 });
 
 describe('a withdrawn change is not a reviewed change', () => {

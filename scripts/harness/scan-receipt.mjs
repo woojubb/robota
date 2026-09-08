@@ -16,11 +16,10 @@
  * file they read — so any change to what the suite reads or how it reads it invalidates the receipt.
  * The toolchain is carried separately because it is not in the tree.
  *
- * A tree hash cannot cover scans reading outside the tracked tree. `dist` and `build-contracts`
- * compare ignored output against `src/`; `work-run-measurement` reads commit trailers and history,
- * branch/base identity, and live GitHub approval comments. Two runs with one tree hash can therefore
- * disagree. Those scans ALWAYS RE-RUN. Making the whole run ineligible (HARNESS-109's first shape)
- * meant `pnpm harness:scan` could never be reused, which is the command the item filed about.
+ * A tree hash cannot cover scans reading outside the tracked tree: `dist` and `build-contracts`
+ * compare ignored output against `src/`. Two runs with one tree hash can therefore disagree. Those
+ * scans ALWAYS RE-RUN. Making the whole run ineligible (HARNESS-109's first shape) meant
+ * `pnpm harness:scan` could never be reused, which is the command the item filed about.
  *
  * They are also excluded from the receipt's identity, so a full local run and CI's
  * `--skip dist --skip build-contracts` share one receipt: what the receipt asserts is the result of
@@ -48,7 +47,7 @@ const RECEIPT_FILE = 'robota-verification/harness-scan.json';
  * state must be added here in the same change, and the test asserting it is re-run on a hit is what
  * makes that visible.
  */
-export const TREE_EXTERNAL_SCANS = new Set(['dist', 'build-contracts', 'work-run-measurement']);
+export const TREE_EXTERNAL_SCANS = new Set(['dist', 'build-contracts']);
 
 function run(command, args, root) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8' });
