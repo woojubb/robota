@@ -248,6 +248,10 @@ describe('createVerificationPlan', () => {
 // line CI's readers see. The pre-fix defect is pinned in both directions — build tooling must
 // select everything, and a docs-only change must still select nothing WITHOUT failing.
 describe('workspace-wide build tooling (INFRA-060 D4)', () => {
+  it('keeps the full-verification desktop app helper in workspace-wide scope', () => {
+    expect(WORKSPACE_WIDE_BUILD_TOOLING_PATHS).toContain('scripts/build-agent-app-if-full.mjs');
+  });
+
   it('selects EVERY scope in full for the ordered-types builder — the measured defect', () => {
     const plan = createVerificationPlan({
       scopes,
