@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -207,6 +207,13 @@ describe('post-tool-format', () => {
 describe('spec-first-gate', () => {
   // Signal: the UserPromptSubmit payload's `prompt`. The gate reads intent from the text, so the
   // cases are prompts.
+  it('keeps the large reminder on the direct printf path', async () => {
+    const source = readFileSync(path.join(HOOKS_DIR, 'spec-first-gate.sh'), 'utf8');
+
+    expect(source).toContain("printf '%s\\n' \\");
+    expect(source).not.toContain("cat <<'EOF'");
+  });
+
   it('injects the gate when a prompt states implementation intent without a spec', async () => {
     // The case the earlier pair claimed and did not reach: both of those took the silent path, so
     // breaking the intent match or deleting the SPEC-GATE block entirely would have left them green.
