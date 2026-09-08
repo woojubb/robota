@@ -4,10 +4,10 @@
  * Routing documents stay lean, and may only get leaner (D1).
  *
  * THE GAP THIS CLOSES, measured. `operational.md` § Document Size Rule names three routing documents
- * and requires them to stay lean, targeting under 80 lines. `scan-file-size.mjs` scopes itself to
- * `packages` and `apps`, so **nothing could see them**. Measured when this scan was written:
- * `AGENTS.md` 159, `.agents/rules/index.md` 99, `.agents/project-structure.md` 370 — three of three
- * in violation of a rule with no enforcement behind it.
+ * and requires them to stay lean, targeting under 80 lines, and nothing else in the scan suite covers
+ * markdown against a line-count ceiling. Measured when this scan was written: `AGENTS.md` 159,
+ * `.agents/rules/index.md` 99, `.agents/project-structure.md` 370 — three of three in violation of a
+ * rule with no enforcement behind it.
  *
  * It matters more than a style nit because `AGENTS.md` is re-injected after every compaction: every
  * line is paid on every turn, for the life of the repository.

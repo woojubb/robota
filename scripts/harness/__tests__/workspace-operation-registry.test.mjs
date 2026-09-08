@@ -19,7 +19,7 @@ describe('workspace operation registry', () => {
       readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'),
     );
     const rootScripts = Object.keys(manifest.scripts).sort();
-    expect(rootScripts.length).toBeGreaterThanOrEqual(117);
+    expect(rootScripts.length).toBeGreaterThanOrEqual(116);
     const registered = Object.values(ROOT_SCRIPT_CLASSES).flat().sort();
     expect(registered).toEqual(rootScripts);
     expect(Object.keys(ROOT_SCRIPT_DESCRIPTORS).sort()).toEqual(rootScripts);

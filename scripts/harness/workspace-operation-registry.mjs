@@ -175,7 +175,6 @@ export const ROOT_SCRIPT_CLASSES = Object.freeze({
     'harness:scan:document-authority',
     'harness:scan:document-standards',
     'harness:scan:done-evidence',
-    'harness:scan:file-size',
     'harness:scan:functional-coverage',
     'harness:scan:hook-override-declarations',
     'harness:scan:legacy-typescript',
