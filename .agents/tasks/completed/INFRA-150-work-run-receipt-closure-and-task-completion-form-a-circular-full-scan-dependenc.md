@@ -61,6 +61,7 @@ TUI, browser, or public SDK behavior. Its observable proof belongs in harness co
 
 ## Completion Evidence
 
+<!-- evidence-superseded: the work-run lifecycle subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
 - `scripts/harness/work-run-ready-order.mjs` makes Task/spec terminalization a prerequisite of
   `work-run ready`.
 - The final content commit now precedes the receipt-only closure, and the final full scan observes

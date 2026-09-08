@@ -158,7 +158,6 @@
     "user-execution-plan-order",
     "vitest-resource-ceiling",
     "work-item-id-collision",
-    "work-run-measurement",
     "workflow-permissions",
     "workflow-provenance",
     "workspace-import-integrity",

@@ -42,7 +42,7 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] Attach refusals: missing record or terminal task refused with the task's status (§ Solution 6) — TC-09
 - [x] `--fork-session` print-mode path and `cli-args` untouched (regression) — TC-10
 - [x] SPEC.md updates across `agent-interface-execution`, `agent-interface-command`, `agent-framework`, `agent-command`, `agent-executor`, `agent-transport-tui`, each stating that a fork is a copy and attach is a view switch (§ Solution 7) — TC-12
-- [ ] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-11
+- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-11
 
 ## Test Plan
 
@@ -65,7 +65,7 @@ test-file path here when green; the commands are the spec's § Completion Criter
 | TC-08 | `packages/agent-transport-tui/src/__tests__/fork-attach.test.tsx` (new) + package `typecheck`                   | green   |
 | TC-09 | same file — attach refusals                                                                                     | green   |
 | TC-10 | `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts`, `src/utils/__tests__/cli-args.test.ts` | green   |
-| TC-11 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`             | pending |
+| TC-11 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`             | green — 55 selected scans, 0 failures |
 | TC-12 | `grep -n "fork"` over the six SPEC.md files                                                                     | green   |
 
 ## User Execution Test Scenarios

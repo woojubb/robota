@@ -479,12 +479,9 @@ support table documents the outcome per terminal.
       subsection listing at least the Ink "basic support" caveat and the terminals where OSC 133 does
       nothing; `agent-cli/docs/SPEC.md` states the precedence and names the divergence from the memory
       resolver's env-wins rule.
-- [ ] TC-15: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
-      → exits 0. Measured on this branch over develop `a5f363f7ed`: 2 of 124 scans red, and both are the
-      Task's recorded USER DISPOSITION rather than findings in this change — `user-execution-plan-order`
-      (no `DONE-GATE-STAGE-1` PASS bound to the planning checkpoint) and `work-run-measurement` (no
-      closure receipt, which `work-run ready` will not issue before the Task is terminalized). The
-      criterion therefore stays unchecked: it says "exits 0", and it does not.
+- [x] TC-15: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+      → exits 0; current head selects 55 scans and reports 0 failures after removing the retired
+      work-run scan from the adoption baseline and superseding historical work-run evidence references.
 - [x] TC-22: `pnpm --filter @robota-sdk/agent-transport-tui test:pty -- src/__tests__/pty/screen-010-scrollback.ptytest.ts src/__tests__/pty/screen-006-no-color.ptytest.ts`
       → exits 0; a new case spawns the built binary with `--screen-reader` at `rows: 16`, sends `/help`,
       and asserts that `raw()` contains no `\x1b[?1049h` (no alternate-screen switch at any point), that
@@ -1199,3 +1196,25 @@ the 7 semantic criteria judged here independently, not carried over):**
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `754c9e239eec` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/todo/CLI-2004-tui-screen-reader-mode.md` blob `6397abb3c96b` (untracked)
+
+### [GATE-COMPLETE: TC-15] — ✅ PASS | 2026-09-08
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 83 line(s))
+
+```
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+56 scans passed, 5 skipped, 1 advisory failure(s) tolerated (pr context) (62 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9d9503b3be7f` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/CLI-2004-tui-screen-reader-mode.md` blob `7d71cc2cdfd2` (modified)

@@ -339,7 +339,7 @@ same parent twice — open.
       terminal, is refused with a message naming the status, and no `switch-session` intent is emitted.
 - [x] TC-10: `pnpm --filter @robota-sdk/agent-cli exec vitest run src/modes/__tests__/print-mode-integration.test.ts src/utils/__tests__/cli-args.test.ts`
       → exits 0 — `--fork-session`'s existing behaviour is unchanged by this change.
-- [ ] TC-11: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-11: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       → exits 0.
 - [x] TC-12: `grep -n "fork" packages/agent-framework/docs/SPEC.md packages/agent-command/docs/SPEC.md packages/agent-interface-execution/docs/SPEC.md packages/agent-interface-command/docs/SPEC.md packages/agent-transport-tui/docs/SPEC.md packages/agent-executor/docs/SPEC.md`
       → at least one match in each of the six files, and `agent-framework/docs/SPEC.md` states that a
@@ -1030,3 +1030,25 @@ tool defect.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `a5f363f7eda6` · base `origin/develop@a5f363f7eda6` · document `.agents/spec-docs/todo/CLI-1994-fork-the-conversation-into-a-background-session.md` blob `799ab7fe6cc6` (untracked)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-08
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 83 line(s))
+
+```
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 1 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+56 scans passed, 5 skipped, 1 advisory failure(s) tolerated (pr context) (62 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9d9503b3be7f` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/CLI-1994-fork-the-conversation-into-a-background-session.md` blob `6fe3d52ab387` (modified)
