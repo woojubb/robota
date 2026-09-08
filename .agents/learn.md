@@ -112,3 +112,17 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   fresh temporary directory (and a temporary project dir); never touch `~/.robota`". Candidate for a
   hard rule in `.claude/agents/user-execution-scenario-author.md` and for a harness guard that refuses
   `--configure-provider` / `--set-current` when `HOME` is the real home inside an agent session.
+
+### LRN-pre-push-subshell-accounting-regression
+
+- observed-at: 2026-09-09T01:35:00+09:00
+- observation: The merged HARNESS-083 fast path still rescanned every ordinary statement's mask to
+  count subshell parentheses. A 100–200 statement `echo … && git push` chain therefore stalled the
+  affected contract shard until its 360-second deadline, even though the command contained no
+  subshell syntax. Guarding that accounting behind a visible `(`/`)` check restores the intended
+  linear path without changing directory-state handling for statements that can contain groups or
+  substitutions.
+- evidence: `.claude/hooks/pre-push-check.sh` subshell-accounting block; `pre-push-repo-resolution`
+  long-chain regression; measured 200-statement probe completed in under one second after the guard.
+- source: INFRA-2662 pre-push verification, 2026-09-09
+- related: HARNESS-083 (#1681), INFRA-2662
