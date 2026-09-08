@@ -141,11 +141,11 @@ implements `{a,b}` in `globToRegExp`.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                    | Notes                                             |
-| ----- | --------- | -------------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on `scan-lane-declaration.test.mjs` | RED with the rule row reverted, GREEN with it |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`        | Regression — the affected set, not the full suite |
-| TC-03 | Unit      | `pnpm exec vitest run scan-lane-declaration.test.mjs` | The whole test file                            |
+| TC-ID | Test Type | Tool / Approach                                                                                                                                              | Notes                                                                                           |
+| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on `scan-lane-declaration.test.mjs`                                                                                                   | RED with the rule row reverted, GREEN with it                                                   |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`                                                                                                                  | Regression — the affected set, not the full suite                                               |
+| TC-03 | Unit      | `pnpm exec vitest run scan-lane-declaration.test.mjs`                                                                                                        | The whole test file                                                                             |
 | TC-04 | CLI       | `node scripts/harness/scan-lane-declaration.mjs --changed scripts/harness/gate-operations.mjs --diff-file /dev/null --trailers-file <(printf 'Lane: L1\\n')` | Test skipped: direct CLI refusal assertion is the verification; no separate test file is needed |
 
 ## User Execution Test Scenarios
@@ -219,7 +219,7 @@ PENDING-GUARDIAN.
   (Unit/Suite/Unit/CLI) and Tool/Approach, none "TBD"; no row's Tool is "manual", so the manual-Notes
   criterion is N/A — and all four rows carry Notes regardless.
 - Structure (3): `## Tasks` present with the paired Task path and a `todo` placeholder; `## Evidence
-  Log` present and empty at the moment of judgement; no `## Status` or `## Classification` heading in
+Log` present and empty at the moment of judgement; no `## Status` or `## Classification` heading in
   the body.
 
 **Semantic criteria (7), judged fresh against the document text:**
@@ -432,6 +432,7 @@ and body-section checks all passed.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -468,6 +469,7 @@ and body-section checks all passed.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

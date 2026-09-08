@@ -30,6 +30,8 @@ const RULE_FILE = fileURLToPath(
 );
 const HARNESS_DIR = fileURLToPath(new URL('..', import.meta.url));
 
+// Contained — INFRA-2680. CI format ownership remains a separately filed follow-up.
+
 /**
  * A fixture copy of the two tables the scan derives its criteria from, in the exact shape
  * `spec-workflow.md` writes them. This is NOT a second implementation of the rule — the scan parses
@@ -253,9 +255,7 @@ describe('scan-lane-declaration — the live rule parses', () => {
 
   it('gives L2 to every gate judge module, not only the frozen gate.mjs facade', () => {
     const live = parseLaneFloors(liveText);
-    const l2 = live
-      .filter((row) => row.floor === 'L2')
-      .map((row) => globToRegExp(row.pattern));
+    const l2 = live.filter((row) => row.floor === 'L2').map((row) => globToRegExp(row.pattern));
     const gateJudgePaths = readdirSync(HARNESS_DIR)
       .filter((entry) => /^gate.*\.(?:mjs|json)$/.test(entry))
       .map((entry) => `scripts/harness/${entry}`);
