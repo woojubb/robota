@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: ['cli', 'typescript']
 lane: 'L2'
@@ -972,3 +972,20 @@ know, which is a different case from a provider that is known but has no credent
 - GATE-WRITE — Semantic review confirms the concrete symptom, reproduction condition, research-to-decision trace, trade-off, new-surface placement, feature coverage, and canonical observable forms.
 
 **Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `3a2a430f073f` (untracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인함"
+**Given:** 2026-09-09, this conversation
+**Review fingerprint:** b97ff00334b5 (review 5320b00c, type/tags aba2e7e1)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-09, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (b97ff00334b5) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `6513c9d840ff` · base `origin/develop@95cc99320cb3` · document `.agents/spec-docs/backlog/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `867766dba92b` (tracked)
