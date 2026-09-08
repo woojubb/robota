@@ -46,7 +46,6 @@ export const CI_STAGES = [
           'Show verification plan',
           'Detect build requirement',
           'Build full or affected workspace',
-          'Build desktop Electron app',
           'Skip monorepo build when no build output is required',
         ],
       },
