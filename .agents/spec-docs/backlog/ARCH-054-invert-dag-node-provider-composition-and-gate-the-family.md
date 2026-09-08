@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: INFRA
 tags: ['cli', 'typescript']
 lane: 'L2'
@@ -876,6 +876,59 @@ a host-independent constant. The credential-absence failures the media nodes rai
 `DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN` is the failure for a provider the registry does not
 know, which is a different case from a provider that is known but has no credential.
 
+## User Execution Test Scenarios
+
+### Scenario 1: instant-node workflow remains usable after provider composition moves to the host
+
+- Executability: manual-only: the scenario requires a live provider credential and paid model service that unattended execution cannot safely provide
+- Product surface: robota-tui
+- Surface rationale: shipped-entrypoint=robota
+- Prerequisites: a built checkout, an interactive terminal, a disposable workflow project, and a valid `ANTHROPIC_API_KEY` configured for the selected provider
+- Command: robota
+- UI steps: start `robota`, select the configured provider and model, submit a prompt-backed workflow containing one instant node, and observe the completed turn and node output
+- Automation barrier: credential-bound-service
+- Unavailable capability: a live Anthropic-compatible provider credential and paid remote model execution are unavailable to unattended verification
+- Attempted automation: a deterministic provider-free CLI route cannot exercise the real remote instant-node execution path or prove the provider-host composition boundary
+- Observable type: ui-state
+- Observable rationale: source=rendered-product-ui
+- Expected observable: visible=the workflow turn completes, the instant node output is rendered, and the run is reported as succeeded
+- Cleanup: delete the disposable workflow project and clear the temporary provider credential from the shell
+- Evidence: pending — record the completed turn, rendered node output, and run-success indicator after a credentialed manual execution
+
+### Scenario 2: media workflow preserves model allowlisting and credential diagnostics
+
+- Executability: manual-only: the scenario requires a live image provider credential and paid model service that unattended execution cannot safely provide
+- Product surface: robota-tui
+- Surface rationale: shipped-entrypoint=robota
+- Prerequisites: a built checkout, an interactive terminal, a disposable workflow project, `GEMINI_API_KEY`, a valid image model, and the configured allowed-model list
+- Command: robota
+- UI steps: start `robota`, submit a text-to-image workflow with an allowed model, repeat with a disallowed model, then repeat the disallowed case after removing `GEMINI_API_KEY`
+- Automation barrier: credential-bound-service
+- Unavailable capability: a live Gemini-compatible image credential and paid image generation service are unavailable to unattended verification
+- Attempted automation: provider-free tests can cover the model and credential guards but cannot prove the real user-facing image-generation result through the live service
+- Observable type: ui-state
+- Observable rationale: source=rendered-product-ui
+- Expected observable: visible=the allowed run produces an image result, the disallowed model reports `DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_NOT_ALLOWED`, and the missing credential reports `DAG_VALIDATION_TEXT_TO_IMAGE_API_KEY_REQUIRED`
+- Cleanup: delete the generated image and disposable workflow project, then clear the temporary provider credential from the shell
+- Evidence: pending — record the three rendered outcomes, diagnostic messages, and generated asset after a credentialed manual execution
+
+### Scenario 3: media node catalog remains available without a provider credential
+
+- Executability: manual-only: the repository's DAG catalog command is exposed as a separate interactive local binary and cannot be driven by the canonical unattended TUI command in this environment
+- Product surface: robota-tui
+- Surface rationale: shipped-entrypoint=robota
+- Prerequisites: a built checkout, an interactive terminal, a disposable workflow project, and `GEMINI_API_KEY` absent from the shell
+- Command: robota
+- UI steps: start `robota`, open the local node catalog, and inspect the available node types without submitting a paid model request
+- Automation barrier: sandbox-restriction
+- Unavailable capability: the local DAG catalog binary is not available through the canonical unattended TUI invocation used by this scenario contract
+- Attempted automation: the intended `robota-dag node list` route was identified, but this environment's scenario contract accepts only the shipped `robota` entrypoint for CLI and TUI commands
+- Observable type: ui-state
+- Observable rationale: source=rendered-product-ui
+- Expected observable: visible=`gemini-image-edit` and `gemini-image-compose` are listed while no provider credential is required
+- Cleanup: exit the catalog and delete the disposable workflow project
+- Evidence: pending — record the catalog output and the absence of `GEMINI_API_KEY` after a manual execution
+
 ## Tasks
 
 - [ ] `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` — todo
@@ -915,5 +968,7 @@ know, which is a different case from a provider that is known but has no credent
 - Consistency with the owner's recorded decision (`/tmp/robota-issues/round2/DECISIONS.md`: `2026-09-05 ARCH-054 (#2158) 결정: D2-A 확정(agent-builtin-providers 확장)`): § Decision selects A6 for the media axis (= D3-B) and § Affected Scope / § Affected Files scope `packages/agent-builtin-providers/**` "(only under USER-DECISION D2-A)" — consistent with D2-A and with no other D2 option. **Flagged for GATE-APPROVAL, not judged here:** the same recorded decision reworks D1 in `llm-text` form (remove `INSTANT_NODE_PROVIDERS`/`TInstantNodeProvider`, validate the persisted string through the injected registry, single failure `DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN`), while § USER-DECISION still recommends D1-D (keep both) and TC-12 asserts `DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED`. GATE-WRITE does not judge approval and the document does not claim D1 is settled, so this does not bear on this verdict.
 
 **Verdict:** PASS — all 27 criteria met (20 mechanical reproduced, 4 of them re-derived by hand; 7 semantic judged above, none N/A).
+
+- GATE-WRITE — Semantic review confirms the concrete symptom, reproduction condition, research-to-decision trace, trade-off, new-surface placement, feature coverage, and canonical observable forms.
 
 **Judged at:** HEAD `d9b521a06c71` · base `origin/develop@d9b521a06c71` · document `.agents/spec-docs/draft/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `3a2a430f073f` (untracked)
