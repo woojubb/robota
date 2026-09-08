@@ -107,6 +107,15 @@ describe('affected contract selection', () => {
     expect(source).toContain('const batch = await Promise.all(');
   });
 
+  it('keeps complete fallback contract shards split into eight deterministic groups', () => {
+    const source = readFileSync(
+      path.join(REPO_ROOT, 'scripts/harness/contract-selection-plan.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('createDeterministicShards(ordinary, 8, weights)');
+  });
+
   it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
     const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
