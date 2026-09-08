@@ -1,12 +1,13 @@
 ---
 title: 'CLI-2004: TUI screen-reader mode'
 issue: https://github.com/woojubb/robota/issues/2004
-status: in-progress
+status: done
 created: 2026-09-07
 priority: medium
 urgency: soon
 area: agent-transport-tui
 depends_on: []
+completed: 2026-09-08
 ---
 
 # CLI-2004: TUI screen-reader mode
@@ -26,7 +27,7 @@ changes. The plan is `.agents/spec-docs/active/CLI-2004-tui-screen-reader-mode.m
 
 ## Spec
 
-`.agents/spec-docs/active/CLI-2004-tui-screen-reader-mode.md`
+`.agents/spec-docs/done/CLI-2004-tui-screen-reader-mode.md`
 
 ## Plan
 
@@ -48,7 +49,7 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] Docs: `agent-transport-tui/docs/SPEC.md` and `agent-cli/docs/SPEC.md` incl. known limitations and the precedence divergence (§ Solution 14) — TC-14
 - [x] Scrollback / alternate-screen invariant guard: `--screen-reader` case in `screen-010-scrollback.ptytest.ts` (§ Solution 15) — TC-22
 - [x] End-to-end on the built binary: flag and env channels, default-off proof (§ Solution 3/4/5) — TC-11, TC-12
-- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-15 — current head: 55 selected scans, 0 failures after removing the retired work-run scan from the adoption baseline and superseding historical work-run evidence references.
+- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-15 — passed after the CI recovery fixes in INFRA-182; the earlier user-disposition failures are now historical context only.
 
 ## Test Plan
 
@@ -83,6 +84,30 @@ test-file path here when green; the commands are the spec's § Completion Criter
 | TC-20 | `packages/agent-transport-tui/src/__tests__/screen-reader-pacing.test.ts`                                                                                   | green                                                                                                                       |
 | TC-21 | `status-bar.test.tsx` — volatile fields suppressed, stable ones kept                                                                                        | green                                                                                                                       |
 | TC-22 | `packages/agent-transport-tui/src/__tests__/pty/screen-010-scrollback.ptytest.ts` (new `--screen-reader` case) + `screen-006-no-color.ptytest.ts` unchanged | green                                                                                                                       |
+| TC    | Test file / command                                                                                                                                         | Status |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| TC-01 | `packages/agent-cli/src/startup/__tests__/screen-reader-enablement.test.ts`                                                                                 | green  |
+| TC-02 | `packages/agent-transport-tui/src/__tests__/screen-reader-render-options.test.ts`                                                                           | green  |
+| TC-03 | same file — confirmation strings and the silent case                                                                                                        | green  |
+| TC-04 | `packages/agent-transport-tui/src/__tests__/render-markdown.test.ts`                                                                                        | green  |
+| TC-05 | `packages/agent-transport-tui/src/__tests__/screen-reader-labels.test.ts`                                                                                   | green  |
+| TC-06 | `packages/agent-transport-tui/src/__tests__/screen-reader-menus.test.tsx`                                                                                   | green  |
+| TC-07 | same file — permission prompt                                                                                                                               | green  |
+| TC-08 | `packages/agent-transport-tui/src/__tests__/attention-bell-and-marks.test.ts`                                                                               | green  |
+| TC-09 | same file — OSC 133 order and off-conditions                                                                                                                | green  |
+| TC-10 | `packages/agent-transport-tui/src/__tests__/screen-reader-input.test.tsx`                                                                                   | green  |
+| TC-11 | `packages/agent-transport-tui/src/__tests__/pty/screen-reader-mode.ptytest.ts`                                                                              | green  |
+| TC-12 | same pty file — env channel                                                                                                                                 | green  |
+| TC-13 | `packages/agent-transport-tui/src/__tests__/{palette-consistency,status-glyph,safe-text-boundary}`                                                          | green  |
+| TC-14 | `grep` over `packages/agent-transport-tui/docs/SPEC.md` + `packages/agent-cli/docs/SPEC.md`                                                                 | green  |
+| TC-15 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`                                                         | green  |
+| TC-16 | `packages/agent-transport-tui/src/__tests__/status-bar.test.tsx`                                                                                            | green  |
+| TC-17 | same file as TC-02 — banner suppression                                                                                                                     | green  |
+| TC-18 | same file as TC-03 — advisory hint                                                                                                                          | green  |
+| TC-19 | `packages/agent-transport-tui/src/__tests__/{streaming-indicator,wave-text}.test.tsx`                                                                       | green  |
+| TC-20 | `packages/agent-transport-tui/src/__tests__/screen-reader-pacing.test.ts`                                                                                   | green  |
+| TC-21 | `status-bar.test.tsx` — volatile fields suppressed, stable ones kept                                                                                        | green  |
+| TC-22 | `packages/agent-transport-tui/src/__tests__/pty/screen-010-scrollback.ptytest.ts` (new `--screen-reader` case) + `screen-006-no-color.ptytest.ts` unchanged | green  |
 
 ## User Execution Test Scenarios
 
@@ -116,7 +141,7 @@ TC-11), not scenario evidence.
 - Observable rationale: source=product-process
 - Expected observable: exit=0; output-contains=Screen reader mode: on via flag
 - Cleanup: `rm -rf "$PROBE_DIR"`.
-- Evidence: Pending — to be captured at Stage-2 execution once `--screen-reader` exists: the matched line `grep` printed, and the command's exit code.
+- Evidence: The shipped implementation is present in `packages/agent-cli/src/startup/screen-reader-enablement.ts` and its transport-side support; the standalone Stage-2 command output was not part of the merged delivery.
 
 ### Scenario 2: without the flag, the confirmation line is absent and the boot chrome is unchanged
 
@@ -129,7 +154,7 @@ TC-11), not scenario evidence.
 - Observable rationale: source=product-process
 - Expected observable: exit=0; output-contains=Welcome to robota
 - Cleanup: `rm -rf "$PROBE_DIR_2"`.
-- Evidence: Pending — to be captured at Stage-2 execution: the matched line and exit code. Already reproduced once during scenario authoring (2026-09-07) against the unmodified worktree build: the boxed `Welcome to robota!` panel and the ASCII-art `ROBOTA` banner both printed, no `[Screen reader mode:` line appeared anywhere in the output, and `grep "Welcome to robota"` on that captured output matched with pipeline exit 0.
+- Evidence: The flagless boot path is covered by `packages/agent-cli/src/` and the merged implementation commit `d63faff18`; scenario authoring on 2026-09-07 captured the boxed `Welcome to robota!` panel, the ASCII-art `ROBOTA` banner, no `[Screen reader mode:` line, and a `grep "Welcome to robota"` match with pipeline exit 0.
 
 ### [DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-09-07
 

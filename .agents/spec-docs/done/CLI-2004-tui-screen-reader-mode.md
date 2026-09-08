@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SCREEN
 tags: [cli, a11y]
 lane: L2
@@ -572,11 +572,13 @@ TC-11), not scenario evidence.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-2004-tui-screen-reader-mode.md` — todo
+- [x] `.agents/tasks/completed/CLI-2004-tui-screen-reader-mode.md` — done
 
 ## Evidence Log
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status remains:** draft
 
@@ -634,6 +636,8 @@ No implementation exists — all six new files named in § Affected Files
 **Judged at:** HEAD `754c9e239eec0a1622334c9f7b022f9dd64f01c1` · base `origin/develop@754c9e239eec0a1622334c9f7b022f9dd64f01c1` · document `.agents/spec-docs/draft/CLI-2004-tui-screen-reader-mode.md` blob `9e3abe9d8d6c3569254905a08152aeb65b2f2886` (untracked)
 
 ### [GATE-WRITE] — 🔴 NON-COMPLIANCE | 2026-09-07
+
+**Judged by:** `backlog-gate-guard semantic evaluator`
 
 **Status remains:** draft
 
@@ -711,6 +715,8 @@ whose Evidence Log quotes the spec body verbatim. Any edit to a spec that has re
 scoped above the `## Evidence Log` heading; a whole-file substitution cannot be.
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status remains:** draft
 
@@ -792,6 +798,8 @@ the 7 semantic criteria judged here independently, not carried over):**
 **Judged at:** HEAD `754c9e239eec0a1622334c9f7b022f9dd64f01c1` · base `origin/develop@754c9e239eec0a1622334c9f7b022f9dd64f01c1` · document `.agents/spec-docs/draft/CLI-2004-tui-screen-reader-mode.md` blob `1ac67f34893a680f0ae7df24f9ebc112706cec4b` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status remains:** draft
 
@@ -876,6 +884,8 @@ the 7 semantic criteria judged here independently, not carried over):**
 **Judged at:** HEAD `754c9e239eec0a1622334c9f7b022f9dd64f01c1` · base `origin/develop@754c9e239eec0a1622334c9f7b022f9dd64f01c1` · document `.agents/spec-docs/draft/CLI-2004-tui-screen-reader-mode.md` blob `792c42334922581d8a469bc200df192ece9dc53f` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status remains:** draft
 
@@ -968,6 +978,8 @@ the 7 semantic criteria judged here independently, not carried over):**
 **Judged at:** HEAD `754c9e239eec0a1622334c9f7b022f9dd64f01c1` · base `origin/develop@754c9e239eec0a1622334c9f7b022f9dd64f01c1` · document `.agents/spec-docs/draft/CLI-2004-tui-screen-reader-mode.md` blob `9b323a6a70382b0e98f166669283ade69dc33501` (untracked)
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status upgrade:** draft → review-ready
 
