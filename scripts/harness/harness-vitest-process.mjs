@@ -43,26 +43,34 @@ function unavailableVitest() {
   };
 }
 
-function vitestArguments(root, files, config = undefined) {
+function vitestArguments(root, files, config = undefined, { pool = 'threads', maxWorkers = 2 } = {}) {
+  const poolArgument = pool === 'threads' ? '--pool=threads' : `--pool=${pool}`;
+  const maxWorkersArgument = maxWorkers === 2 ? '--maxWorkers=2' : `--maxWorkers=${maxWorkers}`;
   return [
     path.join(root, 'node_modules', 'vitest', 'vitest.mjs'),
     'run',
     ...files,
     ...(config ? ['--config', config] : []),
-    '--pool=threads',
-    '--maxWorkers=2',
+    poolArgument,
+    maxWorkersArgument,
     '--testTimeout=30000',
     '--reporter=dot',
   ];
 }
 
-export function vitestInvocation(root, files, cwd = root, config = undefined) {
+export function vitestInvocation(
+  root,
+  files,
+  cwd = root,
+  config = undefined,
+  execution = undefined,
+) {
   if (!validateVitestRoot(root)) return unavailableVitest();
   const suiteTempRoot = mkdtempSync(
     path.join(canonicalTemporaryDirectory(), 'robota-harness-suite-'),
   );
   try {
-    return spawnSync(process.execPath, vitestArguments(root, files, config), {
+    return spawnSync(process.execPath, vitestArguments(root, files, config, execution), {
       cwd,
       encoding: 'utf8',
       env: harnessTestEnvironment(process.env, suiteTempRoot),

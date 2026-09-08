@@ -173,3 +173,15 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   bounded heredoc chunks returns immediately and preserves the reminder text.
 - source: INFRA-2662 contract-gate verification, 2026-09-09
 - related: PROC-003, INFRA-2662
+
+### LRN-plan-order-history-fixture-must-run-isolated
+
+- observed-at: 2026-09-09T03:03:00+09:00
+- observation: The plan-order repository-contract fixture creates and scans enough real Git history
+  to exceed the four-way contract shard deadline, and Vitest reports an `onTaskUpdate` timeout even
+  after all assertions pass.
+- evidence: the individual file completed in about four minutes with one unhandled worker timeout;
+  capturing fixture Git stderr, splitting the large parameter loops into per-case tests, and running
+  the file in one isolated thread worker remove the worker starvation and shard deadline.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-003, INFRA-2662

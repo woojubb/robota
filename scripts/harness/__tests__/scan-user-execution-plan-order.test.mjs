@@ -48,12 +48,12 @@ const execFileAsync = promisify(execFile);
 // their explicit 300-second bounds below.
 vi.setConfig({ testTimeout: 30_000 });
 
-function yieldToEventLoop() {
-  return new Promise((resolve) => setImmediate(resolve));
-}
-
 function git(root, args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
 }
 
 function write(root, relative, text) {
@@ -1882,43 +1882,42 @@ describe('user-execution PLAN order — branch history', () => {
     }
   });
 
-  it('rejects engineering-only commands as user-execution product surfaces', async () => {
-    for (const command of [
-      'pnpm test',
-      'pnpm build',
-      'pnpm lint',
-      'pnpm typecheck',
-      'pnpm harness:scan',
-      'gh pr checks',
-      'pnpm --filter @robota/core test',
-      'pnpm -w test',
-      'turbo test',
-      'nx test',
-      'make test',
-      'robota --help && pnpm test',
-      'robota --help; pnpm test',
-      'robota --help || pnpm test',
-      'robota --help $(pnpm test)',
-      'robota --help & pnpm test',
-      'robota --config <(pnpm test)',
-      'robota --help `pnpm test`',
-      '"" robota fixture',
-    ]) {
-      const fixture = repository();
-      write(
-        fixture.root,
-        TASK_PATH,
-        taskText({ outcome: 'automatable', stage1: true }).replaceAll('robota fixture', command),
-      );
-      write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
-      commit(fixture.root, 'engineering verification masquerading as user scenario');
+  it.each([
+    ['pnpm test'],
+    ['pnpm build'],
+    ['pnpm lint'],
+    ['pnpm typecheck'],
+    ['pnpm harness:scan'],
+    ['gh pr checks'],
+    ['pnpm --filter @robota/core test'],
+    ['pnpm -w test'],
+    ['turbo test'],
+    ['nx test'],
+    ['make test'],
+    ['robota --help && pnpm test'],
+    ['robota --help; pnpm test'],
+    ['robota --help || pnpm test'],
+    ['robota --help $(pnpm test)'],
+    ['robota --help & pnpm test'],
+    ['robota --config <(pnpm test)'],
+    ['robota --help `pnpm test`'],
+    ['"" robota fixture'],
+  ])('rejects engineering-only commands as user-execution product surfaces (%s)', (command) => {
+    const fixture = repository();
+    write(
+      fixture.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll('robota fixture', command),
+    );
+    write(fixture.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(fixture.root, 'engineering verification masquerading as user scenario');
 
-      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
-        /scenario|checkpoint|planning/i,
-      );
-      await yieldToEventLoop();
-    }
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
 
+  it('rejects a non-product user-execution surface', () => {
     const fakeSurface = repository();
     write(
       fakeSurface.root,
@@ -1933,71 +1932,69 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(fakeSurface.root, fakeSurface.base))).toMatch(
       /scenario|checkpoint|planning/i,
     );
+  });
 
-    for (const invocation of [
-      'node examples/demo.mjs && pnpm test',
-      'node examples/../scripts/harness/run-all-scans.mjs',
-      'node scratch/../scripts/harness/run-all-scans.mjs',
-      'pnpm --dir examples/../scripts run scan',
-      'node examples/${EXAMPLE_PATH}',
-      'node "exa\\mples/demo.mjs"',
-      'node --test examples/demo.mjs',
-      'node --require scripts/harness/run-all-scans.mjs examples/demo.mjs',
-      'node "" examples/demo.mjs',
-      'robota --dir examples/demo run fixture',
-      'pnpm test --dir examples/demo',
-      'bash -C examples/demo',
-      'pnpm --dir examples/demo run --',
-      'pnpm --dir examples/demo run --if-present',
-    ]) {
-      const sdkChain = repository();
-      write(
-        sdkChain.root,
-        TASK_PATH,
-        taskText({ outcome: 'automatable', stage1: true })
-          .replaceAll('surface=robota-cli', 'surface=public-sdk-example')
-          .replace('product surface: robota-cli', 'product surface: public-sdk-example')
-          .replaceAll('shipped-entrypoint=robota', 'shipped-interface=public-sdk-example')
-          .replaceAll('observable-type=product-output', 'observable-type=sdk-result')
-          .replace('observable type: product-output', 'observable type: sdk-result')
-          .replaceAll('exit=0; output-contains=visible result', 'result=visible SDK value')
-          .replaceAll('source=product-process', 'source=public-sdk-return')
-          .replaceAll('robota fixture', invocation),
-      );
-      write(sdkChain.root, SPEC_PATH, specText({ outcome: 'automatable' }));
-      commit(sdkChain.root, 'invalid public SDK invocation');
-      expect(messages(findHistoryFindings(sdkChain.root, sdkChain.base))).toMatch(
-        /scenario|checkpoint|planning/i,
-      );
-      await yieldToEventLoop();
-    }
+  it.each([
+    ['node examples/demo.mjs && pnpm test'],
+    ['node examples/../scripts/harness/run-all-scans.mjs'],
+    ['node scratch/../scripts/harness/run-all-scans.mjs'],
+    ['pnpm --dir examples/../scripts run scan'],
+    ['node examples/${EXAMPLE_PATH}'],
+    ['node "exa\\mples/demo.mjs"'],
+    ['node --test examples/demo.mjs'],
+    ['node --require scripts/harness/run-all-scans.mjs examples/demo.mjs'],
+    ['node "" examples/demo.mjs'],
+    ['robota --dir examples/demo run fixture'],
+    ['pnpm test --dir examples/demo'],
+    ['bash -C examples/demo'],
+    ['pnpm --dir examples/demo run --'],
+    ['pnpm --dir examples/demo run --if-present'],
+  ])('rejects non-product SDK invocations (%s)', (invocation) => {
+    const sdkChain = repository();
+    write(
+      sdkChain.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true })
+        .replaceAll('surface=robota-cli', 'surface=public-sdk-example')
+        .replace('product surface: robota-cli', 'product surface: public-sdk-example')
+        .replaceAll('shipped-entrypoint=robota', 'shipped-interface=public-sdk-example')
+        .replaceAll('observable-type=product-output', 'observable-type=sdk-result')
+        .replace('observable type: product-output', 'observable type: sdk-result')
+        .replaceAll('exit=0; output-contains=visible result', 'result=visible SDK value')
+        .replaceAll('source=product-process', 'source=public-sdk-return')
+        .replaceAll('robota fixture', invocation),
+    );
+    write(sdkChain.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(sdkChain.root, 'invalid public SDK invocation');
+    expect(messages(findHistoryFindings(sdkChain.root, sdkChain.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
 
-    for (const observable of [
-      'unit tests pass',
-      'unit test success',
-      'build successful',
-      'test suite is green',
-      'repository text contains the new rule',
-      'verification suite reports success',
-      'source file contains the new rule',
-    ]) {
-      const testObservable = repository();
-      write(
-        testObservable.root,
-        TASK_PATH,
-        taskText({ outcome: 'automatable', stage1: true }).replaceAll(
-          'exit=0; output-contains=visible result',
-          observable,
-        ),
-      );
-      write(testObservable.root, SPEC_PATH, specText({ outcome: 'automatable' }));
-      commit(testObservable.root, 'engineering-only expected observable');
-      expect(messages(findHistoryFindings(testObservable.root, testObservable.base))).toMatch(
-        /scenario|checkpoint|planning/i,
-      );
-      await yieldToEventLoop();
-    }
-  }, 300_000);
+  it.each([
+    ['unit tests pass'],
+    ['unit test success'],
+    ['build successful'],
+    ['test suite is green'],
+    ['repository text contains the new rule'],
+    ['verification suite reports success'],
+    ['source file contains the new rule'],
+  ])('rejects engineering-only expected observables (%s)', (observable) => {
+    const testObservable = repository();
+    write(
+      testObservable.root,
+      TASK_PATH,
+      taskText({ outcome: 'automatable', stage1: true }).replaceAll(
+        'exit=0; output-contains=visible result',
+        observable,
+      ),
+    );
+    write(testObservable.root, SPEC_PATH, specText({ outcome: 'automatable' }));
+    commit(testObservable.root, 'engineering-only expected observable');
+    expect(messages(findHistoryFindings(testObservable.root, testObservable.base))).toMatch(
+      /scenario|checkpoint|planning/i,
+    );
+  });
 
   it('allows a controlled grep pipe over product command output', () => {
     const fixture = repository();
