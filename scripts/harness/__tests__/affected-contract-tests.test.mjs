@@ -277,7 +277,7 @@ describe('affected contract selection', () => {
     });
     expect(result.mode).toBe('complete');
     expect(result.reason).toContain(reason);
-    expect(result.shards).toHaveLength(4);
+    expect(result.shards).toHaveLength(8);
     expect(result.shards.flat().sort()).toEqual(
       data.contracts.filter((file) => file !== data.files.isolated).sort(),
     );
