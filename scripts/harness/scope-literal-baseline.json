@@ -14,5 +14,6 @@
   "check-workspace-refs.mjs": 4,
   "live-provider-smoke.mjs": 3,
   "scan-agent-tools-neutrality.mjs": 1,
-  "verify-like-ci-execution.mjs": 3
+  "verify-like-ci-execution.mjs": 3,
+  "verify-like-ci-product.mjs": 1
 }
