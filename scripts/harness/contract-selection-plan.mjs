@@ -54,9 +54,9 @@ function completeFallback({
     reason,
     selected,
     // Keep each complete-fallback shard below the Vitest worker RPC deadline. Control-plane
-    // changes intentionally select the whole suite, so four large shards let one expensive
+    // changes intentionally select the whole suite, so sixteen smaller shards keep one expensive
     // repository fixture hold the entire CI mirror open until its process watchdog fires.
-    shards: createDeterministicShards(ordinary, 8, weights),
+    shards: createDeterministicShards(ordinary, 16, weights),
     isolated: contractTests.filter((file) => isolated.has(file)).sort(),
     ownerGroups,
     selectedByOwner: ownerGroups,

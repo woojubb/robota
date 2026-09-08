@@ -107,7 +107,7 @@ describe('affected contract selection', () => {
     expect(source).toContain('const batch = await Promise.all(');
   });
 
-  it('keeps complete fallback contract shards split into eight deterministic groups', () => {
+  it('keeps complete fallback contract shards split into sixteen deterministic groups', () => {
     const data = fixture();
     const result = createAffectedContractPlan({
       root: data.root,
@@ -118,7 +118,7 @@ describe('affected contract selection', () => {
     });
 
     expect(result.mode).toBe('complete');
-    expect(result.shards).toHaveLength(8);
+    expect(result.shards).toHaveLength(16);
   });
 
   it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
@@ -305,7 +305,7 @@ describe('affected contract selection', () => {
     });
     expect(result.mode).toBe('complete');
     expect(result.reason).toContain(reason);
-    expect(result.shards).toHaveLength(8);
+    expect(result.shards).toHaveLength(16);
     expect(result.shards.flat().sort()).toEqual(
       data.contracts.filter((file) => file !== data.files.isolated).sort(),
     );
