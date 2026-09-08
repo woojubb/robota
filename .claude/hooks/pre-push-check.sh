@@ -401,7 +401,7 @@ while read -r PS_START PS_LEN; do
       if [[ -z "$_PS_CW" || "$_PS_CW" == *'$'* || "$_PS_CW" == *'`'* ]]; then
         PS_CMD_UNRESOLVABLE=true
       fi
-    done <<< "$PS_WORDS"
+    done < <(printf '%s\n' "$PS_WORDS")
     if [[ "$PS_CMD_UNRESOLVABLE" == "true" ]]; then
       LAST_CD_UNREADABLE=true
       continue
@@ -422,7 +422,7 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 4 ]] && PS_FOURTH="$PS_W"
       [[ "$PS_INDEX" -eq 5 ]] && PS_FIFTH="$PS_W"
       [[ "$PS_INDEX" -ge 6 ]] && break
-    done <<< "$PS_WORDS"
+    done < <(printf '%s\n' "$PS_WORDS")
     # A subshell opener `(` glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
     # against the declared cwd, the exact wrong-repository answer this walk exists to end. Only `(`
@@ -624,7 +624,7 @@ while read -r PS_START PS_LEN; do
       fi
     fi
   fi
-done <<< "$STATEMENT_RANGES"
+done < <(printf '%s\n' "$STATEMENT_RANGES")
 # Only when EVERY push statement was a deletion: PUSH_SEEN is set by the content pushes alone, so a
 # deletion chained to a content push still meets the full gate below (issue #2310).
 if (( PUSH_DELETIONS > 0 )) && [[ "$PUSH_SEEN" != "true" ]]; then

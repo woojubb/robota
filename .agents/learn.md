@@ -126,3 +126,16 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   long-chain regression; measured 200-statement probe completed in under one second after the guard.
 - source: INFRA-2662 pre-push verification, 2026-09-09
 - related: HARNESS-083 (#1681), INFRA-2662
+
+### LRN-pre-push-here-string-pipe-deadlock
+
+- observed-at: 2026-09-09T02:03:00+09:00
+- observation: The pre-push statement walk fed `STATEMENT_RANGES` through a Bash here-string. When a
+  long command produced enough ranges to fill the here-string pipe, Bash blocked while preparing the
+  redirection before the loop could read it. The same shape can occur for a large per-statement word
+  list. Process substitution keeps the producer and consumer concurrent without changing the parsed
+  data.
+- evidence: `sample` captured `pre-push-check.sh` in `heredoc_write` with no child process; replacing
+  the three loop here-strings with `printf` process substitutions removes the pipe back-pressure.
+- source: INFRA-2662 affected-contract verification, 2026-09-09
+- related: HARNESS-083 (#1681), INFRA-2662
