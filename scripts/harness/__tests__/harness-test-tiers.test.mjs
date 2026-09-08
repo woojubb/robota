@@ -285,6 +285,7 @@ describe('harness test tiers', () => {
       'scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs',
       'scripts/harness/__tests__/remaining-hooks-run.test.mjs',
       'scripts/harness/__tests__/scan-progress-report-quantification.test.mjs',
+      'scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs',
     ]);
     expect(invocations.slice(1)).toEqual(ISOLATED_CONTRACT_TEST_FILES.map((file) => [file]));
     expect(invocations[0]).not.toEqual(expect.arrayContaining(ISOLATED_CONTRACT_TEST_FILES));
