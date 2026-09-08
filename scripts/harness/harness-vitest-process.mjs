@@ -43,7 +43,12 @@ function unavailableVitest() {
   };
 }
 
-function vitestArguments(root, files, config = undefined, { pool = 'threads', maxWorkers = 2 } = {}) {
+function vitestArguments(
+  root,
+  files,
+  config = undefined,
+  { pool = 'threads', maxWorkers = 2 } = {},
+) {
   const poolArgument = pool === 'threads' ? '--pool=threads' : `--pool=${pool}`;
   const maxWorkersArgument = maxWorkers === 2 ? '--maxWorkers=2' : `--maxWorkers=${maxWorkers}`;
   return [
