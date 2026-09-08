@@ -9,6 +9,8 @@ import React from 'react';
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { RenderedText, Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import { PALETTE } from './tui-palette.js';
@@ -65,6 +67,26 @@ function renderTools(activeTools: IToolState[]): React.ReactElement {
   );
 }
 
+/**
+ * CLI-2004: the whole progress indicator collapses to ONE static line. A spinner is a repaint per
+ * frame, and a repaint is an announcement — the reader would hear the same line forever. The line
+ * still carries what changed (which tools are running, how far the reply has got), just once per
+ * actual change instead of once per frame.
+ */
+function renderScreenReaderStatus(
+  text: string,
+  activeTools: IToolState[],
+  isThinking: boolean,
+): React.ReactElement {
+  const running = activeTools.map((tool) => humanizeToolName(tool.toolName)).join(', ');
+  const parts = [
+    running.length > 0 ? `${SCREEN_READER_LABELS.tool} ${running}` : undefined,
+    text.length > 0 ? text : isThinking ? SCREEN_READER_LABELS.thinking : undefined,
+  ].filter((part): part is string => part !== undefined);
+  if (parts.length === 0) return <></>;
+  return <Text>{parts.join(' — ')}</Text>;
+}
+
 export default function StreamingIndicator({
   text,
   activeTools,
@@ -72,6 +94,11 @@ export default function StreamingIndicator({
 }: IProps): React.ReactElement {
   const hasTools = activeTools.length > 0;
   const hasText = text.length > 0;
+  const screenReader = useScreenReader();
+
+  if (screenReader) {
+    return renderScreenReaderStatus(text, activeTools, isThinking);
+  }
 
   if (!hasTools && !hasText) {
     return renderThinkingFallback(isThinking);

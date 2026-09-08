@@ -10,6 +10,7 @@ import {
 } from './flows/text-prompt-flow.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 /** Footer for the free-text prompt. */
@@ -55,16 +56,21 @@ export default function TextPrompt({
     [allowEmpty, validate, onCancel, onSubmit],
   );
 
+  const screenReader = useScreenReader();
+
   useInput((input, key) => {
     const action = getTextPromptInputAction(input, key);
     if (action !== undefined) applyAction(action);
   });
 
+  // CLI-2004: the box is dropped rather than restyled — the mode omits the prop, so no colour
+  // literal is introduced and the palette floor stays green.
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={PALETTE.border.attention}
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
       paddingX={1}
     >
       <Text color={PALETTE.text.warning} bold>

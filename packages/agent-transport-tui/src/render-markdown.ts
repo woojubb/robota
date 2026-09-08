@@ -13,6 +13,11 @@ const CODE_BLOCK_INDENT = '    ';
 interface IRenderMarkdownOptions {
   color?: boolean;
   codeBlockWidth?: number;
+  /**
+   * CLI-2004: flatten tables to `Header: value` sentences. A box-drawn grid is unreadable aloud —
+   * a reader announces the rules, not the relationship between a heading and its cell.
+   */
+  screenReader?: boolean;
 }
 
 interface ITerminalRendererOptions {
@@ -94,7 +99,45 @@ function renderDiffCodeBlock(
   return `${body}\n\n`;
 }
 
-function createTerminalRenderer(color: boolean, codeBlockWidth: number | undefined): Renderer {
+/**
+ * CLI-2004 — flatten a table to `Header: value` lines.
+ *
+ * The cell and row hooks tag their output with separators marked's own renderers never emit, so the
+ * table hook can recover the grid it was given. Reconstructing it from the RENDERED strings is the
+ * alternative, and those already carry the SGR the inline renderers added.
+ */
+const CELL_MARK = '\u0000';
+const ROW_MARK = '\u0001';
+
+function splitTableCells(row: string): string[] {
+  const cells = row.split(ROW_MARK).join('').split(CELL_MARK);
+  // The trailing separator leaves one empty tail entry; the cells themselves may legitimately be ''.
+  return cells.slice(0, -1);
+}
+
+function installTableFlattening(renderer: Renderer): void {
+  renderer.tablecell = (content: string): string => `${content}${CELL_MARK}`;
+  renderer.tablerow = (content: string): string => `${content}${ROW_MARK}`;
+  renderer.table = (header: string, body: string): string => {
+    const headers = splitTableCells(header);
+    const rows = body
+      .split(ROW_MARK)
+      .filter((row) => row.length > 0)
+      .map((row) => splitTableCells(`${row}${ROW_MARK}`));
+    if (headers.length === 0 || rows.length === 0) return '';
+    const blocks = rows.map((cells) =>
+      headers.map((head, index) => `${head}: ${cells[index] ?? ''}`).join('\n'),
+    );
+    // A blank line between rows: the row boundary is the only structure left to hear.
+    return `${blocks.join('\n\n')}\n\n`;
+  };
+}
+
+function createTerminalRenderer(
+  color: boolean,
+  codeBlockWidth: number | undefined,
+  screenReader: boolean,
+): Renderer {
   const renderer = new TerminalRendererConstructor(undefined, { ignoreIllegals: true });
   const renderCode = renderer.code.bind(renderer);
 
@@ -104,6 +147,8 @@ function createTerminalRenderer(color: boolean, codeBlockWidth: number | undefin
     }
     return renderCode(code, language, escaped);
   };
+
+  if (screenReader) installTableFlattening(renderer);
 
   return renderer;
 }
@@ -122,7 +167,11 @@ export function renderMarkdown(md: string, options: IRenderMarkdownOptions = {})
   // ToolDiffBlock), which is why it is here rather than at each of the three.
   const safe = sanitizeTerminalText(md);
   const result = marked.parse(safe, {
-    renderer: createTerminalRenderer(shouldUseColor(options.color), options.codeBlockWidth),
+    renderer: createTerminalRenderer(
+      shouldUseColor(options.color),
+      options.codeBlockWidth,
+      options.screenReader === true,
+    ),
   });
   return typeof result === 'string' ? result.trimEnd() : safe;
 }

@@ -1,7 +1,11 @@
 import React from 'react';
 import { render } from 'ink-testing-library';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import StatusBar from '../StatusBar.js';
+import SessionStatusBar from '../SessionStatusBar.js';
+import { ScreenReaderProvider } from '../screen-reader-context.js';
+import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
+import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 
 describe('StatusBar', () => {
   const baseProps = {
@@ -173,5 +177,96 @@ describe('StatusBar', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activePresetId={undefined} />);
     const frame = lastFrame()!;
     expect(frame).not.toContain('Preset:');
+  });
+});
+
+/**
+ * CLI-2004 TC-16 / TC-21 — § Solution 13, asserted through `SessionStatusBar` (the way the App
+ * reaches `StatusBar`) so the threading is covered too.
+ *
+ * The two halves are asserted TOGETHER on purpose: they pull in opposite directions — one field is
+ * rendered MORE in the mode, two are rendered LESS — and stating them apart is how they drift into
+ * contradicting each other.
+ */
+describe('CLI-2004: the status line in screen-reader mode', () => {
+  const sessionProps = {
+    cwd: '/tmp/project',
+    permissionMode: 'default' as const,
+    modelId: 'test-model',
+    sessionId: 'sess-1',
+    isThinking: false,
+    activeToolCount: 0,
+    activeBackgroundTaskCount: 0,
+    hasPendingPrompt: false,
+    contextState: { percentage: 42, usedTokens: 1000, maxTokens: 200000 },
+    settings: { enabled: true, gitBranch: false } as never,
+    activePresetId: 'reviewer',
+  };
+
+  function cliAdapter(): ITuiCliAdapter {
+    return {
+      getUserSettingsPath: () => '/tmp/fake-settings.json',
+      readSettings: () => ({}),
+      reloadPluginCommandSource: vi.fn(),
+      applyActiveModelChange: vi.fn(),
+      getGitBranch: vi.fn().mockReturnValue(undefined),
+      getProviderDisplayName: vi.fn((type: string) => type),
+    } as unknown as ITuiCliAdapter;
+  }
+
+  function renderStatus(enabled: boolean, overrides: Record<string, unknown> = {}): string {
+    const { lastFrame, unmount } = render(
+      <ScreenReaderProvider enabled={enabled}>
+        <TuiCliAdapterProvider value={cliAdapter()}>
+          <SessionStatusBar {...sessionProps} {...overrides} />
+        </TuiCliAdapterProvider>
+      </ScreenReaderProvider>,
+    );
+    const frame = lastFrame() ?? '';
+    unmount();
+    return frame;
+  }
+
+  it('TC-16: renders the permission mode even when it is `default`', () => {
+    const frame = renderStatus(true);
+    expect(frame).toContain('Mode:');
+    expect(frame).toContain('default');
+  });
+
+  it('TC-16: still hides the `default` permission mode outside the mode', () => {
+    const frame = renderStatus(false);
+    expect(frame).not.toContain('Mode:');
+  });
+
+  it('TC-21: suppresses the volatile fields and keeps the stable ones', () => {
+    const frame = renderStatus(true, { isThinking: true, activeToolCount: 2 });
+
+    // Volatile — re-rendered on their own cadence and on every token.
+    expect(frame).not.toContain('Context:');
+    expect(frame).not.toContain('42%');
+    expect(frame).not.toContain('Idle');
+    expect(frame).not.toContain('Thinking');
+
+    // Stable — anchors a reader can go back to.
+    expect(frame).toContain('Mode:');
+    expect(frame).toContain('default');
+    expect(frame).toContain('Preset:');
+    expect(frame).toContain('reviewer');
+    expect(frame).toContain('test-model');
+  });
+
+  it('TC-21: renders all four exactly as today outside the mode', () => {
+    const frame = renderStatus(false, {
+      isThinking: true,
+      activeToolCount: 2,
+      permissionMode: 'plan',
+    });
+
+    expect(frame).toContain('Context:');
+    expect(frame).toContain('42%');
+    expect(frame).toContain('Mode:');
+    expect(frame).toContain('plan');
+    expect(frame).toContain('Preset:');
+    expect(frame).toContain('test-model');
   });
 });

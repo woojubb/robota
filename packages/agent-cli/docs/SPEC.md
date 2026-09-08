@@ -606,6 +606,49 @@ automaticMemory: { policy, retrieval: budget } }` with a default budget
   inspectable via the existing `/memory` command (list / pending / approve); recalled memory is rendered
   into the turn as a distinct `<recalled-memory>` block (P3).
 
+### Screen Reader Mode Enablement (CLI-2004)
+
+The TUI's plain-text screen-reader mode is **opt-in, default OFF**, and this package owns the
+enablement DECISION. `src/startup/screen-reader-enablement.ts` resolves one switch and reports WHICH
+input turned it on, so the confirmation line the TUI prints cannot lie about why the mode is active.
+
+- **Three channels, precedence lowest → highest:**
+  1. `settings.json` `screenReader: true` — read by `readScreenReaderSetting()` (non-boolean and
+     missing values ignored, never a throw).
+  2. `ROBOTA_SCREEN_READER=1|0` env, and `INK_SCREEN_READER=true` as an EQUAL input at the same tier.
+     Ink 7 reads its own variable directly, so shadowing it would leave a run where Ink behaves as if
+     the mode were on while the confirmation line said it was off. Ink matches the literal `'true'`,
+     not `1`; the `ROBOTA_*=1` convention is mapped explicitly, never inherited.
+  3. `--screen-reader` / `--no-screen-reader` CLI flag (tri-state `IParsedCliArgs.screenReader`;
+     `--no-screen-reader` wins if both) — **the flag wins.**
+
+  `ROBOTA_SCREEN_READER=0` keeps the mode off against a `true` setting, but loses to an explicit
+  `--screen-reader`: that is the difference between "off for one command" and "edit a JSON file".
+
+- **The precedence direction is a deliberate divergence from the memory resolver above, and the two
+  must not be read as one rule.** `resolveMemoryEnablement` is **env-wins**: `ROBOTA_MEMORY` overrides
+  the flag, because memory is a machine-level policy a CI runner sets once. Accessibility inverts it —
+  a per-invocation flag must be able to turn the mode ON for one run on a machine whose environment
+  has it off, which is exactly the SSH-into-a-shared-host case. Same repo, opposite direction, for a
+  stated reason.
+
+- **Result.** `{ enabled, channel }` where `channel` is `'flag' | 'env' | 'settings' | undefined`.
+  `src/cli.ts` resolves it once and threads `screenReader` / `screenReaderChannel` /
+  `screenReaderHint` into `renderApp`. Absent everywhere ⇒ OFF ⇒ the TUI's byte stream is unchanged.
+
+- **No auto-detection.** `detectScreenReaderHint()` inspects the environment (`INK_SCREEN_READER` set
+  to a non-`true` value, or an `NVDA`/`JAWS`/`VOICEOVER`/`ORCA_`-shaped variable) only to decide
+  whether to print ONE advisory line naming the flag. It never enables the mode. A false positive
+  costs a line of text; auto-enabling on a false positive would reshape a sighted user's interface,
+  and this project has no telemetry that would ever surface that.
+
+- **First-run welcome.** `printFirstRunWelcome()` takes a `screenReader` option and prints the same
+  copy without its box frame — the box is chrome a reader announces character by character before it
+  reaches a word of the welcome.
+
+The rendered behaviour of the mode (labels, numbered menus, bell, OSC 133 support table, known
+limitations) is `packages/agent-transport-tui/docs/SPEC.md`.
+
 ### Transport Settings
 
 Transport enabled/disabled state and options are persisted in `settings.json` under the `transports`

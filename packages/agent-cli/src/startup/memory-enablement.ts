@@ -129,6 +129,29 @@ export function buildMemorySessionOptions(
   };
 }
 
+/**
+ * The whole memory decision as ONE call for the composition root: resolve the switch, build the
+ * session fields, print the one-time enable notice. Extracted (CLI-2004) so `cli.ts` reads as one
+ * line per surface concern instead of a resolver expanded inline — the same shape
+ * `resolveScreenReaderRenderFields` uses, so the two surface switches are read side by side.
+ */
+export function resolveMemorySurfaceOptions(inputs: {
+  settings: Record<string, unknown> | undefined;
+  args: { memory: boolean | undefined; memoryAutoSave: boolean };
+  memoryStore: IMemoryStore | undefined;
+  cwd: string;
+}): IMemorySessionOptions {
+  const enablement = resolveMemoryEnablement({
+    settings: readMemorySettings(inputs.settings),
+    flagEnabled: inputs.args.memory,
+    flagAutoSave: inputs.args.memoryAutoSave,
+    env: process.env['ROBOTA_MEMORY'],
+  });
+  const options = buildMemorySessionOptions(enablement, inputs.memoryStore);
+  if (enablement.enabled) printMemoryEnableNoticeOnce(inputs.cwd);
+  return options;
+}
+
 let enableNoticePrinted = false;
 
 /**

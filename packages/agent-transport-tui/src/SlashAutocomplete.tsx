@@ -7,7 +7,9 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-command';
@@ -64,9 +66,16 @@ function CommandRow(props: {
   showSlash: boolean;
   rowWidth: number;
   nameColWidth: number;
+  /** CLI-2004: row number in the mode, replacing the `> ` cursor. */
+  rowNumber?: number;
 }): React.ReactElement {
-  const { cmd, isSelected, showSlash, rowWidth, nameColWidth } = props;
-  const indicator = isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE;
+  const { cmd, isSelected, showSlash, rowWidth, nameColWidth, rowNumber } = props;
+  const indicator =
+    rowNumber !== undefined
+      ? numberedRowPrefix(rowNumber)
+      : isSelected
+        ? SELECTION_INDICATOR
+        : SELECTION_INDICATOR_NONE;
   const nameColor = isSelected ? PALETTE.text.accent : undefined;
   const dimmed = !isSelected;
   const namePart = capName(cmd.name, nameColWidth);
@@ -91,6 +100,7 @@ export default function SlashAutocomplete({
   isSubcommandMode,
 }: IProps): React.ReactElement | null {
   const rowWidth = useRowWidth();
+  const screenReader = useScreenReader();
 
   if (!visible || commands.length === 0) return null;
 
@@ -103,7 +113,13 @@ export default function SlashAutocomplete({
   );
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={PALETTE.border.muted} paddingX={1}>
+    <Box
+      flexDirection="column"
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: PALETTE.border.muted })}
+      paddingX={1}
+    >
       {visibleCommands.map((cmd, i) => (
         <CommandRow
           key={cmd.name}
@@ -112,6 +128,7 @@ export default function SlashAutocomplete({
           showSlash={!isSubcommandMode}
           rowWidth={rowWidth}
           nameColWidth={nameColWidth}
+          {...(screenReader ? { rowNumber: scrollOffset + i } : {})}
         />
       ))}
       <KeyHintFooter hints={SLASH_AUTOCOMPLETE_FOOTER_HINTS} />

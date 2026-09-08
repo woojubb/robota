@@ -1,8 +1,5 @@
+import { Box, useWindowSize } from 'ink';
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-
-const PENDING_PROMPT_DISPLAY_MAX = 50;
-const PENDING_PROMPT_TAIL_KEEP = 47;
-import { Box, useInput, useWindowSize } from 'ink';
 
 import CjkTextInput from './CjkTextInput.js';
 import {
@@ -10,26 +7,26 @@ import {
   createPasteLabelChange,
   createPromptHistoryNavigationState,
   extractPromptHistory,
-  getAutocompletePopupAction,
-  getPendingPromptInputAction,
-  getPromptHistoryInputAction,
-  moveAutocompleteSelection,
-  navigatePromptHistory,
   resolveEnterCommandSelection,
   resolveTabCompletion,
   shouldSubmitInput,
 } from './flows/input-area-flow.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
+import { useInputAreaKeys } from './hooks/useInputAreaKeys.js';
+import { DeletionAnnouncement, InputBottomRule, InputTopRule } from './input-area-rules.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
 import { PALETTE } from './tui-palette.js';
-import { buildInputTopBorder } from './utils/input-top-border.js';
 import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
+
+const PENDING_PROMPT_DISPLAY_MAX = 50;
+const PENDING_PROMPT_TAIL_KEEP = 47;
 
 interface IProps {
   onSubmit: (value: string) => void;
@@ -83,6 +80,10 @@ export default function InputArea({
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
+  // CLI-2004: the text the last word/line delete removed, announced once and cleared on the next
+  // ordinary edit. A reader announces the line it is ON — what left it is otherwise unrecoverable.
+  const screenReader = useScreenReader();
+  const [deletedText, setDeletedText] = useState<string | null>(null);
   const [historyState, setHistoryState] = useState(createPromptHistoryNavigationState);
   const [localPromptHistory, setLocalPromptHistory] = useState<string[]>([]);
   const restoredPromptHistory = useMemo(() => extractPromptHistory(history ?? []), [history]);
@@ -192,55 +193,24 @@ export default function InputArea({
     [showPopup, filteredCommands, selectedIndex, enterSelectCommand, submitPrompt],
   );
 
-  useInput(
-    (
-      _input: string,
-      key: { upArrow: boolean; downArrow: boolean; escape: boolean; tab: boolean },
-    ) => {
-      if (!showPopup) return;
-      const action = getAutocompletePopupAction(key);
-      if (action === 'previous' || action === 'next') {
-        setSelectedIndex((prev) =>
-          moveAutocompleteSelection(prev, filteredCommands.length, action),
-        );
-      } else if (action === 'close') {
-        setShowPopup(false);
-      } else if (action === 'complete') {
-        const cmd = filteredCommands[selectedIndex];
-        if (cmd) tabCompleteCommand(cmd);
-      }
-    },
-    { isActive: showPopup && !isDisabled },
-  );
-
-  useInput(
-    (_input, key) => {
-      const action = getPromptHistoryInputAction(key);
-      if (!action) return;
-      // SCREEN-014: ↓ on an empty input that is not browsing history falls through into the
-      // background-work list (where it is a no-op for the input today). The parent decides whether
-      // there is a list to focus.
-      if (action === 'next' && historyState.selectedIndex === null && value.length === 0) {
-        onRequestFocusBackgroundList?.();
-        return;
-      }
-      const result = navigatePromptHistory(value, promptHistory, historyState, action);
-      setValue(result.value);
-      setCursorHint(result.cursorHint);
-      setHistoryState(result.state);
-    },
-    { isActive: !showPopup && !isDisabled && !pendingPrompt },
-  );
-
-  // Backspace cancels queued prompt
-  useInput(
-    (_input, key) => {
-      if (getPendingPromptInputAction(key) === 'cancelQueue' && pendingPrompt) {
-        onCancelQueue?.();
-      }
-    },
-    { isActive: !!pendingPrompt },
-  );
+  useInputAreaKeys({
+    value,
+    isDisabled,
+    pendingPrompt,
+    showPopup,
+    setShowPopup,
+    filteredCommands,
+    selectedIndex,
+    setSelectedIndex,
+    tabCompleteCommand,
+    promptHistory,
+    historyState,
+    setValue,
+    setCursorHint,
+    setHistoryState,
+    onRequestFocusBackgroundList,
+    onCancelQueue,
+  });
 
   const borderColor = isAborting
     ? PALETTE.border.attention
@@ -250,7 +220,6 @@ export default function InputArea({
         ? PALETTE.border.muted
         : PALETTE.border.active;
   const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
-  const topBorder = buildInputTopBorder(innerWidth, sessionName);
 
   return (
     <Box flexDirection="column">
@@ -262,15 +231,13 @@ export default function InputArea({
           isSubcommandMode={isSubcommandMode}
         />
       )}
-      <Text color={borderColor}>
-        {topBorder.left}
-        {topBorder.label ? (
-          <Text backgroundColor={borderColor} color={PALETTE.text.onAccent} bold>
-            {topBorder.label}
-          </Text>
-        ) : null}
-        {topBorder.right}
-      </Text>
+      <DeletionAnnouncement deleted={screenReader ? deletedText : null} />
+      <InputTopRule
+        screenReader={screenReader}
+        innerWidth={innerWidth}
+        borderColor={borderColor}
+        {...(sessionName !== undefined ? { sessionName } : {})}
+      />
       <Box paddingLeft={1}>
         {isAborting ? (
           <Text color={PALETTE.text.warning}> Interrupting...</Text>
@@ -300,6 +267,7 @@ export default function InputArea({
                 resetHistoryNavigation();
                 setCursorHint(null); // reset after normal typing
               }}
+              onDeletedText={setDeletedText}
               onSubmit={handleSubmit}
               onPaste={handlePaste}
               placeholder="Type a message or /help"
@@ -310,9 +278,11 @@ export default function InputArea({
           </Box>
         )}
       </Box>
-      {/* Bottom border: hand-drawn <Text> (mirrors the top border) — a Yoga-synthesized Box border
-          drops glyphs during rapid re-render at full terminal height (SCREEN-003). */}
-      <Text color={borderColor}>{'─'.repeat(innerWidth)}</Text>
+      <InputBottomRule
+        screenReader={screenReader}
+        innerWidth={innerWidth}
+        borderColor={borderColor}
+      />
     </Box>
   );
 }

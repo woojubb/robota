@@ -2,6 +2,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 interface IProps {
@@ -12,9 +13,15 @@ const COMPACT_SUGGESTION_THRESHOLD = 70;
 const CRITICAL_THRESHOLD = 90;
 
 export function ContextWarningBanner({ percentage }: IProps): React.ReactElement | null {
+  const screenReader = useScreenReader();
   if (percentage >= CRITICAL_THRESHOLD) {
     return (
-      <Box borderStyle="single" borderColor={PALETTE.border.error} paddingX={1}>
+      <Box
+        {...(screenReader
+          ? {}
+          : { borderStyle: 'single' as const, borderColor: PALETTE.border.error })}
+        paddingX={1}
+      >
         <Text color={PALETTE.text.error} bold>
           ⚠ Context at {Math.round(percentage)}% — window nearly full. Run /compact to summarize the
           conversation.

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
-import { formatBackgroundTaskRow } from '../background-task-row-format.js';
+import {
+  BACKGROUND_TASK_CONNECTORS,
+  formatBackgroundTaskRow,
+} from '../background-task-row-format.js';
 
 function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWorkspaceEntry {
   return {
@@ -58,5 +61,26 @@ describe('formatBackgroundTaskRow', () => {
     expect(completed.marker).toBe('✓'); // completed → success glyph (SCREEN-005)
     expect(completed.color).toBe('green');
     expect(completed.preview).toBe('Summary ready');
+  });
+});
+
+/** CLI-2004: the tree connectors are drawing, and a reader announces them on every row. */
+describe('formatBackgroundTaskRow in screen-reader mode', () => {
+  it('uses the plain connector instead of the box-drawing branch/last glyphs', () => {
+    const branch = formatBackgroundTaskRow(makeEntry({}), { isLast: false, screenReader: true });
+    const last = formatBackgroundTaskRow(makeEntry({}), { isLast: true, screenReader: true });
+
+    expect(branch.connector).toBe(BACKGROUND_TASK_CONNECTORS.plain);
+    expect(last.connector).toBe(BACKGROUND_TASK_CONNECTORS.plain);
+    expect(branch.accessibleText.startsWith(BACKGROUND_TASK_CONNECTORS.plain)).toBe(true);
+  });
+
+  it('keeps the tree connectors outside the mode', () => {
+    expect(formatBackgroundTaskRow(makeEntry({}), { isLast: false }).connector).toBe(
+      BACKGROUND_TASK_CONNECTORS.branch,
+    );
+    expect(formatBackgroundTaskRow(makeEntry({}), { isLast: true }).connector).toBe(
+      BACKGROUND_TASK_CONNECTORS.last,
+    );
   });
 });

@@ -13,6 +13,7 @@ import React from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import WaveText from '../WaveText.js';
+import { ScreenReaderProvider } from '../screen-reader-context.js';
 import { MOTION, PALETTE } from '../tui-palette.js';
 
 const gateMock = vi.hoisted(() => ({ value: true }));
@@ -91,5 +92,43 @@ describe('WaveText motion tokens (SCREEN-006)', () => {
     const later = lastFrame() ?? '';
     unmount();
     expect(later).toBe(first);
+  });
+});
+
+/**
+ * CLI-2004 TC-19 — a spinner is a repaint per frame, and a repaint is an announcement. In the mode
+ * the text is written once and no interval is ever scheduled.
+ */
+describe('CLI-2004 TC-19: WaveText in screen-reader mode', () => {
+  it('renders its text once and schedules no interval', () => {
+    gateMock.value = true; // the colour gate is OPEN — the mode alone must stop the animation
+    vi.useFakeTimers();
+
+    const { lastFrame, unmount } = render(
+      <ScreenReaderProvider enabled={true}>
+        <WaveText text="Thinking" />
+      </ScreenReaderProvider>,
+    );
+    const first = lastFrame() ?? '';
+
+    // No pending timer at all — not merely a frame that happens to look the same.
+    expect(vi.getTimerCount()).toBe(0);
+
+    vi.advanceTimersByTime(MOTION.waveIntervalMs * 5);
+    const later = lastFrame() ?? '';
+    unmount();
+
+    expect(first).toContain('Thinking');
+    expect(later).toBe(first);
+    expect(sgrCodes(first).filter((code) => code !== '0' && code !== '39')).toEqual([]);
+  });
+
+  it('leaves the 400 ms ramp exactly as it is outside the mode', () => {
+    gateMock.value = true;
+    vi.useFakeTimers();
+
+    const { unmount } = render(<WaveText text="Thinking" />);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    unmount();
   });
 });

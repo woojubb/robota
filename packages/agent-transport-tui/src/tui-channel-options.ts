@@ -112,4 +112,11 @@ export interface ITuiInteractionChannelOptions {
   recallMemory?: IPerTurnRecallConfig;
   /** Observe TUI-owned session-event rendering failures without failing the committed operation. */
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
+  /**
+   * CLI-2004: the resolved screen-reader mode. A PRESENTATION field — it changes nothing about the
+   * session and is deliberately NOT projected into `buildTuiSessionOptions`; it is carried here so
+   * the render-options → channel-options projection is complete and the ARCH-110 drop hazard is
+   * asserted rather than assumed. Absent ⇒ OFF.
+   */
+  screenReader?: boolean;
 }

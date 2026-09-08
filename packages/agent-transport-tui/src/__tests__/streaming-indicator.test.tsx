@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from 'ink-testing-library';
 import StreamingIndicator from '../StreamingIndicator.js';
+import { ScreenReaderProvider } from '../screen-reader-context.js';
 
 describe('StreamingIndicator', () => {
   it('renders empty when no tools and no text', () => {
@@ -133,5 +134,44 @@ describe('StreamingIndicator', () => {
     expect(frame).toContain('- 1 | const oldValue = true;');
     expect(frame).toContain('+ 1 | const newValue = true;');
     expect(frame).not.toContain('│ 1 - const oldValue = true;');
+  });
+});
+
+/** CLI-2004 TC-19 — the progress indicator collapses to one static line in the mode. */
+describe('CLI-2004 TC-19: StreamingIndicator in screen-reader mode', () => {
+  function renderInMode(element: React.ReactElement): string {
+    const { lastFrame, unmount } = render(
+      <ScreenReaderProvider enabled={true}>{element}</ScreenReaderProvider>,
+    );
+    const frame = lastFrame() ?? '';
+    unmount();
+    return frame;
+  }
+
+  it('renders a single static line for a thinking turn', () => {
+    const frame = renderInMode(<StreamingIndicator text="" activeTools={[]} isThinking={true} />);
+    expect(frame.split('\n').filter((line) => line.trim().length > 0)).toHaveLength(1);
+    expect(frame).toContain('thinking:');
+    expect(frame).not.toContain('Thinking...');
+  });
+
+  it('folds running tools and streamed text into that one line', () => {
+    const frame = renderInMode(
+      <StreamingIndicator
+        text="partial answer"
+        activeTools={[{ toolName: 'Bash', firstArg: 'ls', isRunning: true }]}
+        isThinking={true}
+      />,
+    );
+    expect(frame.split('\n').filter((line) => line.trim().length > 0)).toHaveLength(1);
+    expect(frame).toContain('tool:');
+    expect(frame).toContain('partial answer');
+  });
+
+  it('leaves the multi-line indicator unchanged outside the mode', () => {
+    const { lastFrame } = render(
+      <StreamingIndicator text="Hello" activeTools={[]} isThinking={true} />,
+    );
+    expect(lastFrame()).toContain('Robota:');
   });
 });

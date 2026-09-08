@@ -7,10 +7,14 @@ import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
+import { ScreenReaderProvider } from './screen-reader-context.js';
+import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
+import type { TScreenReaderChannel } from './screen-reader-announcement.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 import type {
@@ -128,6 +132,17 @@ export interface IRenderOptions {
   automaticMemory?: IAutomaticMemoryConfig;
   /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
+  /**
+   * CLI-2004: the resolved screen-reader mode. DECLARED, not spread through — `toChannelOptions`
+   * below copies field by field, so an undeclared field compiles, arrives and is silently dropped
+   * (the ARCH-110 containment hazard the `orgPolicy` comment above records). Absent ⇒ mode OFF and
+   * today's byte stream is unchanged.
+   */
+  screenReader?: boolean | undefined;
+  /** CLI-2004: which input turned the mode on — printed in the confirmation line. */
+  screenReaderChannel?: TScreenReaderChannel | undefined;
+  /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
+  screenReaderHint?: boolean | undefined;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -181,12 +196,25 @@ export function toChannelOptions(
     ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
     ...(options.automaticMemory ? { automaticMemory: options.automaticMemory } : {}),
     ...(options.recallMemory ? { recallMemory: options.recallMemory } : {}),
+    // CLI-2004: declared above AND projected here — the hand-maintained copy is the exact place an
+    // undeclared option disappears, so both halves are asserted by one test.
+    ...(options.screenReader !== undefined ? { screenReader: options.screenReader } : {}),
   };
 }
 
 export async function renderApp(options: IRenderOptions): Promise<void> {
   // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
+
+  // CLI-2004: one resolved boolean drives Ink's own screen-reader support AND the React context
+  // every component reads. Both are set here so they can never disagree.
+  const screenReader = options.screenReader === true;
+  writeScreenReaderAnnouncement({
+    enabled: screenReader,
+    channel: options.screenReaderChannel,
+    hint: options.screenReaderHint,
+  });
+  const pacing = resolvePacing({ enabled: screenReader });
 
   // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
   // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
@@ -214,23 +242,29 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     return channel;
   };
 
+  // The startup quiet period sits between the confirmation line and the first frame, so a reader
+  // finishes announcing the mode before the prompt lands. A keypress ends it early; `0` skips it.
+  await awaitStartupQuietPeriod(pacing.startupQuietMs, process.stdin);
+
   const instance = render(
-    <App
-      cwd={options.cwd}
-      createChannel={createChannel}
-      providerOverride={options.providerOverride}
-      providerType={options.providerType}
-      modelId={options.modelId}
-      permissionMode={options.permissionMode}
-      version={options.version}
-      sessionStore={options.sessionStore}
-      resumeSessionId={options.resumeSessionId}
-      showSessionPickerOnStart={options.showSessionPickerOnStart}
-      startupUpdateNotice={options.startupUpdateNotice}
-      transportRegistry={options.transportRegistry}
-      cliAdapter={options.cliAdapter}
-    />,
-    { exitOnCtrlC: false },
+    <ScreenReaderProvider enabled={screenReader}>
+      <App
+        cwd={options.cwd}
+        createChannel={createChannel}
+        providerOverride={options.providerOverride}
+        providerType={options.providerType}
+        modelId={options.modelId}
+        permissionMode={options.permissionMode}
+        version={options.version}
+        sessionStore={options.sessionStore}
+        resumeSessionId={options.resumeSessionId}
+        showSessionPickerOnStart={options.showSessionPickerOnStart}
+        startupUpdateNotice={options.startupUpdateNotice}
+        transportRegistry={options.transportRegistry}
+        cliAdapter={options.cliAdapter}
+      />
+    </ScreenReaderProvider>,
+    { exitOnCtrlC: false, isScreenReaderEnabled: screenReader },
   );
   // The controller needs the Ink instance to clear the frame before a handoff.
   handoffController.setInkInstance(instance);

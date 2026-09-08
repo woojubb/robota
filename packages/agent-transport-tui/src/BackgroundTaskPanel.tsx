@@ -3,6 +3,7 @@ import React from 'react';
 
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
@@ -17,6 +18,7 @@ export default function BackgroundTaskPanel({
   entries,
   focusedIndex = null,
 }: IProps): React.ReactElement | null {
+  const screenReader = useScreenReader();
   if (entries.length === 0) return null;
 
   // SCREEN-014: the hint is focus-aware — it tells you how to enter the list, then how to move/open.
@@ -32,7 +34,10 @@ export default function BackgroundTaskPanel({
         <Text dimColor>{hint}</Text>
       </Box>
       {entries.map((entry, index) => {
-        const row = formatBackgroundTaskRow(entry, { isLast: index === entries.length - 1 });
+        const row = formatBackgroundTaskRow(entry, {
+          isLast: index === entries.length - 1,
+          screenReader,
+        });
         const isFocused = index === focusedIndex;
         return (
           // SCREEN-011: one truncated line so the connector + glyph lead the row.

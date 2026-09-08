@@ -3,6 +3,8 @@ import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
 import { Box, Static, useApp, useInput } from 'ink';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
+import { AppBanner } from './app-banner.js';
+import { buildStaticItems } from './app-static-items.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import { ContextWarningBanner } from './ContextWarningBanner.js';
 import {
@@ -12,7 +14,9 @@ import {
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
 import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
+import { useExecutionDetailPage } from './hooks/useExecutionDetailPage.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
+import { useScreenReaderTurnSignals } from './hooks/useScreenReaderTurnSignals.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
@@ -23,6 +27,7 @@ import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
 import SessionEventNotices from './SessionEventNotices.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
@@ -36,22 +41,12 @@ import { useTerminalTitle } from './use-terminal-title.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-
-/**
- * SCREEN-010: items committed to the terminal scrollback via a single Ink `<Static>` — the startup
- * banner followed by the append-only conversation history. Static renders each item exactly once.
- */
-type TStaticItem =
-  | { readonly kind: 'banner'; readonly version: string }
-  | { readonly kind: 'entry'; readonly entry: IHistoryEntry };
 
 interface IProps {
   cwd: string;
@@ -153,9 +148,6 @@ function AppInner(
   const { exit } = useApp();
   const [updateNotice, setUpdateNotice] = useState<string | undefined>();
   const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
-  const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
-  const [executionDetailError, setExecutionDetailError] = useState<string | undefined>();
-  const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, refreshStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
   // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
@@ -390,33 +382,21 @@ function AppInner(
     };
   }, [handleShutdown, exit, isShuttingDown]);
 
-  useEffect(() => {
-    if (!selectedExecutionEntry || selectedExecutionEntry.kind === 'main_thread') {
-      setExecutionDetailPage(null);
-      setExecutionDetailError(undefined);
-      setIsExecutionDetailLoading(false);
-      return;
-    }
+  const executionDetail = useExecutionDetailPage({
+    entry: selectedExecutionEntry,
+    snapshot: executionWorkspaceSnapshot,
+    read: readExecutionWorkspaceDetail,
+  });
 
-    let isCurrent = true;
-    setIsExecutionDetailLoading(true);
-    setExecutionDetailError(undefined);
-    readExecutionWorkspaceDetail(selectedExecutionEntry.id)
-      .then((page) => {
-        if (!isCurrent) return;
-        setExecutionDetailPage(page);
-        setIsExecutionDetailLoading(false);
-      })
-      .catch((error: Error) => {
-        if (!isCurrent) return;
-        setExecutionDetailError(error.message);
-        setIsExecutionDetailLoading(false);
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [executionWorkspaceSnapshot, readExecutionWorkspaceDetail, selectedExecutionEntry]);
+  // CLI-2004: the mode's non-visual half — the attention bell and the OSC 133 turn marks. Inert
+  // when the mode is off, so there is one code path rather than a branch here.
+  const screenReader = useScreenReader();
+  useScreenReaderTurnSignals({
+    enabled: screenReader,
+    isThinking,
+    activeTools,
+    awaitingAnswer: permissionRequest !== null || pendingUserAction !== null,
+  });
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
@@ -437,12 +417,9 @@ function AppInner(
   // dynamic part. During a terminal handoff (handoffSuspended) the live region is omitted so Ink
   // unmounts its input hooks and releases raw mode (TERM-002) — but <Static> stays mounted at the
   // same tree position, so it does NOT re-print the whole history on resume.
-  const staticItems: TStaticItem[] = useMemo(
-    () => [
-      { kind: 'banner', version: props.version ?? '0.0.0' },
-      ...history.map((entry): TStaticItem => ({ kind: 'entry', entry })),
-    ],
-    [history, props.version],
+  const staticItems = useMemo(
+    () => buildStaticItems({ history, version: props.version, screenReader }),
+    [history, props.version, screenReader],
   );
 
   return (
@@ -450,16 +427,7 @@ function AppInner(
       <Static items={staticItems}>
         {(item) =>
           item.kind === 'banner' ? (
-            <Box key="logo" flexDirection="column" paddingX={1} marginBottom={1}>
-              <Text color={PALETTE.text.accent} bold>{`
-  ____   ___  ____   ___ _____  _
- |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
- | |_) | | | |  _ \\| | | || | / _ \\
- |  _ <| |_| | |_) | |_| || |/ ___ \\
- |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
-`}</Text>
-              <Text dimColor> v{item.version}</Text>
-            </Box>
+            <AppBanner key="logo" version={item.version} />
           ) : (
             <EntryItem key={item.entry.id} entry={item.entry} />
           )
@@ -473,9 +441,9 @@ function AppInner(
             {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' && (
               <ExecutionWorkspaceDetailPane
                 entry={selectedExecutionEntry}
-                page={executionDetailPage}
-                loading={isExecutionDetailLoading}
-                error={executionDetailError}
+                page={executionDetail.page}
+                loading={executionDetail.loading}
+                error={executionDetail.error}
               />
             )}
             {isShuttingDown && (

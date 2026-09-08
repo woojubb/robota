@@ -2,6 +2,8 @@ import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import React from 'react';
 
 import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { screenReaderLabelForRole } from './screen-reader-labels.js';
 import { PALETTE } from './tui-palette.js';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -28,6 +30,16 @@ export function RoleLabel({
   role: TUniversalMessage['role'];
   driverId?: string;
 }): React.ReactElement {
+  const screenReader = useScreenReader();
+  if (screenReader) {
+    // CLI-2004: the label comes from the ROLE, never the vendor — `assistant:` under every
+    // agent-provider-*. No colour: in this mode the searchable word is the whole cue.
+    const label =
+      role === 'user' && driverId !== undefined && driverId !== OWNER_DRIVER_ID
+        ? `${driverId}:`
+        : screenReaderLabelForRole(role);
+    return <Text>{label} </Text>;
+  }
   switch (role) {
     case 'user':
       return (
