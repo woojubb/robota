@@ -152,6 +152,8 @@ implements `{a,b}` in `globToRegExp`.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
+Not applicable.
+
 **Reason:** This change is a row in a repository governance rule and its regression test. It ships in
 no published package and is reachable from no Robota product surface — not the SDK, the agent runtime,
 any transport, the installed CLI, or the web UI — so no end user can run it or observe its effect. The

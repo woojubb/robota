@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -28,6 +28,7 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../scan-lane-declaration.mjs', import
 const RULE_FILE = fileURLToPath(
   new URL('../../../.agents/rules/spec-workflow.md', import.meta.url),
 );
+const HARNESS_DIR = fileURLToPath(new URL('..', import.meta.url));
 
 /**
  * A fixture copy of the two tables the scan derives its criteria from, in the exact shape
@@ -248,6 +249,25 @@ describe('scan-lane-declaration — the live rule parses', () => {
       expect.objectContaining({ floor: 'L1', pattern: 'scripts/**', qualifier: 'non-comment' }),
     );
     expect(live.some((r) => r.floor === 'L2' && r.pattern === '.github/workflows/**')).toBe(true);
+  });
+
+  it('gives L2 to every gate judge module, not only the frozen gate.mjs facade', () => {
+    const live = parseLaneFloors(liveText);
+    const l2 = live
+      .filter((row) => row.floor === 'L2')
+      .map((row) => globToRegExp(row.pattern));
+    const gateJudgePaths = readdirSync(HARNESS_DIR)
+      .filter((entry) => /^gate.*\.(?:mjs|json)$/.test(entry))
+      .map((entry) => `scripts/harness/${entry}`);
+    const gateLikeNeighbors = [
+      'scripts/harness/scan-gate-entrypoint-stability.mjs',
+      'scripts/harness/scan-gate-evaluator-isolation.mjs',
+      'scripts/harness/worktree-gate.mjs',
+    ];
+
+    expect(gateJudgePaths.length).toBeGreaterThan(1);
+    expect(gateJudgePaths.every((file) => l2.some((pattern) => pattern.test(file)))).toBe(true);
+    expect(gateLikeNeighbors.some((file) => l2.some((pattern) => pattern.test(file)))).toBe(false);
   });
 
   it('anchors a bare filename row at the repository root', () => {

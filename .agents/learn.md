@@ -30,6 +30,14 @@ near-duplicates happens in batch, at lesson time.
 
 <!-- Append new `### LRN-<id>` entries below this line. Nothing above it is a record. -->
 
+### LRN-work-run-removal-stale-evidence
+
+- observed-at: 2026-09-08T14:40:00+09:00
+- observation: Removing the work-run measurement subsystem from develop left the examined-scan adoption baseline and completed-task Evidence references pointing at deleted work-run files, so the affected harness scan still fails on historical residue.
+- evidence: `scripts/harness/examined-adoption-baseline.json:161`; `scripts/harness/check-done-evidence.mjs`; affected scan output lists deleted `scripts/harness/work-run-*.mjs` references in completed INFRA-148, INFRA-150 and PROC-028 records
+- source: INFRA-2662 lane-floor correction, 2026-09-08
+- related: INFRA-2662
+
 ### LRN-work-run-measurement-direct-push-gap
 
 - observed-at: 2026-09-06T09:55:00Z
