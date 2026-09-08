@@ -633,6 +633,15 @@ describe('local product classification and commands', () => {
     expect(createProductStageCommands('build', options, affected)).toEqual([
       ['pnpm', ['build:affected', '--', '--base-ref', 'origin/develop']],
     ]);
+    expect(
+      createProductStageCommands('build', options, {
+        ...affected,
+        agentAppChanged: true,
+      }),
+    ).toEqual([
+      ['pnpm', ['build:affected', '--', '--base-ref', 'origin/develop']],
+      ['pnpm', ['--filter', '@robota-sdk/agent-app', 'build']],
+    ]);
     expect(createProductStageCommands('package-quality', options, affected)).toEqual([
       ['pnpm', ['test:affected', '--', '--base-ref', 'origin/develop']],
       ['pnpm', ['typecheck:affected', '--', '--base-ref', 'origin/develop']],

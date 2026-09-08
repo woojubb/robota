@@ -422,6 +422,10 @@ jobs:
             pnpm build:affected
           fi
 
+      - name: Build desktop Electron app
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.agent_app_required == 'true'
+        run: pnpm --filter @robota-sdk/agent-app build
+
       - name: Archive package build output
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         shell: bash

@@ -52,11 +52,15 @@ function productLintCeiling() {
 
 export function createProductStageCommands(stageName, { baseRef }, context) {
   const full = context.fullProductVerification === true;
+  const agentApp = context.agentAppChanged === true;
   switch (stageName) {
-    case 'build':
-      return full
+    case 'build': {
+      const commands = full
         ? [['pnpm', ['build']]]
         : [['pnpm', affectedScriptArgs('build:affected', baseRef)]];
+      if (agentApp) commands.push(['pnpm', ['--filter', '@robota-sdk/agent-app', 'build']]);
+      return commands;
+    }
     case 'package-quality':
       if (full) return ['test', 'typecheck', 'lint'].map((operation) => ['pnpm', [operation]]);
       return [
