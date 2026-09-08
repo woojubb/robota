@@ -37,7 +37,7 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
  * exactly which of its output reaches the summary and the rest stays suppressed as before.
  *
  * GENERAL, not a special case for one scan: any scan may print it, and several in this repo have
- * advisory output currently thrown away (e.g. `scan-file-size`'s ratchet-tighten notices).
+ * advisory output currently thrown away (e.g. `scan-dist-freshness`'s staleness notices).
  */
 export const ADVISORY_MARKER = '::advisory::';
 /**
@@ -732,9 +732,9 @@ const LEGACY_SCAN_COMMANDS = [
       harnessFile('scan-github-label-registry'),
     ],
   },
-  // D1. operational.md requires the three routing documents to stay lean, and scan-file-size scopes
-  // itself to packages/apps, so nothing could see them — three of three were in violation. The
-  // ratchet enforces the direction; the gap to the 80-line target is reported every run.
+  // D1. operational.md requires the three routing documents to stay lean; nothing else in the scan
+  // suite covers markdown against a line-count ceiling. The ratchet enforces the direction; the gap
+  // to the 80-line target is reported every run.
   {
     name: 'routing-document-size',
     command: ['node', 'scripts/harness/scan-routing-document-size.mjs'],
@@ -1339,11 +1339,6 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'coverage-scripts',
     command: ['node', 'scripts/harness/check-test-coverage-scripts.mjs'],
     examines: [...WORKSPACE, REGISTRY, 'scripts/harness/check-test-coverage-scripts.mjs'],
-  },
-  {
-    name: 'file-size',
-    command: ['node', 'scripts/harness/scan-file-size.mjs'],
-    examines: ['scripts/harness/file-size-baseline.json', HARNESS_CONFIG, CONTENT, PACKAGES, APPS],
   },
   {
     name: 'build-contracts',

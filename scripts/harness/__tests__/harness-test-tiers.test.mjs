@@ -265,10 +265,7 @@ describe('harness test tiers', () => {
   it('keeps tests that require live repository owners out of the stripped tier', async () => {
     const { HERMETIC_TEST_FILES, classifyHarnessTestFiles } = tierOwner;
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
-    const repositoryContractTests = [
-      'scripts/harness/__tests__/scan-file-size.test.mjs',
-      'scripts/harness/__tests__/verification-receipt.test.mjs',
-    ];
+    const repositoryContractTests = ['scripts/harness/__tests__/verification-receipt.test.mjs'];
 
     for (const file of repositoryContractTests) {
       expect(HERMETIC_TEST_FILES).not.toContain(file);
