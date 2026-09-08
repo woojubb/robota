@@ -14,8 +14,7 @@ import {
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
 import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
-import { useExecutionDetailPage } from './hooks/useExecutionDetailPage.js';
-import { useForkAttach } from './hooks/useForkAttach.js';
+import { useBackgroundPanel } from './hooks/useBackgroundPanel.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useScreenReaderTurnSignals } from './hooks/useScreenReaderTurnSignals.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
@@ -170,11 +169,15 @@ function AppInner(
   const activeBackgroundTaskCount = countActiveBackgroundWorkspaceEntries(
     executionWorkspaceSnapshot,
   );
-  const selectedExecutionEntry = useMemo(
-    () =>
-      executionWorkspaceSnapshot?.entries.find((entry) => entry.id === selectedExecutionEntryId),
-    [executionWorkspaceSnapshot, selectedExecutionEntryId],
-  );
+  const panel = useBackgroundPanel({
+    selectedEntryId: selectedExecutionEntryId,
+    snapshot: executionWorkspaceSnapshot,
+    read: readExecutionWorkspaceDetail,
+    sessionStore,
+    onSessionSwitch,
+    addEntry,
+  });
+  const { entry: selectedExecutionEntry, detail: executionDetail, attachToFork } = panel;
 
   const {
     handleSubmit,
@@ -383,16 +386,6 @@ function AppInner(
     };
   }, [handleShutdown, exit, isShuttingDown]);
 
-  // CLI-1994 and CLI-2004 each extracted this read into a hook of their own; the one that landed
-  // first is the one kept, so there is a single detail-page reader rather than two.
-  const executionDetail = useExecutionDetailPage({
-    entry: selectedExecutionEntry,
-    snapshot: executionWorkspaceSnapshot,
-    read: readExecutionWorkspaceDetail,
-  });
-  // CLI-1994: attach to a forked conversation — a view switch onto its record, never a merge.
-  const attachToFork = useForkAttach({ sessionStore, onSessionSwitch, addEntry });
-
   // CLI-2004: the mode's non-visual half — the attention bell and the OSC 133 turn marks. Inert
   // when the mode is off, so there is one code path rather than a branch here.
   const screenReader = useScreenReader();
@@ -402,7 +395,6 @@ function AppInner(
     activeTools,
     awaitingAnswer: permissionRequest !== null || pendingUserAction !== null,
   });
-
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
