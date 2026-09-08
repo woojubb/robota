@@ -267,6 +267,7 @@ describe('workspace-wide build tooling (INFRA-060 D4)', () => {
 
   it('selects every scope for each declared path, one at a time', () => {
     expect(WORKSPACE_WIDE_BUILD_TOOLING_PATHS.length).toBeGreaterThan(0);
+    expect(WORKSPACE_WIDE_BUILD_TOOLING_PATHS).toContain('scripts/build-agent-app-if-full.mjs');
 
     for (const declaredPath of WORKSPACE_WIDE_BUILD_TOOLING_PATHS) {
       const plan = createVerificationPlan({ scopes, changedFiles: [declaredPath] });
