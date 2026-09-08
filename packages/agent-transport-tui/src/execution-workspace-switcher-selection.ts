@@ -20,8 +20,8 @@ import {
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 import type React from 'react';
 
-/** How many entries the list shows at once; the rest scroll. */
-export const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
+/** How many entries the list shows at once; the rest scroll. Read only by this module. */
+const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
 
 export interface IUseWorkspaceSwitcherSelectionInput {
   entries: IExecutionWorkspaceEntry[];
