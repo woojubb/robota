@@ -45,6 +45,7 @@ const ROOT_INPUTS = new Set(CONTRACT_CONTROL_PLANE_INPUTS.filter((input) => !inp
 const REPOSITORY_PREFIXES = [
   '.agents/',
   '.claude/agents/',
+  '.claude/hooks/',
   '.github/',
   '.husky/',
   'apps/',

@@ -108,7 +108,13 @@ export async function runAffectedContractTier(argv, root, tiers) {
   const isolatedRuns = [];
   if (!failed) {
     for (const files of plan.isolated.filter((file) => misses.has(file)).map((file) => [file])) {
-      const result = vitestInvocation(root, files);
+      // Isolated contract fixtures may run real Git histories for several minutes. A single thread
+      // worker keeps Vitest's worker RPC responsive while preserving the separate-process isolation
+      // that this tier promises; concurrent affected shards retain the bounded thread pool above.
+      const result = vitestInvocation(root, files, root, undefined, {
+        pool: 'threads',
+        maxWorkers: 1,
+      });
       isolatedRuns.push({ files, result });
       printRun(result);
       if ((result.status ?? 1) !== 0 || result.signal) {

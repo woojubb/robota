@@ -237,25 +237,32 @@ while read -r PS_START PS_LEN; do
   # target-is-unreadable verdict the `$` earns). STATED LIMIT: arithmetic `$(( … ))` / `(( … ))` is
   # not special-cased — rare on a push command line, and its extra paren fails toward a refusal, not
   # a bypass. (#1667 review)
-  _SS_ALLOPEN="${PS_MASK//[^(]/}"
-  _SS_ALLCLOSE="${PS_MASK//[^)]/}"
-  _SS_CMDSUB=0
-  for _SS_PAT in '$(' '<(' '>('; do
-    _SS_STRIPPED="${PS_MASK//"$_SS_PAT"/}"
-    _SS_CMDSUB=$(( _SS_CMDSUB + (${#PS_MASK} - ${#_SS_STRIPPED}) / 2 ))
-  done
-  _SS_OPENS_N=$(( ${#_SS_ALLOPEN} - _SS_CMDSUB ))
-  _SS_CLOSES_N=$(( ${#_SS_ALLCLOSE} - _SS_CMDSUB ))
-  if (( _SS_OPENS_N < 0 )); then _SS_OPENS_N=0; fi
-  if (( _SS_CLOSES_N < 0 )); then _SS_CLOSES_N=0; fi
-  _SS_I=0
-  while (( _SS_I < _SS_OPENS_N )); do
-    SUBSHELL_STACK_CD+=("$LAST_CD")
-    SUBSHELL_STACK_UNREAD+=("$LAST_CD_UNREADABLE")
-    SUBSHELL_STACK_COND+=("$LAST_CD_CONDITIONAL")
-    _SS_I=$((_SS_I + 1))
-  done
-  PENDING_CLOSES=$_SS_CLOSES_N
+  #
+  # Ordinary statements have no shell-group or substitution parens at all. Avoid rescanning their
+  # entire mask here: on a long `echo … && echo … && git push` chain, doing this for every slice
+  # made the supposedly linear walk quadratic again (HARNESS-083 regression). Any pending close was
+  # already applied above, so the empty case has no state to update.
+  if [[ "$PS_MASK" == *'('* || "$PS_MASK" == *')'* ]]; then
+    _SS_ALLOPEN="${PS_MASK//[^(]/}"
+    _SS_ALLCLOSE="${PS_MASK//[^)]/}"
+    _SS_CMDSUB=0
+    for _SS_PAT in '$(' '<(' '>('; do
+      _SS_STRIPPED="${PS_MASK//"$_SS_PAT"/}"
+      _SS_CMDSUB=$(( _SS_CMDSUB + (${#PS_MASK} - ${#_SS_STRIPPED}) / 2 ))
+    done
+    _SS_OPENS_N=$(( ${#_SS_ALLOPEN} - _SS_CMDSUB ))
+    _SS_CLOSES_N=$(( ${#_SS_ALLCLOSE} - _SS_CMDSUB ))
+    if (( _SS_OPENS_N < 0 )); then _SS_OPENS_N=0; fi
+    if (( _SS_CLOSES_N < 0 )); then _SS_CLOSES_N=0; fi
+    _SS_I=0
+    while (( _SS_I < _SS_OPENS_N )); do
+      SUBSHELL_STACK_CD+=("$LAST_CD")
+      SUBSHELL_STACK_UNREAD+=("$LAST_CD_UNREADABLE")
+      SUBSHELL_STACK_COND+=("$LAST_CD_CONDITIONAL")
+      _SS_I=$((_SS_I + 1))
+    done
+    PENDING_CLOSES=$_SS_CLOSES_N
+  fi
   # A bash-native `*push*` pre-filter short-circuits the grep for every statement that cannot be a
   # push — `RE_PUSH_STMT` requires the literal `push`, and PS_MASK is what the grep reads, so a mask
   # without that substring can never match. This spends no fork on the ordinary commands of a long
@@ -394,7 +401,7 @@ while read -r PS_START PS_LEN; do
       if [[ -z "$_PS_CW" || "$_PS_CW" == *'$'* || "$_PS_CW" == *'`'* ]]; then
         PS_CMD_UNRESOLVABLE=true
       fi
-    done <<< "$PS_WORDS"
+    done < <(printf '%s\n' "$PS_WORDS")
     if [[ "$PS_CMD_UNRESOLVABLE" == "true" ]]; then
       LAST_CD_UNREADABLE=true
       continue
@@ -415,7 +422,7 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 4 ]] && PS_FOURTH="$PS_W"
       [[ "$PS_INDEX" -eq 5 ]] && PS_FIFTH="$PS_W"
       [[ "$PS_INDEX" -ge 6 ]] && break
-    done <<< "$PS_WORDS"
+    done < <(printf '%s\n' "$PS_WORDS")
     # A subshell opener `(` glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
     # against the declared cwd, the exact wrong-repository answer this walk exists to end. Only `(`
@@ -617,7 +624,7 @@ while read -r PS_START PS_LEN; do
       fi
     fi
   fi
-done <<< "$STATEMENT_RANGES"
+done < <(printf '%s\n' "$STATEMENT_RANGES")
 # Only when EVERY push statement was a deletion: PUSH_SEEN is set by the content pushes alone, so a
 # deletion chained to a content push still meets the full gate below (issue #2310).
 if (( PUSH_DELETIONS > 0 )) && [[ "$PUSH_SEEN" != "true" ]]; then

@@ -41,6 +41,9 @@ describe('contract-test monorepo owners', () => {
       'example:capabilities/streaming',
     );
     expect(ownerForRepositoryInput(root, 'packages/**')).toBe('workspace:packages');
+    expect(ownerForRepositoryInput(root, '.claude/hooks/pre-push-check.sh')).toBe(
+      'workspace:governance',
+    );
   });
 
   it('resolves package changes to package, domain, and global scopes only', () => {
@@ -49,6 +52,10 @@ describe('contract-test monorepo owners', () => {
       'package:alpha',
       'workspace:global',
       'workspace:packages',
+    ]);
+    expect(selectionScopesForChangedPath(root, '.claude/hooks/pre-push-check.sh')).toEqual([
+      'workspace:global',
+      'workspace:governance',
     ]);
     expect(selectionScopesForChangedPath(root, 'packages/beta/src/index.ts')).not.toContain(
       'package:alpha',

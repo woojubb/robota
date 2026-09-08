@@ -121,6 +121,25 @@ describe('affected contract selection', () => {
     }
   });
 
+  it('recognizes governed Claude hooks and keeps their selection narrow', () => {
+    const tiers = classifyHarnessTestFiles(REPO_ROOT);
+    const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
+    const plan = createAffectedContractPlan({
+      root: REPO_ROOT,
+      contractTests: tiers.contract,
+      registry,
+      changedFiles: ['.claude/hooks/pre-push-check.sh'],
+    });
+    expect(plan.mode).toBe('affected');
+    expect(plan.selected.length).toBeLessThan(tiers.contract.length);
+    expect(plan.selected).toEqual(
+      expect.arrayContaining([
+        ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
+        `${TEST_ROOT}/pre-push-repo-resolution.test.mjs`,
+      ]),
+    );
+  });
+
   it('retains both rename sides and rejects malformed name-status output', () => {
     expect(parseNameStatusDiff('R100\0old.mjs\0new.mjs\0M\0same.mjs\0')).toEqual([
       'new.mjs',
@@ -245,7 +264,7 @@ describe('affected contract selection', () => {
     [['unknown/unregistered-owner.txt'], 'unknown owner'],
     [['outside-root.txt'], 'unknown owner'],
     [['.claude/settings.json'], 'unknown owner'],
-    [['.claude/hooks/unregistered.sh'], 'unknown owner'],
+    [['.claude/unregistered-hook.sh'], 'unknown owner'],
     [['.claude/agents-backup/worker.md'], 'unknown owner'],
   ])('falls back completely for %j', (changedFiles, reason) => {
     const data = fixture();

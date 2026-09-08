@@ -30,6 +30,26 @@ near-duplicates happens in batch, at lesson time.
 
 <!-- Append new `### LRN-<id>` entries below this line. Nothing above it is a record. -->
 
+### LRN-work-run-removal-stale-evidence
+
+- observed-at: 2026-09-08T14:40:00+09:00
+- observation: Removing the work-run measurement subsystem from develop left the examined-scan adoption baseline and completed-task Evidence references pointing at deleted work-run files, so the affected harness scan still fails on historical residue.
+- evidence: `scripts/harness/examined-adoption-baseline.json:161`; `scripts/harness/check-done-evidence.mjs`; affected scan output lists deleted `scripts/harness/work-run-*.mjs` references in completed INFRA-148, INFRA-150 and PROC-028 records
+- source: INFRA-2662 lane-floor correction, 2026-09-08
+- related: INFRA-2662
+
+### LRN-task-merged-citation-open-cli-records
+
+- observed-at: 2026-09-09T00:20:00+09:00
+- observation: The final affected harness scan still finds the CLI-1990 and CLI-2004 Task records
+  marked `in-progress` even though merged delivering commits cite those work-item IDs and deliver
+  outside `.agents/`; the GitHub issues are already closed, but the repository Task lifecycle records
+  still need a separately gated reconciliation.
+- evidence: `scripts/harness/scan-task-merged-citation.mjs`; commits `4d2de8bf9` (CLI-1990) and
+  `d63faff18` (CLI-2004); final `run-all-scans.mjs --affected --context pr` output on INFRA-2662
+- source: INFRA-2662 final affected scan, 2026-09-09
+- related: CLI-1990, CLI-2004, INFRA-2662
+
 ### LRN-work-run-measurement-direct-push-gap
 
 - observed-at: 2026-09-06T09:55:00Z
@@ -92,3 +112,76 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   fresh temporary directory (and a temporary project dir); never touch `~/.robota`". Candidate for a
   hard rule in `.claude/agents/user-execution-scenario-author.md` and for a harness guard that refuses
   `--configure-provider` / `--set-current` when `HOME` is the real home inside an agent session.
+
+### LRN-pre-push-subshell-accounting-regression
+
+- observed-at: 2026-09-09T01:35:00+09:00
+- observation: The merged HARNESS-083 fast path still rescanned every ordinary statement's mask to
+  count subshell parentheses. A 100–200 statement `echo … && git push` chain therefore stalled the
+  affected contract shard until its 360-second deadline, even though the command contained no
+  subshell syntax. Guarding that accounting behind a visible `(`/`)` check restores the intended
+  linear path without changing directory-state handling for statements that can contain groups or
+  substitutions.
+- evidence: `.claude/hooks/pre-push-check.sh` subshell-accounting block; `pre-push-repo-resolution`
+  long-chain regression; measured 200-statement probe completed in under one second after the guard.
+- source: INFRA-2662 pre-push verification, 2026-09-09
+- related: HARNESS-083 (#1681), INFRA-2662
+
+### LRN-pre-push-here-string-pipe-deadlock
+
+- observed-at: 2026-09-09T02:03:00+09:00
+- observation: The pre-push statement walk fed `STATEMENT_RANGES` through a Bash here-string. When a
+  long command produced enough ranges to fill the here-string pipe, Bash blocked while preparing the
+  redirection before the loop could read it. The same shape can occur for a large per-statement word
+  list. Process substitution keeps the producer and consumer concurrent without changing the parsed
+  data.
+- evidence: `sample` captured `pre-push-check.sh` in `heredoc_write` with no child process; replacing
+  the three loop here-strings with `printf` process substitutions removes the pipe back-pressure.
+- source: INFRA-2662 affected-contract verification, 2026-09-09
+- related: HARNESS-083 (#1681), INFRA-2662
+
+### LRN-merge-gate-wide-fixture-must-drain-stdout
+
+- observed-at: 2026-09-09T02:34:00+09:00
+- observation: The wide moved-base regression fixture used a Node `git` stub that called
+  `process.exit(0)` immediately after `console.log`. A 351-file response was truncated at 512 bytes,
+  so the overlap after the 300th file disappeared and the test passed the wrong answer.
+- evidence: the test failed with `MOVED_RAW` at 512 bytes and 18 lines; replacing the immediate exit
+  with a normal `stdout.write` drain makes the fixture expose the full response.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-016, #2386
+
+### LRN-hook-test-runner-must-drain-large-stdout
+
+- observed-at: 2026-09-09T02:38:00+09:00
+- observation: `remaining-hooks-run.test.mjs` used synchronous child execution while
+  `spec-first-gate.sh` legitimately emits a multi-kilobyte heredoc. The child filled stdout before
+  exiting, while the synchronous parent waited for exit before draining it, deadlocking the contract
+  shard.
+- evidence: the child stack stayed in Bash `heredoc_write`; converting the helper to asynchronous
+  `spawn` with live stdout/stderr listeners lets the same four spec-first cases complete.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-003, remaining-hooks-run contract
+
+### LRN-spec-first-gate-heredoc-must-not-feed-external-cat
+
+- observed-at: 2026-09-09T02:49:00+09:00
+- observation: The live `spec-first-gate.sh` feature path itself deadlocked before producing its
+  reminder. Bash prepared the multi-kilobyte heredoc through a pipe whose writer could fill before
+  the consumer process was available.
+- evidence: a direct JSON-piped invocation stayed in `heredoc_write`; splitting the reminder into
+  bounded heredoc chunks returns immediately and preserves the reminder text.
+- source: INFRA-2662 contract-gate verification, 2026-09-09
+- related: PROC-003, INFRA-2662
+
+### LRN-plan-order-history-fixture-must-run-isolated
+
+- observed-at: 2026-09-09T03:03:00+09:00
+- observation: The plan-order repository-contract fixture creates and scans enough real Git history
+  to exceed the four-way contract shard deadline, and Vitest reports an `onTaskUpdate` timeout even
+  after all assertions pass.
+- evidence: the individual file completed in about four minutes with one unhandled worker timeout;
+  capturing fixture Git stderr, splitting the large parameter loops into per-case tests, and running
+  the file in one isolated thread worker remove the worker starvation and shard deadline.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-003, INFRA-2662
