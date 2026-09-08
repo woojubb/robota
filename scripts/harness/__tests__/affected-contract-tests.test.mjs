@@ -108,12 +108,17 @@ describe('affected contract selection', () => {
   });
 
   it('keeps complete fallback contract shards split into eight deterministic groups', () => {
-    const source = readFileSync(
-      path.join(REPO_ROOT, 'scripts/harness/contract-selection-plan.mjs'),
-      'utf8',
-    );
+    const data = fixture();
+    const result = createAffectedContractPlan({
+      root: data.root,
+      contractTests: data.contracts,
+      isolatedContract: data.isolated,
+      registry: data.registry,
+      changedFiles: [],
+    });
 
-    expect(source).toContain('createDeterministicShards(ordinary, 8, weights)');
+    expect(result.mode).toBe('complete');
+    expect(result.shards).toHaveLength(8);
   });
 
   it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
