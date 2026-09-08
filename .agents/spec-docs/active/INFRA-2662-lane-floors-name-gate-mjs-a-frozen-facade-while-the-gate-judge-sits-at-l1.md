@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [harness, governance]
 lane: L2
@@ -83,6 +83,8 @@ answered by reading the tree, and the answer is recorded in the Problem section 
      a rule that must be re-edited to stay true is the weaker rule.
 
 ### Decision
+
+**Delivery mode:** `single`
 
 **Alternative 1.** The trade-off is between naming paths exhaustively and naming them by the
 convention the directory already follows. Exhaustive listing is more precise today and wrong tomorrow:
@@ -414,3 +416,57 @@ and body-section checks all passed.
 
 **Judged by:** independent semantic gate review
 **Judged at:** HEAD `29ca0339336a` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/backlog/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `6ef97a452f74` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-08
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-08; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (4)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 406 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md",
+  "specPath": ".agents/spec-docs/todo/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md",
+    ".agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cc53dcd1fbd` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/todo/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `0073b22c9960` (modified)

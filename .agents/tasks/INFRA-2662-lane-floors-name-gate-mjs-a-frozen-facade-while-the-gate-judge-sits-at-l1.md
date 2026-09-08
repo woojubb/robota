@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-2662: Lane floors name gate.mjs, a frozen facade, while the gate judge sits at L1'
 issue: https://github.com/woojubb/robota/issues/2662
-status: todo
+status: in-progress
 created: 2026-09-07
 priority: medium
 urgency: soon
