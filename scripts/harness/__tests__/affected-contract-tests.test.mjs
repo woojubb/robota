@@ -93,6 +93,20 @@ function fixture() {
 }
 
 describe('affected contract selection', () => {
+  it('keeps contract shard execution bounded instead of launching every shard at once', () => {
+    const source = readFileSync(
+      path.join(REPO_ROOT, 'scripts/harness/harness-contract-execution.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('DEFAULT_CONTRACT_SHARD_CONCURRENCY = 2');
+    expect(source).toMatch(
+      /for \(let index = 0; index < shardFiles\.length; index \+= concurrency\)/,
+    );
+    expect(source).toContain('shardFiles.slice(index, index + concurrency)');
+    expect(source).toContain('const batch = await Promise.all(');
+  });
+
   it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
     const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
