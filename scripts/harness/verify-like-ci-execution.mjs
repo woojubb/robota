@@ -86,6 +86,7 @@ export const STAGE_RUNNERS = {
     if (context.cliChanged)
       commands.push(['pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']]);
     if (context.agentAppChanged) {
+      commands.push(['pnpm', ['--filter', '@robota-sdk/agent-app', 'build']]);
       commands.push(['node', ['apps/agent-app/e2e/run-e2e.mjs']]);
       commands.push(['node', ['apps/agent-app/e2e/usage-dashboard.mjs']]);
     }
