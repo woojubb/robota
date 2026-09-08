@@ -38,6 +38,18 @@ near-duplicates happens in batch, at lesson time.
 - source: INFRA-2662 lane-floor correction, 2026-09-08
 - related: INFRA-2662
 
+### LRN-task-merged-citation-open-cli-records
+
+- observed-at: 2026-09-09T00:20:00+09:00
+- observation: The final affected harness scan still finds the CLI-1990 and CLI-2004 Task records
+  marked `in-progress` even though merged delivering commits cite those work-item IDs and deliver
+  outside `.agents/`; the GitHub issues are already closed, but the repository Task lifecycle records
+  still need a separately gated reconciliation.
+- evidence: `scripts/harness/scan-task-merged-citation.mjs`; commits `4d2de8bf9` (CLI-1990) and
+  `d63faff18` (CLI-2004); final `run-all-scans.mjs --affected --context pr` output on INFRA-2662
+- source: INFRA-2662 final affected scan, 2026-09-09
+- related: CLI-1990, CLI-2004, INFRA-2662
+
 ### LRN-work-run-measurement-direct-push-gap
 
 - observed-at: 2026-09-06T09:55:00Z

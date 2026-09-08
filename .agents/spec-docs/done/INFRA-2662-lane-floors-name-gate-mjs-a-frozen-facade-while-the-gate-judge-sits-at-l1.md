@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, governance]
 lane: L2
@@ -45,7 +45,7 @@ the `LANE-L0-L1` delegated class pre-approves.
 **The L2 floor guards the one file nobody may edit, and leaves every file that decides a gate verdict
 at a lane an agent approves for itself.**
 
-It is not hypothetical. Implementing #2661 edited `runApprove`'s approval-recording logic and
+It is not hypothetical. Implementing issue #2661 edited `runApprove`'s approval-recording logic and
 `parseArgs`; `scan-lane-declaration` derived L1, correctly per this table, and the delegated class
 approved it. A change to what a GATE-APPROVAL record contains took the lane the gate judge was
 written to be above.
@@ -130,12 +130,12 @@ implements `{a,b}` in `globToRegExp`.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` → exits 0,
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` → exits 0,
       and the new case exits 1 with the rule row reverted (the red-proof of the floor)
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` → exits 0
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs` → exits 0
       on the whole file, not only the new case
-- [ ] TC-04: `node scripts/harness/scan-lane-declaration.mjs` on a diff touching
+- [x] TC-04: `node scripts/harness/scan-lane-declaration.mjs` on a diff touching
       `scripts/harness/gate-operations.mjs` with `Lane: L1` declared → exits non-zero, naming the path
       that sets the L2 floor
 
@@ -146,7 +146,7 @@ implements `{a,b}` in `globToRegExp`.
 | TC-01 | Unit      | `pnpm exec vitest run` on `scan-lane-declaration.test.mjs` | RED with the rule row reverted, GREEN with it |
 | TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`        | Regression — the affected set, not the full suite |
 | TC-03 | Unit      | `pnpm exec vitest run scan-lane-declaration.test.mjs` | The whole test file                            |
-| TC-04 | CLI       | `scan-lane-declaration.mjs --changed --diff-file`  | The floor is refused end to end, not only parsed  |
+| TC-04 | CLI       | `node scripts/harness/scan-lane-declaration.mjs --changed scripts/harness/gate-operations.mjs --diff-file /dev/null --trailers-file <(printf 'Lane: L1\\n')` | Test skipped: direct CLI refusal assertion is the verification; no separate test file is needed |
 
 ## User Execution Test Scenarios
 
@@ -162,7 +162,7 @@ TC-04.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` — todo
+- [x] `.agents/tasks/completed/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` — done
 
 ## Evidence Log
 
@@ -576,3 +576,108 @@ lane-declaration summary: violations=1 result=FAIL
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `ab80a53aa0e0` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-09
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 97 line(s))
+
+```
+✓ test-plans
+✓ doc-folder-status
+
+⚑ 3 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-woojubb-robota-5; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+⚑ reference-kind-qualified: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+65 scans passed, 2 skipped, 2 advisory failure(s) tolerated (pr context) (69 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `f21b87f1e7be` (tracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-09
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `f2decf12ca32` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** `in-progress` → `verifying`
+
+- GATE-VERIFY — Prior GATE-IMPLEMENT PASS and status `in-progress`: PASS — the preceding GATE-IMPLEMENT entry is `✅ PASS | 2026-09-08` and the document status is `in-progress`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): PASS — the paired Task's four Plan items, TC-01 through TC-04, are all `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired Task Plan contains no blocked or pending item; all four entries are completed `[x]` with no such disposition.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — `pnpm build` exited 0; output included `✓ All build:types complete.`
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — `pnpm test` exited 0; the affected test output ended with `packages/agent-cli test: Done`.
+
+**Judged by:** `gate.mjs` mechanical evaluator plus independent semantic guardian review
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `b37cf211475a` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Every item in the `## Plan` section of the paired Task is marked complete (`[x]`): PASS — TC-01 through TC-04 are all checked in `.agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired Task contains no unchecked, blocked, or pending Plan item.
+
+**Judged by:** independent semantic gate review (`backlog-gate-guard`)
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `b37cf211475a` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-09
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `84314e7eedf6` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-09
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-04: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `517510533388` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-09; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29fa82ef3b4e` · base `origin/develop@baffbcef1bca` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `222ca7b1007f` (modified)

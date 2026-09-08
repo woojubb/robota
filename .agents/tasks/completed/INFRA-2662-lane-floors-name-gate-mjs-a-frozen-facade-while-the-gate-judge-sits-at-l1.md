@@ -1,13 +1,16 @@
 ---
 title: 'INFRA-2662: Lane floors name gate.mjs, a frozen facade, while the gate judge sits at L1'
 issue: https://github.com/woojubb/robota/issues/2662
-status: in-progress
+status: done
 created: 2026-09-07
 priority: medium
 urgency: soon
 area: harness governance
 depends_on: []
+completed: 2026-09-09
 ---
+
+Spec: `.agents/spec-docs/done/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md`
 
 # INFRA-2662: Lane floors name gate.mjs, a frozen facade, while the gate judge sits at L1
 
@@ -22,7 +25,7 @@ surfaces are not changed.
 
 - [x] TC-01 — Add the live-rule regression covering all matching gate modules and excluding neighbouring
       scans, then prove the test goes red when the approved rule row is reverted.
-- [ ] TC-02 — Run the affected harness scan set on the approved rule/test pair and record its exit code.
+- [x] TC-02 — Run the affected harness scan set on the approved rule/test pair and record its exit code.
 - [x] TC-03 — Run the complete `scan-lane-declaration` test file and record its exit code.
 - [x] TC-04 — Run the end-to-end lane declaration refusal for a changed `gate-operations.mjs` path with
       `Lane: L1`, confirming the output names the L2 floor.
