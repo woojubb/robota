@@ -692,36 +692,36 @@ packages/agent-builtin-providers/**                                 (only under 
 
 ## Completion Criteria
 
-- [ ] TC-01: the generalized scan exits 1 with one finding per planted violation, for each of five
+- [x] TC-01: the generalized scan exits 1 with one finding per planted violation, for each of five
       shapes — a disallowed manifest dependency, a **subpath** vendor import
       (`@robota-sdk/agent-provider-gemini/google`), a direct vendor-SDK import (`@google/genai`),
       `process.env`, and `globalThis['process'].env` — and exits 0 on a clean fixture member.
-- [ ] TC-02: a fixture member named `@robota-sdk/dag-node-fixture` placed **outside**
+- [x] TC-02: a fixture member named `@robota-sdk/dag-node-fixture` placed **outside**
       `packages/dag-nodes/` is (a) enumerated as a family member and (b) reported as a
       `family-member-outside-home` finding; a fixture member inside it with a planted violation is
       reported with no configuration edit.
-- [ ] TC-03: removing a real violation without removing its baseline entry exits 1 with a
+- [x] TC-03: removing a real violation without removing its baseline entry exits 1 with a
       stale-baseline finding; adding a violation absent from the baseline exits 1.
-- [ ] TC-04: `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 with `DAG-NODE-COMPOSITION`
+- [x] TC-04: `node scripts/harness/scan-rule-statement-floor.mjs` exits 0 with `DAG-NODE-COMPOSITION`
       stated in `ARCHITECTURE.md`.
-- [ ] TC-05: `test "$(grep -l '@robota-sdk/agent-provider' packages/dag-nodes/*/package.json | wc -l | tr -d ' ')" = 0`
+- [x] TC-05: `test "$(grep -l '@robota-sdk/agent-provider' packages/dag-nodes/*/package.json | wc -l | tr -d ' ')" = 0`
       succeeds. (Run today it fails, printing `4` — the criterion is red before the work and green
       after, which `grep -c` was not.)
-- [ ] TC-06: the M2 command in § Problem outputs zero lines.
-- [ ] TC-07: the M4 command in § Problem outputs exactly one line
+- [x] TC-06: the M2 command in § Problem outputs zero lines.
+- [x] TC-07: the M4 command in § Problem outputs exactly one line
       (`packages/dag-nodes/mcp-tool/src/index.ts:210`).
-- [ ] TC-08: `node scripts/harness/check-dependency-direction.mjs` exits 0 and `pnpm harness:scan`
+- [x] TC-08: `node scripts/harness/check-dependency-direction.mjs` exits 0 and `pnpm harness:scan`
       exits 0.
-- [ ] TC-09: `pnpm --filter '@robota-sdk/dag-node-*' test`, `pnpm --filter @robota-sdk/dag-cli test`,
+- [x] TC-09: `pnpm --filter '@robota-sdk/dag-node-*' test`, `pnpm --filter @robota-sdk/dag-cli test`,
       `pnpm --filter @robota-sdk/agent-command-workflows test` and
       `pnpm --filter @robota-sdk/agent-core test` all exit 0.
-- [ ] TC-10: `test ! -e scripts/harness/node-family-composition-baseline.json` succeeds, and restoring
+- [x] TC-10: `test ! -e scripts/harness/node-family-composition-baseline.json` succeeds, and restoring
       the file with a non-empty `entries` array makes the scan exit 1.
-- [ ] TC-11: `rg -n 'DAG-NODE-COMPOSITION' ARCHITECTURE.md .agents/project-structure.md` hits both
+- [x] TC-11: `rg -n 'DAG-NODE-COMPOSITION' ARCHITECTURE.md .agents/project-structure.md` hits both
       files, and in `ARCHITECTURE.md` the identifier's entry matches
       `Enforced by: \`composition-neutrality\``. (This asserts the line's shape in this tree; no harness
       scan checks that shape — see § Out of scope.)
-- [ ] TC-12: with no credential in the environment, an instant-node run fails with
+- [x] TC-12: with no credential in the environment, an instant-node run fails with
       `DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED` naming the required variable and listing the
       providers whose keys are set; a `text-to-image` run fails with
       `DAG_VALIDATION_TEXT_TO_IMAGE_API_KEY_REQUIRED`; a `gemini-image-edit` run fails with
@@ -730,11 +730,11 @@ packages/agent-builtin-providers/**                                 (only under 
       environment `createCliNodeRegistry()` still returns the `gemini-image-edit` and
       `gemini-image-compose` node types (the two it builds synchronously today) and
       `createDefaultNodeRegistry()` still returns `text-to-image` and `seedance-video`.
-- [ ] TC-13: a `text-to-image` run with a model outside the resolved allowlist fails with
+- [x] TC-13: a `text-to-image` run with a model outside the resolved allowlist fails with
       `DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_NOT_ALLOWED`, and a unit test asserts the provider built by
       the definition received a non-empty `imageCapableModels` equal to that allowlist — so
       `isImageCapableModel` cannot reach its unconditional-`true` branch.
-- [ ] TC-14: a policy entry whose family resolves to zero members exits 1 with a member-floor finding,
+- [x] TC-14: a policy entry whose family resolves to zero members exits 1 with a member-floor finding,
       and the scan prints `::examined:: <n> family member(s)` with `n >= minMembers` on the real tree.
 
 ## Test Plan
@@ -742,22 +742,22 @@ packages/agent-builtin-providers/**                                 (only under 
 Type `INFRA` + tags `cli`, `typescript` → CI pipeline smoke test (harness scan exit codes) for the gate
 rows; unit test for the node contract rows; process-spawn assertion for the CLI rows.
 
-| TC-ID | Test Type | Tool / Approach                                                                           | Notes                                                                            |
-| ----- | --------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| TC-01 | unit      | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`, planted fixture members | RED-proof per shape; the `@google/genai` case is what proves the allow direction |
-| TC-02 | unit      | same file, fixture root with a member outside `packages/dag-nodes/`                       | a directory-scoped subject cannot pass this                                      |
-| TC-03 | unit      | same file, baseline mutated in both directions                                            | stale entry and unlisted violation are both findings                             |
-| TC-04 | CI smoke  | `node scripts/harness/scan-rule-statement-floor.mjs`                                      | exit 0                                                                           |
-| TC-05 | CI smoke  | `grep -l … \| wc -l` compared to 0                                                        | verified red today (prints `4`)                                                  |
-| TC-06 | CI smoke  | the M2 command in § Problem                                                               | expects empty output                                                             |
-| TC-07 | CI smoke  | the M4 command in § Problem                                                               | expects exactly the `mcp-tool` `$ENV:` line                                      |
-| TC-08 | CI smoke  | `check-dependency-direction.mjs`; `pnpm harness:scan`                                     | exit 0                                                                           |
-| TC-09 | unit      | `pnpm --filter … test` for four package groups                                            | exit 0                                                                           |
-| TC-10 | unit      | `test ! -e …` plus the baseline-restore case in the scan test                             | the absence is asserted, not assumed                                             |
-| TC-11 | CI smoke  | `rg -n` with an `Enforced by:` pattern, not a bare identifier match                       | the honest ceiling: no harness scan checks this shape (§ Out of scope)           |
-| TC-12 | unit      | four per-node unit cases with no credential + one registry-construction case              | the credential-absence half A3 would have made unreachable                       |
-| TC-13 | unit      | `text-to-image` allowlist case + a factory-argument assertion                             | asserts the second defence layer survives, not merely that the node still runs   |
-| TC-14 | unit      | zero-member policy entry in the scan test + `::examined::` floor on the real tree         | closes the "could not check" → "checked and fine" hole                           |
+| TC-ID | Test Type | Tool / Approach                                                                                                                                                                                                                                                                                                       | Notes                                                                            |
+| ----- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| TC-01 | unit      | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`, planted fixture members                                                                                                                                                                                                                             | RED-proof per shape; the `@google/genai` case is what proves the allow direction |
+| TC-02 | unit      | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`, fixture root with a member outside `packages/dag-nodes/`                                                                                                                                                                                            | a directory-scoped subject cannot pass this                                      |
+| TC-03 | unit      | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`, baseline mutated in both directions                                                                                                                                                                                                                 | stale entry and unlisted violation are both findings                             |
+| TC-04 | CI smoke  | `node scripts/harness/scan-rule-statement-floor.mjs`; `scripts/harness/__tests__/scan-rule-statement-floor.test.mjs`                                                                                                                                                                                                  | exit 0                                                                           |
+| TC-05 | CI smoke  | `grep -l … \| wc -l` compared to 0; `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`                                                                                                                                                                                                                  | verified red today (prints `4`)                                                  |
+| TC-06 | CI smoke  | the M2 command in § Problem; `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`                                                                                                                                                                                                                         | expects empty output                                                             |
+| TC-07 | CI smoke  | the M4 command in § Problem; `scripts/harness/__tests__/scan-composition-neutrality.test.mjs`                                                                                                                                                                                                                         | expects exactly the `mcp-tool` `$ENV:` line                                      |
+| TC-08 | CI smoke  | `check-dependency-direction.mjs`; `pnpm harness:scan`; `scripts/harness/__tests__/check-dependency-direction.test.mjs`                                                                                                                                                                                                | exit 0                                                                           |
+| TC-09 | unit      | `pnpm --filter … test` for four package groups; package `src/**/*.test.ts` suites                                                                                                                                                                                                                                     | exit 0                                                                           |
+| TC-10 | unit      | `test ! -e …` plus `scripts/harness/__tests__/scan-composition-neutrality.test.mjs` baseline-restore case                                                                                                                                                                                                             | the absence is asserted, not assumed                                             |
+| TC-11 | CI smoke  | `rg -n` with an `Enforced by:` pattern, not a bare identifier match; `scripts/harness/__tests__/scan-rule-statement-floor.test.mjs`                                                                                                                                                                                   | the honest ceiling: no harness scan checks this shape (§ Out of scope)           |
+| TC-12 | unit      | `packages/dag-nodes/instant-node/src/__tests__/index.test.ts`, `packages/dag-nodes/gemini-image-edit/src/runtime-core.test.ts`, `packages/dag-nodes/text-to-image/src/runtime-core.test.ts`, `packages/dag-nodes/seedance-video/src/runtime-core.test.ts`, and `packages/dag-cli/src/__tests__/node-registry.test.ts` | the credential-absence half A3 would have made unreachable                       |
+| TC-13 | unit      | `packages/dag-nodes/text-to-image/src/runtime-core.test.ts` and `packages/agent-core/src/providers/__tests__/media-provider-factory.test.ts`                                                                                                                                                                          | asserts the second defence layer survives, not merely that the node still runs   |
+| TC-14 | unit      | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs` zero-member policy case + `::examined::` floor on the real tree                                                                                                                                                                                      | closes the "could not check" → "checked and fine" hole                           |
 
 `pnpm harness:scan` and the affected package test suites must be green at the end of every sequenced
 unit, not only at the end of the last one.
@@ -931,7 +931,7 @@ know, which is a different case from a provider that is known but has no credent
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` — todo
+- [x] `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` — in-progress
 
 ## Evidence Log
 
@@ -1097,3 +1097,368 @@ know, which is a different case from a provider that is known but has no credent
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `3000e2538ff9` · base `origin/develop@95cc99320cb3` · document `.agents/spec-docs/todo/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `8034d14425e4` (tracked)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-09
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: last [GATE-VERIFY] entry is absent, PASS required; status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+- GATE-COMPLETE — The checkbox is checked (`[x]`): TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: no `[GATE-COMPLETE: TC-N]` entry for TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14
+  **Required action:** run `gate.mjs record` for each
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14 unticked
+  **Required action:** verify and tick every TC
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12, TC-13, TC-14: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `bfec7c2cc01b` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09; status `in-progress`
+- GATE-VERIFY — Every item in the `## Plan` section is marked complete: guardian review of `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` found 15/15 U01–U15 items `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: guardian review found no `blocked` or `pending` Plan item; the three manual user-execution scenario evidence fields are intentionally outside `## Plan` and remain manual-only.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (`✓ All build:types complete.`); all supplied verification commands exited 0.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs` → exit 0 (3 focused harness suites passed); the remote CI run `34284704587` independently passed the full affected quality and test matrix.
+
+**Judged by:** guardian review after the `gate.mjs judge --gate GATE-VERIFY` mechanical run returned 3 PASS and 2 PENDING-GUARDIAN with no FAIL.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:31:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+·························································································
+
+ Test Files  3 passed (3)
+      Tests  89 passed (89)
+   Start at  07:31:21
+   Duration  924ms (transform 82ms, setup 0ms, collect 340ms, tests 854ms, environment 0ms, prepare 100ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `76b714c67648` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:31:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+·························································································
+
+ Test Files  3 passed (3)
+      Tests  89 passed (89)
+   Start at  07:31:21
+   Duration  924ms (transform 82ms, setup 0ms, collect 340ms, tests 854ms, environment 0ms, prepare 100ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `05d6deca6e14` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:31:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+·························································································
+
+ Test Files  3 passed (3)
+      Tests  89 passed (89)
+   Start at  07:31:21
+   Duration  924ms (transform 82ms, setup 0ms, collect 340ms, tests 854ms, environment 0ms, prepare 100ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `a4471afa160f` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-09
+
+**Command:** `node scripts/harness/scan-rule-statement-floor.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+::examined:: 13 rule identifiers across 205 normative documents
+- [note] 0 identifier(s) unstated; 0 frozen in scripts/harness/rule-statement-baseline.json. A frozen entry is enforcement with no readable statement — debt, counted here rather than hidden.
+rule-statement-floor scan passed. It checks that a statement EXISTS, not that it is correct or current — a rule whose text drifted from its mechanism passes here.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `b8bda77d8109` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-09
+
+**Command:** `test "$(grep -l '@robota-sdk/agent-provider' packages/dag-nodes/*/package.json | wc -l | tr -d ' ')" = 0`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `1f0d99064339` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-09
+
+**Command:** `find packages/dag-nodes -type d \( -name node_modules -o -name dist \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -print | grep -v '\.test\.' | grep -v '__tests__' | sort | xargs grep -Hn "from '@robota-sdk/agent-provider" || true`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `ccb4cd0285c6` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-09
+
+**Command:** `find packages/dag-nodes -type d \( -name node_modules -o -name dist \) -prune -o -type f -name '*.ts' -print | grep -v '\.test\.' | grep -v '__tests__' | sort | xargs grep -Hn "process\.env" | grep -v ":*[0-9]*: *\*" | grep -v ":*[0-9]*: *//" || true`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+packages/dag-nodes/mcp-tool/src/index.ts:210:        const val = process.env[envRef];
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `81635fceec9a` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-09
+
+**Command:** `node scripts/harness/check-dependency-direction.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+✅ No dependency direction violations found.
+::examined:: 31 family members (FAMILY-SIBLINGS)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `a96ea553cd06` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-09
+
+**Command:** `gh run view 34284704587 --json conclusion,jobs --jq '{conclusion,jobs:[.jobs[]|{name,conclusion}]}'`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+{"conclusion":"success","jobs":[{"conclusion":"success","name":"changes"},{"conclusion":"success","name":"actionlint"},{"conclusion":"success","name":"format-check"},{"conclusion":"success","name":"commitlint"},{"conclusion":"success","name":"dependency audit"},{"conclusion":"skipped","name":"promotion ancestry"},{"conclusion":"skipped","name":"promotion closes"},{"conclusion":"skipped","name":"main PR source guard"},{"conclusion":"skipped","name":"release-grade verification"},{"conclusion":"skipped","name":"workflow provenance"},{"conclusion":"success","name":"regression-red-proof (enforcing: accidental-green only)"},{"conclusion":"success","name":"scans"},{"conclusion":"success","name":"windows-shell"},{"conclusion":"success","name":"build"},{"conclusion":"skipped","name":"review-gate"},{"conclusion":"success","name":"quality"},{"conclusion":"success","name":"patch-coverage (advisory)"},{"conclusion":"success","name":"tui-e2e"},{"conclusion":"success","name":"examples-typecheck"},{"conclusion":"skipped","name":"required-context benchmark summary"}]}
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `29259b79fdc3` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:31:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+·························································································
+
+ Test Files  3 passed (3)
+      Tests  89 passed (89)
+   Start at  07:31:21
+   Duration  924ms (transform 82ms, setup 0ms, collect 340ms, tests 854ms, environment 0ms, prepare 100ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `62e85e569b04` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-09
+
+**Command:** `node scripts/harness/scan-rule-statement-floor.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+::examined:: 13 rule identifiers across 205 normative documents
+- [note] 0 identifier(s) unstated; 0 frozen in scripts/harness/rule-statement-baseline.json. A frozen entry is enforcement with no readable statement — debt, counted here rather than hidden.
+rule-statement-floor scan passed. It checks that a statement EXISTS, not that it is correct or current — a rule whose text drifted from its mechanism passes here.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `7b2dcd68978f` (modified)
+
+### [GATE-COMPLETE: TC-12] — ✅ PASS | 2026-09-09
+
+**Command:** `gh run view 34284704587 --json conclusion,jobs --jq '{conclusion,jobs:[.jobs[]|{name,conclusion}]}'`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+{"conclusion":"success","jobs":[{"conclusion":"success","name":"changes"},{"conclusion":"success","name":"actionlint"},{"conclusion":"success","name":"format-check"},{"conclusion":"success","name":"commitlint"},{"conclusion":"success","name":"dependency audit"},{"conclusion":"skipped","name":"promotion ancestry"},{"conclusion":"skipped","name":"promotion closes"},{"conclusion":"skipped","name":"main PR source guard"},{"conclusion":"skipped","name":"release-grade verification"},{"conclusion":"skipped","name":"workflow provenance"},{"conclusion":"success","name":"regression-red-proof (enforcing: accidental-green only)"},{"conclusion":"success","name":"scans"},{"conclusion":"success","name":"windows-shell"},{"conclusion":"success","name":"build"},{"conclusion":"skipped","name":"review-gate"},{"conclusion":"success","name":"quality"},{"conclusion":"success","name":"patch-coverage (advisory)"},{"conclusion":"success","name":"tui-e2e"},{"conclusion":"success","name":"examples-typecheck"},{"conclusion":"skipped","name":"required-context benchmark summary"}]}
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `6dc61f2219d1` (modified)
+
+### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/dag-node-text-to-image test -- --run src/runtime-core.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+7:31:58 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/dag-nodes/text-to-image
+
+ ✓ src/runtime-core.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  07:31:58
+   Duration  275ms (transform 122ms, setup 0ms, collect 159ms, tests 2ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `e1e5101bf7ad` (modified)
+
+### [GATE-COMPLETE: TC-14] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-rule-statement-floor.test.mjs --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:31:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+·························································································
+
+ Test Files  3 passed (3)
+      Tests  89 passed (89)
+   Start at  07:31:21
+   Duration  924ms (transform 82ms, setup 0ms, collect 340ms, tests 854ms, environment 0ms, prepare 100ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `cbd57131fe01` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-09
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `31c7760b6798` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-09; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 14/14 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (14)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (14) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (14) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 14/14 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (14) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 15/15 tasks `[x]` in .agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `96abc9111403` (modified)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-09
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: status is `in-progress`, `approved` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `69bd7f0065f5` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (14)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 4743 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: manual | 3`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "scripts/harness/scan-composition-neutrality.mjs",
+    ".agents/harness.config.json",
+    "scripts/harness/node-family-composition-baseline.json",
+    "packages/agent-core/src/interfaces/media-provider-definition.ts",
+    "packages/dag-nodes/gemini-image-edit/src/runtime-core.ts",
+    "packages/dag-nodes/text-to-image/src/runtime-core.ts",
+    "packages/dag-nodes/seedance-video/src/runtime-core.ts",
+    "packages/dag-cli/src/local-runner/node-registry.ts",
+    "packages/dag-nodes/instant-node/src/index.ts",
+    "packages/agent-command-workflows/src/authoring/pipeline.ts",
+    "ARCHITECTURE.md"
+  ],
+  "priorPass": "sha256:983f62f499823df69953cdd07c4f05fb7e24291e3d938b257357492f323a6f26",
+  "ancestorSha": "15d4230735777275c12df6c3916db87d2f0a343a",
+  "taskPath": ".agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+  "specPath": ".agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+  "plan": {
+    "outcome": "manual",
+    "count": 3
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+    ".agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `15d423073577` · base `origin/develop@15d423073577` · document `.agents/spec-docs/active/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `0ba0cdc65e4c` (modified)
