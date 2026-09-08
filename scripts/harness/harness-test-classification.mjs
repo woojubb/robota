@@ -85,7 +85,6 @@ export const HERMETIC_TEST_FILES = Object.freeze([
 
 export const ISOLATED_CONTRACT_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/hook-reading-matches-bash.test.mjs',
-  'scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs',
   'scripts/harness/__tests__/remaining-hooks-run.test.mjs',
   'scripts/harness/__tests__/scan-progress-report-quantification.test.mjs',
   'scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs',
