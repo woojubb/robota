@@ -139,3 +139,14 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   the three loop here-strings with `printf` process substitutions removes the pipe back-pressure.
 - source: INFRA-2662 affected-contract verification, 2026-09-09
 - related: HARNESS-083 (#1681), INFRA-2662
+
+### LRN-merge-gate-wide-fixture-must-drain-stdout
+
+- observed-at: 2026-09-09T02:34:00+09:00
+- observation: The wide moved-base regression fixture used a Node `git` stub that called
+  `process.exit(0)` immediately after `console.log`. A 351-file response was truncated at 512 bytes,
+  so the overlap after the 300th file disappeared and the test passed the wrong answer.
+- evidence: the test failed with `MOVED_RAW` at 512 bytes and 18 lines; replacing the immediate exit
+  with a normal `stdout.write` drain makes the fixture expose the full response.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-016, #2386
