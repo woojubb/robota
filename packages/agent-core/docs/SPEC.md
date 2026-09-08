@@ -227,6 +227,30 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `TOutputRetention`                      | type           | `'head' \| 'tail'` — which end of an over-budget output a bounded buffer keeps                                                                                                                                                                          |
 | `createProviderFromConfig`              | function       | Construct an `IAIProvider` from a resolved config against the injected registry, enforcing the credential requirement                                                                                                                                   |
 
+### Media Provider Definition API (ARCH-054)
+
+Media nodes consume late-bound definitions rather than concrete provider instances. The definition
+contract and factory helpers keep credential resolution and provider construction at composition roots.
+
+| Export                                | Kind      | Description                                                                |
+| ------------------------------------- | --------- | -------------------------------------------------------------------------- |
+| `IMediaProviderConfig`                | interface | Resolved credential, base URL, and image-capable-model options             |
+| `IMediaProviderCredentialRequirement` | interface | Environment names and base-URL requirement used by a definition            |
+| `IMediaProviderDefinition`            | interface | Late-bound media provider definition with image/video factory capabilities |
+| `IMediaProviderOverrides`             | interface | Optional model allowlist and endpoint overrides passed to a media factory  |
+| `findMediaProviderDefinition`         | function  | Resolve a media definition by canonical type or alias                      |
+| `isMediaProviderDefinition`           | function  | Validate the minimum shape of a media provider definition                  |
+| `resolveMediaProviderConfig`          | function  | Resolve credential and endpoint through an injected environment resolver   |
+| `createImageProviderFromDefinition`   | function  | Build an image provider when the definition and credentials are available  |
+| `createVideoProviderFromDefinition`   | function  | Build a video provider when the definition and credentials are available   |
+
+### Fallback & Degradation Declaration
+
+`createImageProviderFromDefinition` and `createVideoProviderFromDefinition` return `undefined` when
+the definition has no matching capability, required credentials are unavailable, or its factory
+cannot construct a valid provider. Node runtimes convert that absence into their typed validation
+error; it is never treated as a successful provider.
+
 ### Orchestration Public API (SELFHOST-001)
 
 Neutral multi-agent orchestration runtime exports (the contracts/event-type unions are type-only; see `src/orchestration/`). agent-core OWNS these; the `agent-framework` layer IMPLEMENTS the mechanism.
@@ -492,15 +516,15 @@ the threshold POLICY and their constants stay internal to this package on purpos
 that assembles a tool set has a reason to reach them, and only the invariant it must enforce is
 published.
 
-| Export                      | Kind     | Description                                                                                                                                       |
-| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assertResidentToolRemains` | function | Throws when a non-empty tool set declares `deferLoading` on every entry — the "at least one tool must stay resident" invariant, at assembly time. |
-| `DEFERRED_WITHOUT_LOADER_MESSAGE` | const | The message `projectOfferedTools` throws when deferral withholds a schema and no `ToolSearch` tool is offered — a withheld tool with no loader is unreachable, refused rather than sent silently. Published so a session assembler can raise the same error at its own seam. |
-| `estimateToolSchemaTokens`  | function | What a set of tool schemas costs on every request, by the same chars-per-token heuristic the message estimate uses. Powers `/context`.            |
-| `TOOL_SEARCH_TOOL_NAME`     | const    | The registered name of the model-facing search tool (`'ToolSearch'`). Owned here because the execution layer names it in the unknown-tool remedy. |
-| `IDeferredToolCatalog`      | type     | The narrow list/load port a search tool loads through, carried on `IToolExecutionContext.deferredTools`.                                          |
-| `TToolSearchSetting`        | type     | `IAgentConfig.toolSearch` — `'auto' \| 'on' \| 'off'`.                                                                                            |
-| `TToolSearchMode`           | type     | The resolved answer — `'on' \| 'off'` — whether deferred schemas are withheld.                                                                    |
+| Export                            | Kind     | Description                                                                                                                                                                                                                                                                  |
+| --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assertResidentToolRemains`       | function | Throws when a non-empty tool set declares `deferLoading` on every entry — the "at least one tool must stay resident" invariant, at assembly time.                                                                                                                            |
+| `DEFERRED_WITHOUT_LOADER_MESSAGE` | const    | The message `projectOfferedTools` throws when deferral withholds a schema and no `ToolSearch` tool is offered — a withheld tool with no loader is unreachable, refused rather than sent silently. Published so a session assembler can raise the same error at its own seam. |
+| `estimateToolSchemaTokens`        | function | What a set of tool schemas costs on every request, by the same chars-per-token heuristic the message estimate uses. Powers `/context`.                                                                                                                                       |
+| `TOOL_SEARCH_TOOL_NAME`           | const    | The registered name of the model-facing search tool (`'ToolSearch'`). Owned here because the execution layer names it in the unknown-tool remedy.                                                                                                                            |
+| `IDeferredToolCatalog`            | type     | The narrow list/load port a search tool loads through, carried on `IToolExecutionContext.deferredTools`.                                                                                                                                                                     |
+| `TToolSearchSetting`              | type     | `IAgentConfig.toolSearch` — `'auto' \| 'on' \| 'off'`.                                                                                                                                                                                                                       |
+| `TToolSearchMode`                 | type     | The resolved answer — `'on' \| 'off'` — whether deferred schemas are withheld.                                                                                                                                                                                               |
 
 NOTE: agent-core is the **single owner (SSOT)** of the concrete `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the package barrel and constructed directly by the zero-dep `tool-manager`) — they are dependency-free runtime primitives whose contracts (`IToolRegistry` / `IFunctionTool`) already live in core (DATA-005, resolves ARL-01). The `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer and construct core's `FunctionTool`; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. `FunctionTool` parameter validation honors `schema.parameters.additionalProperties` (`true` / object-form accept extra props; `false`/omitted reject) via `src/tool-registry/parameter-validator.ts`. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
 

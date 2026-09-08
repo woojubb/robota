@@ -11,8 +11,6 @@ export { normalizeImageOutput } from './image-output-normalizer.js';
 
 const DATA_URI_PREFIX_MAX_LENGTH = 64;
 
-const DEFAULT_DAG_PORT = 3011;
-
 /** Represents a base64-encoded inline image ready to send to the Gemini API. */
 export interface IInlineImageSource {
   kind: 'inline';
@@ -29,38 +27,6 @@ export interface IInlineImageSourceOptions {
 }
 
 /**
- * Parses a comma-separated string into a trimmed, non-empty array of values.
- *
- * @param value - The raw CSV string, or `undefined`.
- * @returns An array of trimmed non-empty tokens.
- */
-export function parseCsv(value: string | undefined): string[] {
-  if (typeof value !== 'string') {
-    return [];
-  }
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-}
-
-/**
- * Resolves the DAG runtime base URL from environment variables.
- *
- * Falls back to `http://127.0.0.1:<port>` using `DAG_PORT` or the default port 3011.
- */
-export function resolveRuntimeBaseUrl(): string {
-  const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
-  if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
-    return runtimeBaseUrl.replace(/\/$/, '');
-  }
-  const portRaw = process.env.DAG_PORT;
-  const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
-  const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_PORT;
-  return `http://127.0.0.1:${port}`;
-}
-
-/**
  * Resolves and validates a model identifier against the allowed model list.
  *
  * @param selectedModel - The model requested by config.
@@ -71,7 +37,7 @@ export function resolveRuntimeBaseUrl(): string {
 export function resolveModel(
   selectedModel: string,
   defaultModel: string,
-  allowedModels: string[],
+  allowedModels: readonly string[],
 ): TResult<string, IDagError> {
   const model = selectedModel.trim().length > 0 ? selectedModel.trim() : defaultModel;
   if (allowedModels.length > 0 && !allowedModels.includes(model)) {

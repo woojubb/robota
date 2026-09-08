@@ -9,6 +9,7 @@
  */
 import { mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   type IDagDefinition,
@@ -124,6 +125,7 @@ export async function loadNodes(
       liveDefs.push(
         rehydrateInstantNode(record, {
           compositeRunner: buildCompositeRunner(liveDefs, projectDir),
+          providers: createDefaultProviderDefinitions(),
         }),
       );
     } catch {

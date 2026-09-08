@@ -21,12 +21,8 @@ import {
 } from '@robota-sdk/agent-framework';
 import { DEFAULT_WORKSPACE_LAYOUT, type IDagNodeDefinition } from '@robota-sdk/dag-core';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
-import {
-  createPromptBackedNodeDefinition,
-  isInstantNodeProvider,
-  type TInstantNodeProvider,
-} from '@robota-sdk/dag-node-instant-node';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createPromptBackedNodeDefinition } from '@robota-sdk/dag-node-instant-node';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 import { subcommandUsage } from '../subcommands.js';
 import { saveInstantNodeFile, saveWorkflowFile } from '../persistence/workspace-writer.js';
@@ -66,18 +62,22 @@ export type TAuthoringOutcome =
  */
 function buildPromptNode(
   spec: IAuthoredPromptNode,
-  fallbackProvider: TInstantNodeProvider | undefined,
+  fallbackProvider: string | undefined,
+  providerDefinitions: readonly IProviderDefinition[],
 ): IDagNodeDefinition {
-  const provider = isInstantNodeProvider(spec.provider) ? spec.provider : fallbackProvider;
-  return createPromptBackedNodeDefinition({
-    nodeType: spec.nodeType,
-    displayName: spec.displayName ?? spec.nodeType,
-    systemPromptTemplate: spec.systemPromptTemplate,
-    inputPorts: spec.inputPorts,
-    outputPort: spec.outputPort,
-    ...(provider ? { provider } : {}),
-    ...(spec.model ? { model: spec.model } : {}),
-  });
+  const provider = typeof spec.provider === 'string' ? spec.provider : fallbackProvider;
+  return createPromptBackedNodeDefinition(
+    {
+      nodeType: spec.nodeType,
+      displayName: spec.displayName ?? spec.nodeType,
+      systemPromptTemplate: spec.systemPromptTemplate,
+      inputPorts: spec.inputPorts,
+      outputPort: spec.outputPort,
+      ...(provider ? { provider } : {}),
+      ...(spec.model ? { model: spec.model } : {}),
+    },
+    providerDefinitions,
+  );
 }
 
 /**
@@ -106,7 +106,7 @@ function bakeInputIntoDefinition(
 interface IResolvedAuthoringProvider {
   readonly provider: IAIProvider;
   readonly model: string | undefined;
-  readonly activeProvider: TInstantNodeProvider | undefined;
+  readonly activeProvider: string | undefined;
 }
 
 /**
@@ -140,7 +140,7 @@ function resolveAuthoringProvider(
       value: {
         provider,
         model: deps.model ?? settings.model,
-        activeProvider: isInstantNodeProvider(settings.name) ? settings.name : undefined,
+        activeProvider: settings.name,
       },
     };
   } catch (err) {
@@ -178,7 +178,8 @@ export async function authorAndSaveWorkflow(
   const { provider, model, activeProvider } = resolved.value;
 
   // Node catalog = built-ins + any instant nodes already saved (so they can be reused).
-  const existingInstantNodes = await loadInstantNodes(acceptedProject, layout);
+  const providerDefinitions = deps.providerDefinitions ?? [];
+  const existingInstantNodes = await loadInstantNodes(acceptedProject, layout, providerDefinitions);
   const baseNodeDefs: IDagNodeDefinition[] = [
     ...createDefaultNodeRegistrySync(),
     ...existingInstantNodes,
@@ -211,7 +212,7 @@ export async function authorAndSaveWorkflow(
   const existingTypes = new Set(baseNodeDefs.map((n) => n.nodeType));
   for (const nodeSpec of spec.newNodes ?? []) {
     if (existingTypes.has(nodeSpec.nodeType)) continue; // reuse existing; do not clobber
-    authoredNodes.push(buildPromptNode(nodeSpec, activeProvider));
+    authoredNodes.push(buildPromptNode(nodeSpec, activeProvider, providerDefinitions));
     existingTypes.add(nodeSpec.nodeType);
   }
 

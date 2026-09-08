@@ -119,13 +119,13 @@ async function executeWorkflowsCommand(
           ...(settingsSources === undefined ? {} : { settingsSources }),
         });
       case 'list':
-        return executeWorkflowsList(requiredProject(), workspace);
+        return executeWorkflowsList(requiredProject(), workspace, providerDefinitions);
       case 'catalog':
         return executeWorkflowsCatalog(requiredProject(), workspace);
       case 'validate':
-        return executeWorkflowsValidate(rest, requiredProject(), workspace);
+        return executeWorkflowsValidate(rest, requiredProject(), workspace, providerDefinitions);
       case 'run':
-        return executeWorkflowsRun(rest, requiredProject(), workspace);
+        return executeWorkflowsRun(rest, requiredProject(), workspace, providerDefinitions);
       default:
         return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
     }

@@ -529,6 +529,10 @@ jobs:
       # ARCH-2164: these valid-wire product paths were previously exercised only by scripts that no
       # required check invoked. Keep them inside the already-required build job and only select them
       # when the affected-scope plan includes the desktop app (or verification fails closed to full).
+      - name: Build desktop Electron app for e2e
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.agent_app_required == 'true'
+        run: pnpm --filter @robota-sdk/agent-app build
+
       - name: Desktop Electron session e2e
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.agent_app_required == 'true'
         run: pnpm --filter @robota-sdk/agent-app test:e2e

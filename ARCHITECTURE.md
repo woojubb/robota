@@ -128,6 +128,11 @@ by [`.agents/project-structure.md`](.agents/project-structure.md); this list sta
   node-contract owners `dag-core` and `dag-node` — never on an orchestrator/runtime/adapter layer
   and never on a sibling `dag-node-*`, so a node stays composable by any orchestrator.
   Enforced by: `deps` (`check-dependency-direction.mjs`, rule 7)
+- `DAG-NODE-COMPOSITION` — every `@robota-sdk/dag-node-*` package receives concrete provider
+  definitions/factories from its composition root. A DAG node must not declare or import a concrete
+  `agent-provider-*` SDK or read ambient credentials; persisted provider names are validated against
+  the injected registry, and media definitions resolve credentials only at execution time.
+  Enforced by: `composition-neutrality` (`scripts/harness/scan-composition-neutrality.mjs`, ARCH-054)
 - `DEV-CYCLE` — the full workspace graph over `dependencies` + `devDependencies` +
   `peerDependencies` is acyclic; a dev-only edge that closes a cycle is refused because the build
   order it implies has no valid topological sort.

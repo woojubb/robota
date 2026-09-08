@@ -18,3 +18,10 @@ id = "GHSA-f88m-g3jw-g9cj" # sharp / bundled libvips (CVSS 7.0), fixed in 0.35.0
 # changes the prebuilt-binary platforms, breaking the Cloudflare Pages docs build environment. Pinned at 0.34.5.
 reason = "sharp build-time-only on trusted site images (unreachable); 0.35.0 bump breaks the CF Pages docs build env — INFRA-044."
 
+[[IgnoredVulns]]
+id = "GHSA-rgj7-g3m4-5g8c" # sharp / bundled libheif (CVSS 8.9), fixed in 0.35.4
+# Reviewed re-accept (INFRA-044). The affected AVIF/libheif decoder is reachable only while build-time
+# optimization processes each site's own trusted images; this repository never passes untrusted runtime
+# uploads to sharp. Upgrading the pinned 0.34.5 build path to 0.35.x raises the Node floor and breaks the
+# Cloudflare Pages docs build environment, so the unreachable input path remains explicitly guarded here.
+reason = "sharp libheif decoder is build-time-only on trusted site images (unreachable for untrusted input); 0.35.x breaks the CF Pages docs build env — INFRA-044."

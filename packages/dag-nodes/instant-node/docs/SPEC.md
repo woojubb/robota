@@ -32,10 +32,8 @@ export type {
   IPersistedCompositeNode,
   TPersistedInstantNode,
 };
-// Provider SSOT + persistence round-trip (DATA-003)
-export const INSTANT_NODE_PROVIDERS;
-export type { TInstantNodeProvider };
-export { isInstantNodeProvider, isPersistableInstantNode };
+// Provider-definition registry + persistence round-trip (DATA-003)
+export { isPersistableInstantNode };
 export { parsePersistedInstantNode, rehydrateInstantNode };
 export type { IRehydrateInstantNodeDeps };
 ```
@@ -61,7 +59,7 @@ interface IPersistedPromptNode {
   readonly systemPromptTemplate: string;
   readonly inputPorts: ReadonlyArray<{ readonly key: string; readonly description?: string }>;
   readonly outputPort: { readonly key: string; readonly description?: string };
-  readonly provider?: 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
+  readonly provider?: string;
   readonly model?: string;
 }
 
@@ -83,19 +81,21 @@ Both `PromptBackedNodeDefinition` and `CompositeInstantNodeDefinition` implement
   duck-typed `as unknown as` probes at call sites).
 - `parsePersistedInstantNode(raw: unknown): TPersistedInstantNode | null` — validate/narrow an
   untrusted parsed manifest into a typed record (both kinds); never throws.
-- `rehydrateInstantNode(record, { compositeRunner? }): IDagNodeDefinition` — the read half of
-  `toPersisted()`. Prompt → `createPromptBackedNodeDefinition`; composite →
+- `rehydrateInstantNode(record, { compositeRunner?, providers? }): IDagNodeDefinition` — the read half of
+  `toPersisted()`. Prompt → `createPromptBackedNodeDefinition` after validating the persisted provider
+  against the injected `IProviderDefinition[]`; composite →
   `createCompositeInstantNodeDefinition` with the injected `compositeRunner` (its runner is behavioral
   and never serialized). A composite record **without** a runner throws — never a half-built node.
 
 Consumers no longer hand-roll deserialization; they parse + rehydrate through the owner.
 
-## Provider SSOT (DATA-003)
+## Provider Registry (DATA-003)
 
-`INSTANT_NODE_PROVIDERS` is the single runtime source of truth for the supported providers, and
-`TInstantNodeProvider` is **derived** from it (`typeof INSTANT_NODE_PROVIDERS[number]`) — so adding a
-provider is a one-line change here. `isInstantNodeProvider(x): x is TInstantNodeProvider` is the
-runtime guard consumers use instead of re-declaring the literal list.
+Persisted prompt nodes store a plain provider string. The node package does not own a closed provider
+union or vendor list; creation and rehydration receive an injected `IProviderDefinition[]` registry
+and validate the string through `findProviderDefinition`. An unknown provider returns the typed
+`DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN` diagnostic. Provider definitions are retained as a
+runtime seam so the composition root owns concrete SDK selection and credential resolution.
 
 ## ICreatePromptNodeInput
 
@@ -112,7 +112,7 @@ interface ICreatePromptNodeInput {
     readonly key: string;
     readonly description?: string;
   };
-  provider?: 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
+  provider?: string;
   model?: string;
 }
 ```
@@ -137,15 +137,9 @@ rendered as strings. Unknown placeholders are left intact.
 
 ## Provider Support (Phase A)
 
-| `provider`  | Provider class      | Default model       | Required env var    |
-| ----------- | ------------------- | ------------------- | ------------------- |
-| `anthropic` | `AnthropicProvider` | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
-| `openai`    | `OpenAIProvider`    | `gpt-4o-mini`       | `OPENAI_API_KEY`    |
-| `gemini`    | `GoogleProvider`    | `gemini-2.0-flash`  | `GEMINI_API_KEY`    |
-| `deepseek`  | `DeepSeekProvider`  | `deepseek-chat`     | `DEEPSEEK_API_KEY`  |
-| `qwen`      | `QwenProvider`      | `qwen-turbo`        | `DASHSCOPE_API_KEY` |
-
-Default provider when not specified: `anthropic`.
+The default provider when not specified is `anthropic`, but it is still resolved through the injected
+registry. Provider defaults, credential declarations, and concrete SDK factories are owned by the
+composition root (normally `agent-builtin-providers`); this package only persists the selected name.
 
 ## Error Handling
 
@@ -155,9 +149,10 @@ Default provider when not specified: `anthropic`.
 
 ## Constraints
 
-- This package follows the same dependency rules as `packages/dag-nodes/*`:
-  `@robota-sdk/agent-*` packages may be imported as npm semver deps.
-- API keys are never stored in node config — resolved from `process.env` at execution time.
+- This package follows the DAG-node composition rule: it depends on `agent-core` contracts, but does
+  not import concrete `agent-provider-*` packages.
+- API keys are never stored in node config — the injected provider definition resolves credentials at
+  execution time.
 - `systemPromptTemplate` must not be treated as arbitrary code — only `{{key}}` substitution is performed.
 
 ## Phase A Limitations

@@ -1,5 +1,9 @@
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import {
+  findMediaProviderDefinition,
+  type IMediaProviderDefinition,
+  type IProviderDefinition,
+} from '@robota-sdk/agent-core';
 import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import { createSkillExecutionPort } from '@robota-sdk/agent-framework';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
@@ -75,6 +79,24 @@ interface IOptionalNodeLoader {
  * silently dropped, and explicit `providers` injection is the supported partial-install path. */
 export type TProviderDefinitionLoader = () => Promise<readonly IProviderDefinition[]>;
 
+export type TMediaProviderDefinitionLoader = () => Promise<readonly IMediaProviderDefinition[]>;
+
+const loadDefaultMediaProviderDefinitions: TMediaProviderDefinitionLoader = async () => {
+  try {
+    // eslint-disable-next-line no-restricted-syntax -- lazy default set; keeps dag-framework SDK-free
+    const mod = (await import('@robota-sdk/agent-builtin-providers')) as {
+      createDefaultMediaProviderDefinitions: () => readonly IMediaProviderDefinition[];
+    };
+    return mod.createDefaultMediaProviderDefinitions();
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      'Failed to load the default media provider definitions. Install @robota-sdk/agent-builtin-providers ' +
+        `(and its provider SDKs), or inject mediaProviders explicitly. Cause: ${cause}`,
+    );
+  }
+};
+
 const loadDefaultProviderDefinitions: TProviderDefinitionLoader = async () => {
   try {
     // eslint-disable-next-line no-restricted-syntax -- lazy default set; keeps dag-framework SDK-free
@@ -103,6 +125,10 @@ const loadDefaultProviderDefinitions: TProviderDefinitionLoader = async () => {
 export async function createDefaultNodeRegistry(
   providers?: readonly IProviderDefinition[],
   loadDefaults: TProviderDefinitionLoader = loadDefaultProviderDefinitions,
+  media: {
+    readonly mediaProviders?: readonly IMediaProviderDefinition[];
+    readonly loadMediaDefaults?: TMediaProviderDefinitionLoader;
+  } = {},
 ): Promise<IDagNodeDefinition[]> {
   const resolvedProviders = providers ?? (await loadDefaults());
   const nodes: IDagNodeDefinition[] = [
@@ -110,21 +136,45 @@ export async function createDefaultNodeRegistry(
     new LlmTextNodeDefinition(resolvedProviders),
   ];
 
+  const mediaProviders =
+    media.mediaProviders ??
+    (await (media.loadMediaDefaults ?? loadDefaultMediaProviderDefinitions)());
+  const imageProviderDefinition = findMediaProviderDefinition(mediaProviders, 'gemini-image');
+  const videoProviderDefinition = findMediaProviderDefinition(mediaProviders, 'seedance-video');
+
   const optionalLoaders: ReadonlyArray<IOptionalNodeLoader> = [
     {
       modulePath: '@robota-sdk/dag-node-gemini-image-edit',
       factories: [
-        (mod) => new (mod.GeminiImageEditNodeDefinition as new () => IDagNodeDefinition)(),
-        (mod) => new (mod.GeminiImageComposeNodeDefinition as new () => IDagNodeDefinition)(),
+        (mod) =>
+          new (mod.GeminiImageEditNodeDefinition as new (options: object) => IDagNodeDefinition)({
+            imageProviderDefinition,
+          }),
+        (mod) =>
+          new (mod.GeminiImageComposeNodeDefinition as new (options: object) => IDagNodeDefinition)(
+            {
+              imageProviderDefinition,
+            },
+          ),
       ],
     },
     {
       modulePath: '@robota-sdk/dag-node-text-to-image',
-      factories: [(mod) => new (mod.TextToImageNodeDefinition as new () => IDagNodeDefinition)()],
+      factories: [
+        (mod) =>
+          new (mod.TextToImageNodeDefinition as new (options: object) => IDagNodeDefinition)({
+            imageProviderDefinition,
+          }),
+      ],
     },
     {
       modulePath: '@robota-sdk/dag-node-seedance-video',
-      factories: [(mod) => new (mod.SeedanceVideoNodeDefinition as new () => IDagNodeDefinition)()],
+      factories: [
+        (mod) =>
+          new (mod.SeedanceVideoNodeDefinition as new (options: object) => IDagNodeDefinition)({
+            videoProviderDefinition,
+          }),
+      ],
     },
   ];
 

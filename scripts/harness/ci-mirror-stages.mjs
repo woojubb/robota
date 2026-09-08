@@ -76,6 +76,7 @@ export const CI_STAGES = [
       {
         job: 'build',
         steps: [
+          'Build desktop Electron app for e2e',
           'Binary e2e (agent-cli bintests, dist-dependent)',
           'Desktop Electron session e2e',
           'Desktop Electron usage and protocol reachability e2e',

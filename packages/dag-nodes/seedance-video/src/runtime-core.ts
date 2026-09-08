@@ -5,9 +5,10 @@ import {
   type IPortBinaryValue,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { BytedanceProvider } from '@robota-sdk/agent-provider-bytedance';
+import { createVideoProviderFromDefinition } from '@robota-sdk/agent-core';
 import type {
   IProviderMediaError,
+  IMediaProviderDefinition,
   IVideoGenerationProvider,
   IVideoJobSnapshot,
 } from '@robota-sdk/agent-core';
@@ -25,28 +26,17 @@ export interface ISeedanceVideoRequest {
 
 /** Configuration options for the seedance-video runtime. */
 export interface ISeedanceVideoRuntimeOptions {
-  apiKey?: string;
-  baseUrl?: string;
+  videoProviderDefinition?: IMediaProviderDefinition;
   defaultModel?: string;
-  allowedModels?: string[];
+  allowedModels?: readonly string[];
   /** Injectable delay (defaults to a setTimeout-based sleep) — overridable for tests. */
   sleep?: (ms: number) => Promise<void>;
-}
-
-function parseCsv(value: string | undefined): string[] {
-  if (typeof value !== 'string') {
-    return [];
-  }
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
 }
 
 function resolveModel(
   selectedModel: string,
   defaultModel: string,
-  allowedModels: string[],
+  allowedModels: readonly string[],
 ): TResult<string, IDagError> {
   const model = selectedModel.trim().length > 0 ? selectedModel.trim() : defaultModel;
   if (allowedModels.length > 0 && !allowedModels.includes(model)) {
@@ -69,29 +59,26 @@ function defaultSleep(ms: number): Promise<void> {
 }
 
 /**
- * Runtime that delegates video generation to the ByteDance/Seedance provider.
+ * Runtime that delegates video generation to the capability supplied by the injected media definition.
  *
  * Video generation is asynchronous: `createVideo` submits a job, then `getVideoJob`
  * is polled until the job reaches a terminal status or the max-wait timeout elapses.
  */
 export class SeedanceVideoRuntime {
-  private readonly explicitApiKey?: string;
-  private readonly explicitBaseUrl?: string;
+  private readonly definition?: IMediaProviderDefinition;
   private readonly explicitDefaultModel?: string;
-  private readonly explicitAllowedModels?: string[];
+  private readonly explicitAllowedModels?: readonly string[];
   private readonly sleep: (ms: number) => Promise<void>;
 
   public constructor(options?: ISeedanceVideoRuntimeOptions) {
-    this.explicitApiKey = options?.apiKey;
-    this.explicitBaseUrl = options?.baseUrl;
+    this.definition = options?.videoProviderDefinition;
     this.explicitDefaultModel = options?.defaultModel;
     this.explicitAllowedModels = options?.allowedModels;
     this.sleep = options?.sleep ?? defaultSleep;
   }
 
   private resolveDefaultModel(): TResult<string, IDagError> {
-    const defaultModelValue =
-      this.explicitDefaultModel ?? process.env.DAG_SEEDANCE_VIDEO_DEFAULT_MODEL;
+    const defaultModelValue = this.explicitDefaultModel ?? this.definition?.defaults?.model;
     if (typeof defaultModelValue !== 'string' || defaultModelValue.trim().length === 0) {
       return {
         ok: false,
@@ -104,22 +91,13 @@ export class SeedanceVideoRuntime {
     return { ok: true, value: defaultModelValue.trim() };
   }
 
-  private resolveAllowedModels(): string[] {
-    return this.explicitAllowedModels ?? parseCsv(process.env.DAG_SEEDANCE_VIDEO_ALLOWED_MODELS);
+  private resolveAllowedModels(): readonly string[] {
+    return this.explicitAllowedModels ?? this.definition?.defaults?.allowedModels ?? [];
   }
 
   private resolveProvider(): IVideoGenerationProvider | undefined {
-    const apiKey = this.explicitApiKey ?? process.env.SEEDANCE_API_KEY;
-    const baseUrl = this.explicitBaseUrl ?? process.env.SEEDANCE_BASE_URL;
-    if (
-      typeof apiKey === 'string' &&
-      apiKey.trim().length > 0 &&
-      typeof baseUrl === 'string' &&
-      baseUrl.trim().length > 0
-    ) {
-      return new BytedanceProvider({ apiKey: apiKey.trim(), baseUrl: baseUrl.trim() });
-    }
-    return undefined;
+    if (this.definition === undefined) return undefined;
+    return createVideoProviderFromDefinition(this.definition);
   }
 
   private mapProviderError(

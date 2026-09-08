@@ -64,6 +64,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         executionPath: input.executionPath,
         runCreditLimit: input.costPolicy?.runCreditLimit,
         currentTotalCredits: input.currentTotalCredits ?? 0,
+        ...(input.runtimeBaseUrl !== undefined ? { runtimeBaseUrl: input.runtimeBaseUrl } : {}),
       },
     });
 

@@ -13,6 +13,7 @@ import {
   type INodeExecutionContext,
   type TResult,
   type TPortPayload,
+  resolveRuntimeBaseUrl,
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
 import {
@@ -128,6 +129,7 @@ export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<
       image: imageInputResult.value,
       prompt: textInputResult.value.trim(),
       model: config.model,
+      runtimeBaseUrl: resolveRuntimeBaseUrl(context),
     });
     if (!imageEditResult.ok) {
       return imageEditResult;
@@ -236,6 +238,7 @@ export class GeminiImageComposeNodeDefinition extends AbstractNodeDefinition<
       images: imagesInputResult.value,
       prompt: textInputResult.value.trim(),
       model: config.model,
+      runtimeBaseUrl: resolveRuntimeBaseUrl(context),
     });
     if (!composedImageResult.ok) {
       return composedImageResult;

@@ -44,7 +44,7 @@ import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import * as ts from './lib/ts-ast.mjs';
-import { listSourceFiles } from './workspace-packages.mjs';
+import { listSourceFiles, listWorkspacePackageDirs } from './workspace-packages.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
@@ -78,6 +78,28 @@ export function findForbiddenDependencies(manifest, rule) {
           kind: 'forbidden-dependency',
           id: dep,
           detail: `declared in [${section}]`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+/** Manifest dependencies allowed by a family policy. Production and peer edges are governed; dev tools are not. */
+export function findDisallowedDependencies(manifest, rule) {
+  const allowed = new Set(rule.allowedDependencies ?? []);
+  const prefixes = rule.allowedDependencyPrefixes ?? [];
+  const findings = [];
+  for (const section of ['dependencies', 'peerDependencies']) {
+    for (const dep of Object.keys(manifest[section] ?? {})) {
+      const permitted =
+        allowed.has(dep) ||
+        prefixes.some((prefix) => dep === prefix || dep.startsWith(`${prefix}/`));
+      if (!permitted) {
+        findings.push({
+          kind: 'disallowed-dependency',
+          id: dep,
+          detail: `declared in [${section}] but not in the family allow-set`,
         });
       }
     }
@@ -358,6 +380,33 @@ export function findIoViolations(source, file, rule) {
   return findings.sort((a, b) => a.line - b.line);
 }
 
+/** Import allow-set for a family policy. Relative imports are always local and therefore allowed. */
+export function findDisallowedImports(source, file, rule) {
+  const sourceFile = parseSource(source, file);
+  const allowed = rule.allowedImportPrefixes ?? [];
+  const findings = [];
+  for (const node of collectNodes(sourceFile)) {
+    const specifier = moduleSpecifierOf(node);
+    if (specifier === undefined || specifier.startsWith('.') || specifier.startsWith('/')) continue;
+    const permitted = allowed.some((prefix) =>
+      prefix.endsWith(':')
+        ? specifier.startsWith(prefix)
+        : specifier === prefix || specifier.startsWith(`${prefix}/`),
+    );
+    if (!permitted) {
+      findings.push({
+        kind: 'disallowed-import',
+        id: specifier,
+        file,
+        line: lineOf(sourceFile, node),
+        text: source.split('\n')[lineOf(sourceFile, node) - 1]?.trim().slice(0, 120),
+        detail: 'module is outside the family import allow-set',
+      });
+    }
+  }
+  return findings;
+}
+
 // ---------------------------------------------------------------------------
 // (c) No product-name conditionals
 // ---------------------------------------------------------------------------
@@ -448,45 +497,167 @@ export function findProductNameConditionals(source, file) {
   return findings.sort((a, b) => a.line - b.line);
 }
 
-/** Run all three checks over the configured packages against the real tree. */
+function resolvePolicyTargets(rule, root = WORKSPACE_ROOT) {
+  if (rule.familyNamePrefix === undefined) {
+    return {
+      targets: [{ pkg: rule.package ?? rule.dir, dir: rule.dir }],
+      findings: [],
+    };
+  }
+
+  const targets = [];
+  const findings = [];
+  for (const dir of listWorkspacePackageDirs(root)) {
+    const manifestPath = path.join(dir, 'package.json');
+    if (!existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (typeof manifest.name !== 'string' || !manifest.name.startsWith(rule.familyNamePrefix))
+      continue;
+    const relDir = path.relative(root, dir);
+    targets.push({ pkg: manifest.name, dir: relDir });
+    if (
+      rule.familyHomeDir !== undefined &&
+      !relDir.startsWith(`${rule.familyHomeDir}/`) &&
+      relDir !== rule.familyHomeDir
+    ) {
+      findings.push({
+        kind: 'family-member-outside-home',
+        id: manifest.name,
+        pkg: manifest.name,
+        file: path.relative(root, manifestPath),
+        detail: `family member is outside ${rule.familyHomeDir}`,
+      });
+    }
+  }
+  if (targets.length < (rule.minMembers ?? 0)) {
+    findings.push({
+      kind: 'family-member-floor',
+      id: rule.familyNamePrefix,
+      detail: `family resolved ${targets.length} member(s), below configured floor ${rule.minMembers}`,
+    });
+  }
+  return { targets, findings };
+}
+
+function scanTarget(target, rule, root) {
+  const findings = [];
+  const srcRel = path.join(target.dir, 'src');
+  const pkgJsonRel = path.join(target.dir, 'package.json');
+  const srcAbs = path.join(root, srcRel);
+  const pkgJsonAbs = path.join(root, pkgJsonRel);
+  if (!existsSync(srcAbs) || !statSync(srcAbs).isDirectory()) {
+    findings.push({ kind: 'scan-target-missing', id: srcRel, detail: 'src/ dir does not exist' });
+  }
+  if (!existsSync(pkgJsonAbs)) {
+    findings.push({
+      kind: 'scan-target-missing',
+      id: pkgJsonRel,
+      detail: 'package.json does not exist',
+    });
+  }
+  if (existsSync(pkgJsonAbs)) {
+    const manifest = JSON.parse(readFileSync(pkgJsonAbs, 'utf8'));
+    const dependencyFindings =
+      rule.allowedDependencies !== undefined || rule.allowedDependencyPrefixes !== undefined
+        ? findDisallowedDependencies(manifest, rule)
+        : findForbiddenDependencies(manifest, rule);
+    for (const finding of dependencyFindings) {
+      findings.push({ ...finding, pkg: target.pkg, dir: target.dir, file: pkgJsonRel });
+    }
+  }
+  if (existsSync(srcAbs)) {
+    for (const rel of walkTsFiles(srcRel, root)) {
+      const source = readFileSync(path.join(root, rel), 'utf8');
+      for (const finding of findIoViolations(source, rel, rule))
+        findings.push({ ...finding, pkg: target.pkg });
+      if (rule.allowedImportPrefixes !== undefined) {
+        for (const finding of findDisallowedImports(source, rel, rule))
+          findings.push({ ...finding, pkg: target.pkg });
+      }
+      if (rule.productNameConditionals !== false) {
+        for (const finding of findProductNameConditionals(source, rel))
+          findings.push({ ...finding, pkg: target.pkg });
+      }
+    }
+  }
+  return findings;
+}
+
+export function baselineKey(finding) {
+  return [
+    finding.package ?? finding.pkg ?? '',
+    finding.kind ?? '',
+    finding.id ?? '',
+    finding.file ?? '',
+  ].join('|');
+}
+
+function readBaseline(rule, root) {
+  if (rule.baselineFile === undefined) return [];
+  const file = path.join(root, rule.baselineFile);
+  if (!existsSync(file)) return [];
+  const raw = JSON.parse(readFileSync(file, 'utf8'));
+  return Array.isArray(raw) ? raw : Array.isArray(raw.entries) ? raw.entries : [];
+}
+
+/** Apply a migration baseline. New findings remain visible; stale entries are findings too. */
+export function applyBaseline(findings, baseline, exemptions = []) {
+  const exemptionKeys = new Set(exemptions.map(baselineKey));
+  const measured = new Map(findings.map((finding) => [baselineKey(finding), finding]));
+  const out = findings.filter(
+    (finding) =>
+      !baseline.some((entry) => baselineKey(entry) === baselineKey(finding)) &&
+      !exemptionKeys.has(baselineKey(finding)),
+  );
+  for (const entry of baseline) {
+    const key = baselineKey(entry);
+    if (!measured.has(key) && !exemptionKeys.has(key)) {
+      out.push({
+        ...entry,
+        kind: 'stale-baseline-entry',
+        detail: 'baseline entry no longer matches a measured violation',
+      });
+    }
+  }
+  return out;
+}
+
+/** Run all configured policies over the tree. */
 export function scanCompositionNeutrality(
   root = WORKSPACE_ROOT,
   rules = loadHarnessConfig().compositionNeutrality ?? [],
 ) {
   const findings = [];
   for (const rule of rules) {
-    const srcRel = path.join(rule.dir, 'src');
-    const pkgJsonRel = path.join(rule.dir, 'package.json');
-    const srcAbs = path.join(root, srcRel);
-    const pkgJsonAbs = path.join(root, pkgJsonRel);
-
-    if (!existsSync(srcAbs) || !statSync(srcAbs).isDirectory()) {
-      findings.push({ kind: 'scan-target-missing', id: srcRel, detail: 'src/ dir does not exist' });
-    }
-    if (!existsSync(pkgJsonAbs)) {
-      findings.push({
-        kind: 'scan-target-missing',
-        id: pkgJsonRel,
-        detail: 'package.json does not exist',
-      });
-    }
-
-    if (existsSync(pkgJsonAbs)) {
-      const manifest = JSON.parse(readFileSync(pkgJsonAbs, 'utf8'));
-      findings.push(
-        ...findForbiddenDependencies(manifest, rule).map((f) => ({ ...f, dir: rule.dir })),
-      );
-    }
-
-    if (existsSync(srcAbs)) {
-      for (const rel of walkTsFiles(srcRel, root)) {
-        const source = readFileSync(path.join(root, rel), 'utf8');
-        findings.push(...findIoViolations(source, rel, rule));
-        findings.push(...findProductNameConditionals(source, rel));
-      }
-    }
+    const resolved = resolvePolicyTargets(rule, root);
+    const ruleFindings = [...resolved.findings];
+    for (const target of resolved.targets) ruleFindings.push(...scanTarget(target, rule, root));
+    findings.push(...applyBaseline(ruleFindings, readBaseline(rule, root), rule.exemptions ?? []));
   }
   return findings;
+}
+
+export function countExamined(
+  root = WORKSPACE_ROOT,
+  rules = loadHarnessConfig().compositionNeutrality ?? [],
+) {
+  let packages = 0;
+  let familyMembers = 0;
+  for (const rule of rules) {
+    const { targets } = resolvePolicyTargets(rule, root);
+    if (rule.familyNamePrefix === undefined) packages += targets.length;
+    else familyMembers += targets.length;
+  }
+  return { packages, familyMembers };
+}
+
+/** Total target count, exported so the measurement-provenance floor can verify this report size. */
+export function examinedCompositionCount(
+  root = WORKSPACE_ROOT,
+  rules = loadHarnessConfig().compositionNeutrality ?? [],
+) {
+  const { packages, familyMembers } = countExamined(root, rules);
+  return packages + familyMembers;
 }
 
 /**
@@ -504,6 +675,9 @@ export function formatFinding(finding) {
 
 function main() {
   const findings = scanCompositionNeutrality();
+  const examined = countExamined();
+  process.stdout.write(`::examined:: ${examined.packages} configured package(s)\n`);
+  process.stdout.write(`::examined:: ${examined.familyMembers} family member(s)\n`);
   if (findings.length === 0) {
     console.log('composition-neutrality scan passed.');
     process.exit(0);

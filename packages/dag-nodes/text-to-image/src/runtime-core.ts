@@ -5,8 +5,12 @@ import {
   type IPortBinaryValue,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
-import type { IImageGenerationProvider, IImageGenerationResult } from '@robota-sdk/agent-core';
+import { createImageProviderFromDefinition } from '@robota-sdk/agent-core';
+import type {
+  IImageGenerationProvider,
+  IImageGenerationResult,
+  IMediaProviderDefinition,
+} from '@robota-sdk/agent-core';
 import { normalizeImageOutput } from './image-output-normalizer.js';
 
 /** Request payload for generating an image from a text prompt. */
@@ -17,22 +21,9 @@ export interface ITextToImageRequest {
 
 /** Configuration options for the text-to-image runtime, including API key and model restrictions. */
 export interface ITextToImageRuntimeOptions {
-  apiKey?: string;
+  imageProviderDefinition?: IMediaProviderDefinition;
   defaultModel?: string;
-  allowedModels?: string[];
-}
-
-/**
- * Parses a comma-separated string into a trimmed, non-empty array of values.
- */
-function parseCsv(value: string | undefined): string[] {
-  if (typeof value !== 'string') {
-    return [];
-  }
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+  allowedModels?: readonly string[];
 }
 
 /**
@@ -41,7 +32,7 @@ function parseCsv(value: string | undefined): string[] {
 function resolveModel(
   selectedModel: string,
   defaultModel: string,
-  allowedModels: string[],
+  allowedModels: readonly string[],
 ): TResult<string, IDagError> {
   const model = selectedModel.trim().length > 0 ? selectedModel.trim() : defaultModel;
   if (allowedModels.length > 0 && !allowedModels.includes(model)) {
@@ -58,23 +49,22 @@ function resolveModel(
 }
 
 /**
- * Runtime that delegates text-to-image generation requests to the Google Gemini API
- * via the GoogleProvider. Unlike the image-edit runtime, it takes no input image.
+ * Runtime that delegates text-to-image generation to the capability supplied by the injected media
+ * definition. Unlike the image-edit runtime, it takes no input image.
  */
 export class TextToImageRuntime {
-  private readonly explicitApiKey?: string;
+  private readonly definition?: IMediaProviderDefinition;
   private readonly explicitDefaultModel?: string;
-  private readonly explicitAllowedModels?: string[];
+  private readonly explicitAllowedModels?: readonly string[];
 
   public constructor(options?: ITextToImageRuntimeOptions) {
-    this.explicitApiKey = options?.apiKey;
+    this.definition = options?.imageProviderDefinition;
     this.explicitDefaultModel = options?.defaultModel;
     this.explicitAllowedModels = options?.allowedModels;
   }
 
   private resolveDefaultModel(): TResult<string, IDagError> {
-    const defaultModelValue =
-      this.explicitDefaultModel ?? process.env.DAG_TEXT_TO_IMAGE_DEFAULT_MODEL;
+    const defaultModelValue = this.explicitDefaultModel ?? this.definition?.defaults?.model;
     if (typeof defaultModelValue !== 'string' || defaultModelValue.trim().length === 0) {
       return {
         ok: false,
@@ -87,19 +77,15 @@ export class TextToImageRuntime {
     return { ok: true, value: defaultModelValue.trim() };
   }
 
-  private resolveAllowedModels(): string[] {
-    return this.explicitAllowedModels ?? parseCsv(process.env.DAG_TEXT_TO_IMAGE_ALLOWED_MODELS);
+  private resolveAllowedModels(): readonly string[] {
+    return this.explicitAllowedModels ?? this.definition?.defaults?.allowedModels ?? [];
   }
 
-  private resolveProvider(allowedModels: string[]): IImageGenerationProvider | undefined {
-    const apiKeyValue = this.explicitApiKey ?? process.env.GEMINI_API_KEY;
-    if (typeof apiKeyValue === 'string' && apiKeyValue.trim().length > 0) {
-      return new GoogleProvider({
-        apiKey: apiKeyValue.trim(),
-        imageCapableModels: allowedModels,
-      });
-    }
-    return undefined;
+  private resolveProvider(allowedModels: readonly string[]): IImageGenerationProvider | undefined {
+    if (this.definition === undefined) return undefined;
+    return createImageProviderFromDefinition(this.definition, {
+      imageCapableModels: allowedModels,
+    });
   }
 
   private getImageProviderCapability(

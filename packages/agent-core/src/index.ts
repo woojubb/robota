@@ -60,6 +60,9 @@ export type {
   IVideoJobAccepted,
   IVideoJobSnapshot,
   IVideoGenerationProvider,
+  IMediaProviderConfig,
+  IMediaProviderCredentialRequirement,
+  IMediaProviderDefinition,
 } from './interfaces';
 export {
   assertProviderNativeWebToolsAvailable,
@@ -68,6 +71,12 @@ export {
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
+export {
+  createImageProviderFromDefinition,
+  createVideoProviderFromDefinition,
+  resolveMediaProviderConfig,
+} from './providers/media-provider-factory.js';
+export type { IMediaProviderOverrides } from './providers/media-provider-factory.js';
 export {
   findProviderDefinition,
   formatSupportedProviderTypes,

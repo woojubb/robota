@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { executeWorkflowsCreate as executeWorkflowsCreateWithProject } from '../create-command.js';
 import { parseAuthoringArgs, type IWorkflowsAuthoringDeps } from '../authoring/args.js';
 import { parseAuthoredSpec } from '../authoring/spec.js';
@@ -48,6 +49,7 @@ afterEach(async () => {
 function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
   return {
     resolveProvider: () => stubProvider(specJson),
+    providerDefinitions: createDefaultProviderDefinitions(),
     now: () => '2026-07-06T00:00:00.000Z',
   };
 }

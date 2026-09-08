@@ -10,34 +10,17 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import {
+  Robota,
+  createProviderFromConfig,
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  normalizeProviderConfig,
+  type IProviderDefinition,
+} from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
 import { decodePersistedComposite } from './persisted-composite-decoder.js';
-
-/**
- * The single runtime source of truth for the supported instant-node providers. The `TInstantNodeProvider`
- * type is derived from it, so adding a provider is a one-line change here (DATA-003 F1).
- */
-export const INSTANT_NODE_PROVIDERS = [
-  'anthropic',
-  'openai',
-  'gemini',
-  'deepseek',
-  'qwen',
-] as const;
-
-export type TInstantNodeProvider = (typeof INSTANT_NODE_PROVIDERS)[number];
-
-/** Runtime guard for the provider set — the type alone carries no runtime members. */
-export function isInstantNodeProvider(value: unknown): value is TInstantNodeProvider {
-  return typeof value === 'string' && (INSTANT_NODE_PROVIDERS as readonly string[]).includes(value);
-}
 
 export interface ICreatePromptNodeInput {
   readonly nodeType: string;
@@ -51,21 +34,13 @@ export interface ICreatePromptNodeInput {
     readonly key: string;
     readonly description?: string;
   };
-  readonly provider?: TInstantNodeProvider;
+  readonly provider?: string;
   readonly model?: string;
 }
 
 const PromptBackedConfigSchema = z.object({
   model: z.string().optional(),
 });
-
-const PROVIDER_DEFAULTS: Record<TInstantNodeProvider, { model: string; envVar: string }> = {
-  anthropic: { model: 'claude-sonnet-4-6', envVar: 'ANTHROPIC_API_KEY' },
-  openai: { model: 'gpt-4o-mini', envVar: 'OPENAI_API_KEY' },
-  gemini: { model: 'gemini-2.0-flash', envVar: 'GEMINI_API_KEY' },
-  deepseek: { model: 'deepseek-chat', envVar: 'DEEPSEEK_API_KEY' },
-  qwen: { model: 'qwen-turbo', envVar: 'DASHSCOPE_API_KEY' },
-};
 
 function renderTemplate(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
@@ -75,76 +50,63 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 }
 
 function resolveProviderInstance(
-  provider: TInstantNodeProvider,
-  model: string,
+  provider: string,
+  model: string | undefined,
+  providers: readonly IProviderDefinition[],
 ): { agent: Robota } | { error: IDagError } {
-  const defaults = PROVIDER_DEFAULTS[provider];
-  const apiKey = process.env[defaults.envVar];
-  if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    const alternativeProviders = Object.entries(PROVIDER_DEFAULTS)
-      .filter(
-        ([p]) => p !== provider && process.env[PROVIDER_DEFAULTS[p as TInstantNodeProvider].envVar],
-      )
-      .map(([p]) => p);
+  const definition = findProviderDefinition(providers, provider);
+  if (definition === undefined) {
     return {
       error: buildValidationError(
-        'DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED',
-        `${defaults.envVar} is required for instant node provider "${provider}" but is not set`,
-        { provider, envVar: defaults.envVar },
+        'DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN',
+        `Instant node provider "${provider}" is not in the injected provider registry`,
+        { provider, available: formatSupportedProviderTypes(providers) },
         {
-          action: 'add_api_key',
-          suggestion: `Set ${defaults.envVar} in your environment or .env file`,
-          options:
-            alternativeProviders.length > 0
-              ? alternativeProviders.map((p) => `Use provider "${p}" instead (API key already set)`)
-              : [`Set ${defaults.envVar}=<your-api-key> in your environment`],
+          action: 'select_provider',
+          suggestion: 'Select a provider registered by the composition root',
+          options: providers.map((item) => `Use provider "${item.type}" instead`),
         },
       ),
     };
   }
 
-  const agentName = `InstantNode_${provider}`;
-  let agent: Robota;
-
-  switch (provider) {
-    case 'anthropic':
-      agent = new Robota({
-        name: agentName,
-        aiProviders: [new AnthropicProvider({ apiKey: apiKey.trim() })],
-        defaultModel: { provider: 'anthropic', model },
-      });
-      break;
-    case 'openai':
-      agent = new Robota({
-        name: agentName,
-        aiProviders: [new OpenAIProvider({ apiKey: apiKey.trim() })],
-        defaultModel: { provider: 'openai', model },
-      });
-      break;
-    case 'gemini':
-      agent = new Robota({
-        name: agentName,
-        aiProviders: [new GoogleProvider({ apiKey: apiKey.trim() })],
-        defaultModel: { provider: 'google', model },
-      });
-      break;
-    case 'deepseek':
-      agent = new Robota({
-        name: agentName,
-        aiProviders: [new DeepSeekProvider({ apiKey: apiKey.trim() })],
-        defaultModel: { provider: 'deepseek', model },
-      });
-      break;
-    case 'qwen':
-      agent = new Robota({
-        name: agentName,
-        aiProviders: [new QwenProvider({ apiKey: apiKey.trim() })],
-        defaultModel: { provider: 'qwen', model },
-      });
-      break;
+  let config;
+  try {
+    config = normalizeProviderConfig(
+      { name: provider, ...(model !== undefined ? { model } : {}) },
+      providers,
+    );
+  } catch (error) {
+    return {
+      error: buildValidationError(
+        'DAG_VALIDATION_INSTANT_NODE_MODEL_REQUIRED',
+        error instanceof Error ? error.message : `Provider ${provider} requires a model`,
+        { provider },
+      ),
+    };
   }
 
-  return { agent };
+  try {
+    return {
+      agent: new Robota({
+        name: `InstantNode_${provider}`,
+        aiProviders: [createProviderFromConfig(config, providers)],
+        defaultModel: { provider: definition.type, model: config.model },
+      }),
+    };
+  } catch (error) {
+    return {
+      error: buildValidationError(
+        'DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED',
+        error instanceof Error ? error.message : `Provider "${provider}" requires a credential`,
+        { provider },
+        {
+          action: 'add_api_key',
+          suggestion: `Configure the credential required by provider "${provider}"`,
+        },
+      ),
+    };
+  }
 }
 
 export class PromptBackedNodeDefinition
@@ -161,10 +123,12 @@ export class PromptBackedNodeDefinition
   public readonly configSchemaDefinition = PromptBackedConfigSchema;
 
   private readonly spec: ICreatePromptNodeInput;
+  private readonly providers: readonly IProviderDefinition[];
 
-  public constructor(spec: ICreatePromptNodeInput) {
+  public constructor(spec: ICreatePromptNodeInput, providers: readonly IProviderDefinition[]) {
     super();
     this.spec = spec;
+    this.providers = providers;
     this.nodeType = spec.nodeType;
     this.displayName = spec.displayName;
     this.inputs = spec.inputPorts.map((p, i) => ({
@@ -220,11 +184,10 @@ export class PromptBackedNodeDefinition
       vars[portDef.key] = result.value;
     }
 
-    const provider: TInstantNodeProvider = this.spec.provider ?? 'anthropic';
-    const defaults = PROVIDER_DEFAULTS[provider];
-    const model = config.model ?? this.spec.model ?? defaults.model;
+    const provider = this.spec.provider ?? 'anthropic';
+    const model = config.model ?? this.spec.model;
 
-    const providerResult = resolveProviderInstance(provider, model);
+    const providerResult = resolveProviderInstance(provider, model, this.providers);
     if ('error' in providerResult) {
       return { ok: false, error: providerResult.error };
     }
@@ -236,7 +199,7 @@ export class PromptBackedNodeDefinition
       const completion = await providerResult.agent.run(renderedPrompt);
       io.setOutput(this.spec.outputPort.key, completion);
       const wordCount = typeof completion === 'string' ? completion.split(' ').length : 0;
-      io.setOutput('_agentSummary', `Generated ${wordCount} words. Model: ${model}.`);
+      io.setOutput('_agentSummary', `Generated ${wordCount} words. Model: ${model ?? 'default'}.`);
       return { ok: true, value: io.toOutput() };
     } catch (error) {
       // allow-fallback: catches provider API errors and converts to structured Result
@@ -246,7 +209,7 @@ export class PromptBackedNodeDefinition
           'DAG_TASK_EXECUTION_LLM_GENERATION_FAILED',
           error instanceof Error ? error.message : 'LLM generation failed',
           true,
-          { provider, model, nodeType: this.nodeType },
+          { provider, model: model ?? 'default', nodeType: this.nodeType },
         ),
       };
     }
@@ -255,8 +218,9 @@ export class PromptBackedNodeDefinition
 
 export function createPromptBackedNodeDefinition(
   spec: ICreatePromptNodeInput,
+  providers: readonly IProviderDefinition[],
 ): PromptBackedNodeDefinition {
-  return new PromptBackedNodeDefinition(spec);
+  return new PromptBackedNodeDefinition(spec, providers);
 }
 
 // ── Composite Instant Nodes (INSTANT-002) ──────────────────────────────────
@@ -303,7 +267,7 @@ export interface IPersistedPromptNode {
   readonly systemPromptTemplate: string;
   readonly inputPorts: ReadonlyArray<{ readonly key: string; readonly description?: string }>;
   readonly outputPort: { readonly key: string; readonly description?: string };
-  readonly provider?: TInstantNodeProvider;
+  readonly provider?: string;
   readonly model?: string;
 }
 
@@ -523,7 +487,7 @@ export function parsePersistedInstantNode(raw: unknown): TPersistedInstantNode |
       typeof outputPort['description'] === 'string'
         ? { key: outputPort['key'], description: outputPort['description'] }
         : { key: outputPort['key'] },
-    ...(isInstantNodeProvider(r['provider']) ? { provider: r['provider'] } : {}),
+    ...(typeof r['provider'] === 'string' ? { provider: r['provider'] } : {}),
     ...(typeof r['model'] === 'string' ? { model: r['model'] } : {}),
   };
 }
@@ -534,6 +498,8 @@ export interface IRehydrateInstantNodeDeps {
    * Required for `kind: 'composite'`; ignored for prompt nodes.
    */
   readonly compositeRunner?: ICompositeSubRunner;
+  /** Provider definitions are supplied by the composition root for prompt nodes. */
+  readonly providers?: readonly IProviderDefinition[];
 }
 
 /**
@@ -561,13 +527,22 @@ export function rehydrateInstantNode(
       ...(record.maxDepth !== undefined ? { maxDepth: record.maxDepth } : {}),
     });
   }
-  return createPromptBackedNodeDefinition({
-    nodeType: record.nodeType,
-    displayName: record.displayName,
-    systemPromptTemplate: record.systemPromptTemplate,
-    inputPorts: record.inputPorts,
-    outputPort: record.outputPort,
-    ...(record.provider !== undefined ? { provider: record.provider } : {}),
-    ...(record.model !== undefined ? { model: record.model } : {}),
-  });
+  const providers = deps.providers ?? [];
+  if (findProviderDefinition(providers, record.provider ?? 'anthropic') === undefined) {
+    throw new Error(
+      `DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN: provider "${record.provider ?? 'anthropic'}" is not in the injected provider registry`,
+    );
+  }
+  return createPromptBackedNodeDefinition(
+    {
+      nodeType: record.nodeType,
+      displayName: record.displayName,
+      systemPromptTemplate: record.systemPromptTemplate,
+      inputPorts: record.inputPorts,
+      outputPort: record.outputPort,
+      ...(record.provider !== undefined ? { provider: record.provider } : {}),
+      ...(record.model !== undefined ? { model: record.model } : {}),
+    },
+    providers,
+  );
 }

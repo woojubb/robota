@@ -4,12 +4,13 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { findProviderDefinition } from '@robota-sdk/agent-core';
 import {
   createPromptBackedNodeDefinition,
   createCompositeInstantNodeDefinition,
   type ICreatePromptNodeInput,
   type ICreateCompositeNodeInput,
-  type TInstantNodeProvider,
 } from '@robota-sdk/dag-node-instant-node';
 import { saveNode, loadNodes, buildCompositeRunner } from '../../local-runner/persistence/store.js';
 import { nodesDir, NODE_MANIFEST_EXT } from '../../local-runner/persistence/paths.js';
@@ -73,17 +74,17 @@ export async function handleDagInstantNodeCreate(
   }
 
   const rawProvider = args['provider'];
-  const validProviders: TInstantNodeProvider[] = [
-    'anthropic',
-    'openai',
-    'gemini',
-    'deepseek',
-    'qwen',
-  ];
-  const provider: TInstantNodeProvider | undefined =
-    typeof rawProvider === 'string' && validProviders.includes(rawProvider as TInstantNodeProvider)
-      ? (rawProvider as TInstantNodeProvider)
-      : undefined;
+  const providerDefinitions = createDefaultProviderDefinitions();
+  if (
+    rawProvider !== undefined &&
+    (typeof rawProvider !== 'string' ||
+      findProviderDefinition(providerDefinitions, rawProvider) === undefined)
+  ) {
+    return makeErrorResult(
+      `Unknown instant-node provider "${String(rawProvider)}". Available: ${providerDefinitions.map((definition) => definition.type).join(', ')}`,
+    );
+  }
+  const provider = typeof rawProvider === 'string' ? rawProvider : undefined;
 
   const spec: ICreatePromptNodeInput = {
     nodeType: nodeType.trim(),
@@ -104,7 +105,7 @@ export async function handleDagInstantNodeCreate(
     model: typeof args['model'] === 'string' ? args['model'] : undefined,
   };
 
-  const nodeDef = createPromptBackedNodeDefinition(spec);
+  const nodeDef = createPromptBackedNodeDefinition(spec, providerDefinitions);
   ctx.invalidateNodeCache();
   ctx.instantNodeDefinitions.push(nodeDef);
   await saveNode(nodeDef, projectDirOf(ctx));

@@ -102,5 +102,7 @@ function hasProviderCredentialValue(
 }
 
 function formatCredentialRequirement(requirement: IProviderCredentialRequirement): string {
-  return requirement.anyOf.join(' or ');
+  return requirement.anyOf
+    .map((field) => (field === 'apiKey' ? 'apiKey (API key)' : field))
+    .join(' or ');
 }

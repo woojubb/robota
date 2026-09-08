@@ -16,7 +16,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 import { executeWorkflowsBuild as executeWorkflowsBuildWithProject } from '../build-command.js';
 import type { IWorkflowsAuthoringDeps } from '../authoring/args.js';
@@ -32,27 +33,40 @@ async function executeWorkflowsBuild(args: string, root: string, deps?: IWorkflo
 async function executeWorkflowsList(
   root: string,
   layout?: Parameters<typeof executeWorkflowsListWithProject>[1],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
-  return executeWorkflowsListWithProject(await createWorkflowProjectFixture(root), layout);
+  return executeWorkflowsListWithProject(
+    await createWorkflowProjectFixture(root),
+    layout,
+    providerDefinitions,
+  );
 }
 
 async function executeWorkflowsRun(
   args: string,
   root: string,
   layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
-  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+  return executeWorkflowsRunWithProject(
+    args,
+    await createWorkflowProjectFixture(root),
+    layout,
+    providerDefinitions,
+  );
 }
 
 async function executeWorkflowsValidate(
   args: string,
   root: string,
   layout?: Parameters<typeof executeWorkflowsValidateWithProject>[2],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
   return executeWorkflowsValidateWithProject(
     args,
     await createWorkflowProjectFixture(root),
     layout,
+    providerDefinitions,
   );
 }
 
@@ -98,6 +112,7 @@ afterEach(async () => {
 function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
   return {
     resolveProvider: () => stubProvider(specJson),
+    providerDefinitions: createDefaultProviderDefinitions(),
     now: () => '2026-07-25T00:00:00.000Z',
   };
 }
