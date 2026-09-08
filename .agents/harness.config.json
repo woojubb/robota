@@ -157,6 +157,44 @@
         "createFileTransportSettingsRepository"
       ],
       "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract — the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) — a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
+    },
+    {
+      "$comment": "ARCH-054 DAG-NODE-COMPOSITION POLICY. Every @robota-sdk/dag-node-* package is a composable leaf: provider SDKs, provider construction, ambient credentials, and product choices belong to a composition root or an injected definition registry.",
+      "familyNamePrefix": "@robota-sdk/dag-node-",
+      "familyHomeDir": "packages/dag-nodes",
+      "minMembers": 20,
+      "allowedDependencies": [
+        "@modelcontextprotocol/sdk",
+        "@robota-sdk/agent-core",
+        "@robota-sdk/agent-interface-command",
+        "@robota-sdk/agent-tools",
+        "@robota-sdk/dag-core",
+        "@robota-sdk/dag-node",
+        "zod"
+      ],
+      "allowedImportPrefixes": [
+        "node:",
+        "vitest",
+        "zod",
+        "@modelcontextprotocol/sdk",
+        "@robota-sdk/agent-core",
+        "@robota-sdk/agent-tools",
+        "@robota-sdk/agent-interface-command",
+        "@robota-sdk/dag-core",
+        "@robota-sdk/dag-node"
+      ],
+      "forbiddenIdentifiers": ["process.env", "globalThis.process"],
+      "productNameConditionals": false,
+      "exemptions": [
+        {
+          "package": "@robota-sdk/dag-node-mcp-tool",
+          "kind": "forbidden-io-identifier",
+          "id": "process.env",
+          "file": "packages/dag-nodes/mcp-tool/src/index.ts",
+          "reason": "The node resolves an explicit $ENV: reference authored in config; this is declared indirection, not ambient credential lookup."
+        }
+      ],
+      "reason": "ARCH-054: the family gate makes provider composition explicit and keeps every DAG node installable and reusable by any orchestrator."
     }
   ],
   "neutrality": {

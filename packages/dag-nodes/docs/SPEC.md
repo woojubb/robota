@@ -5,7 +5,8 @@
 - Node package layout and node definition delivery conventions.
 - Per-node packages export `IDagNodeDefinition` implementations.
 - Node packages depend on `dag-core`/`dag-node`; several also consume the `agent-*` subsystem
-  one-way — `agent-core`/`agent-provider` (LLM-text, image, video, instant-node families),
+  one-way — `agent-core` (definition contracts and factories for LLM/media/instant-node families),
+  while concrete `agent-provider-*` SDKs are owned by composition roots,
   `agent-tools` (tool node), and `agent-framework`/`agent-interface-transport` (skill node). This
   DAG→agent dependency is one-directional; no `agent-*` package depends back on any DAG package.
 
@@ -47,3 +48,12 @@ representative subset — each node package documents its own definitions in its
 | ----------------------------------- | ----------------------- | ---------------------------------------------------------------- |
 | `AbstractNodeDefinition` (dag-node) | All 35 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
 | `NodeIoAccessor` (dag-node)         | All 35 node definitions | Used for input reading and output assembly                       |
+
+### Provider Composition
+
+`dag-node-*` packages are provider-neutral leaves. LLM nodes receive an injected
+`IProviderDefinition[]`; media nodes receive an injected `IMediaProviderDefinition`. Definitions,
+not provider instances, are passed to nodes so credentials and model capability configuration are
+resolved at execution time. Concrete `agent-provider-*` SDK dependencies belong to a composition
+aggregator such as `agent-builtin-providers`, never to a DAG node package. The family-wide rule is
+mechanically enforced by `scripts/harness/scan-composition-neutrality.mjs`.

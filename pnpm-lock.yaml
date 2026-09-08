@@ -1049,6 +1049,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-bytedance':
+        specifier: workspace:*
+        version: link:../agent-provider-bytedance
       '@robota-sdk/agent-provider-gemini':
         specifier: workspace:*
         version: link:../agent-provider-gemini
@@ -3090,9 +3093,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../agent-core
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../../agent-provider-gemini
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -3242,18 +3242,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../../agent-provider-anthropic
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../../agent-provider-gemini
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../../agent-provider-openai
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../../agent-provider-openai-compatible
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -3412,9 +3400,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../agent-core
-      '@robota-sdk/agent-provider-bytedance':
-        specifier: workspace:*
-        version: link:../../agent-provider-bytedance
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -3542,9 +3527,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../agent-core
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../../agent-provider-gemini
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core

@@ -5,9 +5,13 @@ import { describe, expect, it } from 'vitest';
 import { loadHarnessConfig } from '../harness-config.mjs';
 import {
   findForbiddenDependencies,
+  findDisallowedDependencies,
+  findDisallowedImports,
   findIoViolations,
   findProductNameConditionals,
   formatFinding,
+  applyBaseline,
+  examinedCompositionCount,
   scanCompositionNeutrality,
 } from '../scan-composition-neutrality.mjs';
 
@@ -32,6 +36,52 @@ const RULE = {
     'createProviderFromSettings',
   ],
 };
+
+const FAMILY_RULE = {
+  allowedDependencies: ['@robota-sdk/agent-core', 'zod'],
+  allowedImportPrefixes: ['node:', '@robota-sdk/agent-core', 'zod'],
+};
+
+describe('ARCH-054 — DAG node family composition gate', () => {
+  it('flags concrete provider dependencies while ignoring dev-only test tools', () => {
+    const findings = findDisallowedDependencies(
+      {
+        dependencies: {
+          '@robota-sdk/agent-core': 'workspace:*',
+          '@robota-sdk/agent-provider-openai': 'workspace:*',
+        },
+        devDependencies: { vitest: '^3.0.0' },
+      },
+      FAMILY_RULE,
+    );
+    expect(findings.map((finding) => finding.id)).toEqual(['@robota-sdk/agent-provider-openai']);
+  });
+
+  it('flags provider imports but allows local and foundational imports', () => {
+    const source = [
+      "import { createProvider } from '@robota-sdk/agent-provider-openai';",
+      "import { resolve } from 'node:path';",
+      "import { z } from 'zod';",
+      "import { local } from './local.js';",
+    ].join('\n');
+    expect(
+      findDisallowedImports(source, 'src/index.ts', FAMILY_RULE).map((finding) => finding.id),
+    ).toEqual(['@robota-sdk/agent-provider-openai']);
+  });
+
+  it('supports a shrink-only baseline and reports stale entries', () => {
+    const measured = {
+      pkg: '@robota-sdk/dag-node-example',
+      kind: 'disallowed-import',
+      id: '@robota-sdk/agent-provider-openai',
+      file: 'packages/dag-nodes/example/src/index.ts',
+    };
+    expect(applyBaseline([measured], [measured])).toEqual([]);
+    expect(applyBaseline([], [measured])).toMatchObject([
+      { kind: 'stale-baseline-entry', id: measured.id },
+    ]);
+  });
+});
 
 describe('guard (a) — dependency-graph neutrality', () => {
   it('FLAGS a concrete transport/CLI dependency (exact + prefix)', () => {
@@ -340,5 +390,18 @@ describe('the real configured packages are neutral (guards hold on the live tree
     const dirs = loadHarnessConfig().compositionNeutrality.map((r) => r.dir);
     expect(dirs).toContain('packages/agent-product');
     expect(dirs).toContain('packages/agent-capability-pack');
+  });
+});
+
+describe('composition scan measurement', () => {
+  it('reports the exact configured target count', () => {
+    scanCompositionNeutrality();
+    expect(examinedCompositionCount()).toBe(22);
+  });
+
+  it('resets the reported target count between runs', () => {
+    scanCompositionNeutrality();
+    scanCompositionNeutrality();
+    expect(examinedCompositionCount()).toBe(22);
   });
 });

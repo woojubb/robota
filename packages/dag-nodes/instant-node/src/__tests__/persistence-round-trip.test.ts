@@ -1,16 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import {
-  INSTANT_NODE_PROVIDERS,
-  isInstantNodeProvider,
   isPersistableInstantNode,
   parsePersistedInstantNode,
   rehydrateInstantNode,
   createPromptBackedNodeDefinition,
   createCompositeInstantNodeDefinition,
   type ICompositeSubRunner,
-  type TInstantNodeProvider,
 } from '../index.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
+const TEST_PROVIDERS: readonly IProviderDefinition[] = [
+  {
+    type: 'anthropic',
+    defaults: { model: 'test-model', apiKey: '$ENV:ANTHROPIC_API_KEY' },
+    credentialRequirement: { anyOf: ['apiKey'] },
+    createProvider: () => ({ name: 'anthropic' }) as never,
+  },
+];
 
 const RUNNER: ICompositeSubRunner = { run: async () => ({ ok: true, outputs: {} }) };
 const INNER_DAG: IDagDefinition = {
@@ -33,36 +40,36 @@ function makeComposite() {
 }
 
 describe('DATA-003 F1: provider set is a runtime SSOT', () => {
-  it('exports the const list and derives the type from it', () => {
-    expect([...INSTANT_NODE_PROVIDERS]).toEqual([
-      'anthropic',
-      'openai',
-      'gemini',
-      'deepseek',
-      'qwen',
-    ]);
-    const p: TInstantNodeProvider = INSTANT_NODE_PROVIDERS[0];
-    expect(p).toBe('anthropic');
-  });
-
-  it('isInstantNodeProvider narrows unknown → TInstantNodeProvider', () => {
-    expect(isInstantNodeProvider('anthropic')).toBe(true);
-    expect(isInstantNodeProvider('qwen')).toBe(true);
-    expect(isInstantNodeProvider('not-a-provider')).toBe(false);
-    expect(isInstantNodeProvider(undefined)).toBe(false);
-    expect(isInstantNodeProvider(42)).toBe(false);
-  });
-});
-
-describe('DATA-003 F4: isPersistableInstantNode guard', () => {
-  it('is true for instant nodes and false otherwise', () => {
-    const prompt = createPromptBackedNodeDefinition({
+  it('accepts any persisted provider string and validates it against the injected registry', () => {
+    const parsed = parsePersistedInstantNode({
+      kind: 'prompt',
       nodeType: 'p',
       displayName: 'P',
       systemPromptTemplate: '{{text}}',
       inputPorts: [{ key: 'text' }],
       outputPort: { key: 'text' },
+      provider: 'anthropic',
     });
+    expect(parsed?.kind).toBe('prompt');
+    if (parsed?.kind === 'prompt') expect(parsed.provider).toBe('anthropic');
+    expect(() => rehydrateInstantNode(parsed!, { providers: [] })).toThrow(
+      /DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN/,
+    );
+  });
+});
+
+describe('DATA-003 F4: isPersistableInstantNode guard', () => {
+  it('is true for instant nodes and false otherwise', () => {
+    const prompt = createPromptBackedNodeDefinition(
+      {
+        nodeType: 'p',
+        displayName: 'P',
+        systemPromptTemplate: '{{text}}',
+        inputPorts: [{ key: 'text' }],
+        outputPort: { key: 'text' },
+      },
+      TEST_PROVIDERS,
+    );
     expect(isPersistableInstantNode(prompt)).toBe(true);
     expect(isPersistableInstantNode(makeComposite())).toBe(true);
     expect(isPersistableInstantNode({})).toBe(false);
@@ -73,19 +80,22 @@ describe('DATA-003 F4: isPersistableInstantNode guard', () => {
 
 describe('DATA-003 F2: symmetric persist → parse → rehydrate round-trip', () => {
   it('prompt node round-trips through JSON with provider + model preserved', () => {
-    const original = createPromptBackedNodeDefinition({
-      nodeType: 'pirate',
-      displayName: 'Pirate',
-      systemPromptTemplate: 'Rewrite: {{text}}',
-      inputPorts: [{ key: 'text' }],
-      outputPort: { key: 'text' },
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
-    });
+    const original = createPromptBackedNodeDefinition(
+      {
+        nodeType: 'pirate',
+        displayName: 'Pirate',
+        systemPromptTemplate: 'Rewrite: {{text}}',
+        inputPorts: [{ key: 'text' }],
+        outputPort: { key: 'text' },
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+      },
+      TEST_PROVIDERS,
+    );
     const onDisk = JSON.parse(JSON.stringify(original.toPersisted())) as unknown;
     const parsed = parsePersistedInstantNode(onDisk);
     expect(parsed).not.toBeNull();
-    const rebuilt = rehydrateInstantNode(parsed!);
+    const rebuilt = rehydrateInstantNode(parsed!, { providers: TEST_PROVIDERS });
     expect(rebuilt.nodeType).toBe('pirate');
     expect(rebuilt.defaultInputPort).toBe('text');
     expect(rebuilt.defaultOutputPort).toBe('text');

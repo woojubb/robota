@@ -17,10 +17,15 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 
 Every runtime export of the package entry (`src/index.ts`). Provider option/config **types** are also exported (see `src/**/types.ts`); consult the source for the full type surface.
 
-| Symbol                             |
-| ---------------------------------- |
-| `createDefaultProviderDefinitions` |
-| `DEFAULT_ROLE_MODELS`              |
+| Symbol                                  |
+| --------------------------------------- |
+| `createDefaultProviderDefinitions`      |
+| `DEFAULT_ROLE_MODELS`                   |
+| `createDefaultMediaProviderDefinitions` | Default image/video provider definitions |
+| `createGeminiImageProviderDefinition`   | Gemini image provider definition         |
+| `createSeedanceVideoProviderDefinition` | Seedance video provider definition       |
+| `GEMINI_IMAGE_MEDIA_PROVIDER_TYPE`      | Canonical Gemini image provider type     |
+| `SEEDANCE_VIDEO_MEDIA_PROVIDER_TYPE`    | Canonical Seedance video provider type   |
 
 ## Dependencies
 

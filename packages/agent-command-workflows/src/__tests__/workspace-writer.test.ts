@@ -12,6 +12,7 @@ import type {
   IDagNodeDefinition,
   INodeExecutionContext,
 } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { saveInstantNodeFile as saveInstantNodeFileWithProject } from '../persistence/workspace-writer.js';
 import { loadInstantNodes as loadInstantNodesWithProject } from '../persistence/instant-node-loader.js';
 import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
@@ -34,11 +35,23 @@ async function loadInstantNodes(
   root: string,
   layout?: Parameters<typeof loadInstantNodesWithProject>[1],
 ) {
-  return loadInstantNodesWithProject(await createWorkflowProjectFixture(root), layout);
+  return loadInstantNodesWithProject(
+    await createWorkflowProjectFixture(root),
+    layout,
+    TEST_PROVIDERS,
+  );
 }
 
 const AT = '2026-07-06T00:00:00.000Z';
 const RUNNER: ICompositeSubRunner = { run: async () => ({ ok: true, outputs: {} }) };
+const TEST_PROVIDERS: readonly IProviderDefinition[] = [
+  {
+    type: 'anthropic',
+    defaults: { model: 'test-model', apiKey: '$ENV:ANTHROPIC_API_KEY' },
+    credentialRequirement: { anyOf: ['apiKey'] },
+    createProvider: () => ({ name: 'anthropic' }) as never,
+  },
+];
 
 /**
  * A pure inner DAG: a single `input` node emitting a fixed `text` from its config. No LLM/provider —
@@ -85,14 +98,17 @@ describe('DATA-003 saveInstantNodeFile', () => {
   it.runIf(process.platform === 'linux')(
     'persists a prompt node and reloads it via the owner round-trip',
     async () => {
-      const node = createPromptBackedNodeDefinition({
-        nodeType: 'pirate',
-        displayName: 'Pirate',
-        systemPromptTemplate: 'Rewrite: {{text}}',
-        inputPorts: [{ key: 'text' }],
-        outputPort: { key: 'text' },
-        provider: 'anthropic',
-      });
+      const node = createPromptBackedNodeDefinition(
+        {
+          nodeType: 'pirate',
+          displayName: 'Pirate',
+          systemPromptTemplate: 'Rewrite: {{text}}',
+          inputPorts: [{ key: 'text' }],
+          outputPort: { key: 'text' },
+          provider: 'anthropic',
+        },
+        TEST_PROVIDERS,
+      );
       const path = await saveInstantNodeFile(dir, node, AT);
       expect(path).toContain('pirate.node.json');
       await expect(stat(join(dir, path as string))).resolves.toBeDefined();

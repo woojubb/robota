@@ -22,6 +22,18 @@ export interface INodeExecutionContext {
   executionPath: string[];
   runCreditLimit?: number;
   currentTotalCredits: number;
+  /** The executing runtime's own asset base URL, supplied per run rather than stored in a node. */
+  runtimeBaseUrl?: string;
+}
+
+export const DEFAULT_DAG_RUNTIME_BASE_URL = 'http://127.0.0.1:3011';
+
+export function resolveRuntimeBaseUrl(
+  context: Pick<INodeExecutionContext, 'runtimeBaseUrl'>,
+): string {
+  const declared = context.runtimeBaseUrl?.trim();
+  if (declared === undefined || declared.length === 0) return DEFAULT_DAG_RUNTIME_BASE_URL;
+  return declared.replace(/\/$/, '');
 }
 
 /** Final output of a node execution including payload and cost accounting. */

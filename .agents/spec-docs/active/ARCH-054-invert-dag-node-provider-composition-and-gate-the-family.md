@@ -850,7 +850,7 @@ Four decisions are outside the standing authorization and must be answered befor
 
 Recorded verbatim from `/tmp/robota-issues/round2/DECISIONS.md`, entry of 2026-09-05:
 
-> 2026-09-05 ARCH-054 (#2158) 결정: D2-A 확정(agent-builtin-providers 확장). D1 은 llm-text 형태로
+> 2026-09-05 ARCH-054 (issue #2158) 결정: D2-A 확정(agent-builtin-providers 확장). D1 은 llm-text 형태로
 > 재작업 — 리터럴 유니온 INSTANT_NODE_PROVIDERS/TInstantNodeProvider 제거(레지스트리 유도 가드),
 > 영속 provider = 문자열 + 주입 레지스트리 findProviderDefinition 검증, 실패는
 > DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN 하나.
@@ -1003,6 +1003,7 @@ know, which is a different case from a provider that is known but has no credent
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -1091,6 +1092,7 @@ know, which is a different case from a provider that is known but has no credent
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

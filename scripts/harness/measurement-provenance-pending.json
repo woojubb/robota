@@ -46,6 +46,7 @@
     "scripts/harness/scan-review-findings.mjs",
     "scripts/harness/scan-role-port-optionals.mjs",
     "scripts/harness/scan-routing-document-size.mjs",
+    "scripts/harness/scan-composition-neutrality.mjs",
     "scripts/harness/scan-rule-statement-floor.mjs",
     "scripts/harness/scan-rule-table-shape.mjs",
     "scripts/harness/scan-spec-user-execution-section.mjs",

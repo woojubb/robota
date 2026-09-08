@@ -4,14 +4,17 @@ import {
   type IDagError,
   type IPortBinaryValue,
   type TResult,
+  resolveRuntimeBaseUrl,
 } from '@robota-sdk/dag-core';
-import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
-import type { IImageGenerationProvider, IImageGenerationResult } from '@robota-sdk/agent-core';
+import { createImageProviderFromDefinition } from '@robota-sdk/agent-core';
+import type {
+  IImageGenerationProvider,
+  IImageGenerationResult,
+  IMediaProviderDefinition,
+} from '@robota-sdk/agent-core';
 import {
   normalizeImageOutput,
-  parseCsv,
   resolveModel,
-  resolveRuntimeBaseUrl,
   toInlineImageSource,
   type IInlineImageSource,
 } from './runtime-helpers.js';
@@ -21,6 +24,7 @@ export interface IGeminiImageEditRequest {
   image: IPortBinaryValue;
   prompt: string;
   model: string;
+  runtimeBaseUrl?: string;
 }
 
 /** Request payload for composing multiple images via the Gemini runtime. */
@@ -28,13 +32,14 @@ export interface IGeminiImageComposeRequest {
   images: IPortBinaryValue[];
   prompt: string;
   model: string;
+  runtimeBaseUrl?: string;
 }
 
 /** Configuration options for the Gemini image runtime, including API key and model restrictions. */
 export interface IGeminiImageRuntimeOptions {
-  apiKey?: string;
+  imageProviderDefinition?: IMediaProviderDefinition;
   defaultModel?: string;
-  allowedModels?: string[];
+  allowedModels?: readonly string[];
 }
 
 /**
@@ -56,23 +61,22 @@ export function isImageBinaryValue(
 }
 
 /**
- * Runtime that delegates image editing and composition requests to the Google Gemini API
- * via the GoogleProvider.
+ * Runtime that delegates image editing and composition requests to the provider capability supplied
+ * by the injected media definition. The default composition maps this capability to Gemini.
  */
 export class GeminiImageRuntime {
-  private readonly explicitApiKey?: string;
+  private readonly definition?: IMediaProviderDefinition;
   private readonly explicitDefaultModel?: string;
-  private readonly explicitAllowedModels?: string[];
+  private readonly explicitAllowedModels?: readonly string[];
 
   public constructor(options?: IGeminiImageRuntimeOptions) {
-    this.explicitApiKey = options?.apiKey;
+    this.definition = options?.imageProviderDefinition;
     this.explicitDefaultModel = options?.defaultModel;
     this.explicitAllowedModels = options?.allowedModels;
   }
 
   private resolveDefaultModel(): TResult<string, IDagError> {
-    const defaultModelValue =
-      this.explicitDefaultModel ?? process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
+    const defaultModelValue = this.explicitDefaultModel ?? this.definition?.defaults?.model;
     if (typeof defaultModelValue !== 'string' || defaultModelValue.trim().length === 0) {
       return {
         ok: false,
@@ -85,19 +89,15 @@ export class GeminiImageRuntime {
     return { ok: true, value: defaultModelValue.trim() };
   }
 
-  private resolveAllowedModels(): string[] {
-    return this.explicitAllowedModels ?? parseCsv(process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS);
+  private resolveAllowedModels(): readonly string[] {
+    return this.explicitAllowedModels ?? this.definition?.defaults?.allowedModels ?? [];
   }
 
-  private resolveProvider(allowedModels: string[]): IImageGenerationProvider | undefined {
-    const apiKeyValue = this.explicitApiKey ?? process.env.GEMINI_API_KEY;
-    if (typeof apiKeyValue === 'string' && apiKeyValue.trim().length > 0) {
-      return new GoogleProvider({
-        apiKey: apiKeyValue.trim(),
-        imageCapableModels: allowedModels,
-      });
-    }
-    return undefined;
+  private resolveProvider(allowedModels: readonly string[]): IImageGenerationProvider | undefined {
+    if (this.definition === undefined) return undefined;
+    return createImageProviderFromDefinition(this.definition, {
+      imageCapableModels: allowedModels,
+    });
   }
 
   private getImageProviderCapability(
@@ -186,7 +186,7 @@ export class GeminiImageRuntime {
       return modelResult;
     }
 
-    const runtimeBaseUrl = resolveRuntimeBaseUrl();
+    const runtimeBaseUrl = resolveRuntimeBaseUrl(request);
     const imageSourceResult = await this.mapInputImage(
       request.image,
       runtimeBaseUrl,
@@ -260,7 +260,7 @@ export class GeminiImageRuntime {
       };
     }
 
-    const runtimeBaseUrl = resolveRuntimeBaseUrl();
+    const runtimeBaseUrl = resolveRuntimeBaseUrl(request);
     const composeInputs: IInlineImageSource[] = [];
     for (const [index, image] of request.images.entries()) {
       const imageSourceResult = await this.mapInputImage(

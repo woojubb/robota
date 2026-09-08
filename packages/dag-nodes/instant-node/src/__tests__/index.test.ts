@@ -1,34 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Partial mocks: every other export of each package stays real. Only the agent entrypoint and the
-// provider classes the node constructs are stubbed, so no provider SDK client is ever instantiated
-// and no real API call is made.
+// Only the agent entrypoint is stubbed. Provider construction is supplied through the injected
+// provider-definition registry, which keeps this leaf test independent of vendor SDK packages.
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   Robota: vi.fn().mockImplementation(() => ({
     run: vi.fn().mockResolvedValue('mocked response'),
   })),
-}));
-
-vi.mock('@robota-sdk/agent-provider-anthropic', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-anthropic')>()),
-  AnthropicProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-openai', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai')>()),
-  OpenAIProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-gemini/google', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-gemini/google')>()),
-  GoogleProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-openai-compatible', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai-compatible')>()),
-  DeepSeekProvider: vi.fn().mockImplementation(() => ({})),
-  QwenProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
 import {
@@ -38,6 +16,20 @@ import {
 } from '../index.js';
 import type { ICreatePromptNodeInput } from '../index.js';
 import type { IDagDefinition, INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
+const TEST_PROVIDERS: readonly IProviderDefinition[] = [
+  {
+    type: 'anthropic',
+    defaults: { model: 'test-model', apiKey: '$ENV:ANTHROPIC_API_KEY' },
+    credentialRequirement: { anyOf: ['apiKey'] },
+    createProvider: () => ({ name: 'anthropic' }) as never,
+  },
+];
+
+function createTestNode(spec: ICreatePromptNodeInput = SINGLE_PORT_SPEC) {
+  return createPromptBackedNodeDefinition(spec, TEST_PROVIDERS);
+}
 
 const MOCK_CONTEXT: INodeExecutionContext = {
   executionRoot: '/test/execution-root',
@@ -73,50 +65,50 @@ const SINGLE_PORT_SPEC: ICreatePromptNodeInput = {
 
 describe('createPromptBackedNodeDefinition', () => {
   it('returns a PromptBackedNodeDefinition instance', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node).toBeInstanceOf(PromptBackedNodeDefinition);
   });
 
   it('sets nodeType from spec', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.nodeType).toBe('my-custom-node');
   });
 
   it('sets displayName from spec', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.displayName).toBe('My Custom Node');
   });
 
   it('sets category to Instant', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.category).toBe('Instant');
   });
 
   it('builds inputs from inputPorts', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.inputs).toHaveLength(1);
     expect(node.inputs[0]).toMatchObject({ key: 'text', type: 'string', required: true });
   });
 
   it('builds outputs from outputPort', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.outputs).toHaveLength(1);
     expect(node.outputs[0]).toMatchObject({ key: 'text', type: 'string', required: true });
   });
 
   it('sets defaultInputPort to first input port key', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.defaultInputPort).toBe('text');
   });
 
   it('sets defaultOutputPort to output port key', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.defaultOutputPort).toBe('text');
   });
 
   it('each instance has independent nodeType', () => {
-    const nodeA = createPromptBackedNodeDefinition({ ...SINGLE_PORT_SPEC, nodeType: 'node-a' });
-    const nodeB = createPromptBackedNodeDefinition({ ...SINGLE_PORT_SPEC, nodeType: 'node-b' });
+    const nodeA = createTestNode({ ...SINGLE_PORT_SPEC, nodeType: 'node-a' });
+    const nodeB = createTestNode({ ...SINGLE_PORT_SPEC, nodeType: 'node-b' });
     expect(nodeA.nodeType).toBe('node-a');
     expect(nodeB.nodeType).toBe('node-b');
   });
@@ -133,7 +125,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('renders template and returns output on success', async () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const input: TPortPayload = { text: 'hello world' };
     const result = await node.taskHandler.execute(input, MOCK_CONTEXT);
     expect(result.ok).toBe(true);
@@ -143,7 +135,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('returns validation error when required input port is missing', async () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const result = await node.taskHandler.execute({}, MOCK_CONTEXT);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -153,7 +145,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
   it('returns validation error when API key is missing', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', undefined);
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const result = await node.taskHandler.execute({ text: 'hello' }, MOCK_CONTEXT);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -171,7 +163,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
       outputPort: { key: 'result' },
       provider: 'anthropic',
     };
-    const node = createPromptBackedNodeDefinition(multiSpec);
+    const node = createTestNode(multiSpec);
     const result = await node.taskHandler.execute(
       { name: 'Alice', age: '30' },
       { ...MOCK_CONTEXT, nodeDefinition: { ...MOCK_CONTEXT.nodeDefinition, nodeId: 'multi' } },
@@ -182,7 +174,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
 describe('persistence view (BEHAVIOR-006)', () => {
   it('PromptBackedNodeDefinition.toPersisted() returns a prompt record', () => {
-    const node = createPromptBackedNodeDefinition({
+    const node = createTestNode({
       nodeType: 'p',
       displayName: 'P',
       systemPromptTemplate: 'Hi {{text}}',

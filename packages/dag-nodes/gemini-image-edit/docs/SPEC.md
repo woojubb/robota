@@ -9,7 +9,9 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/agent-provider-gemini` (subpath `/google`, `GoogleProvider`). Does not own provider implementation.
+- Delegates AI provider calls through an injected `IMediaProviderDefinition` from `@robota-sdk/agent-core`.
+  Concrete Gemini SDK composition is owned by `@robota-sdk/agent-builtin-providers` or another root,
+  not by this node package.
 - Binary port definitions use `BINARY_PORT_PRESETS.IMAGE_COMMON` from `@robota-sdk/dag-node`.
 - Node-only by declaration as well as by fact (CORE-028): since issue #2026 a model-provided HTTP image
   source is fetched through `@robota-sdk/agent-core/node`'s egress boundary, so the package
@@ -23,18 +25,19 @@
 - `GeminiImageEditNodeDefinition` — single image edit node (image + prompt -> image).
 - `GeminiImageComposeNodeDefinition` — multi-image compose node (images[] + prompt -> image).
 - `GeminiImageRuntime` — shared runtime that handles provider capability checks, model allowlist validation, image input resolution via `MediaReference`, and output normalization.
-- `runtime-helpers.ts` — utility functions for CSV parsing, base URL resolution, data URI parsing, inline image source conversion, and output normalization.
+- `runtime-helpers.ts` — utility functions for model validation, data URI parsing, inline image source
+  conversion, and output normalization. The runtime asset base URL is supplied per execution.
 
 ## Type Ownership
 
-| Type                               | Location                 | Purpose                                  |
-| ---------------------------------- | ------------------------ | ---------------------------------------- |
-| `GeminiImageEditNodeDefinition`    | `src/index.ts`           | Edit node definition class               |
-| `GeminiImageComposeNodeDefinition` | `src/index.ts`           | Compose node definition class            |
-| `IGeminiImageEditRequest`          | `src/runtime-core.ts`    | Edit request contract                    |
-| `IGeminiImageComposeRequest`       | `src/runtime-core.ts`    | Compose request contract                 |
-| `IGeminiImageRuntimeOptions`       | `src/runtime-core.ts`    | Runtime constructor options              |
-| `IInlineImageSource`               | `src/runtime-helpers.ts` | Resolved inline image for provider calls |
+| Type                               | Location                 | Purpose                                    |
+| ---------------------------------- | ------------------------ | ------------------------------------------ |
+| `GeminiImageEditNodeDefinition`    | `src/index.ts`           | Edit node definition class                 |
+| `GeminiImageComposeNodeDefinition` | `src/index.ts`           | Compose node definition class              |
+| `IGeminiImageEditRequest`          | `src/runtime-core.ts`    | Edit request contract                      |
+| `IGeminiImageComposeRequest`       | `src/runtime-core.ts`    | Compose request contract                   |
+| `IGeminiImageRuntimeOptions`       | `src/runtime-core.ts`    | Injected media definition and model policy |
+| `IInlineImageSource`               | `src/runtime-helpers.ts` | Resolved inline image for provider calls   |
 
 ## Public API Surface
 
@@ -47,8 +50,10 @@
 ## Extension Points
 
 - Both node classes extend `AbstractNodeDefinition` and override `estimateCostWithConfig` and `executeWithConfig`.
-- Runtime options allow injecting `apiKey`, `defaultModel`, and `allowedModels` at construction time.
-- Environment variables: `GEMINI_API_KEY`, `DAG_GEMINI_IMAGE_DEFAULT_MODEL`, `DAG_GEMINI_IMAGE_ALLOWED_MODELS`, `DAG_RUNTIME_BASE_URL`, `DAG_PORT`.
+- Runtime options allow injecting an `imageProviderDefinition`, `defaultModel`, and `allowedModels`.
+  The executing runtime supplies `INodeExecutionContext.runtimeBaseUrl` for asset resolution.
+- Credential environment names are declared by the injected provider definition; the node does not
+  read ambient environment variables.
 
 ## Error Taxonomy
 
@@ -78,6 +83,6 @@
 
 ## Test Strategy
 
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests for `GeminiImageRuntime` with mocked `GoogleProvider`, input validation paths, model allowlist logic, and output normalization.
+- Unit tests inject an `IMediaProviderDefinition` and cover credential resolution, capability checks,
+  model allowlists, input validation, provider failures, and output normalization.
 - Recommended: integration tests for `MediaReference` resolution and data URI parsing in `runtime-helpers.ts`.

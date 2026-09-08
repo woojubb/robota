@@ -8,6 +8,7 @@
  * `dag-cli` product.
  */
 import { join } from 'node:path';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagNodeDefinition, IDagRuntimeResult, TPortPayload } from '@robota-sdk/dag-core';
 import {
@@ -81,6 +82,7 @@ function buildCompositeRunner(
 export async function loadInstantNodes(
   project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+  providers: readonly IProviderDefinition[] = [],
 ): Promise<IDagNodeDefinition[]> {
   const accepted = assertWorkflowProject(project);
   const dir = join(layout.root, 'nodes');
@@ -102,7 +104,10 @@ export async function loadInstantNodes(
     }
     if (!record) continue;
     nodes.push(
-      rehydrateInstantNode(record, record.kind === 'composite' ? { compositeRunner } : {}),
+      rehydrateInstantNode(record, {
+        ...(record.kind === 'composite' ? { compositeRunner } : {}),
+        providers,
+      }),
     );
   }
   return nodes;
