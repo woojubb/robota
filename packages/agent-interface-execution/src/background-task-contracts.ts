@@ -89,6 +89,14 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   prompt: string;
   model?: string;
   isolation?: TBackgroundTaskIsolation;
+  /**
+   * CLI-1994: the persisted session record the child RESTORES before its first turn — a fork of the
+   * parent conversation written under a fresh id by `/fork`. Only the id crosses: the conversation
+   * itself never rides on the request, so the child-process wire stays as narrow as ARCH-044 left it
+   * (the child reads the record from the session store, exactly as `--fork-session` does). Absent ⇒
+   * the child starts with an empty conversation, unchanged.
+   */
+  resumeSessionId?: string;
   allowedTools?: string[];
   disallowedTools?: string[];
   permissionPolicy: TBackgroundPermissionPolicy;
@@ -184,6 +192,11 @@ export interface IBackgroundTaskState {
   promptPreview?: string;
   commandPreview?: string;
   isolation?: TBackgroundTaskIsolation;
+  /**
+   * CLI-1994: carried from `IAgentBackgroundTaskRequest.resumeSessionId` so a surface can offer to
+   * ATTACH to the forked session — a view switch onto that record, never a merge with the parent.
+   */
+  resumeSessionId?: string;
   currentAction?: string;
   unread: boolean;
   result?: IBackgroundTaskResult;

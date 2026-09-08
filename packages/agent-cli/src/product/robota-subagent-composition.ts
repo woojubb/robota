@@ -6,6 +6,7 @@ import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subag
 import { createGoalStatusTool } from '@robota-sdk/agent-framework';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
+import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectRobotaSubagentRunner } from './subagent-provider-reproduction.js';
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
@@ -150,6 +151,13 @@ export function createRobotaSubagentComposition(
         : tools;
     },
     providerDefinitions,
+    // CLI-1994: a `/fork` job names a record to resume, and only the product knows where its records
+    // live. This rebuilds the SAME composition the parent's `buildCommandSetup` builds for the
+    // parent's cwd — not the execution root, which for a worktree-isolated child holds no records of
+    // its own — so the child reads the store the parent just wrote the forked record into. Without
+    // it every fork job dies in the worker with "this composition opens no session store".
+    openSessionStore: (context: { readonly cwd: string }) =>
+      createCliWorkspaceComposition({ cwd: context.cwd, userHome: homedir() }).sessionStore,
   };
 }
 

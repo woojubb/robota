@@ -84,8 +84,16 @@ export function useSideEffects({
 
   // Latest-callback refs so the session subscription binds exactly once per session (App recreates
   // some callbacks every render; re-subscribing on each identity change would churn listeners).
-  const handlersRef = useRef({ setSessionName, refreshStatusLineSettings, openAgentSwitcher });
-  handlersRef.current = { setSessionName, refreshStatusLineSettings, openAgentSwitcher };
+  const handlersRef = useRef({
+    setSessionName,
+    refreshStatusLineSettings,
+    openAgentSwitcher,
+  });
+  handlersRef.current = {
+    setSessionName,
+    refreshStatusLineSettings,
+    openAgentSwitcher,
+  };
 
   useEffect(
     () =>

@@ -28,6 +28,8 @@ export interface IAgentJobDispatch {
     prompt: string;
     model?: string;
     isolation?: TBackgroundTaskIsolation;
+    /** CLI-1994: the forked session record the job restores before its first turn (id only). */
+    resumeSessionId?: string;
   }): Promise<ISubagentJobState>;
   sendAgentJob(taskId: string, prompt: string): Promise<void>;
   cancelAgentJob(taskId: string, reason?: string): Promise<void>;

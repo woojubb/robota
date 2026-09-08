@@ -103,6 +103,10 @@ export function buildCreateSessionOptions(
       : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
+    // CLI-1994: the fork job's record store reaches the runner through the agent runtime.
+    ...(options.resumeSessionStore !== undefined
+      ? { resumeSessionStore: options.resumeSessionStore }
+      : {}),
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.commandModules?.some((module) =>

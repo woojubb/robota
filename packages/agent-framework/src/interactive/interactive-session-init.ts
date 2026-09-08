@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { buildCreateSessionOptions } from './create-session-projection.js';
+import { applyForkedSystemPrompt } from './interactive-session-fork-record.js';
 import {
   applyInteractiveWorkspaceManifest,
   interactivePresetOptions,
@@ -165,6 +166,8 @@ export interface IAsyncInitDeps {
   resumeSessionId: string | undefined;
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
+  /** CLI-1994: the resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
+  restoredSystemPrompt: string | undefined;
   /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
   permissionHandler: IInitOptions['permissionHandler'];
   askHandler: IInitOptions['askHandler'];
@@ -224,6 +227,8 @@ export async function initializeInteractiveSessionAsync(
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
+    // CLI-1994: the store this session persists to is where `/fork` writes the copy a job resumes.
+    ...(options.sessionStore !== undefined ? { resumeSessionStore: options.sessionStore } : {}),
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,
@@ -271,6 +276,12 @@ export async function initializeInteractiveSessionAsync(
           isModelCommandInvocable: deps.isModelCommandInvocable,
         }
       : {}),
+  });
+
+  applyForkedSystemPrompt(created.session, {
+    isFork: options.forkSession === true,
+    restoredSystemPrompt: deps.restoredSystemPrompt,
+    explicitSystemPrompt: options.systemPrompt,
   });
 
   if (deps.pendingRestoreMessages) {

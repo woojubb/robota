@@ -1,4 +1,13 @@
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
+
+/**
+ * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
+ * function that reads it (`restoreSessionRecordIntoSession`, agent-framework) rather than from the
+ * interface package that declares the port — this package does not depend on that package, and a
+ * type derived from the consumer cannot drift from what the consumer accepts.
+ */
+export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSession>[0];
 
 /**
  * ARCH-021: what the product composes, stated by the composition root.
@@ -88,6 +97,21 @@ export interface ISubagentWorkerComposition {
    * stop refusing.
    */
   readonly sandboxFactories?: Readonly<Record<string, TSandboxClientFactory>>;
+
+  /**
+   * CLI-1994: how the child opens the session store a fork job's record was written to.
+   *
+   * The same shape as `providerDefinitions` and `sandboxFactories`, and for the same reason: where a
+   * product keeps its session records is the composition root's knowledge, and it cannot be
+   * projected onto the wire without also projecting the records — which is exactly what ARCH-044
+   * keeps off it. So the parent sends the id, and the child asks the composition to open the store
+   * FOR THE PARENT'S cwd (`request.cwd`, not the execution root — a worktree-isolated child runs in
+   * a directory that has no session records of its own).
+   *
+   * Absent ⇒ the product composes no store, and a job that names a record to resume fails, stated
+   * as such, rather than starting with an empty conversation that looks like a fork.
+   */
+  readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
 }
 
 /**

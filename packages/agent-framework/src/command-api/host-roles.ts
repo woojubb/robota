@@ -48,6 +48,14 @@ export interface ICommandHostSessionAccess {
   getSession(): ICommandSessionRuntime;
   clearConversationHistory(): void;
   /**
+   * CLI-1994 — write a COPY of the live conversation as a new session record (fresh id, distinct
+   * name, the parent's messages and assembled system message) and return its identity. A role-port
+   * member rather than an `ICommandHostAdapters` entry because the session store is owned by the
+   * session, not by the shell. The copy is not started here: `/fork` spawns the background job that
+   * resumes it, carrying only the returned id.
+   */
+  forkSession(input?: { name?: string }): Promise<{ sessionId: string; name: string }>;
+  /**
    * ARCH-029 TC-08 — required, and the host delegates to `computeSessionReplayValidationReport`.
    * It was an optional override with a framework-computed default and no implementor, which is
    * two declared paths with only one live. One owner, one path.
@@ -213,7 +221,7 @@ export interface ICommandHostAdapterAccess {
   getCommandHostAdapters?(): ICommandHostAdapters;
 }
 
-/** Aggregate: all 46 members remain source-compatible. Declare a role port instead of this. */
+/** Aggregate: all 47 members remain source-compatible. Declare a role port instead of this. */
 export interface ICommandHostContext
   extends
     ICommandHostSessionAccess,

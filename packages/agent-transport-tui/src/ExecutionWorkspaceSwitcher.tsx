@@ -1,15 +1,9 @@
 import { Box, useInput } from 'ink';
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 
+import { useWorkspaceSwitcherSelection } from './execution-workspace-switcher-selection.js';
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
-import {
-  applySelectionInput,
-  createSelectionFlowState,
-  getVerticalSelectionInputAction,
-  normalizeSelectionState,
-  type ISelectionFlowState,
-  type TSelectionInputAction,
-} from './flows/selection-flow.js';
+import { getVerticalSelectionInputAction } from './flows/selection-flow.js';
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
@@ -27,8 +21,6 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 
-const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
-
 /** Footer for the workspace switcher (order: navigate → primary → dismiss). */
 export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
   { keys: '↑↓', label: 'Navigate' },
@@ -36,11 +28,30 @@ export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
   { keys: 'Ctrl+B/Esc', label: 'Close' },
 ];
 
+/**
+ * CLI-1994: the extra hint shown only while a forked entry is focused. Appended rather than always
+ * present, because a key that does nothing on most rows reads as a broken key, not an unused one.
+ */
+export const EXECUTION_WORKSPACE_ATTACH_HINT: IKeyHint = { keys: 'a', label: 'Attach' };
+
+/** The key that attaches to a forked session. Lower-case only; `A` is left free. */
+const ATTACH_KEY = 'a';
+
 interface IProps {
   snapshot: IExecutionWorkspaceSnapshot | null;
   selectedEntryId?: string;
   onSelect: (entryId: string) => void;
   onClose: () => void;
+  /**
+   * CLI-1994: attach to the focused entry's forked session — a VIEW switch onto that record, never
+   * a merge. Absent when the surface cannot switch sessions; the control is then not offered.
+   */
+  onAttach?: (entry: IExecutionWorkspaceEntry) => void;
+}
+
+/** CLI-1994: `attach` is offered by the projection; the switcher only reads what it was handed. */
+function offersAttach(entry: IExecutionWorkspaceEntry | undefined): boolean {
+  return entry?.controls.includes('attach') === true;
 }
 
 export default function ExecutionWorkspaceSwitcher({
@@ -48,6 +59,7 @@ export default function ExecutionWorkspaceSwitcher({
   selectedEntryId,
   onSelect,
   onClose,
+  onAttach,
 }: IProps): React.ReactElement {
   const entries = [...(snapshot?.entries ?? [])];
   const { normalized, visibleEntries, applyAction } = useWorkspaceSwitcherSelection({
@@ -56,6 +68,8 @@ export default function ExecutionWorkspaceSwitcher({
     onSelect,
     onClose,
   });
+  const focusedEntry = entries[normalized.selectedIndex];
+  const canAttach = onAttach !== undefined && offersAttach(focusedEntry);
 
   // CLI-2004: the switcher is an arrow-key menu, so the mode gives it numbers and a typed answer.
   const screenReader = useScreenReader();
@@ -71,7 +85,22 @@ export default function ExecutionWorkspaceSwitcher({
   });
 
   useInput(
-    (_input, key) => {
+    (input, key) => {
+      // CLI-1994: `a` attaches to the focused fork. Guarded against the modifiers because Ink
+      // reports Ctrl+A as the letter with `ctrl` set, and a chord must not attach silently.
+      if (
+        canAttach &&
+        input === ATTACH_KEY &&
+        key.ctrl !== true &&
+        key.meta !== true &&
+        focusedEntry
+      ) {
+        // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
+        // switch between — it closes itself rather than making every caller remember to.
+        onAttach(focusedEntry);
+        onClose();
+        return;
+      }
       const action = getVerticalSelectionInputAction(key);
       if (action !== undefined) applyAction(action);
     },
@@ -120,103 +149,15 @@ export default function ExecutionWorkspaceSwitcher({
           invalid={numbered.invalid}
         />
       ) : (
-        <KeyHintFooter hints={EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS} />
+        <KeyHintFooter
+          hints={
+            canAttach
+              ? [...EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS, EXECUTION_WORKSPACE_ATTACH_HINT]
+              : EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS
+          }
+        />
       )}
     </Box>
-  );
-}
-
-interface IUseWorkspaceSwitcherSelectionInput {
-  entries: IExecutionWorkspaceEntry[];
-  selectedEntryId?: string;
-  onSelect: (entryId: string) => void;
-  onClose: () => void;
-}
-
-function useWorkspaceSwitcherSelection({
-  entries,
-  selectedEntryId,
-  onSelect,
-  onClose,
-}: IUseWorkspaceSwitcherSelectionInput): {
-  normalized: ISelectionFlowState;
-  visibleEntries: IExecutionWorkspaceEntry[];
-  applyAction: (action: TSelectionInputAction) => void;
-} {
-  const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
-  const stateRef = useRef(state);
-
-  useEffect(() => {
-    const selectedIndex = Math.max(
-      0,
-      entries.findIndex((entry) => entry.id === selectedEntryId),
-    );
-    const nextState = createNormalizedSelection({ selectedIndex, itemCount: entries.length });
-    stateRef.current = nextState;
-    setState(nextState);
-  }, [entries.length, selectedEntryId]);
-
-  const normalized = createNormalizedSelection({
-    selectedIndex: state.selectedIndex,
-    scrollOffset: state.scrollOffset,
-    itemCount: entries.length,
-  });
-  if (normalized !== state) stateRef.current = normalized;
-  return {
-    normalized,
-    visibleEntries: entries.slice(
-      normalized.scrollOffset,
-      normalized.scrollOffset + MAX_VISIBLE_WORKSPACE_ENTRIES,
-    ),
-    applyAction: createApplyAction({ entries, stateRef, setState, onSelect, onClose }),
-  };
-}
-
-function createApplyAction({
-  entries,
-  stateRef,
-  setState,
-  onSelect,
-  onClose,
-}: {
-  entries: IExecutionWorkspaceEntry[];
-  stateRef: React.MutableRefObject<ISelectionFlowState>;
-  setState: React.Dispatch<React.SetStateAction<ISelectionFlowState>>;
-  onSelect: (entryId: string) => void;
-  onClose: () => void;
-}): (action: TSelectionInputAction) => void {
-  return (action): void => {
-    const result = applySelectionInput(stateRef.current, action, {
-      itemCount: entries.length,
-      maxVisible: MAX_VISIBLE_WORKSPACE_ENTRIES,
-    });
-    const nextState =
-      result.effect.type === 'select' || result.effect.type === 'cancel'
-        ? { ...result.state, resolved: false }
-        : result.state;
-    stateRef.current = nextState;
-    setState(nextState);
-    if (result.effect.type === 'cancel') {
-      onClose();
-    } else if (result.effect.type === 'select') {
-      const entry = entries[result.effect.index];
-      if (entry) onSelect(entry.id);
-    }
-  };
-}
-
-function createNormalizedSelection(input: {
-  selectedIndex: number;
-  scrollOffset?: number;
-  itemCount: number;
-}): ISelectionFlowState {
-  return normalizeSelectionState(
-    {
-      selectedIndex: input.selectedIndex,
-      scrollOffset: input.scrollOffset ?? 0,
-      resolved: false,
-    },
-    { itemCount: input.itemCount, maxVisible: MAX_VISIBLE_WORKSPACE_ENTRIES },
   );
 }
 

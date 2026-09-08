@@ -189,6 +189,10 @@ export function createQueuedBackgroundTaskState(
     updatedAt: now,
     unread: false,
     isolation: request.kind === 'agent' ? request.isolation : undefined,
+    // CLI-1994: carried so a surface can offer `attach` on a forked conversation's task.
+    ...(request.kind === 'agent' && request.resumeSessionId !== undefined
+      ? { resumeSessionId: request.resumeSessionId }
+      : {}),
     ...(request.metadata ? { metadata: { ...request.metadata } } : {}),
     ...schedule,
     ...preview,

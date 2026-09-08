@@ -6,6 +6,7 @@ import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
 import { createExitCommandModule } from '../exit/index.js';
+import { createForkCommandModule } from '../fork/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
@@ -110,6 +111,9 @@ export function createDefaultCommandModules({
     createPresetCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
+    // CLI-1994: beside `/background`, because a fork IS a background job — the one it starts is
+    // listed, peeked at, stopped and attached to through that command and its panel.
+    createForkCommandModule(),
     createGoalCommandModule(),
     createPlanCommandModule(),
     createShellCommandModule(),

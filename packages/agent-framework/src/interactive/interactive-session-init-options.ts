@@ -10,6 +10,7 @@
  * Re-exported from the original module, so no consumer has to know it moved.
  */
 
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
@@ -53,6 +54,8 @@ export interface IInitOptions {
   permissionHandler?: TInteractivePermissionHandler;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** CLI-1994: the record store a spawned fork job restores its `resumeSessionId` from. */
+  resumeSessionStore?: IInteractiveSessionStore;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

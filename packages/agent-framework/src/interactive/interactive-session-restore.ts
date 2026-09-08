@@ -67,6 +67,13 @@ export function loadSessionRecord(
   goal: IGoalState | undefined;
   plan: IPlanArtifact | undefined;
   activeBranch: IActiveBranchPointer | undefined;
+  /**
+   * CLI-1994: the ASSEMBLED system message the record was persisted with. Every persist writes it
+   * (`interactive-session-persistence.ts`) and, until this item, nothing read it back. A fork
+   * inherits it verbatim — that is what "a copy of the conversation" means for the prompt half.
+   * `undefined` for a record written without one, which then rebuilds the prompt as before.
+   */
+  restoredSystemPrompt: string | undefined;
 } {
   const outcome = sessionStore.load(resumeSessionId);
   if (outcome.status !== 'valid') {
@@ -87,6 +94,7 @@ export function loadSessionRecord(
       goal: undefined,
       plan: undefined,
       activeBranch: undefined,
+      restoredSystemPrompt: undefined,
     };
   }
   const record = outcome.record;
@@ -137,7 +145,46 @@ export function loadSessionRecord(
     goal: record.goal,
     plan: record.plan,
     activeBranch: record.activeBranch,
+    restoredSystemPrompt: record.systemPrompt,
   };
+}
+
+/** What {@link restoreSessionRecordIntoSession} did to the session it was handed. */
+export interface ISessionRecordRestoreResult {
+  /** Whether the record carried a system prompt and the session now runs under it. */
+  readonly systemPromptRestored: boolean;
+}
+
+/**
+ * CLI-1994: restore a persisted record into an ALREADY CONSTRUCTED session — the path a subagent
+ * runner takes for a fork job, in this process or in a child process.
+ *
+ * The runner receives only `resumeSessionId` (ARCH-044: the conversation never crosses the wire);
+ * this is where the id becomes the conversation. It is the same injection the startup fork uses
+ * (`loadSessionRecord` over an existing session), plus the prompt half: the child inherits the
+ * parent's ASSEMBLED system message rather than the subagent prompt it was constructed with.
+ *
+ * A record the store cannot hand back is a failure of the job, stated as such. Starting the child
+ * empty in that case would be a fork that silently forgot its parent, which is the one outcome a
+ * caller of this function has no way to detect.
+ */
+export function restoreSessionRecordIntoSession(
+  sessionStore: IInteractiveSessionStore,
+  resumeSessionId: string,
+  session: Session,
+): ISessionRecordRestoreResult {
+  const restored = loadSessionRecord(sessionStore, resumeSessionId, session);
+  if (restored.loadOutcome.status !== 'valid') {
+    throw new Error(
+      `Cannot resume session ${resumeSessionId}: the session store reported ` +
+        `"${restored.loadOutcome.status}" for its record.`,
+    );
+  }
+  if (restored.restoredSystemPrompt !== undefined) {
+    session.updateSystemMessage(restored.restoredSystemPrompt);
+  }
+  session.syncContextFromHistory();
+  return { systemPromptRestored: restored.restoredSystemPrompt !== undefined };
 }
 
 function reconcileRestoredBackgroundTasks(

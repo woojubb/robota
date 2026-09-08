@@ -12,6 +12,10 @@ export {
   WorkspaceSessionLogSource,
 } from './session-persistence.js';
 export { generateSessionName } from './session-naming.js';
+// CLI-1994: the one restore a subagent runner in ANY process performs for a fork job — the id it
+// received becomes the copied conversation here, so no runner re-derives the injection.
+export { restoreSessionRecordIntoSession } from './interactive-session-restore.js';
+export type { ISessionRecordRestoreResult } from './interactive-session-restore.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';
 export type {
   TInteractiveSessionOptions,

@@ -186,6 +186,14 @@ function hasPayloadString(
   return hasString(value, key);
 }
 
+/** An OPTIONAL request key: absent is valid, present must be a string — typed against the request. */
+function hasOptionalRequestString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentSpawnRequest & string,
+): boolean {
+  return value[key] === undefined || typeof value[key] === 'string';
+}
+
 /**
  * CORE-024 (RUNTIME-47): validate the optional `usage` payload on a `result` message so a
  * malformed object cannot be spread verbatim into the parent's token/cost accounting. Absent is
@@ -229,6 +237,9 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
   // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
   if (!hasRequestString(value.request, 'cwd')) return false;
+  // CLI-1994: a fork job names the record it resumes — an id, never the conversation. A non-string
+  // here is a payload that put something else where the id goes, and the worker must not guess.
+  if (!hasOptionalRequestString(value.request, 'resumeSessionId')) return false;
   // …and `worktree.path` is the HIGHER-precedence carrier — `worktree?.path ?? request.cwd` — so
   // validating `cwd` alone leaves the winning branch unchecked. Before ARCH-031 the runner rewrote
   // `request.cwd` to the worktree, so one check covered both; now it does not.

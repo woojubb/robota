@@ -193,6 +193,12 @@ export function createTestCommandHost(
     getCwd: () => cwd,
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
+    // CLI-1994: "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
+    forkSession: (input) =>
+      Promise.resolve({
+        sessionId: `test-command-host-${doublesCreated}-fork`,
+        name: input?.name ?? `test-command-host-${doublesCreated} (fork)`,
+      }),
     // `undefined` is "no interactive renderer is attached" — the headless case, which every
     // command must already handle as a cancellation rather than a silent guess (CMD-004).
     getUserInteraction: () => undefined,

@@ -275,6 +275,11 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   return { session, rebuildSystemMessage };
 }
 
-function createSessionId(): string {
+/**
+ * The id every session this package assembles gets. Exported for the one other producer of a
+ * session record — the in-session fork (`interactive-session-fork-record.ts`, CLI-1994) — so the
+ * `session_<uuid>` form is written here once rather than a second time beside it.
+ */
+export function createSessionId(): string {
   return `session_${randomUUID()}`;
 }
