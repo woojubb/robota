@@ -150,3 +150,26 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   with a normal `stdout.write` drain makes the fixture expose the full response.
 - source: INFRA-2662 full contract verification, 2026-09-09
 - related: PROC-016, #2386
+
+### LRN-hook-test-runner-must-drain-large-stdout
+
+- observed-at: 2026-09-09T02:38:00+09:00
+- observation: `remaining-hooks-run.test.mjs` used synchronous child execution while
+  `spec-first-gate.sh` legitimately emits a multi-kilobyte heredoc. The child filled stdout before
+  exiting, while the synchronous parent waited for exit before draining it, deadlocking the contract
+  shard.
+- evidence: the child stack stayed in Bash `heredoc_write`; converting the helper to asynchronous
+  `spawn` with live stdout/stderr listeners lets the same four spec-first cases complete.
+- source: INFRA-2662 full contract verification, 2026-09-09
+- related: PROC-003, remaining-hooks-run contract
+
+### LRN-spec-first-gate-heredoc-must-not-feed-external-cat
+
+- observed-at: 2026-09-09T02:49:00+09:00
+- observation: The live `spec-first-gate.sh` feature path itself deadlocked before producing its
+  reminder. Bash prepared the multi-kilobyte heredoc through a pipe whose writer could fill before
+  the consumer process was available.
+- evidence: a direct JSON-piped invocation stayed in `heredoc_write`; splitting the reminder into
+  bounded heredoc chunks returns immediately and preserves the reminder text.
+- source: INFRA-2662 contract-gate verification, 2026-09-09
+- related: PROC-003, INFRA-2662

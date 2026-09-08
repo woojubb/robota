@@ -55,37 +55,37 @@ if [ -z "$HAS_IMPL_INTENT" ]; then
   exit 0
 fi
 
-# Output SPEC-GATE reminder (stdout gets injected as <user-prompt-submit-hook> context)
-cat <<'EOF'
-⚠️  SPEC-GATE: Implementation intent detected.
-
-MANDATORY SEQUENCE before writing any code (.ts/.tsx/.js files):
-
-1. Read-only code exploration is allowed (Read, grep, find — no Write/Edit to .ts files).
-2. Derive the lane from the paths the change will touch, per `.agents/rules/spec-workflow.md` § Lanes,
-   and declare it — `Lane: L0|L1|L2` — on the branch (commit trailer) and the pull request (body).
-   The lane is the diff's floor: `scan-lane-declaration` refuses a declaration under it, and no
-   argument lowers it.
-   → L0 (no non-comment change under `src/` or `scripts/`, nothing on an L2 path — the floors table in spec-workflow.md § Lanes is the owner): no spec document.
-   → L1 (a non-comment `src/` change, no L2 path): scaffold the spec document with
-     `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`.
-   → L2 (any L2 path): create a backlog draft `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`
-     → Use skill: `backlog-writer` to author it
-     → Required frontmatter: status, type, tags, lane
-     → DEFAULT-ON: include a substantiated `## Prior Art Research` section (dispatch the
-       `prior-art-researcher` agent) — comparable products/OSS/AI-agent refs from PRODUCT DOCS, feeding an
-       evidence-based recommendation. Opt out only with an explicit `Waived: <reason>`. Enforced by
-       `scan-spec-research.mjs` + GATE-WRITE. Per `.agents/rules/research.md`.
-3. Run the lane's gates: L1 = PLAN via `node scripts/harness/gate.mjs judge --gate PLAN`;
-   L2 = the five spec-document gates via `backlog-pipeline` (GATE-WRITE → … → GATE-APPROVAL).
-   L0 has no gate before code — CI, the reviewer verdict and the merge gate judge it.
-4. Only after the lane's gates pass: implement.
-
-Per `.agents/rules/spec-workflow.md` § Lanes and § HARD GATE, and `.agents/rules/research.md` (research is default-on).
-There is NO waiver. A user instruction to shorten the path ("skip spec", "just fix it") is a FAST TRACK:
-record `Fast-track: <the instruction, quoted verbatim>` on the pull request — the PR is the record, not
-your response — never on a path whose floor is L2 (`scan-lane-declaration` refuses it), and the lane
-stays the diff's.
-EOF
+# Output SPEC-GATE reminder (stdout gets injected as <user-prompt-submit-hook> context).
+# Use printf directly: a large heredoc can block Bash while preparing its pipe-backed body.
+printf '%s\n' \
+'⚠️  SPEC-GATE: Implementation intent detected.' \
+'' \
+'MANDATORY SEQUENCE before writing any code (.ts/.tsx/.js files):' \
+'' \
+'1. Read-only code exploration is allowed (Read, grep, find — no Write/Edit to .ts files).' \
+'2. Derive the lane from the paths the change will touch, per `.agents/rules/spec-workflow.md` § Lanes,' \
+'   and declare it — `Lane: L0|L1|L2` — on the branch (commit trailer) and the pull request (body).' \
+'   The lane is the diff'\''s floor: `scan-lane-declaration` refuses a declaration under it, and no' \
+'   argument lowers it.' \
+'   → L0 (no non-comment change under `src/` or `scripts/`, nothing on an L2 path — the floors table in spec-workflow.md § Lanes is the owner): no spec document.' \
+'   → L1 (a non-comment `src/` change, no L2 path): scaffold the spec document with' \
+'     `node scripts/harness/new-spec.mjs <ID> --type <T> --issue <N> --lane L1`.' \
+'   → L2 (any L2 path): create a backlog draft `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`' \
+'     → Use skill: `backlog-writer` to author it' \
+'     → Required frontmatter: status, type, tags, lane' \
+'     → DEFAULT-ON: include a substantiated `## Prior Art Research` section (dispatch the' \
+'       `prior-art-researcher` agent) — comparable products/OSS/AI-agent refs from PRODUCT DOCS, feeding an' \
+'       evidence-based recommendation. Opt out only with an explicit `Waived: <reason>`. Enforced by' \
+'       `scan-spec-research.mjs` + GATE-WRITE. Per `.agents/rules/research.md`.' \
+'3. Run the lane'\''s gates: L1 = PLAN via `node scripts/harness/gate.mjs judge --gate PLAN`;' \
+'   L2 = the five spec-document gates via `backlog-pipeline` (GATE-WRITE → … → GATE-APPROVAL).' \
+'   L0 has no gate before code — CI, the reviewer verdict and the merge gate judge it.' \
+'4. Only after the lane'\''s gates pass: implement.' \
+'' \
+'Per `.agents/rules/spec-workflow.md` § Lanes and § HARD GATE, and `.agents/rules/research.md` (research is default-on).' \
+'There is NO waiver. A user instruction to shorten the path ("skip spec", "just fix it") is a FAST TRACK:' \
+'record `Fast-track: <the instruction, quoted verbatim>` on the pull request — the PR is the record, not' \
+'your response — never on a path whose floor is L2 (`scan-lane-declaration` refuses it), and the lane' \
+'stays the diff'\''s.'
 
 exit 0

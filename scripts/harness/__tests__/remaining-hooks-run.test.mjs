@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -34,23 +34,29 @@ function scratchDir(prefix) {
 }
 
 function run(hook, { input, env = {}, cwd = WORKSPACE_ROOT } = {}) {
-  const result = spawnSync('bash', [path.join(HOOKS_DIR, hook)], {
-    input,
-    cwd,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
+  return new Promise((resolve) => {
+    const child = spawn('bash', [path.join(HOOKS_DIR, hook)], {
+      cwd,
+      env: { ...process.env, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.once('error', () => resolve({ status: 1, output: `${stdout}${stderr}` }));
+    child.once('close', (code) => resolve({ status: code ?? 1, output: `${stdout}${stderr}` }));
+    child.stdin.end(input ?? '');
   });
-  return {
-    status: result.status ?? 1,
-    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-  };
 }
 
 describe('memory-mirror-reminder', () => {
   // Signal: the PostToolUse payload's `tool_input.file_path`, sent by the tool host on every
   // Write/Edit. Nothing else is required, so a case supplies only that.
-  it('reminds on a write outside the in-repo memory', () => {
-    const verdict = run('memory-mirror-reminder.sh', {
+  it('reminds on a write outside the in-repo memory', async () => {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({ tool_input: { file_path: '/home/u/.claude/memory/thing.md' } }),
     });
 
@@ -58,10 +64,10 @@ describe('memory-mirror-reminder', () => {
     expect(verdict.output.trim().length, 'the reminder said nothing at all').toBeGreaterThan(0);
   });
 
-  it('stays silent on a write INTO the in-repo memory', () => {
+  it('stays silent on a write INTO the in-repo memory', async () => {
     // The compliant case is the whole point: a reminder that fires on the compliant path is one
     // everybody learns to ignore.
-    const verdict = run('memory-mirror-reminder.sh', {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({ tool_input: { file_path: '/repo/.agents/memory/thing.md' } }),
     });
 
@@ -73,8 +79,8 @@ describe('memory-mirror-reminder', () => {
   // `cp` or `sed -i` carries no `file_path` — six durable lessons sat unmirrored because every one
   // was written that way. Signal: the PostToolUse payload's `tool_input.command`, sent by the tool
   // host on every Bash call, under the `Bash` matcher added beside the Write/Edit one.
-  it('reminds on a Bash heredoc redirected into host memory', () => {
-    const verdict = run('memory-mirror-reminder.sh', {
+  it('reminds on a Bash heredoc redirected into host memory', async () => {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({
         tool_name: 'Bash',
         tool_input: {
@@ -87,8 +93,8 @@ describe('memory-mirror-reminder', () => {
     expect(verdict.output).toContain('/.claude/projects/p/memory/lesson.md');
   });
 
-  it('reminds on a Bash cp whose quoted target is host memory', () => {
-    const verdict = run('memory-mirror-reminder.sh', {
+  it('reminds on a Bash cp whose quoted target is host memory', async () => {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({
         tool_name: 'Bash',
         tool_input: { command: 'cp notes.md "$HOME/.claude/memory/notes.md"' },
@@ -99,10 +105,10 @@ describe('memory-mirror-reminder', () => {
     expect(verdict.output).toContain('/.claude/memory/notes.md');
   });
 
-  it('stays silent on a Bash READ of host memory', () => {
+  it('stays silent on a Bash READ of host memory', async () => {
     // A reminder that fires on `cat` is one everybody learns to ignore — same reason as the in-repo
     // case above.
-    const verdict = run('memory-mirror-reminder.sh', {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({
         tool_name: 'Bash',
         tool_input: { command: 'cat ~/.claude/memory/thing.md' },
@@ -113,8 +119,8 @@ describe('memory-mirror-reminder', () => {
     expect(verdict.output.trim()).toBe('');
   });
 
-  it('stays silent on a Bash write INTO the in-repo memory', () => {
-    const verdict = run('memory-mirror-reminder.sh', {
+  it('stays silent on a Bash write INTO the in-repo memory', async () => {
+    const verdict = await run('memory-mirror-reminder.sh', {
       input: JSON.stringify({
         tool_name: 'Bash',
         tool_input: { command: "tee .agents/memory/thing.md <<'EOF'\nfact\nEOF" },
@@ -129,8 +135,8 @@ describe('memory-mirror-reminder', () => {
 describe('post-tool-format', () => {
   // Signal: `tool_input.file_path` again, and the file must EXIST — the hook formats what was just
   // written. A path that does not exist is the ordinary case for a deleted or moved file.
-  it('does nothing for a file that is not there', () => {
-    const verdict = run('post-tool-format.sh', {
+  it('does nothing for a file that is not there', async () => {
+    const verdict = await run('post-tool-format.sh', {
       input: JSON.stringify({ tool_input: { file_path: '/nonexistent/nowhere.ts' } }),
     });
 
@@ -201,10 +207,10 @@ describe('post-tool-format', () => {
 describe('spec-first-gate', () => {
   // Signal: the UserPromptSubmit payload's `prompt`. The gate reads intent from the text, so the
   // cases are prompts.
-  it('injects the gate when a prompt states implementation intent without a spec', () => {
+  it('injects the gate when a prompt states implementation intent without a spec', async () => {
     // The case the earlier pair claimed and did not reach: both of those took the silent path, so
     // breaking the intent match or deleting the SPEC-GATE block entirely would have left them green.
-    const verdict = run('spec-first-gate.sh', {
+    const verdict = await run('spec-first-gate.sh', {
       input: JSON.stringify({ prompt: 'implement the retry queue for the worker' }),
     });
 
@@ -214,10 +220,10 @@ describe('spec-first-gate', () => {
     );
   });
 
-  it('stays quiet when the prompt already refers to a spec', () => {
+  it('stays quiet when the prompt already refers to a spec', async () => {
     // The other half of the same branch: a prompt that names a spec has already done what the gate
     // asks for, and a gate that fires anyway is one people learn to scroll past.
-    const verdict = run('spec-first-gate.sh', {
+    const verdict = await run('spec-first-gate.sh', {
       input: JSON.stringify({ prompt: 'implement the retry queue per its spec-doc' }),
     });
 
@@ -225,8 +231,8 @@ describe('spec-first-gate', () => {
     expect(verdict.output.trim()).toBe('');
   });
 
-  it('says nothing when the prompt states no implementation intent', () => {
-    const verdict = run('spec-first-gate.sh', {
+  it('says nothing when the prompt states no implementation intent', async () => {
+    const verdict = await run('spec-first-gate.sh', {
       input: JSON.stringify({ prompt: 'what does this package do?' }),
     });
 
@@ -234,8 +240,8 @@ describe('spec-first-gate', () => {
     expect(verdict.output.trim()).toBe('');
   });
 
-  it('says nothing on an empty prompt', () => {
-    const verdict = run('spec-first-gate.sh', { input: JSON.stringify({ prompt: '' }) });
+  it('says nothing on an empty prompt', async () => {
+    const verdict = await run('spec-first-gate.sh', { input: JSON.stringify({ prompt: '' }) });
 
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
@@ -294,9 +300,9 @@ describe('task-tracking', () => {
     expect(verdict.output).not.toMatch(/TASK-1\.md — DONE/);
   });
 
-  it('refuses a mode it does not handle, and says so', () => {
+  it('refuses a mode it does not handle, and says so', async () => {
     // Invoked with no mode it is not a no-op — it is a misuse, and the hook names the two it takes.
-    const verdict = run('task-tracking.sh', { input: '{}' });
+    const verdict = await run('task-tracking.sh', { input: '{}' });
 
     expect(verdict.status, verdict.output).not.toBe(0);
     expect(verdict.output).toMatch(/Usage: task-tracking\.sh <start\|stop>/);
