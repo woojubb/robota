@@ -20,11 +20,11 @@ surfaces are not changed.
 
 ## Plan
 
-- [ ] TC-01 — Add the live-rule regression covering all matching gate modules and excluding neighbouring
+- [x] TC-01 — Add the live-rule regression covering all matching gate modules and excluding neighbouring
       scans, then prove the test goes red when the approved rule row is reverted.
 - [ ] TC-02 — Run the affected harness scan set on the approved rule/test pair and record its exit code.
-- [ ] TC-03 — Run the complete `scan-lane-declaration` test file and record its exit code.
-- [ ] TC-04 — Run the end-to-end lane declaration refusal for a changed `gate-operations.mjs` path with
+- [x] TC-03 — Run the complete `scan-lane-declaration` test file and record its exit code.
+- [x] TC-04 — Run the end-to-end lane declaration refusal for a changed `gate-operations.mjs` path with
       `Lane: L1`, confirming the output names the L2 floor.
 
 ## User Execution Test Scenarios

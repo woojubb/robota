@@ -472,3 +472,107 @@ and body-section checks all passed.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9cc53dcd1fbd` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/todo/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `0073b22c9960` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-08
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/scan-lane-declaration.test.mjs (56 tests) 1534ms
+   ✓ scan-lane-declaration — exit contract > reads the changed set, diff and trailer from git when no fixture flags are given  1092ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  23:37:45
+   Duration  1.94s (transform 105ms, setup 0ms, collect 122ms, tests 1.53s, environment 0ms, prepare 54ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `7e81f642004d` (tracked)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-08
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-lane-declaration.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/scan-lane-declaration.test.mjs (56 tests) 1534ms
+   ✓ scan-lane-declaration — exit contract > reads the changed set, diff and trailer from git when no fixture flags are given  1092ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  23:37:45
+   Duration  1.94s (transform 105ms, setup 0ms, collect 122ms, tests 1.53s, environment 0ms, prepare 54ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `534e846adfaa` (modified)
+
+### [GATE-COMPLETE: TC-04] — ❌ FAIL | 2026-09-08
+
+**Command:** `node scripts/harness/scan-lane-declaration.mjs --changed scripts/harness/gate-operations.mjs --diff-file /dev/null --trailers-file <(printf 'Lane: L1\\n')`
+**Exit:** 1
+**Output:** (last 7 of 7 line(s))
+
+```
+::examined:: 1 changed path(s)
+  L2  scripts/harness/gate-operations.mjs  ← `scripts/harness/gate*.{mjs,json}`
+❌ Lane declaration refused (declared L1 (commit trailer), floor L2):
+  - declared L1 is below the floor L2 set by: scripts/harness/gate-operations.mjs `scripts/harness/gate*.{mjs,json}`
+
+.agents/rules/spec-workflow.md § Lane floors: a lane is declared and refused, never argued. Raise the declaration to the floor, or drop the change that sets it.
+lane-declaration summary: violations=1 result=FAIL
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `72918f8319ed` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-08
+
+**Command:** `scan-lane-declaration refusal assertion (expected exit 1)`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+::examined:: 1 changed path(s)
+  L2  scripts/harness/gate-operations.mjs  ← `scripts/harness/gate*.{mjs,json}`
+❌ Lane declaration refused (declared L1 (commit trailer), floor L2):
+  - declared L1 is below the floor L2 set by: scripts/harness/gate-operations.mjs `scripts/harness/gate*.{mjs,json}`
+
+.agents/rules/spec-workflow.md § Lane floors: a lane is declared and refused, never argued. Raise the declaration to the floor, or drop the change that sets it.
+lane-declaration summary: violations=1 result=FAIL
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `5146822a70bf` (modified)
+
+### [GATE-COMPLETE: TC-02] — ❌ FAIL | 2026-09-08
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 1
+**Output:** (last 10 of 140 line(s))
+
+```
+
+⚑ 3 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ progress-report-quantification: progress-report quantification examined 0 transcript(s) — no session transcript for this workspace at /Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-woojubb-robota-5; the agent-narrative channel does not exist on this host (e.g. CI or a fresh checkout), so nothing was judged.
+⚑ reference-kind-qualified: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop.
+
+
+✗ examined-size adoption drift —
+  GONE: 1 frozen scan(s) (work-run-measurement) are no longer registered scans at all. Prune them from scripts/harness/examined-adoption-baseline.json (or run --write-adoption-baseline) so the set cannot rot around a name nothing can ever satisfy.
+1 of 69 scans failed
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `18641e9e83ed` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `ab80a53aa0e0` (modified)
