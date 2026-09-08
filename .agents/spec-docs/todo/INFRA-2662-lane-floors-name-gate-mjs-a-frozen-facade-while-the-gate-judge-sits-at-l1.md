@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [harness, governance]
 lane: L2
@@ -293,3 +293,124 @@ this gate's expected input state. This run's finding is the Violation above, not
 **Judged by:** backlog-gate-guard (all 27 criteria; the semantic set judged in this run, the mechanical
 set re-checked against the document text rather than taken from the reported summary)
 **Judged at:** HEAD `754c9e239eec` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/draft/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `b1add11630a1` (untracked)
+
+### [GATE-WRITE] — ✅ PASS | 2026-09-08
+
+**Status upgrade:** `draft` → `review-ready`
+
+**Ordering:** GATE-WRITE is the entry gate and has no predecessor. The document is `status: draft` in
+`.agents/spec-docs/draft/`, as required. The prior 2026-09-07 NON-COMPLIANCE is historical: against the
+fetched current base, `git status --porcelain` is clean and `git diff origin/develop...HEAD` contains only
+this spec and its paired Task, with no implementation or rule paths.
+
+**Mechanical criteria:** `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc
+.agents/spec-docs/draft/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md
+--lane L2` reported 27 criteria: 20 PASS, 0 FAIL, and 7 semantic criteria pending guardian judgment.
+Frontmatter, non-vague Problem, research/waiver, Architecture Review checklist and alternatives, TC-N
+prefixes and banned-language checks, Test Plan structure (4 rows for 4 criteria), Tasks, Evidence Log,
+and body-section checks all passed.
+
+**Semantic criteria:**
+
+- Concrete symptom: PASS. On current `origin/develop@9d9503b3be7f`, the live lane table assigns
+  `scripts/harness/gate.mjs` L2 while `scripts/harness/gate-operations.mjs` matches no L2 row; the
+  facade is the verified 11-line re-export boundary, while `gate-operations.mjs` contains the judge and
+  approval operations.
+- Reproduction condition: PASS. The document's executable `node -e` reproduction specifies the rule
+  table and the affected path; rerunning it against the fetched base produced `false`.
+- Research feeds the decision: PASS. The explicit waiver is bounded to a repository-factual question;
+  the cited delegated-approval research and exclusion in `backlog-execution.md` are present, and the
+  Decision uses the locally verified matcher boundary rather than an unsupported external analogy.
+- Decision trade-off: PASS. The Decision explicitly weighs a future-proof glob against exhaustive rows,
+  including both pros and cons. The current tree has 16 matching `scripts/harness/gate*` paths (the
+  document's count of 15 is stale after the base moved and is recorded here); `globToRegExp` matches all
+  16 and none of `scan-gate-entrypoint-stability.mjs`, `scan-gate-evaluator-isolation.mjs`,
+  `worktree-gate.mjs`, or `__tests__/gate.test.mjs`.
+- New-surface placement: PASS/N/A. The change adds no package, app, presentation/interface surface, or
+  layer/product-family boundary; the document states that reason.
+- Criterion coverage: PASS. The two Solution items are covered by the red-proof/regression TC-01 and
+  end-to-end floor-refusal TC-04, with TC-02 and TC-03 covering affected-suite and whole-file regression.
+- Criterion form: PASS. All four completion criteria use commands with exit-code or named-output
+  observables; none relies on vague success language.
+
+**Per-criterion results (27):**
+
+- GATE-WRITE — File begins with `---` YAML frontmatter block: PASS — frontmatter begins with `---`.
+- GATE-WRITE — `status: draft` present in frontmatter: PASS — `status: draft`.
+- GATE-WRITE — `type:` is exactly one value from the 11-prefix list: PASS — `type: INFRA` is allowed.
+- GATE-WRITE — `tags:` field present in frontmatter: PASS — `tags: [harness, governance]` is present.
+- GATE-WRITE — Contains a concrete symptom: PASS — the exact L2 row and wrong L1 fallback are named.
+- GATE-WRITE — Contains a reproduction condition: PASS — the executable reproduction names the table and affected path.
+- GATE-WRITE — Does not contain `TBD`, `TODO`, or vague single-sentence descriptions: PASS — the Problem section has no banned placeholder and has substantive prose.
+- GATE-WRITE — `## Prior Art Research` section present: PASS — the section is present.
+- GATE-WRITE — Section is substantiated: PASS — the section is explicitly waived with a reason.
+- GATE-WRITE — OR an explicit `Waived: <reason>` line is present: PASS — a reasoned `Waived:` line is present.
+- GATE-WRITE — Research findings feed `Alternatives Considered` / `Decision`: PASS — the waiver and repository research bound the chosen decision.
+- GATE-WRITE — All 4 checklist items are `[x]`: PASS — all checklist items are checked.
+- GATE-WRITE — Sibling scan item is `[x]` with evidence or N/A reason: PASS — checked with named sibling rows.
+- GATE-WRITE — Alternatives Considered has at least 2 entries with pro/con for each: PASS — 2 alternatives each have Pro and Con.
+- GATE-WRITE — Decision references the trade-off that drove the choice: PASS — glob convention versus exhaustive rows is explicit.
+- GATE-WRITE — New-surface placement (conditional): PASS — N/A; no new surface or boundary is introduced.
+- GATE-WRITE — Every item has a `TC-N` prefix: PASS — TC-01 through TC-04 are prefixed.
+- GATE-WRITE — At least 1 criterion per distinct feature or sub-item: PASS — both Solution items have direct TC coverage.
+- GATE-WRITE — Each criterion uses Command or Observable behavior form: PASS — all four use command/exit or named-output observables.
+- GATE-WRITE — No criterion uses banned vague phrases: PASS — none of the four prohibited phrases appears.
+- GATE-WRITE — `## Test Plan` section present: PASS — section is present.
+- GATE-WRITE — One row exists for each TC-N: PASS — 4 Test Plan rows match 4 completion criteria.
+- GATE-WRITE — Each row has non-empty Test Type and Tool/Approach: PASS — all 4 rows are populated and contain no TBD.
+- GATE-WRITE — Manual Tool rows have explanatory Notes: PASS — 0 manual rows; all rows have Notes.
+- GATE-WRITE — Tasks section present with placeholder: PASS — paired Task path and todo placeholder are present.
+- GATE-WRITE — Evidence Log section present and empty (first run): PASS — re-run contains only prior same-gate evidence and no later-gate entry.
+- GATE-WRITE — No `## Status` or `## Classification` body sections: PASS — neither body section is present.
+
+**Judged by:** `backlog-gate-guard` (semantic set) plus `gate.mjs` (mechanical set)
+**Judged at:** HEAD `29ca0339336a` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/draft/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `d09c0f3abd21` (tracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-08
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인함"
+**Given:** 2026-09-08, this conversation
+**Review fingerprint:** 94ee1346a51c (review e11f2bcc, type/tags 3024bc05)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-08, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (94ee1346a51c) equals the document's current fingerprint
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — the current user instruction identifies INFRA-2662 and gives the exact approval instruction `승인함`, which unambiguously authorizes this document rather than relaying approval for another item.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS (N/A) — Route DIRECT is correct; this document declares `lane: L2` and changes `.agents/rules/spec-workflow.md`, a rule document that defines the gates, while the registered `LANE-L0-L1` class covers only L0/L1 and explicitly excludes changes to gate-defining rule documents.
+- GATE-APPROVAL — Independent architecture validation (conditional): PASS (N/A) — the Affected Scope contains only an existing rule-table row and an existing regression-test file; no package, app, presentation/interface surface, sibling-product dependency, or layer/product-family boundary is introduced or reclassified, matching the Architecture Review checklist's N/A determination.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29ca0339336a` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/backlog/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `1b4dbd5ecda4` (modified)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-08
+
+**Status remains:** review-ready
+**Failed criteria:**
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: status is `review-ready`, `approved` expected
+  **Required action:** run the prior gate to PASS first
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 0/4 TC ids and carries 3 checkbox task(s)
+  **Required action:** one task per TC-N
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 1 path(s) outside the paired spec/Task: .agents/spec-docs/draft/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md
+  **Required action:** commit, stash, or remove them before this gate
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `29ca0339336a` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/backlog/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `9d3417a4b00f` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-08
+
+**Status upgrade:** `review-ready` → `approved`
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인함"
+**Given:** 2026-09-08, this conversation
+
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — the current conversation identifies INFRA-2662 and preserves the exact prior approval `승인함`; in this document-specific context it authorizes this spec, not another item or a relay.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS (N/A) — Route DIRECT is correct; the document is `lane: L2` and changes `.agents/rules/spec-workflow.md`, a gate-defining rule document excluded from delegated approval, while `LANE-L0-L1` covers only L0/L1 items.
+- GATE-APPROVAL — Independent architecture validation (conditional): PASS (N/A) — the approved Affected Scope and Architecture Review remain unchanged and contain only an existing rule-table row plus an existing regression-test file; no new package, app, presentation/interface surface, sibling-product dependency, or layer/product-family boundary is introduced or reclassified.
+
+**Judged by:** independent semantic gate review
+**Judged at:** HEAD `29ca0339336a` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/backlog/INFRA-2662-lane-floors-name-gate-mjs-a-frozen-facade-while-the-gate-judge-sits-at-l1.md` blob `6ef97a452f74` (modified)
