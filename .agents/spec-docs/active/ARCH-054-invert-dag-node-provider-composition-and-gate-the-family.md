@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: ['cli', 'typescript']
 lane: 'L2'
@@ -989,3 +989,109 @@ know, which is a different case from a provider that is known but has no credent
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `6513c9d840ff` · base `origin/develop@95cc99320cb3` · document `.agents/spec-docs/backlog/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `867766dba92b` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-09; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (14)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 4743 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: manual | 3`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "scripts/harness/scan-composition-neutrality.mjs",
+    ".agents/harness.config.json",
+    "scripts/harness/node-family-composition-baseline.json",
+    "packages/agent-core/src/interfaces/media-provider-definition.ts",
+    "packages/dag-nodes/gemini-image-edit/src/runtime-core.ts",
+    "packages/dag-nodes/text-to-image/src/runtime-core.ts",
+    "packages/dag-nodes/seedance-video/src/runtime-core.ts",
+    "packages/dag-cli/src/local-runner/node-registry.ts",
+    "packages/dag-nodes/instant-node/src/index.ts",
+    "packages/agent-command-workflows/src/authoring/pipeline.ts",
+    "ARCHITECTURE.md"
+  ],
+  "taskPath": ".agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+  "specPath": ".agents/spec-docs/todo/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-07"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-08"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-09"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-10"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-11"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-12"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-13"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-14"
+    }
+  ],
+  "plan": {
+    "outcome": "manual",
+    "count": 3
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md",
+    ".agents/tasks/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3000e2538ff9` · base `origin/develop@95cc99320cb3` · document `.agents/spec-docs/todo/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md` blob `8034d14425e4` (tracked)

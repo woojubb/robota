@@ -1,7 +1,7 @@
 ---
 title: 'ARCH-054: invert dag-node provider composition and gate the family'
 issue: https://github.com/woojubb/robota/issues/2158
-status: todo
+status: in-progress
 created: 2026-09-04
 priority: high
 urgency: soon
