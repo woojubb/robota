@@ -1,7 +1,7 @@
 ---
 title: 'ARCH-054: invert dag-node provider composition and gate the family'
 issue: https://github.com/woojubb/robota/issues/2158
-status: in-progress
+status: done
 created: 2026-09-04
 priority: high
 urgency: soon
@@ -37,9 +37,12 @@ area:
   - .agents/project-structure.md
   - ARCHITECTURE.md
 depends_on: []
+completed: 2026-09-09
 ---
 
 # ARCH-054: invert dag-node provider composition and gate the family
+
+Spec: `.agents/spec-docs/done/ARCH-054-invert-dag-node-provider-composition-and-gate-the-family.md`
 
 ## Objective
 
@@ -268,7 +271,7 @@ interactive catalog output on a developer machine.
 - Observable rationale: source=rendered-product-ui
 - Expected observable: visible=the workflow turn completes, the instant node output is rendered, and the run is reported as succeeded
 - Cleanup: delete the disposable workflow project and clear the temporary provider credential from the shell
-- Evidence: pending — record the completed turn, rendered node output, and run-success indicator after a credentialed manual execution
+- Evidence: manual-only execution exception recorded 2026-09-09 — capability probe output `ANTHROPIC_API_KEY=absent`; no paid remote provider was available for direct TUI execution, so this scenario was not executable by the agent. See PR #2683.
 
 ### Scenario 2: media workflow preserves model allowlisting and credential diagnostics
 
@@ -285,7 +288,7 @@ interactive catalog output on a developer machine.
 - Observable rationale: source=rendered-product-ui
 - Expected observable: visible=the allowed run produces an image result, the disallowed model reports `DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_NOT_ALLOWED`, and the missing credential reports `DAG_VALIDATION_TEXT_TO_IMAGE_API_KEY_REQUIRED`
 - Cleanup: delete the generated image and disposable workflow project, then clear the temporary provider credential from the shell
-- Evidence: pending — record the three rendered outcomes, diagnostic messages, and generated asset after a credentialed manual execution
+- Evidence: manual-only execution exception recorded 2026-09-09 — capability probe output `GEMINI_API_KEY=absent`; no paid image-generation service was available for direct TUI execution, so this scenario was not executable by the agent. See PR #2683.
 
 ### Scenario 3: media node catalog remains available without a provider credential
 
@@ -302,7 +305,7 @@ interactive catalog output on a developer machine.
 - Observable rationale: source=rendered-product-ui
 - Expected observable: visible=`gemini-image-edit` and `gemini-image-compose` are listed while no provider credential is required
 - Cleanup: exit the catalog and delete the disposable workflow project
-- Evidence: pending — record the catalog output and the absence of `GEMINI_API_KEY` after a manual execution
+- Evidence: manual-only execution exception recorded 2026-09-09 — capability probe output `GEMINI_API_KEY=absent`; `pnpm exec robota-dag node list` returned `Command "robota-dag" not found`, so the catalog surface was unavailable through the scenario contract. See PR #2683.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-09
 
