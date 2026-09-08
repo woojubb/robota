@@ -14,7 +14,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { Robota } from '../../core/robota';
-import { FunctionTool } from '../../tool-registry';
+import { TOOL_SEARCH_TOOL_NAME } from '../../interfaces/tool-search';
+import { DEFERRED_WITHOUT_LOADER_MESSAGE, FunctionTool } from '../../tool-registry';
 
 import type { IProviderCapabilityTable } from '../../interfaces/model-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
@@ -143,6 +144,11 @@ describe('CORE-043 — provider_request describes what was sent', () => {
    * diverged from the wire whenever the model-capability guard removed the tools, and residency
    * makes the gap routine: the request carries the offered projection, not the registry. A replay
    * driven from an envelope describing tools the model was never shown cannot reproduce the turn.
+   *
+   * The loader is registered because withholding a schema without one is refused
+   * (`DEFERRED_WITHOUT_LOADER_MESSAGE`): a catalogue the model cannot search is a dead end, so a
+   * deferring agent always offers a way in. It need not be the shipped `agent-tools` builtin — only
+   * a tool under the name the execution layer's unknown-tool remedy points at.
    */
   it('TC-08: carries the tools actually sent, not the registry the round was assembled from', async () => {
     const provider = new NoSchemaProvider();
@@ -166,6 +172,14 @@ describe('CORE-043 — provider_request describes what was sent', () => {
           },
           async () => 'ok',
         ),
+        new FunctionTool(
+          {
+            name: TOOL_SEARCH_TOOL_NAME,
+            description: 'loads deferred tools',
+            parameters: OBJECT_PARAMS,
+          },
+          async () => 'ok',
+        ),
       ],
     });
 
@@ -180,10 +194,49 @@ describe('CORE-043 — provider_request describes what was sent', () => {
 
       // The envelope IS the wire.
       expect(logged).toEqual(provider.receivedOptions?.tools);
-      // And the wire is the offered projection: residency removed one tool, so an envelope logging
-      // the registry would carry `deferred_tool` here. That is this case's RED condition.
-      expect(logged?.map((tool) => tool.name)).toEqual(['resident_tool']);
-      expect(agent.getOfferedToolSchemas().map((tool) => tool.name)).toEqual(['resident_tool']);
+      // And the wire is the offered projection: residency removed the deferred tool, so an envelope
+      // logging the registry would carry `deferred_tool` here. That is this case's RED condition.
+      expect(logged?.map((tool) => tool.name)).toEqual(['resident_tool', TOOL_SEARCH_TOOL_NAME]);
+      expect(agent.getOfferedToolSchemas().map((tool) => tool.name)).toEqual([
+        'resident_tool',
+        TOOL_SEARCH_TOOL_NAME,
+      ]);
+    } finally {
+      await agent.destroy();
+    }
+  });
+
+  /**
+   * The companion to the case above: the same agent WITHOUT a loader is refused at assembly rather
+   * than quietly sending a shorter tool list. Its absence is what let TC-08 pass on a shape the
+   * product cannot produce.
+   */
+  it('refuses to defer a schema when no loader is offered', async () => {
+    const provider = new NoSchemaProvider();
+    const agent = new Robota({
+      name: 'provider-request-event-no-loader',
+      aiProviders: [provider as unknown as IAIProvider],
+      defaultModel: { provider: 'no-schema', model: 'some-model' },
+      toolSearch: 'on',
+      tools: [
+        new FunctionTool(
+          { name: 'resident_tool', description: 'resident', parameters: OBJECT_PARAMS },
+          async () => 'ok',
+        ),
+        new FunctionTool(
+          {
+            name: 'deferred_tool',
+            description: 'deferred',
+            parameters: OBJECT_PARAMS,
+            deferLoading: true,
+          },
+          async () => 'ok',
+        ),
+      ],
+    });
+
+    try {
+      await expect(agent.run('anything')).rejects.toThrow(DEFERRED_WITHOUT_LOADER_MESSAGE);
     } finally {
       await agent.destroy();
     }
