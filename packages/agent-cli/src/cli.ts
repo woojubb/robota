@@ -47,7 +47,10 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
-import { createInitialCliWorkspaceComposition } from './startup/workspace-project-composition.js';
+import {
+  createInitialCliWorkspaceComposition,
+  resolveInitialCliWorkspaceProjectAccess,
+} from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
@@ -55,11 +58,18 @@ import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
+import {
+  formatHeadlessWorkspaceTrustError,
+  requiresHeadlessWorkspaceTrust,
+} from './startup/workspace-trust-admission.js';
 
 export type { IStartCliOptions };
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  if (await runPreparsedCliCommand(options)) return;
+  const cwd = process.cwd();
+  const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+  const startupOptions: IStartCliOptions = { ...options, projectAccess };
+  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd)) return;
 
   let args: IParsedCliArgs;
   try {
@@ -92,7 +102,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
-  const cwd = process.cwd();
   // Issue #2487: plugin reloads read the project scope too, so an `install --scope project` made in
   // this session shows up in the same session.
   const reloadPluginCommandSourceInCwd = (
@@ -110,15 +119,25 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   if (args.positional[0] === 'diagnose') {
-    const diagnosticWorkspace = createInitialCliWorkspaceComposition(cwd, options);
+    const diagnosticWorkspace = createInitialCliWorkspaceComposition(cwd, startupOptions);
     // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
     const failCount = await runDiagnoseCommand({
       version,
       terminal,
       cwd,
       settingsSources: diagnosticWorkspace.settingsSources,
+      projectAccess: diagnosticWorkspace.projectAccess,
     });
     process.exitCode = failCount > 0 ? 1 : 0;
+    return;
+  }
+
+  if (
+    (args.printMode || args.goal !== undefined || args.serve) &&
+    requiresHeadlessWorkspaceTrust(projectAccess)
+  ) {
+    process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
+    process.exitCode = 1;
     return;
   }
 
@@ -127,7 +146,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Kept as a defensive fallthrough for non-argv invocations.
     // CLI-078 (issue #2443): `eval` is the documented shell exception to `assembleProduct` — it
     // needs no preset, packs, transports or session; see `eval-command.ts` for the equivalence boundary.
-    const composition = createInitialCliWorkspaceComposition(cwd, options);
+    const composition = createInitialCliWorkspaceComposition(cwd, startupOptions);
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
       settingsSources: composition.settingsSources,
       projectAccess: composition.projectAccess,
@@ -183,7 +202,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     remoteCommandPolicy,
     workspaceComposition,
     orgPolicy,
-  } = buildCommandSetupOrExit(cwd, args, options, version, packCommandModules);
+  } = buildCommandSetupOrExit(cwd, args, startupOptions, version, packCommandModules);
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -211,7 +230,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     await routeProjectSetup({
       cwd,
       args,
-      startOptions: options,
+      startOptions: startupOptions,
       terminal,
       providerDefinitions,
       workspace: workspaceComposition,

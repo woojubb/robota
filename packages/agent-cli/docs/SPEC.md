@@ -338,6 +338,25 @@ a project settings store is added. `cwd` remains provenance and cannot mint any 
 Trusted composition is refused when the real CLI working directory is outside the authority's frozen
 workspace root.
 
+### Workspace Trust Admission (SECURITY-2465)
+
+The CLI resolves one host-owned `WorkspaceTrustService` decision before pre-parsed commands or normal
+composition. Restricted composition contains only host-owned user sources and cannot read project
+settings, hooks, plugins, skills, context, provider overrides, or project state. The pre-parse
+`robota trust` command is the lifecycle surface:
+
+- `robota trust status` inspects the canonical current workspace without loading project settings.
+- `robota trust --yes` (equivalent to `robota trust grant --yes`) records an explicit grant.
+- `robota trust revoke --yes` increments the identity generation and invalidates previously issued
+  project capabilities.
+
+Interactive startup may continue in Restricted mode with project contributions disabled. Print mode,
+`--goal`, and `--serve` fail closed for `untrusted`, `revoked`, `stale/replaced`, and
+`store-unavailable` decisions before provider construction, with a safe recovery message. All trust
+diagnostics expose only state and canonical display path; credentials and project-controlled content are
+never printed. `robota diagnose` additionally reports a redacted provider-endpoint quarantine when a
+lower settings layer changes an endpoint without supplying its own credential.
+
 > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
 > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
 > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
@@ -829,6 +848,9 @@ with that person: changing it changes what they must type, what they see, or wha
 ```bash
 robota                               # Interactive TUI
 robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
+robota trust status                  # Inspect canonical workspace trust
+robota trust --yes                   # Grant trust for the current Git workspace
+robota trust revoke --yes            # Revoke the current workspace grant
 robota diagnose                      # Check setup and print diagnostics
 robota usage                         # 7-day personal usage summary from local session stores
 robota usage --period 30d            # 30-day complete calendar buckets
@@ -1055,6 +1077,9 @@ Checks performed (CLI-067):
   project source exists. Missing sources are a warning at most, never a failure.
 - **Terminal** — known-problem terminal warning.
 - **Network** — TCP reachability of the active provider endpoint.
+- **Workspace trust** — the canonical trust state and whether project sources are admitted.
+- **Provider security** — warns when a lower-trust endpoint change caused an inherited credential to be
+  quarantined; the credential itself is never shown.
 
 **Exit-code contract**: `0` when no check fails (warnings allowed), `1` when one or more
 checks fail — `robota diagnose` can gate CI and scripts.
@@ -1855,18 +1880,20 @@ Most behavioral contracts use interfaces and factory functions. The CLI-local `P
 contract; `promptInput` (`src/cli-input.ts`) owns guarded interactive input and restores raw mode
 and listeners. The following table lists the other primary runtime constructs.
 
-| Construct                                                   | Kind     | Owner file                        | Contract summary                                                                                                                                                                                                                                                               |
-| ----------------------------------------------------------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `startCli(options?)`                                        | function | `src/cli.ts`                      | Parse args → dispatch pre-session commands inline (`init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                                                                                           |
-| `buildCommandSetup(cwd, args, opts, v)`                     | factory  | `src/startup/command-setup.ts`    | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                                                                                                                                                   |
-| `runDiagnoseCommand(ctx, deps?)`                            | function | `src/startup/diagnose-command.ts` | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                                                                                                                                                       |
-| `runPrintMode(...)`                                         | function | `src/modes/print-mode.ts`         | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                                                                                                                                                |
-| `runInitCommand(cwd, terminal, opts?)`                      | function | `src/init/init-command.ts`        | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                                                                                                                                                         |
-| `isFirstRun(markerPath?)`                                   | function | `src/startup/first-run.ts`        | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                                                                                                                                                      |
-| `markOnboarded(markerPath?)`                                | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                                                                                                                                                  |
-| `printFirstRunWelcome(terminal)`                            | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                                                                                                                                            |
-| `warnIfTerminalAppOnMacOS(terminal)`                        | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                                                                                                                                                      |
-| `parseCliArgs()`                                            | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs` (including `preset`); throws `Error` on invalid input                                                                                                                                                                              |
-| `selectPresetId(args, settingsPreset)`                      | function | `src/startup/preset-selection.ts` | Picks the preset id: `--preset` flag > `settings.preset` > `'default'`. Pure selection glue                                                                                                                                                                                    |
-| `resolveShellPreset(externalPresets, args, settingsPreset)` | function | `src/startup/preset-selection.ts` | The shell's single preset resolution: builds agent-preset's per-call instance registry (R8), resolves the selected id with CLI-flag overrides, and returns `{ registry, presetId, context, options }` for the product profile to adopt. Precedence merge owned by agent-preset |
-| `AGENT_CLI_BIN`                                             | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner. The session `agentName` comes from `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME` (imported from `@robota-sdk/agent-preset`)                                                                       |
+| Construct                                                   | Kind     | Owner file                                 | Contract summary                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------- | -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `startCli(options?)`                                        | function | `src/cli.ts`                               | Resolve one workspace-trust decision → parse args → dispatch pre-session commands inline (`trust`, `init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                                           |
+| `runWorkspaceTrustCommand(argv, cwd, service?)`             | function | `src/startup/workspace-trust-command.ts`   | Pre-parse `status`/`grant`/`revoke` lifecycle command; emits state/path-only output and requires `--yes` for headless mutation                                                                                                                                                 |
+| `requiresHeadlessWorkspaceTrust(access)`                    | function | `src/startup/workspace-trust-admission.ts` | Identifies restricted trust states that must fail closed before print, goal, or serve startup                                                                                                                                                                                  |
+| `buildCommandSetup(cwd, args, opts, v)`                     | factory  | `src/startup/command-setup.ts`             | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                                                                                                                                                   |
+| `runDiagnoseCommand(ctx, deps?)`                            | function | `src/startup/diagnose-command.ts`          | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                                                                                                                                                       |
+| `runPrintMode(...)`                                         | function | `src/modes/print-mode.ts`                  | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                                                                                                                                                |
+| `runInitCommand(cwd, terminal, opts?)`                      | function | `src/init/init-command.ts`                 | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                                                                                                                                                         |
+| `isFirstRun(markerPath?)`                                   | function | `src/startup/first-run.ts`                 | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                                                                                                                                                      |
+| `markOnboarded(markerPath?)`                                | function | `src/startup/first-run.ts`                 | Creates the onboarded marker file; idempotent                                                                                                                                                                                                                                  |
+| `printFirstRunWelcome(terminal)`                            | function | `src/startup/first-run.ts`                 | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                                                                                                                                            |
+| `warnIfTerminalAppOnMacOS(terminal)`                        | function | `src/startup/terminal-check.ts`            | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                                                                                                                                                      |
+| `parseCliArgs()`                                            | function | `src/utils/cli-args.ts`                    | Parses `process.argv` into `IParsedCliArgs` (including `preset`); throws `Error` on invalid input                                                                                                                                                                              |
+| `selectPresetId(args, settingsPreset)`                      | function | `src/startup/preset-selection.ts`          | Picks the preset id: `--preset` flag > `settings.preset` > `'default'`. Pure selection glue                                                                                                                                                                                    |
+| `resolveShellPreset(externalPresets, args, settingsPreset)` | function | `src/startup/preset-selection.ts`          | The shell's single preset resolution: builds agent-preset's per-call instance registry (R8), resolves the selected id with CLI-flag overrides, and returns `{ registry, presetId, context, options }` for the product profile to adopt. Precedence merge owned by agent-preset |
+| `AGENT_CLI_BIN`                                             | constant | `src/constants.ts`                         | `'robota'` — binary name used in user-facing messages and welcome banner. The session `agentName` comes from `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME` (imported from `@robota-sdk/agent-preset`)                                                                       |

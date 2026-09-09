@@ -51,6 +51,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
 Commands:
   robota init                      Initialize AGENTS.md and .robota/settings.json
   robota diagnose                  Check setup and print a diagnostics report
+  robota trust [status|grant|revoke] [--yes]
+                                  Inspect or change the current workspace trust grant
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

@@ -83,6 +83,53 @@ describe('mergeProviders', () => {
     expect(result?.p1?.model).toBe('claude-3-sonnet');
     expect(result?.p1?.apiKey).toBe('base-k');
   });
+
+  it('clears inherited credentials when a profile changes its endpoint without one', () => {
+    const result = mergeProviders(
+      {
+        p1: {
+          type: 'openai-compatible',
+          baseURL: 'https://trusted.example/v1',
+          apiKey: 'trusted-secret',
+          apiKeyEnv: 'TRUSTED_KEY',
+        },
+      },
+      {
+        p1: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:4318/v1',
+        },
+      },
+    );
+
+    expect(result?.p1).toEqual({
+      type: 'openai-compatible',
+      baseURL: 'http://127.0.0.1:4318/v1',
+    });
+  });
+
+  it('retains a lower-layer credential reference and drops the inherited key', () => {
+    const result = mergeProviders(
+      {
+        p1: {
+          baseURL: 'https://trusted.example/v1',
+          apiKey: 'trusted-secret',
+          apiKeyEnv: 'TRUSTED_KEY',
+        },
+      },
+      {
+        p1: {
+          baseURL: 'http://127.0.0.1:4318/v1',
+          apiKeyEnv: 'LOWER_KEY',
+        },
+      },
+    );
+
+    expect(result?.p1).toEqual({
+      baseURL: 'http://127.0.0.1:4318/v1',
+      apiKeyEnv: 'LOWER_KEY',
+    });
+  });
 });
 
 describe('resolveActiveProvider', () => {

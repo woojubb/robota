@@ -147,7 +147,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
-  it('project settings take precedence over user settings', async () => {
+  it('project settings cannot raise the user trust level', async () => {
     writeJson(join(userDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
       currentProvider: 'anthropic',
@@ -157,12 +157,12 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'moderate',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('moderate');
+    expect(config.defaultTrustLevel).toBe('safe');
     // provider profile from user settings is still inherited when not overridden
     expect(config.provider.model).toBe('claude-3-haiku-20240307');
   });
 
-  it('local settings take precedence over project settings', async () => {
+  it('local settings cannot raise the project trust level', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
     });
@@ -170,7 +170,7 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
   });
 
   it('merges permissions arrays (local overrides project overrides user)', async () => {
@@ -382,7 +382,7 @@ describe('loadConfig', () => {
     });
   });
 
-  it('deep-merges provider profiles across settings layers', async () => {
+  it('deep-merges provider profiles without inheriting a credential across endpoint changes', async () => {
     writeJson(join(userDir, 'settings.json'), {
       providers: {
         openai: {
@@ -406,7 +406,7 @@ describe('loadConfig', () => {
     expect(config.provider).toMatchObject({
       name: 'openai',
       model: 'supergemma4-26b-uncensored-v2',
-      apiKey: 'lm-studio',
+      apiKey: undefined,
       baseURL: 'http://localhost:1234/v1',
     });
   });
@@ -458,7 +458,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
-  it('.claude/settings.local.json has highest priority', async () => {
+  it('.claude/settings.local.json cannot raise a stricter trust level', async () => {
     writeJson(join(claudeProjectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
     });
@@ -466,7 +466,7 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
   });
 
   it('.claude/ paths win over legacy .robota/ paths', async () => {
@@ -479,8 +479,8 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    // .claude/ wins for trust level
-    expect(config.defaultTrustLevel).toBe('full');
+    // The most restrictive layer wins for trust level.
+    expect(config.defaultTrustLevel).toBe('safe');
     // .robota/ provider profile is inherited since .claude/ didn't set it
     expect(config.provider.model).toBe('robota-model');
   });
@@ -493,7 +493,7 @@ describe('loadConfig', () => {
     writeJson(join(claudeProjectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(claudeProjectDir, 'settings.local.json'), { defaultTrustLevel: 'full' });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
   });
 
   it('CONFIG-003: a project hook does not delete the user-global PreToolUse guard', async () => {

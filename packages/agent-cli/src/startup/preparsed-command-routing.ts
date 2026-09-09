@@ -1,7 +1,11 @@
 import { runEvalCommand } from '../eval/eval-command.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
-import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
+import {
+  createInitialCliWorkspaceComposition,
+  resolveInitialCliWorkspaceProjectAccess,
+} from './workspace-project-composition.js';
+import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 
@@ -15,7 +19,15 @@ export async function runPreparsedCliCommand(
   argv: readonly string[] = process.argv,
   cwd: string = process.cwd(),
 ): Promise<boolean> {
-  const composition = createInitialCliWorkspaceComposition(cwd, options);
+  const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+  const composition = createInitialCliWorkspaceComposition(cwd, {
+    ...options,
+    projectAccess,
+  });
+  if (argv[SUBCOMMAND_INDEX] === 'trust') {
+    process.exitCode = await runWorkspaceTrustCommand(argv.slice(ACTION_INDEX), cwd);
+    return true;
+  }
   if (argv[SUBCOMMAND_INDEX] === 'usage') {
     process.exitCode = runUsageCommand(
       argv.slice(ACTION_INDEX),

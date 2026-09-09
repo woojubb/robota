@@ -44,10 +44,7 @@ export function mergeSettings(
   return {
     ...base,
     ...override,
-    provider:
-      base.provider !== undefined || override.provider !== undefined
-        ? { ...base.provider, ...override.provider }
-        : undefined,
+    provider: mergeProviderValues(base.provider, override.provider),
     providers:
       base.providers !== undefined || override.providers !== undefined
         ? mergeProviders(base.providers, override.providers)
@@ -61,7 +58,25 @@ export function mergeProviders(
 ): TProviderSettingsDocument['providers'] {
   const result: Record<string, IProviderProfileSettings> = { ...(base ?? {}) };
   for (const [name, profile] of Object.entries(override ?? {})) {
-    result[name] = { ...result[name], ...profile };
+    result[name] = mergeProviderValues(result[name], profile)!;
+  }
+  return result;
+}
+
+function mergeProviderValues<T extends { apiKey?: string; apiKeyEnv?: string; baseURL?: string }>(
+  base: T | undefined,
+  override: T | undefined,
+): T | undefined {
+  if (base === undefined && override === undefined) return undefined;
+  const result = { ...base, ...override } as T;
+  const endpointChanged = override?.baseURL !== undefined && override.baseURL !== base?.baseURL;
+  if (endpointChanged) {
+    if (override?.apiKey !== undefined) delete result.apiKeyEnv;
+    else if (override?.apiKeyEnv !== undefined) delete result.apiKey;
+    else {
+      delete result.apiKey;
+      delete result.apiKeyEnv;
+    }
   }
   return result;
 }

@@ -36,51 +36,76 @@ import type { TEnvResolvedSettings } from './config-types.js';
  */
 export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
   const disabledHookIds = new Set<string>();
-  return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
-    const layerHooks = withoutDisabledGroups(layer.hooks, disabledHookIds);
-    for (const id of layer.disabledHooks ?? []) disabledHookIds.add(id);
-    return {
-      ...merged,
-      ...layer,
-      disabledHooks: disabledHookIds.size > 0 ? [...disabledHookIds] : undefined,
-      provider:
-        merged.provider !== undefined || layer.provider !== undefined
-          ? { ...merged.provider, ...layer.provider }
-          : undefined,
-      permissions:
-        merged.permissions !== undefined || layer.permissions !== undefined
-          ? {
-              // `allow` REPLACES: an allowlist states the complete permitted set, so a later, more
-              // specific layer supersedes the earlier answer. Unchanged — this already conformed.
-              allow: layer.permissions?.allow ?? merged.permissions?.allow,
-              // `deny` UNIONS: a denial is not weakened by a later layer that forgot to repeat it.
-              deny: unionDeny(merged.permissions?.deny, layer.permissions?.deny),
-            }
-          : undefined,
-      env: {
-        ...(merged.env ?? {}),
-        ...(layer.env ?? {}),
-      },
-      providers:
-        merged.providers !== undefined || layer.providers !== undefined
-          ? mergeProviders(merged.providers, layer.providers)
-          : undefined,
-      enabledPlugins:
-        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
-          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
-          : undefined,
-      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
-      autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
-      hooks:
-        merged.hooks !== undefined || layerHooks !== undefined
-          ? mergeHooks(merged.hooks, layerHooks)
-          : undefined,
-      taskContext:
-        merged.taskContext !== undefined || layer.taskContext !== undefined
-          ? { ...merged.taskContext, ...layer.taskContext }
-          : undefined,
-    };
-  }, {});
+  return layers.reduce<TEnvResolvedSettings>(
+    (merged, layer) => mergeLayer(merged, layer, disabledHookIds),
+    {},
+  );
+}
+
+function mergeLayer(
+  merged: TEnvResolvedSettings,
+  layer: TEnvResolvedSettings,
+  disabledHookIds: Set<string>,
+): TEnvResolvedSettings {
+  const layerHooks = withoutDisabledGroups(layer.hooks, disabledHookIds);
+  for (const id of layer.disabledHooks ?? []) disabledHookIds.add(id);
+  return {
+    ...merged,
+    ...layer,
+    defaultTrustLevel: mostRestrictiveTrustLevel(merged.defaultTrustLevel, layer.defaultTrustLevel),
+    disabledHooks: currentDisabledHookIds(disabledHookIds),
+    provider: mergeProviderValues(merged.provider, layer.provider),
+    permissions: mergePermissions(merged.permissions, layer.permissions),
+    env: { ...(merged.env ?? {}), ...(layer.env ?? {}) },
+    providers: mergeOptionalProviders(merged.providers, layer.providers),
+    enabledPlugins: mergeOptionalObject(merged.enabledPlugins, layer.enabledPlugins),
+    extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
+    autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
+    hooks: mergeOptionalHooks(merged.hooks, layerHooks),
+    taskContext: mergeOptionalObject(merged.taskContext, layer.taskContext),
+  };
+}
+
+function currentDisabledHookIds(disabledHookIds: ReadonlySet<string>): string[] | undefined {
+  return disabledHookIds.size === 0 ? undefined : [...disabledHookIds];
+}
+
+function mergePermissions(
+  base: TEnvResolvedSettings['permissions'],
+  override: TEnvResolvedSettings['permissions'],
+): TEnvResolvedSettings['permissions'] {
+  if (base === undefined && override === undefined) return undefined;
+  return {
+    // `allow` REPLACES: an allowlist states the complete permitted set, so a later, more specific
+    // layer supersedes the earlier answer. Unchanged — this already conformed.
+    allow: override?.allow ?? base?.allow,
+    // `deny` UNIONS: a denial is not weakened by a later layer that forgot to repeat it.
+    deny: unionDeny(base?.deny, override?.deny),
+  };
+}
+
+function mergeOptionalObject<T extends object>(
+  base: T | undefined,
+  override: T | undefined,
+): T | undefined {
+  if (base === undefined && override === undefined) return undefined;
+  return { ...base, ...override } as T;
+}
+
+function mergeOptionalProviders(
+  base: TEnvResolvedSettings['providers'],
+  override: TEnvResolvedSettings['providers'],
+): TEnvResolvedSettings['providers'] {
+  if (base === undefined && override === undefined) return undefined;
+  return mergeProviders(base, override);
+}
+
+function mergeOptionalHooks(
+  base: TEnvResolvedSettings['hooks'],
+  override: TEnvResolvedSettings['hooks'],
+): TEnvResolvedSettings['hooks'] {
+  if (base === undefined && override === undefined) return undefined;
+  return mergeHooks(base, override);
 }
 
 /**
@@ -164,10 +189,39 @@ function mergeProviders(
 ): TEnvResolvedSettings['providers'] {
   const result: NonNullable<TEnvResolvedSettings['providers']> = { ...(base ?? {}) };
   for (const [name, profile] of Object.entries(override ?? {})) {
-    result[name] = {
-      ...result[name],
-      ...profile,
-    };
+    result[name] = mergeProviderValues(result[name], profile)!;
+  }
+  return result;
+}
+
+const TRUST_LEVEL_ORDER = { safe: 0, moderate: 1, full: 2 } as const;
+type TTrustLevel = keyof typeof TRUST_LEVEL_ORDER;
+
+/** A lower-trust settings layer can tighten policy, never raise the effective trust level. */
+function mostRestrictiveTrustLevel(
+  base: TTrustLevel | undefined,
+  override: TTrustLevel | undefined,
+): TTrustLevel | undefined {
+  if (base === undefined) return override;
+  if (override === undefined) return base;
+  return TRUST_LEVEL_ORDER[base] <= TRUST_LEVEL_ORDER[override] ? base : override;
+}
+
+/** Endpoint ownership and credential ownership are coupled at every settings merge boundary. */
+function mergeProviderValues<T extends { apiKey?: string; apiKeyEnv?: string; baseURL?: string }>(
+  base: T | undefined,
+  override: T | undefined,
+): T | undefined {
+  if (base === undefined && override === undefined) return undefined;
+  const result = { ...base, ...override } as T;
+  const endpointChanged = override?.baseURL !== undefined && override.baseURL !== base?.baseURL;
+  if (endpointChanged) {
+    if (override?.apiKey !== undefined) delete result.apiKeyEnv;
+    else if (override?.apiKeyEnv !== undefined) delete result.apiKey;
+    else {
+      delete result.apiKey;
+      delete result.apiKeyEnv;
+    }
   }
   return result;
 }
