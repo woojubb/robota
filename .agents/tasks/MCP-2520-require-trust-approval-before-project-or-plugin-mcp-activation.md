@@ -45,16 +45,28 @@ generic confirmation, status, and audit views but must not own trust policy.
 
 ## Plan
 
-- [ ] Revalidate issue #2520, its parent/child relationships, current Claude/MCP references, and
+- [x] Revalidate issue #2520, its parent/child relationships, current Claude/MCP references, and
       exact owner boundaries against the current tree.
-- [ ] Define the provider-neutral typed approval, provenance, definition fingerprint, status/audit,
+- [x] Define the provider-neutral typed approval, provenance, definition fingerprint, status/audit,
       and activation-admission contracts without duplicating MCP configuration ownership.
-- [ ] Implement fail-closed project/plugin admission on top of workspace authority and integrate all
+- [x] Implement fail-closed project/plugin admission on top of workspace authority and integrate all
       activation paths so no transport or lower client can bypass it.
-- [ ] Add approval, rejection, revocation, stale-definition, self-approval, plugin-provenance,
+- [x] Add approval, rejection, revocation, stale-definition, self-approval, plugin-provenance,
       inspection-without-activation, and trusted-activation regression coverage.
-- [ ] Expose command effects and generic CLI status/confirmation projection, update affected specs,
+- [x] Expose command effects and generic CLI status/confirmation projection, update affected specs,
       and run package, type, build, boundary, and harness verification.
+
+## Progress
+
+- 2026-09-09: Added the secret-free `IMCPActivationRequest`/`IMCPActivationAdmission` contract,
+  exact-match approval policy, managed/user/local precedence, project/plugin trust guard,
+  self-approval refusal, stale-generation detection, replaceable audit store, and registry controller
+  in `agent-tool-mcp`.
+- 2026-09-09: `MCPTool.execute()` now admits every call before handshake or reused-session request;
+  missing admission fails closed. Added `/mcp status|approve|reject|revoke` command module and the
+  CLI option/host-adapter injection seam without moving policy or rendering into the CLI.
+- 2026-09-09: Targeted MCP tests pass (62), activation command tests pass (3), and affected package
+  typechecks/builds pass. Final boundary/scenario/conformance gates remain before task completion.
 
 ## Completion Criteria
 

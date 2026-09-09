@@ -40,11 +40,11 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 29 modules (SELFHOST-002 added
-    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`). The list below is the assertion
+    // No-regression: the default set length is the documented 30 modules (SELFHOST-002 added
+    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`). The list below is the assertion
     // that matters — a length on its own can be restored by any substitution, and the count exists
     // only to catch an addition that also removed something.
-    expect(names).toHaveLength(29);
+    expect(names).toHaveLength(30);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -61,6 +61,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-shell',
       'agent-command-editor',
       'agent-command-memory',
+      'agent-command-mcp-activation',
       'agent-command-user-local',
       'agent-command-compact',
       'agent-command-context',

@@ -22,6 +22,7 @@ import type {
   IWorkspaceProjectSettingsWriter,
   TProviderSettingsDocument,
   TWorkspaceProjectAccess,
+  ICommandMCPActivationAdapter,
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
@@ -76,6 +77,8 @@ export interface IStartCliOptions {
   projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** Separately approved bounded project mutation capability. */
   projectMutation?: IWorkspaceProjectMutation;
+  /** Host-composed MCP definition registry and trust-admission controller. */
+  mcpActivationAdapter?: ICommandMCPActivationAdapter;
 }
 
 export interface ICliSetup {
@@ -165,6 +168,9 @@ export function buildCommandSetup(
       delete: () => deleteSettings(getUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
+    ...(options.mcpActivationAdapter === undefined
+      ? {}
+      : { mcpActivation: options.mcpActivationAdapter }),
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
   const providerSettingsSources = workspaceComposition.settingsSources;

@@ -1,6 +1,12 @@
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
 
 import {
+  createFailClosedMCPActivationAdmission,
+  type IMCPActivationAdmission,
+  type IMCPActivationRequest,
+  type IMCPActivationStatusResult,
+} from './mcp-activation.js';
+import {
   type IMCPConfig,
   type TMCPConnectionStatus,
   buildMCPRequest,
@@ -14,7 +20,6 @@ import { ThirdPartySchemaValidator, type TUnenforceableSchemaReporter } from './
 import type {
   IEventService,
   IToolWithEventService,
-  ITool,
   IToolResult,
   IToolExecutionContext,
   TToolParameters,
@@ -23,6 +28,14 @@ import type {
 import type { IToolSchema } from '@robota-sdk/agent-core';
 
 export type { IMCPConfig };
+
+export interface IMCPToolOptions {
+  /** The exact resolved definition identity that must be admitted before the first request. */
+  readonly activationRequest?: IMCPActivationRequest;
+  /** Host-owned admission policy. Omitted means fail closed. */
+  readonly admission?: IMCPActivationAdmission;
+  readonly onUnenforceableSchema?: TUnenforceableSchemaReporter;
+}
 
 const CONNECTION_CHECK_INTERVAL_MS = 100;
 
@@ -39,6 +52,9 @@ export class MCPTool implements IToolWithEventService {
   /** Held for the runtime's benefit; see `setEventService`. */
   private eventService: IEventService | undefined;
   private readonly mcpConfig: IMCPConfig;
+  private readonly activationRequest?: IMCPActivationRequest;
+  private readonly activationAdmission: IMCPActivationAdmission;
+  private readonly onUnenforceableSchema?: TUnenforceableSchemaReporter;
   private connectionStatus: TMCPConnectionStatus = 'disconnected';
   private sessionId: string | undefined;
 
@@ -48,8 +64,20 @@ export class MCPTool implements IToolWithEventService {
   constructor(
     config: IMCPConfig,
     schema: IToolSchema,
-    private readonly onUnenforceableSchema?: TUnenforceableSchemaReporter,
+    onUnenforceableSchemaOrOptions?: TUnenforceableSchemaReporter | IMCPToolOptions,
+    options?: IMCPToolOptions,
   ) {
+    const resolvedOptions =
+      typeof onUnenforceableSchemaOrOptions === 'function'
+        ? options
+        : onUnenforceableSchemaOrOptions;
+    this.onUnenforceableSchema =
+      typeof onUnenforceableSchemaOrOptions === 'function'
+        ? onUnenforceableSchemaOrOptions
+        : resolvedOptions?.onUnenforceableSchema;
+    this.activationRequest = resolvedOptions?.activationRequest;
+    this.activationAdmission =
+      resolvedOptions?.admission ?? createFailClosedMCPActivationAdmission();
     this.mcpConfig = {
       timeout: 30000,
       retries: 3,
@@ -69,6 +97,19 @@ export class MCPTool implements IToolWithEventService {
     const startTime = Date.now();
 
     try {
+      const admission = this.checkActivationAdmission();
+      if (!admission.allowed) {
+        throw new ToolExecutionError(
+          `MCP activation denied: ${admission.reason}`,
+          toolName,
+          undefined,
+          {
+            activationStatus: admission.status,
+            activationServerId: admission.serverId,
+          },
+        );
+      }
+
       // Check connection status
       if (this.connectionStatus !== 'connected') {
         await this.ensureConnection();
@@ -123,6 +164,27 @@ export class MCPTool implements IToolWithEventService {
         },
       );
     }
+  }
+
+  /**
+   * Check the policy on every execution, including executions that reuse an existing session.
+   * This keeps revocation and workspace-generation changes effective without requiring transports
+   * to duplicate the admission rule.
+   */
+  private checkActivationAdmission(): IMCPActivationStatusResult {
+    if (!this.activationRequest) {
+      return {
+        serverId: 'unknown',
+        source: 'project',
+        status: 'pending',
+        allowed: false,
+        reason: 'MCP activation requires an exact activation request.',
+        provenance: { kind: 'project', id: 'missing' },
+        definitionFingerprint: 'missing',
+        securityIdentity: 'missing',
+      };
+    }
+    return this.activationAdmission.admit(this.activationRequest);
   }
 
   /**
@@ -247,6 +309,10 @@ export class MCPTool implements IToolWithEventService {
 /**
  * Factory function to create MCP tools
  */
-export function createMCPTool(config: IMCPConfig, schema: IToolSchema): MCPTool {
-  return new MCPTool(config, schema);
+export function createMCPTool(
+  config: IMCPConfig,
+  schema: IToolSchema,
+  options?: IMCPToolOptions,
+): MCPTool {
+  return new MCPTool(config, schema, options);
 }

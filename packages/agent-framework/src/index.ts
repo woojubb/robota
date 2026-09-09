@@ -157,6 +157,8 @@ export type {
   TSystemCommandLifecycle,
   TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
   IForkExecutionOptions,

@@ -26,7 +26,7 @@ external Issue remains open until its security outcome is delivered.
 
 ## Children
 
-- [ ] MCP-2520 — todo — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- [ ] MCP-2520 — in-progress — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Source Constraints
 

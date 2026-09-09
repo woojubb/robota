@@ -219,7 +219,7 @@ a helper as a fallback.
 Paired execution record:
 `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`.
 
-- [ ] `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — todo
+- [ ] `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — in-progress
 
 ## Evidence Log
 

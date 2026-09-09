@@ -64,6 +64,8 @@ export type {
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
   ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,

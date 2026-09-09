@@ -11,6 +11,8 @@ export type {
   ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
   ICommandRemoteControlAdapter,
   ICommandResult,

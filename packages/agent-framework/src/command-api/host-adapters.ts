@@ -71,6 +71,30 @@ export interface ICommandRemoteControlAdapter {
 }
 
 /**
+ * MCP-2520 — public, secret-free view of one resolved MCP definition. The command layer can show
+ * this value and request a decision, but it cannot construct or connect an MCP client.
+ */
+export interface ICommandMCPActivationSummary {
+  readonly serverId: string;
+  readonly displayName?: string;
+  readonly source: 'managed' | 'user' | 'project' | 'plugin' | 'local';
+  readonly status: 'approved' | 'pending' | 'rejected' | 'revoked' | 'stale' | 'untrusted';
+  readonly allowed: boolean;
+  readonly reason: string;
+  readonly provenanceId: string;
+  readonly definitionFingerprint: string;
+  readonly securityIdentity: string;
+}
+
+/** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
+export interface ICommandMCPActivationAdapter {
+  list(): readonly ICommandMCPActivationSummary[];
+  approve(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  reject(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  revoke(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+}
+
+/**
  * PEER-004 (#1863): a live session this one can address, as the operator sees it.
  *
  * Display data only. `sessionId` names the peer for a later `send`; `liveness` is carried rather
@@ -230,6 +254,7 @@ export interface ICommandHostAdapters {
   permissionMode?: ICommandPermissionModeAdapter;
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
+  mcpActivation?: ICommandMCPActivationAdapter;
   localPeers?: ICommandLocalPeersAdapter;
   /**
    * ARCH-009 — the instance registry the host resolved with, so in-session `/preset` discovers THIS
