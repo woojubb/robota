@@ -407,6 +407,14 @@ atomic completion order is owned by
 status/folder mapping in [`spec-workflow.md`](../rules/spec-workflow.md). After assembling that one closing
 commit, run the placement and task-archival scans against the final state.
 
+**Squash-merge completion exception.** If the delivering PR was squash-merged before the completion
+records could be archived, `scan-user-execution-plan-order` may accept one completion-only closeout
+without a checkpoint in the branch range, but only when the commit contains the exact four Task/spec
+source-and-destination paths plus one append-only `post-merge-cycle.jsonl` record. The parent must hold
+the same in-progress pair; the destinations must be newly created, terminal, fully checked, and carry
+the final `GATE-COMPLETE` PASS; the ledger's PR merge must resolve and be an ancestor of the topic
+base. Partial, duplicate, ledger-free, rewritten, or implementation-mixed archives still fail.
+
 ---
 
 ### GATE-CONFORMANCE (architecture conformance — standalone, not a status transition)

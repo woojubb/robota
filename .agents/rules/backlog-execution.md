@@ -537,6 +537,14 @@ change admitted is one append-only closed `post-merge-cycle.jsonl` record whose 
 is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
 path fails.
 
+When a delivering PR was squash-merged before its completion records were archived, the plan-order
+guard also admits one narrowly bounded post-merge completion closeout without checkpoint ancestry. It
+must move exactly one same-basename `Task` from `.agents/tasks/` to `completed/` and its spec from
+`spec-docs/active/` to `spec-docs/done/`, append exactly one verified closed post-merge record in the
+same change, and carry `done`/completion-date, checked criteria, the archived Task/spec binding, and
+the final `GATE-COMPLETE` PASS. A partial archive, duplicate destination, missing or rewritten ledger,
+or any extra implementation path remains a refusal.
+
 Enforced by: `gate.mjs`, `user-execution-plan-order`, `spec-user-execution-section`
 
 ### Checkpoint evidence contract
