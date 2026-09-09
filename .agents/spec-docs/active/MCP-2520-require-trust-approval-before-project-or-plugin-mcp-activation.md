@@ -7,7 +7,7 @@ lane: L2
 
 # MCP-2520: require trust approval before project or plugin MCP activation
 
-Paired with `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`. Arising from [issue #2520](https://github.com/woojubb/robota/issues/2520).
+Paired with `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`. Arising from [issue #2520](https://github.com/woojubb/robota/issues/2520).
 
 ## Problem
 
@@ -77,7 +77,7 @@ Sources: [MCP transports](https://modelcontextprotocol.io/specification/2025-11-
 ### Decision
 
 Choose alternative 3, governed by the paired
-`.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`. The default
+`.agents/tasks/completed/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`. The default
 policy is: managed/user authority may approve; project/plugin content may only request approval;
 untracked local approval is valid only after workspace trust; any material definition, source
 provenance, executable command/URL, or security identity change makes the prior approval stale; and
@@ -154,8 +154,8 @@ a helper as a fallback.
 - `packages/agent-framework/docs/SPEC.md`
 - `packages/agent-command/docs/SPEC.md`
 - `packages/agent-cli/docs/SPEC.md`
-- `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
-- `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- `.agents/tasks/completed/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
+- `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Completion Criteria
 
@@ -217,9 +217,9 @@ a helper as a fallback.
 ## Tasks
 
 Paired execution record:
-`.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`.
+`.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`.
 
-- [ ] `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — in-progress
+- [ ] `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — in-progress
 
 ## Evidence Log
 
@@ -330,8 +330,8 @@ corrections and a later PASS must be recorded before approval.
 **Status upgrade:** approved → in-progress
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-09; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, whose basename is the spec's
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 498 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 2`
