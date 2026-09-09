@@ -28,19 +28,19 @@ without `/tmp` or session history and must not mutate GitHub state.
 ## Completion Criteria
 
 - [ ] TC-01 — A canonical command reports repository, open/created/closed/net counts, exact `[start,end)`
-  UTC window, and display/query semantics.
+      UTC window, and display/query semantics.
 - [ ] TC-02 — Tests cover boundary timestamps, pagination/count correctness, timezone presentation, and
-  API/query failures; a failure is visible and non-success.
+      API/query failures; a failure is visible and non-success.
 - [ ] TC-03 — The command is rerunnable from a clean checkout without session or `/tmp` state and uses
-  no issue suppression, relabeling, or deduplication mutation.
+      no issue suppression, relabeling, or deduplication mutation.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | integration | deterministic GitHub API fixture + CLI stdout assertions | Verify exact envelope and all fields. |
-| TC-02 | unit/integration | Vitest fixture matrix with pagination, boundary, timezone, and failure cases | Fail closed and preserve diagnostics. |
-| TC-03 | process integration | Run from a clean temporary checkout with no session files | Read-only and rerunnable. |
+| TC-ID | Test Type           | Tool / Approach                                                              | Notes                                 |
+| ----- | ------------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| TC-01 | integration         | deterministic GitHub API fixture + CLI stdout assertions                     | Verify exact envelope and all fields. |
+| TC-02 | unit/integration    | Vitest fixture matrix with pagination, boundary, timezone, and failure cases | Fail closed and preserve diagnostics. |
+| TC-03 | process integration | Run from a clean temporary checkout with no session files                    | Read-only and rerunnable.             |
 
 ## User Execution Test Scenarios
 

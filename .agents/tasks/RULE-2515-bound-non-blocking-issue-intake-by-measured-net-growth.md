@@ -29,19 +29,19 @@ separate foundational contract remains issue #2580.
 ## Completion Criteria
 
 - [ ] TC-01 — A checked-in policy declares a measurable positive-net threshold and explicit slow/stop/group
-  response for non-blocking filings.
+      response for non-blocking filings.
 - [ ] TC-02 — Duplicate/root-cause grouping is required before filing non-blocking manifestations, while
-  blocker/security/data-correctness exceptions remain immediate-file.
+      blocker/security/data-correctness exceptions remain immediate-file.
 - [ ] TC-03 — Tests demonstrate enforcement, exception handling, visible failures, and no suppression,
-  relabeling, silent closing, or metric-gaming path.
+      relabeling, silent closing, or metric-gaming path.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | unit | Vitest policy matrix at threshold, below, and above threshold | Assert deterministic action. |
-| TC-02 | integration | Intake command/hook fixtures with root-cause and risk classes | Verify exceptions. |
-| TC-03 | process integration | Harness scan plus negative-path fixtures | Errors remain visible and non-success. |
+| TC-ID | Test Type           | Tool / Approach                                               | Notes                                  |
+| ----- | ------------------- | ------------------------------------------------------------- | -------------------------------------- |
+| TC-01 | unit                | Vitest policy matrix at threshold, below, and above threshold | Assert deterministic action.           |
+| TC-02 | integration         | Intake command/hook fixtures with root-cause and risk classes | Verify exceptions.                     |
+| TC-03 | process integration | Harness scan plus negative-path fixtures                      | Errors remain visible and non-success. |
 
 ## User Execution Test Scenarios
 
