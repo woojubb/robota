@@ -1,8 +1,9 @@
 ---
 title: 'AGREEMENT-2520: coordinate MCP activation trust and admission contract'
 issue: https://github.com/woojubb/robota/issues/2520
-status: todo
+status: done
 created: 2026-09-09
+completed: 2026-09-09
 priority: critical
 urgency: now
 area: MCP activation trust and admission contract
@@ -11,6 +12,8 @@ children: [MCP-2520]
 ---
 
 # AGREEMENT-2520: coordinate MCP activation trust and admission contract
+
+Spec: `.agents/spec-docs/done/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
 
 ## Objective
 
@@ -21,12 +24,12 @@ does not own product code. This agreement therefore fixes the cross-package rela
 `MCP-002` and `MCP-2520` implement independently: definitions preserve provenance, every client and
 transport reaches one activation-admission port, and project/plugin content cannot grant its own trust.
 
-This is a planning and contract-coordination work unit, not a runtime implementation. The retained
-external Issue remains open until its security outcome is delivered.
+This is a planning and contract-coordination work unit, not a runtime implementation. Its retained
+security child delivered the outcome in PR #2686, and issue #2520 was closed after that merge.
 
 ## Children
 
-- [ ] MCP-2520 — in-progress — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- [x] MCP-2520 — done — `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Source Constraints
 
@@ -40,26 +43,26 @@ external Issue remains open until its security outcome is delivered.
 
 ## Plan
 
-- [ ] Inventory the exact current contracts, dependency edges, and activation paths in the three
+- [x] Inventory the exact current contracts, dependency edges, and activation paths in the three
       child areas and record the owner boundary.
-- [ ] Define the provider-neutral contract matrix: definition identity, provenance, fingerprint,
+- [x] Define the provider-neutral contract matrix: definition identity, provenance, fingerprint,
       approval state, audit evidence, admission decision, and transport handoff.
-- [ ] Freeze the fail-closed invariants and dependency order in the paired spec, including the
+- [x] Freeze the fail-closed invariants and dependency order in the paired spec, including the
       inspection-without-activation rule and the direct-client bypass negative case.
-- [ ] Update child Task dependencies/spec references so `MCP-002` and `MCP-2520` implement the same
+- [x] Update child Task dependencies/spec references so `MCP-002` and `MCP-2520` implement the same
       agreement without changing product behavior in this administrative checkpoint.
-- [ ] Run document, relationship, task-order, and affected harness scans before implementation begins.
+- [x] Run document, relationship, task-order, and affected harness scans before implementation begins.
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: the paired spec names exactly one owner for each shared MCP activation
+- [x] TC-01: Observable: the paired spec names exactly one owner for each shared MCP activation
       contract field and both child Tasks cite that spec.
-- [ ] TC-02: Observable: the paired spec records the fail-closed rules for untrusted workspaces,
+- [x] TC-02: Observable: the paired spec records the fail-closed rules for untrusted workspaces,
       checked-in self-approval, definition/provenance/identity changes, revocation, and status-only
       inspection.
-- [ ] TC-03: Observable: the Task dependency graph has `MCP-001` before this agreement and this
+- [x] TC-03: Observable: the Task dependency graph has `MCP-001` before this agreement and this
       agreement before both `MCP-002` and `MCP-2520`, with no circular dependency.
-- [ ] TC-04: Command: the affected harness document and task-order scans exit zero and no TypeScript,
+- [x] TC-04: Command: the affected harness document and task-order scans exit zero and no TypeScript,
       runtime, package, or GitHub mutation is present in the agreement checkpoint.
 
 ## Test Plan

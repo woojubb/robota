@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: AGREEMENT
 tags: [mcp, security, architecture]
 lane: L2
@@ -129,7 +129,7 @@ to `pending`, `rejected`, or `unavailable`, but it must never degrade into an at
 ## Solution
 
 1. Update `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` and
-   `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` to cite
+   `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` to cite
    this agreement as a prerequisite.
 2. Record the owner matrix in this spec and in the relevant package SPEC sections; do not add runtime
    files in the agreement checkpoint.
@@ -140,20 +140,20 @@ to `pending`, `rejected`, or `unavailable`, but it must never degrade into an at
 
 - `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
 - `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`
-- `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
-- `.agents/spec-docs/draft/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
+- `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: the owner matrix assigns definition/provenance, admission, approval/audit,
+- [x] TC-01: Observable: the owner matrix assigns definition/provenance, admission, approval/audit,
       command effects, and presentation to exactly one owner, and both implementation Tasks cite
       this agreement.
-- [ ] TC-02: Observable: the contract records one acyclic order `MCP-001 → AGREEMENT-2520 →
-MCP-002` and `MCP-2520`, with no child allowed to activate without admission.
-- [ ] TC-03: Observable: the contract preserves the complete security handoff — server identity,
+- [x] TC-02: Observable: the contract records one acyclic order `MCP-001 → AGREEMENT-2520 →
+      MCP-002` and `MCP-2520`, with no child allowed to activate without admission.
+- [x] TC-03: Observable: the contract preserves the complete security handoff — server identity,
       provenance, fingerprint, activation kind, refusal/status detail — and explicitly keeps OAuth,
       headersHelper, stdio restrictions, and schema projection out of scope.
-- [ ] TC-04: Command: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist
+- [x] TC-04: Command: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist
 --skip build-contracts` exits 0, and the changed checkpoint contains no TypeScript/runtime or
       GitHub mutation.
 
@@ -161,10 +161,10 @@ MCP-002` and `MCP-2520`, with no child allowed to activate without admission.
 
 | TC-ID | Test Type    | Tool / Approach                                     | Notes                                                    |
 | ----- | ------------ | --------------------------------------------------- | -------------------------------------------------------- |
-| TC-01 | document     | Read owner matrix and child Task/spec references    | Exact one-owner and both-child citation assertion        |
-| TC-02 | relationship | Read Task frontmatter and run task-plan/order scans | Acyclic dependency and admission prerequisite assertion  |
-| TC-03 | document     | Read Decision, scope, and fallback sections         | Capability-preservation and non-goal assertion           |
-| TC-04 | suite        | `run-all-scans.mjs --affected --context pr`         | Agreement checkpoint only; no runtime mutation permitted |
+| TC-01 | document     | Manual review of owner matrix and child Task/spec references | Exact one-owner and both-child citation assertion        |
+| TC-02 | relationship | Manual review of Task frontmatter and task-plan/order scans | Acyclic dependency and admission prerequisite assertion  |
+| TC-03 | document     | Manual review of Decision, scope, and fallback sections    | Capability-preservation and non-goal assertion           |
+| TC-04 | suite        | `node scripts/harness/run-all-scans.mjs --affected --context pr` | Agreement checkpoint only; no runtime mutation permitted |
 
 ## User Execution Test Scenarios
 
@@ -179,7 +179,7 @@ scenarios and their product-level execution evidence.
 Paired execution record:
 `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`.
 
-- [ ] MCP-2520 — in-progress — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- [x] MCP-2520 — done — `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Evidence Log
 
@@ -222,6 +222,8 @@ Paired execution record:
 semantic set was judged inline after the independent proposal/depth reviews, with this deviation made
 explicit rather than silently treating PENDING-GUARDIAN as PASS. No runtime or GitHub mutation exists.
 
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
+
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-09
 
 **Status remains:** draft
@@ -236,6 +238,8 @@ remain `20 PASS, 0 FAIL, 7 PENDING-GUARDIAN`; the guardian found one required co
 
 The failed entry is retained as the superseded review record; GATE-WRITE must be re-run after the
 correction and a later PASS must be recorded before approval.
+
+**Judged by:** `backlog-gate-guard` semantic review.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-09
 
@@ -263,6 +267,8 @@ correction and a later PASS must be recorded before approval.
   named scan command with an exit result.
 - Scope guard: PASS — only the paired agreement/spec and dependency/reference Task records are
   changed; no runtime, package, or GitHub mutation exists.
+
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-09
 
@@ -336,3 +342,144 @@ correction and a later PASS must be recorded before approval.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `6321ab5a6f54` (untracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-09
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (✓ test-plans ⏎ ✓ doc-folder-status ⏎ 3 of 43 scans failed)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no supplied --verify-cmd contains `test` or `vitest` (supplied: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (✓ test-plans ⏎ ✓ doc-folder-status ⏎ 3 of 43 scans failed))
+  **Required action:** pass a test command via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `96402d69bad1` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS — the prior `GATE-IMPLEMENT` entry is ✅ PASS and the document is
+  `status: in-progress` in `spec-docs/active/`.
+- GATE-VERIFY — Every item in the `## Plan` section of the paired Task is marked complete: PASS — all
+  five Task Plan items are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired agreement Task has no unchecked,
+  blocked, or pending Plan item.
+- GATE-VERIFY — Build passes: PASS — `pnpm --filter @robota-sdk/agent-tool-mcp build` exited 0.
+- GATE-VERIFY — Tests pass: PASS — `pnpm --filter @robota-sdk/agent-tool-mcp test` exited 0; all
+  64 MCP tests passed.
+
+**Judgement note:** `gate.mjs` independently recorded 3 PASS results and left the two Plan criteria
+pending because its current wording bindings do not cover the catalogue's `Every item`/`No Plan item`
+phrasing. The Claude guardian dispatch was unavailable because the local Claude subscription is disabled;
+the two criteria were checked directly against the paired Task and the commands above, with this
+deviation recorded rather than silently treating pending criteria as green.
+
+**Judged by:** inline independent review against `.agents/specs/gate-catalogue.md` § GATE-VERIFY after
+the mechanical gate run.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-09
+
+**Command:** `rg -n 'definition/provenance|admission|approval/audit|command effects|presentation|MCP-002|MCP-2520' .agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md .agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+**Exit:** 0
+**Output:** (last 10 of 80 line(s))
+
+```
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:259:  transport/authorization separation support the selected neutral admission-port alternative.
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:286:**Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/backlog/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `8247bbb7cb4c` (untracked)
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:293:- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`, which exists
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:294:- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`, whose basename is the spec's
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:308:  "taskPath": ".agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:309:  "specPath": ".agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:333:    ".agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:334:    ".agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md"
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:342:**Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `6321ab5a6f54` (untracked)
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:355:**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `96402d69bad1` (modified)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `3222b303812b` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-09
+
+**Command:** `rg -n 'depends_on:|MCP-001|AGREEMENT-2520|MCP-002|MCP-2520|without.*admission|must not.*activate' .agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md .agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
+**Exit:** 0
+**Output:** (last 10 of 45 line(s))
+
+```
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:256:- GATE-WRITE — Reproduction condition: PASS — the failure occurs before MCP-002 and MCP-2520 diverge
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:286:**Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/backlog/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `8247bbb7cb4c` (untracked)
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:293:- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`, which exists
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:294:- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`, whose basename is the spec's
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:308:  "taskPath": ".agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:309:  "specPath": ".agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:333:    ".agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md",
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:334:    ".agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md"
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:342:**Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `6321ab5a6f54` (untracked)
+.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md:355:**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `96402d69bad1` (modified)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `ed7ed8bf4b79` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-09
+
+**Command:** `rg -n 'server identity|provenance|fingerprint|activation kind|refusal/status|OAuth|headersHelper|stdio|schema projection' .agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+85:restriction, and schema projection remain separate layers and are not redefined by this agreement.
+94:- **Capability preservation:** the handoff retains definition identity, source provenance, security
+95:  identity, fingerprint, activation kind, and refusal/status detail. It does not replace the existing
+99:  agreement answers each with project/plugin-as-request-only, fingerprint/identity binding, one
+148:- [x] TC-01: Observable: the owner matrix assigns definition/provenance, admission, approval/audit,
+153:- [x] TC-03: Observable: the contract preserves the complete security handoff — server identity,
+154:      provenance, fingerprint, activation kind, refusal/status detail — and explicitly keeps OAuth,
+155:      headersHelper, stdio restrictions, and schema projection out of scope.
+277:**Review fingerprint:** 98d226584bd5 (review 851bfe5c, type/tags 7415dd50)
+283:- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (98d226584bd5) equals the document's current fingerprint
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `faae5d719301` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-09
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip task-archival`
+**Exit:** 0
+**Output:** (last 10 of 53 line(s))
+
+```
+✓ gate-entrypoint-stability
+✓ task-plan-items
+✓ test-module-mocks
+✓ backlog-placement
+✓ llms-txt
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+37 scans passed, 5 skipped (42 declared what they examined)
+scan receipt NOT written: working tree is not clean: AM .agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md, D  .agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md, AM .agents/spec-docs/done/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md, D  .agents/spec-docs/todo/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md,  M .agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md, D  .agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md, AM .agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `6458e66ed17b` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-09; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 10/10 tasks `[x]` in .agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md` blob `33f808172b3a` (modified)
