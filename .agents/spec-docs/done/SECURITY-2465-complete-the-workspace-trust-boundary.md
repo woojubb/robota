@@ -144,16 +144,16 @@ fallback.
 
 ## Test Plan
 
-| TC-ID | Test Type        | Tool / Approach                                  | Notes                                                              |
-| ----- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
-| TC-01 | Unit/integration | `node-host-workspace-trust.test.ts`              | Git identity, grants, replacement, aliases, non-Git, store failure |
-| TC-02 | Unit             | `config-merge.test.ts`, `provider-merge.test.ts` | Trust level/deny monotonicity and endpoint-secret isolation        |
-| TC-03 | CLI integration  | `workspace-trust-startup.test.ts`                | One decision for preparsed, print, serve, and TUI-capable startup  |
+| TC-ID | Test Type        | Tool / Approach                                  | Notes                                                                                                                     |
+| ----- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit/integration | `node-host-workspace-trust.test.ts`              | Git identity, grants, replacement, aliases, non-Git, store failure                                                        |
+| TC-02 | Unit             | `config-merge.test.ts`, `provider-merge.test.ts` | Trust level/deny monotonicity and endpoint-secret isolation                                                               |
+| TC-03 | CLI integration  | `workspace-trust-startup.test.ts`                | One decision for preparsed, print, serve, and TUI-capable startup                                                         |
 | TC-04 | Build            | framework + CLI package builds                   | Public exports and bundled CLI compile; regression test: `packages/agent-cli/src/startup/workspace-trust-startup.test.ts` |
-| TC-05 | Harness          | affected scan command                            | Mechanical gates and changed-path contracts                        |
-| TC-06 | CI-shaped        | `pnpm harness:verify-like-ci`                    | Test skipped: repository-level CI mirror; command evidence is recorded in GATE-COMPLETE: TC-06 |
-| TC-07 | User scenario    | Scenario 1 exact shell command                   | Test skipped: covered by the built-product user scenario evidence in GATE-COMPLETE: TC-07 |
-| TC-08 | User scenario    | Scenario 2 exact shell command                   | Test skipped: covered by the built-product user scenario evidence in GATE-COMPLETE: TC-08 |
+| TC-05 | Harness          | affected scan command                            | Mechanical gates and changed-path contracts                                                                               |
+| TC-06 | CI-shaped        | `pnpm harness:verify-like-ci`                    | Test skipped: repository-level CI mirror; command evidence is recorded in GATE-COMPLETE: TC-06                            |
+| TC-07 | User scenario    | Scenario 1 exact shell command                   | Test skipped: covered by the built-product user scenario evidence in GATE-COMPLETE: TC-07                                 |
+| TC-08 | User scenario    | Scenario 2 exact shell command                   | Test skipped: covered by the built-product user scenario evidence in GATE-COMPLETE: TC-08                                 |
 
 ## User Execution Test Scenarios
 
