@@ -272,6 +272,13 @@ runtime-registered, root-bound, and cannot be reconstructed from a path or seria
 maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
 composition and Restricted-versus-trusted observable.
 
+The Node host supplies the production lifecycle through `createNodeWorkspaceTrustService()`. It binds
+grants to the canonical Git worktree and repository common-directory identity, stores only owner-readable
+generation records under `~/.robota/workspace-trust.json`, and treats non-Git paths, repository replacement,
+revocation, and trust-store errors as Restricted. A later provider settings layer that changes `baseURL`
+without its own credential also clears inherited `apiKey` and `apiKeyEnv` fields; endpoint provenance
+diagnostics can report the quarantine without exposing the credential.
+
 ### SystemCommandExecutor — SDK-Level Commands
 
 `SystemCommandExecutor` executes named system commands against an `InteractiveSession`. Commands are pure TypeScript — no React, no TUI dependency. The CLI wraps them as slash commands with UI chrome.

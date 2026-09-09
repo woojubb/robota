@@ -7,6 +7,7 @@ import {
   createContributionSourcesForProjectAccess,
   createDefaultUserSettingsSources,
   createNodeHostSettingsStore,
+  createNodeWorkspaceTrustService,
   createProjectSessionStore,
   createRestrictedWorkspaceProjectAccess,
   createUserSessionStore,
@@ -49,6 +50,15 @@ export type TCliWorkspaceCompositionOverrides = Pick<
   ICreateCliWorkspaceCompositionOptions,
   'projectAccess' | 'projectSettingsWriter'
 >;
+
+/** Resolve one host-owned admission decision before any project source is composed. */
+export async function resolveInitialCliWorkspaceProjectAccess(
+  cwd: string,
+  options: TCliWorkspaceCompositionOverrides = {},
+): Promise<TWorkspaceProjectAccess> {
+  if (options.projectAccess !== undefined) return options.projectAccess;
+  return createNodeWorkspaceTrustService().inspect(cwd);
+}
 
 function createTrustedCliWorkspaceComposition(
   projectAccess: ITrustedWorkspaceProjectAccess,

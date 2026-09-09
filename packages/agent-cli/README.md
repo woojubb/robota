@@ -154,6 +154,9 @@ robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed
 robota --screen-reader              # Screen-reader mode: no chrome, no motion, numbered menus, role labels
 robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota trust status                 # Inspect canonical workspace trust
+robota trust --yes                  # Grant trust for the current Git workspace
+robota trust revoke --yes           # Revoke the current workspace grant
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show complete buckets for the last 30 calendar days
 robota usage --timezone UTC --format json # Emit the versioned JSON projection
@@ -555,6 +558,25 @@ Settings are merged in this order, from lowest to highest priority:
 The two user layers are always host-owned. The four project layers participate only when the CLI host
 supplies trusted project access; Restricted composition does not probe them. Project writes require a
 separately approved settings writer for the same authority.
+
+### Workspace trust
+
+Robota admits project-controlled settings and executable contributions only after a host-owned grant
+for the canonical Git workspace identity. In a new or revoked workspace, interactive startup remains
+usable with project settings, hooks, plugins, skills, and provider overrides disabled. Headless startup
+fails closed until trust is granted:
+
+```bash
+robota trust status
+robota trust --yes
+robota trust revoke --yes
+```
+
+The grant survives process restart and is invalidated by repository replacement, revocation, or a
+trust-store error. Symlink aliases resolve to the canonical workspace; a different repository at the
+same textual path does not inherit the grant. `robota diagnose` reports trust and endpoint provenance
+without printing credentials. If a lower-trust settings layer changes a provider endpoint without
+providing its own key, Robota removes the inherited key and reports `provider endpoint quarantined`.
 
 ```json
 {

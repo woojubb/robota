@@ -127,33 +127,33 @@ fallback.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run packages/agent-framework/src/workspace-trust/node-host-workspace-trust.test.ts`
+- [x] TC-01: `pnpm exec vitest run packages/agent-framework/src/workspace-trust/node-host-workspace-trust.test.ts`
       exits 0; the untrusted/replaced/alias cases fail with the fix reverted.
-- [ ] TC-02: `pnpm exec vitest run packages/agent-framework/src/config/config-merge.test.ts packages/agent-framework/src/command-api/provider/__tests__/provider-merge.test.ts`
+- [x] TC-02: `pnpm exec vitest run packages/agent-framework/src/config/config-merge.test.ts packages/agent-framework/src/command-api/provider/__tests__/provider-merge.test.ts`
       exits 0 and proves monotonic policy and credential/endpoint isolation.
-- [ ] TC-03: `pnpm exec vitest run packages/agent-cli/src/startup/workspace-trust-startup.test.ts`
+- [x] TC-03: `pnpm exec vitest run packages/agent-cli/src/startup/workspace-trust-startup.test.ts`
       exits 0 and proves real startup admission, command lifecycle, and headless refusal.
-- [ ] TC-04: `pnpm --filter @robota-sdk/agent-framework build && pnpm --filter @robota-sdk/agent-cli build`
+- [x] TC-04: `pnpm --filter @robota-sdk/agent-framework build && pnpm --filter @robota-sdk/agent-cli build`
       exits 0.
-- [ ] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-05: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0.
-- [ ] TC-06: `pnpm harness:verify-like-ci` exits 0 with the exact CI-shaped verification recorded.
-- [ ] TC-07: User Scenario 1 records nonzero exit, trust diagnostic, and absent sentinel.
-- [ ] TC-08: User Scenario 2 records no credential at the lower-trust endpoint and a redacted
+- [x] TC-06: `pnpm harness:verify-like-ci` exits 0 with the exact CI-shaped verification recorded.
+- [x] TC-07: User Scenario 1 records nonzero exit, trust diagnostic, and absent sentinel.
+- [x] TC-08: User Scenario 2 records no credential at the lower-trust endpoint and a redacted
       diagnostic.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Unit/integration | `node-host-workspace-trust.test.ts` | Git identity, grants, replacement, aliases, non-Git, store failure |
-| TC-02 | Unit | `config-merge.test.ts`, `provider-merge.test.ts` | Trust level/deny monotonicity and endpoint-secret isolation |
-| TC-03 | CLI integration | `workspace-trust-startup.test.ts` | One decision for preparsed, print, serve, and TUI-capable startup |
-| TC-04 | Build | framework + CLI package builds | Public exports and bundled CLI compile |
-| TC-05 | Harness | affected scan command | Mechanical gates and changed-path contracts |
-| TC-06 | CI-shaped | `pnpm harness:verify-like-ci` | Full repository gate |
-| TC-07 | User scenario | Scenario 1 exact shell command | No untrusted startup execution |
-| TC-08 | User scenario | Scenario 2 exact shell command | No credential redirection |
+| TC-ID | Test Type        | Tool / Approach                                  | Notes                                                              |
+| ----- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
+| TC-01 | Unit/integration | `node-host-workspace-trust.test.ts`              | Git identity, grants, replacement, aliases, non-Git, store failure |
+| TC-02 | Unit             | `config-merge.test.ts`, `provider-merge.test.ts` | Trust level/deny monotonicity and endpoint-secret isolation        |
+| TC-03 | CLI integration  | `workspace-trust-startup.test.ts`                | One decision for preparsed, print, serve, and TUI-capable startup  |
+| TC-04 | Build            | framework + CLI package builds                   | Public exports and bundled CLI compile                             |
+| TC-05 | Harness          | affected scan command                            | Mechanical gates and changed-path contracts                        |
+| TC-06 | CI-shaped        | `pnpm harness:verify-like-ci`                    | Full repository gate                                               |
+| TC-07 | User scenario    | Scenario 1 exact shell command                   | No untrusted startup execution                                     |
+| TC-08 | User scenario    | Scenario 2 exact shell command                   | No credential redirection                                          |
 
 ## User Execution Test Scenarios
 
@@ -185,7 +185,7 @@ fallback.
 
 ## Tasks
 
-- [ ] `.agents/tasks/SECURITY-2465-complete-the-workspace-trust-boundary.md` — todo
+- [x] `.agents/tasks/SECURITY-2465-complete-the-workspace-trust-boundary.md` — in-progress implementation
 
 ## Evidence Log
 
@@ -263,6 +263,7 @@ surface is introduced. Mechanical GATE-WRITE result: 20 PASS, 0 FAIL, 7 pending 
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -317,7 +318,39 @@ surface is introduced. Mechanical GATE-WRITE result: 20 PASS, 0 FAIL, 7 pending 
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `b486f8cb5e42` · base `origin/develop@b486f8cb5e42` · document `.agents/spec-docs/todo/SECURITY-2465-complete-the-workspace-trust-boundary.md` blob `eaa373434fb0` (untracked)
+
+### [VERIFICATION] — ✅ PASS | 2026-09-10
+
+Manual single-agent verification was run in the current checkout under the user's explicit
+no-subagent/no-worktree restriction. A first CI-mirror pass exposed and then fixed a TypeScript
+narrowing defect in the new persisted-store decoder. The final evidence is:
+
+- TC-01: Node-host trust tests — 5 tests passed.
+- TC-02: configuration/provider merge tests — 20 tests passed; config-loader regression — 39 tests
+  passed.
+- TC-03: CLI trust startup tests — 2 tests passed; diagnose regression tests — 3 tests passed.
+- TC-04: affected package typechecks and builds passed for `@robota-sdk/agent-framework` and
+  `@robota-sdk/agent-cli`.
+- TC-05: 110 affected scans passed, 2 declared skips, and no failed scan.
+- TC-06: `pnpm harness:verify-like-ci` passed with 9 checks executed and 2 not applicable;
+  contract tests, affected build, package-quality, binary E2E, and TUI E2E passed. Windows,
+  dependency audit, and PR-only CodeQL/review checks remain external CI coverage.
+- Global lint passed with 2,355 warnings and 0 errors against the 2,356-warning ceiling.
+- TC-07/TC-08: both built-product scenarios passed; the headless sentinel stayed absent, the
+  endpoint quarantine diagnostic was redacted, no provider request was made, and
+  `SECURITY_2465_DUMMY_SECRET` was absent.
+- Related-issue audit: historical [issue #2018](https://github.com/woojubb/robota/issues/2018) and
+  completed [issue #2520](https://github.com/woojubb/robota/issues/2520) require no closure. Open
+  [issue #2138](https://github.com/woojubb/robota/issues/2138),
+  [issue #2139](https://github.com/woojubb/robota/issues/2139),
+  [issue #2140](https://github.com/woojubb/robota/issues/2140),
+  [issue #2151](https://github.com/woojubb/robota/issues/2151), and
+  [issue #2152](https://github.com/woojubb/robota/issues/2152) retain independent provider,
+  session-authority, contribution-inventory, mutation, and canonical-root contracts; they are not
+  invalidated and remain open. MCP parent [issue #1985](https://github.com/woojubb/robota/issues/1985)
+  and its independent children are also unaffected.

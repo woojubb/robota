@@ -10,7 +10,7 @@ import {
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
-import type { TSettingsSource } from '@robota-sdk/agent-framework';
+import type { TSettingsSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 const PROVIDER_ENDPOINTS: Record<string, { host: string; port: number }> = {
   anthropic: { host: 'api.anthropic.com', port: 443 },
@@ -25,6 +25,7 @@ export interface IDiagnoseContext {
   terminal: ITerminalOutput;
   cwd: string;
   settingsSources?: readonly TSettingsSource[];
+  projectAccess?: TWorkspaceProjectAccess;
 }
 
 export interface IDiagnosticCheck {
@@ -131,6 +132,67 @@ function checkSettingsFiles(settingsSources: readonly TSettingsSource[]): IDiagn
   );
 }
 
+function checkWorkspaceTrust(
+  access: TWorkspaceProjectAccess | undefined,
+): IDiagnosticCheck | undefined {
+  if (access === undefined) return undefined;
+  if (access.status === 'trusted') {
+    return {
+      label: 'Workspace trust',
+      status: 'ok',
+      message: `trusted — ${access.identity.displayPath}`,
+    };
+  }
+  const location = access.displayPath === undefined ? '' : ` — ${access.displayPath}`;
+  const status = access.trustState === 'store-unavailable' ? 'fail' : 'warn';
+  return {
+    label: 'Workspace trust',
+    status,
+    message: `${access.trustState}${location}; project sources are disabled. Run: robota trust --yes`,
+  };
+}
+
+/** Report a raw lower-layer endpoint change without ever printing either layer's credential. */
+function checkProviderEndpointCredentialIsolation(
+  settingsSources: readonly TSettingsSource[],
+): IDiagnosticCheck | undefined {
+  const profiles = new Map<string, { baseURL?: string; apiKey?: string }>();
+  let quarantined = false;
+  for (const source of settingsSources) {
+    let document: { providers?: Record<string, { baseURL?: string; apiKey?: string }> };
+    try {
+      const raw = readSettingsSourceText(source, 'diagnose provider endpoint provenance');
+      if (raw === undefined) continue;
+      document = JSON.parse(raw) as typeof document;
+    } catch {
+      continue;
+    }
+    for (const [name, profile] of Object.entries(document.providers ?? {})) {
+      const previous = profiles.get(name);
+      if (
+        previous?.apiKey !== undefined &&
+        profile.baseURL !== undefined &&
+        profile.baseURL !== previous.baseURL &&
+        profile.apiKey === undefined
+      ) {
+        quarantined = true;
+      }
+      profiles.set(name, {
+        baseURL: profile.baseURL ?? previous?.baseURL,
+        apiKey: profile.apiKey ?? previous?.apiKey,
+      });
+    }
+  }
+  return quarantined
+    ? {
+        label: 'Provider security',
+        status: 'warn',
+        message:
+          'provider endpoint quarantined; inherited credential removed (credential redacted)',
+      }
+    : undefined;
+}
+
 function tryReadCurrentProvider(source: TSettingsSource): string | undefined {
   try {
     const content = readSettingsSourceText(source, 'diagnose provider network endpoint');
@@ -228,14 +290,18 @@ export async function runDiagnoseCommand(
   const networkEndpoint = resolveNetworkEndpoint(settingsSources);
   const providerDefinitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
   const env = deps.env ?? process.env;
+  const workspaceTrustCheck = checkWorkspaceTrust(ctx.projectAccess);
+  const providerSecurityCheck = checkProviderEndpointCredentialIsolation(settingsSources);
 
   const checks: IDiagnosticCheck[] = [
     checkNodeVersion(),
     checkCliVersion(ctx.version),
+    ...(workspaceTrustCheck === undefined ? [] : [workspaceTrustCheck]),
     checkApiKeyResolution(providerDefinitions, env, settingsSources),
     ...checkSettingsFiles(settingsSources),
     checkTerminal(),
     await deps.checkNetwork(networkEndpoint),
+    ...(providerSecurityCheck === undefined ? [] : [providerSecurityCheck]),
   ];
 
   let failCount = 0;
