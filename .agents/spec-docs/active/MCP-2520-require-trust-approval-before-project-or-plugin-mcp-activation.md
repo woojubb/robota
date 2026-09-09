@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: SECURITY
 tags: [cli, auth, typescript]
 lane: L2
@@ -192,27 +192,27 @@ a helper as a fallback.
 
 - Executability: agent-executable
 - Product surface: public-sdk-example
-- Surface rationale: the public MCP activation status/controller surface is the user-visible contract for inspection without activation.
-- Prerequisites: a project MCP definition and checked-in approval are present in an untrusted workspace fixture.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp test -- mcp-activation.test.ts`
-- Observable type: test assertion
-- Observable rationale: the test can observe the reported status and the absence of connection side effects.
-- Expected observable: the definition is reported as pending, rejected, or untrusted and no MCP connection or process spawn occurs.
-- Cleanup: dispose the in-memory admission store and reset the fixture workspace.
-- Evidence: `packages/agent-tool-mcp/src/__tests__/mcp-activation.test.ts`
+- Surface rationale: shipped-interface=public-sdk-example
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates an isolated in-memory untrusted workspace fixture; no network or provider credential is required.
+- Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status`
+- Observable type: sdk-result
+- Observable rationale: source=public-sdk-return
+- Expected observable: result=status=untrusted; activationAttempts=0
+- Cleanup: the example uses only in-memory state and exits without leaving files or connections.
+- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
 
 ### Scenario 2: exact approval, change, and revocation control activation
 
 - Executability: agent-executable
 - Product surface: public-sdk-example
-- Surface rationale: the admission service and command adapter expose the approval lifecycle that gates later activation.
-- Prerequisites: a trusted workspace fixture, an exact MCP definition/provenance/security identity, and an approval record.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp test -- mcp-activation.test.ts mcp-tool.test.ts`
-- Observable type: test assertion
-- Observable rationale: the test observes successful admission only for the exact approved request and denial after mutation or revocation.
-- Expected observable: trusted exact requests are admitted; changed definition, changed provenance/identity, rejection, and revocation are denied before connection.
-- Cleanup: dispose the in-memory admission store and reset the fixture workspace.
-- Evidence: `packages/agent-tool-mcp/src/__tests__/mcp-activation.test.ts`, `packages/agent-tool-mcp/src/__tests__/mcp-tool.test.ts`
+- Surface rationale: shipped-interface=public-sdk-example
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates trusted and mutated in-memory request fixtures; no network or provider credential is required.
+- Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle`
+- Observable type: sdk-result
+- Observable rationale: source=public-sdk-return
+- Expected observable: result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1
+- Cleanup: the example uses only in-memory state and exits without leaving files or connections.
+- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
 
 ## Tasks
 
@@ -324,3 +324,61 @@ corrections and a later PASS must be recorded before approval.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `077de6f59637` · base `origin/develop@077de6f59637` · document `.agents/spec-docs/backlog/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `4022d0a492d0` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-09; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 498 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 2`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md",
+  "specPath": ".agents/spec-docs/todo/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "automatable",
+    "count": 2
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md",
+    ".agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `1460474b50f3` · base `origin/develop@98e778a7a7f8` · document `.agents/spec-docs/todo/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `8b858618e476` (tracked)
