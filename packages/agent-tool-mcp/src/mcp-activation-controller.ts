@@ -28,7 +28,9 @@ export class MCPActivationController {
   ) {}
 
   list(): readonly IMCPActivationSummary[] {
-    return this.definitions.list().map((request) => this.toSummary(this.admission.inspect(request)));
+    return this.definitions
+      .list()
+      .map((request) => this.toSummary(this.admission.inspect(request)));
   }
 
   approve(serverId: string): IMCPActivationSummary {

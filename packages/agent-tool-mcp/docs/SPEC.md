@@ -26,7 +26,7 @@ Single entry point `./` backed by `src/index.ts`.
 approval only when server id, source/provenance, definition fingerprint, security identity, and,
 for project/plugin/local definitions, repository identity and workspace generation all match. It
 requires a trusted workspace for those sources, refuses project/plugin self-approval, and exposes
-  `approve`, `reject`, `revoke`, `inspect`, and `listAudit` through injected storage.
+`approve`, `reject`, `revoke`, `inspect`, and `listAudit` through injected storage.
 `MCPActivationController` adapts a definition registry into the command-layer's structural
 list/approve/reject/revoke port; status inspection never connects.
 
@@ -54,38 +54,38 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 
 ## Public API Surface
 
-| Export                         | Kind      | Description                                                                                            |
-| ------------------------------ | --------- | ------------------------------------------------------------------------------------------------------ |
-| `MCPTool`                      | class     | `ITool` implementation for JSON-RPC 2.0 MCP server communication                                       |
-| `createMCPTool`                | function  | Factory: `(config, schema, options?) => MCPTool`; omitted admission fails closed                    |
-| `IMCPToolOptions`              | interface | Optional host-injected activation request/admission and schema enforcement callbacks                  |
-| `MCPActivationAdmissionService` | class   | Exact-identity approval/rejection/revocation policy and status inspection                             |
-| `MCPActivationController`      | class     | Definition-registry adapter for status and typed lifecycle decisions                                 |
-| `InMemoryMCPActivationApprovalStore` | class | In-memory approval/audit store for tests and ephemeral hosts                                      |
-| `createFailClosedMCPActivationAdmission` | function | Deny-by-default admission fallback when a host has not composed trust policy                 |
-| `MCPActivationPolicyError`      | class     | Typed refusal for invalid approval, rejection, or revocation authority transitions                  |
-| `RelayMcpTool`                 | class     | Relay adapter that bridges MCP commands into Robota agent flows                                        |
-| `IMCPConfig`                   | interface | MCP server connection configuration (`endpoint`, `apiKey`, `timeout`, ...)                             |
-| `IRelayMcpOptions`             | interface | `RelayMcpTool` constructor options (`schema`, `run`, `onUnenforceableSchema`)                          |
-| `IRelayMcpContext`             | interface | Context passed to `RelayMcpTool.run()` callback                                                        |
-| `IMCPActivationRequest`        | interface | Secret-free exact definition/provenance/security identity plus workspace trust snapshot               |
-| `IMCPActivationAdmission`      | interface | Reusable `inspect`/`admit` port called before every MCP connection/use                                |
-| `IMCPActivationApprovalRecord` | interface | Secret-free exact approval record bound to a definition and workspace identity                        |
-| `IMCPActivationApprovalStore`  | interface | Replaceable approval and audit persistence port                                                       |
-| `IMCPActivationAuditEvent`     | interface | Secret-free auditable approval lifecycle event                                                        |
-| `IMCPActivationDefinitionRegistry` | interface | Definition discovery port used by the activation controller                                           |
-| `IMCPActivationProvenance`     | interface | Source provenance identity carried into activation admission                                           |
-| `IMCPActivationStatusResult`   | interface | Secret-free admission status and denial reason                                                        |
-| `IMCPActivationSummary`        | interface | Secret-free definition status projection for command consumers                                        |
-| `IMCPActivationWorkspace`      | interface | Repository identity, trust state, and generation supplied to admission                               |
-| `TMCPActivationSource`         | type      | Activation source classification (`managed`, `user`, `project`, `plugin`, or `local`)                |
-| `TMCPActivationStatus`         | type      | Public admission status classification                                                                |
-| `TMCPApprovalAuthority`        | type      | Authority classification for approval lifecycle mutations                                             |
-| `TMCPWorkspaceTrustState`      | type      | Workspace trust and availability state classification                                                  |
-| `narrowToUniversalSubset`      | function  | CORE-040: narrow a third-party schema to the part the universal subset can enforce, reporting the rest |
-| `ThirdPartySchemaValidator`    | class     | CORE-040: the parameter validator BOTH tool classes use — one owner for the trust-boundary decision    |
-| `INarrowedSchema`              | interface | `{ schema, unenforceable }` — the enforceable copy and the paths dropped from it                       |
-| `TUnenforceableSchemaReporter` | type      | `(toolName, paths) => void` — told once per tool when part of its schema cannot be enforced            |
+| Export                                   | Kind      | Description                                                                                            |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `MCPTool`                                | class     | `ITool` implementation for JSON-RPC 2.0 MCP server communication                                       |
+| `createMCPTool`                          | function  | Factory: `(config, schema, options?) => MCPTool`; omitted admission fails closed                       |
+| `IMCPToolOptions`                        | interface | Optional host-injected activation request/admission and schema enforcement callbacks                   |
+| `MCPActivationAdmissionService`          | class     | Exact-identity approval/rejection/revocation policy and status inspection                              |
+| `MCPActivationController`                | class     | Definition-registry adapter for status and typed lifecycle decisions                                   |
+| `InMemoryMCPActivationApprovalStore`     | class     | In-memory approval/audit store for tests and ephemeral hosts                                           |
+| `createFailClosedMCPActivationAdmission` | function  | Deny-by-default admission fallback when a host has not composed trust policy                           |
+| `MCPActivationPolicyError`               | class     | Typed refusal for invalid approval, rejection, or revocation authority transitions                     |
+| `RelayMcpTool`                           | class     | Relay adapter that bridges MCP commands into Robota agent flows                                        |
+| `IMCPConfig`                             | interface | MCP server connection configuration (`endpoint`, `apiKey`, `timeout`, ...)                             |
+| `IRelayMcpOptions`                       | interface | `RelayMcpTool` constructor options (`schema`, `run`, `onUnenforceableSchema`)                          |
+| `IRelayMcpContext`                       | interface | Context passed to `RelayMcpTool.run()` callback                                                        |
+| `IMCPActivationRequest`                  | interface | Secret-free exact definition/provenance/security identity plus workspace trust snapshot                |
+| `IMCPActivationAdmission`                | interface | Reusable `inspect`/`admit` port called before every MCP connection/use                                 |
+| `IMCPActivationApprovalRecord`           | interface | Secret-free exact approval record bound to a definition and workspace identity                         |
+| `IMCPActivationApprovalStore`            | interface | Replaceable approval and audit persistence port                                                        |
+| `IMCPActivationAuditEvent`               | interface | Secret-free auditable approval lifecycle event                                                         |
+| `IMCPActivationDefinitionRegistry`       | interface | Definition discovery port used by the activation controller                                            |
+| `IMCPActivationProvenance`               | interface | Source provenance identity carried into activation admission                                           |
+| `IMCPActivationStatusResult`             | interface | Secret-free admission status and denial reason                                                         |
+| `IMCPActivationSummary`                  | interface | Secret-free definition status projection for command consumers                                         |
+| `IMCPActivationWorkspace`                | interface | Repository identity, trust state, and generation supplied to admission                                 |
+| `TMCPActivationSource`                   | type      | Activation source classification (`managed`, `user`, `project`, `plugin`, or `local`)                  |
+| `TMCPActivationStatus`                   | type      | Public admission status classification                                                                 |
+| `TMCPApprovalAuthority`                  | type      | Authority classification for approval lifecycle mutations                                              |
+| `TMCPWorkspaceTrustState`                | type      | Workspace trust and availability state classification                                                  |
+| `narrowToUniversalSubset`                | function  | CORE-040: narrow a third-party schema to the part the universal subset can enforce, reporting the rest |
+| `ThirdPartySchemaValidator`              | class     | CORE-040: the parameter validator BOTH tool classes use — one owner for the trust-boundary decision    |
+| `INarrowedSchema`                        | interface | `{ schema, unenforceable }` — the enforceable copy and the paths dropped from it                       |
+| `TUnenforceableSchemaReporter`           | type      | `(toolName, paths) => void` — told once per tool when part of its schema cannot be enforced            |
 
 ## Extension Points
 
@@ -138,7 +138,7 @@ breaking a working tool over a limitation that is this repo's rather than the se
 | `MCPTool`      | `ToolExecutionError('MCP tool execution failed: ...')`                        | JSON-RPC `error` response, `isError` tool result, HTTP failure, timeout, or exhausted retries — `execute()` never wraps failures in a success envelope |
 | `MCPTool`      | `Error('MCP connection timeout: still connecting after Nms')`                 | `ensureConnection()` poll exceeds 50 iterations (5 000 ms)                                                                                             |
 | `MCPTool`      | `Error('Failed to connect to MCP server: ...')`                               | Error thrown during `ensureConnection()`                                                                                                               |
-| `MCPTool`      | `ToolExecutionError('MCP activation denied: ...')`                            | Missing or denied admission before the first handshake or a later reused-session execution                                                            |
+| `MCPTool`      | `ToolExecutionError('MCP activation denied: ...')`                            | Missing or denied admission before the first handshake or a later reused-session execution                                                             |
 | `MCPTool`      | `Error('Error disconnecting from MCP server: ...')`                           | Error thrown during `disconnect()`                                                                                                                     |
 | `RelayMcpTool` | `ToolExecutionError('RelayMcpTool requires tool-call scoped EventService')`   | `context.eventService` is absent                                                                                                                       |
 | `RelayMcpTool` | `ToolExecutionError('RelayMcpTool requires baseEventService')`                | `context.baseEventService` is absent                                                                                                                   |
@@ -151,13 +151,13 @@ breaking a working tool over a limitation that is this repo's rather than the se
 Tests live in `src/__tests__/` (Vitest) and run against an in-process `node:http` mock MCP
 server (`mock-mcp-server.ts`) that records received methods, headers, and bodies.
 
-| Area                   | Test file          | Coverage                                                                                           |
-| ---------------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
-| Handshake + tools/call | `mcp-tool.test.ts` | initialize → notifications/initialized → tools/call ordering; spec `params.name`/`arguments` shape |
-| Error propagation      | `mcp-tool.test.ts` | JSON-RPC error and `isError` result both throw `ToolExecutionError`                                |
-| Timeout / retries      | `mcp-tool.test.ts` | delayed route aborts at `timeout`; HTTP 500 retried `retries` times (attempt count asserted)       |
-| Auth / session         | `mcp-tool.test.ts` | `Authorization: Bearer`, custom headers, `Mcp-Session-Id` echo, DELETE on `disconnect()`           |
-| Status machine         | `mcp-tool.test.ts` | `connected` only after handshake; refused endpoint → `error` status + thrown failure               |
+| Area                   | Test file                                    | Coverage                                                                                                                                                   |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Handshake + tools/call | `mcp-tool.test.ts`                           | initialize → notifications/initialized → tools/call ordering; spec `params.name`/`arguments` shape                                                         |
+| Error propagation      | `mcp-tool.test.ts`                           | JSON-RPC error and `isError` result both throw `ToolExecutionError`                                                                                        |
+| Timeout / retries      | `mcp-tool.test.ts`                           | delayed route aborts at `timeout`; HTTP 500 retried `retries` times (attempt count asserted)                                                               |
+| Auth / session         | `mcp-tool.test.ts`                           | `Authorization: Bearer`, custom headers, `Mcp-Session-Id` echo, DELETE on `disconnect()`                                                                   |
+| Status machine         | `mcp-tool.test.ts`                           | `connected` only after handshake; refused endpoint → `error` status + thrown failure                                                                       |
 | Activation admission   | `mcp-activation.test.ts`, `mcp-tool.test.ts` | pending/status-only, untrusted workspace, self-approval, exact identity staleness, reject/revoke/audit, fail-closed pre-handshake, post-connect revocation |
 
 Coverage gap: `RelayMcpTool.execute()` remains untested (relay context validation only).

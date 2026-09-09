@@ -10,9 +10,7 @@ import { MCPActivationController } from '../mcp-activation-controller.js';
 
 import type { IMCPActivationRequest } from '../mcp-activation.js';
 
-function request(
-  overrides: Partial<IMCPActivationRequest> = {},
-): IMCPActivationRequest {
+function request(overrides: Partial<IMCPActivationRequest> = {}): IMCPActivationRequest {
   return {
     serverId: 'server-1',
     endpoint: 'https://mcp.example.test/mcp',
@@ -56,12 +54,10 @@ describe('MCP activation admission', () => {
     expect(service.approve(original).status).toBe('approved');
     expect(service.inspect(original).allowed).toBe(true);
 
-    expect(
-      service.inspect(request({ definitionFingerprint: 'definition-v2' })).status,
-    ).toBe('stale');
-    expect(
-      service.inspect(request({ securityIdentity: 'identity-v2' })).status,
-    ).toBe('stale');
+    expect(service.inspect(request({ definitionFingerprint: 'definition-v2' })).status).toBe(
+      'stale',
+    );
+    expect(service.inspect(request({ securityIdentity: 'identity-v2' })).status).toBe('stale');
     expect(
       service.inspect(
         request({ provenance: { kind: 'plugin', id: 'changed-plugin', version: '1' } }),
@@ -90,7 +86,10 @@ describe('MCP activation admission', () => {
 
   it('uses managed, user, then local approval precedence and never lets project content approve', () => {
     const service = new MCPActivationAdmissionService();
-    const candidate = request({ source: 'project', provenance: { kind: 'project', id: 'project' } });
+    const candidate = request({
+      source: 'project',
+      provenance: { kind: 'project', id: 'project' },
+    });
     const managed = service.approve(candidate, 'managed');
     expect(managed.status).toBe('approved');
 

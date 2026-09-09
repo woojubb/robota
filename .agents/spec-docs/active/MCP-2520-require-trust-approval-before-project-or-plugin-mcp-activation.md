@@ -176,13 +176,13 @@ a helper as a fallback.
 
 ## Test Plan
 
-| TC-ID | Test Type  | Tool / Approach                                                    | Notes                                             |
-| ----- | ---------- | ------------------------------------------------------------------ | ------------------------------------------------- |
-| TC-01 | integration | restricted/trusted workspace fixtures + activation spy            | Status path proves zero activation side effects   |
-| TC-02 | unit       | admission service/store tests                                      | Source precedence and exact binding               |
-| TC-03 | unit       | fingerprint, reject/revoke, and secret-redaction tests             | Stale/refusal/audit evidence                      |
-| TC-04 | integration | MCP client/transport tests with direct-call bypass attempts         | One admission port before handshake               |
-| TC-05 | suite      | affected package tests, typecheck/build, and `run-all-scans.mjs`    | Include regression RED→GREEN evidence             |
+| TC-ID | Test Type   | Tool / Approach                                                  | Notes                                           |
+| ----- | ----------- | ---------------------------------------------------------------- | ----------------------------------------------- |
+| TC-01 | integration | restricted/trusted workspace fixtures + activation spy           | Status path proves zero activation side effects |
+| TC-02 | unit        | admission service/store tests                                    | Source precedence and exact binding             |
+| TC-03 | unit        | fingerprint, reject/revoke, and secret-redaction tests           | Stale/refusal/audit evidence                    |
+| TC-04 | integration | MCP client/transport tests with direct-call bypass attempts      | One admission port before handshake             |
+| TC-05 | suite       | affected package tests, typecheck/build, and `run-all-scans.mjs` | Include regression RED→GREEN evidence           |
 
 ## User Execution Test Scenarios
 
@@ -286,7 +286,7 @@ corrections and a later PASS must be recorded before approval.
 **Status upgrade:** draft → review-ready
 
 - Mechanical gate: PASS — the re-run of `node scripts/harness/gate.mjs judge --gate GATE-WRITE --doc
-  <this> --lane L2 --dry-run` reports 20 PASS, 0 FAIL, and 7 semantic criteria delegated to the
+<this> --lane L2 --dry-run` reports 20 PASS, 0 FAIL, and 7 semantic criteria delegated to the
   guardian.
 - Independent guardian `Harvey`: PASS — concrete current `MCPTool` symptom, reproduction condition,
   research-to-decision linkage, trade-off, structural analog/taxonomy, criterion coverage, and
@@ -338,6 +338,7 @@ corrections and a later PASS must be recorded before approval.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -378,6 +379,7 @@ corrections and a later PASS must be recorded before approval.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

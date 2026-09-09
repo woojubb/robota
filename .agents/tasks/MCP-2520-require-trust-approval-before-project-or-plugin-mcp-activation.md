@@ -133,6 +133,7 @@ admission port. Run affected package tests, typecheck, build, and repository bou
   and revoked requests before any additional activation.
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -180,4 +181,5 @@ admission port. Run affected package tests, typecheck, build, and repository bou
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->

@@ -210,26 +210,26 @@ Whitebox internals are not specified here. See:
 
 ## Type Ownership
 
-| Type                | Location                           | Purpose                                                                    |
-| ------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
-| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port) |
-| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)            |
-| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)               |
-| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                          |
-| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                          |
-| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                 |
-| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation adapter       |
-| ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy  |
-| IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`    |
-| IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                    |
-| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                |
-| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting |
+| Type                | Location                           | Purpose                                                                                    |
+| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                 |
+| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                            |
+| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)                               |
+| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                                          |
+| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                                          |
+| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                                 |
+| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation adapter |
+| ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy                  |
+| IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                    |
+| IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                                    |
+| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                                |
+| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting                 |
 
 ## Public API Surface
 
-| Export           | Kind     | Description                                                                          |
-| ---------------- | -------- | ------------------------------------------------------------------------------------ |
-| startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode           |
+| Export           | Kind     | Description                                                                                                            |
+| ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode                                             |
 | IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules, provider definitions, and optional MCP activation adapter) |
 
 Note: `createSession()` is internal to `agent-framework` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
