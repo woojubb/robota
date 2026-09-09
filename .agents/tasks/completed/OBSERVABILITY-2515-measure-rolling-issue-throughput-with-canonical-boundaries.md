@@ -1,12 +1,13 @@
 ---
 title: 'OBSERVABILITY-2515: measure rolling issue throughput with canonical boundaries'
 issue: https://github.com/woojubb/robota/issues/2515
-status: todo
+status: done
 created: 2026-09-09
 priority: critical
 urgency: now
 area: GitHub issue throughput measurement
 depends_on: [AGREEMENT-2515]
+completed: 2026-09-10
 ---
 
 # OBSERVABILITY-2515: measure rolling issue throughput with canonical boundaries
@@ -27,11 +28,11 @@ without `/tmp` or session history and must not mutate GitHub state.
 
 ## Completion Criteria
 
-- [ ] TC-01 — A canonical command reports repository, open/created/closed/net counts, exact `[start,end)`
+- [x] TC-01 — A canonical command reports repository, open/created/closed/net counts, exact `[start,end)`
       UTC window, and display/query semantics.
-- [ ] TC-02 — Tests cover boundary timestamps, pagination/count correctness, timezone presentation, and
+- [x] TC-02 — Tests cover boundary timestamps, pagination/count correctness, timezone presentation, and
       API/query failures; a failure is visible and non-success.
-- [ ] TC-03 — The command is rerunnable from a clean checkout without session or `/tmp` state and uses
+- [x] TC-03 — The command is rerunnable from a clean checkout without session or `/tmp` state and uses
       no issue suppression, relabeling, or deduplication mutation.
 
 ## Test Plan
@@ -59,8 +60,13 @@ failure-visible. Evidence: record exact commands, relevant output, and exit code
 
 ## Tasks
 
-- [ ] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
-- [ ] Implement with TDD RED → GREEN → REFACTOR.
-- [ ] Record TC evidence and pass GATE-IMPLEMENT/GATE-VERIFY/GATE-COMPLETE.
+- [x] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
+- [x] Implement with TDD RED → GREEN → REFACTOR.
+- [x] Record TC evidence and pass GATE-IMPLEMENT/GATE-VERIFY/GATE-COMPLETE.
+
+Spec: `.agents/spec-docs/done/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
 
 ## Evidence Log
+
+- Implementation commit `f977d35d2548` adds the canonical read-only command at `scripts/harness/issue-throughput.mjs` and deterministic coverage at `scripts/harness/__tests__/issue-throughput.test.mjs`.
+- Verification: focused Vitest suites passed 50 tests, the affected harness run passed 61 scans with 1 declared skip, and the live read-only command reported a complete paginated result (`open=94`, `created=41`, `closed=222`, `net=-181`).
