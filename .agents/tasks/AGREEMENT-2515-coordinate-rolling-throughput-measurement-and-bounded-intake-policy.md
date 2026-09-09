@@ -40,11 +40,11 @@ that measurement semantics and intake enforcement cannot be independently comple
 ## Plan
 
 - [ ] TC-01 — Establish one canonical `[start,end)` UTC measurement envelope and a failure-visible result
-  shape in OBSERVABILITY-2515.
+      shape in OBSERVABILITY-2515.
 - [ ] TC-02 — Define and mechanically enforce the non-blocking filing response, including
-  duplicate/root-cause grouping and immediate blocker/security/data-correctness exceptions, in RULE-2515.
+      duplicate/root-cause grouping and immediate blocker/security/data-correctness exceptions, in RULE-2515.
 - [ ] TC-03 — Verify both children against the same repository/query semantics and preserve independent
-  external issue lifecycle evidence before closing GitHub issue #2515.
+      external issue lifecycle evidence before closing GitHub issue #2515.
 
 ## Constraints and Non-goals
 

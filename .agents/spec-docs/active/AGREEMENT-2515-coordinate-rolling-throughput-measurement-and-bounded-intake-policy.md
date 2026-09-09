@@ -112,11 +112,11 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Contract/process | `github-issue-triage.mjs convert` plus GitHub read-back | Exact Task map and marker/label ordering |
-| TC-02 | Architecture/process | Child spec review and shared-fixture assertions | One metric owner; no scope leakage |
-| TC-03 | Integration/process | Child change loops, harness scans, and post-merge issue audit | Parent completion only after both children |
+| TC-ID | Test Type            | Tool / Approach                                               | Notes                                      |
+| ----- | -------------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| TC-01 | Contract/process     | `github-issue-triage.mjs convert` plus GitHub read-back       | Exact Task map and marker/label ordering   |
+| TC-02 | Architecture/process | Child spec review and shared-fixture assertions               | One metric owner; no scope leakage         |
+| TC-03 | Integration/process  | Child change loops, harness scans, and post-merge issue audit | Parent completion only after both children |
 
 ## User Execution Test Scenarios
 
@@ -148,7 +148,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-WRITE — concrete symptom: PASS — absent canonical command and wrong observable state are named.
 - GATE-WRITE — reproduction condition: PASS — clean `origin/develop` queue audit is named.
 - GATE-WRITE — structure and criteria: PASS — mechanical and remaining semantic criteria pass.
-**Status upgrade:** draft → review-ready
+  **Status upgrade:** draft → review-ready
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-09
 
@@ -206,6 +206,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -238,6 +239,7 @@ Recorded as the rule's required choice rather than skipped.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
