@@ -80,7 +80,8 @@ export async function executeMCPActivationCommand(
     const result = await mcp[verb](serverId);
     return {
       message: `MCP server ${serverId} is now ${result.status}. ${result.reason}`,
-      success: result.status === 'approved' || result.status === 'rejected' || result.status === 'revoked',
+      success:
+        result.status === 'approved' || result.status === 'rejected' || result.status === 'revoked',
       data: {
         serverId: result.serverId,
         status: result.status,

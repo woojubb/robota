@@ -1,10 +1,5 @@
 // @robota-sdk/agent-tool-mcp
-export {
-  MCPTool,
-  createMCPTool,
-  type IMCPConfig,
-  type IMCPToolOptions,
-} from './mcp-tool';
+export { MCPTool, createMCPTool, type IMCPConfig, type IMCPToolOptions } from './mcp-tool';
 export {
   InMemoryMCPActivationApprovalStore,
   MCPActivationAdmissionService,

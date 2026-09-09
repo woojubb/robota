@@ -42,12 +42,7 @@ export interface IMCPActivationRequest {
 }
 
 export type TMCPActivationStatus =
-  | 'approved'
-  | 'pending'
-  | 'rejected'
-  | 'revoked'
-  | 'stale'
-  | 'untrusted';
+  'approved' | 'pending' | 'rejected' | 'revoked' | 'stale' | 'untrusted';
 
 export type TMCPApprovalAuthority = 'managed' | 'user' | 'local' | 'project' | 'plugin';
 
@@ -220,7 +215,11 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
         return priority || right.decidedAt.localeCompare(left.decidedAt);
       });
     if (records.length === 0) {
-      return statusResult(request, 'pending', 'No explicit trust approval exists for this MCP definition.');
+      return statusResult(
+        request,
+        'pending',
+        'No explicit trust approval exists for this MCP definition.',
+      );
     }
 
     const approval = records.find((record) => isExactMatch(request, record));
@@ -326,10 +325,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     };
   }
 
-  private audit(
-    request: IMCPActivationRequest,
-    record: IMCPActivationApprovalRecord,
-  ): void {
+  private audit(request: IMCPActivationRequest, record: IMCPActivationApprovalRecord): void {
     this.store.appendAudit({
       action:
         record.decision === 'approved'

@@ -9,7 +9,9 @@ import type {
   ICommandMCPActivationSummary,
 } from '@robota-sdk/agent-framework';
 
-function summary(overrides: Partial<ICommandMCPActivationSummary> = {}): ICommandMCPActivationSummary {
+function summary(
+  overrides: Partial<ICommandMCPActivationSummary> = {},
+): ICommandMCPActivationSummary {
   return {
     serverId: 'server-1',
     displayName: 'Example server',
@@ -70,9 +72,15 @@ describe('executeMCPActivationCommand', () => {
       },
     };
 
-    expect((await executeMCPActivationCommand(context(adapter), 'approve Server-A')).success).toBe(true);
-    expect((await executeMCPActivationCommand(context(adapter), 'reject Server-A')).success).toBe(true);
-    expect((await executeMCPActivationCommand(context(adapter), 'revoke Server-A')).success).toBe(true);
+    expect((await executeMCPActivationCommand(context(adapter), 'approve Server-A')).success).toBe(
+      true,
+    );
+    expect((await executeMCPActivationCommand(context(adapter), 'reject Server-A')).success).toBe(
+      true,
+    );
+    expect((await executeMCPActivationCommand(context(adapter), 'revoke Server-A')).success).toBe(
+      true,
+    );
     expect(calls).toEqual(['approve:Server-A', 'reject:Server-A', 'revoke:Server-A']);
   });
 

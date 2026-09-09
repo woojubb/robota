@@ -16,7 +16,13 @@ const SCHEMA: IToolSchema = {
 
 let server: IMockMcpServer | undefined;
 
-function createApprovedMcpTool(config: { endpoint: string; timeout?: number; retries?: number; apiKey?: string; headers?: Record<string, string> }) {
+function createApprovedMcpTool(config: {
+  endpoint: string;
+  timeout?: number;
+  retries?: number;
+  apiKey?: string;
+  headers?: Record<string, string>;
+}) {
   const activationRequest = {
     serverId: 'mock-server',
     endpoint: config.endpoint,
@@ -57,16 +63,14 @@ describe('MCPTool against a mock MCP server', () => {
     };
     const admission = new MCPActivationAdmissionService();
     admission.approve(activationRequest);
-    const tool = createMCPTool(
-      { endpoint: server.url },
-      SCHEMA,
-      { activationRequest, admission },
-    );
+    const tool = createMCPTool({ endpoint: server.url }, SCHEMA, { activationRequest, admission });
 
     await tool.execute({ text: 'first' });
     admission.revoke(activationRequest);
     await expect(tool.execute({ text: 'second' })).rejects.toThrow(/activation denied/i);
-    expect(server.requests.filter((request) => request.body?.['method'] === 'tools/call')).toHaveLength(1);
+    expect(
+      server.requests.filter((request) => request.body?.['method'] === 'tools/call'),
+    ).toHaveLength(1);
   });
 
   it('TC-01: completes initialize handshake then tools/call with spec params', async () => {
