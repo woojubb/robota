@@ -31,7 +31,9 @@ scan process.
   `work-run-measurement: post-pr-local-fix`.
 - `scripts/harness/pre-push-verification-execution.mjs` invokes the mirrored `harness:scan` as a new
   process without carrying the observation mode.
-<!-- evidence-superseded: the work-run measurement subsystem was removed by PR #2671; this historical evidence remains valid for its original revision. -->
+
+<!-- evidence-superseded: the work-run measurement scanner was intentionally removed in the later harness-overhead cleanup; this historical evidence remains valid for the run it described. -->
+
 - `scripts/harness/scan-work-run-measurement.mjs` therefore falls back to repository validation's
   `post-push` default while the candidate HEAD is still local.
 - The exact run and diagnosis are recorded in

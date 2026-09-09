@@ -52,11 +52,15 @@ function productLintCeiling() {
 
 export function createProductStageCommands(stageName, { baseRef }, context) {
   const full = context.fullProductVerification === true;
+  const agentApp = context.agentAppChanged === true;
   switch (stageName) {
-    case 'build':
-      return full
+    case 'build': {
+      const commands = full
         ? [['pnpm', ['build']]]
         : [['pnpm', affectedScriptArgs('build:affected', baseRef)]];
+      if (agentApp) commands.push(['pnpm', ['--filter', '@robota-sdk/agent-app', 'build']]);
+      return commands;
+    }
     case 'package-quality':
       if (full) return ['test', 'typecheck', 'lint'].map((operation) => ['pnpm', [operation]]);
       return [
@@ -99,12 +103,18 @@ export function createProductStageCommands(stageName, { baseRef }, context) {
 
 export async function runProductStage(stageName, options, context, { concurrent = false } = {}) {
   const commands = createProductStageCommands(stageName, options, context);
+  const runOptions =
+    stageName === 'build' && context.fullProductVerification === true
+      ? { env: { ...process.env, FULL_VERIFICATION: 'true' } }
+      : undefined;
   if (concurrent) {
-    const codes = await Promise.all(commands.map(([command, args]) => run(command, args)));
+    const codes = await Promise.all(
+      commands.map(([command, args]) => run(command, args, undefined, runOptions)),
+    );
     return { code: codes.some((code) => code !== 0) ? 1 : 0 };
   }
   for (const [command, args] of commands) {
-    const code = await run(command, args);
+    const code = await run(command, args, undefined, runOptions);
     if (code !== 0) return { code };
   }
   return { code: 0 };

@@ -11,6 +11,15 @@ import { inspectContractTestCache, recordSuccessfulContractShard } from './contr
 import { createContractTestRegistry } from './contract-test-inputs.mjs';
 import { vitestInvocation, vitestInvocationAsync } from './harness-vitest-process.mjs';
 
+export const DEFAULT_CONTRACT_SHARD_CONCURRENCY = 2;
+
+function contractShardConcurrency(environment = process.env) {
+  const configured = Number(environment.HARNESS_CONTRACT_SHARD_CONCURRENCY);
+  return Number.isSafeInteger(configured) && configured > 0
+    ? configured
+    : DEFAULT_CONTRACT_SHARD_CONCURRENCY;
+}
+
 function gitOutput(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: null });
   if (result.status !== 0 || result.signal) {
@@ -100,9 +109,17 @@ export async function runAffectedContractTier(argv, root, tiers) {
     .map((files) => files.filter((file) => misses.has(file)))
     .filter((files) => files.length > 0);
   const before = worktreeFingerprint(root);
-  const shardRuns = await Promise.all(
-    shardFiles.map(async (files) => ({ files, result: await vitestInvocationAsync(root, files) })),
-  );
+  const shardRuns = [];
+  const concurrency = contractShardConcurrency();
+  for (let index = 0; index < shardFiles.length; index += concurrency) {
+    const batch = await Promise.all(
+      shardFiles.slice(index, index + concurrency).map(async (files) => ({
+        files,
+        result: await vitestInvocationAsync(root, files),
+      })),
+    );
+    shardRuns.push(...batch);
+  }
   for (const { result } of shardRuns) printRun(result);
   let failed = shardRuns.some(({ result }) => result.status !== 0 || result.signal);
   const isolatedRuns = [];

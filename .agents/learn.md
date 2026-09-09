@@ -125,7 +125,7 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `.claude/hooks/pre-push-check.sh` subshell-accounting block; `pre-push-repo-resolution`
   long-chain regression; measured 200-statement probe completed in under one second after the guard.
 - source: INFRA-2662 pre-push verification, 2026-09-09
-- related: HARNESS-083 (#1681), INFRA-2662
+- related: HARNESS-083 (issue #1681), INFRA-2662
 
 ### LRN-pre-push-here-string-pipe-deadlock
 
@@ -138,7 +138,7 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `sample` captured `pre-push-check.sh` in `heredoc_write` with no child process; replacing
   the three loop here-strings with `printf` process substitutions removes the pipe back-pressure.
 - source: INFRA-2662 affected-contract verification, 2026-09-09
-- related: HARNESS-083 (#1681), INFRA-2662
+- related: HARNESS-083 (issue #1681), INFRA-2662
 
 ### LRN-merge-gate-wide-fixture-must-drain-stdout
 
@@ -149,7 +149,7 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: the test failed with `MOVED_RAW` at 512 bytes and 18 lines; replacing the immediate exit
   with a normal `stdout.write` drain makes the fixture expose the full response.
 - source: INFRA-2662 full contract verification, 2026-09-09
-- related: PROC-016, #2386
+- related: PROC-016, issue #2386
 
 ### LRN-hook-test-runner-must-drain-large-stdout
 

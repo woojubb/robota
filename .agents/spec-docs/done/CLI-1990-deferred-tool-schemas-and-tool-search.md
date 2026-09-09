@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [cli, typescript]
 lane: L2
@@ -15,8 +15,8 @@ documentation says the opposite of the second half: with server-side tool search
 tool's full definition in the `tools` array on every request, including the deferred ones. The API needs
 them server-side to run the search" ([tool search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)).
 The vendor feature reduces **context-window and billed input tokens**, not wire bytes. Only a
-client-side catalog reduces both. This spec therefore states the outcome as *what enters the model's
-context*, and its acceptance criteria measure the tool array the provider is actually handed — not
+client-side catalog reduces both. This spec therefore states the outcome as _what enters the model's
+context_, and its acceptance criteria measure the tool array the provider is actually handed — not
 request size, which the vendor design cannot move.
 
 ## Problem
@@ -49,7 +49,7 @@ in the tree:
    (`packages/agent-framework/src/assembly/assemble-session-tools.ts:86`), `BackgroundProcess`, and
    `robota_command_*` projections. A separate hardcoded list, `DEFAULT_TOOL_DESCRIPTIONS`
    (`packages/agent-framework/src/assembly/create-session-runtime.ts:35`, consumed at `:163`), mirrors
-   the ten in the system prompt and is documented as *not* derived from the assembled set.
+   the ten in the system prompt and is documented as _not_ derived from the assembled set.
 4. **The one existing narrowing hook is dead code.** `Tools.setAllowedTools`
    (`packages/agent-core/src/managers/tool-manager.ts:159`) and the filter it drives (`:96-98`) are a
    live, per-agent, name-based narrowing point with **no production call site** — only
@@ -85,32 +85,32 @@ Topic: deferred tool schemas + tool search. Researched 2026-09-07 by the `prior-
 
 Sources: [agent-sdk/tool-search](https://code.claude.com/docs/en/agent-sdk/tool-search), [agent-sdk/mcp](https://code.claude.com/docs/en/agent-sdk/mcp), [en/mcp](https://code.claude.com/docs/en/mcp), [agent-sdk/permissions](https://code.claude.com/docs/en/agent-sdk/permissions), [platform tool-search-tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool), [changelog](https://code.claude.com/docs/en/changelog).
 
-| Line | Current doc wording | Verdict |
-|---|---|---|
-| (a) schemas deferred, model sees names, fetches on demand | "When it is active, tool definitions are withheld from the context window. The agent receives a summary of available tools and searches for relevant ones when the task requires a capability not already loaded." — but "You still send every tool's full definition in the `tools` array on every request, including the deferred ones. The API needs them server-side to run the search and expand `tool_reference` blocks." | **CHANGED in substance** — context-window deferral, not request-payload deferral. Payload deferral is achievable only client-side. |
-| (b) search interface returning full schemas, callable thereafter | "You include a tool search tool (for example, `tool_search_tool_regex_20251119` or `tool_search_tool_bm25_20251119`)…" / "The API runs the search and returns the matching tools as `tool_reference` blocks (up to 5 by default…)" / "The API expands `tool_reference` blocks throughout the conversation history, so Claude can reuse discovered tools in later turns without re-searching." | HOLDS, with a new caveat: they stay available "until the SDK compacts the messages where the agent discovered them. After that compaction, the agent searches for those tools again." |
-| (c) direct selection by name as well as keyword search | "With `tool_search_tool_regex_20251119`, Claude writes Python `re.search()` patterns, not natural language queries." / "Both tool search variants (`regex` and `bm25`) search tool names, descriptions, argument names, and argument descriptions." | **CHANGED / partial** — the model selects only by regex or BM25 query (an exact name is expressible as a pattern). By-name loading is the *developer's* move: `{"type": "tool_reference", "tool_name": "…"}`, plus `defer_loading: false` for resident tools. |
-| (d) deliberate resident/deferred split | "At least one tool, normally the tool search tool itself, must stay non-deferred." / "Keep your 3–5 most frequently used tools non-deferred…" / "The SDK always loads core built-in tools such as Bash, Read, and Edit upfront and doesn't count them toward the threshold." / server-scope `alwaysLoad: true` | HOLDS, more explicit than the snapshot. Enforced by a 400: `"At least one tool must have defer_loading=false. All tools cannot be deferred."` |
-| (e) on by default, degrades cleanly | "Tool search is on by default, with the exceptions listed in Configure tool search." `ENABLE_TOOL_SEARCH` = `(unset) \| true \| auto \| auto:N \| false`. Degradations: non-first-party `ANTHROPIC_BASE_URL` ("since most proxies don't forward `tool_reference` blocks"); Microsoft Foundry on Azure "which reject it server-side: the SDK detects the rejection and loads tool definitions upfront… `ENABLE_TOOL_SEARCH` can't override this"; Google Cloud Agent Platform models earlier than Claude 4.5; Bedrock "only through the InvokeModel API, not the Converse API". | HOLDS + EXTENDED — `auto`/`auto:N` are new: "Counts the tokens in the tool definitions that tool search can defer and compares the total against the model's context window. When the total reaches 10% of the window, tool search activates." |
-| (f) failed MCP connection reported through the search path | "With tool search, Claude Code tells Claude which server failed and its connection error… Claude Code includes the same information in `ToolSearch` results that find no matching tool." / "In any configuration without tool search, Claude Code doesn't report failed server connections to Claude." | HOLDS. At API level: "A search that matches nothing returns a `tool_search_tool_search_result` with an empty `tool_references` array, not an error." Server statuses: `pending`, `connected`, `failed`, `needs-auth`, `disabled`. |
-| (g) a rule can name a not-yet-loaded tool | `allowedTools: ["mcp__enterprise-tools__*"]` — "Wildcard pre-approves all tools from this server". Permissions page: "Allow rules accept tool-name globs only after a literal `mcp__<server>__` prefix." | HOLDS, with an asymmetry: **deny** shapes the surface *before* deferral — "Bare-name deny rules like `Bash` remove the tool from Claude's context before this evaluation begins" — while **allow** is a call-time name match, so it works on tools never loaded. |
+| Line                                                             | Current doc wording                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Verdict                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (a) schemas deferred, model sees names, fetches on demand        | "When it is active, tool definitions are withheld from the context window. The agent receives a summary of available tools and searches for relevant ones when the task requires a capability not already loaded." — but "You still send every tool's full definition in the `tools` array on every request, including the deferred ones. The API needs them server-side to run the search and expand `tool_reference` blocks."                                                                                                                                                | **CHANGED in substance** — context-window deferral, not request-payload deferral. Payload deferral is achievable only client-side.                                                                                                                               |
+| (b) search interface returning full schemas, callable thereafter | "You include a tool search tool (for example, `tool_search_tool_regex_20251119` or `tool_search_tool_bm25_20251119`)…" / "The API runs the search and returns the matching tools as `tool_reference` blocks (up to 5 by default…)" / "The API expands `tool_reference` blocks throughout the conversation history, so Claude can reuse discovered tools in later turns without re-searching."                                                                                                                                                                                  | HOLDS, with a new caveat: they stay available "until the SDK compacts the messages where the agent discovered them. After that compaction, the agent searches for those tools again."                                                                            |
+| (c) direct selection by name as well as keyword search           | "With `tool_search_tool_regex_20251119`, Claude writes Python `re.search()` patterns, not natural language queries." / "Both tool search variants (`regex` and `bm25`) search tool names, descriptions, argument names, and argument descriptions."                                                                                                                                                                                                                                                                                                                            | **CHANGED / partial** — the model selects only by regex or BM25 query (an exact name is expressible as a pattern). By-name loading is the _developer's_ move: `{"type": "tool_reference", "tool_name": "…"}`, plus `defer_loading: false` for resident tools.    |
+| (d) deliberate resident/deferred split                           | "At least one tool, normally the tool search tool itself, must stay non-deferred." / "Keep your 3–5 most frequently used tools non-deferred…" / "The SDK always loads core built-in tools such as Bash, Read, and Edit upfront and doesn't count them toward the threshold." / server-scope `alwaysLoad: true`                                                                                                                                                                                                                                                                 | HOLDS, more explicit than the snapshot. Enforced by a 400: `"At least one tool must have defer_loading=false. All tools cannot be deferred."`                                                                                                                    |
+| (e) on by default, degrades cleanly                              | "Tool search is on by default, with the exceptions listed in Configure tool search." `ENABLE_TOOL_SEARCH` = `(unset) \| true \| auto \| auto:N \| false`. Degradations: non-first-party `ANTHROPIC_BASE_URL` ("since most proxies don't forward `tool_reference` blocks"); Microsoft Foundry on Azure "which reject it server-side: the SDK detects the rejection and loads tool definitions upfront… `ENABLE_TOOL_SEARCH` can't override this"; Google Cloud Agent Platform models earlier than Claude 4.5; Bedrock "only through the InvokeModel API, not the Converse API". | HOLDS + EXTENDED — `auto`/`auto:N` are new: "Counts the tokens in the tool definitions that tool search can defer and compares the total against the model's context window. When the total reaches 10% of the window, tool search activates."                   |
+| (f) failed MCP connection reported through the search path       | "With tool search, Claude Code tells Claude which server failed and its connection error… Claude Code includes the same information in `ToolSearch` results that find no matching tool." / "In any configuration without tool search, Claude Code doesn't report failed server connections to Claude."                                                                                                                                                                                                                                                                         | HOLDS. At API level: "A search that matches nothing returns a `tool_search_tool_search_result` with an empty `tool_references` array, not an error." Server statuses: `pending`, `connected`, `failed`, `needs-auth`, `disabled`.                                |
+| (g) a rule can name a not-yet-loaded tool                        | `allowedTools: ["mcp__enterprise-tools__*"]` — "Wildcard pre-approves all tools from this server". Permissions page: "Allow rules accept tool-name globs only after a literal `mcp__<server>__` prefix."                                                                                                                                                                                                                                                                                                                                                                       | HOLDS, with an asymmetry: **deny** shapes the surface _before_ deferral — "Bare-name deny rules like `Bash` remove the tool from Claude's context before this evaluation begins" — while **allow** is a call-time name match, so it works on tools never loaded. |
 
 Changelog: no entry from v2.1.238–v2.1.263 mentions tool search, `defer_loading`, `tool_reference`, `ENABLE_TOOL_SEARCH` or `alwaysLoad`; the changes above are documented in the guides. Verification gap stated honestly: `code.claude.com/docs/en/mcp` truncated on fetch, so §"Configure tool search" and §"Exempt a server from deferral" could not be quoted in full; the key names were confirmed by cross-reference on the two `agent-sdk/*` pages.
 
 ### 2. Provider capability table — the provider-neutral form
 
-| Reference | Deferred schemas? | Mechanism / names | Wire payload reduced? | Default |
-|---|---|---|---|---|
-| Anthropic Messages API | Yes, server-side | `tool_search_tool_regex_20251119` / `_bm25_20251119`; per-tool `defer_loading: true`; `server_tool_use` → `tool_search_tool_result` → `tool_reference`. Limits: 10,000 deferred tools; 5 results default, `limit` 1–10,000; regex ≤200 chars, BM25 ≤500 | **No** | Opt-in |
-| Anthropic — custom client-side path | Yes, client-side | "You can implement your own tool search logic… by returning `tool_reference` blocks from a custom tool" | Partly | Opt-in |
-| Anthropic MCP connector | Yes | `mcp_toolset` `default_config: {enabled, defer_loading}` — "If true, tool description is not sent to the model initially" | No | `false` |
-| **OpenAI Responses API** | **Yes** | `{"type": "tool_search"}` in `tools`; per-function `"defer_loading": true`; `tool_search_call` / `tool_search_output`. "Only `gpt-5.4` and later models support `tool_search`." Hosted **and client-executed** modes | Hosted: no. **Client-executed: yes** | Opt-in |
-| Google Gemini | **No** | Declarations passed in `tools` every request; `function_calling_config` modes and `allowed_function_names` restrict what may be *called*, not what is transmitted. "Keep active set to 10-20 tools maximum." | Only if the client shrinks `tools` | **no comparable reference found** |
-| MCP specification (2026-07-28) | **No** | `tools/list` returns full definitions **including `inputSchema`**; `cursor`/`nextCursor` pagination, `ttlMs`/`cacheScope`, `notifications/tools/list_changed`. No per-tool schema fetch | n/a | n/a |
+| Reference                           | Deferred schemas? | Mechanism / names                                                                                                                                                                                                                                       | Wire payload reduced?                | Default                           |
+| ----------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | --------------------------------- |
+| Anthropic Messages API              | Yes, server-side  | `tool_search_tool_regex_20251119` / `_bm25_20251119`; per-tool `defer_loading: true`; `server_tool_use` → `tool_search_tool_result` → `tool_reference`. Limits: 10,000 deferred tools; 5 results default, `limit` 1–10,000; regex ≤200 chars, BM25 ≤500 | **No**                               | Opt-in                            |
+| Anthropic — custom client-side path | Yes, client-side  | "You can implement your own tool search logic… by returning `tool_reference` blocks from a custom tool"                                                                                                                                                 | Partly                               | Opt-in                            |
+| Anthropic MCP connector             | Yes               | `mcp_toolset` `default_config: {enabled, defer_loading}` — "If true, tool description is not sent to the model initially"                                                                                                                               | No                                   | `false`                           |
+| **OpenAI Responses API**            | **Yes**           | `{"type": "tool_search"}` in `tools`; per-function `"defer_loading": true`; `tool_search_call` / `tool_search_output`. "Only `gpt-5.4` and later models support `tool_search`." Hosted **and client-executed** modes                                    | Hosted: no. **Client-executed: yes** | Opt-in                            |
+| Google Gemini                       | **No**            | Declarations passed in `tools` every request; `function_calling_config` modes and `allowed_function_names` restrict what may be _called_, not what is transmitted. "Keep active set to 10-20 tools maximum."                                            | Only if the client shrinks `tools`   | **no comparable reference found** |
+| MCP specification (2026-07-28)      | **No**            | `tools/list` returns full definitions **including `inputSchema`**; `cursor`/`nextCursor` pagination, `ttlMs`/`cacheScope`, `notifications/tools/list_changed`. No per-tool schema fetch                                                                 | n/a                                  | n/a                               |
 
 Portable client-side fallbacks, as documented: Vercel AI SDK [`activeTools`](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling) — "Language models can only handle a limited number of tools at a time… the AI SDK provides the `activeTools` property"; OpenAI Agents SDK [`create_static_tool_filter`](https://openai.github.io/openai-agents-python/mcp/) with `cache_tools_list` / `invalidate_tools_cache()` because "Every agent run calls `list_tools()` on each MCP server"; [LangChain](https://docs.langchain.com/oss/python/langchain/tools) — "Too many tools may overwhelm the model (overload context) and increase errors; too few limit capabilities."
 
-**Provider feature, client-side technique, or both? BOTH, and they are not substitutes.** The provider feature (Anthropic; OpenAI ≥ gpt-5.4) is model-driven and saves prompt tokens only, and is unavailable on Gemini, non-first-party base URLs, older models, Bedrock Converse and Foundry/Azure. The client-side technique works on every provider and saves wire bytes *and* prompt tokens, but is developer-driven — the model cannot request what it cannot see. **The bridge both vendors document is a client-executed search**: the model calls an ordinary function tool and the runtime returns the expanded definitions. Because the model-visible artifact is a normal function tool, that design also runs on Gemini, which has no feature at all.
+**Provider feature, client-side technique, or both? BOTH, and they are not substitutes.** The provider feature (Anthropic; OpenAI ≥ gpt-5.4) is model-driven and saves prompt tokens only, and is unavailable on Gemini, non-first-party base URLs, older models, Bedrock Converse and Foundry/Azure. The client-side technique works on every provider and saves wire bytes _and_ prompt tokens, but is developer-driven — the model cannot request what it cannot see. **The bridge both vendors document is a client-executed search**: the model calls an ordinary function tool and the runtime returns the expanded definitions. Because the model-visible artifact is a normal function tool, that design also runs on Gemini, which has no feature at all.
 
 ### 3. Constraints that apply to Robota
 
@@ -122,13 +122,13 @@ Portable client-side fallbacks, as documented: Vercel AI SDK [`activeTools`](htt
 6. Latency trade, documented: "Tool search adds one extra round-trip each time Claude searches for tools, but for large tool sets this is offset by smaller context on every turn."
 7. Name collisions across aggregated MCP servers: the spec says clients "SHOULD implement a disambiguation strategy such as prefixing tool names with a server identifier"; `mcp__<server>__<tool>` is the working instance.
 
-**Converged across ≥2 references (safe to adopt):** the key name `defer_loading`; at least one tool must stay resident and 3–5 frequent ones should; two-step search-then-expand returning *references* the runtime expands; the ~10–20 tool / >10 % of context activation band; 5 default results; client-side name/glob filtering as the universal fallback; server-prefixed MCP names; tool-list caching with explicit invalidation.
+**Converged across ≥2 references (safe to adopt):** the key name `defer_loading`; at least one tool must stay resident and 3–5 frequent ones should; two-step search-then-expand returning _references_ the runtime expands; the ~10–20 tool / >10 % of context activation band; 5 default results; client-side name/glob filtering as the universal fallback; server-prefixed MCP names; tool-list caching with explicit invalidation.
 
 **Anthropic-specific (adopt only with a stated reason):** the versioned type strings and the Python `re.search()` dialect; the `server_tool_use` / `srvtoolu_` wire blocks; `ENABLE_TOOL_SEARCH` and its `auto:N` syntax; the `alwaysLoad` key; reporting MCP connection failures inside search results; and "on by default", which is a Claude Code product choice — both underlying APIs are opt-in.
 
 ### 4. Recommendation
 
-Build tool search as an ordinary Robota tool over a client-side catalog, with provider offload as a capability-gated optimisation: one resident `tool_search` function tool taking `query` and an optional `limit` (default 5), returning matching tools' full schemas which the runtime then makes callable for the rest of the session — the only shape supported by every reference. Marker: per-tool `deferLoading` (camelCase of the key Anthropic *and* OpenAI both chose). Enforce Anthropic's invariant as a Robota-level error. "On by default" should mean *default-on as a threshold policy, never unconditional deferral*: ship `auto`, engaging only when deferrable definitions reach ~10 % of the model's context window or the deferrable count crosses ~15 — a no-op at ten tools today that switches on by itself when MCP servers arrive, with no flag day and no regression. Adopt the documented error semantics (an empty match is a normal empty result; an unknown reference is a hard error) and include failed/`needs-auth` server names inside the search result. Keep allow rules as call-time name matches evaluated independently of load state and deny rules as surface-shaping applied before deferral.
+Build tool search as an ordinary Robota tool over a client-side catalog, with provider offload as a capability-gated optimisation: one resident `tool_search` function tool taking `query` and an optional `limit` (default 5), returning matching tools' full schemas which the runtime then makes callable for the rest of the session — the only shape supported by every reference. Marker: per-tool `deferLoading` (camelCase of the key Anthropic _and_ OpenAI both chose). Enforce Anthropic's invariant as a Robota-level error. "On by default" should mean _default-on as a threshold policy, never unconditional deferral_: ship `auto`, engaging only when deferrable definitions reach ~10 % of the model's context window or the deferrable count crosses ~15 — a no-op at ten tools today that switches on by itself when MCP servers arrive, with no flag day and no regression. Adopt the documented error semantics (an empty match is a normal empty result; an unknown reference is a hard error) and include failed/`needs-auth` server names inside the search result. Keep allow rules as call-time name matches evaluated independently of load state and deny rules as surface-shaping applied before deferral.
 
 PRIOR_ART_RESEARCH: FOUND
 
@@ -181,7 +181,7 @@ schemas); and `Tools.setAllowedTools`' dead-code removal, which is a separate cl
    - Con: it does not reduce the request payload at all, which is what the issue asks for; Gemini has no
      equivalent, so the multi-provider requirement is unmet; it puts vendor-versioned type strings into
      `agent-core`; and it inherits the documented degradations (proxy base URLs, Bedrock Converse,
-     Foundry) as *our* failure modes.
+     Foundry) as _our_ failure modes.
 3. **Static client-side filtering only (an `activeTools`-style per-run allowlist).**
    - Pro: the smallest change — the dead `Tools.setAllowedTools` already implements it; no round-level
      re-read needed.
@@ -193,7 +193,7 @@ schemas); and `Tools.setAllowedTools`' dead-code removal, which is a separate cl
 
 Alternative 1. The trade-off that decided it: Alternative 2 is cheaper to implement and strictly worse
 against the issue's actual goal — it moves no bytes and leaves Gemini unserved — while Alternative 3 is
-cheaper still and gives up the property that makes the feature worth having, namely that the *model*
+cheaper still and gives up the property that makes the feature worth having, namely that the _model_
 discovers what it needs. Alternative 1's cost is one genuine structural change in `agent-core` (a
 per-round tool read) plus one accepted prompt-cache invalidation per discovery, both of which are
 bounded and measurable. Where a provider later proves it supports the native form, the capability flag
@@ -201,20 +201,20 @@ declared here lets an offload be added without changing the model-visible contra
 
 Checklist verdicts (issue #1990, one per line):
 
-| # | Line | Verdict | Reason |
-|---|---|---|---|
-| a | schemas deferred; names visible; fetched on demand | **Adapt** | Adopted as *client-side* deferral, which is stronger than the reference: the deferred schema leaves the request entirely, not just the context window. The model sees a compact `name — one-line description` roster in the `ToolSearch` description rather than a vendor "summary" block. |
-| b | a search interface returning full schemas, callable in-session | **Adopt** | `ToolSearch({query, limit=5})`; matches become resident for the remainder of the session. Requires the per-round re-read. Default limit 5 follows both vendors. |
-| c | direct selection by name as well as keyword search | **Adopt** | The query matches names, descriptions and parameter names/descriptions (the reference's own search surface), so an exact name is a valid query; a `names` argument additionally loads an exact list without a search. This is *better* than the reference, where the model has only a regex/BM25 query. |
-| d | deliberate resident/deferred split | **Adopt** | The ten built-ins plus `ToolSearch` are resident; everything arriving through `additionalTools` may declare `deferLoading`. A configuration that defers everything is a startup error, echoing the vendor's own 400. |
-| e | on by default, degrading cleanly | **Adapt** | Default `auto` — deferral engages only above a threshold (deferrable schema estimate ≥10 % of the model's context window, or >15 deferrable tools). At ten tools it is a no-op, so nothing regresses today and MCP switches it on by itself. Explicit `on`/`off` overrides exist. The vendor's degradation list is Anthropic-specific plumbing; the Robota analogue is the capability table, and the *documented* behaviour when a provider cannot help is unchanged — the client-side path is the baseline, not the fallback. |
-| f | a failed MCP connection is reported through the search path | **Defer, with owner named** | The behaviour is right and cheap, but `tools/list` is never called and `@robota-sdk/agent-tool-mcp` has zero importers; the status feed it needs is `MCP-003`'s ("MCP connection and capability-catalog supervisor", `todo`). The `ToolSearch` result shape declared here carries an `unavailableSources` array from day one so MCP-003 fills it without a contract change; v1 always returns it empty. |
-| g | a permission rule may name a not-yet-loaded tool | **Adopt (mostly already true)** | `evaluateArgumentPattern` (`packages/agent-core/src/permissions/permission-gate.ts:191`) never consults the registry — a bare-name rule matches regardless of load state (`:202`). The gap is argument-scoped rules on a tool whose permission profile is not registered: profiles register at **module import** (`packages/agent-tools/src/tool-permission-profiles.ts:73`), so a deferred *built-in* keeps its profile, while a future deferred MCP tool would fall to `'unevaluable'` → prompt (deny in plan mode). v1 documents that boundary and asserts the bare-name case; extending `registerToolPermissionProfile` to accept a profile from a deferred manifest is MCP-005's. |
+| #   | Line                                                           | Verdict                         | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | -------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a   | schemas deferred; names visible; fetched on demand             | **Adapt**                       | Adopted as _client-side_ deferral, which is stronger than the reference: the deferred schema leaves the request entirely, not just the context window. The model sees a compact `name — one-line description` roster in the `ToolSearch` description rather than a vendor "summary" block.                                                                                                                                                                                                                                                                                                                                                                                             |
+| b   | a search interface returning full schemas, callable in-session | **Adopt**                       | `ToolSearch({query, limit=5})`; matches become resident for the remainder of the session. Requires the per-round re-read. Default limit 5 follows both vendors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| c   | direct selection by name as well as keyword search             | **Adopt**                       | The query matches names, descriptions and parameter names/descriptions (the reference's own search surface), so an exact name is a valid query; a `names` argument additionally loads an exact list without a search. This is _better_ than the reference, where the model has only a regex/BM25 query.                                                                                                                                                                                                                                                                                                                                                                                |
+| d   | deliberate resident/deferred split                             | **Adopt**                       | The ten built-ins plus `ToolSearch` are resident; everything arriving through `additionalTools` may declare `deferLoading`. A configuration that defers everything is a startup error, echoing the vendor's own 400.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| e   | on by default, degrading cleanly                               | **Adapt**                       | Default `auto` — deferral engages only above a threshold (deferrable schema estimate ≥10 % of the model's context window, or >15 deferrable tools). At ten tools it is a no-op, so nothing regresses today and MCP switches it on by itself. Explicit `on`/`off` overrides exist. The vendor's degradation list is Anthropic-specific plumbing; the Robota analogue is the capability table, and the _documented_ behaviour when a provider cannot help is unchanged — the client-side path is the baseline, not the fallback.                                                                                                                                                         |
+| f   | a failed MCP connection is reported through the search path    | **Defer, with owner named**     | The behaviour is right and cheap, but `tools/list` is never called and `@robota-sdk/agent-tool-mcp` has zero importers; the status feed it needs is `MCP-003`'s ("MCP connection and capability-catalog supervisor", `todo`). The `ToolSearch` result shape declared here carries an `unavailableSources` array from day one so MCP-003 fills it without a contract change; v1 always returns it empty.                                                                                                                                                                                                                                                                                |
+| g   | a permission rule may name a not-yet-loaded tool               | **Adopt (mostly already true)** | `evaluateArgumentPattern` (`packages/agent-core/src/permissions/permission-gate.ts:191`) never consults the registry — a bare-name rule matches regardless of load state (`:202`). The gap is argument-scoped rules on a tool whose permission profile is not registered: profiles register at **module import** (`packages/agent-tools/src/tool-permission-profiles.ts:73`), so a deferred _built-in_ keeps its profile, while a future deferred MCP tool would fall to `'unevaluable'` → prompt (deny in plan mode). v1 documents that boundary and asserts the bare-name case; extending `registerToolPermissionProfile` to accept a profile from a deferred manifest is MCP-005's. |
 
 Validation (spec-workflow.md § "Validated Recommendation Before Approval" — this changes an
 `agent-core` execution contract):
 
-- *Reachability.* `IToolSchema.deferLoading?` is an optional addition; every existing schema is resident
+- _Reachability._ `IToolSchema.deferLoading?` is an optional addition; every existing schema is resident
   by omission. The `IResolvedProviderInfo` change is internal to `agent-core`'s services — the type is
   declared in `execution-types.ts:45` and consumed by `execution-pipeline`/`execution-round-*`; no
   package outside `agent-core` constructs one (verified: no importer outside
@@ -222,10 +222,10 @@ Validation (spec-workflow.md § "Validated Recommendation Before Approval" — t
   registered in `RUN_OPTION_CONSUMERS`
   (`packages/agent-core/src/interfaces/__tests__/run-options-audit.test.ts:16`) — this spec does not add
   one, and TC-09 asserts that audit still passes.
-- *Capability preservation.* With no tool declaring `deferLoading` — the state of the tree today — the
+- _Capability preservation._ With no tool declaring `deferLoading` — the state of the tree today — the
   projection is the identity function and every existing assertion on `chatOptions.tools` holds
   unchanged (TC-01).
-- *Adversarial pass.* (a) A model calling a deferred, undiscovered tool hits
+- _Adversarial pass._ (a) A model calling a deferred, undiscovered tool hits
   `UNKNOWN_TOOL_ERROR_CODE` (`tool-execution-service.ts:85-114`), and
   `MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2` (`execution-types.ts:77`) force-summarises the run
   after two such rounds — so the error message must name `ToolSearch` as the remedy, which TC-06
@@ -233,7 +233,7 @@ Validation (spec-workflow.md § "Validated Recommendation Before Approval" — t
   names a tool absent from `chatOptions.tools`; a deferred tool named in a forcing directive is
   therefore a hard error today, and TC-07 pins the chosen behaviour: the forced tool is loaded before
   the check rather than throwing. (c) `execution-round-streaming.ts:108` emits the `provider_request`
-  replay event with `resolved.availableTools` — the *pre-guard* array — so it already diverges from what
+  replay event with `resolved.availableTools` — the _pre-guard_ array — so it already diverges from what
   PROV-006 actually sends and would diverge further here; TC-08 changes it to log
   `request.options.tools` and asserts the replay envelope matches the wire. (d) Deferral never widens
   authority: a deferred tool is still permission-gated identically when called, which TC-10 asserts.
@@ -438,28 +438,27 @@ Test strategy (type BEHAVIOR, tags `[cli, typescript]`): async state assertion i
 the recorded provider request, plus unit tests for the policy, the tool and the estimator. Every
 criterion is command-form.
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Regression | vitest, existing `fresh-agent-api.test.ts` + `entry-point-parity.test.ts` | The identity-projection proof on today's tree |
-| TC-02 | Integration | vitest, new `deferred-tool-schemas.test.ts` with `createScriptedProvider` (`chatOptions` recorder) | Two-round observable; RED with the per-run snapshot restored |
-| TC-03 | Integration | same file | `names`, empty match, unknown name |
-| TC-04 | Unit | vitest, new `tool-search-policy.test.ts` | Threshold by count and by context-window share |
-| TC-05 | Unit | vitest, new `tool-search-tool.test.ts` | Match surface, `limit`, ordering |
-| TC-06 | Integration | same file as TC-02 | Unknown-tool remedy names the search tool |
-| TC-07 | Integration | same file as TC-02 | Forced deferred tool loads instead of throwing |
-| TC-08 | Integration | vitest, existing `provider-request-event.test.ts` | Replay envelope matches the wire |
-| TC-09 | Type/Audit | vitest, existing `run-options-audit.test.ts` | No new run option smuggled in |
-| TC-10 | Integration | same file as TC-02 | Deferral does not widen authority |
-| TC-11 | Unit | vitest, existing default-tools + session-assembly suites | Resident set, the all-deferred error, dedupe |
-| TC-12 | Unit | vitest, existing `agent-command` context tests | The new `/context` line item |
-| TC-13 | Suite | `run-all-scans.mjs --affected --context pr` | Regression over the affected set |
-| TC-14 | Command | `grep` | SPEC coverage incl. the corrected premise |
-| TC-15 | Unit | vitest across agent-core interfaces + the anthropic and openai provider suites | The capability member, its one declaring table, and the openai no-table invariant |
-| TC-16 | Unit | vitest, existing `default-tool-descriptions.test.ts` | Solution 6 — the model is told what exists to search for; RED without it |
-| TC-17 | Unit | vitest, existing `tool-permission-profiles.test.ts` | The `ToolSearch` profile — closes verdict (g)'s named gap |
+| TC-ID | Test Type   | Tool / Approach                                                                                    | Notes                                                                             |
+| ----- | ----------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| TC-01 | Regression  | vitest, existing `fresh-agent-api.test.ts` + `entry-point-parity.test.ts`                          | The identity-projection proof on today's tree                                     |
+| TC-02 | Integration | vitest, new `deferred-tool-schemas.test.ts` with `createScriptedProvider` (`chatOptions` recorder) | Two-round observable; RED with the per-run snapshot restored                      |
+| TC-03 | Integration | same file                                                                                          | `names`, empty match, unknown name                                                |
+| TC-04 | Unit        | vitest, new `tool-search-policy.test.ts`                                                           | Threshold by count and by context-window share                                    |
+| TC-05 | Unit        | vitest, new `tool-search-tool.test.ts`                                                             | Match surface, `limit`, ordering                                                  |
+| TC-06 | Integration | same file as TC-02                                                                                 | Unknown-tool remedy names the search tool                                         |
+| TC-07 | Integration | same file as TC-02                                                                                 | Forced deferred tool loads instead of throwing                                    |
+| TC-08 | Integration | vitest, existing `provider-request-event.test.ts`                                                  | Replay envelope matches the wire                                                  |
+| TC-09 | Type/Audit  | vitest, existing `run-options-audit.test.ts`                                                       | No new run option smuggled in                                                     |
+| TC-10 | Integration | same file as TC-02                                                                                 | Deferral does not widen authority                                                 |
+| TC-11 | Unit        | vitest, existing default-tools + session-assembly suites                                           | Resident set, the all-deferred error, dedupe                                      |
+| TC-12 | Unit        | vitest, existing `agent-command` context tests                                                     | The new `/context` line item                                                      |
+| TC-13 | Suite       | `run-all-scans.mjs --affected --context pr`                                                        | Regression over the affected set                                                  |
+| TC-14 | Command     | `grep`                                                                                             | SPEC coverage incl. the corrected premise                                         |
+| TC-15 | Unit        | vitest across agent-core interfaces + the anthropic and openai provider suites                     | The capability member, its one declaring table, and the openai no-table invariant |
+| TC-16 | Unit        | vitest, existing `default-tool-descriptions.test.ts`                                               | Solution 6 — the model is told what exists to search for; RED without it          |
+| TC-17 | Unit        | vitest, existing `tool-permission-profiles.test.ts`                                                | The `ToolSearch` profile — closes verdict (g)'s named gap                         |
 
 ## User Execution Test Scenarios
-
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
      not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
@@ -526,11 +525,13 @@ dirty tree was stopped by the orchestrator before it wrote anything.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-1990-deferred-tool-schemas-and-tool-search.md` — todo
+- [x] `.agents/tasks/completed/CLI-1990-deferred-tool-schemas-and-tool-search.md` — done
 
 ## Evidence Log
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-07
+
+**Judged by:** `gate.mjs mechanical evaluator`
 
 **Status remains:** draft
 **Failed criteria:**
@@ -544,7 +545,7 @@ dirty tree was stopped by the orchestrator before it wrote anything.
   provider capability-table declarations; TC-14 greps only the five `docs/SPEC.md` files and TC-13 is the
   generic scan suite, so neither the union member nor any table entry is asserted. (iii) The `ToolSearch`
   permission profile in `packages/agent-tools/src/tool-permission-profiles.ts` (Affected Scope + Affected
-  Files); TC-05 covers match/limit/ordering and TC-10 covers a *deferred* tool's gating, but nothing asserts
+  Files); TC-05 covers match/limit/ordering and TC-10 covers a _deferred_ tool's gating, but nothing asserts
   `ToolSearch` itself has a registered profile — the exact gap § Decision verdict (g) identifies as falling to
   `'unevaluable'` → prompt. Compounding (ii): the two provider paths named do not exist in this tree —
   `packages/agent-provider-google` is not a package (the Gemini provider is `packages/agent-provider-gemini`,
@@ -596,6 +597,8 @@ dirty tree was stopped by the orchestrator before it wrote anything.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-07
 
+**Judged by:** `gate.mjs mechanical evaluator`
+
 **Status upgrade:** draft → review-ready
 
 Re-run after the bounded correction to the ❌ FAIL above, which is retained unmodified. The seven
@@ -619,7 +622,7 @@ entry; the twenty mechanical criteria are `scripts/harness/gate.mjs`'s verdict (
 - GATE-WRITE — All 4 Architecture Review Checklist items `[x]` (mechanical): PASS — script verdict; lines 243–259 carry five `[x]` items.
 - GATE-WRITE — Sibling scan `[x]` with evidence or `N/A:` (mechanical): PASS — script verdict; the sibling-scan item carries completion evidence naming CORE-043 and PROV-006.
 - GATE-WRITE — Alternatives Considered ≥2 entries with pro/con (mechanical): PASS — script verdict; three entries, each with an explicit Pro and Con.
-- GATE-WRITE — Decision references the trade-off that drove the choice (semantic): PASS — § Decision names what is bought and what is paid, not merely what was chosen: Alternative 2 is "cheaper to implement and strictly worse against the issue's actual goal — it moves no bytes and leaves Gemini unserved"; Alternative 3 "gives up the property that makes the feature worth having, namely that the *model* discovers what it needs"; and Alternative 1's accepted cost is "one genuine structural change in `agent-core` (a per-round tool read) plus one accepted prompt-cache invalidation per discovery". Both cost limbs re-confirmed in the tree: the per-run snapshot that must change is the spread at `execution-round-provider.ts:75`, and the cache limb follows from the vendor prefix behaviour quoted in § Research 5.
+- GATE-WRITE — Decision references the trade-off that drove the choice (semantic): PASS — § Decision names what is bought and what is paid, not merely what was chosen: Alternative 2 is "cheaper to implement and strictly worse against the issue's actual goal — it moves no bytes and leaves Gemini unserved"; Alternative 3 "gives up the property that makes the feature worth having, namely that the _model_ discovers what it needs"; and Alternative 1's accepted cost is "one genuine structural change in `agent-core` (a per-round tool read) plus one accepted prompt-cache invalidation per discovery". Both cost limbs re-confirmed in the tree: the per-run snapshot that must change is the spread at `execution-round-provider.ts:75`, and the cache limb follows from the vendor prefix behaviour quoted in § Research 5.
 - GATE-WRITE — New-surface placement, conditional (semantic): PASS as declared N/A, with the N/A justified rather than skipped, and re-checked after the correction added two Affected-Files entries. `tool-search-tool.ts` would sit in the existing `packages/agent-tools/src/builtins/` beside fifteen sibling modules (`grep-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts`, `glob-tool.ts`, `shell-tool.ts`, `web-fetch-tool.ts`, `web-search-tool.ts`, `ask-user-question-tool.ts`, …) and its `__tests__` dir; `tool-search-policy.ts` in the existing `packages/agent-core/src/services/` beside `structured-output-transport.ts` and `execution-model-capability-guards.ts`. The two entries the correction added (`packages/agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts`, `packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts`) are existing files in existing packages and introduce no surface either. No Affected-Files entry creates a package, app, presentation or interface surface; no layer or product-family reclassification; no new dependency edge — `agent-tools` already declares `"@robota-sdk/agent-core": "workspace:*"` as a peer and `agent-command` as a dependency. The Sibling scan names the family it mirrors (CORE-043 `resolveStructuredOutputCapability`, PROV-006 `applyModelToolCapability`) and puts reuse at the shared contract level — a `'tool_search'` member of `TProviderModelCapability`, confirmed declared at `provider-definition.ts:78`, rather than a second capability mechanism.
 - GATE-WRITE — Every Completion Criteria item has a `TC-N` prefix (mechanical): PASS — script verdict; TC-01…TC-17, independently counted at 17.
 - GATE-WRITE — At least 1 criterion per distinct feature or sub-item (semantic): PASS — the criterion that decided the 2026-09-07 FAIL, re-judged from scratch. Every § Solution item and every distinct § Affected Files sub-item now carries ≥1 TC: 1 → TC-02/TC-11; 2 → TC-02 (with its RED condition); 3 → TC-04; 4 → TC-03/TC-05; 5 → TC-11; 6 → **TC-16 (new)**; 7 → TC-06; 8 → TC-07; 9 → TC-08; 10 → TC-12; 11 → **TC-15 (new)**; 12 → TC-14; the `ToolSearch` permission profile → **TC-17 (new)**; `estimateToolSchemaTokens` → TC-04's context-window-share leg plus TC-12; `assemble-session-tools.ts` dedupe → TC-11. The three new TCs point at paths that exist, each opened and read this run: `packages/agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (present; imports `DEFAULT_TOOL_DESCRIPTIONS` from `../create-session-runtime.js`, so the roster assertion has a home, and its header comment already flags the untested prompt coupling TC-16 closes); `packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts` (present; already asserts `AGENT_TOOL_PERMISSION_PROFILES[…]?.riskClass` for reads, writes and shells, so `ToolSearch`'s profile is asserted in the same shape as its siblings'); `packages/agent-core/src/interfaces/__tests__/` (present; holds `provider-definition.test.ts`, `model-capability.test.ts`, `provider-capabilities.test.ts`, `run-options-audit.test.ts`, `history-entry.test.ts`); and `packages/agent-provider-openai/src/openai/__tests__/endpoint-provenance.test.ts` (present; `expect(provider.capabilityTable).toBeUndefined();` at the cited `:41`). The only unnamed leaf is the export wiring `agent-tools/src/builtins/index.ts` + `src/index.ts`, which is not a distinct feature — it is exercised by TC-05's import of the tool. Observation, not a failure: § Affected Files does not name the agent-core interfaces test file TC-15's first leg would extend; TC-15 names the directory, which exists, and no GATE-WRITE criterion requires Affected Files to enumerate each new test file.
@@ -723,6 +726,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -811,6 +815,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -857,6 +862,7 @@ tool defect.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -946,6 +952,7 @@ tool defect.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -1004,10 +1011,18 @@ scan receipt NOT written: 1 advisory failure(s) were tolerated (task-merged-cita
 **Status remains:** in-progress
 **Failed criteria:**
 
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
   **Required action:** make every verify command exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 (  ✓ done ⏎  ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 ( ✓ done ⏎ ⏎ ✓ All build:types complete.); `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-tool-defaults --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai test` → exit 1 (/Users/jungyoun/Documents/dev/woojubb/robota-3/packages/agent-framework: ⏎  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/agent-framework@3.0.0-beta.79 test: `vitest run --passWithNoTests` ⏎ Exit status 1)
   **Required action:** make every verify command exit 0
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9d9503b3be7f` · base `origin/develop@9d9503b3be7f` · document `.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `5a8e6035a51c` (modified)
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm --filter @robota-sdk/agent-core exec vitest run src/core/__tests__/deferred-tool-schemas.test.ts` → exit 0 ( Duration 402ms (transform 164ms, setup 0ms, collect 255ms, tests 15ms, environment 0ms, prepare 36ms) ⏎ ⏎ 11:54:51 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop. ⏎ ⏎ 3 of 97 scans failed)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm --filter @robota-sdk/agent-core exec vitest run src/core/__tests__/deferred-tool-schemas.test.ts` → exit 0 ( Duration 402ms (transform 164ms, setup 0ms, collect 255ms, tests 15ms, environment 0ms, prepare 36ms) ⏎ ⏎ 11:54:51 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (⚑ task-merged-citation: ::advisory:: failed (exit 1) — advisory in pr context, so it does not fail this run; the same failure BLOCKS the integration run on develop. ⏎ ⏎ 3 of 97 scans failed)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3d64a3974e02` · base `origin/develop@b0c7699ce982` · document `.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md` blob `d91e050d95ff` (tracked)

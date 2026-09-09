@@ -1,12 +1,13 @@
 ---
 title: 'CLI-1990: deferred tool schemas and tool search'
 issue: https://github.com/woojubb/robota/issues/1990
-status: in-progress
+status: done
 created: 2026-09-07
 priority: medium
 urgency: soon
 area: agent-core
 depends_on: []
+completed: 2026-09-08
 ---
 
 # CLI-1990: deferred tool schemas and tool search
@@ -25,7 +26,7 @@ names) and § Decision records the design.
 
 ## Spec
 
-`.agents/spec-docs/active/CLI-1990-deferred-tool-schemas-and-tool-search.md`
+`.agents/spec-docs/done/CLI-1990-deferred-tool-schemas-and-tool-search.md`
 
 ## Plan
 
@@ -46,8 +47,8 @@ One item per spec sub-item, each naming the Completion Criteria it is verified b
 - [x] `'tool_search'` capability member; the Anthropic table declares it, the other three do not, OpenAI keeps no table (§ Solution 11) — TC-15
 - [x] `ToolSearch` permission profile (closes verdict (g)'s named gap) — TC-17
 - [x] SPEC.md updates across `agent-core`, `agent-tools`, `agent-tool-defaults`, `agent-framework`, `agent-command`, incl. the corrected premise (§ Solution 12) — TC-14
-  Site docs (`content/`): no page enumerates the builtin tools or the `/context` line items (`content/guide/cli.md` describes commands generically), so no `content/` page becomes stale; the package README builtin table gains the `ToolSearch` row.
-- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13
+      Site docs (`content/`): no page enumerates the builtin tools or the `/context` line items (`content/guide/cli.md` describes commands generically), so no `content/` page becomes stale; the package README builtin table gains the `ToolSearch` row.
+- [x] Affected-set regression: `run-all-scans.mjs --affected --context pr` exits 0 — TC-13 — passed after the CI recovery fixes in INFRA-182.
 
 ## Test Plan
 
@@ -58,25 +59,25 @@ TC-08 replays the `provider_request` envelope against the wire. TC-13 runs the a
 suite. TC-14 greps the six SPEC.md files for `deferLoading`, `ToolSearch` and `tool_search`. Each TC
 records its test-file path here when green; the commands are the spec's § Completion Criteria verbatim.
 
-| TC | Test file / command | Status |
-| --- | --- | --- |
-| TC-01 | `agent-core/src/core/__tests__/fresh-agent-api.test.ts`, `entry-point-parity.test.ts` (existing, regression) | green |
-| TC-02 | `agent-core/src/core/__tests__/deferred-tool-schemas.test.ts` (new) | green |
-| TC-03 | same file — `names`, empty match, unknown name | green |
-| TC-04 | `agent-core/src/services/__tests__/tool-search-policy.test.ts` (new) | green |
-| TC-05 | `agent-tools/src/builtins/__tests__/tool-search-tool.test.ts` (new) | green |
-| TC-06 | same file as TC-02 — unknown-tool remedy | green |
-| TC-07 | same file as TC-02 — forced deferred tool | green |
-| TC-08 | `agent-core/src/services/__tests__/provider-request-event.test.ts` (existing) | green |
-| TC-09 | `agent-core/src/interfaces/__tests__/run-options-audit.test.ts` (existing) | green |
-| TC-10 | same file as TC-02 — permission gating unchanged | green |
-| TC-11 | `agent-tool-defaults` suite + `agent-framework/src/__tests__/create-session-default-tools.test.ts` | green |
-| TC-12 | `agent-command/src/context/__tests__` (existing) | green |
-| TC-13 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | green — 55 selected scans, 0 failures |
-| TC-14 | `grep` over the six SPEC.md files | green |
-| TC-15 | `agent-core/src/interfaces/__tests__` + anthropic and openai provider suites | green |
-| TC-16 | `agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (existing) | green |
-| TC-17 | `agent-tools/src/__tests__/tool-permission-profiles.test.ts` (existing) | green |
+| TC    | Test file / command                                                                                          | Status                                |
+| ----- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| TC-01 | `agent-core/src/core/__tests__/fresh-agent-api.test.ts`, `entry-point-parity.test.ts` (existing, regression) | green                                 |
+| TC-02 | `agent-core/src/core/__tests__/deferred-tool-schemas.test.ts` (new)                                          | green                                 |
+| TC-03 | same file — `names`, empty match, unknown name                                                               | green                                 |
+| TC-04 | `agent-core/src/services/__tests__/tool-search-policy.test.ts` (new)                                         | green                                 |
+| TC-05 | `agent-tools/src/builtins/__tests__/tool-search-tool.test.ts` (new)                                          | green                                 |
+| TC-06 | same file as TC-02 — unknown-tool remedy                                                                     | green                                 |
+| TC-07 | same file as TC-02 — forced deferred tool                                                                    | green                                 |
+| TC-08 | `agent-core/src/services/__tests__/provider-request-event.test.ts` (existing)                                | green                                 |
+| TC-09 | `agent-core/src/interfaces/__tests__/run-options-audit.test.ts` (existing)                                   | green                                 |
+| TC-10 | same file as TC-02 — permission gating unchanged                                                             | green                                 |
+| TC-11 | `agent-tool-defaults` suite + `agent-framework/src/__tests__/create-session-default-tools.test.ts`           | green                                 |
+| TC-12 | `agent-command/src/context/__tests__` (existing)                                                             | green                                 |
+| TC-13 | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`          | green — 55 selected scans, 0 failures |
+| TC-14 | `grep` over the six SPEC.md files                                                                            | green                                 |
+| TC-15 | `agent-core/src/interfaces/__tests__` + anthropic and openai provider suites                                 | green                                 |
+| TC-16 | `agent-framework/src/assembly/__tests__/default-tool-descriptions.test.ts` (existing)                        | green                                 |
+| TC-17 | `agent-tools/src/__tests__/tool-permission-profiles.test.ts` (existing)                                      | green                                 |
 
 ## User Execution Test Scenarios
 
