@@ -34,7 +34,7 @@ Waived: User explicitly authorized omitting non-essential procedure for urgent e
 ### Affected Scope
 
 - `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`
-- `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
+- `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
 - `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 - `scripts/harness/github-issue-triage.mjs` and its existing RULE-019 ownership
 - The checked-in intake policy/rule owner identified by the child specs
@@ -94,7 +94,7 @@ None
 ## Affected Files
 
 - `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`
-- `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
+- `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
 - `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 - `scripts/harness/github-issue-triage.mjs` only where the child spec proves the existing owner is the
   correct enforcement seam
@@ -129,7 +129,7 @@ Not applicable.
 Paired execution record:
 `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`.
 
-- [ ] OBSERVABILITY-2515 — in-progress — `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
+- [x] OBSERVABILITY-2515 — done — `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
 - [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 
 ## Evidence Log
@@ -174,7 +174,7 @@ Paired execution record:
 **Status remains:** approved
 **Failed criteria:**
 
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`, whose basename is not the spec's (AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md)
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`, whose basename is not the spec's (AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md)
   **Required action:** pair the Task and the spec by basename
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` carries no `**Author verdict:** `SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>`` line (0 found, exactly 1 required)
   **Required action:** record the author verdict in the Task
