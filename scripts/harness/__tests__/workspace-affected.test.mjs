@@ -14,6 +14,7 @@ import {
   readWorkspaceGraph,
   resolveChangedFiles,
 } from '../workspace-affected.mjs';
+import { workspaceDependenciesForOperation } from '../workspace-graph.mjs';
 
 function writeJson(root, relative, value) {
   const target = path.join(root, relative);
@@ -113,6 +114,8 @@ describe('workspace affected planner', () => {
     expect(devOnly.buildDependencies).toEqual([]);
     expect(devOnly.typecheckDependencies).toEqual([]);
     expect(devOnly.testDependencies).toEqual(['@fixture/core']);
+    expect(workspaceDependenciesForOperation(devOnly, 'build')).toEqual(['@fixture/core']);
+    expect(workspaceDependenciesForOperation(devOnly, 'consumer-build')).toEqual([]);
     expect(example.buildDependencies).toEqual(['@fixture/core']);
     expect(example.typecheckDependencies).toEqual(['@fixture/core']);
     expect(example.testDependencies).toEqual(['@fixture/core']);
@@ -123,7 +126,7 @@ describe('workspace affected planner', () => {
         operation: 'build',
         changedFiles: ['packages/dev-only/src/index.ts'],
       }).packages.map((entry) => entry.name),
-    ).toEqual(['@fixture/dev-only']);
+    ).toEqual(['@fixture/core', '@fixture/dev-only']);
     expect(
       createWorkspaceAffectedPlan({
         root,
@@ -568,7 +571,7 @@ describe('workspace affected planner', () => {
     });
   });
 
-  it('ratchets production prerequisite fanout for current CI synthetic targets', () => {
+  it('ratchets affected-build prerequisite fanout for current CI synthetic targets', () => {
     const root = process.cwd();
     const graph = readWorkspaceGraph(root);
     const providerTypecheck = createWorkspaceAffectedPlan({
@@ -605,7 +608,7 @@ describe('workspace affected planner', () => {
     });
     expect(providerTypecheck.packages).toHaveLength(1);
     expect(providerBuild.packages.length).toBeLessThanOrEqual(3);
-    expect(cliBuild.packages.length).toBeLessThanOrEqual(65);
-    expect(tuiBuild.packages.length).toBeLessThanOrEqual(63);
+    expect(cliBuild.packages.length).toBeLessThanOrEqual(67);
+    expect(tuiBuild.packages.length).toBeLessThanOrEqual(65);
   });
 });

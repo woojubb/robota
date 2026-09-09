@@ -44,6 +44,25 @@ const buildGraph = {
   ],
 };
 
+const verificationBuildGraph = {
+  packages: [
+    {
+      name: '@fixture/core',
+      directory: 'packages/core',
+      scripts: { build: 'build' },
+      dependencies: [],
+      verificationDependencies: [],
+    },
+    {
+      name: '@fixture/fixture-tests',
+      directory: 'packages/fixture-tests',
+      scripts: { build: 'build' },
+      dependencies: [],
+      verificationDependencies: ['@fixture/core'],
+    },
+  ],
+};
+
 function packagePlan(operation, names) {
   return {
     operation,
@@ -155,6 +174,24 @@ describe('workspace affected executor', () => {
     ]);
     expect(results).toHaveLength(3);
     expect(new Set(results.map((entry) => entry.task.id)).size).toBe(3);
+  });
+
+  it('builds verification-only workspace dependencies before their test producers', () => {
+    const execution = createWorkspaceExecution({
+      plan: {
+        operation: 'build',
+        mode: 'packages',
+        packages: verificationBuildGraph.packages.map(({ name, directory }) => ({
+          name,
+          directory,
+        })),
+      },
+      graph: verificationBuildGraph,
+    });
+    expect(execution.stages.map((stage) => stage.map((task) => task.packageName))).toEqual([
+      ['@fixture/core'],
+      ['@fixture/fixture-tests'],
+    ]);
   });
 
   it('stops later build stages after failure while emitting exactly one result per task', async () => {

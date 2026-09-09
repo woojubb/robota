@@ -123,8 +123,19 @@ export function readWorkspaceGraph(root) {
 }
 
 export function workspaceDependenciesForOperation(workspacePackage, operation) {
-  if (operation === 'build' || operation === 'consumer-build') {
+  if (operation === 'consumer-build') {
     return [...(workspacePackage.buildDependencies ?? workspacePackage.dependencies ?? [])].sort();
+  }
+  if (operation === 'build') {
+    // The affected build is also the producer for the following test/typecheck stages. Include
+    // workspace imports found only in verification files so a fresh checkout has dist for
+    // test-only devDependencies, while keeping the product build graph exposed separately.
+    return [
+      ...new Set([
+        ...(workspacePackage.buildDependencies ?? workspacePackage.dependencies ?? []),
+        ...(workspacePackage.verificationDependencies ?? workspacePackage.testDependencies ?? []),
+      ]),
+    ].sort();
   }
   if (operation === 'typecheck' || operation === 'examples-typecheck') {
     return [
