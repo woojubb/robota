@@ -123,6 +123,20 @@ function expectedGenerationError(expected: number, actual: number): Error {
   );
 }
 
+function repositoryIdentityKey(commonDir: string): string {
+  const commonStat = statSync(commonDir, { bigint: true });
+  const configStat = statSync(join(commonDir, 'config'), { bigint: true });
+  return [
+    'git',
+    commonStat.dev.toString(HEX_RADIX),
+    commonStat.ino.toString(HEX_RADIX),
+    configStat.dev.toString(HEX_RADIX),
+    configStat.ino.toString(HEX_RADIX),
+    configStat.ctimeNs.toString(HEX_RADIX),
+    commonDir,
+  ].join(':');
+}
+
 /** Resolve a Git worktree to a replacement-safe host identity. */
 export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolver {
   return Object.freeze({
@@ -133,8 +147,7 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
       const commonDir = canonicalPath(
         isAbsolute(commonDirValue) ? commonDirValue : join(worktreeRoot, commonDirValue),
       );
-      const commonStat = statSync(commonDir);
-      const repositoryKey = `git:${commonStat.dev.toString(HEX_RADIX)}:${commonStat.ino.toString(HEX_RADIX)}:${commonDir}`;
+      const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({
         repositoryKey,
         displayPath: worktreeRoot,

@@ -19,6 +19,8 @@ const PROVIDER_ENDPOINTS: Record<string, { host: string; port: number }> = {
   deepseek: { host: 'api.deepseek.com', port: 443 },
   qwen: { host: 'dashscope.aliyuncs.com', port: 443 },
 };
+const MINIMUM_SUPPORTED_NODE_MAJOR = 22;
+const NETWORK_CHECK_TIMEOUT_MS = 3000;
 
 export interface IDiagnoseContext {
   version: string;
@@ -44,7 +46,7 @@ export interface IDiagnoseDependencies {
 
 function checkNodeVersion(): IDiagnosticCheck {
   const [major] = process.versions.node.split('.').map(Number);
-  if (major !== undefined && major >= 22) {
+  if (major !== undefined && major >= MINIMUM_SUPPORTED_NODE_MAJOR) {
     return { label: 'Node.js version', status: 'ok', message: `v${process.versions.node}` };
   }
   return {
@@ -259,7 +261,7 @@ function checkNetworkViaSocket(endpoint: {
     const timeout = setTimeout(() => {
       socket.destroy();
       resolve({ label, status: 'fail', message: 'timeout (3s)' });
-    }, 3000);
+    }, NETWORK_CHECK_TIMEOUT_MS);
     socket.on('connect', () => {
       clearTimeout(timeout);
       socket.destroy();
