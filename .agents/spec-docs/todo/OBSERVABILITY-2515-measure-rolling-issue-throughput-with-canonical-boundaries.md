@@ -20,7 +20,7 @@ growth counts cannot be compared reliably.
 ## Prior Art Research
 
 Waived: user explicitly prohibited subagents for this task; the repository's existing checked-in
-`scripts/harness/github-api.mjs` pagination contract and the #2515 parent agreement are sufficient
+`scripts/harness/github-api.mjs` pagination contract and the issue #2515 parent agreement are sufficient
 local prior art for this internal operator command.
 
 ## Architecture Review
@@ -96,11 +96,11 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Process integration | Spawn the command with a deterministic injected reader or safe read-only fixture and assert the JSON envelope | Confirms the operator-facing contract and exact boundary/display fields. |
-| TC-02 | Log / event assertion | `pnpm exec vitest run scripts/harness/__tests__/issue-throughput.test.mjs` | OBSERVABILITY-derived coverage includes pagination, boundary, timezone, and failure output. |
-| TC-03 | Process integration | Run the direct command from a clean temporary checkout and inspect the command/API path | No `/tmp` or session dependency; read-only behavior is asserted from source and invocation. |
+| TC-ID | Test Type             | Tool / Approach                                                                                               | Notes                                                                                       |
+| ----- | --------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| TC-01 | Process integration   | Spawn the command with a deterministic injected reader or safe read-only fixture and assert the JSON envelope | Confirms the operator-facing contract and exact boundary/display fields.                    |
+| TC-02 | Log / event assertion | `pnpm exec vitest run scripts/harness/__tests__/issue-throughput.test.mjs`                                    | OBSERVABILITY-derived coverage includes pagination, boundary, timezone, and failure output. |
+| TC-03 | Process integration   | Run the direct command from a clean temporary checkout and inspect the command/API path                       | No `/tmp` or session dependency; read-only behavior is asserted from source and invocation. |
 
 ## User Execution Test Scenarios
 
@@ -109,7 +109,7 @@ through the Robota CLI, TUI, browser UI, or public SDK.
 
 ## Tasks
 
-- [ ] `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md` — todo
+- [ ] `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md` — in-progress
 
 ## Evidence Log
 

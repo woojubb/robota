@@ -1,7 +1,7 @@
 ---
 title: 'OBSERVABILITY-2515: measure rolling issue throughput with canonical boundaries'
 issue: https://github.com/woojubb/robota/issues/2515
-status: todo
+status: in-progress
 created: 2026-09-09
 priority: critical
 urgency: now
@@ -59,8 +59,8 @@ failure-visible. Evidence: record exact commands, relevant output, and exit code
 
 ## Tasks
 
-- [ ] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
-- [ ] Implement with TDD RED → GREEN → REFACTOR.
+- [x] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
+- [x] Implement with TDD RED → GREEN → REFACTOR.
 - [ ] Record TC evidence and pass GATE-IMPLEMENT/GATE-VERIFY/GATE-COMPLETE.
 
 ## Evidence Log

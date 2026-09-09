@@ -34,7 +34,7 @@ that measurement semantics and intake enforcement cannot be independently comple
 
 ## Children
 
-- [ ] OBSERVABILITY-2515 — todo — `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
+- [ ] OBSERVABILITY-2515 — in-progress — `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
 - [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 
 ## Plan
