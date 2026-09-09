@@ -101,11 +101,11 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type  | Tool / Approach                                                                                     | Notes                                                                |
-| ----- | ---------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| TC-01 | Unit       | hermetic Git fixtures in `scan-user-execution-plan-order.test.mjs`                                  | Red before the predicate, green after it; negative variants stay red |
+| TC-ID | Test Type  | Tool / Approach                                                                                                                         | Notes                                                                                                                         |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit       | hermetic Git fixtures in `scan-user-execution-plan-order.test.mjs`                                                                      | Red before the predicate, green after it; negative variants stay red                                                          |
 | TC-02 | Regression | `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t "bounded post-merge\|post-merge completion"` | Runs the closeout cases; the full file's assertions also pass, but its Vitest worker reports an existing onTaskUpdate timeout |
-| TC-03 | Harness    | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Affected repository gate                                             |
+| TC-03 | Harness    | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`                                     | Affected repository gate                                                                                                      |
 
 ## User Execution Test Scenarios
 
@@ -216,6 +216,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -249,6 +250,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
