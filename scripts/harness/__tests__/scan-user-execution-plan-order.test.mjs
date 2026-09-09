@@ -3160,6 +3160,21 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findStagedFindings(squashed.root, squashed.base)).toEqual([]);
   });
 
+  it('keeps the ordinary archive path after a recognised planning checkpoint', () => {
+    const fixture = repository();
+    checkpoint(fixture.root);
+
+    const taskDestination = `.agents/tasks/completed/${TASK_ID}.md`;
+    const specDestination = `.agents/spec-docs/done/${TASK_ID}.md`;
+    mkdirSync(path.dirname(path.join(fixture.root, taskDestination)), { recursive: true });
+    mkdirSync(path.dirname(path.join(fixture.root, specDestination)), { recursive: true });
+    git(fixture.root, ['mv', TASK_PATH, taskDestination]);
+    git(fixture.root, ['mv', SPEC_PATH, specDestination]);
+    git(fixture.root, ['add', '-A']);
+
+    expect(findStagedFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
   it.each([
     ['missing the post-merge ledger record', { ledger: false }, /exactly these paths|ledger/i],
     ['carrying incomplete terminal evidence', { incomplete: true }, /status: done|completion/i],

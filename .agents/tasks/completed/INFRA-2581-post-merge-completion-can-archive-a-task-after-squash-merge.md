@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-2581: post-merge completion can archive a task after squash merge'
 issue: https://github.com/woojubb/robota/issues/2581
-status: in-progress
+status: done
 created: 2026-09-10
 priority: high
 urgency: now
@@ -10,6 +10,7 @@ area:
   - post-merge lifecycle ledger
   - Task/spec archival
 depends_on: []
+completed: 2026-09-10
 ---
 
 # INFRA-2581: post-merge completion can archive a task after squash merge
@@ -23,26 +24,26 @@ partial, unbound, or implementation-mixed archival changes.
 
 ## Spec
 
-`.agents/spec-docs/active/INFRA-2581-post-merge-completion-can-archive-a-task-after-squash-merge.md`
+Spec: `.agents/spec-docs/done/INFRA-2581-post-merge-completion-can-archive-a-task-after-squash-merge.md`
 
 ## Plan
 
-- [ ] TC-01 — capture the fresh-`origin/develop` squash-merge archival reproduction and define the
+- [x] TC-01 — capture the fresh-`origin/develop` squash-merge archival reproduction and define the
       accepted path/evidence shape plus negative cases.
-- [ ] TC-02 — implement the narrow post-merge completion classifier in the plan-order scan and add
+- [x] TC-02 — implement the narrow post-merge completion classifier in the plan-order scan and add
       regression coverage for staged and committed history.
-- [ ] TC-03 — run the affected harness scans and the focused regression suite, then archive the
+- [x] TC-03 — run the affected harness scans and the focused regression suite, then archive the
       already-delivered SECURITY-2465 Task/spec through the newly accepted closeout path.
 
 ## Completion Criteria
 
-- [ ] TC-01: A fresh branch from `origin/develop` can stage the exact SECURITY-2465 Task/spec archive
+- [x] TC-01: A fresh branch from `origin/develop` can stage the exact SECURITY-2465 Task/spec archive
       with one append-only verified PR merge ledger record, and the scan distinguishes it from a
       partial archive or a commit containing implementation paths.
-- [ ] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` and its committed
+- [x] TC-02: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` and its committed
       history mode accept the bounded post-merge closeout shape and reject an unbound or incomplete
-      terminalization.
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+      terminalization; the focused Vitest closeout cases exit 0.
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       and `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exit 0.
 

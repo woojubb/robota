@@ -2445,7 +2445,13 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
         }
       }
     }
-    const completion = stagedPostMergeCompletion(root, staged, history.base);
+    // A normal completion archive follows an already-recognised planning checkpoint and is
+    // validated by the existing post-checkpoint path below. The bounded post-merge exception is
+    // only needed when squash-merge history removed that checkpoint from the topic ancestry; do
+    // not reinterpret an ordinary archive plus its user-request-gate closeout as a post-merge
+    // ledger transaction.
+    const completion =
+      history.checkpoint == null ? stagedPostMergeCompletion(root, staged, history.base) : null;
     if (completion !== null) {
       if (completion.problems.length > 0) {
         return [
