@@ -1,0 +1,3 @@
+Command: pnpm --filter @robota-sdk/agent-preset test; pnpm --filter @robota-sdk/agent-framework test; pnpm --filter @robota-sdk/agent-command test
+Exit: 0
+Output: agent-preset 79 passed; agent-framework 1696 passed / 74 skipped; agent-command 315 passed / 5 skipped.

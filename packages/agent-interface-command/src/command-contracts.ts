@@ -112,6 +112,7 @@ export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings
  */
 export type TCommandHostAction =
   | { type: 'provider-hot-swap'; profileName: string }
+  | { type: 'output-style-change'; styleId: string }
   | { type: 'language-change'; language: string }
   | { type: 'settings-reset' }
   | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }

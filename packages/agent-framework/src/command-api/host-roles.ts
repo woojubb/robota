@@ -30,6 +30,7 @@ import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-core';
 import type {
   ICommandListEntry,
@@ -46,6 +47,8 @@ import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-sess
 /** Reaching the live session, and the whole-conversation operations that sit beside it. */
 export interface ICommandHostSessionAccess {
   getSession(): ICommandSessionRuntime;
+  /** Read the active response style id for the command listing. */
+  getActiveOutputStyleId(): string;
   clearConversationHistory(): void;
   /**
    * CLI-1994 — write a COPY of the live conversation as a new session record (fresh id, distinct
@@ -81,6 +84,8 @@ export interface ICommandHostUserInteraction {
 
 /** Re-applying preset-owned configuration to the live session. */
 export interface ICommandHostPresetApplication {
+  /** Apply an additive response style to the live system prompt. */
+  applyOutputStyle(style: IOutputStylePrompt): void;
   /** PRESET-014 — re-apply a preset persona to the live system prompt. */
   applyPersona(persona: string): void;
   /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */

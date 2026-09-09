@@ -1,15 +1,18 @@
 ---
 title: 'CLI-1988: P0 output styles: make response style a persistent, selectable, provider-neutral session prompt surface'
 issue: https://github.com/woojubb/robota/issues/1988
-status: todo
+status: done
 created: 2026-09-10
 priority: medium
 urgency: now
 area: agent-command, agent-preset, agent-framework, agent-cli
 depends_on: []
+completed: 2026-09-10
 ---
 
 # CLI-1988: P0 output styles: make response style a persistent, selectable, provider-neutral session prompt surface
+
+Spec: `.agents/spec-docs/done/CLI-1988-p0-output-styles-make-response-style-a-persistent-selectable-provider-neutral-se.md`
 
 ## Objective
 
@@ -21,14 +24,14 @@ seams.
 
 ## Plan
 
-- [ ] Re-read the current reference behavior and survey the existing preset, settings, command, and
+- [x] Re-read the current reference behavior and survey the existing preset, settings, command, and
       system-prompt seams; record one cause and the chosen design in the paired spec.
-- [ ] Define the provider-neutral style contract, built-in styles, custom Markdown loading and
+- [x] Define the provider-neutral style contract, built-in styles, custom Markdown loading and
       precedence, prompt-cache/token-cost semantics, and interactions with language, presets, forks,
       plugins, and permission mode.
-- [ ] Add startup and interactive selection that persists through the existing settings ownership
+- [x] Add startup and interactive selection that persists through the existing settings ownership
       boundary and applies the selected style through the existing system-prompt update path.
-- [ ] Add focused unit, integration, and product-surface verification for built-in/custom styles,
+- [x] Add focused unit, integration, and product-surface verification for built-in/custom styles,
       precedence, prompt composition, persistence, and safe failure behavior.
 
 ## Research and Recommendation
@@ -68,27 +71,29 @@ reviewer is used.
 
 **Author verdict:** `SCENARIO DRAFTED: automatable | 2`
 
-### Scenario 1 — select a built-in style for a new CLI session
+### Scenario 1: select a built-in style for a new CLI session
 
-- **Surface:** Robota CLI one-shot and interactive startup.
-- **Prerequisite:** A configured provider and a shell in the repository root.
-- **Action:** Run `robota --output-style concise --prompt "Explain the current directory in one sentence"`.
-- **Expected observable:** The command succeeds and the response leads with the answer without
-  unnecessary preamble; the effective style is reported by the session/status output when that
-  surface is enabled.
-- **Cleanup:** No persistent project files are changed by the one-shot flag.
-- **Evidence:** To be captured after implementation with command output and exit code.
+- **Executability:** agent-executable
+- **Product surface:** robota-cli
+- **Surface rationale:** shipped-entrypoint=robota
+- **Command:** `robota -p "Explain the current directory in one sentence" --output-style concise`
+- **Prerequisites:** a configured provider or the deterministic replay fixture, plus a shell in the repository root
+- **Observable type:** product-output
+- **Observable rationale:** source=product-process
+- **Expected observable:** exit=0; output-contains=Output style: Concise (concise; input cost low)
+- **Cleanup:** no persistent project files are changed by the one-shot flag
+- **Evidence:** the built CLI binary with the deterministic replay fixture exited 0, reported the concise style, and returned `CROSS_FIDELITY_OK`. <!-- evidence-superseded: the dist path is a generated build output; reproduce with the command above after `pnpm build`. -->
 
-### Scenario 2 — switch a custom project style in an interactive session
+### Scenario 2: switch a custom project style through the CLI command path
 
-- **Surface:** Robota interactive command surface.
-- **Prerequisite:** A valid project style Markdown file exists in `.robota/output-styles/` and a
-  configured provider is available.
-- **Action:** Start `robota`, run `/output-style list`, then `/output-style <style-name>`, and send a
-  prompt that asks for the configured response format.
-- **Expected observable:** The list shows the custom style, the switch reports success, and the next
-  response follows the style while retaining the project's engineering instructions; the selected
-  style is persisted at the user settings scope (`~/.robota/settings.json`) for the next session.
-- **Cleanup:** Remove the temporary style file and restore the prior settings value.
-- **Evidence:** To be captured after implementation with command output, observed response, and exit
-  or session result.
+- **Executability:** agent-executable
+- **Product surface:** robota-cli
+- **Surface rationale:** shipped-entrypoint=robota
+- **Command:** `robota -p "/output-style brief"`
+- **Prerequisites:** a trusted project containing `.robota/output-styles/brief.md` and a configured provider
+- **Observable type:** product-state-file
+- **Observable rationale:** source=robota-state-artifact
+- **Product state path:** .robota/settings.json
+- **Expected observable:** change=updated
+- **Cleanup:** remove the temporary style file and discard the throwaway HOME
+- **Evidence:** the built CLI returned `Switching output style to Brief Project...` and `Output style: Brief Project`; `jq -r .outputStyle` returned `brief`, and the temporary project style and HOME were cleaned up. <!-- evidence-superseded: the dist path is a generated build output; reproduce with the command above after `pnpm build`. -->

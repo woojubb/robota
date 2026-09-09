@@ -16,6 +16,17 @@ export type {
   IPreset,
 } from './preset-types.js';
 
+export type {
+  IOutputStyle,
+  IOutputStyleFile,
+  IOutputStyleLoadResult,
+  IOutputStyleRegistry,
+  IOutputStyleSource,
+  IOutputStyleSummary,
+  TOutputStyleSource,
+  TOutputStyleTokenCost,
+} from './output-style-types.js';
+
 export { defaultPreset } from './presets/default.js';
 
 export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
@@ -44,3 +55,10 @@ export type { IExternalPresetLoadResult } from './load-external-presets.js';
 export { validateExternalPreset } from './preset-validation.js';
 
 export type { TPresetValidationResult } from './preset-validation.js';
+
+export {
+  builtInOutputStyles,
+  createOutputStyleRegistry,
+  loadOutputStylesFromSources,
+  parseOutputStyleFile,
+} from './output-style-registry.js';

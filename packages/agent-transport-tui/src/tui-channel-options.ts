@@ -10,6 +10,7 @@ import type {
   IAutomaticMemoryConfig,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IOutputStylePrompt,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -58,6 +59,8 @@ export interface ITuiInteractionChannelOptions {
    * session's default model.
    */
   model?: string;
+  /** CLI-1988: resolved provider-neutral response style. */
+  outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
   permissionMode?: TPermissionMode;

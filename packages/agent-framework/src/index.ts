@@ -163,6 +163,8 @@ export type {
   ICommandPermissionModeAdapter,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
   IForkExecutionOptions,
@@ -780,6 +782,7 @@ export type {
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
+export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 
 // SELFHOST-006: per-role model routing policy (neutral, over the provider DIP).
 export {

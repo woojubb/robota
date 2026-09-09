@@ -17,6 +17,7 @@ import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-prese
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
+import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
@@ -194,6 +195,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
   const {
     commandHostAdapters,
+    outputStyleRegistry,
+    outputStyleLoadErrors,
     providerDefinitions,
     callerSuppliedProviderDefinitions,
     baseCommandModules,
@@ -203,6 +206,27 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     workspaceComposition,
     orgPolicy,
   } = buildCommandSetupOrExit(cwd, args, startupOptions, version, packCommandModules);
+  for (const { file, error } of outputStyleLoadErrors) {
+    terminal.writeError(`Skipped output style "${file}": ${error}`);
+  }
+  const outputStyleId = selectOutputStyleId(args, userSettings.outputStyle);
+  let outputStyle;
+  try {
+    outputStyle = resolveOutputStyle(outputStyleRegistry, outputStyleId);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+  const outputStyleWasSelected =
+    args.outputStyle !== undefined || userSettings.outputStyle !== undefined;
+  if (outputStyleWasSelected) {
+    const outputStyleNotice = `Output style: ${outputStyle.name} (${outputStyle.id}; input cost ${outputStyle.tokenCost})`;
+    if (args.printMode) {
+      process.stderr.write(`${outputStyleNotice}\n`);
+    } else {
+      terminal.writeLine(outputStyleNotice);
+    }
+  }
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -337,6 +361,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     selectedPresetId,
     permissionMode,
     cli,
+    outputStyle,
   );
 
   const sessionStore = workspaceComposition.sessionStore;
@@ -450,6 +475,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerOverride: args.provider,
     providerType: providerSettings.name,
     modelId,
+    outputStyle: presetSurface.outputStyle,
     language: args.language,
     maxTurns: args.maxTurns,
     version,

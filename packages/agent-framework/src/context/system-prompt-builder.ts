@@ -3,6 +3,7 @@ import {
   createAgentsMdSection,
   createCapabilitySections,
   createProjectNotesSection,
+  createOutputStyleSection,
   createPermissionSection,
   createPersonaSection,
   createPresetSystemPromptSection,
@@ -15,12 +16,17 @@ import {
   createWorkingDirectorySection,
 } from './system-prompt-section-providers.js';
 
+import type { IOutputStylePrompt } from './output-style-prompt.js';
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
+export type { IOutputStylePrompt } from './output-style-prompt.js';
+
 export interface ISystemPromptParams {
+  /** Additive response-shaping policy. Core safety and project sections cannot be removed by it. */
+  outputStyle?: IOutputStylePrompt;
   /**
    * Preset persona block (portable personality/behaviour). When set and non-blank it is
    * composed as a `source: 'persona'` section with priority 5; empty/undefined adds no section.
@@ -120,6 +126,11 @@ function buildCapabilityDescriptors(params: ISystemPromptParams): ICapabilityDes
 
 export function buildSystemPrompt(params: ISystemPromptParams): string {
   const sections: ISystemPromptSection[] = [];
+
+  appendOptionalSection(
+    sections,
+    params.outputStyle !== undefined ? createOutputStyleSection(params.outputStyle) : undefined,
+  );
 
   appendOptionalSection(
     sections,

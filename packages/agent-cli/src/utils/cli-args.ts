@@ -50,6 +50,8 @@ export interface IParsedCliArgs {
   deniedTools: string | undefined;
   model: string | undefined;
   preset: string | undefined;
+  /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
+  outputStyle?: string;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
@@ -153,6 +155,7 @@ const PARSE_ARGS_CONFIG = {
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
     preset: { type: 'string' },
+    'output-style': { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
     'json-schema': { type: 'string' },
     configure: { type: 'boolean', default: false },
@@ -241,6 +244,7 @@ function mapParsedValues(
     deniedTools: values['denied-tools'],
     model: values['model'],
     preset: values['preset'],
+    outputStyle: values['output-style'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
     configure: values['configure'] ?? false,

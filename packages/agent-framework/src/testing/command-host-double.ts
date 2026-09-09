@@ -202,9 +202,11 @@ export function createTestCommandHost(
     // `undefined` is "no interactive renderer is attached" — the headless case, which every
     // command must already handle as a cancellation rather than a silent guess (CMD-004).
     getUserInteraction: () => undefined,
+    getActiveOutputStyleId: () => 'default',
     applyPersona: () => {},
     applySelfVerification: () => {},
     applyResponseLanguage: () => {},
+    applyOutputStyle: () => {},
     applyPresetSystemPrompt: () => {},
     // An empty array is "every name matched" (INFRA-032), not "nothing was applied".
     applyCommandModuleSelection: () => [],

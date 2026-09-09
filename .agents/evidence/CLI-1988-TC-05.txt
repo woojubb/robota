@@ -1,0 +1,3 @@
+Command: node packages/agent-cli/dist/node/bin.js -p "Explain the current directory in one sentence" --output-style concise --output-format stream-json --no-session-persistence --session-log packages/agent-cli/src/__tests__/e2e/fixtures/cross-fidelity.jsonl
+Exit: 0
+Output: stderr reported `Output style: Concise (concise; input cost low)`; replay stdout returned `CROSS_FIDELITY_OK`.

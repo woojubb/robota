@@ -58,6 +58,7 @@ import type {
   TCommandInvocationSource,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
@@ -133,6 +134,7 @@ export class InteractiveSession
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
+  private activeOutputStyleId = 'default';
   private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
     null;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
@@ -164,6 +166,9 @@ export class InteractiveSession
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
+    if ('outputStyle' in options && options.outputStyle !== undefined) {
+      this.activeOutputStyleId = options.outputStyle.id;
+    }
     this.terminalHandoffGate = new SessionTerminalHandoffGate(options.terminalHandoff);
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
@@ -617,6 +622,15 @@ export class InteractiveSession
     this.rebuildLivePrompt({ persona });
   }
 
+  getActiveOutputStyleId(): string {
+    return this.activeOutputStyleId;
+  }
+
+  applyOutputStyle(style: IOutputStylePrompt): void {
+    this.activeOutputStyleId = style.id;
+    this.rebuildLivePrompt({ outputStyle: style });
+  }
+
   applySelfVerification(enabled: boolean): void {
     this.rebuildLivePrompt({ selfVerification: enabled });
   }
@@ -971,6 +985,7 @@ export class InteractiveSession
       getAdapters: () => this.getCommandHostAdapters(),
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
+      applyOutputStyle: (style) => this.applyOutputStyle(style),
       renameSession: (newName) => {
         this.setName(newName);
         this.emit('session_renamed', { name: newName }); // all surfaces update their titles
