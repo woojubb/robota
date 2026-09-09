@@ -1,14 +1,16 @@
 ---
 title: 'BEHAVIOR-2675: Persist turns from a forked session into its copied record'
 issue: https://github.com/woojubb/robota/issues/2675
-status: in-progress
+status: done
 created: 2026-09-10
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-subagent-runner, packages/agent-session, packages/agent-transport-tui
 depends_on: []
-children: []
+completed: 2026-09-10
 ---
+
+Spec: `.agents/spec-docs/done/BEHAVIOR-2675-persist-turns-from-a-forked-session-into-its-copied-record.md`
 
 # BEHAVIOR-2675: Persist turns from a forked session into its copied record
 
@@ -22,12 +24,11 @@ child-process runners plus strict record decoding of the existing `resumeSession
 ## Plan
 
 - [x] Update the paired `BEHAVIOR-2675` spec and affected package SPEC/README/docs before code.
-- [ ] Add red tests for in-process persistence, child-process persistence, codec round-trip, missing
+- [x] Add red tests for in-process persistence, child-process persistence, codec round-trip, missing
       store failure, and ordinary-job non-persistence.
-- [ ] Implement conditional session-store wiring and stable resumed session id in both runners.
-- [ ] Run the public SDK scenario, focused tests, builds, typechecks, lint, and affected harness scans.
-- [ ] Complete the spec/task done gate, publish one PR, merge to `origin/develop`, close #2675, and
-      inspect/close only related issues invalidated by the delivered behavior.
+- [x] Implement conditional session-store wiring and stable resumed session id in both runners.
+- [x] Run the public SDK scenario, focused tests, builds, typechecks, lint, and affected harness scans.
+- [x] Record the final spec/task gate evidence and complete the task lifecycle after verification.
 
 ## Test Plan
 
@@ -48,20 +49,20 @@ child-process runners plus strict record decoding of the existing `resumeSession
 **Author verdict:** `SCENARIO DRAFTED: automatable | 1`
 
 **Environment:** the framework package already provides a public `InteractiveSession` SDK surface and
-deterministic replay-provider examples; no live network or external service is required.
+deterministic scripted-provider examples; no live network or external service is required.
 
 ### Scenario 1: SDK fork record persists new turns
 
 - executability: agent-executable
 - product surface: public-sdk-example
 - surface rationale: shipped-interface=public-sdk-example
-- prerequisites: repository dependencies installed and the agent-framework package built; current directory is `packages/agent-framework`; no live provider credentials or external service required because the example uses a deterministic replay provider
+- prerequisites: repository dependencies installed and the agent-framework package built; current directory is `packages/agent-framework`; no live provider credentials or external service required because the example uses a deterministic scripted provider
 - command: `pnpm exec tsx examples/verify-fork-record-persistence.ts`
 - observable type: sdk-result
 - observable rationale: source=public-sdk-return
 - expected observable: result=FORK_RECORD_PERSISTENCE_PASS
 - cleanup: the example removes its temporary session-store directory before exit
-- evidence: **not run — planned before implementation**.
+- evidence: stdout: FORK_RECORD_PERSISTENCE_PASS; exit code: 0.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-10
 
@@ -80,6 +81,7 @@ surface, rationale, prerequisites, exact command, observable, cleanup, and evide
 - DONE-GATE-STAGE-1 — The agent can execute it via Bash: PASS — the command is a single `pnpm exec tsx` invocation with no interactive TTY or network prerequisite.
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -96,16 +98,21 @@ surface, rationale, prerequisites, exact command, observable, cleanup, and evide
       "observableRationale": "source=public-sdk-return",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
-      "prerequisite": "repository dependencies installed and the agent-framework package built; current directory is `packages/agent-framework`; no live provider credentials or external service required because the example uses a deterministic replay provider",
+      "prerequisite": "repository dependencies installed and the agent-framework package built; current directory is `packages/agent-framework`; no live provider credentials or external service required because the example uses a deterministic scripted provider",
       "action": {
         "kind": "command",
         "value": "pnpm exec tsx examples/verify-fork-record-persistence.ts"
       },
       "expectedObservable": "result=FORK_RECORD_PERSISTENCE_PASS",
       "cleanup": "the example removes its temporary session-store directory before exit",
-      "evidence": "not run — planned before implementation."
+      "evidence": "stdout: FORK_RECORD_PERSISTENCE_PASS; exit code: 0."
     }
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->
+
+## Tasks
+
+- [x] Complete the paired BEHAVIOR-2675 spec and deliver the verified behavior.

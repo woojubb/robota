@@ -567,6 +567,11 @@ the subagent spawn contract had declared `cwd` required all along.
 `getCwd()` exposes it, because a fork or subagent derived from a session must be able to ask which
 root that session actually uses instead of re-deriving one that can disagree.
 
+When `ISessionOptions.sessionStore` is supplied, a completed `run()` persists the current messages
+under `sessionId`, and `shutdown()` persists once more. A resumed fork therefore reuses the copied
+record's ID and injects the same store; its new turns update that record. The store is optional, so a
+session without it remains transient.
+
 ### Malformed permission patterns are refused at construction (issue #2428)
 
 `PermissionEnforcer`'s constructor runs agent-core's `findInvalidPermissionPatterns` over

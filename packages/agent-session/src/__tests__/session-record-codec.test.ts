@@ -108,6 +108,7 @@ function maximalRecord(): IInteractiveSessionRecord {
         mode: 'background',
         parentSessionId: 'session-1',
         parentTaskId: 't0',
+        resumeSessionId: 'session-1-fork',
         depth: 1,
         cwd: '/work',
         pid: 4242,

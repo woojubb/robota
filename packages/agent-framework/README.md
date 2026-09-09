@@ -464,7 +464,7 @@ When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `I
 
 ## Subagent Sessions
 
-`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId` and `sessionLogger` so the child session writes a durable transcript.
+`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId`, `sessionLogger`, and `sessionStore` so the child session writes durable state.
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
@@ -485,6 +485,13 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 ### createAgentTool()
 
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
+
+When a background job resumes a forked record, the runner passes the record's `resumeSessionId` as
+both the child session ID and the persistence key, together with the same session store that holds
+the copied record. Each completed child turn then updates that copied record, so `attach` sees the
+conversation after the fork as well as the conversation copied at fork time. Ordinary subagent jobs
+remain transient when they do not carry `resumeSessionId`; attaching is still a view switch, never a
+merge with the parent record.
 
 Background subagent lifecycle events are persisted through `InteractiveSession` when an SDK session persistence facade is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
 

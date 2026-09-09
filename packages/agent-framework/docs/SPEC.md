@@ -2021,6 +2021,14 @@ Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as 
 
 `createSession()` also accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. When omitted, SDK composition uses `createInProcessSubagentRunner`. Runtime shells such as `agent-cli` may inject a factory that receives the same assembled dependency bundle and returns a process-backed `ISubagentRunner`.
 
+When a subagent request carries `resumeSessionId`, the runner must construct the child with that ID
+and the session store that contains the copied record. The child restores the record before its first
+turn and `Session.run()` persists each completed turn back to the same record. Requests without
+`resumeSessionId` do not receive a session store and remain transient. This persistence updates the
+fork record only; parent-session records are not merged. A process-backed runner obtains the store
+from its composition root for the request's parent `cwd`, while the conversation itself remains off
+the IPC wire.
+
 Exported subagent types from `src/subagents/index.ts`:
 
 | Export                          | Kind      | Description                                                               |

@@ -35,6 +35,7 @@ import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution
 const OPTIONAL_STRING_KEYS = [
   'agentType',
   'parentTaskId',
+  'resumeSessionId',
   'promptPreview',
   'commandPreview',
   'currentAction',

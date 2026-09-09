@@ -95,10 +95,10 @@ export interface IInProcessSubagentRunnerDeps {
   sandboxType?: string;
   /**
    * CLI-1994: the interactive-session record store a job's `resumeSessionId` names a record in — the
-   * store `/fork` wrote the copy to. The runner only ever READS it, to restore the copied conversation
-   * and its assembled system message into the child session before the first turn; the conversation
-   * itself never travels on the request (ARCH-044). A fork job on a runner with no store fails, stated
-   * as such, rather than starting empty.
+   * store `/fork` wrote the copy to. The runner uses it to restore the copied conversation and assembled
+   * system message into the child session before the first turn and to persist the child's new turns;
+   * the conversation itself never travels on the request (ARCH-044). A fork job on a runner with no
+   * store fails, stated as such, rather than starting empty.
    */
   resumeSessionStore?: IInteractiveSessionStore;
 }
@@ -171,7 +171,8 @@ function assertSupportedIsolation(job: ISubagentJobStart): void {
 /**
  * CLI-1994: a job that names a session record restores it — messages and assembled system message —
  * into the freshly built child before its first turn. Only the id reached this runner; the record is
- * read here. No store means the fork cannot be honoured, and that is a failed job, not an empty one.
+ * read here and reused by the child Session for turn persistence. No store means the fork cannot be
+ * honoured, and that is a failed job, not an empty one.
  */
 function resumeRequestedRecord(
   job: ISubagentJobStart,
@@ -223,6 +224,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
       const definition = resolveAgentDefinition(job.request.agentType, deps);
+      const resumeSessionId = job.request.resumeSessionId;
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
         parentConfig: deps.config,
@@ -233,6 +235,10 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
         // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
         cwd: subagentExecutionRoot(job),
+        ...(resumeSessionId !== undefined ? { sessionId: resumeSessionId } : {}),
+        ...(resumeSessionId !== undefined && deps.resumeSessionStore !== undefined
+          ? { sessionStore: deps.resumeSessionStore }
+          : {}),
         permissionMode: deps.permissionMode,
         ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool

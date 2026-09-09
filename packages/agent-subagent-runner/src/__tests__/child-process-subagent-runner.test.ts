@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
@@ -20,6 +20,11 @@ import {
 const FIXTURE_WORKER_ENTRY = {
   execPath: process.execPath,
   args: [fileURLToPath(new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url))],
+  execArgv: [] as readonly string[],
+};
+const FORK_PERSISTENCE_WORKER_ENTRY = {
+  execPath: process.execPath,
+  args: [fileURLToPath(new URL('./fixtures/fork-persistence-worker-entry.mjs', import.meta.url))],
   execArgv: [] as readonly string[],
 };
 const TEST_TIMEOUT_MS = 20_000;
@@ -112,6 +117,64 @@ describe('ChildProcessSubagentRunner', () => {
 
       expect(handle.pid).toBeGreaterThan(0);
       expect(result).toEqual({ taskId: 'agent_1', output: 'completed:agent_1' });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'persists a resumed fork turn into the copied record',
+    async () => {
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-1994-child-')));
+      const resumeSessionId = 'session_cli-1994-child-fork';
+      const record = {
+        id: resumeSessionId,
+        name: 'parent (fork)',
+        cwd,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        messages: [
+          {
+            id: 'm-1',
+            role: 'user',
+            content: 'Remember the child record.',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
+        ],
+        systemPrompt: 'The copied parent prompt.',
+      };
+      mkdirSync(join(cwd, 'sessions'), { recursive: true });
+      writeFileSync(
+        join(cwd, 'sessions', `${resumeSessionId}.json`),
+        JSON.stringify(record),
+        'utf8',
+      );
+
+      try {
+        const runner = new ChildProcessSubagentRunner(createDeps(), {
+          workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        });
+        const result = await runner.start({
+          ...createJob(),
+          request: {
+            ...createJob().request,
+            cwd,
+            prompt: 'Continue the child record.',
+            resumeSessionId,
+          },
+        }).result;
+
+        expect(result.output).toBe('the child process answers');
+        const loaded = JSON.parse(
+          readFileSync(join(cwd, 'sessions', `${resumeSessionId}.json`), 'utf8'),
+        ) as { messages: Array<{ content: unknown }> };
+        const messages = loaded.messages.map((message) => String(message.content));
+        expect(messages).toContain('Continue the child record.');
+        expect(messages).toContain('the child process answers');
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
     },
     TEST_TIMEOUT_MS,
   );

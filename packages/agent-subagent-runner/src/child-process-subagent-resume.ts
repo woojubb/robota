@@ -14,7 +14,7 @@
 import { restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
-import type { ISubagentWorkerComposition } from './worker-composition.js';
+import type { ISubagentWorkerComposition, TResumeSessionStore } from './worker-composition.js';
 import type { createSubagentSession } from '@robota-sdk/agent-framework';
 
 /**
@@ -26,11 +26,28 @@ import type { createSubagentSession } from '@robota-sdk/agent-framework';
  */
 export function resumeRequestedRecord(
   payload: ISubagentWorkerStartPayload,
-  composition: ISubagentWorkerComposition,
   childSession: ReturnType<typeof createSubagentSession>,
+  resumeSessionStore: TResumeSessionStore | undefined,
 ): void {
   const resumeSessionId = payload.request.resumeSessionId;
   if (resumeSessionId === undefined) return;
+  if (resumeSessionStore === undefined) {
+    throw new Error(
+      `subagent worker: job ${payload.taskId} asks to resume session ${resumeSessionId}, but this ` +
+        'composition opens no session store. Register ISubagentWorkerComposition.openSessionStore ' +
+        'at the composition root — the same place providerDefinitions is registered.',
+    );
+  }
+  restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, childSession);
+}
+
+/** Open the store once so the resumed child can both restore and persist its copied record. */
+export function openResumeSessionStore(
+  payload: ISubagentWorkerStartPayload,
+  composition: ISubagentWorkerComposition,
+): TResumeSessionStore | undefined {
+  const resumeSessionId = payload.request.resumeSessionId;
+  if (resumeSessionId === undefined) return undefined;
   if (composition.openSessionStore === undefined) {
     throw new Error(
       `subagent worker: job ${payload.taskId} asks to resume session ${resumeSessionId}, but this ` +
@@ -38,6 +55,5 @@ export function resumeRequestedRecord(
         'at the composition root — the same place providerDefinitions is registered.',
     );
   }
-  const store = composition.openSessionStore({ cwd: payload.request.cwd });
-  restoreSessionRecordIntoSession(store, resumeSessionId, childSession);
+  return composition.openSessionStore({ cwd: payload.request.cwd });
 }

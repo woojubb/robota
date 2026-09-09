@@ -48,7 +48,7 @@
     "build:types": "tsdown --dts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools && pnpm scenario:verify:workspace-authority && pnpm scenario:verify:memory-recall-provenance",
+    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools && pnpm scenario:verify:workspace-authority && pnpm scenario:verify:memory-recall-provenance && pnpm scenario:verify:fork-record-persistence",
     "scenario:verify:external-payload": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
     "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
     "scenario:verify:prompt-resolution": "pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts",
@@ -59,7 +59,8 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
     "scenario:verify:zero-config-tools": "pnpm exec tsx --conditions=source examples/verify-zero-config-default-tools.ts",
     "scenario:verify:workspace-authority": "pnpm exec tsx --conditions=source examples/verify-workspace-project-authority.ts",
-    "scenario:verify:memory-recall-provenance": "pnpm exec tsx --conditions=source examples/verify-memory-recall-provenance.ts"
+    "scenario:verify:memory-recall-provenance": "pnpm exec tsx --conditions=source examples/verify-memory-recall-provenance.ts",
+    "scenario:verify:fork-record-persistence": "pnpm exec tsx examples/verify-fork-record-persistence.ts"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",

@@ -8,7 +8,7 @@ import {
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
-import { resumeRequestedRecord } from './child-process-subagent-resume.js';
+import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 
@@ -102,6 +102,7 @@ async function runInitialPrompt(
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;
+    const resumeSessionStore = openResumeSessionStore(payload, composition);
     session = createSubagentSession({
       // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
@@ -128,7 +129,8 @@ async function runInitialPrompt(
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
-      sessionId: payload.taskId,
+      sessionId: payload.request.resumeSessionId ?? payload.taskId,
+      ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
       // CORE-025: enforce the task's permission policy in the child-process subagent too.
@@ -145,7 +147,7 @@ async function runInitialPrompt(
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
     });
-    resumeRequestedRecord(payload, composition, session);
+    resumeRequestedRecord(payload, session, resumeSessionStore);
     const output = await session.run(payload.request.prompt);
     if (cancelled) {
       sendTerminalMessageAndExit(
