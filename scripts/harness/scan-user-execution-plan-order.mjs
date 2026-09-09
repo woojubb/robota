@@ -1575,6 +1575,203 @@ function validatePostMergeRecord(root, before, after, base) {
   );
 }
 
+/**
+ * A delivering PR may be squash-merged before its Task/spec completion records are archived. In
+ * that case the old planning checkpoint is not in the new branch's ancestry, so the exact archive
+ * itself is the only candidate the guard can inspect. Keep this exception narrower than a generic
+ * active-to-done move: both records must move together, the terminal evidence must already be in
+ * them, and the same commit must append one verified post-merge ledger record.
+ */
+export function postMergeCompletionPaths(paths) {
+  const archivePaths = paths.filter(
+    (file) => file.startsWith(`${TASK_PREFIX}completed/`) || file.startsWith(`${SPEC_PREFIX}done/`),
+  );
+  if (archivePaths.length === 0) return null;
+  const basenames = [
+    ...new Set(
+      archivePaths.map((file) => taskBasename(file) ?? specBasename(file)).filter(Boolean),
+    ),
+  ].sort();
+  if (basenames.length !== 1) {
+    return {
+      basename: null,
+      expected: [],
+      problems: [
+        `post-merge completion closeout must name exactly one archived Task/spec basename; found ${basenames.join(', ') || '(none)'}.`,
+      ],
+    };
+  }
+  const basename = basenames[0];
+  return {
+    basename,
+    expected: [
+      `${TASK_PREFIX}${basename}`,
+      `${TASK_PREFIX}completed/${basename}`,
+      `${SPEC_PREFIX}active/${basename}`,
+      `${SPEC_PREFIX}done/${basename}`,
+      POST_MERGE_LEDGER,
+    ].sort(),
+    problems: [],
+  };
+}
+
+function checklistProblems(text, headings, label) {
+  const sections = headings
+    .map((heading) => markdownSection(text, heading))
+    .filter((section) => section !== null);
+  if (sections.length === 0) return [`${label} has no completion checklist section.`];
+  const items = sections.flatMap((section) =>
+    [...section.matchAll(/^\s*[-*]\s+\[([ xX])\]\s+/gm)].map((match) => match[1]),
+  );
+  if (items.length === 0) return [`${label} has no completion checklist items.`];
+  const unchecked = items.filter((state) => state.toLowerCase() !== 'x').length;
+  return unchecked === 0
+    ? []
+    : [`${label} has ${unchecked} unchecked completion checklist item(s).`];
+}
+
+function lastGateCompleteIsPass(spec) {
+  const evidence = markdownSection(spec, '## Evidence Log');
+  if (evidence === null) return false;
+  const entries = [
+    ...evidence.matchAll(
+      /^###\s+\[GATE-COMPLETE(?:\s*:\s*TC-\d+)?\]\s+—\s+(✅ PASS|❌ FAIL)\s+\|\s+\d{4}-\d{2}-\d{2}\s*$/gm,
+    ),
+  ];
+  return entries.length > 0 && entries.at(-1)[1] === '✅ PASS';
+}
+
+function postMergeCompletionProblems({
+  root,
+  paths,
+  base,
+  textForPath,
+  parentTextForPath,
+  ledgerBefore,
+  ledgerAfter,
+}) {
+  const candidate = postMergeCompletionPaths(paths);
+  if (candidate === null) return null;
+  const problems = [...candidate.problems];
+  if (candidate.basename === null) return { basename: null, problems };
+
+  const { basename, expected } = candidate;
+  const actual = [...new Set(paths)].sort();
+  if (actual.length !== expected.length || actual.some((file, index) => file !== expected[index])) {
+    problems.push(
+      `post-merge completion closeout must change exactly these paths: ${expected.join(', ')}; got ${actual.join(', ') || '(none)'}.`,
+    );
+  }
+
+  const taskSource = `${TASK_PREFIX}${basename}`;
+  const taskDestination = `${TASK_PREFIX}completed/${basename}`;
+  const specSource = `${SPEC_PREFIX}active/${basename}`;
+  const specDestination = `${SPEC_PREFIX}done/${basename}`;
+  const parentTask = parentTextForPath(taskSource);
+  const parentSpec = parentTextForPath(specSource);
+  const task = textForPath(taskDestination);
+  const spec = textForPath(specDestination);
+  if (parentTask === null || frontmatterStatus(parentTask) !== 'in-progress') {
+    problems.push(
+      `post-merge completion source Task \`${taskSource}\` must exist at \`status: in-progress\` in the parent tree.`,
+    );
+  }
+  if (parentSpec === null || frontmatterStatus(parentSpec) !== 'in-progress') {
+    problems.push(
+      `post-merge completion source spec \`${specSource}\` must exist at \`status: in-progress\` in the parent tree.`,
+    );
+  }
+  if (parentTextForPath(taskDestination) !== null || parentTextForPath(specDestination) !== null) {
+    problems.push(
+      'post-merge completion destinations must be newly archived, not duplicate records.',
+    );
+  }
+  if (task === null || frontmatterStatus(task) !== 'done') {
+    problems.push(
+      `post-merge completion Task \`${taskDestination}\` must end at \`status: done\`.`,
+    );
+  } else {
+    const completed = asScalar(frontmatterObject(task).completed).trim();
+    const date = new Date(`${completed}T00:00:00.000Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(completed) ||
+      Number.isNaN(date.valueOf()) ||
+      date.toISOString().slice(0, 10) !== completed
+    ) {
+      problems.push(
+        `post-merge completion Task \`${taskDestination}\` has no valid completed date.`,
+      );
+    }
+    if (!new RegExp(`^Spec:\\s*\\\`${escapeRegExp(specDestination)}\\\`\\s*$`, 'm').test(task)) {
+      problems.push(
+        `post-merge completion Task \`${taskDestination}\` must point to the done spec \`${specDestination}\`.`,
+      );
+    }
+    problems.push(
+      ...checklistProblems(task, ['## Plan'], `post-merge completion Task \`${taskDestination}\``),
+      ...checklistProblems(
+        task,
+        ['## Completion Criteria', '## Independent completion criteria'],
+        `post-merge completion Task \`${taskDestination}\``,
+      ),
+    );
+  }
+  if (spec === null || frontmatterStatus(spec) !== 'done') {
+    problems.push(
+      `post-merge completion spec \`${specDestination}\` must end at \`status: done\`.`,
+    );
+  } else {
+    const tasksSection = markdownSection(spec, '## Tasks');
+    if (tasksSection === null || !hasExactMarkdownToken(tasksSection, taskDestination)) {
+      problems.push(
+        `post-merge completion spec \`${specDestination}\` must bind ## Tasks to \`${taskDestination}\`.`,
+      );
+    }
+    problems.push(
+      ...checklistProblems(
+        spec,
+        ['## Completion Criteria'],
+        `post-merge completion spec \`${specDestination}\``,
+      ),
+    );
+    if (!lastGateCompleteIsPass(spec)) {
+      problems.push(
+        `post-merge completion spec \`${specDestination}\` must end its Evidence Log with a GATE-COMPLETE PASS.`,
+      );
+    }
+  }
+  if (!validatePostMergeRecord(root, ledgerBefore, ledgerAfter, base)) {
+    problems.push(
+      'post-merge completion must append exactly one closed, successful ledger record bound to a verified PR merge ancestor of the topic base.',
+    );
+  }
+  return { basename, problems };
+}
+
+function validatePostMergeCompletion(root, parent, commit, paths, base) {
+  return postMergeCompletionProblems({
+    root,
+    paths,
+    base,
+    textForPath: (file) => gitText(root, commit, file),
+    parentTextForPath: (file) => gitText(root, parent, file),
+    ledgerBefore: gitText(root, parent, POST_MERGE_LEDGER) ?? '',
+    ledgerAfter: gitText(root, commit, POST_MERGE_LEDGER) ?? '',
+  });
+}
+
+function stagedPostMergeCompletion(root, paths, base) {
+  return postMergeCompletionProblems({
+    root,
+    paths,
+    base,
+    textForPath: (file) => indexText(root, file),
+    parentTextForPath: (file) => gitText(root, 'HEAD', file),
+    ledgerBefore: gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '',
+    ledgerAfter: indexText(root, POST_MERGE_LEDGER) ?? '',
+  });
+}
+
 function validatePostMergePrelude(root, parent, commit, paths, base) {
   if (paths.length !== 1 || paths[0] !== POST_MERGE_LEDGER) return false;
   const before = gitText(root, parent, POST_MERGE_LEDGER) ?? '';
@@ -1814,6 +2011,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   const findings = [];
   if (candidates.length === 0) {
     let postMergePreludes = 0;
+    let postMergeCompletions = 0;
     let pendingBasename = null;
     let planningStarted = false;
     // Preserve ancestor L0 grounds across Task archival; documentation batches never set this.
@@ -1821,6 +2019,34 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     for (const entry of entries) {
       if (entry.paths.length === 0) continue;
       if (onlyLedgerAppends(entry.paths, textIn(entry.commit), textIn(entry.parent))) continue;
+      const completion = validatePostMergeCompletion(
+        root,
+        entry.parent,
+        entry.commit,
+        entry.paths,
+        base,
+      );
+      if (completion !== null) {
+        if (
+          completion.problems.length > 0 ||
+          postMergeCompletions > 0 ||
+          planningStarted ||
+          pendingBasename !== null
+        ) {
+          findings.push(
+            finding(
+              `post-merge completion closeout is invalid: ${completion.problems.join(' ') || 'a completion closeout cannot replace an active planning unit or occur more than once.'}`,
+              entry.commit,
+            ),
+          );
+        } else {
+          postMergeCompletions += 1;
+          // This unit is terminal. A later implementation commit must still prove its own planning
+          // checkpoint, while a later planning prelude may begin a different unit.
+          planningStarted = true;
+        }
+        continue;
+      }
       if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base)) {
         postMergePreludes += 1;
         if (postMergePreludes > 1 || planningStarted) {
@@ -2201,6 +2427,31 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
           ];
         }
       }
+    }
+    const completion = stagedPostMergeCompletion(root, staged, history.base);
+    if (completion !== null) {
+      if (completion.problems.length > 0) {
+        return [
+          finding(
+            `staged post-merge completion closeout is invalid: ${completion.problems.join(' ')}`,
+          ),
+        ];
+      }
+      if (history.pendingBasename !== null) {
+        return [
+          finding(
+            `staged post-merge completion closeout cannot replace pending planning unit \`${history.pendingBasename}\`.`,
+          ),
+        ];
+      }
+      const residue = worktreePaths(root);
+      return residue.length === 0
+        ? []
+        : [
+            finding(
+              `unstaged or untracked path(s) exist during post-merge completion closeout: ${residue.join(', ')}.`,
+            ),
+          ];
     }
     if (staged.includes(POST_MERGE_LEDGER)) {
       const before = gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '';

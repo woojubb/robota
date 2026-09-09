@@ -681,6 +681,118 @@ function postMergeRecord(base, runId = 'r20260825000000') {
   };
 }
 
+const CLOSEOUT_TASK_ID = 'HARNESS-902-post-merge-closeout';
+const CLOSEOUT_TASK_PATH = `.agents/tasks/${CLOSEOUT_TASK_ID}.md`;
+const CLOSEOUT_SPEC_PATH = `.agents/spec-docs/active/${CLOSEOUT_TASK_ID}.md`;
+
+function closeoutTaskText(status = 'in-progress', specPath = CLOSEOUT_SPEC_PATH) {
+  return [
+    '---',
+    `status: ${status}`,
+    ...(status === 'done' ? ['completed: 2026-09-10'] : []),
+    '---',
+    '',
+    `Spec: \`${specPath}\``,
+    '',
+    `# ${CLOSEOUT_TASK_ID}: fixture`,
+    '',
+    '## Plan',
+    '',
+    '- [x] TC-01: deliver and verify the fixture.',
+    '',
+    '## Completion Criteria',
+    '',
+    '- [x] TC-01: the fixture is complete.',
+    '',
+    '## User Execution Test Scenarios',
+    '',
+    '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+    '',
+    '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.',
+    '',
+  ].join('\n');
+}
+
+function closeoutSpecText(status = 'in-progress', taskPath = CLOSEOUT_TASK_PATH) {
+  return [
+    '---',
+    `status: ${status}`,
+    'type: INFRA',
+    'tags: [harness]',
+    '---',
+    '',
+    `# ${CLOSEOUT_TASK_ID}: fixture`,
+    '',
+    '## Completion Criteria',
+    '',
+    '- [x] TC-01: the fixture is complete.',
+    '',
+    '## Tasks',
+    '',
+    `- [x] \`${taskPath}\``,
+    '',
+    '## Evidence Log',
+    '',
+    '### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-10',
+    '',
+    '**Status upgrade:** approved → in-progress',
+    '',
+    '### [GATE-VERIFY] — ✅ PASS | 2026-09-10',
+    '',
+    '**Status upgrade:** in-progress → verifying',
+    '',
+    '### [GATE-COMPLETE] — ✅ PASS | 2026-09-10',
+    '',
+    '**Status upgrade:** verifying → done',
+    '',
+  ].join('\n');
+}
+
+function deliveredCloseoutFixture() {
+  const fixture = repository();
+  git(fixture.root, ['switch', 'develop']);
+  write(fixture.root, CLOSEOUT_TASK_PATH, closeoutTaskText());
+  write(fixture.root, CLOSEOUT_SPEC_PATH, closeoutSpecText());
+  const base = commit(fixture.root, 'delivered closeout fixture (#1)');
+  git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+  git(fixture.root, ['switch', '-C', 'feature', base]);
+  return { ...fixture, base };
+}
+
+function stageCloseout(fixture, { ledger = true, mixed = false, incomplete = false } = {}) {
+  const taskDestination = `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`;
+  const specDestination = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
+  mkdirSync(path.dirname(path.join(fixture.root, taskDestination)), { recursive: true });
+  mkdirSync(path.dirname(path.join(fixture.root, specDestination)), { recursive: true });
+  git(fixture.root, ['mv', CLOSEOUT_TASK_PATH, taskDestination]);
+  git(fixture.root, ['mv', CLOSEOUT_SPEC_PATH, specDestination]);
+  write(
+    fixture.root,
+    taskDestination,
+    closeoutTaskText(
+      incomplete ? 'in-progress' : 'done',
+      incomplete ? CLOSEOUT_SPEC_PATH : specDestination,
+    ),
+  );
+  write(
+    fixture.root,
+    specDestination,
+    closeoutSpecText(
+      incomplete ? 'in-progress' : 'done',
+      incomplete ? CLOSEOUT_TASK_PATH : `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`,
+    ),
+  );
+  if (ledger) {
+    write(
+      fixture.root,
+      '.agents/loop-runs/post-merge-cycle.jsonl',
+      `${JSON.stringify(postMergeRecord(fixture.base))}\n`,
+    );
+  }
+  if (mixed) write(fixture.root, 'packages/example/implementation.ts', 'implementation\n');
+  git(fixture.root, ['add', '-A']);
+}
+
 function userScenarioRecord(ref = TASK_ID, runId = 'r20260825000000') {
   return {
     runId,
@@ -3024,6 +3136,27 @@ describe('user-execution PLAN order — branch history', () => {
     checkpoint(root);
 
     expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('accepts a bounded post-merge Task/spec completion on a fresh branch without checkpoint ancestry', () => {
+    const staged = deliveredCloseoutFixture();
+    stageCloseout(staged);
+    expect(findStagedFindings(staged.root, staged.base)).toEqual([]);
+
+    const committed = deliveredCloseoutFixture();
+    stageCloseout(committed);
+    commit(committed.root, 'archive delivered closeout');
+    expect(findHistoryFindingsFromGit(committed.root, committed.base)).toEqual([]);
+  });
+
+  it.each([
+    ['missing the post-merge ledger record', { ledger: false }, /exactly these paths|ledger/i],
+    ['carrying incomplete terminal evidence', { incomplete: true }, /status: done|completion/i],
+    ['mixing an implementation path', { mixed: true }, /exactly these paths|implementation/i],
+  ])('rejects a post-merge completion %s', (_name, options, expected) => {
+    const fixture = deliveredCloseoutFixture();
+    stageCloseout(fixture, options);
+    expect(messages(findStagedFindings(fixture.root, fixture.base))).toMatch(expected);
   });
 
   it('accepts the exact approved todo-spec source deletion during a real active move', () => {
