@@ -1568,10 +1568,12 @@ function validatePostMergeRecord(root, before, after, base) {
   if (resolves.code !== 0) return false;
   if (runGit(root, ['merge-base', '--is-ancestor', mergeOid, base]).code !== 0) return false;
   const subject = runGit(root, ['show', '-s', '--format=%s', mergeOid]);
+  const explicitlyRecordedSquash = /\bSQUASH MERGE VERIFIED PASS\b/.test(String(record.ref));
   return (
     subject.code === 0 &&
     (subject.stdout.includes(`(#${prNumber})`) ||
-      new RegExp(`\\bpull request #${prNumber}\\b`, 'i').test(subject.stdout))
+      new RegExp(`\\bpull request #${prNumber}\\b`, 'i').test(subject.stdout) ||
+      (explicitlyRecordedSquash && mergeOid === base))
   );
 }
 

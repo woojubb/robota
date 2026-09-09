@@ -681,6 +681,10 @@ function postMergeRecord(base, runId = 'r20260825000000') {
   };
 }
 
+function postMergeSquashRecord(base) {
+  return { ...postMergeRecord(base), ref: `PR #1 SQUASH MERGE VERIFIED PASS ${base}` };
+}
+
 const CLOSEOUT_TASK_ID = 'HARNESS-902-post-merge-closeout';
 const CLOSEOUT_TASK_PATH = `.agents/tasks/${CLOSEOUT_TASK_ID}.md`;
 const CLOSEOUT_SPEC_PATH = `.agents/spec-docs/active/${CLOSEOUT_TASK_ID}.md`;
@@ -748,18 +752,21 @@ function closeoutSpecText(status = 'in-progress', taskPath = CLOSEOUT_TASK_PATH)
   ].join('\n');
 }
 
-function deliveredCloseoutFixture() {
+function deliveredCloseoutFixture({ squashed = false } = {}) {
   const fixture = repository();
   git(fixture.root, ['switch', 'develop']);
   write(fixture.root, CLOSEOUT_TASK_PATH, closeoutTaskText());
   write(fixture.root, CLOSEOUT_SPEC_PATH, closeoutSpecText());
-  const base = commit(fixture.root, 'delivered closeout fixture (#1)');
+  const base = commit(fixture.root, `delivered closeout fixture${squashed ? '' : ' (#1)'}`);
   git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(fixture.root, ['switch', '-C', 'feature', base]);
-  return { ...fixture, base };
+  return { ...fixture, base, squashed };
 }
 
-function stageCloseout(fixture, { ledger = true, mixed = false, incomplete = false } = {}) {
+function stageCloseout(
+  fixture,
+  { ledger = true, mixed = false, incomplete = false, squash = fixture.squashed } = {},
+) {
   const taskDestination = `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`;
   const specDestination = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
   mkdirSync(path.dirname(path.join(fixture.root, taskDestination)), { recursive: true });
@@ -786,7 +793,7 @@ function stageCloseout(fixture, { ledger = true, mixed = false, incomplete = fal
     write(
       fixture.root,
       '.agents/loop-runs/post-merge-cycle.jsonl',
-      `${JSON.stringify(postMergeRecord(fixture.base))}\n`,
+      `${JSON.stringify(squash ? postMergeSquashRecord(fixture.base) : postMergeRecord(fixture.base))}\n`,
     );
   }
   if (mixed) write(fixture.root, 'packages/example/implementation.ts', 'implementation\n');
@@ -3147,6 +3154,10 @@ describe('user-execution PLAN order — branch history', () => {
     stageCloseout(committed);
     commit(committed.root, 'archive delivered closeout');
     expect(findHistoryFindingsFromGit(committed.root, committed.base)).toEqual([]);
+
+    const squashed = deliveredCloseoutFixture({ squashed: true });
+    stageCloseout(squashed);
+    expect(findStagedFindings(squashed.root, squashed.base)).toEqual([]);
   });
 
   it.each([
