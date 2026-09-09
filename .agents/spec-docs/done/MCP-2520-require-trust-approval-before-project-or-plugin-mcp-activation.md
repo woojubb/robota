@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SECURITY
 tags: [cli, auth, typescript]
 lane: L2
@@ -159,18 +159,18 @@ a helper as a fallback.
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: a project/plugin definition in an untrusted workspace is listed as pending,
+- [x] TC-01: Observable: a project/plugin definition in an untrusted workspace is listed as pending,
       rejected, stale, or unavailable without a process spawn, remote connection, authentication, or
       helper execution.
-- [ ] TC-02: Observable: a checked-in approval cannot activate its own project/server definition,
+- [x] TC-02: Observable: a checked-in approval cannot activate its own project/server definition,
       while a permitted user/managed or trusted local-untracked approval admits only the exact
       definition, provenance, security identity, and activation kind it names.
-- [ ] TC-03: Observable: changing the command, args, URL, headers/helper identity, plugin source, or
+- [x] TC-03: Observable: changing the command, args, URL, headers/helper identity, plugin source, or
       security identity invalidates prior approval; reject and revoke deny subsequent admission and
       emit auditable secret-free status.
-- [ ] TC-04: Observable: direct calls through the MCP client and every transport adapter reach the
+- [x] TC-04: Observable: direct calls through the MCP client and every transport adapter reach the
       same admission port before handshake or activation; status/health inspection reaches no server.
-- [ ] TC-05: Command: affected package tests, typechecks, builds, and
+- [x] TC-05: Command: affected package tests, typechecks, builds, and
       `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exit 0, with a regression test proven RED against the pre-admission path.
 
@@ -178,11 +178,11 @@ a helper as a fallback.
 
 | TC-ID | Test Type   | Tool / Approach                                                  | Notes                                           |
 | ----- | ----------- | ---------------------------------------------------------------- | ----------------------------------------------- |
-| TC-01 | integration | restricted/trusted workspace fixtures + activation spy           | Status path proves zero activation side effects |
-| TC-02 | unit        | admission service/store tests                                    | Source precedence and exact binding             |
-| TC-03 | unit        | fingerprint, reject/revoke, and secret-redaction tests           | Stale/refusal/audit evidence                    |
-| TC-04 | integration | MCP client/transport tests with direct-call bypass attempts      | One admission port before handshake             |
-| TC-05 | suite       | affected package tests, typecheck/build, and `run-all-scans.mjs` | Include regression RED→GREEN evidence           |
+| TC-01 | integration | `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` + `packages/agent-tool-mcp/src/__tests__/mcp-activation.test.ts` | Status path proves zero activation side effects |
+| TC-02 | unit        | `packages/agent-tool-mcp/src/__tests__/mcp-activation.test.ts`                        | Source precedence and exact binding             |
+| TC-03 | unit        | `packages/agent-tool-mcp/src/__tests__/mcp-activation.test.ts`                        | Stale/refusal/audit evidence                    |
+| TC-04 | integration | `packages/agent-tool-mcp/src/__tests__/mcp-tool.test.ts`                              | One admission port before handshake             |
+| TC-05 | suite       | `packages/agent-tool-mcp/src/__tests__/*.test.ts` + `run-all-scans.mjs`               | Include regression RED→GREEN evidence           |
 
 ## User Execution Test Scenarios
 
@@ -199,7 +199,7 @@ a helper as a fallback.
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=status=untrusted; activationAttempts=0
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status` exited 0 and printed `result=status=untrusted; activationAttempts=0`.
 
 ### Scenario 2: exact approval, change, and revocation control activation
 
@@ -212,14 +212,14 @@ a helper as a fallback.
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle` exited 0 and printed `result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1`.
 
 ## Tasks
 
 Paired execution record:
 `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`.
 
-- [ ] `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — in-progress
+- [x] `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` — implementation merged and issue closed
 
 ## Evidence Log
 
@@ -260,6 +260,8 @@ Paired execution record:
 semantic set was judged inline after the independent proposal/depth reviews, with this deviation made
 explicit rather than silently treating PENDING-GUARDIAN as PASS. No runtime or GitHub mutation exists.
 
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
+
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-09
 
 **Status remains:** draft
@@ -280,6 +282,8 @@ remain `20 PASS, 0 FAIL, 7 PENDING-GUARDIAN`; the guardian found three required 
 
 The failed entry is retained as the superseded review record; GATE-WRITE must be re-run after the
 corrections and a later PASS must be recorded before approval.
+
+**Judged by:** `backlog-gate-guard` semantic review.
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-09
 
@@ -307,6 +311,8 @@ corrections and a later PASS must be recorded before approval.
   or a specific test/scan command and exit result.
 - Scope guard: PASS — only planning artifacts are changed; MCP runtime has no admission implementation
   yet and no GitHub mutation exists.
+
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-09
 
@@ -382,5 +388,166 @@ corrections and a later PASS must be recorded before approval.
 
 <!-- checkpoint-evidence:v2:end -->
 
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS — the prior `GATE-IMPLEMENT` entry is ✅ PASS and the document remains
+  `status: in-progress` in `spec-docs/active/`.
+- GATE-VERIFY — Every item in the `## Plan` section of the paired Task is marked complete: PASS — all
+  five Task Plan items are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired Task has no unchecked, blocked,
+  or pending Plan item.
+- GATE-VERIFY — Build passes for all affected packages: PASS —
+  `pnpm --filter @robota-sdk/agent-tool-mcp build` exited 0.
+- GATE-VERIFY — Tests pass for all affected packages: PASS —
+  `pnpm --filter @robota-sdk/agent-tool-mcp test` exited 0; all 64 MCP tests passed.
+- GATE-VERIFY — Scenario verification: PASS —
+  `pnpm --filter @robota-sdk/agent-tool-mcp scenario:verify` exited 0 with both expected observables.
+
+**Judgement note:** `gate.mjs` independently recorded 3 PASS results and left the two Plan criteria
+pending because its current wording bindings do not cover the catalogue's `Every item`/`No Plan item`
+phrasing. The Claude guardian dispatch was unavailable because the local Claude subscription is disabled;
+the two criteria were checked directly against the paired Task and the commands above, with this
+deviation recorded rather than silently treating pending criteria as green.
+
+**Judged by:** inline independent review against `.agents/specs/gate-catalogue.md` § GATE-VERIFY after
+the mechanical gate run.
+
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `1460474b50f3` · base `origin/develop@98e778a7a7f8` · document `.agents/spec-docs/todo/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `8b858618e476` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/agent-tool-mcp exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+result=status=untrusted; activationAttempts=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `5a7e368d0f6e` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/agent-tool-mcp exec vitest run src/__tests__/mcp-activation.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+10:05:59 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-tool-mcp
+
+ ✓ src/__tests__/mcp-activation.test.ts (9 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  10:05:59
+   Duration  135ms (transform 20ms, setup 0ms, collect 22ms, tests 4ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `883a4c627dc3` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/agent-tool-mcp exec vitest run src/__tests__/mcp-activation.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+10:05:59 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-tool-mcp
+
+ ✓ src/__tests__/mcp-activation.test.ts (9 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  10:05:59
+   Duration  132ms (transform 19ms, setup 0ms, collect 20ms, tests 4ms, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `353c20de1288` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/agent-tool-mcp exec vitest run src/__tests__/mcp-tool.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-tool-mcp
+
+ ✓ src/__tests__/mcp-tool.test.ts (11 tests) 1271ms
+   ✓ MCPTool against a mock MCP server > TC-03: retries HTTP 5xx the configured number of times then succeeds  760ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  10:06:00
+   Duration  1.54s (transform 110ms, setup 0ms, collect 149ms, tests 1.27s, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `c5b6faf15f90` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-09
+
+**Command:** `pnpm --filter @robota-sdk/agent-tool-mcp test && pnpm --filter @robota-sdk/agent-tool-mcp typecheck && pnpm --filter @robota-sdk/agent-tool-mcp build && node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 99 line(s))
+
+```
+✓ task-plan-items
+✓ task-archival
+✓ test-module-mocks
+✓ backlog-placement
+✓ llms-txt
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+38 scans passed, 5 skipped (43 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md,  M .agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `9343b8808e0a` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-09
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-01: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-01: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-01: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `720798bacac2` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-09; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 10/10 tasks `[x]` in .agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `08e5e3adbd40` · base `origin/develop@08e5e3adbd40` · document `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md` blob `941e369958b9` (modified)

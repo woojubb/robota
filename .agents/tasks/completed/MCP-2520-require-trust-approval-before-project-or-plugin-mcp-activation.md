@@ -1,8 +1,9 @@
 ---
 title: 'MCP-2520: require trust approval before project or plugin MCP activation'
 issue: https://github.com/woojubb/robota/issues/2520
-status: in-progress
+status: done
 created: 2026-09-09
+completed: 2026-09-09
 priority: critical
 urgency: now
 area: MCP activation trust and workspace authority
@@ -10,6 +11,8 @@ depends_on: [MCP-001, AGREEMENT-2520]
 ---
 
 # MCP-2520: require trust approval before project or plugin MCP activation
+
+Spec: `.agents/spec-docs/done/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Objective
 
@@ -66,16 +69,19 @@ generic confirmation, status, and audit views but must not own trust policy.
   missing admission fails closed. Added `/mcp status|approve|reject|revoke` command module and the
   CLI option/host-adapter injection seam without moving policy or rendering into the CLI.
 - 2026-09-09: Targeted MCP tests pass (62), activation command tests pass (3), and affected package
-  typechecks/builds pass. Final boundary/scenario/conformance gates remain before task completion.
+  typechecks/builds pass. The implementation PR #2686 merged to `origin/develop` at
+  `08e5e3adbd40e2631ac853ada2b0969330dbeada`; issue #2520 was closed after the merge.
+- 2026-09-09: `pnpm --filter @robota-sdk/agent-tool-mcp scenario:verify` passed both public SDK
+  scenarios, and the affected harness verification completed successfully.
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: project/plugin definitions are visible as pending or rejected without
+- [x] TC-01: Observable: project/plugin definitions are visible as pending or rejected without
       connect/spawn.
-- [ ] TC-02: Observable: untrusted workspaces cannot activate checked-in approvals or definitions.
-- [ ] TC-03: Observable: exact definition, provenance, and security identity changes invalidate approval.
-- [ ] TC-04: Observable: all activation routes reach the same admission port before activation.
-- [ ] TC-05: Command: affected tests, typechecks, builds, and harness scans exit zero.
+- [x] TC-02: Observable: untrusted workspaces cannot activate checked-in approvals or definitions.
+- [x] TC-03: Observable: exact definition, provenance, and security identity changes invalidate approval.
+- [x] TC-04: Observable: all activation routes reach the same admission port before activation.
+- [x] TC-05: Command: affected tests, typechecks, builds, and harness scans exit zero.
 
 ## Test Plan
 
@@ -100,7 +106,7 @@ admission port. Run affected package tests, typecheck, build, and repository bou
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=status=untrusted; activationAttempts=0
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status` exited 0 and printed `result=status=untrusted; activationAttempts=0`.
 
 ### Scenario 2: exact approval, change, and revocation control activation
 
@@ -113,7 +119,7 @@ admission port. Run affected package tests, typecheck, build, and repository bou
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle` exited 0 and printed `result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1`.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-09
 
@@ -157,7 +163,7 @@ admission port. Run affected package tests, typecheck, build, and repository bou
       },
       "expectedObservable": "result=status=untrusted; activationAttempts=0",
       "cleanup": "the example uses only in-memory state and exits without leaving files or connections.",
-      "evidence": "`packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)"
+      "evidence": "`pnpm exec tsx examples/verify-mcp-activation-admission.ts --status` exited 0; observed `result=status=untrusted; activationAttempts=0`"
     },
     {
       "name": "Scenario 2: exact approval, change, and revocation control activation",
@@ -176,10 +182,19 @@ admission port. Run affected package tests, typecheck, build, and repository bou
       },
       "expectedObservable": "result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1",
       "cleanup": "the example uses only in-memory state and exits without leaving files or connections.",
-      "evidence": "`packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)"
+      "evidence": "`pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle` exited 0; observed `result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1`"
     }
   ]
 }
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-09
+
+- Scenario 1: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status` exited 0 and
+  observed `result=status=untrusted; activationAttempts=0`.
+- Scenario 2: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle` exited 0 and
+  observed `result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1`.
+- Result: both expected observables matched; the examples use in-memory state and left no files or
+  connections behind.

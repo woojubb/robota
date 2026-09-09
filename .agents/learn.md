@@ -185,3 +185,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
   the file in one isolated thread worker remove the worker starvation and shard deadline.
 - source: INFRA-2662 full contract verification, 2026-09-09
 - related: PROC-003, INFRA-2662
+
+### LRN-plan-order-squash-merged-closeout
+
+- observed-at: 2026-09-09T10:29:43+09:00
+- observation: An atomic Task/spec archival closeout required by the completion rule cannot be pushed from a fresh `origin/develop` branch after the delivering implementation was squash-merged, because `user-execution-plan-order` requires an ancestor checkpoint that the squash merge does not preserve.
+- evidence: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` rejected the closeout with `proposed checkpoint does not stage the exact active Task/spec pair`; a linear sync attempt then rejected `second work-unit planning checkpoint transition ... INFRA-182-ci-green-develop-recovery.md`; `.agents/rules/backlog-execution.md` § Completion Steps requires the status update and `git mv` archival in one commit.
+- source: MCP-2520 closeout, 2026-09-09
+- related: MCP-2520, issue #2520, issue #2418
