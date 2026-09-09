@@ -120,15 +120,17 @@ None
 
 ## User Execution Test Scenarios
 
-Not applicable — this parent owns decomposition and the shared boundary; the child Tasks own the
-canonical command and policy-enforcement scenarios. Verification evidence is recorded in the child
-plans and reconciled here.
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** 이 AGREEMENT는 Task 분해와 GitHub Issue 운영 경계만 조정하며, Robota CLI, TUI, 브라우저 UI, public SDK에서 사용자가 직접 도달하는 제품 동작, 화면, 입력 흐름, 반환 계약은 바꾸지 않는다. 관측 명령과 정책 enforcement는 각각의 자식 Task가 소유하므로 부모 작업에는 별도의 사용자 제품 실행 시나리오가 없다.
 
 ## Tasks
 
-- [ ] AGREEMENT-2515 — todo — `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`
+Paired execution record:
+`.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`.
+
+- [ ] OBSERVABILITY-2515 — todo — `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
+- [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 
 ## Evidence Log
 
