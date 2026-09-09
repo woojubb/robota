@@ -193,3 +193,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` rejected the closeout with `proposed checkpoint does not stage the exact active Task/spec pair`; a linear sync attempt then rejected `second work-unit planning checkpoint transition ... INFRA-182-ci-green-develop-recovery.md`; `.agents/rules/backlog-execution.md` § Completion Steps requires the status update and `git mv` archival in one commit.
 - source: MCP-2520 closeout, 2026-09-09
 - related: MCP-2520, issue #2520, issue #2418
+
+### LRN-mcp-2520-active-spec-stale-task-citations
+
+- observed-at: 2026-09-09T23:50:00+09:00
+- observation: The active MCP-2520 spec still cites eight Task paths at their pre-archival locations even though the corresponding records now live under `.agents/tasks/completed/`, so the repository task-path-citations scan fails before unrelated work can be pushed.
+- evidence: `pnpm harness:pre-push` and `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`; `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md:10,80,157,158,220,222,333,334`.
+- source: AGREEMENT-2515 parent pre-push verification, 2026-09-09
+- related: MCP-2520, issue #2520
