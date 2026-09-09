@@ -10,3 +10,4 @@
 {"runId":"r20260830185838","opened":"2026-08-30T18:58:38.631Z","closed":"2026-08-30T19:40:39.850Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"OBSERVABILITY-002"}
 {"runId":"r20260906072107","opened":"2026-09-06T07:21:07.549Z","closed":"2026-09-06T08:59:53.247Z","roundFindings":[4,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260906090437","opened":"2026-09-06T09:04:37.251Z","closed":"2026-09-06T09:04:37.352Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260909165444","opened":"2026-09-09T16:54:44.464Z","closed":"2026-09-09T17:01:05.575Z","roundFindings":[],"extensions":{},"terminal":"abandoned","ref":"BEHAVIOR-2675 implementation not started; open a fresh post-implementation run at the checklist boundary"}
