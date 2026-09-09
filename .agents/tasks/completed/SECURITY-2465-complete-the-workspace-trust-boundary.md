@@ -1,13 +1,16 @@
 ---
 title: 'SECURITY-2465: complete the workspace trust boundary'
 issue: https://github.com/woojubb/robota/issues/2465
-status: in-progress
+status: done
 created: 2026-09-10
 priority: critical
 urgency: now
 area: packages/agent-framework, packages/agent-session, packages/agent-core, packages/agent-cli
 depends_on: []
+completed: 2026-09-10
 ---
+
+Spec: `.agents/spec-docs/done/SECURITY-2465-complete-the-workspace-trust-boundary.md`
 
 # SECURITY-2465: complete the workspace trust boundary
 
@@ -208,3 +211,18 @@ each scenario above.
   [issue #2152](https://github.com/woojubb/robota/issues/2152) retain independent contracts and
   remain open. [Issue #1985](https://github.com/woojubb/robota/issues/1985) and its MCP children
   are separate scope and remain unaffected.
+
+### Post-merge closeout — ✅ COMPLETE | 2026-09-10
+
+- [PR #2691](https://github.com/woojubb/robota/pull/2691) merged into `develop` as
+  `101fda832bb4e09dfe3231080543ee2a05a3bcfb`; the PR head and merge trees are equivalent and the
+  prior `origin/develop` base is an ancestor of the merge commit.
+- [issue #2465](https://github.com/woojubb/robota/issues/2465) is `CLOSED` with reason
+  `COMPLETED`; the closure comment records the acceptance criteria and related-issue audit:
+  https://github.com/woojubb/robota/issues/2465#issuecomment-5608261358.
+- Related open issues retain independent scope; no unrelated issue was closed. In particular,
+  [issue #2653](https://github.com/woojubb/robota/issues/2653) and
+  [issue #2655](https://github.com/woojubb/robota/issues/2655) remain open because they are distinct build-graph and dependency-audit trigger
+  defects.
+- Source branch `codex/issue-2465-security-single` was deleted locally after merge. Remote deletion
+  is recorded by the follow-up cleanup once the repository's clean-tree hook permits it.
