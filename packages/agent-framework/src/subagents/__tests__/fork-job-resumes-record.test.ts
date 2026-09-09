@@ -140,6 +140,19 @@ describe('a fork job resumes its record through the store (CLI-1994 TC-03)', () 
     expect(contents.indexOf(JOB_PROMPT)).toBeGreaterThan(contents.indexOf(COPIED_ASSISTANT));
   });
 
+  it('persists the fork child turn back into the copied record', async () => {
+    const runner = createInProcessSubagentRunner(deps);
+
+    await runner.start(job(cwd, FORK_ID)).result;
+
+    const loaded = store.load(FORK_ID);
+    expect(loaded.status).toBe('valid');
+    if (loaded.status !== 'valid') return;
+    const messages = loaded.record.messages.map((message) => String(message.content));
+    expect(messages).toContain(JOB_PROMPT);
+    expect(messages).toContain('the child answers');
+  });
+
   it('without resumeSessionId, the same job sends only its own prompt under the subagent prompt', async () => {
     const runner = createInProcessSubagentRunner(deps);
 

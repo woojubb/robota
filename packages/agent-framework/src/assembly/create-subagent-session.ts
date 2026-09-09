@@ -24,6 +24,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type {
   TBackgroundPermissionPolicy,
@@ -103,6 +104,8 @@ export interface ISubagentOptions {
   cwd: string;
   /** Stable session ID for transcript files. */
   sessionId?: string;
+  /** Optional session store used by a resumed fork to persist its new turns. */
+  sessionStore?: IInteractiveSessionStore;
   /** Optional logger for subagent transcripts. */
   sessionLogger?: ISessionLogger;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
@@ -263,6 +266,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     terminal,
     cwd: options.cwd,
     ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+    ...(options.sessionStore !== undefined ? { sessionStore: options.sessionStore } : {}),
     ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
     model,
     maxTurns: agentDefinition.maxTurns,

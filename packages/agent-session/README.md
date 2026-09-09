@@ -43,19 +43,19 @@ await session.compact('Focus on the API changes');
 
 ## Features
 
-| Feature                    | Description                                                                                                                        |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                                             |
-| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                               |
-| **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                         |
-| **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched |
-| **Persistence**            | `IInteractiveSessionStore` injection; explicit `NodeSessionStore` host adapter uses atomic temp-file + rename writes               |
-| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                             |
-| **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity   |
-| **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter               |
-| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                      |
-| **Usage observations**     | Content-free top-level turn outcomes and invocation-scoped provider usage identities are preserved for cross-session analytics     |
-| **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                         |
+| Feature                    | Description                                                                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                                                                                 |
+| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                                                                   |
+| **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                                                             |
+| **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched                                     |
+| **Persistence**            | `IInteractiveSessionStore` injection; each completed `run()` and shutdown persist through the store; explicit `NodeSessionStore` uses atomic temp-file + rename writes |
+| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                                                                 |
+| **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity                                       |
+| **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter                                                   |
+| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                                                          |
+| **Usage observations**     | Content-free top-level turn outcomes and invocation-scoped provider usage identities are preserved for cross-session analytics                                         |
+| **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                                                             |
 
 ## Key Methods
 
@@ -125,6 +125,11 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 ### Interactive session record
 
 `IInteractiveSessionRecord` is owned by `@robota-sdk/agent-interface-transport` and carries the full conversation and resumable state. `NodeSessionStore` persists this record without inspecting its payload. It is a conspicuously named host adapter: passing a directory does not establish workspace trust. Framework project composition instead adapts an accepted project-authority state facet to the same neutral store port. When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes only its live conversation, history, prompt, schema, path, and timestamp fields.
+
+When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes
+only its live conversation, history, prompt, schema, path, and timestamp fields. A resumed session
+must reuse the record ID when its new turns are intended to update that record; sessions without a
+store remain transient.
 
 Session-log parsing is source-driven. `loadSessionLogEntries(source)` consumes an explicit
 `ISessionLogSource`; it never converts a filename into filesystem authority. Use

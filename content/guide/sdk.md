@@ -296,6 +296,11 @@ If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`
 
 `createSubagentSession()` spawns a child session for delegating subtasks to a subagent. The child session forks the parent's context (`context:fork`), inherits hooks and permissions, and runs independently.
 
+For a background job that continues a forked record, pass its `resumeSessionId` through the job API
+with a session store configured on the runtime. The runner restores the copied conversation and uses
+the same ID/store for the child, so completed turns are visible when a client attaches to the fork.
+Jobs without `resumeSessionId` remain transient, and the parent and fork records are never merged.
+
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
 import type { ISubagentOptions } from '@robota-sdk/agent-framework';

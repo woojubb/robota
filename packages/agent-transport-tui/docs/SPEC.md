@@ -222,10 +222,11 @@ Attach is deliberately NOT routed through a `ui_intent` session event. It starts
 this surface's own background panel rather than at a command, so the requester-routed intent bus
 would add a hop with no second consumer at the end of it.
 
-**What attach currently shows.** The record it opens is the copy as it stood when `/fork` was run.
-The forked job's own turns are not written back into that record — `createSubagentSession` composes
-no session store — so they live in the background task's transcript, which `/background` shows, and
-not in the session the terminal switches to. Closing that gap is [issue #2675](https://github.com/woojubb/robota/issues/2675).
+**What attach currently shows.** The record it opens is the fork copy, including turns completed by
+the forked job after `/fork` was run. The runner reuses the copied record's `resumeSessionId` and
+session store for resumed fork jobs, so `Session.run()` writes each completed turn back to that
+record. Ordinary background jobs remain transient; their output lives in the background task's
+transcript, which `/background` shows. The parent and fork records remain separate.
 
 **Refusals are stated, never silent.** Attach declines — with the reason written into the transcript
 as a system entry, and no intent emitted — when the entry is not a fork, when the task reached a
