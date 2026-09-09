@@ -53,6 +53,10 @@ verify a non-zero exit plus an actionable diagnostic. Cleanup removes only the t
 Expected: the command is repeatable, boundary-precise, pagination-complete, timezone-explicit, and
 failure-visible. Evidence: record exact commands, relevant output, and exit codes before completion.
 
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This Task adds a repository-internal GitHub queue measurement command and its harness call path; it changes no behavior reachable by a user through the Robota CLI, TUI, browser UI, or public SDK. The command and fixtures are operator maintenance surfaces for inspecting repository state, so no separate user product execution scenario applies.
+
 ## Tasks
 
 - [ ] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.

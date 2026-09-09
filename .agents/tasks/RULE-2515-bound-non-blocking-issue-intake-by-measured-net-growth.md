@@ -54,6 +54,10 @@ Verify no issue is silently closed, relabeled, or deduplicated. Cleanup removes 
 Expected: policy decisions are explicit, deterministic, and consistent with the canonical measurement.
 Evidence: record exact commands, observable output, and exit codes before completion.
 
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This Task changes repository-internal issue-intake governance and its harness enforcement path; it changes no behavior reachable by a user through the Robota CLI, TUI, browser UI, or public SDK. The policy fixtures are operator maintenance surfaces for repository administration, so no separate user product execution scenario applies.
+
 ## Tasks
 
 - [ ] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
