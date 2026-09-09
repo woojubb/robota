@@ -11,6 +11,7 @@ import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
+import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
@@ -119,6 +120,7 @@ export function createDefaultCommandModules({
     createShellCommandModule(),
     createEditorCommandModule(),
     createMemoryCommandModule(),
+    createMCPActivationCommandModule(),
     createUserLocalCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),

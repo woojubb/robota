@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
 
 import { createMCPTool } from '../mcp-tool.js';
+import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { startMockMcpServer } from './mock-mcp-server.js';
 
 import type { IToolSchema } from '@robota-sdk/agent-core';
@@ -15,15 +16,66 @@ const SCHEMA: IToolSchema = {
 
 let server: IMockMcpServer | undefined;
 
+function createApprovedMcpTool(config: {
+  endpoint: string;
+  timeout?: number;
+  retries?: number;
+  apiKey?: string;
+  headers?: Record<string, string>;
+}) {
+  const activationRequest = {
+    serverId: 'mock-server',
+    endpoint: config.endpoint,
+    source: 'user' as const,
+    provenance: { kind: 'user' as const, id: 'test-config' },
+    definitionFingerprint: 'mock-definition-v1',
+    securityIdentity: 'mock-identity-v1',
+  };
+  const admission = new MCPActivationAdmissionService();
+  admission.approve(activationRequest);
+  return createMCPTool(config, SCHEMA, { activationRequest, admission });
+}
+
 afterEach(async () => {
   await server?.close();
   server = undefined;
 });
 
 describe('MCPTool against a mock MCP server', () => {
+  it('TC-06: refuses activation before handshake when no admission is injected', async () => {
+    server = await startMockMcpServer({ toolResultText: 'must not be reached' });
+    const tool = createMCPTool({ endpoint: server.url }, SCHEMA);
+
+    await expect(tool.execute({ text: 'x' })).rejects.toThrow(/activation denied/i);
+    expect(server.requests).toHaveLength(0);
+    expect(tool.getConnectionStatus()).toBe('disconnected');
+  });
+
+  it('TC-06: re-checks admission after a session is connected', async () => {
+    server = await startMockMcpServer({ toolResultText: 'first call' });
+    const activationRequest = {
+      serverId: 'mock-server',
+      endpoint: server.url,
+      source: 'user' as const,
+      provenance: { kind: 'user' as const, id: 'test-config' },
+      definitionFingerprint: 'mock-definition-v1',
+      securityIdentity: 'mock-identity-v1',
+    };
+    const admission = new MCPActivationAdmissionService();
+    admission.approve(activationRequest);
+    const tool = createMCPTool({ endpoint: server.url }, SCHEMA, { activationRequest, admission });
+
+    await tool.execute({ text: 'first' });
+    admission.revoke(activationRequest);
+    await expect(tool.execute({ text: 'second' })).rejects.toThrow(/activation denied/i);
+    expect(
+      server.requests.filter((request) => request.body?.['method'] === 'tools/call'),
+    ).toHaveLength(1);
+  });
+
   it('TC-01: completes initialize handshake then tools/call with spec params', async () => {
     server = await startMockMcpServer({ toolResultText: 'echoed: hi' });
-    const tool = createMCPTool({ endpoint: server.url }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url });
 
     const result = await tool.execute({ text: 'hi' });
 
@@ -48,28 +100,28 @@ describe('MCPTool against a mock MCP server', () => {
     server = await startMockMcpServer({
       toolCallJsonRpcError: { code: -32000, message: 'tool exploded' },
     });
-    const tool = createMCPTool({ endpoint: server.url }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url });
     await expect(tool.execute({ text: 'x' })).rejects.toThrow(ToolExecutionError);
     await expect(
-      createMCPTool({ endpoint: server.url }, SCHEMA).execute({ text: 'x' }),
+      createApprovedMcpTool({ endpoint: server.url }).execute({ text: 'x' }),
     ).rejects.toThrow(/tool exploded/);
   });
 
   it('TC-02: isError tool result also throws', async () => {
     server = await startMockMcpServer({ toolCallIsError: true, toolResultText: 'bad input' });
-    const tool = createMCPTool({ endpoint: server.url }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url });
     await expect(tool.execute({ text: 'x' })).rejects.toThrow(/bad input/);
   });
 
   it('TC-03: timeout aborts a delayed tools/call', async () => {
     server = await startMockMcpServer({ toolCallDelayMs: 1500 });
-    const tool = createMCPTool({ endpoint: server.url, timeout: 200, retries: 0 }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url, timeout: 200, retries: 0 });
     await expect(tool.execute({ text: 'x' })).rejects.toThrow(ToolExecutionError);
   }, 10000);
 
   it('TC-03: retries HTTP 5xx the configured number of times then succeeds', async () => {
     server = await startMockMcpServer({ failFirstToolCalls: 2, toolResultText: 'ok after retry' });
-    const tool = createMCPTool({ endpoint: server.url, retries: 3 }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url, retries: 3 });
     const result = await tool.execute({ text: 'x' });
     expect((result.data as { content?: string }).content).toBe('ok after retry');
     const toolCalls = server.requests.filter((r) => r.body?.['method'] === 'tools/call');
@@ -78,7 +130,7 @@ describe('MCPTool against a mock MCP server', () => {
 
   it('TC-03: exhausted retries throw', async () => {
     server = await startMockMcpServer({ failFirstToolCalls: 10 });
-    const tool = createMCPTool({ endpoint: server.url, retries: 1 }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url, retries: 1 });
     await expect(tool.execute({ text: 'x' })).rejects.toThrow(ToolExecutionError);
     const toolCalls = server.requests.filter((r) => r.body?.['method'] === 'tools/call');
     expect(toolCalls).toHaveLength(2);
@@ -86,10 +138,11 @@ describe('MCPTool against a mock MCP server', () => {
 
   it('TC-04: forwards Authorization bearer apiKey and custom headers; echoes session id; DELETE on disconnect', async () => {
     server = await startMockMcpServer({ sessionId: 'sess-42', toolResultText: 'ok' });
-    const tool = createMCPTool(
-      { endpoint: server.url, apiKey: 'secret-key', headers: { 'X-Team': 'robota' } },
-      SCHEMA,
-    );
+    const tool = createApprovedMcpTool({
+      endpoint: server.url,
+      apiKey: 'secret-key',
+      headers: { 'X-Team': 'robota' },
+    });
     await tool.execute({ text: 'x' });
     await tool.disconnect();
 
@@ -107,7 +160,7 @@ describe('MCPTool against a mock MCP server', () => {
 
   it('TC-05: status is connected only after a successful handshake', async () => {
     server = await startMockMcpServer({});
-    const tool = createMCPTool({ endpoint: server.url }, SCHEMA);
+    const tool = createApprovedMcpTool({ endpoint: server.url });
     expect(tool.getConnectionStatus()).toBe('disconnected');
     await tool.execute({ text: 'x' });
     expect(tool.getConnectionStatus()).toBe('connected');
@@ -116,10 +169,11 @@ describe('MCPTool against a mock MCP server', () => {
   });
 
   it('TC-05: refused endpoint yields error status and a thrown connection failure', async () => {
-    const tool = createMCPTool(
-      { endpoint: 'http://127.0.0.1:1/mcp', timeout: 500, retries: 0 },
-      SCHEMA,
-    );
+    const tool = createApprovedMcpTool({
+      endpoint: 'http://127.0.0.1:1/mcp',
+      timeout: 500,
+      retries: 0,
+    });
     await expect(tool.execute({ text: 'x' })).rejects.toThrow(ToolExecutionError);
     expect(tool.getConnectionStatus()).toBe('error');
   });

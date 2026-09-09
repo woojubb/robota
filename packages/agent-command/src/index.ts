@@ -18,6 +18,12 @@ export * from './exit/index.js';
 export * from './help/index.js';
 export * from './language/index.js';
 export * from './memory/index.js';
+export {
+  createMCPActivationCommandEntry,
+  createMCPActivationCommandModule,
+  MCPActivationCommandSource,
+} from './mcp-activation/mcp-activation-command-module.js';
+export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
 export * from './mode/index.js';
 export * from './permissions/index.js';
 export * from './plugin/index.js';

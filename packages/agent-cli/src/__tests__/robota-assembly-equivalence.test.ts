@@ -56,6 +56,8 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * HANDOFF-001 (issue #1864); `agent-command-fork` by CLI-1994 (issue #1994), which registers `/fork`
  * beside `/background` because the two spawn the same kind of child and differ only in what context
  * it starts from.
+ * `agent-command-mcp-activation` was added by MCP-2520 to expose the explicit trust-admission
+ * lifecycle without constructing or connecting an MCP client.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -72,6 +74,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-shell',
   'agent-command-editor',
   'agent-command-memory',
+  'agent-command-mcp-activation',
   'agent-command-user-local',
   'agent-command-compact',
   'agent-command-context',

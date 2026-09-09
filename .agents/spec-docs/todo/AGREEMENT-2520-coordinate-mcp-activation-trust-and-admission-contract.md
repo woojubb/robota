@@ -179,7 +179,7 @@ scenarios and their product-level execution evidence.
 Paired execution record:
 `.agents/tasks/AGREEMENT-2520-coordinate-mcp-activation-trust-and-admission-contract.md`.
 
-- [ ] MCP-2520 — todo — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
+- [ ] MCP-2520 — in-progress — `.agents/tasks/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`
 
 ## Evidence Log
 

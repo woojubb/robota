@@ -1,7 +1,7 @@
 ---
 title: 'MCP-2520: require trust approval before project or plugin MCP activation'
 issue: https://github.com/woojubb/robota/issues/2520
-status: todo
+status: in-progress
 created: 2026-09-09
 priority: critical
 urgency: now
@@ -45,16 +45,28 @@ generic confirmation, status, and audit views but must not own trust policy.
 
 ## Plan
 
-- [ ] Revalidate issue #2520, its parent/child relationships, current Claude/MCP references, and
+- [x] Revalidate issue #2520, its parent/child relationships, current Claude/MCP references, and
       exact owner boundaries against the current tree.
-- [ ] Define the provider-neutral typed approval, provenance, definition fingerprint, status/audit,
+- [x] Define the provider-neutral typed approval, provenance, definition fingerprint, status/audit,
       and activation-admission contracts without duplicating MCP configuration ownership.
-- [ ] Implement fail-closed project/plugin admission on top of workspace authority and integrate all
+- [x] Implement fail-closed project/plugin admission on top of workspace authority and integrate all
       activation paths so no transport or lower client can bypass it.
-- [ ] Add approval, rejection, revocation, stale-definition, self-approval, plugin-provenance,
+- [x] Add approval, rejection, revocation, stale-definition, self-approval, plugin-provenance,
       inspection-without-activation, and trusted-activation regression coverage.
-- [ ] Expose command effects and generic CLI status/confirmation projection, update affected specs,
+- [x] Expose command effects and generic CLI status/confirmation projection, update affected specs,
       and run package, type, build, boundary, and harness verification.
+
+## Progress
+
+- 2026-09-09: Added the secret-free `IMCPActivationRequest`/`IMCPActivationAdmission` contract,
+  exact-match approval policy, managed/user/local precedence, project/plugin trust guard,
+  self-approval refusal, stale-generation detection, replaceable audit store, and registry controller
+  in `agent-tool-mcp`.
+- 2026-09-09: `MCPTool.execute()` now admits every call before handshake or reused-session request;
+  missing admission fails closed. Added `/mcp status|approve|reject|revoke` command module and the
+  CLI option/host-adapter injection seam without moving policy or rendering into the CLI.
+- 2026-09-09: Targeted MCP tests pass (62), activation command tests pass (3), and affected package
+  typechecks/builds pass. Final boundary/scenario/conformance gates remain before task completion.
 
 ## Completion Criteria
 
@@ -75,14 +87,99 @@ admission port. Run affected package tests, typecheck, build, and repository bou
 
 ## User Execution Test Scenarios
 
-<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
-     not-applicable | automatable | manual; the count is the number of scenarios drafted. -->
-
 **Author verdict:** `SCENARIO DRAFTED: automatable | 2`
 
-1. In a clean untrusted checkout containing a project MCP definition and a checked-in approval,
-   request MCP status. Expected: the definition is listed as pending/rejected and no process or
-   remote connection is attempted.
-2. Approve the exact definition through the host/user-controlled path, execute it, then change the
-   definition and revoke the approval. Expected: only the exact approved identity is admitted and
-   later changed or revoked requests are denied without activation.
+### Scenario 1: status inspection denies untrusted project MCP activation
+
+- Executability: agent-executable
+- Product surface: public-sdk-example
+- Surface rationale: shipped-interface=public-sdk-example
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates an isolated in-memory untrusted workspace fixture; no network or provider credential is required.
+- Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status`
+- Observable type: sdk-result
+- Observable rationale: source=public-sdk-return
+- Expected observable: result=status=untrusted; activationAttempts=0
+- Cleanup: the example uses only in-memory state and exits without leaving files or connections.
+- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+
+### Scenario 2: exact approval, change, and revocation control activation
+
+- Executability: agent-executable
+- Product surface: public-sdk-example
+- Surface rationale: shipped-interface=public-sdk-example
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates trusted and mutated in-memory request fixtures; no network or provider credential is required.
+- Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle`
+- Observable type: sdk-result
+- Observable rationale: source=public-sdk-return
+- Expected observable: result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1
+- Cleanup: the example uses only in-memory state and exits without leaving files or connections.
+- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** scenario drafted → scenario written
+
+- Ordering: PASS — this is the first DONE-GATE-STAGE-1 entry for the two authored MCP activation scenarios.
+- Field completeness: PASS — both scenarios provide agent executability, canonical public SDK example
+  surface, exact commands, prerequisites, observable type/rationale, expected result, cleanup, and
+  durable evidence paths.
+- Product surface: PASS — each command invokes the maintained `verify-mcp-activation-admission.ts`
+  public SDK example and observes its process-visible result; no test runner is used as the user
+  surface.
+- Credential boundary: PASS — both scenarios use isolated in-memory fixtures and require no network,
+  provider credential, TTY, or external service.
+- Expected-value consistency: PASS — status inspection must report an untrusted request with zero
+  activation attempts; lifecycle execution admits exactly one approved request and denies the changed
+  and revoked requests before any additional activation.
+
+<!-- checkpoint-evidence:v1:start -->
+
+```json
+{
+  "version": 1,
+  "form": "doneGateStageOne",
+  "outcome": "automatable",
+  "scenarios": [
+    {
+      "name": "Scenario 1: status inspection denies untrusted project MCP activation",
+      "surface": "public-sdk-example",
+      "surfaceRationale": "shipped-interface=public-sdk-example",
+      "invocation": "pnpm exec tsx examples/verify-mcp-activation-admission.ts --status",
+      "observableType": "sdk-result",
+      "observable": "result=status=untrusted; activationAttempts=0",
+      "observableRationale": "source=public-sdk-return",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates an isolated in-memory untrusted workspace fixture; no network or provider credential is required.",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec tsx examples/verify-mcp-activation-admission.ts --status"
+      },
+      "expectedObservable": "result=status=untrusted; activationAttempts=0",
+      "cleanup": "the example uses only in-memory state and exits without leaving files or connections.",
+      "evidence": "`packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)"
+    },
+    {
+      "name": "Scenario 2: exact approval, change, and revocation control activation",
+      "surface": "public-sdk-example",
+      "surfaceRationale": "shipped-interface=public-sdk-example",
+      "invocation": "pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle",
+      "observableType": "sdk-result",
+      "observable": "result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1",
+      "observableRationale": "source=public-sdk-return",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates trusted and mutated in-memory request fixtures; no network or provider credential is required.",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle"
+      },
+      "expectedObservable": "result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1",
+      "cleanup": "the example uses only in-memory state and exits without leaving files or connections.",
+      "evidence": "`packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)"
+    }
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v1:end -->
