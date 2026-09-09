@@ -1585,15 +1585,30 @@ function validatePostMergeRecord(root, before, after, base) {
  * them, and the same commit must append one verified post-merge ledger record.
  */
 export function postMergeCompletionPaths(paths) {
-  const archivePaths = paths.filter(
-    (file) => file.startsWith(`${TASK_PREFIX}completed/`) || file.startsWith(`${SPEC_PREFIX}done/`),
-  );
-  if (archivePaths.length === 0) return null;
-  const basenames = [
+  const taskArchiveBasenames = [
     ...new Set(
-      archivePaths.map((file) => taskBasename(file) ?? specBasename(file)).filter(Boolean),
+      paths
+        .filter((file) => file.startsWith(`${TASK_PREFIX}completed/`))
+        .map(taskBasename)
+        .filter(Boolean),
     ),
-  ].sort();
+  ];
+  const specArchiveBasenames = [
+    ...new Set(
+      paths
+        .filter((file) => file.startsWith(`${SPEC_PREFIX}done/`))
+        .map(specBasename)
+        .filter(Boolean),
+    ),
+  ];
+  const basenames = [...new Set([...taskArchiveBasenames, ...specArchiveBasenames])].sort();
+  const pairedBasenames = taskArchiveBasenames.filter((basename) =>
+    specArchiveBasenames.includes(basename),
+  );
+  // A single archived half is handled by the ordinary lifecycle refusal. This special classifier
+  // activates only when both halves identify the same unit, so terminal dispositions and historical
+  // L0 repairs do not get mistaken for a post-merge completion.
+  if (pairedBasenames.length === 0) return null;
   if (basenames.length !== 1) {
     return {
       basename: null,
