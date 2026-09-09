@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2515: coordinate rolling throughput measurement and bounded intake policy'
 issue: https://github.com/woojubb/robota/issues/2515
-status: todo
+status: in-progress
 created: 2026-09-09
 priority: critical
 urgency: now
@@ -39,14 +39,12 @@ that measurement semantics and intake enforcement cannot be independently comple
 
 ## Plan
 
-1. Establish one canonical `[start,end)` UTC measurement envelope and a failure-visible result shape in
-   OBSERVABILITY-2515.
-2. Define and mechanically enforce the non-blocking filing response, including duplicate/root-cause
-   grouping and immediate blocker/security/data-correctness exceptions, in RULE-2515.
-3. Verify both children against the same repository/query semantics and preserve independent external
-   issue lifecycle evidence.
-4. Close GitHub issue #2515 only after both children are terminal and the delivered behavior satisfies the complete
-   external acceptance criteria. Do not close GitHub issue #2512, issue #2580, or distinct sibling issues as a side effect.
+- [ ] TC-01 — Establish one canonical `[start,end)` UTC measurement envelope and a failure-visible result
+  shape in OBSERVABILITY-2515.
+- [ ] TC-02 — Define and mechanically enforce the non-blocking filing response, including
+  duplicate/root-cause grouping and immediate blocker/security/data-correctness exceptions, in RULE-2515.
+- [ ] TC-03 — Verify both children against the same repository/query semantics and preserve independent
+  external issue lifecycle evidence before closing GitHub issue #2515.
 
 ## Constraints and Non-goals
 

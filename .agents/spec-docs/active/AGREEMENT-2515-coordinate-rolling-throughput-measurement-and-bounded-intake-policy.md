@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [process, github, intake, measurement]
 lane: L2
@@ -64,6 +64,8 @@ nested executable-command ownership defect in issue #2580. The adversarial pass 
 against metric gaming, API boundary/pagination errors, silent failure, issue suppression, and scope
 leakage; each is assigned to a child criterion or retained as a separate issue.
 
+**Delivery mode:** `single`
+
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료
@@ -126,8 +128,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] OBSERVABILITY-2515 — todo — `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
-- [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
+- [ ] AGREEMENT-2515 — todo — `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`
 
 ## Evidence Log
 
@@ -165,3 +166,79 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `fe4c0aa5c928` · base `origin/develop@fe4c0aa5c928` · document `.agents/spec-docs/backlog/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md` blob `4e19947a618f` (modified)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-09
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`, whose basename is not the spec's (AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md)
+  **Required action:** pair the Task and the spec by basename
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` carries no `**Author verdict:** `SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>`` line (0 found, exactly 1 required)
+  **Required action:** record the author verdict in the Task
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 1 path(s) outside the paired spec/Task: .agents/spec-docs/draft/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md
+  **Required action:** commit, stash, or remove them before this gate
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a434dd94c8e5` · base `origin/develop@fe4c0aa5c928` · document `.agents/spec-docs/todo/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md` blob `e4b486c526b9` (tracked)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-09
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 0/3 TC ids and carries 2 checkbox task(s)
+  **Required action:** one task per TC-N
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a434dd94c8e5` · base `origin/develop@fe4c0aa5c928` · document `.agents/spec-docs/todo/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md` blob `80847a7fdc07` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-09
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-09; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (3)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 386 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md",
+    ".agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a434dd94c8e5` · base `origin/develop@fe4c0aa5c928` · document `.agents/spec-docs/todo/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md` blob `ad227135a407` (modified)
