@@ -77,6 +77,8 @@ brings its own and reuses the same kernel.
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
+- OWNS: Generic host wiring for an injected MCP activation adapter; approval policy and MCP client
+  lifecycle remain in lower reusable packages, while CLI rendering only consumes secret-free status/results.
 - OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
@@ -216,7 +218,7 @@ Whitebox internals are not specified here. See:
 | ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                          |
 | ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                          |
 | IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                 |
-| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point                            |
+| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation adapter       |
 | ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy  |
 | IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`    |
 | IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                    |
@@ -228,7 +230,7 @@ Whitebox internals are not specified here. See:
 | Export           | Kind     | Description                                                                          |
 | ---------------- | -------- | ------------------------------------------------------------------------------------ |
 | startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode           |
-| IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules and provider definitions) |
+| IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules, provider definitions, and optional MCP activation adapter) |
 
 Note: `createSession()` is internal to `agent-framework` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
 
@@ -244,7 +246,7 @@ passing values into the public entry point rather than by subclassing or monkey-
 | Provider composition   | `IProviderDefinition[]` passed to `buildCommandSetup()`                                               | `cli.ts` assembly layer |
 | Transport registry     | `createDefaultTransportRegistry()` wired into `renderApp()`                                           | `cli.ts` TUI path       |
 | Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner`                              | `cli.ts` assembly layer |
-| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter)                                          | `buildCommandSetup()`   |
+| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter, optional `mcpActivation`)                | `buildCommandSetup()`   |
 | Shell exec             | `createShellExec()` — passed to `renderApp()` (via `IRenderOptions`) and `HeadlessInteractionChannel` | `modes/*.ts`            |
 
 The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by

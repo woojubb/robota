@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-tool-mcp",
+  "packageName": "@robota-sdk/agent-tool-mcp",
+  "command": {
+    "executable": "pnpm",
+    "args": [
+      "scenario:verify"
+    ],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-tool-mcp@3.0.0-beta.79 scenario:verify /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-tool-mcp\n> pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle\n\nresult=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1\n",
+    "normalized": "result=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1",
+    "sha256": "4b1299a66f6850c81b887d2354ee2e62dd9557e91b9aa52dbb214d658577e3e4"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
