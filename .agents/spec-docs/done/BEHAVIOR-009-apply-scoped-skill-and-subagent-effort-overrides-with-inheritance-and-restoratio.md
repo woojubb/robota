@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 lane: L2
 tags: [typescript, async, agent-framework, subagent]
@@ -8,7 +8,7 @@ tags: [typescript, async, agent-framework, subagent]
 # BEHAVIOR-009: Scoped skill and subagent effort overrides
 
 Paired with
-`.agents/tasks/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
+`.agents/tasks/completed/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
 and owned by [AGREEMENT-004](https://github.com/woojubb/robota/issues/1987).
 
 ## Problem
@@ -161,7 +161,7 @@ model outcome, environment fallback, or catch-to-default behavior is introduced 
 
 ## Affected Files
 
-- `.agents/spec-docs/draft/BEHAVIOR-009-scoped-skill-and-subagent-effort.md`
+- `.agents/spec-docs/done/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
 - `packages/agent-core/src/interfaces/provider.ts`
 - `packages/agent-core/src/core/robota-config-manager.ts`
 - `packages/agent-core/src/core/robota-types.ts`
@@ -180,35 +180,35 @@ model outcome, environment fallback, or catch-to-default behavior is introduced 
 - `packages/agent-subagent-runner/src/subagent-worker-start-dto.ts`
 - `packages/agent-subagent-runner/src/child-process-subagent-worker.ts`
 - corresponding package SPEC files, focused tests, and
-  `packages/agent-framework/examples/verify-scoped-effort-overrides.ts` fixtures
+  `packages/agent-framework/examples/verify-scoped-effort-overrides.ts`
 
 ## Completion Criteria
 
-- [ ] TC-01: `TModelEffort` is the only type accepted by post-decode skill metadata, agent
+- [x] TC-01: `TModelEffort` is the only type accepted by post-decode skill metadata, agent
       definitions, and agent background-task requests; invalid legacy skill values and malformed
       child-process DTO effort values are rejected without arbitrary-string propagation.
-- [ ] TC-02: Skill and subagent execution implement the same precedence: explicit request > selected
+- [x] TC-02: Skill and subagent execution implement the same precedence: explicit request > selected
       skill/agent definition > parent effective effort > existing core neutral default.
-- [ ] TC-03: `withScopedModelEffort` restores the entry value after success, rejection, cancellation,
+- [x] TC-03: `withScopedModelEffort` restores the entry value after success, rejection, cancellation,
       and nested scopes; restoration is observable through the next provider request and the parent
       session remains unchanged after child execution.
-- [ ] TC-04: Both in-process and child-process subagent paths carry the selected effort into the child
+- [x] TC-04: Both in-process and child-process subagent paths carry the selected effort into the child
       `Session`, while preserving current model/tool/role/permission/cwd/resume/provider projections.
-- [ ] TC-05: The public SDK example exits `0` and prints exactly the four required success/failure/
+- [x] TC-05: The public SDK example exits `0` and prints exactly the four required success/failure/
       cancel/nested lines, and the affected package tests/builds/typechecks pass.
-- [ ] TC-06: The updated package SPECs match the implementation, `pnpm harness:scan` passes, and
+- [x] TC-06: The updated package SPECs match the implementation, `pnpm harness:scan` passes, and
       `pnpm harness:verify-like-ci` passes with no actionable review findings.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Observable |
-| ----- | --------- | --------------- | ---------- |
-| TC-01 | Type/unit | core guard tests, command/request type assertions, skill-source tests, DTO guard tests | invalid strings fail; typed values round-trip |
-| TC-02 | Integration | framework skill executor/fork tests and in-process request override tests | explicit request, definition, and inheritance cases agree |
-| TC-03 | Async integration | session scoped-effort tests with success, thrown error, abort, and nested operations | exact provider/session value sequence and restoration |
-| TC-04 | Boundary integration | `createSubagentSession` tests plus child-process projection/worker DTO tests | effort reaches both runners and unrelated fields remain intact |
-| TC-05 | User scenario + package gates | from `packages/agent-framework`, `pnpm exec tsx examples/verify-scoped-effort-overrides.ts` plus affected builds/tests | exact four lines and exit code `0` |
-| TC-06 | Repository gate | `pnpm harness:scan` and `pnpm harness:verify-like-ci` | all required scans and CI-equivalent checks pass |
+| TC-ID | Test Type                     | Tool / Approach                                                                                                                                                                                                                                                                | Observable                                                     |
+| ----- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| TC-01 | Type/unit                     | `packages/agent-core/src/interfaces/__tests__/model-effort.test.ts`; `packages/agent-framework/src/commands/__tests__/skill-source.test.ts`; `packages/agent-subagent-runner/src/__tests__/subagent-worker-start-dto.test.ts`                                                  | invalid strings fail; typed values round-trip                  |
+| TC-02 | Integration                   | `packages/agent-framework/src/commands/__tests__/skill-executor.test.ts`; `packages/agent-framework/src/interactive/__tests__/interactive-session-agent-jobs.semantic-roles.test.ts`; `packages/agent-framework/src/tools/__tests__/agent-tool.test.ts`                        | explicit request, definition, and inheritance cases agree      |
+| TC-03 | Async integration             | `packages/agent-session/src/__tests__/apply-model-options-cold-session.test.ts` > scoped effort success, failure, cancellation, and nested restoration                                                                                                                         | exact provider/session value sequence and restoration          |
+| TC-04 | Boundary integration          | `packages/agent-framework/src/__tests__/create-subagent-session.test.ts`; `packages/agent-framework/src/subagents/__tests__/in-process-effort-projection.test.ts`; `packages/agent-subagent-runner/src/__tests__/subagent-worker-start-dto.test.ts`                            | effort reaches both runners and unrelated fields remain intact |
+| TC-05 | User scenario + package gates | `packages/agent-framework/examples/verify-scoped-effort-overrides.ts`; `packages/agent-session/src/__tests__/apply-model-options-cold-session.test.ts`; from `packages/agent-framework`, `pnpm exec tsx examples/verify-scoped-effort-overrides.ts` plus affected builds/tests | exact four lines and exit code `0`                             |
+| TC-06 | Repository gate               | `pnpm harness:scan` and `pnpm harness:verify-like-ci`                                                                                                                                                                                                                          | all required scans and CI-equivalent checks pass               |
 
 ## User Execution Test Scenarios
 
@@ -218,18 +218,31 @@ effort of `low`, exercise success/failure/cancellation/nesting, print the exact 
 the paired Task, exit `0`, and remove its temporary session directory before exit. It must not use a
 live provider, CLI surface, test fixture import, or persistent settings.
 
+### Scenario 1: public SDK scoped-effort example
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: dependencies installed; no live provider or credentials; current directory is `packages/agent-framework`
+- command: `pnpm exec tsx examples/verify-scoped-effort-overrides.ts`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=scoped-effort-four-lines
+- cleanup: the example removes its temporary session directory before exit
+- evidence: stdout contains exactly `success scoped=high restored=low`, `failure scoped=high restored=low`, `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`; exit code is `0`
+
 ## Tasks
 
-- [ ] `.agents/tasks/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` — existing Task; reconcile its plan to TC-01 through TC-06 after approval
+- [x] `.agents/tasks/completed/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` — completed and archived after GATE-COMPLETE
 
 ## Evidence Log
 
-| Claim | Evidence |
-| ----- | -------- |
-| Existing typed SSOT and provider seam | `packages/agent-core/src/interfaces/provider.ts`, `packages/agent-session/src/session-base.ts` |
-| Skill effort is currently untyped and not executed | `packages/agent-interface-command/src/command-contracts.ts`, `packages/agent-framework/src/commands/skill-source.ts`, `skill-executor.ts` |
+| Claim                                                   | Evidence                                                                                                                                                                   |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Existing typed SSOT and provider seam                   | `packages/agent-core/src/interfaces/provider.ts`, `packages/agent-session/src/session-base.ts`                                                                             |
+| Skill effort is currently untyped and not executed      | `packages/agent-interface-command/src/command-contracts.ts`, `packages/agent-framework/src/commands/skill-source.ts`, `skill-executor.ts`                                  |
 | Subagent request and both runner boundaries omit effort | `packages/agent-interface-execution/src/background-task-contracts.ts`, `in-process-subagent-runner.ts`, `subagent-worker-start-dto.ts`, `child-process-subagent-worker.ts` |
-| Manual reachability/capability/adversarial review | Architecture Review above; performed in the single current checkout per user restriction |
+| Manual reachability/capability/adversarial review       | Architecture Review above; performed in the single current checkout per user restriction                                                                                   |
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-10
 
@@ -275,9 +288,12 @@ live provider, CLI surface, test fixture import, or persistent settings.
   evidence-based trade-off, sibling reachability, criterion coverage, and no-new-surface placement
   are all substantiated above.
 
+**Judged by:** manual guardian review under the user's no-multi-agent instruction
+
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-10
 
 **Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
 
 - GATE-APPROVAL — direct owner approval: PASS — the standing user instruction “다 사전승인함” is
   direct authorization for this repository work unit, and the approved design is the exact
@@ -294,6 +310,8 @@ live provider, CLI surface, test fixture import, or persistent settings.
 
 - GATE-APPROVAL — semantic guardian criteria: PASS — the authorization is unambiguous for this named
   spec, the direct route is within policy, and the no-new-surface decision is substantiated.
+
+**Judged by:** manual guardian review under the user's no-multi-agent instruction
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-10
 
@@ -332,6 +350,9 @@ live provider, CLI surface, test fixture import, or persistent settings.
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-10
 
 **Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "다 사전승인함"
+**Given:** 2026-09-10, this conversation
 
 - GATE-APPROVAL — approval, route, class condition, and review fingerprint: PASS — the mechanical
   approval entry remains valid, the standing direct instruction is recorded verbatim, and the
@@ -339,6 +360,8 @@ live provider, CLI surface, test fixture import, or persistent settings.
   caused only by pre-implementation Task/spec filename and plan-shape mismatches, now corrected.
 
 **MANUAL GUARDIAN VERDICT: PASS**
+
+**Judged by:** manual guardian review under the user's no-multi-agent instruction
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-10
 
@@ -353,6 +376,7 @@ live provider, CLI surface, test fixture import, or persistent settings.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -398,7 +422,135 @@ live provider, CLI surface, test fixture import, or persistent settings.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `53fa308bcbcd` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/todo/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `4e49e74610c7` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-10
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — plan completion: PASS — all six Task Plan items TC-01 through TC-06 are checked and
+  none is blocked or pending.
+- GATE-VERIFY — build: PASS — `pnpm build` completed with exit `0`; all build:types tiers completed.
+- GATE-VERIFY — affected tests: PASS — `pnpm test:affected -- --base-ref origin/develop` completed
+  with exit `0`; all six affected packages passed their test suites.
+
+**MANUAL GUARDIAN VERDICT: PASS**
+
+The user explicitly prohibited subagents and additional worktrees, so the semantic GATE-VERIFY review
+is recorded as a manual guardian verdict in this checkout. The evidence above was independently read
+against the Task Plan and the affected verification output; no actionable verification finding remains.
+
+**Judged by:** manual guardian review under the user's no-multi-agent instruction
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm --filter @robota-sdk/agent-core test`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Test Files  106 passed (106)
+Tests  1334 passed (1334)
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `7e9e4b7ef282` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework test`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Test Files  219 passed (219)
+Tests  1703 passed (1703)
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `48ffe71547ee` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm --filter @robota-sdk/agent-session test`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Test Files  50 passed | 2 skipped (52)
+Tests  366 passed | 20 skipped (386)
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `64978dde68e0` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm --filter @robota-sdk/agent-subagent-runner test`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Test Files  7 passed (7)
+Tests  73 passed (73)
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `86e49d903479` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec tsx examples/verify-scoped-effort-overrides.ts`
+**Exit:** 0
+**Output:** (last 5 of 5 line(s))
+
+```
+success scoped=high restored=low
+failure scoped=high restored=low
+cancel scoped=high restored=low
+nested inner=high outer=medium restored=low
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `f470e813c882` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-11
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `f3804663300e` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-10; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 6/6 tasks `[x]` in .agents/tasks/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `d45db7b08c33` (modified)

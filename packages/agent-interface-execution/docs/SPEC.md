@@ -53,10 +53,10 @@ upward edge in the interface tree.
 
 ## Type Ownership
 
-| Type                                                                    | Location                           | Purpose                             |
-| ----------------------------------------------------------------------- | ---------------------------------- | ----------------------------------- |
-| `TBackgroundTaskRequest` and its four request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor |
-| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task           |
+| Type                                                                    | Location                           | Purpose                                                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `TBackgroundTaskRequest` and its four request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor; agent requests carry optional core-owned `TModelEffort` |
+| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task                                                                    |
 
 A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (issue #2354): a schedule with `agentInstruction` wakes the HOST session rather than spawning an agent, and the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a separate agent — declares a policy. `src/__tests__/contracts.test.ts` fails if a policy field is added to the scheduled request without that wiring being designed.
 | `IBackgroundTaskLogCursor`, `IBackgroundTaskLogPage`, `IBackgroundTaskListFilter` | `src/background-task-contracts.ts` | reading a task's output and the task list |
@@ -66,6 +66,11 @@ A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (is
 | `ISubagentJobState`, `ISubagentJobResult`, `ISubagentSpawnRequest` | `src/subagent-contracts.ts` | a subagent job as a data record |
 | `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `IExecutionWorkspaceEvent` | `src/workspace-contracts.ts` | the switchable view over running work |
 | `IExecutionDetailRecord`, `IExecutionDetailPage`, `IExecutionDetailCursor` | `src/workspace-contracts.ts` | the detail pane behind one workspace entry |
+
+An agent request's optional `effort` is typed by `@robota-sdk/agent-core` and is carried unchanged
+through `ISubagentSpawnRequest`. An explicit request value is more specific than the selected agent
+definition; when both are absent, the framework supplies the parent's effective effort before a
+runner projection.
 
 60 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
 

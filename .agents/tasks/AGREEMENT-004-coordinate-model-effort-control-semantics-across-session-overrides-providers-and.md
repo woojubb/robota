@@ -46,7 +46,7 @@ package or checklist row, and it keeps issue #1987 as the external parent initia
 
 ## Children
 
-- [ ] BEHAVIOR-009 — todo — `.agents/tasks/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
+- [x] BEHAVIOR-009 — done — `.agents/tasks/completed/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
 - [ ] FLOW-008 — todo — `.agents/tasks/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md`
 - [ ] API-001 — todo — `.agents/tasks/API-001-map-model-effort-to-provider-capabilities-and-visible-outcomes.md`
 - [ ] DATA-007 — todo — `.agents/tasks/DATA-007-include-effective-model-effort-in-execution-cache-identity.md`

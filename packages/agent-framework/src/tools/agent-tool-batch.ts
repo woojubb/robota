@@ -1,5 +1,6 @@
 import type { IAgentToolDeps } from './agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type {
   ISubagentJobResult,
@@ -11,6 +12,7 @@ export interface IAgentToolBatchJobArgs {
   prompt: string;
   subagent_type?: string;
   model?: string;
+  effort?: TModelEffort;
   isolation?: 'none' | 'worktree';
 }
 

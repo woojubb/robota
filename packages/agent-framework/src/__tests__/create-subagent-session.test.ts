@@ -201,6 +201,23 @@ describe('createSubagentSession', () => {
     expect(passedOptions['model']).toBe('claude-haiku-4-5');
   });
 
+  it('passes the agent definition effort into the child Session options', () => {
+    const agent = makeAgentDef({ effort: 'high' });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['effort']).toBe('high');
+  });
+
   // SELFHOST-006 TC-03: v1 resolves on the subagent path via the opaque role key.
   it('resolves the model from the role map (primary of the role’s fallback chain)', () => {
     const agent = makeAgentDef({ role: 'planner' }); // no explicit model alias
@@ -700,7 +717,11 @@ describe('CLI-1990 review — the residency contract crosses into the child', ()
   });
 
   it('carries the parent loader with a deferred tool the allowlist keeps, and tells the child what is withheld', () => {
-    const parentTools = [makeTool('Read'), makeDeferredTool('Grep'), makeTool(TOOL_SEARCH_TOOL_NAME)];
+    const parentTools = [
+      makeTool('Read'),
+      makeDeferredTool('Grep'),
+      makeTool(TOOL_SEARCH_TOOL_NAME),
+    ];
     createSubagentSession({
       agentDefinition: makeAgentDef({ tools: ['Read', 'Grep'] }),
       parentConfig: makeParentConfig(),
@@ -714,7 +735,11 @@ describe('CLI-1990 review — the residency contract crosses into the child', ()
       tools: IToolWithEventService[];
       systemMessage: string;
     };
-    expect(options.tools.map((tool) => tool.getName())).toEqual(['Read', 'Grep', TOOL_SEARCH_TOOL_NAME]);
+    expect(options.tools.map((tool) => tool.getName())).toEqual([
+      'Read',
+      'Grep',
+      TOOL_SEARCH_TOOL_NAME,
+    ]);
     expect(options.systemMessage).toContain(DEFERRED_TOOL_ROSTER_HEADER);
     expect(options.systemMessage).toContain('Grep — Mock Grep tool');
   });

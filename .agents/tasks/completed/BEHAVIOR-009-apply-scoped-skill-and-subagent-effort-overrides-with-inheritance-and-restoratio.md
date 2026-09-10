@@ -1,13 +1,16 @@
 ---
 title: 'BEHAVIOR-009: apply scoped skill and subagent effort overrides with inheritance and restoration'
 issue: https://github.com/woojubb/robota/issues/1987
-status: in-progress
+status: done
 created: 2026-08-29
+completed: 2026-09-11
 priority: critical
 urgency: now
 area: agent-framework, agent-executor, agent-session
 depends_on: []
 ---
+
+Spec: `.agents/spec-docs/done/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md`
 
 # BEHAVIOR-009: scoped skill and subagent effort semantics
 
@@ -24,22 +27,30 @@ migration; it must consume this Task's typed contract instead of inventing effor
 
 ## Plan
 
-- [ ] TC-01 — use the core-owned `TModelEffort` guard at skill, agent-definition, background-request,
+- [x] TC-01 — use the core-owned `TModelEffort` guard at skill, agent-definition, background-request,
       and child-process DTO boundaries; reject invalid values without arbitrary-string propagation.
-- [ ] TC-02 — apply one precedence rule to skill and subagent execution: explicit request > selected
+- [x] TC-02 — apply one precedence rule to skill and subagent execution: explicit request > selected
       skill/agent definition > parent effective effort > core neutral default.
-- [ ] TC-03 — add the session scoped override API and prove success, rejection, cancellation, and
+- [x] TC-03 — add the session scoped override API and prove success, rejection, cancellation, and
       nested scopes restore the value active at scope entry while the parent remains unchanged.
-- [ ] TC-04 — project the selected effort through in-process and child-process subagent assembly while
+- [x] TC-04 — project the selected effort through in-process and child-process subagent assembly while
       preserving model, tools, role, permission, cwd, resume, provider, and session-tier fields.
-- [ ] TC-05 — add the public SDK example/fixtures and record its exact four-line output and exit 0;
+- [x] TC-05 — add the public SDK example and record its exact four-line output and exit 0;
       run affected package tests, builds, and typechecks.
-- [ ] TC-06 — update affected package SPECs, run `pnpm harness:scan` and
+- [x] TC-06 — update affected package SPECs, run `pnpm harness:scan` and
       `pnpm harness:verify-like-ci`, and record final review convergence with zero actionable findings.
 
 The implementation must not take over issue #2094's strict raw frontmatter decoder or discovery-root
 migration. The existing Task scenario is the public verification boundary; it remains credential-free
 and uses only exported SDK/session contracts.
+
+## Result
+
+The typed effort vocabulary now crosses skill metadata, agent definitions, background requests, and
+child-process DTOs. Skill and subagent execution share explicit-request → definition → parent-effective
+precedence, while `Session.withScopedModelEffort()` restores the entry value through success, failure,
+cancellation, and nesting. Issue #2094's strict decoder and discovery-root migration remain explicitly
+deferred to that issue.
 
 ## Completion Criteria
 
@@ -60,19 +71,18 @@ and uses only exported SDK/session contracts.
 ## User Execution Test Scenarios
 
 Prerequisites: this child adds the public-SDK example
-`packages/agent-framework/examples/verify-scoped-effort-overrides.ts` plus example definitions under
-`packages/agent-framework/examples/fixtures/effort/{skills,agents}`. The example sets the parent effort
+`packages/agent-framework/examples/verify-scoped-effort-overrides.ts`. The example sets the parent effort
 through the existing session/preset SDK seam, uses only exported SDK interfaces and an inline recording
 provider, and directly injects the decoded skill/agent definitions; it must not import a test fixture or
 a FLOW-008 CLI surface.
 
 Run
-`pnpm --filter @robota-sdk/agent-framework exec tsx examples/verify-scoped-effort-overrides.ts`.
+`pnpm exec tsx examples/verify-scoped-effort-overrides.ts` from `packages/agent-framework`.
 
 Expected: the example prints `success scoped=high restored=low`, `failure scoped=high restored=low`,
 `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`, then exits 0.
 The example uses no persistent settings and removes its temporary session directory before exit.
-Evidence: pending implementation with exact output and exit code.
+Evidence: verified against the completed implementation with exact output and exit code below.
 
 **Author verdict:** `SCENARIO DRAFTED: automatable | 1`
 
@@ -89,11 +99,23 @@ Evidence: pending implementation with exact output and exit code.
 - cleanup: the example removes its temporary session directory before exit
 - evidence: stdout contains exactly `success scoped=high restored=low`, `failure scoped=high restored=low`, `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`; exit code is `0`
 
+Observed 2026-09-10 by the agent:
+
+```text
+success scoped=high restored=low
+failure scoped=high restored=low
+cancel scoped=high restored=low
+nested inner=high outer=medium restored=low
+```
+
+Exit code: `0`.
+
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-10
 
 **Status upgrade:** scenario drafted → scenario written
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -122,7 +144,20 @@ Evidence: pending implementation with exact output and exit code.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->
 
 - DONE-GATE-STAGE-1 — scenario contract: PASS — the public SDK invocation, prerequisite, observable,
   cleanup, evidence, and product-behavior verdict are bound to the single authored scenario.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-10
+
+**Status upgrade:** scenario written → verified
+
+- DONE-GATE-STAGE-2 — direct execution: PASS — from `packages/agent-framework`, ran
+  `pnpm exec tsx examples/verify-scoped-effort-overrides.ts` against the completed implementation.
+- DONE-GATE-STAGE-2 — observed result: PASS — stdout was exactly the four lines recorded under Scenario 1:
+  `success scoped=high restored=low`, `failure scoped=high restored=low`,
+  `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`.
+- DONE-GATE-STAGE-2 — exit and cleanup: PASS — the command exited `0`; the example's `finally` cleanup
+  removed its temporary session directory and no credentials or persistent settings were used.

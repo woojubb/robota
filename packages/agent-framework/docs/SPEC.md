@@ -184,7 +184,7 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
 | `IAgentRuntimeConfig`                                                 | `src/runtime/agent-runtime.ts`                                                                         | Configuration for `createAgentRuntime()`                                                                                |
 | `IAgentRuntime`                                                       | `src/runtime/agent-runtime.ts`                                                                         | Runtime composition factory interface                                                                                   |
 | `IHeadlessSessionOptions`                                             | `src/runtime/agent-runtime.ts`                                                                         | Per-session options for headless/multi-session use                                                                      |
-| `IAgentDefinition`                                                    | `src/agents/index.ts`                                                                                  | Agent definition shape (name, description, systemPrompt, tools)                                                         |
+| `IAgentDefinition`                                                    | `src/agents/index.ts`                                                                                  | Agent definition shape (name, description, systemPrompt, model, effort, tools)                                          |
 | `IEditCheckpointSummary`                                              | `src/checkpoints/index.ts`                                                                             | Checkpoint summary for list/inspect                                                                                     |
 | `IEditCheckpointInspection`                                           | `src/checkpoints/index.ts`                                                                             | Full checkpoint inspection with file list                                                                               |
 | `IEditCheckpointRecorder`                                             | `src/checkpoints/index.ts`                                                                             | Port for checkpoint capture integration                                                                                 |
@@ -2636,6 +2636,7 @@ user-sourced calls submit the rendered prompt or fork execution into the active 
 | no `context`               | Render skill content and submit it into the current session                                           |
 | `context: fork`            | Run rendered skill content in an isolated subagent session using `skill.agent` or `general-purpose`   |
 | `allowed-tools`            | Restrict fork-session tools to the listed names, after the selected agent definition denylist applies |
+| `effort`                   | Set the fork effort using the core `TModelEffort` vocabulary; absent values inherit the parent        |
 | `disable-model-invocation` | Hide from model-visible skill metadata; user slash invocation still works                             |
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
@@ -2890,21 +2891,25 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 2. Keep only allowed tools (allowlist from agent definition, if specified)
 3. Always remove agent-spawning tools such as `Agent` and `robota_command_agent` (subagents cannot spawn subagents)
 
-**Model resolution:** Agent definition model override (with shortcut expansion: `sonnet`, `haiku`, `opus`) takes priority; falls back to parent config model.
+**Model and effort resolution:** Agent definition model override (with shortcut expansion: `sonnet`,
+`haiku`, `opus`) takes priority; it falls back to the parent config model. Effort follows the shared
+order `explicit request > selected skill/agent definition > parent effective effort > core 'high'`.
+Skill fork options overlay the selected definition without mutating the parent session.
 
 ### Agent Definitions
 
 `IAgentDefinition` interface defines the shape for both built-in and custom agents:
 
-| Field             | Type       | Required | Description                                     |
-| ----------------- | ---------- | -------- | ----------------------------------------------- |
-| `name`            | `string`   | Yes      | Unique agent identifier                         |
-| `description`     | `string`   | Yes      | Human-readable purpose description              |
-| `systemPrompt`    | `string`   | Yes      | Markdown body used as the agent's system prompt |
-| `model`           | `string`   | No       | Model override (inherits parent when omitted)   |
-| `maxTurns`        | `number`   | No       | Maximum agentic turns                           |
-| `tools`           | `string[]` | No       | Allowlist of tool names                         |
-| `disallowedTools` | `string[]` | No       | Denylist of tool names                          |
+| Field             | Type           | Required | Description                                                                  |
+| ----------------- | -------------- | -------- | ---------------------------------------------------------------------------- |
+| `name`            | `string`       | Yes      | Unique agent identifier                                                      |
+| `description`     | `string`       | Yes      | Human-readable purpose description                                           |
+| `systemPrompt`    | `string`       | Yes      | Markdown body used as the agent's system prompt                              |
+| `model`           | `string`       | No       | Model override (inherits parent when omitted)                                |
+| `maxTurns`        | `number`       | No       | Maximum agentic turns                                                        |
+| `tools`           | `string[]`     | No       | Allowlist of tool names                                                      |
+| `disallowedTools` | `string[]`     | No       | Denylist of tool names                                                       |
+| `effort`          | `TModelEffort` | No       | Reasoning-effort override; inherits the parent effective effort when omitted |
 
 **Built-in agents:**
 

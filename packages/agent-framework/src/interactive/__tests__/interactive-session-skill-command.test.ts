@@ -46,6 +46,7 @@ function makeParentSession(cwd: string = process.cwd()) {
     }),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue('parent-session-id'),
+    getModelEffort: vi.fn().mockReturnValue('low'),
     getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('# system'),
     getToolSchemas: vi.fn().mockReturnValue([]),
@@ -293,7 +294,12 @@ describe('InteractiveSession skill activation common API', () => {
 
   it('runs context: fork skills through an isolated subagent session', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-')));
-    createTempSkill(cwd, 'audit', ['context: fork', 'agent: Explore', 'allowed-tools: Read']);
+    createTempSkill(cwd, 'audit', [
+      'context: fork',
+      'agent: Explore',
+      'allowed-tools: Read',
+      'effort: high',
+    ]);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
       session: parentSession as never,
@@ -336,6 +342,7 @@ describe('InteractiveSession skill activation common API', () => {
           name: 'Explore',
           tools: ['Read'],
           disallowedTools: ['Write', 'Edit'],
+          effort: 'high',
         }),
         isForkWorker: true,
       }),

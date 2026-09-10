@@ -12,6 +12,7 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
   ISubagentJobState,
@@ -66,6 +67,7 @@ export interface ISpawnAgentJobInput {
   mode: 'foreground' | 'background';
   prompt: string;
   model?: string;
+  effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
   /** CLI-1994: the forked session record the job restores before its first turn (id only). */
   resumeSessionId?: string;
@@ -94,6 +96,11 @@ export async function spawnAgentJobFromSession(
     cwd: deps.cwd ?? cwd ?? process.cwd(),
     prompt: input.prompt,
     model: input.model ?? definition.model,
+    ...(input.effort !== undefined
+      ? { effort: input.effort }
+      : definition.effort !== undefined
+        ? { effort: definition.effort }
+        : { effort: session.getModelEffort() }),
     isolation: input.isolation,
     // CLI-1994: forwarded as an id and nothing more — the conversation stays in the session store.
     ...(input.resumeSessionId !== undefined ? { resumeSessionId: input.resumeSessionId } : {}),

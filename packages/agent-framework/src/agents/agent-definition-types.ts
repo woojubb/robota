@@ -1,3 +1,5 @@
+import type { TModelEffort } from '@robota-sdk/agent-core';
+
 /**
  * Definition of an agent that can be spawned as a subagent.
  *
@@ -16,6 +18,9 @@ export interface IAgentDefinition {
 
   /** Model override (e.g., 'claude-haiku-4-5', 'sonnet', 'opus'). Inherits parent model when omitted. */
   model?: string;
+
+  /** Reasoning-effort override. Inherits the parent session's effective effort when omitted. */
+  effort?: TModelEffort;
 
   /**
    * SELFHOST-006: opaque role key for per-role model routing. When a `TRoleModelMap` is configured

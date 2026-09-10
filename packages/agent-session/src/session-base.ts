@@ -135,6 +135,22 @@ export abstract class SessionBase {
     this.model = nextModel;
   }
 
+  /** Read the effective effort for the next model call, including the neutral core default. */
+  getModelEffort(): TModelEffort {
+    return this.agent.getModel().effort ?? 'high';
+  }
+
+  /** Run an operation with a temporary effort override and restore it on every exit path. */
+  async withScopedModelEffort<T>(effort: TModelEffort, operation: () => Promise<T>): Promise<T> {
+    const previous = this.getModelEffort();
+    await this.applyModelOptions({ effort });
+    try {
+      return await operation();
+    } finally {
+      await this.applyModelOptions({ effort: previous });
+    }
+  }
+
   /**
    * Re-apply the agent's identity label to a LIVE session.
    *
