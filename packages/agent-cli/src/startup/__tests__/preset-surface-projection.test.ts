@@ -52,6 +52,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       enableParallelSubagents: true,
       selfVerification: true,
       effort: 'high',
+      effortResolution: undefined,
       temperature: 0.2,
       maxOutputTokens: 4096,
       language: 'ko',

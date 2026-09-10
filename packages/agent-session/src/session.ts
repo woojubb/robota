@@ -288,6 +288,7 @@ export class Session extends SessionBase {
       sessionId: this.sessionId,
       cwd: this.cwd,
       model: this.model,
+      effort: this.getModelEffort(),
       agent: this.agent,
       aiProvider: this.aiProvider,
       contextTracker: this.contextTracker,

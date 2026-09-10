@@ -40,6 +40,10 @@ framework's explicit Restricted decision and cannot enable project contribution 
 The same surfaces forward an optional `EditCheckpointStore`; trusted project access alone never
 creates checkpoint mutation authority inside the TUI.
 
+The status bar renders the active model-effort tier beside the provider/model identity when the live
+session exposes it. This is a read-only projection of `Session.getModelEffort()`; it does not infer or
+change effort from thinking-display settings or ordinary prompt wording.
+
 Plan lifecycle, context-file refresh, and checkpoint/branch events are projected by the pure
 `createTuiSessionEventNotice` function into a bounded, append-only notice list owned by
 `TuiStateManager`. `<SessionEventNotices>` renders that list separately from canonical conversation

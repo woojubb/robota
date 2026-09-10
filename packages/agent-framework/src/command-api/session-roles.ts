@@ -12,6 +12,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  TModelEffort,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -80,6 +81,8 @@ export interface ICommandSessionModel {
    * configuration, so callers must await the result.
    */
   applyModelOptions(options: IModelReapplyOptions): void | Promise<void>;
+  /** Read the effective effort for the next model call. */
+  getModelEffort(): TModelEffort;
   /**
    * ARCH-040 — re-apply the preset's `agentName` to the live agent.
    *

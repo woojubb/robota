@@ -594,6 +594,18 @@ The selected preset id is also passed to the session as runtime active-preset st
 (`ISessionOptions.activePresetId`, see the agent-session SPEC). An unknown `--preset <id>` is terminal:
 the CLI surfaces the available preset list and exits.
 
+### Model effort resolution (FLOW-008)
+
+The CLI resolves one provider-neutral effort record before assembling the session. The precedence is
+`--effort` flag, `ROBOTA_EFFORT`, merged settings `effort`, selected preset `effort`, then the active
+model default. Accepted values are `auto`, `low`, `medium`, `high`, `xhigh`, and `max`; invalid flag,
+environment, or settings values are explicit startup errors. `auto` selects the active model default,
+and the live `/effort` command returns the same requested/effective/source/disposition record. A
+concrete live selection is applied through the framework host adapter; `auto` removes an explicit
+persisted setting, while `max` is session-only. Print mode projects the startup record into text and
+JSON/stream-JSON output, and the TUI status bar shows the active effective tier. Provider/model
+clamping or unsupported outcomes remain provider-owned and are displayed without surface rewriting.
+
 ### Durable Memory Enablement (SELFHOST-008 P6)
 
 The neutral durable-memory pipeline (auto-capture P2 + per-turn recall P3, in `@robota-sdk/agent-framework`)

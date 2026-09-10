@@ -2,6 +2,7 @@ export type {
   IAgentJobHostContext,
   ICommand,
   ICommandHostAdapters,
+  ICommandEffortAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   ICommandListEntry,

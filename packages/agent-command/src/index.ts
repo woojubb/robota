@@ -14,6 +14,12 @@ export * from './plan/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
 export * from './editor/index.js';
+export {
+  EffortCommandSource,
+  createEffortCommandEntry,
+  createEffortCommandModule,
+  executeEffortCommand,
+} from './effort/index.js';
 export * from './exit/index.js';
 export * from './help/index.js';
 export * from './language/index.js';

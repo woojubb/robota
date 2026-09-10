@@ -7,6 +7,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 import type {
   ICreateSessionOptions,
+  IModelEffortResolution,
   IOutputStylePrompt,
   TSessionResponseFormat,
 } from '@robota-sdk/agent-framework';
@@ -54,6 +55,8 @@ export interface IPresetSurfaceOptions {
   enableParallelSubagents?: boolean;
   selfVerification?: boolean;
   effort?: ICreateSessionOptions['effort'];
+  /** FLOW-008: structured source/effective metadata for command and headless reporting. */
+  effortResolution: IModelEffortResolution | undefined;
   /**
    * ARCH-040: the model group's other two dials. The live `/preset` path has always applied both
    * through `applyModelOptions`; startup applied neither, so one session held two answers for the
@@ -126,6 +129,7 @@ export function buildPresetSurfaceOptions(
   permissionMode: ICreateSessionOptions['permissionMode'] | undefined,
   cli?: { cwd: string; args: IParsedCliArgs },
   outputStyle?: IOutputStylePrompt,
+  effortResolution?: IModelEffortResolution,
 ): IPresetSurfaceOptions {
   const cliAppendSystemPrompt =
     cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
@@ -144,7 +148,10 @@ export function buildPresetSurfaceOptions(
     ...(resolved.selfVerification !== undefined
       ? { selfVerification: resolved.selfVerification }
       : {}),
-    ...(resolved.effort !== undefined ? { effort: resolved.effort } : {}),
+    ...((effortResolution?.effective ?? resolved.effort) !== undefined
+      ? { effort: effortResolution?.effective ?? resolved.effort }
+      : {}),
+    effortResolution,
     ...(resolved.temperature !== undefined ? { temperature: resolved.temperature } : {}),
     ...(resolved.maxOutputTokens !== undefined
       ? { maxOutputTokens: resolved.maxOutputTokens }
@@ -172,12 +179,17 @@ export function buildPresetSurfaceOptions(
  */
 export function toSessionOptions(surface: IPresetSurfaceOptions): Omit<
   IPresetSurfaceOptions,
-  'systemPrompt' | 'cliAppendSystemPrompt'
+  'systemPrompt' | 'cliAppendSystemPrompt' | 'effortResolution'
 > & {
   presetSystemPrompt?: string;
   appendSystemPrompt?: string;
 } {
-  const { systemPrompt, cliAppendSystemPrompt, ...rest } = surface;
+  const {
+    systemPrompt,
+    cliAppendSystemPrompt,
+    effortResolution: _effortResolution,
+    ...rest
+  } = surface;
   return {
     ...rest,
     ...(systemPrompt !== undefined ? { presetSystemPrompt: systemPrompt } : {}),

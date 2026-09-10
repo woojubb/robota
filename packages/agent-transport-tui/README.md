@@ -12,6 +12,10 @@ does not reverse the already-committed session operation.
 `renderApp` into `TuiInteractionChannel`. `cwd` alone never enables project discovery; omission is
 Restricted. Checkpoint mutation is separately opt-in through `editCheckpointStore`.
 
+The status bar projects the session's active model-effort level next to the provider/model when the
+session exposes it. This is a read-only view of session state and remains separate from thinking
+display settings.
+
 ```typescript
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 ```

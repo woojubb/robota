@@ -1,6 +1,8 @@
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
 import type { IPresetApplicationOptions } from './preset/preset-application.js';
+import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
+import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
@@ -34,6 +36,15 @@ export interface ICommandPermissionModeAdapter {
   getPermissionMode(): TPermissionMode;
   setPermissionMode(mode: TPermissionMode): void;
   listSessionAllowedTools(): readonly string[];
+}
+
+/** Live model-effort state and application seam supplied by the composition root. */
+export interface ICommandEffortAdapter {
+  getResolution(): IModelEffortResolution;
+  apply(
+    selection: TEffortSelection,
+    session: ICommandSessionModel,
+  ): IModelEffortResolution | Promise<IModelEffortResolution>;
 }
 
 /**
@@ -264,6 +275,7 @@ export interface ICommandCostBudgetAdapter {
 
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
+  effort?: ICommandEffortAdapter;
   /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
   costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;

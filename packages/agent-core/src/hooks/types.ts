@@ -2,6 +2,8 @@
  * Hook system types — Claude Code compatible event/hook model.
  */
 
+import type { TModelEffort } from '../interfaces/provider';
+
 /**
  * Hook lifecycle events.
  *
@@ -160,6 +162,11 @@ export interface IHookInput {
    * SELFHOST-009 — informational.
    */
   provider?: string;
+  /**
+   * Effective model-effort tier for the model call (PreModelCall/PostModelCall only).
+   * FLOW-008 — informational.
+   */
+  effort?: TModelEffort;
   /** Agentic round index for the model call (PreModelCall/PostModelCall only). SELFHOST-009 — informational. */
   round?: number;
   /**

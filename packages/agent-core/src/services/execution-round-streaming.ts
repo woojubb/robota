@@ -107,6 +107,7 @@ export async function callRoundProviderWithEvents(
           round: currentRound,
           provider: resolved.currentInfo.provider,
           model: config.defaultModel.model,
+          effort: request.options.effort,
           messages: request.messages,
           tools: request.options.tools,
         } as TExecutionEventData);
@@ -171,6 +172,7 @@ export async function callRoundProviderWithEvents(
       executionId,
       conversationId: fullContext.conversationId,
       round: currentRound,
+      effort: config.defaultModel?.effort ?? 'high',
       response,
       responseKind: 'provider-normalized-message',
     } as TExecutionEventData);

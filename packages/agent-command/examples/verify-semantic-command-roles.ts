@@ -63,6 +63,7 @@ async function main(): Promise<void> {
       const injectedSession = {
         getCwd: () => cwd,
         getSessionId: () => 'scenario-parent',
+        getModelEffort: () => 'high',
         getHistory: () => [],
         getFullHistory: () => [],
         getContextState: () => ({ usedTokens: 0, maxTokens: 1, usedPercentage: 0 }),

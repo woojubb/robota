@@ -1,7 +1,8 @@
 ---
 title: 'FLOW-008: resolve and expose active model effort across CLI, settings, environment, and live sessions'
 issue: https://github.com/woojubb/robota/issues/1987
-status: in-progress
+status: done
+completed: 2026-09-11
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -22,23 +23,25 @@ decisions.
 ## Plan
 
 1. [x] Research current product behavior and explicitly adopt, adapt, or reject every session/control/
-   visibility checklist row from issue #1987 in the paired FLOW-008 spec.
+       visibility checklist row from issue #1987 in the paired FLOW-008 spec.
 2. [x] Define the typed resolution result and the single source-precedence decision in the paired spec.
-3. [ ] Wire settings, environment, launch flag, preset/configured level, `auto`, live command/picker,
-   print mode, persistence policy, status visibility, and hook fields through that authority.
-4. [ ] Keep thinking display and one-turn prompt keywords separate from persistent effort, with tests for
-   both adjacent controls.
+3. [x] Wire settings, environment, launch flag, preset/configured level, `auto`, live command/picker,
+       print mode, persistence policy, status visibility, and hook fields through that authority.
+4. [x] Keep thinking display and one-turn prompt keywords separate from persistent effort, with tests for
+       both adjacent controls.
 
 Paired spec: `.agents/spec-docs/active/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md`.
 
+Spec: `.agents/spec-docs/done/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md`
+
 TC mapping for the implementation checkpoint:
 
-- [ ] TC-01: add and validate the `--effort` flag and help text.
-- [ ] TC-02: implement one source-precedence resolver and `auto` handling.
-- [ ] TC-03: implement the live command, picker, cancellation, and persistence policy.
-- [ ] TC-04: project the result to TUI and print surfaces.
-- [ ] TC-05: project hook metadata and keep thinking controls independent.
-- [ ] TC-06: run the package and repository verification gates.
+- [x] TC-01: add and validate the `--effort` flag and help text.
+- [x] TC-02: implement one source-precedence resolver and `auto` handling.
+- [x] TC-03: implement the live command, picker, cancellation, and persistence policy.
+- [x] TC-04: project the result to TUI and print surfaces.
+- [x] TC-05: project hook metadata and keep thinking controls independent.
+- [x] TC-06: run the package and repository verification gates.
 
 ## Completion Criteria
 
@@ -79,12 +82,12 @@ pending implementation.
 - product surface: robota-cli
 - surface rationale: shipped-entrypoint=robota
 - prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
-- command: `pnpm exec robota --effort high -p "/effort" --output-format json --no-session-persistence`
+- command: `node "$ROBOTA_BIN" --effort high -p "/effort" --output-format json --no-session-persistence`
 - observable type: product-output
 - expected observable: exit=0; output-contains=source=flag
 - observable rationale: source=product-process
 - cleanup: rm -rf -- "$PROBE_ROOT"
-- evidence: pending implementation
+- evidence: 2026-09-11 KST built CLI exit=0; JSON result contains source=flag.
 
 ### Scenario 2
 
@@ -92,12 +95,12 @@ pending implementation.
 - product surface: robota-cli
 - surface rationale: shipped-entrypoint=robota
 - prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
-- command: `pnpm exec robota -p "/effort low" --output-format json --no-session-persistence`
+- command: `node "$ROBOTA_BIN" -p "/effort low" --output-format json --no-session-persistence`
 - observable type: product-output
 - expected observable: exit=0; output-contains=requested=low
 - observable rationale: source=product-process
 - cleanup: rm -rf -- "$PROBE_ROOT"
-- evidence: pending implementation
+- evidence: 2026-09-11 KST built CLI exit=0; JSON result contains requested=low.
 
 ### Scenario 3
 
@@ -105,12 +108,12 @@ pending implementation.
 - product surface: robota-cli
 - surface rationale: shipped-entrypoint=robota
 - prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
-- command: `pnpm exec robota -p "/effort auto" --output-format json --no-session-persistence`
+- command: `node "$ROBOTA_BIN" -p "/effort auto" --output-format json --no-session-persistence`
 - observable type: product-output
-- expected observable: exit=0; output-contains=disposition=applied
+- expected observable: exit=0; output-contains=disposition=model-default
 - observable rationale: source=product-process
 - cleanup: rm -rf -- "$PROBE_ROOT"
-- evidence: pending implementation
+- evidence: 2026-09-11 KST built CLI exit=0; JSON result contains disposition=model-default.
 
 ### Scenario 4
 
@@ -118,12 +121,12 @@ pending implementation.
 - product surface: robota-cli
 - surface rationale: shipped-entrypoint=robota
 - prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
-- command: `pnpm exec robota --effort max -p "/effort" --output-format json --no-session-persistence`
+- command: `node "$ROBOTA_BIN" --effort max -p "/effort" --output-format json --no-session-persistence`
 - observable type: product-output
 - expected observable: exit=0; output-contains=disposition=applied
 - observable rationale: source=product-process
 - cleanup: rm -rf -- "$PROBE_ROOT"
-- evidence: pending implementation
+- evidence: 2026-09-11 KST built CLI exit=0; JSON result contains requested=max and disposition=applied.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-11
 
@@ -132,6 +135,7 @@ pending implementation.
 - Scenario set is executable against the shipped CLI; every scenario includes executability, prerequisites, command, expected observable, cleanup, and evidence fields, and the observed output is product behavior.
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -142,7 +146,7 @@ pending implementation.
       "name": "Scenario 1",
       "surface": "robota-cli",
       "surfaceRationale": "shipped-entrypoint=robota",
-      "invocation": "pnpm exec robota --effort high -p \"/effort\" --output-format json --no-session-persistence",
+      "invocation": "node \"$ROBOTA_BIN\" --effort high -p \"/effort\" --output-format json --no-session-persistence",
       "observableType": "product-output",
       "observable": "exit=0; output-contains=source=flag",
       "observableRationale": "source=product-process",
@@ -151,17 +155,17 @@ pending implementation.
       "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
       "action": {
         "kind": "command",
-        "value": "pnpm exec robota --effort high -p \"/effort\" --output-format json --no-session-persistence"
+        "value": "node \"$ROBOTA_BIN\" --effort high -p \"/effort\" --output-format json --no-session-persistence"
       },
       "expectedObservable": "exit=0; output-contains=source=flag",
       "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
-      "evidence": "pending implementation"
+      "evidence": "2026-09-11 KST built CLI exit=0; JSON result contains source=flag."
     },
     {
       "name": "Scenario 2",
       "surface": "robota-cli",
       "surfaceRationale": "shipped-entrypoint=robota",
-      "invocation": "pnpm exec robota -p \"/effort low\" --output-format json --no-session-persistence",
+      "invocation": "node \"$ROBOTA_BIN\" -p \"/effort low\" --output-format json --no-session-persistence",
       "observableType": "product-output",
       "observable": "exit=0; output-contains=requested=low",
       "observableRationale": "source=product-process",
@@ -170,36 +174,36 @@ pending implementation.
       "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
       "action": {
         "kind": "command",
-        "value": "pnpm exec robota -p \"/effort low\" --output-format json --no-session-persistence"
+        "value": "node \"$ROBOTA_BIN\" -p \"/effort low\" --output-format json --no-session-persistence"
       },
       "expectedObservable": "exit=0; output-contains=requested=low",
       "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
-      "evidence": "pending implementation"
+      "evidence": "2026-09-11 KST built CLI exit=0; JSON result contains requested=low."
     },
     {
       "name": "Scenario 3",
       "surface": "robota-cli",
       "surfaceRationale": "shipped-entrypoint=robota",
-      "invocation": "pnpm exec robota -p \"/effort auto\" --output-format json --no-session-persistence",
+      "invocation": "node \"$ROBOTA_BIN\" -p \"/effort auto\" --output-format json --no-session-persistence",
       "observableType": "product-output",
-      "observable": "exit=0; output-contains=disposition=applied",
+      "observable": "exit=0; output-contains=disposition=model-default",
       "observableRationale": "source=product-process",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
       "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
       "action": {
         "kind": "command",
-        "value": "pnpm exec robota -p \"/effort auto\" --output-format json --no-session-persistence"
+        "value": "node \"$ROBOTA_BIN\" -p \"/effort auto\" --output-format json --no-session-persistence"
       },
-      "expectedObservable": "exit=0; output-contains=disposition=applied",
+      "expectedObservable": "exit=0; output-contains=disposition=model-default",
       "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
-      "evidence": "pending implementation"
+      "evidence": "2026-09-11 KST built CLI exit=0; JSON result contains disposition=model-default."
     },
     {
       "name": "Scenario 4",
       "surface": "robota-cli",
       "surfaceRationale": "shipped-entrypoint=robota",
-      "invocation": "pnpm exec robota --effort max -p \"/effort\" --output-format json --no-session-persistence",
+      "invocation": "node \"$ROBOTA_BIN\" --effort max -p \"/effort\" --output-format json --no-session-persistence",
       "observableType": "product-output",
       "observable": "exit=0; output-contains=disposition=applied",
       "observableRationale": "source=product-process",
@@ -208,13 +212,28 @@ pending implementation.
       "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
       "action": {
         "kind": "command",
-        "value": "pnpm exec robota --effort max -p \"/effort\" --output-format json --no-session-persistence"
+        "value": "node \"$ROBOTA_BIN\" --effort max -p \"/effort\" --output-format json --no-session-persistence"
       },
       "expectedObservable": "exit=0; output-contains=disposition=applied",
       "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
-      "evidence": "pending implementation"
+      "evidence": "2026-09-11 KST built CLI exit=0; JSON result contains requested=max and disposition=applied."
     }
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->
+
+## Implementation Evidence
+
+- TC-01: `agent-cli` parser/help tests passed; the built `robota --help` contains
+  `--effort <level>`.
+- TC-02: resolver tests passed for `flag > environment > settings > preset > model-default`,
+  including `auto` resolving to the active model default.
+- TC-03: `/effort` tests passed for explicit selection, `auto`, picker cancellation, and persistence
+  rules (`max` is session-only and `auto` removes the explicit stored value).
+- TC-04: headless JSON/text projection tests and TUI status tests passed; `--bare` keeps raw output.
+- TC-05: session hook tests passed with effort metadata; thinking display remains a separate setting.
+- User execution test scenarios: built CLI with isolated HOME/provider settings on 2026-09-11 KST —
+  Scenario 1 `source=flag`, Scenario 2 `requested=low`, Scenario 3 `disposition=model-default`,
+  Scenario 4 `requested=max` and `disposition=applied`; all exited 0.

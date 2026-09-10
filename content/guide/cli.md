@@ -26,6 +26,7 @@ robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
 robota --output-format json         # Output format (text/json/stream-json)
+robota --effort high                # Model effort: auto | low | medium | high | xhigh | max
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
@@ -316,6 +317,7 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/clear`                  | Clear conversation history                          |
 | `/compact [instructions]` | Compress context window                             |
 | `/cost`                   | Show session info                                   |
+| `/effort [level]`         | Show or change active model effort                  |
 | `/context`                | Context window details                              |
 | `/permissions [mode]`     | Show permission rules or change mode                |
 | `/memory`                 | Inspect and manage project memory                   |
@@ -338,6 +340,18 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 `/permissions` shows a nested submenu for permission mode selection.
 
 `/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+
+### Model effort (`--effort`, `/effort`)
+
+Model effort is resolved in this order: `--effort` flag, `ROBOTA_EFFORT` environment variable,
+settings, selected preset, and the active model default. Supported selections are `auto`, `low`,
+`medium`, `high`, `xhigh`, and `max`. `auto` uses the active model's default; `max` is session-only,
+while a named level may be persisted by `/effort` when the settings adapter permits it.
+
+`/effort` reports the requested value, effective value, source, and disposition. Print JSON includes
+the same record under `data.effort`; text mode prints a compact status line after the response.
+`--bare` keeps raw text output. The TUI status bar shows the active effective level when available.
+Thinking display settings and ordinary prompt wording are independent from model effort.
 
 ### Workflows (`/workflows`)
 

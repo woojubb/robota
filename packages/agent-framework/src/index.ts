@@ -142,6 +142,7 @@ export {
 export type {
   IAgentJobHostContext,
   ICommandHostAdapters,
+  ICommandEffortAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   IHandoffProgress,
@@ -191,6 +192,14 @@ export type {
   IContextReferenceClearResult,
   IContextReferenceRemoveResult,
 } from './commands/index.js';
+export { parseModelEffort, resolveModelEffort } from './effort/index.js';
+export type {
+  IModelEffortInputs,
+  IModelEffortResolution,
+  TEffortDisposition,
+  TEffortSelection,
+  TEffortSource,
+} from './effort/index.js';
 export {
   addCommandContextReference,
   buildProviderProfile,

@@ -30,6 +30,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --allowed-tools <list>     Comma-separated tool allowlist (TUI and print mode)
   --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
   --model <model>            Model override for this run
+  --effort <level>           Model effort: auto | low | medium | high | xhigh | max
   --preset <id>              Preset id to apply (default: settings.preset or "default")
   --output-style <id>        Response style: default | concise | proactive | explanatory | learning
   --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).

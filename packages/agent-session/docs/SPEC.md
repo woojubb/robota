@@ -232,6 +232,11 @@ intra-package for internal use, but they are not surfaced on the public `src/ind
 
 `Session.run(message, rawInput?, options?)` accepts an optional third argument `{ ephemeralSystemContext?: string }` (SELFHOST-008 P3). It is a **thin pass-through** into agent-core's `IRunOptions.ephemeralSystemContext`: a transient system-role block included in that turn's model call only and never persisted to history. The session layer owns no part of the guarantee — agent-core (which owns model-call assembly) does; `Session.run` merely forwards it. Absent ⇒ unchanged.
 
+For the informational `PreModelCall` and `PostModelCall` hooks, the session includes the effective
+model-effort tier as `IHookInput.effort` for every provider-call round. The value is taken from the
+assembled request when present, otherwise from the session's live model configuration, with the
+core-neutral `high` default. These hooks remain fire-and-forget and cannot block or mutate the call.
+
 `ISessionOptions.autoCompactThreshold` controls the initial automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally. `Session.setAutoCompactThreshold()` may change this policy after construction; subsequent `run()` calls use the new policy immediately.
 
 `ISessionOptions.onCompactEvent` receives structured compaction metadata with `trigger`, `before`, and `after` context-window states. Manual `Session.compact()` calls report `trigger: "manual"` by default; auto-compaction from `Session.run()` reports `trigger: "auto"`. The session-owned `TCompactTrigger` is passed unchanged into `CompactionOrchestrator`, so PreCompact, PostCompact, `context_compact`, and `onCompactEvent` observe one value; the orchestrator never re-derives it from the presence of instructions. The session logger also writes a `context_compact` event with the same before/after state so headless transports and logs can explain what happened without streaming compaction summary text into the normal answer path.

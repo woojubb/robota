@@ -46,7 +46,7 @@ await session.compact('Focus on the API changes');
 | Feature                    | Description                                                                                                                                                            |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                                                                                 |
-| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                                                                   |
+| **Hook execution**         | PreToolUse, PostToolUse, PreModelCall, PostModelCall, PreCompact, PostCompact, SessionStart, Stop; model-call hooks include effective effort                           |
 | **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                                                             |
 | **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched                                     |
 | **Persistence**            | `IInteractiveSessionStore` injection; each completed `run()` and shutdown persist through the store; explicit `NodeSessionStore` uses atomic temp-file + rename writes |
@@ -68,6 +68,7 @@ await session.compact('Focus on the API changes');
 | `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }`      |
 | `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled                 |
 | `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                                             |
+| `getModelEffort()`                                | Read the effective model-effort level for the next call                 |
 | `getHistory()` / `clearHistory()`                 | Access or clear conversation history                                    |
 | `abort()`                                         | Signal the running turn to stop (it holds the session until it unwinds) |
 | `isRunning()`                                     | True while a turn is in flight, including one aborted and unwinding     |

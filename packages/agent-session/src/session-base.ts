@@ -137,7 +137,18 @@ export abstract class SessionBase {
 
   /** Read the effective effort for the next model call, including the neutral core default. */
   getModelEffort(): TModelEffort {
-    return this.agent.getModel().effort ?? 'high';
+    // Some lightweight session doubles intentionally implement only the execution surface. Keep
+    // this read-only projection total for those callers; the real Robota instance exposes getModel.
+    const getModel = (this.agent as Robota & { getModel?: () => { effort?: TModelEffort } })
+      .getModel;
+    if (getModel === undefined) return 'high';
+    try {
+      return getModel.call(this.agent).effort ?? 'high';
+    } catch (error) {
+      // Preserve the agent's own [LIFECYCLE] error when a destroyed agent is subsequently run.
+      if (error instanceof Error && /disposed/i.test(error.message)) return 'high';
+      throw error;
+    }
   }
 
   /** Run an operation with a temporary effort override and restore it on every exit path. */

@@ -57,6 +57,7 @@ export type {
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
+  ICommandEffortAdapter,
   ICommandCostBudget,
   ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
@@ -77,6 +78,14 @@ export type {
   ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';
+export type {
+  IModelEffortInputs,
+  IModelEffortResolution,
+  TEffortDisposition,
+  TEffortSelection,
+  TEffortSource,
+} from '../effort/index.js';
+export { parseModelEffort, resolveModelEffort } from '../effort/index.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,

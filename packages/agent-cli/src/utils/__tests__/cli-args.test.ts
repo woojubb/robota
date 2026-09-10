@@ -65,6 +65,12 @@ describe('parseCliArgs', () => {
     process.argv = originalArgv;
   });
 
+  it('parses the effort flag and validates its values', () => {
+    expect(parseCliArgs(['--effort', 'xhigh']).effort).toBe('xhigh');
+    expect(parseCliArgs(['--effort', 'auto']).effort).toBe('auto');
+    expect(() => parseCliArgs(['--effort', 'turbo'])).toThrow('Invalid --effort');
+  });
+
   it('parses --fork-session flag', () => {
     process.argv = ['node', 'cli', '--fork-session'];
     const args = parseCliArgs();
@@ -99,6 +105,11 @@ describe('parseCliArgs', () => {
     process.argv = ['node', 'cli', '-p', '--output-format', 'json', 'test'];
     const args = parseCliArgs();
     expect(args.outputFormat).toBe('json');
+  });
+
+  it('parses --effort and rejects an unknown level', () => {
+    expect(parseCliArgs(['--effort', 'xhigh']).effort).toBe('xhigh');
+    expect(() => parseCliArgs(['--effort', 'turbo'])).toThrow('Invalid --effort');
   });
 
   it('parses --output-style flag', () => {
