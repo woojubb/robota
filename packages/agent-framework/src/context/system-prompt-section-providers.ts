@@ -1,5 +1,6 @@
 import { PROJECT_MEMORY_TRUST_NOTE } from '../memory/memory-trust-framing.js';
 
+import type { IOutputStylePrompt } from './output-style-prompt.js';
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -16,6 +17,23 @@ function createSection(
   source: ISystemPromptSection['source'],
 ): ISystemPromptSection {
   return { id, title, priority, content, source };
+}
+
+/** Output style is an additive prompt policy; core project and permission sections remain intact. */
+export function createOutputStyleSection(
+  style: IOutputStylePrompt,
+): ISystemPromptSection | undefined {
+  if (style.instructions.trim().length === 0) return undefined;
+  const codingNote = style.keepCodingInstructions
+    ? 'Keep the framework and project engineering instructions in force.'
+    : 'This style may change response presentation, but it cannot remove framework, project, permission, security, tool, or capability instructions.';
+  return createSection(
+    'output-style',
+    `Output Style: ${style.name}`,
+    3,
+    `${style.instructions.trim()}\n\n${codingNote}\nContinue applying this style on every response.`,
+    'output-style',
+  );
 }
 
 /**

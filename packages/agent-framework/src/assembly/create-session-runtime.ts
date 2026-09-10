@@ -12,6 +12,7 @@ import { formatProjectedModelCommandToolPromptDescription } from '../tools/model
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
@@ -61,6 +62,7 @@ export type { IAgentRuntimeResult } from './build-agent-runtime.js';
  * copy that forgets a field.
  */
 export interface TLivePromptOverrides {
+  outputStyle?: IOutputStylePrompt;
   persona?: string;
   selfVerification?: boolean | string;
   language?: string;
@@ -118,7 +120,7 @@ function buildStaticPromptParams(
     disableModelInvocation?: boolean;
   }>,
   agentDefinitions: IAgentDefinition[],
-): Omit<ISystemPromptParams, 'persona' | 'selfVerification'> {
+): Omit<ISystemPromptParams, 'outputStyle' | 'persona' | 'selfVerification'> {
   return {
     agentsMd: options.context.agentsMd,
     projectNotesMd: options.context.projectNotesMd,
@@ -192,6 +194,8 @@ export function buildSessionSystemPrompt(
   // staleness rebuilds (no override) must keep the most recently applied persona.
   let currentPersona = options.persona;
 
+  let currentOutputStyle = options.outputStyle;
+
   // PRESET-017: selfVerification is mutable for the lifetime of this closure, mirroring persona. A
   // live preset switch can toggle the verify-before-done section mid-session (via
   // `rebuildSystemMessage(..., { selfVerification })`); later staleness rebuilds (no override) must
@@ -225,6 +229,7 @@ export function buildSessionSystemPrompt(
   );
   const systemMessage = buildPrompt({
     ...staticPromptParams,
+    ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
     ...(currentSelfVerification !== undefined ? { selfVerification: currentSelfVerification } : {}),
     ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
@@ -241,6 +246,9 @@ export function buildSessionSystemPrompt(
     newProjectNotesMd: string,
     overrides?: TLivePromptOverrides,
   ): string => {
+    if (overrides?.outputStyle !== undefined) {
+      currentOutputStyle = overrides.outputStyle;
+    }
     // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
     if (overrides?.persona !== undefined) {
@@ -259,6 +267,7 @@ export function buildSessionSystemPrompt(
     }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
+      ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
       ...(currentSelfVerification !== undefined
         ? { selfVerification: currentSelfVerification }

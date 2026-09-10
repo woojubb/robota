@@ -5,7 +5,11 @@ import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js'
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
-import type { ICreateSessionOptions, TSessionResponseFormat } from '@robota-sdk/agent-framework';
+import type {
+  ICreateSessionOptions,
+  IOutputStylePrompt,
+  TSessionResponseFormat,
+} from '@robota-sdk/agent-framework';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 /**
@@ -41,6 +45,8 @@ export interface IPresetSurfaceOptions {
    * here as well would be a second answer to a question that already has one.
    */
   model?: string;
+  /** CLI-1988: resolved provider-neutral response style, forwarded to every session surface. */
+  outputStyle?: IOutputStylePrompt;
   agentName: string;
   activePresetId: string;
   persona: string | undefined;
@@ -119,6 +125,7 @@ export function buildPresetSurfaceOptions(
   presetId: string,
   permissionMode: ICreateSessionOptions['permissionMode'] | undefined,
   cli?: { cwd: string; args: IParsedCliArgs },
+  outputStyle?: IOutputStylePrompt,
 ): IPresetSurfaceOptions {
   const cliAppendSystemPrompt =
     cli !== undefined ? buildAppendSystemPrompt(cli.cwd, cli.args) : undefined;
@@ -126,6 +133,7 @@ export function buildPresetSurfaceOptions(
     cli !== undefined ? buildJsonSchemaResponseFormat(cli.args.jsonSchema) : undefined;
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
+    ...(outputStyle !== undefined ? { outputStyle } : {}),
     agentName: resolved.agentName ?? DEFAULT_AGENT_NAME,
     activePresetId: presetId,
     persona: resolved.persona,

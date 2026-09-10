@@ -23,6 +23,7 @@ import type {
   ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
@@ -44,6 +45,8 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 
 export interface IInitOptions {
+  /** Additive response style applied to the composed system prompt. */
+  outputStyle?: IOutputStylePrompt;
   cwd: string;
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;

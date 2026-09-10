@@ -101,6 +101,12 @@ describe('parseCliArgs', () => {
     expect(args.outputFormat).toBe('json');
   });
 
+  it('parses --output-style flag', () => {
+    process.argv = ['node', 'cli', '--output-style', 'concise'];
+    const args = parseCliArgs();
+    expect(args.outputStyle).toBe('concise');
+  });
+
   it('parses user-local passthrough metadata flags', () => {
     process.argv = [
       'node',

@@ -5,6 +5,7 @@ import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IContributionSource } from '../contributions/index.js';
@@ -61,6 +62,8 @@ export type TSessionConstructorWithAutoCompact = new (
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
+  /** Additive response style; it never replaces framework, project, permission, or capability sections. */
+  outputStyle?: IOutputStylePrompt;
   /** Resolved CLI configuration (model, API key, permissions) */
   config: IResolvedConfig;
   /** Working directory used for project context, skills, and agent definitions. */
@@ -276,6 +279,12 @@ export interface ICreateSessionResult {
   rebuildSystemMessage: (
     agentsMd: string,
     projectNotesMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean | string },
+    overrides?: {
+      outputStyle?: IOutputStylePrompt;
+      persona?: string;
+      selfVerification?: boolean | string;
+      language?: string;
+      presetSystemPrompt?: string;
+    },
   ) => string;
 }

@@ -58,6 +58,8 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * it starts from.
  * `agent-command-mcp-activation` was added by MCP-2520 to expose the explicit trust-admission
  * lifecycle without constructing or connecting an MCP client.
+ * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
+ * selection through the same command host used by interactive and headless surfaces.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -75,6 +77,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-editor',
   'agent-command-memory',
   'agent-command-mcp-activation',
+  'agent-command-output-style',
   'agent-command-user-local',
   'agent-command-compact',
   'agent-command-context',

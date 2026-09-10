@@ -1,5 +1,6 @@
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
 import type { IPresetApplicationOptions } from './preset/preset-application.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
@@ -173,6 +174,21 @@ export interface ICommandPresetRegistryAdapter {
   resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
 }
 
+/** CLI-1988: the command-facing projection of the host's provider-neutral output-style registry. */
+export interface ICommandOutputStyleSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly tokenCost?: string;
+  readonly source?: string;
+}
+
+/** CLI-1988: discovery and resolution only; commands never read style files or own persistence. */
+export interface ICommandOutputStyleRegistryAdapter {
+  listOutputStyles(): readonly ICommandOutputStyleSummary[];
+  getOutputStyle(id: string): IOutputStylePrompt | undefined;
+}
+
 /**
  * HANDOFF-001 (issue #1864): what a hand-off looks like to the operator, in the operator's words.
  *
@@ -263,6 +279,8 @@ export interface ICommandHostAdapters {
    * shell to the command.
    */
   presetRegistry?: ICommandPresetRegistryAdapter;
+  /** CLI-1988 — the instance-scoped output-style catalog resolved by the composition root. */
+  outputStyleRegistry?: ICommandOutputStyleRegistryAdapter;
   /**
    * HANDOFF-001 (issue #1864). Absent on a host with no carrier — `/handoff` then says so rather
    * than offering a transfer it cannot perform.

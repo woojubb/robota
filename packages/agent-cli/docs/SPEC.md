@@ -12,6 +12,12 @@ actual execution, never by reattributing the archived transport record.
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-framework, responsible only for the terminal UI.
 
+The provider-neutral response style is selected with `--output-style <id>` (CLI flag over the
+persisted `outputStyle` setting, then `default`). The CLI resolves built-ins plus trusted user/project
+and injected managed Markdown sources, reports the resolved style and qualitative input-cost label at
+startup, and forwards the same value to print, TUI, and serve sessions. Interactive `/output-style`
+changes persist the id through the user settings adapter and rebuild the live framework prompt.
+
 The pre-session `robota usage` command owns local user/project store enumeration and renders the
 shared `agent-session-analytics` personal-usage report as readable text or versioned JSON. It does
 not duplicate aggregation rules and never prints stored prompt/response content. User and trusted
@@ -210,27 +216,27 @@ Whitebox internals are not specified here. See:
 
 ## Type Ownership
 
-| Type                | Location                           | Purpose                                                                                    |
-| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                 |
-| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                            |
-| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)                               |
-| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                                          |
-| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                                          |
-| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                                 |
-| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation adapter |
-| ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy                  |
-| IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                    |
-| IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                                    |
-| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                                |
-| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting                 |
+| Type                | Location                           | Purpose                                                                                                             |
+| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                                          |
+| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                                                     |
+| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)                                                        |
+| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                                                                   |
+| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                                                                   |
+| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                                                          |
+| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources |
+| ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy                                           |
+| IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                                             |
+| IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                                                             |
+| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                                                         |
+| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting                                          |
 
 ## Public API Surface
 
-| Export           | Kind     | Description                                                                                                            |
-| ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode                                             |
-| IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules, provider definitions, and optional MCP activation adapter) |
+| Export           | Kind     | Description                                                                                                                                          |
+| ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode                                                                           |
+| IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules, provider definitions, optional MCP activation adapter, and managed output-style sources) |
 
 Note: `createSession()` is internal to `agent-framework` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
 
@@ -239,15 +245,15 @@ Note: `createSession()` is internal to `agent-framework` and is NOT re-exported.
 The CLI is designed to accept injected dependencies at `startCli()`. All extension is done by
 passing values into the public entry point rather than by subclassing or monkey-patching.
 
-| Extension              | Mechanism                                                                                             | Where injected          |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- |
-| Custom command modules | `IStartCliOptions.commandModules`                                                                     | `startCli(options)`     |
-| Custom provider defs   | `IStartCliOptions.providerDefinitions`                                                                | `startCli(options)`     |
-| Provider composition   | `IProviderDefinition[]` passed to `buildCommandSetup()`                                               | `cli.ts` assembly layer |
-| Transport registry     | `createDefaultTransportRegistry()` wired into `renderApp()`                                           | `cli.ts` TUI path       |
-| Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner`                              | `cli.ts` assembly layer |
-| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter, optional `mcpActivation`)                | `buildCommandSetup()`   |
-| Shell exec             | `createShellExec()` — passed to `renderApp()` (via `IRenderOptions`) and `HeadlessInteractionChannel` | `modes/*.ts`            |
+| Extension              | Mechanism                                                                                                     | Where injected          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Custom command modules | `IStartCliOptions.commandModules`                                                                             | `startCli(options)`     |
+| Custom provider defs   | `IStartCliOptions.providerDefinitions`                                                                        | `startCli(options)`     |
+| Provider composition   | `IProviderDefinition[]` passed to `buildCommandSetup()`                                                       | `cli.ts` assembly layer |
+| Transport registry     | `createDefaultTransportRegistry()` wired into `renderApp()`                                                   | `cli.ts` TUI path       |
+| Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner`                                      | `cli.ts` assembly layer |
+| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter, optional `mcpActivation`, output-style registry) | `buildCommandSetup()`   |
+| Shell exec             | `createShellExec()` — passed to `renderApp()` (via `IRenderOptions`) and `HeadlessInteractionChannel`         | `modes/*.ts`            |
 
 The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by
 `@robota-sdk/agent-framework` through the plugin command adapter.

@@ -241,6 +241,7 @@ export async function initializeInteractiveSessionAsync(
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,

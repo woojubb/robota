@@ -1,0 +1,3 @@
+Command: pnpm harness:scan
+Exit: 0
+Output: 160 scans passed, 1 skipped; 0 failures. The public-surface and role-port checks passed after the contract/documentation corrections.

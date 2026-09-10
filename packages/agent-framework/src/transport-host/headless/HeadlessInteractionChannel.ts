@@ -14,6 +14,7 @@ import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
+import type { IOutputStylePrompt } from '../../context/output-style-prompt.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
@@ -35,6 +36,8 @@ export interface IHeadlessInteractionChannelOptions {
    * session resolves the model from config (no silent substitution of the requested model).
    */
   model?: string;
+  /** CLI-1988: resolved provider-neutral response style. */
+  outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
   permissionMode?: TPermissionMode;
@@ -139,6 +142,7 @@ export class HeadlessInteractionChannel {
       // silently dropped (which fell through to the session's config/default model).
       ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
       ...(this.opts.effort !== undefined ? { effort: this.opts.effort } : {}),
+      ...(this.opts.outputStyle !== undefined ? { outputStyle: this.opts.outputStyle } : {}),
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,

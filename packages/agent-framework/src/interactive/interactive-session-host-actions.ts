@@ -23,6 +23,7 @@ import {
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type {
   ICommandResult,
   TCommandHostAction,
@@ -39,6 +40,8 @@ export interface IHostActionExecutionDeps {
   switchProvider(profileName: string): Promise<void>;
   /** Execute the session rename directly on the session (the session owns its own name) and broadcast it. */
   renameSession(name: string): void;
+  /** Apply a resolved output style to the live prompt and runtime state. */
+  applyOutputStyle(style: IOutputStylePrompt): void;
 }
 
 export interface IHostActionApplication {
@@ -123,6 +126,28 @@ async function applyOneHostAction(
           };
         }
         await deps.switchProvider(action.profileName);
+        return null;
+      }
+      case 'output-style-change': {
+        const registry = adapters.outputStyleRegistry;
+        if (!registry)
+          return missingCapabilityFailure(action.type, 'an output-style registry adapter');
+        const style = registry.getOutputStyle(action.styleId);
+        if (!style) {
+          const available = registry
+            .listOutputStyles()
+            .map((entry) => entry.id)
+            .join(', ');
+          return {
+            success: false,
+            message: `Unknown output style "${action.styleId}". Available: ${available || '(none)'}`,
+          };
+        }
+        const settings = adapters.settings;
+        if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
+        settings.write({ ...settings.read(), outputStyle: action.styleId });
+        deps.applyOutputStyle(style);
+        appendedMessages.push(`Output style: ${style.name}`);
         return null;
       }
       case 'language-change': {

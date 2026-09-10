@@ -11,3 +11,6 @@
 {"runId":"r20260906072107","opened":"2026-09-06T07:21:07.549Z","closed":"2026-09-06T08:59:53.247Z","roundFindings":[4,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260906090437","opened":"2026-09-06T09:04:37.251Z","closed":"2026-09-06T09:04:37.352Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260909165444","opened":"2026-09-09T16:54:44.464Z","closed":"2026-09-09T17:01:05.575Z","roundFindings":[],"extensions":{},"terminal":"abandoned","ref":"BEHAVIOR-2675 implementation not started; open a fresh post-implementation run at the checklist boundary"}
+{"runId":"r20260909233022","opened":"2026-09-09T23:30:22.800Z","closed":"2026-09-09T23:41:58.717Z","roundFindings":[],"extensions":{},"terminal":"abandoned","ref":null}
+{"runId":"r20260909234204","opened":"2026-09-09T23:42:04.472Z","closed":"2026-09-09T23:50:15.173Z","roundFindings":[0,1,0],"extensions":{},"terminal":"abandoned","ref":"superseded by fresh final verification after corrective contract test"}
+{"runId":"r20260909235015","opened":"2026-09-09T23:50:15.205Z","closed":"2026-09-09T23:56:25.132Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}

@@ -1,0 +1,3 @@
+Command: pnpm --filter @robota-sdk/agent-interface-command build; pnpm --filter @robota-sdk/agent-preset build; pnpm --filter @robota-sdk/agent-framework build; pnpm --filter @robota-sdk/agent-command build; pnpm --filter @robota-sdk/agent-cli build; pnpm --filter @robota-sdk/agent-transport-tui build
+Exit: 0
+Output: all affected packages built successfully; declarations and CLI/TUI bundles were emitted.

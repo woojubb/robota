@@ -14,6 +14,8 @@ export type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   ICommandResult,
   ICommandSessionReplayValidationReport,

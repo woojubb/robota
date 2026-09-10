@@ -26,6 +26,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IOutputStylePrompt,
   ICommandModule,
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
@@ -73,6 +74,8 @@ export interface IRenderOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   providerType?: string | undefined;
   modelId?: string;
+  /** CLI-1988: resolved provider-neutral response style. */
+  outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
   effort?: ITuiInteractionChannelOptions['effort'];
   language?: string;
@@ -165,6 +168,7 @@ export function toChannelOptions(
     // the provider chat call (header/status line == the model actually called).
     ...(options.modelId !== undefined ? { model: options.modelId } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
+    ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,

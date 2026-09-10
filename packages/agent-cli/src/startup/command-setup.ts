@@ -30,12 +30,15 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
+import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   createWorkspaceWorkflowProject,
   createWorkflowsCommandModule,
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { buildOutputStyleSources } from './output-style-sources.js';
+import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
 import {
   createCliWorkspaceComposition,
   type ICliWorkspaceComposition,
@@ -79,10 +82,14 @@ export interface IStartCliOptions {
   projectMutation?: IWorkspaceProjectMutation;
   /** Host-composed MCP definition registry and trust-admission controller. */
   mcpActivationAdapter?: ICommandMCPActivationAdapter;
+  /** Host-composed managed output styles, applied above user/project style sources. */
+  managedOutputStyleSources?: readonly IOutputStyleSource[];
 }
 
 export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
+  outputStyleRegistry: IOutputStyleRegistry;
+  outputStyleLoadErrors: readonly { file: string; error: string }[];
   providerDefinitions: readonly IProviderDefinition[];
   /**
    * ARCH-109: whether `providerDefinitions` above came from the caller rather than from
@@ -160,6 +167,14 @@ export function buildCommandSetup(
       ? { projectSettingsWriter: options.projectSettingsWriter }
       : {}),
   });
+  const outputStyleSources = buildOutputStyleSources({
+    cwd,
+    userHome: homedir(),
+    projectAccess: workspaceComposition.projectAccess,
+    managedOutputStyleSources: options.managedOutputStyleSources,
+  });
+  const outputStyleLoad = loadOutputStylesFromSources(outputStyleSources);
+  const outputStyleRegistry = createOutputStyleRegistry(outputStyleSources);
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),
@@ -171,6 +186,7 @@ export function buildCommandSetup(
     ...(options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: options.mcpActivationAdapter }),
+    outputStyleRegistry,
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
   const providerSettingsSources = workspaceComposition.settingsSources;
@@ -213,6 +229,8 @@ export function buildCommandSetup(
     : undefined;
   return {
     commandHostAdapters,
+    outputStyleRegistry,
+    outputStyleLoadErrors: outputStyleLoad.errors,
     providerDefinitions,
     callerSuppliedProviderDefinitions: options.providerDefinitions !== undefined,
     baseCommandModules,

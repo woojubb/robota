@@ -202,6 +202,72 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
+  it('output-style-change persists the id and applies the resolved prompt style', async () => {
+    const settings = stubSettings({ theme: 'dark' });
+    const applyOutputStyle = vi.fn();
+    const style = {
+      id: 'concise',
+      name: 'Concise',
+      description: 'Lead with the answer.',
+      instructions: 'Lead with the answer.',
+      keepCodingInstructions: true,
+      tokenCost: 'low',
+    } as const;
+    const session = createSession(
+      {
+        settings,
+        outputStyleRegistry: {
+          listOutputStyles: () => [style],
+          getOutputStyle: (id) => (id === style.id ? style : undefined),
+        },
+      },
+      [
+        moduleReturning('output-style', {
+          success: true,
+          message: 'Switching output style to Concise...',
+          hostActions: [{ type: 'output-style-change', styleId: 'concise' }],
+        }),
+      ],
+    );
+    session.applyOutputStyle = applyOutputStyle;
+
+    const result = await session.executeCommand('output-style', 'concise');
+
+    expect(settings.write).toHaveBeenCalledWith({ theme: 'dark', outputStyle: 'concise' });
+    expect(applyOutputStyle).toHaveBeenCalledWith(style);
+    expect(result?.message).toBe('Switching output style to Concise...\nOutput style: Concise');
+    expect(result?.hostActions).toBeUndefined();
+  });
+
+  it('unknown output-style id fails explicitly without persistence or live mutation', async () => {
+    const settings = stubSettings();
+    const applyOutputStyle = vi.fn();
+    const session = createSession(
+      {
+        settings,
+        outputStyleRegistry: {
+          listOutputStyles: () => [],
+          getOutputStyle: () => undefined,
+        },
+      },
+      [
+        moduleReturning('output-style', {
+          success: true,
+          message: 'Switching...',
+          hostActions: [{ type: 'output-style-change', styleId: 'missing' }],
+        }),
+      ],
+    );
+    session.applyOutputStyle = applyOutputStyle;
+
+    const result = await session.executeCommand('output-style', 'missing');
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('Unknown output style');
+    expect(settings.write).not.toHaveBeenCalled();
+    expect(applyOutputStyle).not.toHaveBeenCalled();
+  });
+
   it('remote-control enable executes through the adapter and folds the returned message', async () => {
     const enable = vi.fn().mockResolvedValue('Scan this QR: https://pair.example');
     const session = createSession(

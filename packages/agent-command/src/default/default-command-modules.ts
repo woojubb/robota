@@ -14,6 +14,7 @@ import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createOutputStyleCommandModule } from '../output-style/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPlanCommandModule } from '../plan/index.js';
@@ -110,6 +111,7 @@ export function createDefaultCommandModules({
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createPresetCommandModule(),
+    createOutputStyleCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     // CLI-1994: beside `/background`, because a fork IS a background job — the one it starts is

@@ -67,6 +67,8 @@ export type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,

@@ -37,6 +37,7 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
       | 'statusline-settings-patch'
       | 'remote-control-enable'
       | 'remote-control-stop'
+      | 'output-style-change'
     >();
   });
 

@@ -1,0 +1,3 @@
+Command: pnpm --filter @robota-sdk/agent-interface-command typecheck; pnpm --filter @robota-sdk/agent-preset typecheck; pnpm --filter @robota-sdk/agent-framework typecheck; pnpm --filter @robota-sdk/agent-command typecheck; pnpm --filter @robota-sdk/agent-cli typecheck; pnpm --filter @robota-sdk/agent-transport-tui typecheck
+Exit: 0
+Output: all six affected package typechecks completed successfully.

@@ -25,6 +25,12 @@ export {
 } from './mcp-activation/mcp-activation-command-module.js';
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
 export * from './mode/index.js';
+export {
+  OutputStyleCommandSource,
+  createOutputStyleCommandEntry,
+  createOutputStyleCommandModule,
+  executeOutputStyleCommand,
+} from './output-style/index.js';
 export * from './permissions/index.js';
 export * from './plugin/index.js';
 export * from './preset/index.js';

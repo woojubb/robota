@@ -80,14 +80,14 @@ export function createWorkspaceExecution({ plan, graph }) {
   }
   const stages =
     plan.operation === 'build' || plan.operation === 'consumer-build'
-      ? createDependencyStages(tasks, graph, errors)
+      ? createDependencyStages(tasks, graph, errors, plan.operation)
       : tasks.length > 0
         ? [tasks]
         : [];
   return { tasks, stages, skipped, errors };
 }
 
-export function createDependencyStages(tasks, graph, errors = []) {
+export function createDependencyStages(tasks, graph, errors = [], operation = 'build') {
   const packageTasks = tasks.filter((task) => task.packageName);
   const otherTasks = tasks.filter((task) => !task.packageName);
   if (otherTasks.length > 0) {
@@ -102,7 +102,7 @@ export function createDependencyStages(tasks, graph, errors = []) {
   while (remaining.size > 0) {
     const ready = [...remaining]
       .filter((name) =>
-        workspaceDependenciesForOperation(byPackageName.get(name) ?? {}, 'build').every(
+        workspaceDependenciesForOperation(byPackageName.get(name) ?? {}, operation).every(
           (dependency) => !taskByPackageName.has(dependency) || !remaining.has(dependency),
         ),
       )

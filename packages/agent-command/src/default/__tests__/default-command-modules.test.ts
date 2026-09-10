@@ -41,10 +41,10 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
     // No-regression: the default set length is the documented 30 modules (SELFHOST-002 added
-    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`). The list below is the assertion
+    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`; CLI-1988 added `/output-style`). The list below is the assertion
     // that matters — a length on its own can be restored by any substitution, and the count exists
     // only to catch an addition that also removed something.
-    expect(names).toHaveLength(30);
+    expect(names).toHaveLength(31);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -52,6 +52,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-permissions',
       'agent-command-mode',
       'agent-command-preset',
+      'agent-command-output-style',
       'agent-command-language',
       'agent-command-background',
       // CLI-1994: registered beside `/background`, because a fork IS a background job.

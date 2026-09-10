@@ -27,6 +27,7 @@ export function buildTuiSessionOptions(
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+    ...(opts.outputStyle !== undefined ? { outputStyle: opts.outputStyle } : {}),
     permissionMode: opts.permissionMode,
     maxTurns: opts.maxTurns,
     // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's

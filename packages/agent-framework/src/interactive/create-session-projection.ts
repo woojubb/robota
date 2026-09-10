@@ -72,6 +72,7 @@ export function buildCreateSessionOptions(
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
     // ARCH-013 stage 3 — the two consumer-supplied extension ports, and the one place they were lost.

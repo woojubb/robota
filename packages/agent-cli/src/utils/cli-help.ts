@@ -31,6 +31,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
   --model <model>            Model override for this run
   --preset <id>              Preset id to apply (default: settings.preset or "default")
+  --output-style <id>        Response style: default | concise | proactive | explanatory | learning
   --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
                              Overrides settings.json memory.enabled; ROBOTA_MEMORY=1|0 overrides both
   --memory-autosave          With memory on, auto-save captured facts (default: approval-required queue)
