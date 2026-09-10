@@ -57,6 +57,7 @@ export type {
   TProviderConfigValue,
   TProviderOptionValueBase,
 } from './provider';
+export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,

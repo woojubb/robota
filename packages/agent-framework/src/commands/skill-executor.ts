@@ -11,6 +11,7 @@ import {
 } from '../utils/skill-prompt.js';
 
 import type { ICommand } from '../command-api/types.js';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {
@@ -18,6 +19,8 @@ export interface IForkExecutionOptions {
   agent?: string;
   /** Tools the subagent is allowed to use */
   allowedTools?: string[];
+  /** Reasoning effort override for the forked session. */
+  effort?: TModelEffort;
 }
 
 /** Callback interface for skill execution infrastructure */
@@ -103,6 +106,7 @@ export async function executeSkill(
     const options: IForkExecutionOptions = {};
     if (skill.agent) options.agent = skill.agent;
     if (skill.allowedTools) options.allowedTools = skill.allowedTools;
+    if (skill.effort) options.effort = skill.effort;
 
     const result = await callbacks.runInFork(prompt, options);
     return { mode: 'fork', result };

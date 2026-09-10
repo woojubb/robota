@@ -9,6 +9,7 @@
 import type {
   ITokenUsage,
   TBackgroundPermissionPolicy,
+  TModelEffort,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 
@@ -88,6 +89,7 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   agentType: string;
   prompt: string;
   model?: string;
+  effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
   /**
    * CLI-1994: the persisted session record the child RESTORES before its first turn — a fork of the

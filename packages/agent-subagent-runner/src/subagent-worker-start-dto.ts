@@ -15,6 +15,8 @@
  * encoder/decoder that the tables drive — is a compile error, not a silent gap.
  */
 
+import { isModelEffort } from '@robota-sdk/agent-core';
+
 import type {
   IAgentDefinition,
   IInProcessSubagentRunnerDeps,
@@ -32,6 +34,7 @@ export interface ISubagentWorkerAgentDefinitionDto {
   readonly description: string;
   readonly systemPrompt: string;
   readonly model?: string;
+  readonly effort?: IAgentDefinition['effort'];
   readonly role?: string;
   readonly maxTurns?: number;
   readonly tools?: readonly string[];
@@ -54,7 +57,7 @@ export interface ISubagentWorkerParentContextDto {
   readonly projectNotesFileEntries?: readonly ISubagentWorkerContextFileEntryDto[];
 }
 
-type TScalarKind = 'string' | 'number' | 'string[]' | 'file-entry[]';
+type TScalarKind = 'string' | 'number' | 'effort' | 'string[]' | 'file-entry[]';
 interface IFieldRule {
   readonly kind: TScalarKind;
   readonly required: boolean;
@@ -68,6 +71,7 @@ export const AGENT_DEFINITION_DTO_FIELDS: Record<
   description: { kind: 'string', required: true },
   systemPrompt: { kind: 'string', required: true },
   model: { kind: 'string', required: false },
+  effort: { kind: 'effort', required: false },
   role: { kind: 'string', required: false },
   maxTurns: { kind: 'number', required: false },
   tools: { kind: 'string[]', required: false },
@@ -111,6 +115,8 @@ function valueMatches(kind: TScalarKind, value: unknown): boolean {
       return typeof value === 'string';
     case 'number':
       return typeof value === 'number' && Number.isFinite(value);
+    case 'effort':
+      return isModelEffort(value);
     case 'string[]':
       return isStringArray(value);
     case 'file-entry[]':
@@ -178,6 +184,7 @@ export function restoreAgentDefinition(dto: ISubagentWorkerAgentDefinitionDto): 
     systemPrompt: dto.systemPrompt,
   };
   if (dto.model !== undefined) definition.model = dto.model;
+  if (dto.effort !== undefined) definition.effort = dto.effort;
   if (dto.role !== undefined) definition.role = dto.role;
   if (dto.maxTurns !== undefined) definition.maxTurns = dto.maxTurns;
   if (dto.tools !== undefined) definition.tools = [...dto.tools];

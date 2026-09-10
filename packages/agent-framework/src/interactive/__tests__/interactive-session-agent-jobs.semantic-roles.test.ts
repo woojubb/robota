@@ -8,7 +8,10 @@ import type { Session } from '@robota-sdk/agent-session';
 describe('agent job semantic-role provenance', () => {
   it('records an alternate semantic spawn-command id', async () => {
     const spawn = vi.fn().mockResolvedValue({ id: 'job-1' });
-    const session = { getSessionId: () => 'session-1' } as unknown as Session;
+    const session = {
+      getSessionId: () => 'session-1',
+      getModelEffort: () => 'low',
+    } as unknown as Session;
     storeAgentToolDeps(session, {
       backgroundTaskManager: {},
       subagentManager: { spawn },
@@ -16,12 +19,19 @@ describe('agent job semantic-role provenance', () => {
         name: 'worker',
         description: 'Worker',
         systemPrompt: 'Work',
+        effort: 'medium',
       }),
     } as never);
 
     await spawnAgentJobFromSession(
       session,
-      { agentType: 'worker', label: 'Worker', mode: 'background', prompt: 'Do work' },
+      {
+        agentType: 'worker',
+        label: 'Worker',
+        mode: 'background',
+        prompt: 'Do work',
+        effort: 'high',
+      },
       '/workspace',
       'model',
       'spawn-subagent-alt',
@@ -29,6 +39,7 @@ describe('agent job semantic-role provenance', () => {
 
     expect(spawn).toHaveBeenCalledWith(
       expect.objectContaining({
+        effort: 'high',
         metadata: expect.objectContaining({
           executionOriginCommandName: 'spawn-subagent-alt',
         }),
@@ -38,7 +49,10 @@ describe('agent job semantic-role provenance', () => {
 
   it('CLI-1994 TC-05: forwards resumeSessionId to the manager request, and omits the key when absent', async () => {
     const spawn = vi.fn().mockResolvedValue({ id: 'job-1' });
-    const session = { getSessionId: () => 'session-1' } as unknown as Session;
+    const session = {
+      getSessionId: () => 'session-1',
+      getModelEffort: () => 'low',
+    } as unknown as Session;
     storeAgentToolDeps(session, {
       backgroundTaskManager: {},
       subagentManager: { spawn },
@@ -75,5 +89,32 @@ describe('agent job semantic-role provenance', () => {
     const request = spawn.mock.calls[0]?.[0] as Record<string, unknown>;
     // Absent means absent — not `resumeSessionId: undefined` on a request that crosses a wire.
     expect(Object.keys(request)).not.toContain('resumeSessionId');
+  });
+
+  it('uses the parent effective effort when the definition has no override', async () => {
+    const spawn = vi.fn().mockResolvedValue({ id: 'job-1' });
+    const session = {
+      getSessionId: () => 'session-1',
+      getModelEffort: () => 'low',
+    } as unknown as Session;
+    storeAgentToolDeps(session, {
+      backgroundTaskManager: {},
+      subagentManager: { spawn },
+      customAgentRegistry: () => ({
+        name: 'worker',
+        description: 'Worker',
+        systemPrompt: 'Work',
+      }),
+    } as never);
+
+    await spawnAgentJobFromSession(
+      session,
+      { agentType: 'worker', label: 'Worker', mode: 'background', prompt: 'Do work' },
+      '/workspace',
+      'user',
+      'agent',
+    );
+
+    expect(spawn).toHaveBeenCalledWith(expect.objectContaining({ effort: 'low' }));
   });
 });

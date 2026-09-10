@@ -11,7 +11,7 @@
  * multiple concurrent sessions without race conditions.
  */
 
-import { DEFAULT_BACKGROUND_PERMISSION_POLICY } from '@robota-sdk/agent-core';
+import { DEFAULT_BACKGROUND_PERMISSION_POLICY, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 
@@ -34,6 +34,7 @@ import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
@@ -95,6 +96,7 @@ function createAgentSchema(agentTypeNames: readonly string[]) {
         .describe('The task for a single subagent to perform. Required when jobs is omitted.'),
       subagent_type: z.string().optional().describe(createSubagentTypeDescription(agentTypeNames)),
       model: z.string().optional().describe('Optional model override'),
+      effort: z.enum(MODEL_EFFORT_VALUES).optional().describe('Optional reasoning-effort override'),
       isolation: z
         .enum(['none', 'worktree'])
         .optional()
@@ -107,6 +109,10 @@ function createAgentSchema(agentTypeNames: readonly string[]) {
               prompt: z.string().describe('The task for this subagent to perform'),
               subagent_type: z.string().optional().describe('Agent type for this job'),
               model: z.string().optional().describe('Optional model override for this job'),
+              effort: z
+                .enum(MODEL_EFFORT_VALUES)
+                .optional()
+                .describe('Optional reasoning-effort override for this job'),
               isolation: z.enum(['none', 'worktree']).optional().describe('Isolation for this job'),
             })
             .passthrough(),
@@ -132,6 +138,8 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
   /** Model-visible and command-visible agent definitions available to this session. */
   agentDefinitions?: IAgentDefinition[];
+  /** The parent Session's effective effort, supplied after session assembly. */
+  getParentModelEffort?: () => TModelEffort;
   /** PRESET-016 — runtime gate; when present and returns false, subagent dispatch is refused. */
   isParallelSubagentsEnabled?: () => boolean;
 }
@@ -203,6 +211,7 @@ function createSpawnRequest(
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
     model: args.model,
+    effort: args.effort ?? agentDef.effort ?? deps.getParentModelEffort?.(),
     isolation: args.isolation,
     metadata: createExecutionOriginMetadata({
       kind: 'tool_call',
@@ -283,6 +292,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
           prompt: args.prompt,
           ...(args.subagent_type !== undefined ? { subagent_type: args.subagent_type } : {}),
           ...(args.model !== undefined ? { model: args.model } : {}),
+          ...(args.effort !== undefined ? { effort: args.effort } : {}),
           ...(args.isolation !== undefined ? { isolation: args.isolation } : {}),
         },
         deps,

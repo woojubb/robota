@@ -144,6 +144,7 @@ function applyRequestOverrides(
   return {
     ...definition,
     ...(job.request.model ? { model: job.request.model } : {}),
+    ...(job.request.effort !== undefined ? { effort: job.request.effort } : {}),
     ...(job.request.allowedTools ? { tools: job.request.allowedTools } : {}),
     ...(job.request.disallowedTools ? { disallowedTools: job.request.disallowedTools } : {}),
   };

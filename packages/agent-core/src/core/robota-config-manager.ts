@@ -234,6 +234,7 @@ export class RobotaConfigManager {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
+    effort?: TModelEffort;
   } {
     // CORE-047: no readiness guard — see `setModel`.
     const currentProviderInfo = this.getAIProviders().getCurrentProvider();
@@ -252,6 +253,7 @@ export class RobotaConfigManager {
         maxTokens: config.defaultModel.maxTokens,
       }),
       ...(config.defaultModel.topP !== undefined && { topP: config.defaultModel.topP }),
+      ...(config.defaultModel.effort !== undefined && { effort: config.defaultModel.effort }),
     };
   }
 

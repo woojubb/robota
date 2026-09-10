@@ -1,7 +1,10 @@
 import { join, basename } from 'node:path';
 
+import { isModelEffort, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
+
 import type { ICommandSource, ICommand } from '../command-api/types.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 
 interface IFrontmatter {
   name?: string;
@@ -11,7 +14,7 @@ interface IFrontmatter {
   userInvocable?: boolean;
   allowedTools?: string[];
   model?: string;
-  effort?: string;
+  effort?: TModelEffort;
   context?: string;
   agent?: string;
 }
@@ -59,6 +62,13 @@ export function parseFrontmatter(content: string): IFrontmatter | null {
       result[camelKey] = rawValue === 'true';
     } else if (LIST_KEYS.has(key)) {
       result[camelKey] = parseListValue(rawValue);
+    } else if (key === 'effort') {
+      if (!isModelEffort(rawValue)) {
+        throw new Error(
+          `Invalid frontmatter effort: expected one of ${MODEL_EFFORT_VALUES.join(', ')}; received "${rawValue}"`,
+        );
+      }
+      result[camelKey] = rawValue;
     } else {
       result[camelKey] = rawValue;
     }

@@ -132,6 +132,14 @@ describe('Skill execution features', () => {
       });
     });
 
+    it('should pass the skill effort override into fork execution', async () => {
+      const [runInFork, tracker] = mockRunInFork('done');
+
+      await executeSkill(makeSkill({ context: 'fork', effort: 'high' }), '', { runInFork });
+
+      expect(tracker.calls[0]![1]).toEqual(expect.objectContaining({ effort: 'high' }));
+    });
+
     it('should substitute variables in fork content', async () => {
       const [runInFork, tracker] = mockRunInFork('result');
       const callbacks: ISkillExecutionCallbacks = { runInFork };

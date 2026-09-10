@@ -7,7 +7,7 @@
  */
 
 import type { TCapabilitySafety } from './capability-contracts.js';
-import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { TModelEffort, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
  * Origin of a command invocation. `'user'` = the local operator; `'model'` = a model-invoked command;
@@ -50,7 +50,7 @@ export interface ICommand {
   /** Preferred model for executing this skill */
   model?: string;
   /** Effort level hint for the skill */
-  effort?: string;
+  effort?: TModelEffort;
   /** Context scope for the skill (e.g., "project") */
   context?: string;
   /** Agent identity to use when executing this skill */

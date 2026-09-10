@@ -103,6 +103,20 @@ export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloa
  */
 export type TModelEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+/** Runtime SSOT for the model-effort union at untrusted-data boundaries. */
+export const MODEL_EFFORT_VALUES = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const satisfies readonly TModelEffort[];
+
+/** Narrow an external value to the core-owned model-effort contract. */
+export function isModelEffort(value: unknown): value is TModelEffort {
+  return typeof value === 'string' && MODEL_EFFORT_VALUES.includes(value as TModelEffort);
+}
+
 /**
  * Tool-invocation directive threaded per model invocation (CORE-017).
  *

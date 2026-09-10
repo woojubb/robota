@@ -146,6 +146,22 @@ describe('SkillCommandSource multi-path', () => {
     expect(cmd!.allowedTools).toEqual(['Read', 'Grep', 'Glob']);
   });
 
+  it('should reject an invalid effort value at the legacy frontmatter boundary', () => {
+    const claudeSkills = join(projectDir, '.claude', 'skills');
+    mkdirSync(claudeSkills, { recursive: true });
+    createSkillDir(
+      claudeSkills,
+      'invalid-effort',
+      '---\nname: invalid-effort\ndescription: invalid effort\neffort: extreme\n---\n',
+    );
+
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
+
+    expect(() => source.getCommands()).toThrow(/effort.*invalid|invalid.*effort/i);
+  });
+
   it('should filter model-invocable skills', () => {
     const claudeSkills = join(projectDir, '.claude', 'skills');
     mkdirSync(claudeSkills, { recursive: true });

@@ -269,6 +269,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     ...(options.sessionStore !== undefined ? { sessionStore: options.sessionStore } : {}),
     ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
     model,
+    ...(agentDefinition.effort !== undefined ? { effort: agentDefinition.effort } : {}),
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
     permissionMode: options.permissionMode,

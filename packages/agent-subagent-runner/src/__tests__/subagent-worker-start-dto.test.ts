@@ -33,6 +33,7 @@ const FULL_DEFINITION: IAgentDefinition = {
   maxTurns: 5,
   tools: ['Read'],
   disallowedTools: ['Bash'],
+  effort: 'high',
 };
 const MINIMAL_DEFINITION: IAgentDefinition = { name: 'a', description: 'b', systemPrompt: 'c' };
 
@@ -81,6 +82,7 @@ describe('subagent worker start DTOs (ARCH-044, issue #2047)', () => {
     ['a numeric name', { ...MINIMAL_DEFINITION, name: 1 }],
     ['a string maxTurns', { ...MINIMAL_DEFINITION, maxTurns: '5' }],
     ['a NaN maxTurns', { ...MINIMAL_DEFINITION, maxTurns: Number.NaN }],
+    ['an invalid effort', { ...MINIMAL_DEFINITION, effort: 'turbo' }],
     ['tools with a non-string', { ...MINIMAL_DEFINITION, tools: ['Read', 2] }],
     ['tools as an object', { ...MINIMAL_DEFINITION, tools: { Read: true } }],
   ])('agent definition decode rejects %s with a typed reason', (_label, value) => {
@@ -114,6 +116,57 @@ describe('subagent worker start DTOs (ARCH-044, issue #2047)', () => {
     expect(Object.keys(encodeParentContext(FULL_CONTEXT)).sort()).toEqual(
       Object.keys(PARENT_CONTEXT_DTO_FIELDS).sort(),
     );
+  });
+});
+
+describe('child-process effort projection (BEHAVIOR-009)', () => {
+  const DEPS: IInProcessSubagentRunnerDeps = {
+    config: {
+      defaultTrustLevel: 'moderate',
+      currentProvider: 'openai',
+      provider: { name: 'openai', model: 'test-model', apiKey: 'k' },
+      permissions: { allow: [], deny: [] },
+      env: {},
+    },
+    context: { agentsMd: '', projectNotesMd: '' },
+    tools: [],
+    terminal: {
+      write: () => {},
+      writeLine: () => {},
+      writeMarkdown: () => {},
+      writeError: () => {},
+      prompt: () => Promise.resolve(''),
+      select: () => Promise.resolve(0),
+      spinner: () => ({ stop: () => {}, update: () => {} }),
+    },
+    provider: {} as IInProcessSubagentRunnerDeps['provider'],
+    customAgentRegistry: () => ({
+      ...MINIMAL_DEFINITION,
+      effort: 'medium',
+    }),
+  };
+
+  it('request effort overrides the definition effort before encoding', async () => {
+    const payload = await projectStartPayload(
+      {
+        taskId: 'agent_1',
+        request: {
+          agentType: 'a',
+          label: 'effort',
+          mode: 'background',
+          parentSessionId: 'parent',
+          depth: 1,
+          cwd: '/workspace',
+          prompt: 'Continue.',
+          permissionPolicy: 'inherit-allowlist',
+          effort: 'high',
+        },
+      },
+      DEPS,
+      {},
+    );
+
+    expect(payload.agentDefinition.effort).toBe('high');
   });
 });
 
