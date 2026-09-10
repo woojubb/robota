@@ -1,7 +1,7 @@
 ---
 title: 'BEHAVIOR-009: apply scoped skill and subagent effort overrides with inheritance and restoration'
 issue: https://github.com/woojubb/robota/issues/1987
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -24,14 +24,22 @@ migration; it must consume this Task's typed contract instead of inventing effor
 
 ## Plan
 
-1. Specify the typed effort vocabulary that already-decoded skill metadata and subagent requests
-   consume. Issue #2094 retains raw frontmatter decoding, rejection, and source-path diagnostics.
-2. Define precedence between environment authority, session effective effort, skill frontmatter, and
-   explicit subagent request values.
-3. Apply the override only to the scoped invocation and restore/inherit correctly across success,
-   failure, nested execution, and cancellation.
-4. Expose the effective scoped value to the request and observability contracts without mutating the
-   parent's persistent session setting.
+- [ ] TC-01 — use the core-owned `TModelEffort` guard at skill, agent-definition, background-request,
+      and child-process DTO boundaries; reject invalid values without arbitrary-string propagation.
+- [ ] TC-02 — apply one precedence rule to skill and subagent execution: explicit request > selected
+      skill/agent definition > parent effective effort > core neutral default.
+- [ ] TC-03 — add the session scoped override API and prove success, rejection, cancellation, and
+      nested scopes restore the value active at scope entry while the parent remains unchanged.
+- [ ] TC-04 — project the selected effort through in-process and child-process subagent assembly while
+      preserving model, tools, role, permission, cwd, resume, provider, and session-tier fields.
+- [ ] TC-05 — add the public SDK example/fixtures and record its exact four-line output and exit 0;
+      run affected package tests, builds, and typechecks.
+- [ ] TC-06 — update affected package SPECs, run `pnpm harness:scan` and
+      `pnpm harness:verify-like-ci`, and record final review convergence with zero actionable findings.
+
+The implementation must not take over issue #2094's strict raw frontmatter decoder or discovery-root
+migration. The existing Task scenario is the public verification boundary; it remains credential-free
+and uses only exported SDK/session contracts.
 
 ## Completion Criteria
 
@@ -65,3 +73,56 @@ Expected: the example prints `success scoped=high restored=low`, `failure scoped
 `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`, then exits 0.
 The example uses no persistent settings and removes its temporary session directory before exit.
 Evidence: pending implementation with exact output and exit code.
+
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+
+### Scenario 1: public SDK scoped-effort example
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: dependencies installed; no live provider or credentials; current directory is `packages/agent-framework`
+- command: `pnpm exec tsx examples/verify-scoped-effort-overrides.ts`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=scoped-effort-four-lines
+- cleanup: the example removes its temporary session directory before exit
+- evidence: stdout contains exactly `success scoped=high restored=low`, `failure scoped=high restored=low`, `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`; exit code is `0`
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-10
+
+**Status upgrade:** scenario drafted → scenario written
+
+<!-- checkpoint-evidence:v1:start -->
+```json
+{
+  "version": 1,
+  "form": "doneGateStageOne",
+  "outcome": "automatable",
+  "scenarios": [
+    {
+      "name": "Scenario 1: public SDK scoped-effort example",
+      "surface": "public-sdk-example",
+      "surfaceRationale": "shipped-interface=public-sdk-example",
+      "invocation": "pnpm exec tsx examples/verify-scoped-effort-overrides.ts",
+      "observableType": "sdk-result",
+      "observable": "result=scoped-effort-four-lines",
+      "observableRationale": "source=public-sdk-return",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "dependencies installed; no live provider or credentials; current directory is `packages/agent-framework`",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec tsx examples/verify-scoped-effort-overrides.ts"
+      },
+      "expectedObservable": "result=scoped-effort-four-lines",
+      "cleanup": "the example removes its temporary session directory before exit",
+      "evidence": "stdout contains exactly `success scoped=high restored=low`, `failure scoped=high restored=low`, `cancel scoped=high restored=low`, and `nested inner=high outer=medium restored=low`; exit code is `0`"
+    }
+  ]
+}
+```
+<!-- checkpoint-evidence:v1:end -->
+
+- DONE-GATE-STAGE-1 — scenario contract: PASS — the public SDK invocation, prerequisite, observable,
+  cleanup, evidence, and product-behavior verdict are bound to the single authored scenario.
