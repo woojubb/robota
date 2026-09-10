@@ -1,11 +1,7 @@
 import { join, sep } from 'node:path';
 
 import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
-import {
-  appendWorkspaceRelativeFile,
-  deleteWorkspaceRelativeFile,
-  writeWorkspaceRelativeFile,
-} from './project-relative-writer.js';
+import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
@@ -14,10 +10,9 @@ import {
   getWorkspaceProjectReader,
 } from './workspace-authority.js';
 
+import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import type {
   IWorkspaceDirectoryEntry,
-  IWorkspaceIdentity,
-  IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
   IWorkspaceProjectReader,
   IWorkspaceProjectStateStorage,
@@ -41,9 +36,8 @@ class WorkspaceProjectStateStorage {
   constructor(
     namespace: TWorkspaceProjectStateNamespace,
     private readonly authority: IWorkspaceProjectAuthority,
-    private readonly identity: IWorkspaceIdentity,
-    private readonly identityResolver: IWorkspaceIdentityResolver,
     private readonly reader: IWorkspaceProjectReader,
+    private readonly mutationBoundary: IWorkspaceProjectMutationBoundary,
   ) {
     this.namespace = namespace;
     this.base = NAMESPACE_DIRECTORIES[namespace];
@@ -67,23 +61,13 @@ class WorkspaceProjectStateStorage {
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
-    writeWorkspaceRelativeFile(
-      this.identity,
-      this.identityResolver,
-      this.projectRelativePath(relativePath),
-      content,
-    );
+    this.mutationBoundary.write(this.projectRelativePath(relativePath), content);
   }
 
   appendText(relativePath: string, content: string, purpose: string): void {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
-    appendWorkspaceRelativeFile(
-      this.identity,
-      this.identityResolver,
-      this.projectRelativePath(relativePath),
-      content,
-    );
+    this.mutationBoundary.append(this.projectRelativePath(relativePath), content);
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
@@ -94,11 +78,7 @@ class WorkspaceProjectStateStorage {
   deleteFile(relativePath: string, purpose: string): boolean {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
-    return deleteWorkspaceRelativeFile(
-      this.identity,
-      this.identityResolver,
-      this.projectRelativePath(relativePath),
-    );
+    return this.mutationBoundary.delete(this.projectRelativePath(relativePath));
   }
 
   projectRelativePath(relativePath: string, allowRoot = false): string {
@@ -119,9 +99,11 @@ export function getWorkspaceProjectStateStorage(
     new WorkspaceProjectStateStorage(
       namespace,
       accepted,
-      identity,
-      getWorkspaceProjectIdentityResolver(accepted),
       reader,
+      createWorkspaceProjectMutationBoundary(
+        identity,
+        getWorkspaceProjectIdentityResolver(accepted),
+      ),
     ),
   );
   projectStateStorages.set(storage, accepted);

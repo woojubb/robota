@@ -126,13 +126,15 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
   unchanged, so authority-backed external-payload sources enforce the resolver's remaining aggregate budget
   at the filesystem boundary rather than after a complete read.
 
-  On Linux, project create/replace/append/delete traversal is anchored to opened root and parent directory
-  descriptors, so a validated parent rename or symlink swap cannot redirect the mutation. Other platforms
-  fail closed rather than falling back to pathname mutation.
-
-  > **Contained — [ARCH-047](../../../.agents/tasks/completed/ARCH-047-stable-root-anchored-project-mutation.md).**
-  > The current hold is Linux-specific and lives in the existing writer. ARCH-047 owns a shared,
-  > cross-platform stable root-anchored mutation primitive and its portable refusal contract.
+  **Stable project mutation boundary (ARCH-2151)**: `createWorkspaceProjectMutationBoundary()` is the
+  single internal owner for project write/replace, append, and delete operations. On Linux, each
+  operation opens the trusted root and walks every parent through no-follow directory descriptors;
+  the final file operation is relative to the verified parent and rejects links and non-regular files.
+  A parent rename, root replacement, or final-target symlink therefore cannot redirect an authority-
+  bearing mutation outside the granted workspace. Settings writers and named state storage use this
+  same boundary rather than performing pathname mutation themselves. Hosts without equivalent stable
+  root/parent-handle semantics fail closed with `WorkspaceAuthorityRequiredError`; they never fall back
+  to pathname rechecks. See [issue #2151](https://github.com/woojubb/robota/issues/2151).
 
 ## Type Ownership
 

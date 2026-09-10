@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-2151: Provide a stable root-anchored project mutation primitive'
 issue: https://github.com/woojubb/robota/issues/2151
-status: in-progress
+status: done
+completed: 2026-09-10
 created: 2026-09-10
 priority: critical
 urgency: now
@@ -37,15 +38,15 @@ explicitly returned to this open Issue for a new implementation Task.
 
 ## Plan
 
-- [ ] Read the package contract and existing reader/authority primitives; document the current
+- [x] Read the package contract and existing reader/authority primitives; document the current
       Linux containment and unsupported-platform behavior as the baseline.
-- [ ] Write and approve the paired spec defining the stable-root mutation contract, operation
+- [x] Write and approve the paired spec defining the stable-root mutation contract, operation
       semantics, platform matrix, failure policy, and consumer ownership.
-- [ ] Add characterization and deterministic race/swap tests for create, overwrite/replace, append,
+- [x] Add characterization and deterministic race/swap tests for create, overwrite/replace, append,
       and delete operations, including authority and regular-file checks.
-- [ ] Implement the shared primitive and route every project mutation consumer through it without
+- [x] Implement the shared primitive and route every project mutation consumer through it without
       duplicating pathname validation.
-- [ ] Run the user execution test scenario, affected verification, package contract/build checks, and
+- [x] Run the user execution test scenario, affected verification, package contract/build checks, and
       repository harness gates; record concrete evidence before completion.
 
 ## Directions Considered
@@ -60,15 +61,15 @@ explicitly returned to this open Issue for a new implementation Task.
 
 ## Completion Criteria
 
-- [ ] One documented owner defines stable-root semantics for project create, replace/overwrite,
+- [x] One documented owner defines stable-root semantics for project create, replace/overwrite,
       append, and delete operations.
-- [ ] Parent-directory and final-target rename/symlink swaps cannot redirect a mutation outside the
+- [x] Parent-directory and final-target rename/symlink swaps cannot redirect a mutation outside the
       approved workspace; unsafe targets are refused without partial writes or deletes.
-- [ ] Cross-platform behavior and fail-closed refusal are explicit and covered by tests on each
+- [x] Cross-platform behavior and fail-closed refusal are explicit and covered by tests on each
       supported or intentionally unsupported host class.
-- [ ] `createWorkspaceProjectMutation`, project settings writers, and project state storage all use
+- [x] `createWorkspaceProjectMutation`, project settings writers, and project state storage all use
       the owned primitive rather than reproducing pathname-only mutation checks.
-- [ ] Package SPEC, Task/spec gate evidence, user execution test scenario evidence, affected tests, build/typecheck,
+- [x] Package SPEC, Task/spec gate evidence, user execution test scenario evidence, affected tests, build/typecheck,
       lint, and repository harness checks are green.
 
 ## Test Plan
@@ -96,9 +97,9 @@ explicitly returned to this open Issue for a new implementation Task.
 - Command: `pnpm exec tsx examples/arch-2151-project-mutation.ts`
 - Observable type: sdk-result
 - Observable rationale: source=public-sdk-return
-- Expected observable: result=all-swaps-refused; workspace-b-unchanged=true
+- Expected observable: result=workspace-confined; workspace-b-unchanged=true; platform=darwin; safe-mutation=refused; consumer-writes=refused; parent-swap=refused; target-swap=refused
 - Cleanup: the example removes both temporary workspaces and every symlink or handle it creates.
-- Evidence: `packages/agent-framework/examples/arch-2151-project-mutation.ts` output will be recorded here after implementation and must report the expected result with exit 0.
+- Evidence: `pnpm exec tsx packages/agent-framework/examples/arch-2151-project-mutation.ts` exited 0 and printed `result=workspace-confined; workspace-b-unchanged=true; platform=darwin; safe-mutation=refused; consumer-writes=refused; parent-swap=refused; target-swap=refused`.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-10
 

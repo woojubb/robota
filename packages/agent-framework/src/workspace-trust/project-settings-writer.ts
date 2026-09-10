@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 
 import { assertProjectReadPurpose } from './project-reader-path.js';
-import { writeWorkspaceRelativeFile } from './project-relative-writer.js';
+import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
@@ -52,15 +52,11 @@ export function createWorkspaceProjectSettingsWriter(
   assertProjectReadPurpose(decision.purpose);
   const identity = getWorkspaceProjectIdentity(accepted);
   const identityResolver = getWorkspaceProjectIdentityResolver(accepted);
+  const mutationBoundary = createWorkspaceProjectMutationBoundary(identity, identityResolver);
   const writer = Object.freeze(
     new WorkspaceProjectSettingsWriter(decision.target, (content) => {
       assertWorkspaceProjectAuthority(accepted);
-      writeWorkspaceRelativeFile(
-        identity,
-        identityResolver,
-        SETTINGS_TARGETS[decision.target],
-        content,
-      );
+      mutationBoundary.write(SETTINGS_TARGETS[decision.target], content);
     }),
   );
   projectSettingsWriters.set(writer, accepted);
