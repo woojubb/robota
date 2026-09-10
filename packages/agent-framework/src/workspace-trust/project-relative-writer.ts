@@ -23,6 +23,17 @@ import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from './types.js'
 const OWNER_ONLY_FILE_MODE = 0o600;
 const OWNER_ONLY_DIRECTORY_MODE = 0o700;
 
+/**
+ * Internal owner for every authority-bearing project mutation. The boundary keeps stable-root
+ * traversal and operation semantics together so adapters cannot reintroduce pathname mutation
+ * beside the guarded implementation.
+ */
+export interface IWorkspaceProjectMutationBoundary {
+  write(relativePath: string, content: Uint8Array | string): void;
+  append(relativePath: string, content: string): void;
+  delete(relativePath: string): boolean;
+}
+
 function descriptorPath(descriptor: number, segment?: string): string {
   const root = `/proc/self/fd/${descriptor}`;
   return segment === undefined ? root : `${root}/${segment}`;
@@ -117,7 +128,7 @@ function writeWithFlags(
   }
 }
 
-export function writeWorkspaceRelativeFile(
+function writeWorkspaceRelativeFile(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   relativePath: string,
@@ -129,7 +140,21 @@ export function writeWorkspaceRelativeFile(
   });
 }
 
-export function appendWorkspaceRelativeFile(
+export function createWorkspaceProjectMutationBoundary(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+): IWorkspaceProjectMutationBoundary {
+  return Object.freeze({
+    write: (relativePath: string, content: Uint8Array | string): void =>
+      writeWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
+    append: (relativePath: string, content: string): void =>
+      appendWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
+    delete: (relativePath: string): boolean =>
+      deleteWorkspaceRelativeFile(identity, identityResolver, relativePath),
+  });
+}
+
+function appendWorkspaceRelativeFile(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   relativePath: string,
@@ -147,7 +172,7 @@ export function appendWorkspaceRelativeFile(
   });
 }
 
-export function deleteWorkspaceRelativeFile(
+function deleteWorkspaceRelativeFile(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   relativePath: string,

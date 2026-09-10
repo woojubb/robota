@@ -261,6 +261,11 @@ describe('WorkspaceTrustService project authority', () => {
       rmSync(join(root, '.robota', 'sessions'));
       sessions.writeText('session.json', '{"ok":true}', 'persist session');
       expect(sessions.readText('session.json', 'resume session')).toBe('{"ok":true}');
+      sessions.appendText('events.log', 'first\n', 'append session event');
+      sessions.appendText('events.log', 'second\n', 'append session event');
+      expect(sessions.readText('events.log', 'verify appended session events')).toBe(
+        'first\nsecond\n',
+      );
       expect(() => sessions.readBytes('session.json', 'bounded session read', 1)).toThrow(
         /read limit/i,
       );

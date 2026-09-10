@@ -72,9 +72,10 @@ workspace root and its real descendants while rejecting a working directory outs
 completed revoke makes the previously issued authority and all of its facets unusable. Explicit host
 contribution sources also remain root-bounded and refuse links at every path component.
 
-On Linux, authority-backed project mutations are rooted in open directory descriptors so parent
-renames or symlink swaps cannot redirect them. Other platforms currently fail closed pending the
-portable stable-mutation contract tracked by ARCH-047.
+Authority-backed project mutations share one stable-root boundary: on Linux, open root and parent
+directory descriptors prevent parent renames or symlink swaps from redirecting writes, replacements,
+appends, or deletes. Hosts without equivalent stable handle semantics fail closed with
+`WorkspaceAuthorityRequiredError` instead of falling back to pathname mutation.
 
 The maintained offline examples verify explicit persist→resume composition and the workspace
 authority boundary with no provider credentials:
