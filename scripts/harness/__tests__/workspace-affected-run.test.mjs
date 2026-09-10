@@ -194,6 +194,23 @@ describe('workspace affected executor', () => {
     ]);
   });
 
+  it('keeps verification-only dependencies out of consumer build stages', () => {
+    const execution = createWorkspaceExecution({
+      plan: {
+        operation: 'consumer-build',
+        mode: 'packages',
+        packages: verificationBuildGraph.packages.map(({ name, directory }) => ({
+          name,
+          directory,
+        })),
+      },
+      graph: verificationBuildGraph,
+    });
+    expect(execution.stages.map((stage) => stage.map((task) => task.packageName))).toEqual([
+      ['@fixture/core', '@fixture/fixture-tests'],
+    ]);
+  });
+
   it('stops later build stages after failure while emitting exactly one result per task', async () => {
     const plan = {
       operation: 'consumer-build',
