@@ -554,3 +554,24 @@ Exit code: 0
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `0dd45e77fe40` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/active/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `d45db7b08c33` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 9 of 9 line(s))
+
+```
+verify-like-ci summary:
+checks: 11 selected, 7 applicable, 7 executed; execution batches: 6
+scan-suite-dist-free: PASS
+harness-self-test: PASS
+build: PASS
+scan-suite: PASS
+package-quality: PASS
+PASS — 7 checks executed, 4 not applicable, 6 execution batches; required coverage satisfied.
+Exit code: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `02467fe0e3c6` · base `origin/develop@53fa308bcbcd` · document `.agents/spec-docs/done/BEHAVIOR-009-apply-scoped-skill-and-subagent-effort-overrides-with-inheritance-and-restoratio.md` blob `5137e92358c8` (tracked)
