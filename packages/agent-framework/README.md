@@ -110,6 +110,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command` packages.
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
+- **Model effort resolution** — A typed provider-neutral resolution record and command-host adapter keep requested, effective, source, and disposition values consistent across startup, live commands, and headless output
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Runtime host (RUNTIME-001)** — `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`

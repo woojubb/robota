@@ -3,6 +3,7 @@ import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   readProviderSettings,
+  readMergedProviderSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   resolveCliUpdateNotice,
@@ -17,6 +18,7 @@ import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-prese
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
+import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
@@ -271,6 +273,19 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerOptions,
   );
   const modelId = resolvedPreset.model ?? providerSettings.model;
+  let effortResolution;
+  try {
+    effortResolution = resolveCliModelEffort(
+      args,
+      process.env,
+      readMergedProviderSettings(workspaceComposition.settingsSources),
+      resolvedPreset,
+    );
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+  commandHostAdapters.effort = createCliEffortAdapter(effortResolution);
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -362,6 +377,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     permissionMode,
     cli,
     outputStyle,
+    effortResolution,
   );
 
   const sessionStore = workspaceComposition.sessionStore;

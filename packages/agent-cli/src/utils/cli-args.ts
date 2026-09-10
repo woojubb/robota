@@ -5,7 +5,12 @@
 
 import { parseArgs } from 'node:util';
 
-import { OUTPUT_FORMATS, type TOutputFormat } from '@robota-sdk/agent-framework';
+import {
+  OUTPUT_FORMATS,
+  parseModelEffort,
+  type TOutputFormat,
+  type TEffortSelection,
+} from '@robota-sdk/agent-framework';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -49,6 +54,8 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  /** Requested model-effort level; `auto` follows the selected model default. */
+  effort?: TEffortSelection;
   preset: string | undefined;
   /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
   outputStyle?: string;
@@ -154,6 +161,7 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    effort: { type: 'string' },
     preset: { type: 'string' },
     'output-style': { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
@@ -243,6 +251,7 @@ function mapParsedValues(
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    effort: parseModelEffort(values['effort']),
     preset: values['preset'],
     outputStyle: values['output-style'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
@@ -264,8 +273,8 @@ function mapParsedValues(
   };
 }
 
-export function parseCliArgs(): IParsedCliArgs {
-  const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
+export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
+  const { values, positionals } = parseArgs({ ...PARSE_ARGS_CONFIG, args: argv });
   const args: IParsedCliArgs = {
     ...mapParsedValues(values, positionals),
     ...resolveMemoryArgs(values),

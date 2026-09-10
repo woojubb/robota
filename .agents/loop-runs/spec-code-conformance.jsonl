@@ -15,3 +15,4 @@
 {"runId":"r20260905082810","opened":"2026-09-05T08:28:10.487Z","closed":"2026-09-05T11:02:59.680Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260908234011","opened":"2026-09-08T23:40:11.510Z","closed":"2026-09-09T00:33:42.613Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260910144254","opened":"2026-09-10T14:42:54.520Z","closed":"2026-09-10T15:07:11.287Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260910161621","opened":"2026-09-10T16:16:21.076Z","closed":"2026-09-10T16:54:57.873Z","roundFindings":[0,0,0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/done/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md"}

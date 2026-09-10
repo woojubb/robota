@@ -6,6 +6,15 @@ import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execu
 
 import { createHeadlessRunner } from '../headless-runner.js';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { IModelEffortResolution } from '../../../effort/effort-resolution.js';
+
+const HIGH_EFFORT_RESOLUTION: IModelEffortResolution = {
+  requested: 'high',
+  effective: 'high',
+  source: 'flag',
+  disposition: 'applied',
+  modelDefault: 'high',
+};
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
   const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
@@ -229,6 +238,22 @@ describe('createHeadlessRunner (json format)', () => {
     });
   });
 
+  it('projects effort resolution into an ordinary json result', async () => {
+    const session = createMockSession('complete', 'JSON response');
+    const runner = createHeadlessRunner({
+      session,
+      outputFormat: 'json',
+      effortResolution: HIGH_EFFORT_RESOLUTION,
+    });
+
+    await runner.run('test prompt');
+
+    const output = (stdoutWriteSpy.mock.calls[0] as [string])[0];
+    expect(JSON.parse(output.trim())).toMatchObject({
+      data: { effort: HIGH_EFFORT_RESOLUTION },
+    });
+  });
+
   it('json format outputs subtype error on failure', async () => {
     const session = createMockSession('error');
     const runner = createHeadlessRunner({ session, outputFormat: 'json' });
@@ -263,6 +288,25 @@ describe('createHeadlessRunner (json format)', () => {
       result: 'partial',
       session_id: 'test-session-id',
       subtype: 'success',
+    });
+  });
+
+  it('json format preserves structured data returned by a slash command', async () => {
+    const session = createMockSession('complete');
+    session.executeCommand.mockResolvedValue({
+      message: 'Model effort: requested=low, effective=low.',
+      success: true,
+      data: { effort: { requested: 'low', effective: 'low' } },
+    });
+    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+
+    const exitCode = await runner.run('/effort low');
+
+    expect(exitCode).toBe(0);
+    const output = (stdoutWriteSpy.mock.calls[0] as [string])[0];
+    expect(JSON.parse(output.trim())).toMatchObject({
+      result: 'Model effort: requested=low, effective=low.',
+      data: { effort: { requested: 'low', effective: 'low' } },
     });
   });
 });
@@ -451,6 +495,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
       result: 'Started agent job: agent_1',
       session_id: 'stream-session',
       subtype: 'success',
+      data: { agentId: 'agent_1' },
     });
   });
 
@@ -515,6 +560,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
       result: 'Background job group group_1: completed',
       session_id: 'stream-session',
       subtype: 'success',
+      data: { groupId: 'group_1' },
     });
   });
 });

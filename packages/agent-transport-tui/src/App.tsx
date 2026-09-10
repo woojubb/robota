@@ -41,7 +41,7 @@ import { useTerminalTitle } from './use-terminal-title.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
@@ -400,11 +400,13 @@ function AppInner(
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
   let sessionId = '';
   let activePresetId: string | undefined;
+  let effort: TModelEffort | undefined;
   try {
     // allow-fallback: session initializes asynchronously; use defaults until ready
     const session = interactiveSession.getSession();
     permissionMode = session.getPermissionMode();
     activePresetId = session.getActivePresetId?.();
+    effort = session.getModelEffort();
     sessionId = session.getSessionId();
   } catch {
     // allow-fallback: session initializes asynchronously; use defaults until ready
@@ -560,6 +562,7 @@ function AppInner(
             settings={statusLineSettings}
             activeAgentLabel={activeAgentLabel}
             activePresetId={activePresetId}
+            effort={effort}
             gitRefreshToken={gitRefreshToken}
           />
         </>

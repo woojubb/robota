@@ -96,6 +96,7 @@ function createContext(
     sessionId: 'test-session',
     cwd: '/tmp/test',
     model: 'test-model',
+    effort: 'high',
     agent,
     aiProvider: createProvider(),
     contextTracker: new ContextWindowTracker('test-model', undefined, false),
@@ -130,6 +131,7 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
     expect(pre).toHaveLength(2);
     expect(pre[0]!.model).toBe('fake-model');
     expect(pre[0]!.provider).toBe('fake-provider');
+    expect(pre[0]!.effort).toBe('high');
   });
 
   it('fires PostModelCall on provider_response_normalized ONLY — no double-fire on raw', async () => {

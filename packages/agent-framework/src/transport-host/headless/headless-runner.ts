@@ -1,6 +1,21 @@
+import {
+  createJsonFormatHandlers,
+  effortData,
+  formatEffortResolution,
+  getSessionId,
+  writeGoalStoppedResult,
+  writeJsonResult,
+} from './headless-output.js';
 import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
+export {
+  getSessionId,
+  GOAL_NOT_SATISFIED_EXIT_CODE,
+  resolveErrorCode,
+  writeJsonResult,
+} from './headless-output.js';
 
 import type { IHeadlessSession } from './headless-session.js';
+import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
 
 /** Issue #2052: the ONE owner of the output-format vocabulary — type and runtime constant together. */
@@ -20,24 +35,23 @@ export interface IHeadlessGoalOptions {
 export interface IHeadlessRunnerOptions {
   session: IHeadlessSession;
   outputFormat: TOutputFormat;
+  /** Optional startup resolution projected into ordinary print results. */
+  effortResolution?: IModelEffortResolution;
 }
-
-/** Exit code for a goal that stopped cleanly without being satisfied (bound/convergence/cancel). */
-export const GOAL_NOT_SATISFIED_EXIT_CODE = 2;
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
   runGoal: (objective: string, goalOptions?: IHeadlessGoalOptions) => Promise<number>;
 } {
-  const { session, outputFormat } = options;
+  const { session, outputFormat, effortResolution } = options;
   return {
     run: (prompt: string): Promise<number> => {
-      if (outputFormat === 'text') return runTextFormat(session, prompt);
-      if (outputFormat === 'json') return runJsonFormat(session, prompt);
-      return runStreamJsonFormat(session, prompt);
+      if (outputFormat === 'text') return runTextFormat(session, prompt, effortResolution);
+      if (outputFormat === 'json') return runJsonFormat(session, prompt, effortResolution);
+      return runStreamJsonFormat(session, prompt, effortResolution);
     },
     runGoal: (objective: string, goalOptions: IHeadlessGoalOptions = {}): Promise<number> =>
-      runGoalFormat(session, objective, goalOptions, outputFormat),
+      runGoalFormat(session, objective, goalOptions, outputFormat, effortResolution),
   };
 }
 
@@ -51,6 +65,7 @@ function runGoalFormat(
   objective: string,
   goalOptions: IHeadlessGoalOptions,
   outputFormat: TOutputFormat,
+  effortResolution?: IModelEffortResolution,
 ): Promise<number> {
   return new Promise<number>((resolve) => {
     const cleanup = (): void => {
@@ -67,19 +82,8 @@ function runGoalFormat(
       else writeJsonResult(getSessionId(session), '', 'error', error);
       resolve(1);
     };
-    const onGoal = (event: IGoalEvent): void => {
-      if (event.type !== 'goal_stopped') return;
-      cleanup();
-      const goal = event.goal;
-      const satisfied = goal.stopReason === 'satisfied';
-      const summary = satisfied
-        ? `Goal satisfied after ${goal.iterations} iteration(s).`
-        : `Goal stopped: ${goal.stopReason} (after ${goal.iterations} iteration(s)).`;
-      if (outputFormat === 'text')
-        (satisfied ? process.stdout : process.stderr).write(summary + '\n');
-      else writeJsonResult(getSessionId(session), summary, satisfied ? 'success' : 'error');
-      resolve(satisfied ? 0 : GOAL_NOT_SATISFIED_EXIT_CODE);
-    };
+    const onGoal = (event: IGoalEvent): void =>
+      writeGoalStoppedResult(session, event, outputFormat, effortResolution, cleanup, resolve);
 
     session.on('complete', onComplete);
     session.on('error', onError);
@@ -90,45 +94,6 @@ function runGoalFormat(
       goalOptions.maxIterations ? { maxIterations: goalOptions.maxIterations } : {},
     );
   });
-}
-
-export function resolveErrorCode(error: Error): string {
-  const msg = error.message.toLowerCase();
-  if (msg.includes('api key') || msg.includes('no provider') || msg.includes('provider')) {
-    return 'config_error';
-  }
-  if (msg.includes('tool') || msg.includes('execution')) {
-    return 'tool_error';
-  }
-  return 'api_error';
-}
-
-export function writeJsonResult(
-  sessionId: string,
-  result: string,
-  subtype: 'success' | 'error',
-  error?: Error,
-): void {
-  const payload: Record<string, unknown> = {
-    type: 'result',
-    result,
-    session_id: sessionId,
-    subtype,
-  };
-  if (subtype === 'error' && error !== undefined) {
-    payload['error_code'] = resolveErrorCode(error);
-  }
-  const output = JSON.stringify(payload);
-  process.stdout.write(output + '\n');
-}
-
-export function getSessionId(session: IHeadlessSession): string {
-  try {
-    return session.getSession().getSessionId();
-  } catch {
-    // allow-fallback: session may not be initialized yet
-    return '';
-  }
 }
 
 /**
@@ -162,7 +127,11 @@ function createExitCodeLatch(): {
   };
 }
 
-async function runTextFormat(session: IHeadlessSession, prompt: string): Promise<number> {
+async function runTextFormat(
+  session: IHeadlessSession,
+  prompt: string,
+  effortResolution?: IModelEffortResolution,
+): Promise<number> {
   const latch = createExitCodeLatch();
   const cleanup = (): void => {
     session.off('complete', onComplete);
@@ -173,11 +142,17 @@ async function runTextFormat(session: IHeadlessSession, prompt: string): Promise
     latch.finalize(0, () => {
       cleanup();
       process.stdout.write(result.response + '\n');
+      if (effortResolution !== undefined) {
+        process.stdout.write(formatEffortResolution(effortResolution) + '\n');
+      }
     });
   const onInterrupted = (result: IExecutionResult): void =>
     latch.finalize(0, () => {
       cleanup();
       if (result.response) process.stdout.write(result.response + '\n');
+      if (effortResolution !== undefined) {
+        process.stdout.write(formatEffortResolution(effortResolution) + '\n');
+      }
     });
   const onError = (error: Error): void =>
     latch.finalize(1, () => {
@@ -207,28 +182,19 @@ async function runTextFormat(session: IHeadlessSession, prompt: string): Promise
   return latch.value();
 }
 
-async function runJsonFormat(session: IHeadlessSession, prompt: string): Promise<number> {
+async function runJsonFormat(
+  session: IHeadlessSession,
+  prompt: string,
+  effortResolution?: IModelEffortResolution,
+): Promise<number> {
   const latch = createExitCodeLatch();
   const cleanup = (): void => {
     session.off('complete', onComplete);
     session.off('interrupted', onInterrupted);
     session.off('error', onError);
   };
-  const onComplete = (result: IExecutionResult): void =>
-    latch.finalize(0, () => {
-      cleanup();
-      writeJsonResult(getSessionId(session), result.response, 'success');
-    });
-  const onInterrupted = (result: IExecutionResult): void =>
-    latch.finalize(0, () => {
-      cleanup();
-      writeJsonResult(getSessionId(session), result.response, 'success');
-    });
-  const onError = (error: Error): void =>
-    latch.finalize(1, () => {
-      cleanup();
-      writeJsonResult(getSessionId(session), '', 'error', error);
-    });
+  const handlers = createJsonFormatHandlers(session, effortResolution, cleanup, latch.finalize);
+  const { onComplete, onInterrupted, onError } = handlers;
 
   session.on('complete', onComplete);
   session.on('interrupted', onInterrupted);
@@ -243,6 +209,8 @@ async function runJsonFormat(session: IHeadlessSession, prompt: string): Promise
           getSessionId(session),
           cmd.result.message,
           cmd.result.success ? 'success' : 'error',
+          undefined,
+          cmd.result.data,
         );
       });
     } else if (cmd.kind !== 'session-execution') {
@@ -255,7 +223,11 @@ async function runJsonFormat(session: IHeadlessSession, prompt: string): Promise
   return latch.value();
 }
 
-async function runStreamJsonFormat(session: IHeadlessSession, prompt: string): Promise<number> {
+async function runStreamJsonFormat(
+  session: IHeadlessSession,
+  prompt: string,
+  effortResolution?: IModelEffortResolution,
+): Promise<number> {
   const latch = createExitCodeLatch();
   // subscribeStreamJsonEvents' terminal handlers each cleanup + write a single result then invoke this
   // callback; guard so a terminal event and the catch below cannot both write (see createExitCodeLatch).
@@ -263,7 +235,8 @@ async function runStreamJsonFormat(session: IHeadlessSession, prompt: string): P
   const cleanup = subscribeStreamJsonEvents(
     session,
     getSessionId,
-    writeJsonResult,
+    (sessionId, result, subtype, error) =>
+      writeJsonResult(sessionId, result, subtype, error, effortData(effortResolution)),
     settleFromEvent,
   );
 
@@ -276,6 +249,8 @@ async function runStreamJsonFormat(session: IHeadlessSession, prompt: string): P
           getSessionId(session),
           cmd.result.message,
           cmd.result.success ? 'success' : 'error',
+          undefined,
+          cmd.result.data,
         );
       });
     } else if (cmd.kind !== 'session-execution') {

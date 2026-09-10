@@ -5,6 +5,7 @@ import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
+import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createForkCommandModule } from '../fork/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
@@ -108,6 +109,7 @@ export function createDefaultCommandModules({
     createSkillsCommandModule({ contributionSources: contributionSources ?? [] }),
     createHelpCommandModule(),
     createAgentCommandModule(),
+    createEffortCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createPresetCommandModule(),

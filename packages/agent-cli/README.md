@@ -146,6 +146,7 @@ robota --max-turns <n>              # Limit agentic turns per interaction
 robota --goal "<objective>"         # Pursue an autonomous goal headlessly until satisfied or a bound
 robota --goal-max-iterations <n>    # Per-goal turn budget (default 25)
 robota --output-format <fmt>        # text | json | stream-json (print mode)
+robota --effort <level>             # auto | low | medium | high | xhigh | max
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --model claude-sonnet-4-6     # Override provider model for this session
@@ -387,15 +388,16 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 
 ### Session & Context
 
-| Command                   | Description                                                            |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `/clear`                  | Clear conversation history                                             |
-| `/compact [instructions]` | Compress context window                                                |
-| `/context`                | Context window details, reference inventory, and auto-compact controls |
-| `/cost`                   | Show session token usage and cost                                      |
-| `/resume`                 | List recent sessions and resume one                                    |
-| `/rename <name>`          | Rename the current session                                             |
-| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                   |
+| Command                   | Description                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `/clear`                  | Clear conversation history                                                    |
+| `/compact [instructions]` | Compress context window                                                       |
+| `/context`                | Context window details, reference inventory, and auto-compact controls        |
+| `/cost`                   | Show session token usage and cost                                             |
+| `/effort [level]`         | Show or change model effort (`auto`, `low`, `medium`, `high`, `xhigh`, `max`) |
+| `/resume`                 | List recent sessions and resume one                                           |
+| `/rename <name>`          | Rename the current session                                                    |
+| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                          |
 
 ### Providers & Settings
 

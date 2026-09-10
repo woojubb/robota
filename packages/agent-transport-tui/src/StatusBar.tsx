@@ -7,7 +7,7 @@ import { useScreenReader } from './screen-reader-context.js';
 import { formatStatusActivity } from './status-activity.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;
@@ -33,6 +33,7 @@ interface IProps {
   showGitBranch?: boolean;
   activeAgentLabel?: string;
   activePresetId?: string;
+  effort?: TModelEffort;
 }
 
 interface IStatusLeftProps {
@@ -50,6 +51,7 @@ interface IStatusLeftProps {
   gitBranch?: string;
   showGitBranch: boolean;
   activePresetId?: string;
+  effort?: TModelEffort;
 }
 
 /** Return the color for the context percentage indicator */
@@ -137,18 +139,28 @@ function shouldShowActivePreset(activePresetId: string | undefined): activePrese
 function ProviderText({
   modelName,
   providerDisplayName,
+  effort,
 }: {
   modelName: string;
   providerDisplayName?: string | undefined;
+  effort?: TModelEffort;
 }): React.ReactElement {
+  const provider =
+    providerDisplayName !== undefined ? `${providerDisplayName} ${modelName}` : modelName;
   if (providerDisplayName !== undefined) {
     return (
       <Text dimColor>
-        {providerDisplayName} {modelName}
+        {provider}
+        {effort !== undefined ? ` Effort: ${effort}` : ''}
       </Text>
     );
   }
-  return <Text dimColor>{modelName}</Text>;
+  return (
+    <Text dimColor>
+      {provider}
+      {effort !== undefined ? ` Effort: ${effort}` : ''}
+    </Text>
+  );
 }
 
 function StatusLeft(props: IStatusLeftProps): React.ReactElement {
@@ -198,7 +210,11 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
         </>
       )}
       {SEP}
-      <ProviderText modelName={props.modelName} providerDisplayName={props.providerDisplayName} />
+      <ProviderText
+        modelName={props.modelName}
+        providerDisplayName={props.providerDisplayName}
+        effort={props.effort}
+      />
       {!screenReader && (
         <>
           {SEP}
@@ -230,6 +246,7 @@ export default function StatusBar({
   showGitBranch = true,
   activeAgentLabel,
   activePresetId,
+  effort,
 }: IProps): React.ReactElement {
   return (
     <Box paddingLeft={1} paddingRight={1} justifyContent="space-between">
@@ -248,6 +265,7 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
         activePresetId={activePresetId}
+        effort={effort}
       />
       {activeAgentLabel !== undefined && (
         <Text color={PALETTE.text.warning} bold>

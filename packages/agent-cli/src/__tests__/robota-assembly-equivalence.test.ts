@@ -60,6 +60,8 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * lifecycle without constructing or connecting an MCP client.
  * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
  * selection through the same command host used by interactive and headless surfaces.
+ * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
+ * same command host used by interactive and headless surfaces.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -78,6 +80,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-memory',
   'agent-command-mcp-activation',
   'agent-command-output-style',
+  'agent-command-effort',
   'agent-command-user-local',
   'agent-command-compact',
   'agent-command-context',

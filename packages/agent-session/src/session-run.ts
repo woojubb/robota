@@ -10,6 +10,7 @@ import {
   createLogger,
   createUserMessage,
   getProviderCapabilities,
+  isModelEffort,
   runHooks,
 } from '@robota-sdk/agent-core';
 
@@ -28,6 +29,7 @@ import type {
   THooksConfig,
   IHookTypeExecutor,
   TTextDeltaCallback,
+  TModelEffort,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 
@@ -47,6 +49,11 @@ function fireModelCallHook(
   const model = typeof data['model'] === 'string' ? (data['model'] as string) : ctx.model;
   const provider =
     typeof data['provider'] === 'string' ? (data['provider'] as string) : ctx.aiProvider.name;
+  const effort = isModelEffort(data['effort'])
+    ? data['effort']
+    : (ctx.effort ??
+      (typeof ctx.agent.getModel === 'function' ? ctx.agent.getModel().effort : undefined) ??
+      'high');
   const round = typeof data['round'] === 'number' ? (data['round'] as number) : undefined;
   void runHooks(
     ctx.hooks as THooksConfig | undefined,
@@ -57,6 +64,7 @@ function fireModelCallHook(
       hook_event_name: hookEvent,
       model,
       provider,
+      effort,
       ...(round !== undefined && { round }),
       ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
       ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
@@ -74,6 +82,8 @@ export interface IRunContext {
   sessionId: string;
   cwd: string;
   model: string;
+  /** Effective model-effort tier for informational model-call hooks. */
+  effort?: TModelEffort;
   /** Current permission mode — passed to all hook inputs as permission_mode */
   permissionMode?: string;
   /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */

@@ -15,6 +15,7 @@ import type { ICreateSessionOptions } from '../../assembly/create-session-types.
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { IOutputStylePrompt } from '../../context/output-style-prompt.js';
+import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
@@ -40,6 +41,8 @@ export interface IHeadlessInteractionChannelOptions {
   outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
+  /** FLOW-008: startup source/effective metadata projected into headless results. */
+  effortResolution?: IModelEffortResolution;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -101,7 +104,11 @@ export class HeadlessInteractionChannel {
 
   async run(prompt: string): Promise<void> {
     const session = this.createSession();
-    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
+    const runner = createHeadlessRunner({
+      session,
+      outputFormat: this.opts.outputFormat,
+      effortResolution: this.opts.effortResolution,
+    });
     this.exitCode = await runner.run(prompt);
     await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
   }
@@ -112,7 +119,11 @@ export class HeadlessInteractionChannel {
    */
   async runGoal(objective: string, options: { maxIterations?: number } = {}): Promise<void> {
     const session = this.createSession();
-    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
+    const runner = createHeadlessRunner({
+      session,
+      outputFormat: this.opts.outputFormat,
+      effortResolution: this.opts.effortResolution,
+    });
     this.exitCode = await runner.runGoal(objective, options);
     await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless goal complete' });
   }

@@ -73,6 +73,11 @@ describe('StatusBar', () => {
     expect(frame).toContain('test-model');
   });
 
+  it('renders the active model effort when provided', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} effort="high" />);
+    expect(lastFrame()).toContain('Effort: high');
+  });
+
   it('does not render message count in the status bar', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} />);
     const frame = lastFrame()!;

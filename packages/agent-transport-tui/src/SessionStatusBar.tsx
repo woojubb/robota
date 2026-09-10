@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import StatusBar from './StatusBar.js';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-command';
 
 interface IProps {
@@ -21,6 +21,7 @@ interface IProps {
   settings: IStatusLineCommandSettings;
   activeAgentLabel?: string;
   activePresetId?: string;
+  effort?: TModelEffort;
   gitRefreshToken?: number;
 }
 
@@ -39,6 +40,7 @@ export default function SessionStatusBar({
   settings,
   activeAgentLabel,
   activePresetId,
+  effort,
   gitRefreshToken,
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
@@ -68,6 +70,7 @@ export default function SessionStatusBar({
       showGitBranch={settings.gitBranch}
       activeAgentLabel={activeAgentLabel}
       activePresetId={activePresetId}
+      effort={effort}
     />
   );
 }
