@@ -1,7 +1,7 @@
 ---
 title: 'FLOW-008: resolve and expose active model effort across CLI, settings, environment, and live sessions'
 issue: https://github.com/woojubb/robota/issues/1987
-status: todo
+status: in-progress
 created: 2026-08-29
 priority: critical
 urgency: now
@@ -21,14 +21,24 @@ decisions.
 
 ## Plan
 
-1. Research current product behavior and explicitly adopt, adapt, or reject every session/control/
-   visibility checklist row from issue #1987.
-2. Define a typed resolution result that distinguishes requested, effective, default, clamped, and not
-   applied values.
-3. Wire settings, environment, launch flag, preset/configured level, `auto`, live command/picker, print
-   mode, persistence policy, header/footer visibility, and hook fields through that authority.
-4. Keep thinking display and one-turn prompt keywords separate from persistent effort; record explicit
-   verdicts for both adjacent controls.
+1. [x] Research current product behavior and explicitly adopt, adapt, or reject every session/control/
+   visibility checklist row from issue #1987 in the paired FLOW-008 spec.
+2. [x] Define the typed resolution result and the single source-precedence decision in the paired spec.
+3. [ ] Wire settings, environment, launch flag, preset/configured level, `auto`, live command/picker,
+   print mode, persistence policy, status visibility, and hook fields through that authority.
+4. [ ] Keep thinking display and one-turn prompt keywords separate from persistent effort, with tests for
+   both adjacent controls.
+
+Paired spec: `.agents/spec-docs/active/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md`.
+
+TC mapping for the implementation checkpoint:
+
+- [ ] TC-01: add and validate the `--effort` flag and help text.
+- [ ] TC-02: implement one source-precedence resolver and `auto` handling.
+- [ ] TC-03: implement the live command, picker, cancellation, and persistence policy.
+- [ ] TC-04: project the result to TUI and print surfaces.
+- [ ] TC-05: project hook metadata and keep thinking controls independent.
+- [ ] TC-06: run the package and repository verification gates.
 
 ## Completion Criteria
 
@@ -48,35 +58,163 @@ decisions.
 
 ## User Execution Test Scenarios
 
-Prerequisites: export non-empty `OPENAI_API_KEY`, `OPENAI_EFFORT_MODEL`, and
-`RESTRICTED_EFFORT_MODEL`; the first model must support multiple effort levels and the second must
-reject or clamp at least one requested tier. From the repository root set `REPO_ROOT="$(pwd)"`, run
-`pnpm --filter @robota-sdk/agent-cli build`, and set
-`ROBOTA_BIN="$REPO_ROOT/packages/agent-cli/bin/robota.cjs"`, `EFFORT_HOME="$(mktemp -d)"`, and
-`EFFORT_PROJECT="$(mktemp -d)"`. Configure a model with multiple effort levels by running
-`HOME="$EFFORT_HOME" node "$ROBOTA_BIN" --configure-provider effort-flow --type openai --model "$OPENAI_EFFORT_MODEL" --api-key-env OPENAI_API_KEY --set-current`.
-This child adds `packages/agent-cli/examples/fixtures/effort-flow/settings.local.json` and
-`capture-effort-hook.mjs`; install them with
-`mkdir -p "$EFFORT_PROJECT/.robota"`,
-`cp "$REPO_ROOT/packages/agent-cli/examples/fixtures/effort-flow/settings.local.json" "$EFFORT_PROJECT/.robota/settings.local.json"`,
-and
-`cp "$REPO_ROOT/packages/agent-cli/examples/fixtures/effort-flow/capture-effort-hook.mjs" "$EFFORT_PROJECT/capture-effort-hook.mjs"`.
-The fixture sets effort to low and appends hook effort data to `effort-hook.jsonl`. Leave `VOLTA_HOME`
-unchanged. Finish setup with `cd "$EFFORT_PROJECT"`.
+**Author verdict:** `SCENARIO DRAFTED: automatable | 4`
 
-1. From `$EFFORT_PROJECT`, run
-   `HOME="$EFFORT_HOME" ROBOTA_EFFORT=medium node "$ROBOTA_BIN" --effort high`.
-   Confirm the status surface reports requested/effective `high` and the launch flag as the winning
-   source.
-2. Enter `/effort low`, inspect the status surface, enter `/effort auto`, then `/exit`. Restart with
-   `HOME="$EFFORT_HOME" node "$ROBOTA_BIN"` and verify the reviewed persistence
-   policy rather than assuming the prior session value persisted, then enter `/exit` before returning
-   to the shell.
-3. Run
-   `HOME="$EFFORT_HOME" node "$ROBOTA_BIN" --provider effort-flow --effort max --model "$RESTRICTED_EFFORT_MODEL" -p "Reply only OK" --output-format json`
-   and inspect requested/effective/disposition fields.
-4. Compare the final UI/JSON outcome with the last line of `$EFFORT_PROJECT/effort-hook.jsonl`.
+The built CLI is the product surface. Build the CLI from the repository root, set
+`REPO_ROOT="$(pwd)"`, `ROBOTA_BIN="$REPO_ROOT/packages/agent-cli/bin/robota.cjs"`,
+`PROBE_ROOT="$(mktemp -d)"`, `PROBE_HOME="$PROBE_ROOT/home"`, and
+`PROBE_PROJECT="$PROBE_ROOT/project"`, then create an isolated settings file with the existing
+dummy-provider startup shape. The commands below complete before a model request, so they need no
+network connection or provider key.
 
-Expected: every surface reports one effective value and source; unsupported requests are visibly
-clamped or `not-applied`, never silently accepted. Cleanup:
-`rm -rf -- "$EFFORT_HOME" "$EFFORT_PROJECT"`. Evidence: pending implementation.
+Expected: every command reports one effective value and its source; a cancelled picker leaves that
+value unchanged; ordinary prompt wording and thinking-display settings do not change it. The settings
+file comparison is part of the implementation evidence: session-only selections must not leak into
+settings, while a persistent named selection is written only when its policy allows it. Evidence:
+pending implementation.
+
+### Scenario 1
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
+- command: `pnpm exec robota --effort high -p "/effort" --output-format json --no-session-persistence`
+- observable type: product-output
+- expected observable: exit=0; output-contains=source=flag
+- observable rationale: source=product-process
+- cleanup: rm -rf -- "$PROBE_ROOT"
+- evidence: pending implementation
+
+### Scenario 2
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
+- command: `pnpm exec robota -p "/effort low" --output-format json --no-session-persistence`
+- observable type: product-output
+- expected observable: exit=0; output-contains=requested=low
+- observable rationale: source=product-process
+- cleanup: rm -rf -- "$PROBE_ROOT"
+- evidence: pending implementation
+
+### Scenario 3
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
+- command: `pnpm exec robota -p "/effort auto" --output-format json --no-session-persistence`
+- observable type: product-output
+- expected observable: exit=0; output-contains=disposition=applied
+- observable rationale: source=product-process
+- cleanup: rm -rf -- "$PROBE_ROOT"
+- evidence: pending implementation
+
+### Scenario 4
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: built CLI and isolated dummy-provider settings exist under PROBE_HOME
+- command: `pnpm exec robota --effort max -p "/effort" --output-format json --no-session-persistence`
+- observable type: product-output
+- expected observable: exit=0; output-contains=disposition=applied
+- observable rationale: source=product-process
+- cleanup: rm -rf -- "$PROBE_ROOT"
+- evidence: pending implementation
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** scenario drafted → scenario written
+
+- Scenario set is executable against the shipped CLI; every scenario includes executability, prerequisites, command, expected observable, cleanup, and evidence fields, and the observed output is product behavior.
+
+<!-- checkpoint-evidence:v1:start -->
+```json
+{
+  "version": 1,
+  "form": "doneGateStageOne",
+  "outcome": "automatable",
+  "scenarios": [
+    {
+      "name": "Scenario 1",
+      "surface": "robota-cli",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota --effort high -p \"/effort\" --output-format json --no-session-persistence",
+      "observableType": "product-output",
+      "observable": "exit=0; output-contains=source=flag",
+      "observableRationale": "source=product-process",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota --effort high -p \"/effort\" --output-format json --no-session-persistence"
+      },
+      "expectedObservable": "exit=0; output-contains=source=flag",
+      "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
+      "evidence": "pending implementation"
+    },
+    {
+      "name": "Scenario 2",
+      "surface": "robota-cli",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota -p \"/effort low\" --output-format json --no-session-persistence",
+      "observableType": "product-output",
+      "observable": "exit=0; output-contains=requested=low",
+      "observableRationale": "source=product-process",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota -p \"/effort low\" --output-format json --no-session-persistence"
+      },
+      "expectedObservable": "exit=0; output-contains=requested=low",
+      "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
+      "evidence": "pending implementation"
+    },
+    {
+      "name": "Scenario 3",
+      "surface": "robota-cli",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota -p \"/effort auto\" --output-format json --no-session-persistence",
+      "observableType": "product-output",
+      "observable": "exit=0; output-contains=disposition=applied",
+      "observableRationale": "source=product-process",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota -p \"/effort auto\" --output-format json --no-session-persistence"
+      },
+      "expectedObservable": "exit=0; output-contains=disposition=applied",
+      "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
+      "evidence": "pending implementation"
+    },
+    {
+      "name": "Scenario 4",
+      "surface": "robota-cli",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota --effort max -p \"/effort\" --output-format json --no-session-persistence",
+      "observableType": "product-output",
+      "observable": "exit=0; output-contains=disposition=applied",
+      "observableRationale": "source=product-process",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "built CLI and isolated dummy-provider settings exist under PROBE_HOME",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota --effort max -p \"/effort\" --output-format json --no-session-persistence"
+      },
+      "expectedObservable": "exit=0; output-contains=disposition=applied",
+      "cleanup": "rm -rf -- \"$PROBE_ROOT\"",
+      "evidence": "pending implementation"
+    }
+  ]
+}
+```
+<!-- checkpoint-evidence:v1:end -->
