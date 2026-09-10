@@ -391,7 +391,7 @@ describe('scan-lane-declaration — declaration sources', () => {
 
     const projectionInputs = gatherInputs(
       ['--changed', `${activePath},${donePath}`, '--diff-file', projectionDiff],
-      { root },
+      { root, env: { ...process.env, HARNESS_PR_BODY_FILE: '' } },
     );
     expect(projectionInputs.declaration).toMatchObject({ lane: null, conflicts: [] });
 
@@ -401,6 +401,7 @@ describe('scan-lane-declaration — declaration sources', () => {
     );
     const ordinaryInputs = gatherInputs(['--changed', activePath, '--diff-file', projectionDiff], {
       root,
+      env: { ...process.env, HARNESS_PR_BODY_FILE: '' },
     });
     expect(ordinaryInputs.declaration).toMatchObject({ lane: 'L2', conflicts: [] });
   });
