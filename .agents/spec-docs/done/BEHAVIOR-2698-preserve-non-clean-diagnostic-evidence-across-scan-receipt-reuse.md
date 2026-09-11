@@ -127,12 +127,12 @@ receipt. Keep missing, old, malformed, and incompatible receipts on the current 
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | unit | `scripts/harness/__tests__/scan-receipt.test.mjs` | `retains a canonical finding…`, `retains an unavailable result…`, `refuses a report with duplicate diagnostic IDs…`, `refuses a report whose diagnostic scan is not…`, and `refuses a malformed, failed, or wrong-version receipt`. |
-| TC-02 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs` | `keeps clean covered scans skipped while retaining the tree-external rerun` counts covered versus tree-external detector calls. |
-| TC-03 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs` | `replays a cached finding and re-runs only that covered scan plus tree-external work` captures the stable ID, replay output, rerun count, and no partial overwrite. |
-| TC-04 | integration | `scripts/harness/__tests__/scan-receipt.test.mjs` and `run-all-scans.test.mjs` | `replays a cached unavailable result and re-runs only its covered scan plus tree-external work` covers unavailable replay/re-check; `keeps clean covered scans skipped…` covers sole clean no-op reuse. |
+| TC-ID | Test Type   | Tool / Approach                                                                | Notes                                                                                                                                                                                                                               |
+| ----- | ----------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | `scripts/harness/__tests__/scan-receipt.test.mjs`                              | `retains a canonical finding…`, `retains an unavailable result…`, `refuses a report with duplicate diagnostic IDs…`, `refuses a report whose diagnostic scan is not…`, and `refuses a malformed, failed, or wrong-version receipt`. |
+| TC-02 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs`                             | `keeps clean covered scans skipped while retaining the tree-external rerun` counts covered versus tree-external detector calls.                                                                                                     |
+| TC-03 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs`                             | `replays a cached finding and re-runs only that covered scan plus tree-external work` captures the stable ID, replay output, rerun count, and no partial overwrite.                                                                 |
+| TC-04 | integration | `scripts/harness/__tests__/scan-receipt.test.mjs` and `run-all-scans.test.mjs` | `replays a cached unavailable result and re-runs only its covered scan plus tree-external work` covers unavailable replay/re-check; `keeps clean covered scans skipped…` covers sole clean no-op reuse.                             |
 
 ## User Execution Test Scenarios
 
@@ -245,6 +245,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -283,6 +284,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
