@@ -23,6 +23,8 @@ import {
   scanFindingDiagnostic,
   scanUnavailableDiagnostic,
 } from './diagnostic-run-adapter.mjs';
+import { deliverHookDiagnosticReport } from './hook-diagnostic-adapter.mjs';
+import { collectHookDiagnosticInventoryResults } from './hook-diagnostic-producer.mjs';
 import {
   ADVISORY_MARKER,
   EXAMINED_MARKER,
@@ -1349,6 +1351,35 @@ export function advisoryScanNames(scans = SCAN_COMMANDS) {
 }
 
 /**
+ * Recompute and publish the hook migration inventory outside SCAN_COMMANDS.
+ *
+ * This producer is deliberately independent of a scan receipt: it runs for a
+ * full scan and a reused receipt, while only ordinary scan diagnostics remain
+ * eligible for receipt persistence.
+ */
+export async function publishHookDiagnosticInventory({
+  root = WORKSPACE_ROOT,
+  scanNames,
+  correlationId,
+  write = (line) => process.stdout.write(`${line}\n`),
+  produce = collectHookDiagnosticInventoryResults,
+  deliver = deliverHookDiagnosticReport,
+}) {
+  const results = produce({ root, scanNames, correlationId });
+  return deliver({
+    results,
+    correlationId,
+    publish: ({ json, text }) => {
+      write('Hook diagnostic migration report JSON:');
+      for (const line of json.trimEnd().split('\n')) write(line);
+      write('');
+      for (const line of text.trimEnd().split('\n')) write(line);
+      write('');
+    },
+  });
+}
+
+/**
  * A workspace glob as a RegExp over a repository-relative path. `**` spans directories, `*` and `?`
  * stay inside one segment, `{a,b}` alternates. Anchored: `package.json` is the ROOT manifest, not
  * every manifest — a scan that reads every one says `packages/**` beside it.
@@ -1970,6 +2001,11 @@ export async function main() {
   // silently never fires is indistinguishable from one that is not wired at all.
   const scanNames = scans.map((scan) => scan.name);
   const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
+  await publishHookDiagnosticInventory({
+    root: WORKSPACE_ROOT,
+    scanNames: SCAN_COMMANDS.map((scan) => scan.name),
+    correlationId: reuse.reuse ? 'hook-migration.reuse' : 'hook-migration.full',
+  });
   if (reuse.reuse) {
     // A receipt speaks for the scans a tree hash can speak for. The rest — the ones reading build
     // output — are RE-RUN, not skipped: they cost milliseconds, and a run that quietly stopped

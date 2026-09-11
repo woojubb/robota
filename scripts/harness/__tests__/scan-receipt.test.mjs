@@ -128,6 +128,32 @@ describe('non-clean diagnostic receipt reuse', () => {
       recheckCoveredScans: ['file-size'],
     });
   });
+
+  it('accepts correlation on a scan result but refuses a hook delivery as cacheable scan evidence', () => {
+    const correlatedScan = createDiagnosticReport([
+      {
+        ...findingReport().results[0],
+        correlationId: 'hook-migration.full',
+      },
+    ]);
+    expect(() =>
+      createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', correlatedScan),
+    ).not.toThrow();
+
+    const hookDelivery = createDiagnosticReport([
+      {
+        ...findingReport().results[0],
+        id: 'hook.diagnostic-migration-inventory',
+        detectorId: 'hook.diagnostic-migration-inventory',
+        correlationId: 'hook-migration.full',
+        subject: { kind: 'hook-diagnostic-migration', value: 'fixture' },
+        examined: [{ kind: 'hook-diagnostic-migration', value: 'fixture' }],
+      },
+    ]);
+    expect(() => createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', hookDelivery)).toThrow(
+      /invalid diagnostic report/,
+    );
+  });
 });
 
 describe('decideScanReuse — every refusing direction', () => {

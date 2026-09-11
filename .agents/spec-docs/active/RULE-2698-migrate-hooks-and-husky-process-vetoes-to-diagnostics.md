@@ -27,7 +27,7 @@ ordinary failing scan would recreate the local process veto that this initiative
 
 For example, a branch-naming, review-record, planning-order, or staged-file policy finding can end a
 local operation with a non-zero exit before `run-all-scans` has rendered a diagnostic report. The
-owner direction for #2698 rejects that workflow veto while also rejecting silence: every process path
+owner direction for GitHub Issue #2698 rejects that workflow veto while also rejecting silence: every process path
 must be explicitly classified and visible rather than merely changed from `exit 1` to `exit 0`.
 
 ## Prior Art Research
@@ -73,7 +73,7 @@ A04 receipt replay preserves the same non-clean evidence.
 - `scripts/harness/diagnostic-core.mjs`, `diagnostic-renderer.mjs`, receipt validation, and a new
   hook-diagnostic adapter — canonical result correlation, rendering, replay, and delivery boundary.
 - `scripts/harness/hook-registration-facts.mjs`, `scan-hook-registration.mjs`, a dedicated inventory
-  scan, and direct Vitest suites — one registration parser, classification, runner wiring, and coverage.
+  producer, and direct Vitest suites — one registration parser, classification, runner wiring, and coverage.
 - `.agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md` and its paired
   Agreement spec — child tracking for the B sequence.
 
@@ -86,7 +86,7 @@ A04 receipt replay preserves the same non-clean evidence.
 2. Retain every current veto but improve its terminal text.
    - Pro: preserves the current local safety net and implementation cost.
    - Con: keeps repository-process policy as a local workflow prescription, which conflicts with
-     #2698 and still leaves diagnostics outside the canonical receipt/report lifecycle.
+     GitHub Issue #2698 and still leaves diagnostics outside the canonical receipt/report lifecycle.
 3. Freeze and classify the population, add a shared diagnostic producer, then migrate in sequenced
    slices: process-only PreToolUse paths, then Husky paths, while retaining only explicitly justified
    irreversible integrity blocks (chosen).
@@ -193,28 +193,28 @@ None
   publisher port and serializable delivery outcome.
 - `scripts/harness/__tests__/hook-diagnostic-inventory.test.mjs` and
   `scripts/harness/__tests__/hook-diagnostic-adapter.test.mjs` — B1 regression fixtures.
-- `scripts/harness/diagnostic-core.mjs`, `diagnostic-renderer.mjs`, `scan-receipt.mjs`, and
-  `run-all-scans.mjs` — correlation schema, replay-safe rendering, and inventory-scan registration.
+- `scripts/harness/diagnostic-core.mjs`, `diagnostic-renderer.mjs`, and `run-all-scans.mjs` —
+  correlation schema, replay-safe rendering, and non-cacheable inventory-producer wiring.
 - `.agents/tasks/RULE-2698-migrate-hooks-and-husky-process-vetoes-to-diagnostics.md` and this spec —
   planning and evidence record.
 - Parent Agreement Task/spec — register the B1 child.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/hook-diagnostic-inventory.test.mjs` →
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/hook-diagnostic-inventory.test.mjs` →
       exits 0 and proves the versioned parent manifest contains all 161 scan registrations, every
       required-status context, and the hook/Husky population: eight PreToolUse registration identities
       over seven source files, every direct Husky veto path, and six tracked shims. An unknown, omitted,
       or collapsed duplicate registration makes the fixture fail.
-- [ ] TC-02: `pnpm exec vitest run scripts/harness/__tests__/hook-diagnostic-adapter.test.mjs` →
+- [x] TC-02: `pnpm exec vitest run scripts/harness/__tests__/hook-diagnostic-adapter.test.mjs` →
       exits 0 and proves a process-policy outcome has distinct stable ID and correlation ID, subject,
       evidence, recommendation, `HookDiagnosticDelivery`, and a canonical rendered report. Receipt
       schema validation accepts the distinct correlation field without treating hook delivery as a
       cacheable scan result.
-- [ ] TC-03: the adapter fixture's duplicate correlation and unwriteable publisher cases return a
+- [x] TC-03: the adapter fixture's duplicate correlation and unwriteable publisher cases return a
       non-clean diagnostic (`finding` or `diagnostic-publication-unavailable`) to the direct caller,
       without retrying the failed publisher or swallowing the outcome.
-- [ ] TC-04: `pnpm harness:scan` → exits 0 on the clean tree after B1; full-run and receipt-reuse runner
+- [x] TC-04: `pnpm harness:scan` → exits 0 on the clean tree after B1; full-run and receipt-reuse runner
       fixtures with an intentional manifest/live mismatch both exit 0 while their rendered canonical
       reports contain the freshly computed inventory finding or unavailable result. The producer is not
       persisted in the scan receipt, so it detects drift without becoming a repository-process veto.
@@ -223,7 +223,7 @@ None
 
 | TC-ID | Test Type | Tool / Approach                             | Notes                                             |
 | ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit | Vitest manifest/inventory fixtures plus temporary settings/Husky sources | Covers the full parent denominator, registration-versus-source identity, each veto path, shims, and unknown/omitted-source RED cases. |
+| TC-01 | Unit | Vitest manifest/inventory fixtures | Covers the full parent denominator, registration-versus-source identity, each veto path, shims, and unknown/omitted-source RED cases. |
 | TC-02 | Unit | Vitest core, receipt, and diagnostic-adapter fixtures | Asserts distinct stable/correlation IDs, rendered delivery, and non-cacheable hook outcomes. |
 | TC-03 | Unit | Vitest duplicate and publisher-failure fixtures | The returned delivery reports failure without a recursive publish attempt. |
 | TC-04 | Repository diagnostic suite | `pnpm harness:scan` plus full/reuse runner drift fixtures | The always-run producer reports freshly with exit zero and is excluded from receipt persistence. |

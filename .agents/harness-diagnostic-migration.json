@@ -1,0 +1,3343 @@
+{
+  "version": 1,
+  "scanRegistrations": [
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "lane-declaration"
+      },
+      "diagnosticId": "hook.migration.scan.lane-declaration",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "consistency"
+      },
+      "diagnosticId": "hook.migration.scan.consistency",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "memory-mirror"
+      },
+      "diagnosticId": "hook.migration.scan.memory-mirror",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-research"
+      },
+      "diagnosticId": "hook.migration.scan.spec-research",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "orchestration-map"
+      },
+      "diagnosticId": "hook.migration.scan.orchestration-map",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "deployment-matrix"
+      },
+      "diagnosticId": "hook.migration.scan.deployment-matrix",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "orchestration-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.orchestration-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "hook-catalog"
+      },
+      "diagnosticId": "hook.migration.scan.hook-catalog",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "hook-enforcement-reachable"
+      },
+      "diagnosticId": "hook.migration.scan.hook-enforcement-reachable",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "hook-registration"
+      },
+      "diagnosticId": "hook.migration.scan.hook-registration",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "review-findings"
+      },
+      "diagnosticId": "hook.migration.scan.review-findings",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "review-token-supply"
+      },
+      "diagnosticId": "hook.migration.scan.review-token-supply",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "claude-review-coverage"
+      },
+      "diagnosticId": "hook.migration.scan.claude-review-coverage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "workflow-permissions"
+      },
+      "diagnosticId": "hook.migration.scan.workflow-permissions",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "action-references"
+      },
+      "diagnosticId": "hook.migration.scan.action-references",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "named-mechanism-resolves"
+      },
+      "diagnosticId": "hook.migration.scan.named-mechanism-resolves",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "hook-syntax"
+      },
+      "diagnosticId": "hook.migration.scan.hook-syntax",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "skill-registration"
+      },
+      "diagnosticId": "hook.migration.scan.skill-registration",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "document-authority"
+      },
+      "diagnosticId": "hook.migration.scan.document-authority",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "commands"
+      },
+      "diagnosticId": "hook.migration.scan.commands",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "capability-placement"
+      },
+      "diagnosticId": "hook.migration.scan.capability-placement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-manifest-restatement"
+      },
+      "diagnosticId": "hook.migration.scan.spec-manifest-restatement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "nested-package-glob-coverage"
+      },
+      "diagnosticId": "hook.migration.scan.nested-package-glob-coverage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "background-workspace"
+      },
+      "diagnosticId": "hook.migration.scan.background-workspace",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "agent-server-boundary"
+      },
+      "diagnosticId": "hook.migration.scan.agent-server-boundary",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "sdk-public-surface"
+      },
+      "diagnosticId": "hook.migration.scan.sdk-public-surface",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "specs"
+      },
+      "diagnosticId": "hook.migration.scan.specs",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-paths"
+      },
+      "diagnosticId": "hook.migration.scan.spec-paths",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "arch-map-paths"
+      },
+      "diagnosticId": "hook.migration.scan.arch-map-paths",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "arch-map-completeness"
+      },
+      "diagnosticId": "hook.migration.scan.arch-map-completeness",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "document-standards"
+      },
+      "diagnosticId": "hook.migration.scan.document-standards",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "agent-def-convention"
+      },
+      "diagnosticId": "hook.migration.scan.agent-def-convention",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "fixture-floor"
+      },
+      "diagnosticId": "hook.migration.scan.fixture-floor",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "contract-disposition"
+      },
+      "diagnosticId": "hook.migration.scan.contract-disposition",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "design-doc"
+      },
+      "diagnosticId": "hook.migration.scan.design-doc",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-whitebox-leakage"
+      },
+      "diagnosticId": "hook.migration.scan.spec-whitebox-leakage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "adr"
+      },
+      "diagnosticId": "hook.migration.scan.adr",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-doc-frontmatter"
+      },
+      "diagnosticId": "hook.migration.scan.spec-doc-frontmatter",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-public-surface"
+      },
+      "diagnosticId": "hook.migration.scan.spec-public-surface",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "harness-config-paths"
+      },
+      "diagnosticId": "hook.migration.scan.harness-config-paths",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "workspace-refs"
+      },
+      "diagnosticId": "hook.migration.scan.workspace-refs",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "filter-script-resolves"
+      },
+      "diagnosticId": "hook.migration.scan.filter-script-resolves",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "ghost-package-refs"
+      },
+      "diagnosticId": "hook.migration.scan.ghost-package-refs",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "stub-markers"
+      },
+      "diagnosticId": "hook.migration.scan.stub-markers",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "conflict-markers"
+      },
+      "diagnosticId": "hook.migration.scan.conflict-markers",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "reference-kind-qualified"
+      },
+      "diagnosticId": "hook.migration.scan.reference-kind-qualified",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "task-path-citations"
+      },
+      "diagnosticId": "hook.migration.scan.task-path-citations",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "rule-table-shape"
+      },
+      "diagnosticId": "hook.migration.scan.rule-table-shape",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "temp-dir-owner"
+      },
+      "diagnosticId": "hook.migration.scan.temp-dir-owner",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "task-frontmatter-fields"
+      },
+      "diagnosticId": "hook.migration.scan.task-frontmatter-fields",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "hook-override-declarations"
+      },
+      "diagnosticId": "hook.migration.scan.hook-override-declarations",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "symlink-following-enumeration"
+      },
+      "diagnosticId": "hook.migration.scan.symlink-following-enumeration",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "tui-safe-text-boundary"
+      },
+      "diagnosticId": "hook.migration.scan.tui-safe-text-boundary",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "provider-env-resolution"
+      },
+      "diagnosticId": "hook.migration.scan.provider-env-resolution",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "work-item-id-collision"
+      },
+      "diagnosticId": "hook.migration.scan.work-item-id-collision",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "node-version-single-valued"
+      },
+      "diagnosticId": "hook.migration.scan.node-version-single-valued",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "spec-user-execution-section"
+      },
+      "diagnosticId": "hook.migration.scan.spec-user-execution-section",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "user-execution-plan-order"
+      },
+      "diagnosticId": "hook.migration.scan.user-execution-plan-order",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "standing-delegation-evidence"
+      },
+      "diagnosticId": "hook.migration.scan.standing-delegation-evidence",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "gate-verdict-attribution"
+      },
+      "diagnosticId": "hook.migration.scan.gate-verdict-attribution",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "github-label-registry"
+      },
+      "diagnosticId": "hook.migration.scan.github-label-registry",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "routing-document-size"
+      },
+      "diagnosticId": "hook.migration.scan.routing-document-size",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "shell-portability"
+      },
+      "diagnosticId": "hook.migration.scan.shell-portability",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "ci-base-history"
+      },
+      "diagnosticId": "hook.migration.scan.ci-base-history",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "automerge-disarm-permission"
+      },
+      "diagnosticId": "hook.migration.scan.automerge-disarm-permission",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "promotion-ancestry"
+      },
+      "diagnosticId": "hook.migration.scan.promotion-ancestry",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "main-required-checks"
+      },
+      "diagnosticId": "hook.migration.scan.main-required-checks",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "workflow-provenance"
+      },
+      "diagnosticId": "hook.migration.scan.workflow-provenance",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "pull-request-target-promotion-lag"
+      },
+      "diagnosticId": "hook.migration.scan.pull-request-target-promotion-lag",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "new-rule-declares-enforcement"
+      },
+      "diagnosticId": "hook.migration.scan.new-rule-declares-enforcement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "named-artifact-resolves"
+      },
+      "diagnosticId": "hook.migration.scan.named-artifact-resolves",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "required-check-local-reachability"
+      },
+      "diagnosticId": "hook.migration.scan.required-check-local-reachability",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "required-check-needs"
+      },
+      "diagnosticId": "hook.migration.scan.required-check-needs",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "test-selection-tolerance"
+      },
+      "diagnosticId": "hook.migration.scan.test-selection-tolerance",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "release-sweep-coverage"
+      },
+      "diagnosticId": "hook.migration.scan.release-sweep-coverage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "build-tooling-scope"
+      },
+      "diagnosticId": "hook.migration.scan.build-tooling-scope",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "no-fallback"
+      },
+      "diagnosticId": "hook.migration.scan.no-fallback",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "tool-classification"
+      },
+      "diagnosticId": "hook.migration.scan.tool-classification",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "loopback-bound-ownership"
+      },
+      "diagnosticId": "hook.migration.scan.loopback-bound-ownership",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "transport-admission"
+      },
+      "diagnosticId": "hook.migration.scan.transport-admission",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "transport-conformance"
+      },
+      "diagnosticId": "hook.migration.scan.transport-conformance",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "browser-package-node-subpath"
+      },
+      "diagnosticId": "hook.migration.scan.browser-package-node-subpath",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "authority-bypass"
+      },
+      "diagnosticId": "hook.migration.scan.authority-bypass",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "public-project-authority"
+      },
+      "diagnosticId": "hook.migration.scan.public-project-authority",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "run-advancement-owner"
+      },
+      "diagnosticId": "hook.migration.scan.run-advancement-owner",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "contract-cast-ratchet"
+      },
+      "diagnosticId": "hook.migration.scan.contract-cast-ratchet",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "aggregate-naming"
+      },
+      "diagnosticId": "hook.migration.scan.aggregate-naming",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "role-port-optionals"
+      },
+      "diagnosticId": "hook.migration.scan.role-port-optionals",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "barrel-parameter-types"
+      },
+      "diagnosticId": "hook.migration.scan.barrel-parameter-types",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "preset-projection"
+      },
+      "diagnosticId": "hook.migration.scan.preset-projection",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "literal-cast-union"
+      },
+      "diagnosticId": "hook.migration.scan.literal-cast-union",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "option-reachability"
+      },
+      "diagnosticId": "hook.migration.scan.option-reachability",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "publish-registry"
+      },
+      "diagnosticId": "hook.migration.scan.publish-registry",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "product-identity"
+      },
+      "diagnosticId": "hook.migration.scan.product-identity",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "harness-script-import-safety"
+      },
+      "diagnosticId": "hook.migration.scan.harness-script-import-safety",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "lint-ceiling-declared-vs-frozen"
+      },
+      "diagnosticId": "hook.migration.scan.lint-ceiling-declared-vs-frozen",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "ci-concurrency-footprint"
+      },
+      "diagnosticId": "hook.migration.scan.ci-concurrency-footprint",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "runner-wait"
+      },
+      "diagnosticId": "hook.migration.scan.runner-wait",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "rule-case-narrative"
+      },
+      "diagnosticId": "hook.migration.scan.rule-case-narrative",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "loop-contract"
+      },
+      "diagnosticId": "hook.migration.scan.loop-contract",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "rule-contradictions"
+      },
+      "diagnosticId": "hook.migration.scan.rule-contradictions",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "loop-run-records"
+      },
+      "diagnosticId": "hook.migration.scan.loop-run-records",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "architecture-refresh-signals"
+      },
+      "diagnosticId": "hook.migration.scan.architecture-refresh-signals",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "retired-agent-references"
+      },
+      "diagnosticId": "hook.migration.scan.retired-agent-references",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "loop-proof"
+      },
+      "diagnosticId": "hook.migration.scan.loop-proof",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "resolving-claims"
+      },
+      "diagnosticId": "hook.migration.scan.resolving-claims",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "remote-stream-route-spelling"
+      },
+      "diagnosticId": "hook.migration.scan.remote-stream-route-spelling",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "mistake-mechanisms"
+      },
+      "diagnosticId": "hook.migration.scan.mistake-mechanisms",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "harness-scope-literal"
+      },
+      "diagnosticId": "hook.migration.scan.harness-scope-literal",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "release-verification-gate"
+      },
+      "diagnosticId": "hook.migration.scan.release-verification-gate",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "legacy-typescript"
+      },
+      "diagnosticId": "hook.migration.scan.legacy-typescript",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "no-fake-in-src"
+      },
+      "diagnosticId": "hook.migration.scan.no-fake-in-src",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "measurement-provenance"
+      },
+      "diagnosticId": "hook.migration.scan.measurement-provenance",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "helper-limits"
+      },
+      "diagnosticId": "hook.migration.scan.helper-limits",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "tautological-assertions"
+      },
+      "diagnosticId": "hook.migration.scan.tautological-assertions",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "guard-scope-fail-closed"
+      },
+      "diagnosticId": "hook.migration.scan.guard-scope-fail-closed",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "api-pagination"
+      },
+      "diagnosticId": "hook.migration.scan.api-pagination",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "live-smoke-provider-coverage"
+      },
+      "diagnosticId": "hook.migration.scan.live-smoke-provider-coverage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "composition-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.composition-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "session-artifact-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.session-artifact-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "agent-tools-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.agent-tools-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "memory-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.memory-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "evals-neutrality"
+      },
+      "diagnosticId": "hook.migration.scan.evals-neutrality",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "prompt-prose"
+      },
+      "diagnosticId": "hook.migration.scan.prompt-prose",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "capability-reachability"
+      },
+      "diagnosticId": "hook.migration.scan.capability-reachability",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "progress-report-quantification"
+      },
+      "diagnosticId": "hook.migration.scan.progress-report-quantification",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "deprecated-markers"
+      },
+      "diagnosticId": "hook.migration.scan.deprecated-markers",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "done-evidence"
+      },
+      "diagnosticId": "hook.migration.scan.done-evidence",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "unearned-done-claims"
+      },
+      "diagnosticId": "hook.migration.scan.unearned-done-claims",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "task-merged-citation"
+      },
+      "diagnosticId": "hook.migration.scan.task-merged-citation",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "item-terminal-state"
+      },
+      "diagnosticId": "hook.migration.scan.item-terminal-state",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "gate-evaluator-isolation"
+      },
+      "diagnosticId": "hook.migration.scan.gate-evaluator-isolation",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "gate-entrypoint-stability"
+      },
+      "diagnosticId": "hook.migration.scan.gate-entrypoint-stability",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "gate-closure-disposition"
+      },
+      "diagnosticId": "hook.migration.scan.gate-closure-disposition",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "task-plan-items"
+      },
+      "diagnosticId": "hook.migration.scan.task-plan-items",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "task-archival"
+      },
+      "diagnosticId": "hook.migration.scan.task-archival",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "test-module-mocks"
+      },
+      "diagnosticId": "hook.migration.scan.test-module-mocks",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "backlog-placement"
+      },
+      "diagnosticId": "hook.migration.scan.backlog-placement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "doc-examples"
+      },
+      "diagnosticId": "hook.migration.scan.doc-examples",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "llms-txt"
+      },
+      "diagnosticId": "hook.migration.scan.llms-txt",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "temp-script-placement"
+      },
+      "diagnosticId": "hook.migration.scan.temp-script-placement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "orphan-exports"
+      },
+      "diagnosticId": "hook.migration.scan.orphan-exports",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "deps"
+      },
+      "diagnosticId": "hook.migration.scan.deps",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "dep-kind"
+      },
+      "diagnosticId": "hook.migration.scan.dep-kind",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "interface-imports"
+      },
+      "diagnosticId": "hook.migration.scan.interface-imports",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "workspace-import-integrity"
+      },
+      "diagnosticId": "hook.migration.scan.workspace-import-integrity",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "interface-runtime"
+      },
+      "diagnosticId": "hook.migration.scan.interface-runtime",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "interface-family-owner"
+      },
+      "diagnosticId": "hook.migration.scan.interface-family-owner",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "rule-statement-floor"
+      },
+      "diagnosticId": "hook.migration.scan.rule-statement-floor",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "subagent-runner-composition"
+      },
+      "diagnosticId": "hook.migration.scan.subagent-runner-composition",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "publish"
+      },
+      "diagnosticId": "hook.migration.scan.publish",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "release-governance"
+      },
+      "diagnosticId": "hook.migration.scan.release-governance",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "test-plans"
+      },
+      "diagnosticId": "hook.migration.scan.test-plans",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "functional-coverage"
+      },
+      "diagnosticId": "hook.migration.scan.functional-coverage",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "coverage-scripts"
+      },
+      "diagnosticId": "hook.migration.scan.coverage-scripts",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "build-contracts"
+      },
+      "diagnosticId": "hook.migration.scan.build-contracts",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "dist"
+      },
+      "diagnosticId": "hook.migration.scan.dist",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "doc-folder-status"
+      },
+      "diagnosticId": "hook.migration.scan.doc-folder-status",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "vitest-resource-ceiling"
+      },
+      "diagnosticId": "hook.migration.scan.vitest-resource-ceiling",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "docs-structure"
+      },
+      "diagnosticId": "hook.migration.scan.docs-structure",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
+        "value": "ssot-five-axis"
+      },
+      "diagnosticId": "hook.migration.scan.ssot-five-axis",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    }
+  ],
+  "preToolRegistrations": [
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "branch-guard.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-1",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "branch-guard.sh",
+        "occurrence": 1,
+        "sourceId": "branch-guard.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "pre-push-check.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-2",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "pre-push-check.sh",
+        "occurrence": 1,
+        "sourceId": "pre-push-check.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "worktree-cwd-guard.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-3",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "worktree-cwd-guard.sh",
+        "occurrence": 1,
+        "sourceId": "worktree-cwd-guard.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "merge-gate.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-4",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "merge-gate.sh",
+        "occurrence": 1,
+        "sourceId": "merge-gate.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "no-foreground-wait.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-5",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "no-foreground-wait.sh",
+        "occurrence": 1,
+        "sourceId": "no-foreground-wait.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "bulk-edit-guard.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-6",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "commandPath": "bulk-edit-guard.sh",
+        "occurrence": 1,
+        "sourceId": "bulk-edit-guard.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "check-forbidden-patterns.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-7",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Edit|Write|MultiEdit",
+        "commandPath": "check-forbidden-patterns.sh",
+        "occurrence": 1,
+        "sourceId": "check-forbidden-patterns.sh"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "hook-registration",
+        "value": "bulk-edit-guard.sh"
+      },
+      "diagnosticId": "hook.migration.pre-tool-8",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current PreTool registration is inventoried by source identity; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B2"
+      },
+      "registration": {
+        "event": "PreToolUse",
+        "matcher": "Edit|Write|MultiEdit",
+        "commandPath": "bulk-edit-guard.sh",
+        "occurrence": 1,
+        "sourceId": "bulk-edit-guard.sh"
+      }
+    }
+  ],
+  "huskyVetoPaths": [
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "commit-msg:commitlint-edit"
+      },
+      "diagnosticId": "hook.migration.husky-1",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "commit-msg",
+        "pathId": "commitlint-edit",
+        "predicate": "commitlint-edit"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "pre-commit:protected-branch"
+      },
+      "diagnosticId": "hook.migration.husky-2",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "pre-commit",
+        "pathId": "protected-branch",
+        "predicate": "protected-branch-direct-commit"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "pre-commit:lessons"
+      },
+      "diagnosticId": "hook.migration.husky-3",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "pre-commit",
+        "pathId": "lessons",
+        "predicate": "staged-generated-lessons"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "pre-commit:planning-order"
+      },
+      "diagnosticId": "hook.migration.husky-4",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "pre-commit",
+        "pathId": "planning-order",
+        "predicate": "user-execution-plan-order"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "pre-commit:lint-staged"
+      },
+      "diagnosticId": "hook.migration.husky-5",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "pre-commit",
+        "pathId": "lint-staged",
+        "predicate": "lint-staged-success"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "pre-push:pre-push"
+      },
+      "diagnosticId": "hook.migration.husky-6",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "pre-push",
+        "pathId": "pre-push",
+        "predicate": "harness-pre-push"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/post-checkout:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-7",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/post-checkout",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/post-checkout.fallback:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-8",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/post-checkout.fallback",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/pre-push:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-9",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/pre-push",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/pre-push.fallback:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-10",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/pre-push.fallback",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/prepare-commit-msg:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-11",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/prepare-commit-msg",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "husky-veto-path",
+        "value": "_/prepare-commit-msg.fallback:target-executable"
+      },
+      "diagnosticId": "hook.migration.husky-12",
+      "currentExitBehavior": "process-veto",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current Husky veto path is inventoried; B1 leaves its hook behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B3"
+      },
+      "vetoPath": {
+        "entrypoint": "_/prepare-commit-msg.fallback",
+        "pathId": "target-executable",
+        "predicate": "tracked-target-executable"
+      }
+    }
+  ],
+  "requiredStatusContexts": [
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:build"
+      },
+      "diagnosticId": "hook.migration.status-develop-build",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "build"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:quality"
+      },
+      "diagnosticId": "hook.migration.status-develop-quality",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "quality"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:scans"
+      },
+      "diagnosticId": "hook.migration.status-develop-scans",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "scans"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:dependency audit"
+      },
+      "diagnosticId": "hook.migration.status-develop-dependency-audit",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "dependency audit"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:commitlint"
+      },
+      "diagnosticId": "hook.migration.status-develop-commitlint",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "commitlint"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:tui-e2e"
+      },
+      "diagnosticId": "hook.migration.status-develop-tui-e2e",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "tui-e2e"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:examples-typecheck"
+      },
+      "diagnosticId": "hook.migration.status-develop-examples-typecheck",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "examples-typecheck"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:windows-shell"
+      },
+      "diagnosticId": "hook.migration.status-develop-windows-shell",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "windows-shell"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:review-gate"
+      },
+      "diagnosticId": "hook.migration.status-develop-review-gate",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "review-gate"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:workflow provenance"
+      },
+      "diagnosticId": "hook.migration.status-develop-workflow-provenance",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "workflow provenance"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "develop:regression-red-proof (enforcing: accidental-green only)"
+      },
+      "diagnosticId": "hook.migration.status-develop-regression-red-proof-enforcing-accidental-green-only",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "regression-red-proof (enforcing: accidental-green only)"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "main:promotion ancestry"
+      },
+      "diagnosticId": "hook.migration.status-main-promotion-ancestry",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "main",
+        "context": "promotion ancestry"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "main:main PR source guard"
+      },
+      "diagnosticId": "hook.migration.status-main-main-pr-source-guard",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "main",
+        "context": "main PR source guard"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "main:promotion closes"
+      },
+      "diagnosticId": "hook.migration.status-main-promotion-closes",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "main",
+        "context": "promotion closes"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "main:release-grade verification"
+      },
+      "diagnosticId": "hook.migration.status-main-release-grade-verification",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "main",
+        "context": "release-grade verification"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
+        "value": "main:workflow provenance"
+      },
+      "diagnosticId": "hook.migration.status-main-workflow-provenance",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "main",
+        "context": "workflow provenance"
+      }
+    }
+  ]
+}

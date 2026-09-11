@@ -11,6 +11,7 @@ function formatResult(result) {
     `${result.state === 'clean' ? 'CLEAN' : result.severity.toUpperCase()} ${result.id} ` +
       `[${result.state}] ${formatSubject(result.subject)}`,
   ];
+  if (result.correlationId !== undefined) lines.push(`  correlation: ${result.correlationId}`);
   if (result.state === 'clean') {
     lines.push(`  summary: ${result.summary}`);
     return lines;

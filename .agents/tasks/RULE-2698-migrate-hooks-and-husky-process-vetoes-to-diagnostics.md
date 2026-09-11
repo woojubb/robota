@@ -20,16 +20,16 @@ operation is blocked, reported in CI, or retired.
 
 ## Plan
 
-- [ ] B1 / TC-01 — Create the parent-owned versioned manifest for all 161 scan registrations, every
+- [x] B1 / TC-01 — Create the parent-owned versioned manifest for all 161 scan registrations, every
       required-status context, eight registration identities over seven PreToolUse source files, each
       direct Husky veto path, and six tracked shims. A registration and reusable source remain distinct.
-- [ ] B1 / TC-02 — Extract one reusable registration-facts reader for the current reachability scan and
+- [x] B1 / TC-02 — Extract one reusable registration-facts reader for the current reachability scan and
       inventory validator, then wire live-manifest drift as an always-run, non-vetoing diagnostic
       producer in full and receipt-reuse `pnpm harness:scan` paths, outside the persisted receipt.
-- [ ] B1 / TC-03 — Extend the A01 result/renderer/receipt contract for a distinct correlation ID and
+- [x] B1 / TC-03 — Extend the A01 result/renderer/receipt contract for a distinct correlation ID and
       add a publisher-port adapter that returns a serializable delivery result, including explicit
       publication-unavailable evidence.
-- [ ] B1 / TC-04 — Prove missing/collapsed identities, retained-block rationale gaps, duplicate events,
+- [x] B1 / TC-04 — Prove missing/collapsed identities, retained-block rationale gaps, duplicate events,
       and publisher failures cannot become clean; keep every existing hook's operational disposition
       unchanged while recording the B2/B3 migration sequence.
 
