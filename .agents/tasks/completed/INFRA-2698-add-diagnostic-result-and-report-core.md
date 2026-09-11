@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-2698: Add the diagnostic result and report core'
-issue: https://github.com/woojubb/robota/issues/2698
+issue: https://github.com/woojubb/robota/issues/2699
 status: done
 created: 2026-09-11
 completed: 2026-09-11
