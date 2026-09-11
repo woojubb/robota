@@ -325,6 +325,47 @@ describe('run-all-scans', () => {
     expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
   });
 
+  it('replays a cached unavailable result and re-runs only its covered scan plus tree-external work', async () => {
+    const lines = [];
+    const calls = [];
+    const cachedReport = createDiagnosticReport([
+      diagnosticResult({
+        id: 'harness.fixture.cached-unavailable',
+        state: 'unavailable',
+        subject: { kind: 'scan', value: 'covered' },
+        examined: [{ kind: 'scan', value: 'covered' }],
+        unavailable: {
+          code: 'fixture-unavailable',
+          detail: 'the cached detector dependency was unavailable',
+        },
+      }),
+    ]);
+    const scans = [stubScan('covered', 0), stubScan('clean-covered', 0), stubScan('dist', 0)];
+
+    const replay = await runReusedScanReceipt({
+      scans,
+      reuse: {
+        reuse: true,
+        diagnosticReport: cachedReport,
+        recheckCoveredScans: ['covered'],
+      },
+      write: (line) => lines.push(line),
+      runScansImpl: async (selected, _write, _concurrency, options) => {
+        calls.push({ names: selected.map((scan) => scan.name), options });
+        return 0;
+      },
+    });
+
+    expect(lines.join('\n')).toContain('harness.fixture.cached-unavailable');
+    expect(calls).toEqual([
+      {
+        names: ['covered', 'dist'],
+        options: expect.objectContaining({ checkAdoption: false, diagnosticResults: [] }),
+      },
+    ]);
+    expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
+  });
+
   it('keeps clean covered scans skipped while retaining the tree-external rerun', async () => {
     const calls = [];
     const replay = await runReusedScanReceipt({

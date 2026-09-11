@@ -172,6 +172,30 @@ describe('decideScanReuse — every refusing direction', () => {
     expect(decide({ receipt: 'not an object' }).reuse).toBe(false);
   });
 
+  it('refuses a report with duplicate diagnostic IDs rather than reusing it as clean', () => {
+    const diagnosticReport = structuredClone(findingReport());
+    diagnosticReport.results.push(structuredClone(diagnosticReport.results[0]));
+    diagnosticReport.totals = { ...diagnosticReport.totals, finding: 2, nonClean: 2 };
+    const receipt = {
+      ...createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', findingReport()),
+      diagnosticReport,
+    };
+
+    expect(decide({ receipt }).reuse).toBe(false);
+  });
+
+  it('refuses a report whose diagnostic scan is not in the covered receipt identity', () => {
+    const diagnosticReport = structuredClone(findingReport());
+    diagnosticReport.results[0].subject.value = 'uncovered-scan';
+    diagnosticReport.results[0].examined[0].value = 'uncovered-scan';
+    const receipt = {
+      ...createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', findingReport()),
+      diagnosticReport,
+    };
+
+    expect(decide({ receipt }).reuse).toBe(false);
+  });
+
   it('refuses a receipt whose identity is missing a field rather than treating absence as equal', () => {
     const receipt = receiptFor(IDENTITY);
     delete receipt.identity.headTree;
