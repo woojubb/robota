@@ -1561,8 +1561,8 @@ export async function runScans(
   // pass instead of judging it.
   // `context` and `advisoryNames` (PROC-016): under `pr`, a failing scan whose name is in
   // `advisoryNames` is TOLERATED — printed in full, surfaced on the advisory channel, and left out of
-  // the verdict. `onOutcome` receives `{ tolerated }` so the caller can refuse to write a receipt
-  // for a pass that leaned on tolerance.
+  // the verdict. `onOutcome` receives `{ tolerated, diagnosticReport }` so the caller can refuse to
+  // write a receipt for a pass that leaned on tolerance and can persist a complete-run report.
   {
     checkAdoption = false,
     writeAdoption = false,
