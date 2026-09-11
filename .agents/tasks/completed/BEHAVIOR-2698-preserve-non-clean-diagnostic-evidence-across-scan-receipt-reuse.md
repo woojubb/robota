@@ -1,7 +1,8 @@
 ---
 title: 'BEHAVIOR-2698: Preserve non-clean diagnostic evidence across scan receipt reuse'
 issue: https://github.com/woojubb/robota/issues/2698
-status: in-progress
+status: done
+completed: 2026-09-11
 created: 2026-09-11
 priority: medium
 urgency: soon
@@ -12,6 +13,8 @@ depends_on: []
 
 # BEHAVIOR-2698: Preserve non-clean diagnostic evidence across scan receipt reuse
 
+Spec: `.agents/spec-docs/done/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`
+
 ## Objective
 
 Ensure an unchanged-tree scan receipt never turns a known finding or unavailable detector into a
@@ -21,13 +24,13 @@ wholly clean covered result.
 
 ## Plan
 
-- [ ] TC-01 — Define and validate a versioned receipt payload that represents either a wholly clean
+- [x] TC-01 — Define and validate a versioned receipt payload that represents either a wholly clean
       covered result or an immutable, canonical non-clean diagnostic report.
-- [ ] TC-02 — Make missing, malformed, incompatible, duplicate, or unmappable diagnostic receipt
+- [x] TC-02 — Make missing, malformed, incompatible, duplicate, or unmappable diagnostic receipt
       data a cache miss rather than a clean result.
-- [ ] TC-03 — Re-render a cached finding or unavailable result and re-run its named covered detector
+- [x] TC-03 — Re-render a cached finding or unavailable result and re-run its named covered detector
       on an unchanged-tree hit; do not write a new full receipt from that partial re-check.
-- [ ] TC-04 — Preserve the existing no-detector reuse path only for an unchanged wholly clean covered
+- [x] TC-04 — Preserve the existing no-detector reuse path only for an unchanged wholly clean covered
       receipt, and prove both paths with focused two-run fixtures.
 
 ## Test Plan

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [cli]
 lane: L2
@@ -120,23 +120,31 @@ receipt. Keep missing, old, malformed, and incompatible receipts on the current 
 
 ## Completion Criteria
 
-- [ ] TC-01: A valid v2 clean receipt and a valid v2 non-clean diagnostic report pass receipt validation; a v1, malformed, incompatible, duplicate, or unmappable report is a cache miss and is never reported as reused.
-- [ ] TC-02: A matching wholly clean receipt runs no covered detector and visibly reports normal receipt reuse; tree-external scans retain their existing always-run behavior.
-- [ ] TC-03: A two-run fixture with a cached `finding` renders the original stable diagnostic ID on its unchanged-tree hit, re-runs the named covered detector, and does not write a replacement full receipt from that partial re-check.
-- [ ] TC-04: A two-run fixture with a cached `unavailable` result has the same replay/re-run behavior, while a full observed clean run writes the only reusable clean receipt.
+- [x] TC-01: A valid v2 clean receipt and a valid v2 non-clean diagnostic report pass receipt validation; a v1, malformed, incompatible, duplicate, or unmappable report is a cache miss and is never reported as reused.
+- [x] TC-02: A matching wholly clean receipt runs no covered detector and visibly reports normal receipt reuse; tree-external scans retain their existing always-run behavior.
+- [x] TC-03: A two-run fixture with a cached `finding` renders the original stable diagnostic ID on its unchanged-tree hit, re-runs the named covered detector, and does not write a replacement full receipt from that partial re-check.
+- [x] TC-04: A two-run fixture with a cached `unavailable` result has the same replay/re-run behavior, while a full observed clean run writes the only reusable clean receipt.
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach | Notes |
 | ----- | --------- | --------------- | ----- |
-| TC-01 | unit | `scripts/harness/__tests__/scan-receipt.test.mjs` | Table-driven valid and invalid schema/report cases. |
-| TC-02 | integration | receipt-aware runner fixture in `run-all-scans.test.mjs` | Counts covered versus tree-external detector calls. |
-| TC-03 | integration | two-run seeded-finding fixture | Captures the prior stable ID, replay output, rerun count, and no partial overwrite. |
-| TC-04 | integration | two-run seeded-unavailable and clean fixtures | Covers unavailable replay and sole clean no-op reuse. |
+| TC-01 | unit | `scripts/harness/__tests__/scan-receipt.test.mjs` | `retains a canonical finding…`, `retains an unavailable result…`, and `refuses a malformed, failed, or wrong-version receipt`. |
+| TC-02 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs` | `keeps clean covered scans skipped while retaining the tree-external rerun` counts covered versus tree-external detector calls. |
+| TC-03 | integration | `scripts/harness/__tests__/run-all-scans.test.mjs` | `replays a cached finding and re-runs only that covered scan plus tree-external work` captures the stable ID, replay output, rerun count, and no partial overwrite. |
+| TC-04 | integration | `scripts/harness/__tests__/scan-receipt.test.mjs` and `run-all-scans.test.mjs` | `retains an unavailable result…` covers selective unavailable re-check; `keeps clean covered scans skipped…` covers sole clean no-op reuse. |
+
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Reason:** This work changes only private repository harness receipt persistence and diagnostic report
+rendering. It adds no Robota product command, TUI, browser, SDK, or installed-package behavior a user
+can invoke.
 
 ## Tasks
 
-- [ ] `.agents/tasks/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` — paired Task
+- [x] `.agents/tasks/completed/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` — paired archived Task
 
 ## Evidence Log
 
@@ -279,3 +287,122 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `aa91baef2564` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/todo/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `e0a77700d5a4` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — all items in the paired Task `## Plan` are complete: PASS — TC-01 through TC-04 are each marked `[x]`.
+- GATE-VERIFY — no Plan item is blocked or pending: PASS — the paired Task `## Plan` contains no unchecked, blocked, or pending item.
+- GATE-VERIFY — build verification: PASS — `pnpm build` exited 0 (`✓ All build:types complete`; the desktop Electron app is not required outside full verification).
+- GATE-VERIFY — test verification: PASS — `pnpm test` exited 0.
+
+**Judged by:** independent GATE-VERIFY guardian
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · paired Task and spec modified in the current worktree
+
+GATE VERDICT: PASS
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-receipt.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/run-all-scans.test.mjs (56 tests) 42ms
+ ✓ scripts/harness/__tests__/scan-receipt.test.mjs (19 tests) 159ms
+
+ Test Files  2 passed (2)
+      Tests  75 passed (75)
+   Start at  23:21:02
+   Duration  360ms (transform 79ms, setup 0ms, collect 151ms, tests 201ms, environment 0ms, prepare 61ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/active/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `bc9915cec4e0` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-receipt.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/run-all-scans.test.mjs (56 tests) 42ms
+ ✓ scripts/harness/__tests__/scan-receipt.test.mjs (19 tests) 159ms
+
+ Test Files  2 passed (2)
+      Tests  75 passed (75)
+   Start at  23:21:02
+   Duration  360ms (transform 79ms, setup 0ms, collect 151ms, tests 201ms, environment 0ms, prepare 61ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/active/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `3275b034b6d2` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-receipt.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/run-all-scans.test.mjs (56 tests) 42ms
+ ✓ scripts/harness/__tests__/scan-receipt.test.mjs (19 tests) 159ms
+
+ Test Files  2 passed (2)
+      Tests  75 passed (75)
+   Start at  23:21:02
+   Duration  360ms (transform 79ms, setup 0ms, collect 151ms, tests 201ms, environment 0ms, prepare 61ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/active/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `198ab00a87c7` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-receipt.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ scripts/harness/__tests__/run-all-scans.test.mjs (56 tests) 42ms
+ ✓ scripts/harness/__tests__/scan-receipt.test.mjs (19 tests) 159ms
+
+ Test Files  2 passed (2)
+      Tests  75 passed (75)
+   Start at  23:21:02
+   Duration  360ms (transform 79ms, setup 0ms, collect 151ms, tests 201ms, environment 0ms, prepare 61ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/active/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `43f112295f91` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-11; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `141a84f1d1f2` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/active/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md` blob `dfecf2e222b6` (modified)

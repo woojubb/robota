@@ -36,7 +36,7 @@ checks remain outside this policy migration.
 ## Children
 
 - [x] INFRA-2698 — done — `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md`
-- [ ] BEHAVIOR-2698 — todo — `.agents/tasks/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`
+- [x] BEHAVIOR-2698 — done — `.agents/tasks/completed/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`
 
 ## Test Plan
 
