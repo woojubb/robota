@@ -23,10 +23,16 @@
  * in-repo test can observe — the failure class CORE-042 existed to end.
  */
 
+import { parseModelEffortOutcome } from './model-effort-outcome.js';
 import { toWireChatOptions } from './wire-chat-options.js';
 
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
-import type { IChatOptions, IToolSchema } from '@robota-sdk/agent-core';
+import type {
+  IChatOptions,
+  IModelEffortOutcome,
+  IToolSchema,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 import type { ILogger } from '@robota-sdk/agent-core';
 
 /** The path this client posts to. Exported so a contract test can compare it to the server's. */
@@ -97,7 +103,7 @@ export async function executeChatStreamRequest(
   options?: IChatOptions,
 ): Promise<IResponseMessage> {
   const wireOptions = toWireChatOptions(options);
-  const requestData: Record<string, unknown> = {
+  const requestData = {
     messages,
     provider,
     model,
@@ -132,6 +138,7 @@ export async function executeChatStreamRequest(
   }
 
   let terminal: IResponseMessage | undefined;
+  let modelEffortOutcome: IModelEffortOutcome | undefined;
   for await (const frame of readSseFrames(response.body.getReader())) {
     if (frame.event === 'delta') {
       onDelta((JSON.parse(frame.data) as { text: string }).text);
@@ -139,6 +146,17 @@ export async function executeChatStreamRequest(
     }
     if (frame.event === 'message') {
       terminal = JSON.parse(frame.data) as IResponseMessage;
+      continue;
+    }
+    if (frame.event === 'model-effort-outcome') {
+      if (modelEffortOutcome !== undefined) {
+        throw new Error('Remote streaming chat returned more than one model-effort outcome frame');
+      }
+      const parsedOutcome = parseModelEffortOutcome(JSON.parse(frame.data) as TUniversalValue);
+      if (parsedOutcome === undefined) {
+        throw new Error('Remote streaming chat returned an invalid model-effort outcome frame');
+      }
+      modelEffortOutcome = parsedOutcome;
       continue;
     }
     if (frame.event === 'error') {
@@ -151,5 +169,8 @@ export async function executeChatStreamRequest(
       'Remote streaming chat ended without a terminal message — the turn did not complete',
     );
   }
-  return terminal;
+  return {
+    ...terminal,
+    ...(modelEffortOutcome !== undefined && { modelEffortOutcome }),
+  };
 }

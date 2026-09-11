@@ -1,16 +1,22 @@
 import { randomUUID } from 'node:crypto';
 
 import { GoogleGenAI } from '@google/genai';
-import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, createModelEffortOutcome } from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
 import { executeDirect, executeDirectStream } from './execution-helpers';
 import { mapImageInputSourceToPart } from './image-operations';
 import { runImageRequest } from './image-request';
+import {
+  GEMINI_MODEL_EFFORT_TABLE,
+  resolveGeminiEffortOptions,
+  withGeminiTextDeltaCallback,
+} from './model-effort';
 
 import type { IGeminiProviderOptions } from './types';
 import type {
   IProviderCapabilityTable,
+  IProviderModelEffortTable,
   TUniversalMessage,
   IChatOptions,
   TTextDeltaCallback,
@@ -64,10 +70,15 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = resolveGeminiEffortOptions(options, this.options.defaultModel);
 
     if (this.executor) {
       try {
-        return await this.executeViaExecutorOrDirect(messages, options);
+        const result = await this.executeViaExecutorOrDirect(messages, resolvedOptions);
+        if (result.modelEffortOutcome === undefined) {
+          this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+        }
+        return result.message;
       } catch (error) {
         this.logger.error(
           'Gemini Provider executor chat error:',
@@ -82,13 +93,15 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     try {
-      return await executeDirect(
+      const response = await executeDirect(
         this.client,
         this.options,
         messages,
-        this.withProviderCallbacks(options),
+        withGeminiTextDeltaCallback(resolvedOptions, this.onTextDelta),
         this.name,
       );
+      this.publishModelEffortOutcome(resolvedOptions);
+      return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google chat failed: ${errorMessage}`);
@@ -102,9 +115,23 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = resolveGeminiEffortOptions(options, this.options.defaultModel);
     if (this.executor) {
       try {
-        yield* this.executeStreamViaExecutorOrDirect(messages, options);
+        let executorOutcomeSeen = false;
+        for await (const event of this.executeStreamViaExecutorOrDirect(
+          messages,
+          resolvedOptions,
+        )) {
+          if (event.kind === 'message') {
+            yield event.message;
+          } else {
+            executorOutcomeSeen = event.modelEffortOutcome !== undefined;
+          }
+        }
+        if (!executorOutcomeSeen) {
+          this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+        }
         return;
       } catch (error) {
         this.logger.error(
@@ -124,9 +151,10 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         this.client,
         this.options,
         messages,
-        this.withProviderCallbacks(options),
+        withGeminiTextDeltaCallback(resolvedOptions, this.onTextDelta),
         this.name,
       );
+      this.publishModelEffortOutcome(resolvedOptions);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google stream failed: ${errorMessage}`);
@@ -264,6 +292,10 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     return GEMINI_CAPABILITY_TABLE;
   }
 
+  override effortTable(): IProviderModelEffortTable {
+    return GEMINI_MODEL_EFFORT_TABLE;
+  }
+
   override supportsTools(): boolean {
     return true;
   }
@@ -279,14 +311,36 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     // Google client does not need explicit cleanup
   }
 
-  private withProviderCallbacks(options?: IChatOptions): IChatOptions | undefined {
-    const onTextDelta = options?.onTextDelta ?? this.onTextDelta;
-    if (!onTextDelta) {
-      return options;
+  private publishModelEffortOutcome(
+    options: IChatOptions | undefined,
+    opaqueReason?: string,
+  ): void {
+    const resolution = options?.effortResolution;
+    const observer = options?.onModelEffortOutcome;
+    if (resolution === undefined || observer === undefined) return;
+
+    const nativeControl =
+      opaqueReason !== undefined
+        ? { state: 'omitted' as const, reason: opaqueReason }
+        : resolution.effective !== null && resolution.disposition !== 'model-default'
+          ? { state: 'sent' as const, id: 'thinkingConfig.thinkingLevel' }
+          : {
+              state: 'omitted' as const,
+              reason:
+                resolution.disposition === 'model-default'
+                  ? 'provider-default-selection'
+                  : 'model-effort-not-applied',
+            };
+    const providerDispatch =
+      opaqueReason !== undefined
+        ? { state: 'not-dispatched' as const, reason: opaqueReason }
+        : { state: 'sent' as const };
+    try {
+      observer(createModelEffortOutcome(resolution, { nativeControl, providerDispatch }));
+    } catch (error) {
+      this.logger.warn('Model-effort outcome observer failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-    return {
-      ...options,
-      onTextDelta,
-    };
   }
 }

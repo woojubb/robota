@@ -18,7 +18,7 @@ import type {
   TSessionEndReason,
   TPermissionMode,
   TBackgroundPermissionPolicy,
-  TModelEffort,
+  TModelEffortSelection,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
@@ -165,10 +165,10 @@ export interface ISessionOptions {
    */
   responseFormat?: IResponseFormatConfig;
   /**
-   * Reasoning-effort dial threaded to the Robota agent config and on to the provider
-   * request builder. When unset, the framework→provider seam defaults it to `'high'`.
+   * Reasoning-effort selection threaded to the Robota agent config and provider boundary.
+   * When unset, Core preserves provider-default selection as `auto`.
    */
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
   /**
    * ARCH-040: sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
    *

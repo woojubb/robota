@@ -1,3 +1,4 @@
+import { isModelEffort, MODEL_EFFORT_VALUES, type TModelEffort } from '@robota-sdk/agent-core';
 import { isMap, isScalar, isSeq } from 'yaml';
 
 import { diagnosticAtNode, scalarString } from './frontmatter-document.js';
@@ -8,7 +9,6 @@ import type {
   TValueResult,
   TYamlNode,
 } from './frontmatter-types.js';
-import type { TModelEffort } from '@robota-sdk/agent-core';
 
 function invalidType(
   context: IDecodeContext,
@@ -99,27 +99,16 @@ export function decodeStringList(
   return { ok: true, value: values };
 }
 
-// Contained — BEHAVIOR-009. TModelEffort is type-only until its owner exports a runtime vocabulary.
-function isModelEffort(value: string): value is TModelEffort {
-  return (
-    value === 'low' ||
-    value === 'medium' ||
-    value === 'high' ||
-    value === 'xhigh' ||
-    value === 'max'
-  );
-}
-
 export function decodeEffort(
   context: IDecodeContext,
   node: TYamlNode,
   field: string,
 ): TValueResult<TModelEffort> {
   if (!isScalar(node) || typeof node.value !== 'string') {
-    return invalidType(context, node, field, 'one of low, medium, high, xhigh, max');
+    return invalidType(context, node, field, `one of ${MODEL_EFFORT_VALUES.join(', ')}`);
   }
   if (!isModelEffort(node.value)) {
-    return invalidValue(context, node, field, 'one of low, medium, high, xhigh, max');
+    return invalidValue(context, node, field, `one of ${MODEL_EFFORT_VALUES.join(', ')}`);
   }
   return { ok: true, value: node.value };
 }

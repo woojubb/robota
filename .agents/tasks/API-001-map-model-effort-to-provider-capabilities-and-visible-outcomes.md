@@ -56,6 +56,20 @@ framework effort mapping. Unsupported settings must be visible rather than silen
 - 2026-09-11: the final independent review found the executor envelope would also change the abstract and
   local executor return contracts and the remote `HttpClient`. Those source files and focused contract
   tests are now part of the declared API-001 scope.
+- 2026-09-12: the public OpenAI example now loads only `AI_GATEWAY_API_KEY` from the Git-ignored root
+  `.env.local` and selects `openai/gpt-5` itself. The live Vercel AI Gateway source run completed for
+  `high`, `max`, and `auto` with `OPENAI_MODEL_EFFORT_PASS`; each correctly reported `not-applied`
+  because a custom endpoint has no verified model-effort table. The outcome is transport evidence,
+  not proof of native provider effort application. Its dedicated RED→GREEN test, the full OpenAI
+  provider suite (173 tests), typecheck, build, and spec coverage scan passed.
+- 2026-09-12: model selection is now owned by all three public examples: `openai/gpt-5`,
+  `claude-sonnet-4-6`, and `gemini-3-flash-preview`. Anthropic and Gemini load only their respective
+  keys from the Git-ignored root `.env.local`; their RED→GREEN configuration tests, typechecks,
+  full provider suites (100 and 156 tests), builds, and user-execution scenario format scan passed.
+- 2026-09-12: live native provider scenarios completed with credentials loaded exclusively from the
+  Git-ignored root `.env.local`. Anthropic reported exact `high` and `max` application and an omitted
+  native control for `auto` (`model-default`); Gemini reported exact `high`, `max` clamped to `high`,
+  and an omitted native control for `auto` (`model-default`). Both source runs exited zero.
 
 ## Completion Criteria
 
@@ -78,11 +92,11 @@ framework effort mapping. Unsupported settings must be visible rather than silen
 
 - [ ] TC-01 — Add Core vocabulary, source-dated effort-table resolution, and fingerprint unit/type tests.
 - [ ] TC-02 — Preserve every tier and `auto` through preset, frontmatter, remote validation, framework,
-  and CLI hand-off tests.
+      and CLI hand-off tests.
 - [ ] TC-03 — Add execution-round, forced-summary, cache, opaque-executor, observer-failure, and native
-  raw-event topology tests.
+      raw-event topology tests.
 - [ ] TC-04 — Change generic and local executor terminal-result contracts, then cover direct/executor
-  non-streaming and streaming terminal envelopes.
+      non-streaming and streaming terminal envelopes.
 - [ ] TC-05 — Add the two-turn selected-effort cache-bypass regression test.
 - [ ] TC-06 — Add OpenAI Responses, Chat Completions/custom endpoint, `auto`, and static-conflict tests.
 - [ ] TC-07 — Add Anthropic output-config merge and known/unknown/custom-`baseURL` tests.
@@ -91,11 +105,11 @@ framework effort mapping. Unsupported settings must be visible rather than silen
 - [ ] TC-10 — Cover the no-effort-table provider fallback and observable `not-applied` outcome.
 - [ ] TC-11 — Add dedicated provider example typecheck projects and source-run public examples.
 - [ ] TC-12 — Record every deterministic regression's RED result before its matching production edit, then
-  retain GREEN receipts.
+      retain GREEN receipts.
 - [ ] TC-13 — Update affected Core, framework, CLI, preset, remote, and provider specifications; run
-  spec-code conformance.
+      spec-code conformance.
 - [ ] TC-14 — Run targeted tests/builds/typechecks, harness scan, CI-equivalent verification, and exact
-  PR-head GitHub CI.
+      PR-head GitHub CI.
 
 ## User Execution Test Scenarios
 
@@ -103,50 +117,54 @@ framework effort mapping. Unsupported settings must be visible rather than silen
 
 The three public provider examples below are directly runnable user-facing behavior. Their prerequisites
 are existing environment variables and API credentials; no new fixture, local service, or seed data is
-needed. The user's standing instruction not to use multi-agent or worktree execution is the process
-override for separate scenario-author dispatch; these scenarios remain the required execution evidence
-and will be run after implementation.
+needed. Before a live invocation, request any missing credential from the user through an approved secret
+channel; never place a credential in source, Task/spec text, command output, or chat evidence. The Gateway
+scenario loads only `AI_GATEWAY_API_KEY` from the Git-ignored root `.env.local`; the example, rather than the
+user, selects `openai/gpt-5`. A Vercel AI Gateway credential exercises OpenAI-compatible transport, but it has
+no verified model-effort table, so its model-effort outcomes are truthfully `not-applied`; this does not prove
+native provider effort application. `unverified-endpoint` is the separate structured-output provenance term,
+not a model-effort disposition. The Gemini native scenario therefore still requires its native credential. The
+user's standing instruction not to use multi-agent or worktree execution is the process override for separate
+scenario-author dispatch; these scenarios remain the required execution evidence and will be run after implementation.
 
 ### Scenario 1: OpenAI model-effort outcomes
 
 - executability: agent-executable
 - product surface: public-sdk-example
 - surface rationale: shipped-interface=public-sdk-example
-- prerequisites: workspace dependencies and the agent-provider-openai package build are current; current directory is `packages/agent-provider-openai`; `OPENAI_API_KEY` and documented `OPENAI_EFFORT_MODEL` exported; the Task adds public `examples/verify-model-effort.ts`
-- command: `pnpm exec tsx examples/verify-model-effort.ts "$OPENAI_EFFORT_MODEL" high max auto`
+- prerequisites: workspace dependencies and the agent-provider-openai package build are current; current directory is `packages/agent-provider-openai`; the Git-ignored repository-root `.env.local` contains `AI_GATEWAY_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `openai/gpt-5`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
 - observable type: sdk-result
 - observable rationale: source=public-sdk-return
-- expected observable: result=OPENAI_MODEL_EFFORT_PASS
+- expected observable: result=OPENAI_MODEL_EFFORT_PASS with `not-applied` outcomes for `high`, `max`, and `auto`
 - cleanup: the example creates no settings or cache files; no cleanup is required
-- evidence: pending implementation: capture this command's stdout and exit code after implementation
-
-
+- evidence: 2026-09-12 source run exited 0 and emitted `OPENAI_MODEL_EFFORT_PASS`; `high`, `max`, and `auto` each reported `not-applied` with native control omitted because the Vercel AI Gateway custom endpoint has no verified model-effort table.
 
 ### Scenario 2: Anthropic model-effort outcomes
 
 - executability: agent-executable
 - product surface: public-sdk-example
 - surface rationale: shipped-interface=public-sdk-example
-- prerequisites: workspace dependencies and the agent-provider-anthropic package build are current; current directory is `packages/agent-provider-anthropic`; `ANTHROPIC_API_KEY` and documented `ANTHROPIC_EFFORT_MODEL` exported; the Task adds public `examples/verify-model-effort.ts`
-- command: `pnpm exec tsx examples/verify-model-effort.ts "$ANTHROPIC_EFFORT_MODEL" high max auto`
+- prerequisites: workspace dependencies and the agent-provider-anthropic package build are current; current directory is `packages/agent-provider-anthropic`; the Git-ignored repository-root `.env.local` contains `ANTHROPIC_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `claude-sonnet-4-6`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
 - observable type: sdk-result
 - observable rationale: source=public-sdk-return
 - expected observable: result=ANTHROPIC_MODEL_EFFORT_PASS
 - cleanup: the example creates no settings or cache files; no cleanup is required
-- evidence: pending implementation: capture this command's stdout and exit code after implementation
+- evidence: 2026-09-12 source run exited 0 and emitted `ANTHROPIC_MODEL_EFFORT_PASS`; `high` and `max` were `exact` with `output_config.effort`, while `auto` was `model-default` with native control omitted.
 
 ### Scenario 3: Gemini model-effort outcomes
 
 - executability: agent-executable
 - product surface: public-sdk-example
 - surface rationale: shipped-interface=public-sdk-example
-- prerequisites: workspace dependencies and the agent-provider-gemini package build are current; current directory is `packages/agent-provider-gemini`; `GEMINI_API_KEY` and documented `GEMINI_EFFORT_MODEL` exported; the Task adds public `examples/verify-model-effort.ts`
-- command: `pnpm exec tsx examples/verify-model-effort.ts "$GEMINI_EFFORT_MODEL" high max auto`
+- prerequisites: workspace dependencies and the agent-provider-gemini package build are current; current directory is `packages/agent-provider-gemini`; the Git-ignored repository-root `.env.local` contains `GEMINI_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `gemini-3-flash-preview`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
 - observable type: sdk-result
 - observable rationale: source=public-sdk-return
 - expected observable: result=GEMINI_MODEL_EFFORT_PASS
 - cleanup: the example creates no settings or cache files; no cleanup is required
-- evidence: pending implementation: capture this command's stdout and exit code after implementation
+- evidence: 2026-09-12 source run exited 0 and emitted `GEMINI_MODEL_EFFORT_PASS`; `high` was `exact` with `thinkingConfig.thinkingLevel`, `max` was clamped to `high`, and `auto` was `model-default` with native control omitted.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-11
 

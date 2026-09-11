@@ -6,7 +6,7 @@ import type {
   IModelReapplyOptions,
   IUnknownCommandModuleName,
 } from '../host-context.js';
-import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
  * Resolved-preset option subset that can be re-applied to a *live* session.
@@ -23,7 +23,7 @@ import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 export interface IPresetApplicationOptions {
   permissionMode?: TPermissionMode;
   model?: string;
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
   temperature?: number;
   maxOutputTokens?: number;
   /** PRESET-014 — preset persona re-applied to the live system prompt. */

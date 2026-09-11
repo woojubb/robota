@@ -4,6 +4,8 @@ import type {
   IExecutor,
   IChatExecutionRequest,
   IStreamExecutionRequest,
+  IExecutorChatResult,
+  TExecutorStreamEvent,
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { TLoggerData } from '../interfaces/types';
@@ -44,13 +46,15 @@ export abstract class AbstractExecutor implements IExecutor {
    * Execute a chat completion request
    * Must be implemented by concrete executor classes
    */
-  abstract executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage>;
+  abstract executeChat(request: IChatExecutionRequest): Promise<IExecutorChatResult>;
 
   /**
    * Execute a streaming chat completion request
    * Optional - can be implemented by concrete executor classes
    */
-  abstract executeChatStream?(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage>;
+  abstract executeChatStream?(
+    request: IStreamExecutionRequest,
+  ): AsyncIterable<TExecutorStreamEvent>;
 
   /**
    * Check if the executor supports tool calling

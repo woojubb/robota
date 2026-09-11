@@ -61,6 +61,15 @@ describe('remote chat options (CORE-044)', () => {
     expect(rejected).toEqual([]);
   });
 
+  it('preserves every API-001 effort selection, including provider-default auto', () => {
+    for (const effort of ['auto', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']) {
+      const { options, rejected } = parseChatOptionsFromBody({ options: { effort } }, 'gpt-5.1');
+
+      expect(options.effort).toBe(effort);
+      expect(rejected).toEqual([]);
+    }
+  });
+
   it('carries a named tool directive, not just the simple ones', () => {
     const { options } = parseChatOptionsFromBody(
       { options: { toolChoice: { tool: 'get_weather' } } },
@@ -114,6 +123,23 @@ describe('remote chat options (CORE-044)', () => {
     it('rejects a non-object options field rather than throwing on it', () => {
       const { rejected } = parseChatOptionsFromBody({ options: 'everything' }, 'gpt-4');
       expect(rejected.join(' ')).toMatch(/options: not an object/);
+    });
+
+    it('rejects a response schema with a non-serializable nested value', () => {
+      const { options, rejected } = parseChatOptionsFromBody(
+        {
+          options: {
+            responseFormat: {
+              type: 'json_schema',
+              schema: { type: 'object', transform: () => 'not serializable' },
+            },
+          },
+        },
+        'gpt-4',
+      );
+
+      expect(options.responseFormat).toBeUndefined();
+      expect(rejected.join(' ')).toMatch(/responseFormat/);
     });
 
     it('survives a body that is not an object at all', () => {

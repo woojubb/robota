@@ -36,7 +36,7 @@ export function createCliEffortAdapter(initial: IModelEffortResolution): IComman
         command: selection,
         modelDefault: current.modelDefault,
       });
-      await session.applyModelOptions({ effort: next.effective });
+      await session.applyModelOptions({ effort: next.requested });
       current = next;
       return next;
     },

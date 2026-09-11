@@ -64,3 +64,17 @@ text, `toolCalls`, and `metadata` are assembled from all stream chunks.
 Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()` through the
 provider capability contract. Gemini currently does not advertise native web tools, so such a
 request fails explicitly instead of being silently ignored.
+
+## Model Effort (API-001)
+
+`src/gemini/model-effort.ts` owns source-dated Gemini Generate Content capability entries for exact
+models that document `thinkingConfig.thinkingLevel`. A verified selection sends that one control,
+preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or
+`thinkingBudget`. `auto` reports the documented default while omitting a control; unknown models and
+unverified routes report `not-applied` without inventing a numeric `thinkingBudget` mapping. The
+provider emits one serializable resolution/native-control/dispatch result through the local observer.
+
+`examples/verify-model-effort.ts` is typechecked with this package and source-runs with
+`GEMINI_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the verified
+`gemini-3-flash-preview` model itself, then prints `high`, `max`, and `auto` outcomes without creating
+settings or cache files.

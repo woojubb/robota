@@ -85,6 +85,9 @@ export async function spawnAgentJobFromSession(
   const definition = resolveAgentDefinition(input.agentType, deps);
   const sessionId = session.getSessionId();
   const manager = getSubagentManagerOrThrow(session);
+  const parentSelection = session.getModelEffort();
+  const effort =
+    input.effort ?? definition.effort ?? (parentSelection === 'auto' ? undefined : parentSelection);
   return manager.spawn({
     agentType: input.agentType,
     // ARCH-031: stated, not inherited from a default applied mid-projection.
@@ -96,11 +99,7 @@ export async function spawnAgentJobFromSession(
     cwd: deps.cwd ?? cwd ?? process.cwd(),
     prompt: input.prompt,
     model: input.model ?? definition.model,
-    ...(input.effort !== undefined
-      ? { effort: input.effort }
-      : definition.effort !== undefined
-        ? { effort: definition.effort }
-        : { effort: session.getModelEffort() }),
+    ...(effort !== undefined ? { effort } : {}),
     isolation: input.isolation,
     // CLI-1994: forwarded as an id and nothing more — the conversation stays in the session store.
     ...(input.resumeSessionId !== undefined ? { resumeSessionId: input.resumeSessionId } : {}),

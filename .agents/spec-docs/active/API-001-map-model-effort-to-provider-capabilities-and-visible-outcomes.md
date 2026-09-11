@@ -302,40 +302,71 @@ application outcome.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Unit + type | Core table/resolver Vitest tests and package typecheck | Includes `none`, `minimal`, every resolution, and fingerprint fields |
-| TC-02 | Boundary integration | Preset/frontmatter/remote validator tests plus framework effort tests | Covers all accepted tiers and preserves `auto` provenance |
-| TC-03 | Core integration | Execution-round and forced-summary tests | Covers topology authority, cache/opaque fallbacks, callback error, and native-event ordering |
-| TC-04 | Core integration | Abstract raw provider plus AbstractExecutor/LocalExecutor contract tests | Direct/executor matrix with one terminal-result envelope on local and generic routes |
-| TC-05 | Cache integration | Two-turn cached execution test | Asserts selected effort bypasses lookup and store until DATA-007 |
-| TC-06 | Adapter unit | OpenAI Responses/Chat Completions request and static-config tests | Includes unknown/custom and conflict paths |
-| TC-07 | Adapter unit | Anthropic Messages request and `baseURL` tests | Verifies output-config merge and negative paths |
-| TC-08 | Adapter unit | Gemini Generate Content request and static-thinking tests | Asserts exclusive controls and preserved non-control fields |
-| TC-09 | Remote contract | Remote client/server HTTP and SSE tests | Server adapter is authoritative; client transports one terminal outcome |
-| TC-10 | Provider contract | Base provider/no-table focused tests | Canonical `not-applied` fallback |
-| TC-11 | Public example | Example `tsconfig` plus `tsx --conditions=source` commands | Requires the provider key/model environment variables from the Task |
-| TC-12 | Regression | TDD RED output then deterministic GREEN receipts | RED occurs before the corresponding production edit |
-| TC-13 | Conformance | `spec-code-conformance` procedure plus contract tests | The final loop fixes code to match accepted SPECs |
-| TC-14 | Regression | affected builds/tests, `pnpm harness:scan`, `pnpm harness:verify-like-ci`, GitHub CI | No partial command is reported as CI-equivalent |
+| TC-ID | Test Type            | Tool / Approach                                                                      | Notes                                                                                        |
+| ----- | -------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| TC-01 | Unit + type          | Core table/resolver Vitest tests and package typecheck                               | Includes `none`, `minimal`, every resolution, and fingerprint fields                         |
+| TC-02 | Boundary integration | Preset/frontmatter/remote validator tests plus framework effort tests                | Covers all accepted tiers and preserves `auto` provenance                                    |
+| TC-03 | Core integration     | Execution-round and forced-summary tests                                             | Covers topology authority, cache/opaque fallbacks, callback error, and native-event ordering |
+| TC-04 | Core integration     | Abstract raw provider plus AbstractExecutor/LocalExecutor contract tests             | Direct/executor matrix with one terminal-result envelope on local and generic routes         |
+| TC-05 | Cache integration    | Two-turn cached execution test                                                       | Asserts selected effort bypasses lookup and store until DATA-007                             |
+| TC-06 | Adapter unit         | OpenAI Responses/Chat Completions request and static-config tests                    | Includes unknown/custom and conflict paths                                                   |
+| TC-07 | Adapter unit         | Anthropic Messages request and `baseURL` tests                                       | Verifies output-config merge and negative paths                                              |
+| TC-08 | Adapter unit         | Gemini Generate Content request and static-thinking tests                            | Asserts exclusive controls and preserved non-control fields                                  |
+| TC-09 | Remote contract      | Remote client/server HTTP and SSE tests                                              | Server adapter is authoritative; client transports one terminal outcome                      |
+| TC-10 | Provider contract    | Base provider/no-table focused tests                                                 | Canonical `not-applied` fallback                                                             |
+| TC-11 | Public example       | Example `tsconfig` plus `tsx --conditions=source` commands                           | Requires the provider key/model environment variables from the Task                          |
+| TC-12 | Regression           | TDD RED output then deterministic GREEN receipts                                     | RED occurs before the corresponding production edit                                          |
+| TC-13 | Conformance          | `spec-code-conformance` procedure plus contract tests                                | The final loop fixes code to match accepted SPECs                                            |
+| TC-14 | Regression           | affected builds/tests, `pnpm harness:scan`, `pnpm harness:verify-like-ci`, GitHub CI | No partial command is reported as CI-equivalent                                              |
 
 ## User Execution Test Scenarios
 
-With `OPENAI_EFFORT_MODEL`, `ANTHROPIC_EFFORT_MODEL`, and `GEMINI_EFFORT_MODEL` set to documented
-models and the corresponding API keys exported, run the three commands already declared by the paired
-Task:
+Before a live invocation, request any missing credential from the user through an approved secret channel;
+never place a credential in source, Task/spec text, command output, or chat evidence. The Gateway scenario
+loads only `AI_GATEWAY_API_KEY` from the Git-ignored repository-root `.env.local`; the example, rather than
+the user, selects `openai/gpt-5`. A Vercel AI Gateway credential exercises OpenAI-compatible transport, but
+it has no verified model-effort table, so its model-effort outcomes are truthfully `not-applied`; this does not
+prove native provider effort application. `unverified-endpoint` is the separate structured-output provenance
+term, not a model-effort disposition; the Gemini native scenario therefore still requires its native credential.
 
-```sh
-pnpm --filter @robota-sdk/agent-provider-openai exec tsx --conditions=source examples/verify-model-effort.ts "$OPENAI_EFFORT_MODEL" high max auto
-pnpm --filter @robota-sdk/agent-provider-anthropic exec tsx --conditions=source examples/verify-model-effort.ts "$ANTHROPIC_EFFORT_MODEL" high max auto
-pnpm --filter @robota-sdk/agent-provider-gemini exec tsx --conditions=source examples/verify-model-effort.ts "$GEMINI_EFFORT_MODEL" high max auto
-```
+### Scenario 1: OpenAI model-effort outcomes
 
-Each exits 0 and prints requested/effective/resolution/dispatch/native-control. A supported request is
-exact, a documented lower substitute names both values and `clamped`, `auto` names the documented model
-default while omitting the native effort field, and an unsupported model prints `not-applied` with a
-`not-dispatched` reason. The examples use only the public provider API and native-payload callback;
-they create no settings or cache files.
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: workspace dependencies and the agent-provider-openai package build are current; current directory is `packages/agent-provider-openai`; the Git-ignored repository-root `.env.local` contains `AI_GATEWAY_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `openai/gpt-5`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=OPENAI_MODEL_EFFORT_PASS with `not-applied` outcomes for `high`, `max`, and `auto`
+- cleanup: the example creates no settings or cache files; no cleanup is required
+- evidence: pending implementation: capture this command's stdout and exit code after implementation
+
+### Scenario 2: Anthropic model-effort outcomes
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: workspace dependencies and the agent-provider-anthropic package build are current; current directory is `packages/agent-provider-anthropic`; the Git-ignored repository-root `.env.local` contains `ANTHROPIC_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `claude-sonnet-4-6`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=ANTHROPIC_MODEL_EFFORT_PASS
+- cleanup: the example creates no settings or cache files; no cleanup is required
+- evidence: pending implementation: capture this command's stdout and exit code after implementation
+
+### Scenario 3: Gemini model-effort outcomes
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: workspace dependencies and the agent-provider-gemini package build are current; current directory is `packages/agent-provider-gemini`; the Git-ignored repository-root `.env.local` contains `GEMINI_API_KEY`; the public `examples/verify-model-effort.ts` loads that file and selects `gemini-3-flash-preview`
+- command: `pnpm exec tsx examples/verify-model-effort.ts high max auto`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=GEMINI_MODEL_EFFORT_PASS
+- cleanup: the example creates no settings or cache files; no cleanup is required
+- evidence: pending implementation: capture this command's stdout and exit code after implementation
 
 ## Tasks
 
@@ -591,6 +622,7 @@ Independent guardian `Bohr` returned `GATE VERDICT: PASS` after the user's verba
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -669,6 +701,7 @@ Independent guardian `Bohr` returned `GATE VERDICT: PASS` after the user's verba
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

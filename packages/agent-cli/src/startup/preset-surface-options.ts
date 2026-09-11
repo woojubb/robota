@@ -148,8 +148,8 @@ export function buildPresetSurfaceOptions(
     ...(resolved.selfVerification !== undefined
       ? { selfVerification: resolved.selfVerification }
       : {}),
-    ...((effortResolution?.effective ?? resolved.effort) !== undefined
-      ? { effort: effortResolution?.effective ?? resolved.effort }
+    ...((effortResolution?.requested ?? resolved.effort) !== undefined
+      ? { effort: effortResolution?.requested ?? resolved.effort }
       : {}),
     effortResolution,
     ...(resolved.temperature !== undefined ? { temperature: resolved.temperature } : {}),

@@ -27,10 +27,11 @@ function resolveForkAgentDefinition(
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }
+  const effort = options.effort ?? definition.effort ?? parentSession.getModelEffort();
   return {
     ...definition,
     ...(options.allowedTools ? { tools: options.allowedTools } : {}),
-    effort: options.effort ?? definition.effort ?? parentSession.getModelEffort(),
+    ...(effort !== 'auto' ? { effort } : {}),
   };
 }
 

@@ -624,9 +624,13 @@ describe('GeminiProvider - constructor with executor', () => {
   it('uses executor instead of direct client', async () => {
     const mockExecutor: IExecutor = {
       executeChat: vi.fn().mockResolvedValue({
-        role: 'assistant',
-        content: 'executor response',
-        timestamp: new Date(),
+        message: {
+          id: 'executor-response',
+          state: 'complete' as const,
+          role: 'assistant',
+          content: 'executor response',
+          timestamp: new Date(),
+        },
       }),
       supportsTools: () => false,
       validateConfig: () => true,

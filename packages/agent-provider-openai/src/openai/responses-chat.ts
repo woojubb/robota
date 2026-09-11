@@ -161,7 +161,7 @@ function buildResponsesRequestParams(
   // API `reasoning.effort` parameter, merged with any static reasoning options.
   const reasoning = resolveOpenAIReasoningOptions(
     input.providerOptions.reasoning,
-    input.chatOptions?.effort,
+    input.chatOptions?.effortResolution,
   );
   return {
     model,

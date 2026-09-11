@@ -91,7 +91,7 @@ export class QwenProvider extends AbstractAIProvider {
     options: IChatOptions | undefined,
   ): Promise<TUniversalMessage> {
     try {
-      return await this.executeViaExecutorOrDirect(messages, options);
+      return (await this.executeViaExecutorOrDirect(messages, options)).message;
     } catch (error) {
       this.logger.error(
         'Qwen Provider executor chat error:',
@@ -163,7 +163,9 @@ export class QwenProvider extends AbstractAIProvider {
 
     if (this.executor) {
       try {
-        yield* this.executeStreamViaExecutorOrDirect(messages, options);
+        for await (const event of this.executeStreamViaExecutorOrDirect(messages, options)) {
+          if (event.kind === 'message') yield event.message;
+        }
         return;
       } catch (error) {
         this.logger.error(

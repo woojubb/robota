@@ -26,7 +26,7 @@ robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
 robota --output-format json         # Output format (text/json/stream-json)
-robota --effort high                # Model effort: auto | low | medium | high | xhigh | max
+robota --effort high                # Model effort: auto | none | minimal | low | medium | high | xhigh | max
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
@@ -343,15 +343,16 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 
 ### Model effort (`--effort`, `/effort`)
 
-Model effort is resolved in this order: `--effort` flag, `ROBOTA_EFFORT` environment variable,
-settings, selected preset, and the active model default. Supported selections are `auto`, `low`,
-`medium`, `high`, `xhigh`, and `max`. `auto` uses the active model's default; `max` is session-only,
-while a named level may be persisted by `/effort` when the settings adapter permits it.
+Model effort is selected in this order: `--effort` flag, `ROBOTA_EFFORT` environment variable,
+settings, selected preset, and the active model default. Supported selections are `auto`, `none`,
+`minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `auto` remains a provider-default selection
+until the provider adapter resolves its source-dated model table; `max` is session-only, while a named
+level may be persisted by `/effort` when the settings adapter permits it.
 
-`/effort` reports the requested value, effective value, source, and disposition. Print JSON includes
-the same record under `data.effort`; text mode prints a compact status line after the response.
-`--bare` keeps raw text output. The TUI status bar shows the active effective level when available.
-Thinking display settings and ordinary prompt wording are independent from model effort.
+`/effort` reports the selected value, provisional display value, source, and disposition. Print JSON
+includes the same record under `data.effort`; text mode prints a compact status line after the response.
+`--bare` keeps raw text output. The TUI status bar shows the active selection when available. Thinking
+display settings and ordinary prompt wording are independent from model effort.
 
 ### Workflows (`/workflows`)
 

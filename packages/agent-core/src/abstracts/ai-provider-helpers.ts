@@ -4,7 +4,7 @@
  * Extracted from abstracts/abstract-ai-provider.ts to keep that file under 300 lines.
  * Contains message/tool validation and executor delegation utilities.
  */
-import type { IExecutor } from '../interfaces/executor';
+import type { IExecutor, IExecutorChatResult, TExecutorStreamEvent } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 
@@ -62,7 +62,7 @@ export async function executeChatViaExecutor(
   providerName: string,
   messages: TUniversalMessage[],
   options?: IChatOptions,
-): Promise<TUniversalMessage> {
+): Promise<IExecutorChatResult> {
   if (!executor) {
     throw new Error(
       `Executor is required for ${providerName} provider. Configure an executor or use direct execution path.`,
@@ -71,13 +71,14 @@ export async function executeChatViaExecutor(
   if (!options?.model) {
     throw new Error(`Model is required for executor execution in ${providerName} provider.`);
   }
-  return executor.executeChat({
+  const result = await executor.executeChat({
     messages,
     options,
     provider: providerName,
     model: options.model,
     ...(options.tools && { tools: options.tools }),
   });
+  return result;
 }
 
 /**
@@ -89,7 +90,7 @@ export async function* executeChatStreamViaExecutor(
   providerName: string,
   messages: TUniversalMessage[],
   options?: IChatOptions,
-): AsyncIterable<TUniversalMessage> {
+): AsyncIterable<TExecutorStreamEvent> {
   if (!executor || !executor.executeChatStream) {
     throw new Error(`Streaming executor is required for ${providerName} provider.`);
   }
@@ -104,7 +105,17 @@ export async function* executeChatStreamViaExecutor(
     stream: true,
     ...(options.tools && { tools: options.tools }),
   });
-  for await (const chunk of stream) {
-    yield chunk;
+  let terminalSeen = false;
+  for await (const event of stream) {
+    if (event.kind === 'terminal') {
+      if (terminalSeen) {
+        throw new Error(`Executor "${providerName}" emitted more than one stream terminal result.`);
+      }
+      terminalSeen = true;
+    }
+    yield event;
+  }
+  if (!terminalSeen) {
+    throw new Error(`Executor "${providerName}" ended a stream without a terminal result.`);
   }
 }

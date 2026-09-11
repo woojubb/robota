@@ -1,8 +1,16 @@
 import type { TUniversalMessage, IToolCall } from './messages';
 import type { IProviderCapabilityTable } from './model-capability';
+import type {
+  IModelEffortResolution,
+  IModelEffortOutcome,
+  IProviderModelEffortTable,
+  TModelEffortOutcomeCallback,
+  TModelEffortSelection,
+} from './model-effort-capability';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
+import type { TUniversalValue } from './types';
 
 export type {
   IProviderCapabilities,
@@ -28,6 +36,8 @@ export {
 export type TProviderConfigValue = string | number | boolean;
 
 export type { IProviderSpecificOptions } from './provider-specific-options';
+export type { TModelEffort, TModelEffortSelection } from './model-effort-capability';
+export { isModelEffort, MODEL_EFFORT_VALUES } from './model-effort-capability';
 
 // The universal JSON-schema subset moved to `./tool-schema` (CORE-039): it is its own concept,
 // reached by producers, validators and four provider adapters, and `provider.ts` was over its
@@ -60,6 +70,8 @@ export interface IRawProviderResponse {
   finishReason?: string;
   model?: string;
   metadata?: Record<string, TProviderConfigValue>;
+  /** One terminal effort result for generic raw non-streaming calls or the explicit stream envelope. */
+  modelEffortOutcome?: IModelEffortOutcome;
 }
 
 /**
@@ -68,6 +80,12 @@ export interface IRawProviderResponse {
 export interface IProviderRequest {
   messages: TUniversalMessage[];
   model?: string;
+  /** Caller selection retained until the adapter resolves its verified model table. */
+  effort?: TModelEffortSelection;
+  /** Immutable adapter-bound resolution handoff for this request. */
+  effortResolution?: IModelEffortResolution;
+  /** Local-only observer for the terminal serializable outcome. */
+  onModelEffortOutcome?: TModelEffortOutcomeCallback;
   temperature?: number;
   maxTokens?: number;
   tools?: IToolSchema[];
@@ -91,31 +109,6 @@ export interface IProviderNativeRawPayloadEvent {
 }
 
 export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloadEvent) => void;
-
-/**
- * Reasoning-effort dial threaded per model invocation.
- *
- * Canonical SSOT for the effort union. `'high'` is the neutral default applied when
- * a caller leaves effort unset; `'xhigh'` is the long-running ("ultra") tier and
- * `'max'` the most exhaustive tier. Providers with a native reasoning-effort parameter
- * map this value onto it (clamping to their supported range); providers without a
- * native effort concept ignore it as a documented no-op.
- */
-export type TModelEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-
-/** Runtime SSOT for the model-effort union at untrusted-data boundaries. */
-export const MODEL_EFFORT_VALUES = [
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-  'max',
-] as const satisfies readonly TModelEffort[];
-
-/** Narrow an external value to the core-owned model-effort contract. */
-export function isModelEffort(value: unknown): value is TModelEffort {
-  return typeof value === 'string' && MODEL_EFFORT_VALUES.includes(value as TModelEffort);
-}
 
 /**
  * Tool-invocation directive threaded per model invocation (CORE-017).
@@ -143,9 +136,13 @@ export interface IChatOptions extends IProviderSpecificOptions {
   /**
    * Reasoning-effort dial for this invocation. Native-effort providers map it to their
    * request parameter; providers without native effort ignore it (documented no-op).
-   * Threaded from session/model options; defaults to `'high'` at the framework→provider seam.
+   * Threaded from session/model options; `auto` remains provider-default selection until resolution.
    */
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
+  /** Immutable adapter-bound resolution handoff for this request. */
+  effortResolution?: IModelEffortResolution;
+  /** Local-only observer for this request's terminal model-effort outcome. */
+  onModelEffortOutcome?: TModelEffortOutcomeCallback;
   /** Model to use for the request */
   model?: string;
   /** Callback for text deltas during streaming. When provided, the provider
@@ -166,7 +163,7 @@ export interface IChatOptions extends IProviderSpecificOptions {
   /** Request structured output from the provider (CORE-015: `json_schema` carries the schema). */
   responseFormat?:
     | { type: 'text' | 'json_object' }
-    | { type: 'json_schema'; name?: string; schema: Record<string, unknown> };
+    | { type: 'json_schema'; name?: string; schema: Record<string, TUniversalValue> };
 }
 
 /**
@@ -233,6 +230,12 @@ export interface IAIProvider {
    * holds. Optional, and silence is NOT denial: see `interfaces/model-capability.ts`.
    */
   capabilityTable?(): IProviderCapabilityTable | undefined;
+
+  /**
+   * Source-dated effort data for exact models this adapter can verify. Optional: a missing table is
+   * a visible `not-applied` result, never a vendor-wide inferred default.
+   */
+  effortTable?(): IProviderModelEffortTable | undefined;
 
   /**
    * Whether this provider instance is pointed at its vendor's own endpoint. CORE-043.

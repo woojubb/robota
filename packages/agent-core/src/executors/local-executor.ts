@@ -1,9 +1,15 @@
+import {
+  createModelEffortOutcomeCollector,
+  notifyModelEffortOutcome,
+} from './local-executor-model-effort';
 import { AbstractExecutor } from '../abstracts/abstract-executor';
 
 import type {
   IChatExecutionRequest,
   IStreamExecutionRequest,
   ILocalExecutorConfig,
+  IExecutorChatResult,
+  TExecutorStreamEvent,
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
@@ -81,31 +87,28 @@ export class LocalExecutor extends AbstractExecutor {
   /**
    * Execute a chat completion request by delegating to the appropriate provider
    */
-  async executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage> {
+  async executeChat(request: IChatExecutionRequest): Promise<IExecutorChatResult> {
     this.validateRequest(request);
-
-    const provider = this.providers.get(request.provider);
-    if (!provider) {
-      throw new Error(`Provider "${request.provider}" not registered with LocalExecutor`);
-    }
-
-    if (!provider.chat) {
-      throw new Error(`Provider "${request.provider}" does not implement chat method`);
-    }
+    const provider = this.requireChatProvider(request);
 
     if (this.config.enableLogging) {
       this.logDebug(`Executing chat with provider: ${request.provider}, model: ${request.model}`);
     }
 
     try {
+      let outcomes = createModelEffortOutcomeCollector();
       // Delegate to provider's chat method with retry logic
       const response = await this.withRetry(
         async () => {
+          outcomes = createModelEffortOutcomeCollector();
           return await this.withTimeout(
-            provider.chat!(request.messages, {
+            provider.chat(request.messages, {
               ...request.options,
               model: request.model,
               tools: request.tools,
+              onModelEffortOutcome: (outcome) => {
+                outcomes.observe(outcome);
+              },
             }),
             this.config.timeout,
           );
@@ -118,9 +121,14 @@ export class LocalExecutor extends AbstractExecutor {
       if (response.role !== 'assistant') {
         throw new Error(`Expected assistant message, got ${response.role}`);
       }
+      const modelEffortOutcome = outcomes.terminal(request.provider);
 
       this.validateResponse(response);
-      return response as IAssistantMessage;
+      notifyModelEffortOutcome(this.logger, request.options, modelEffortOutcome);
+      return {
+        message: response as IAssistantMessage,
+        ...(modelEffortOutcome !== undefined && { modelEffortOutcome }),
+      };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logError('Chat execution failed', err, {
@@ -134,7 +142,7 @@ export class LocalExecutor extends AbstractExecutor {
   /**
    * Execute a streaming chat completion request
    */
-  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TExecutorStreamEvent> {
     this.validateRequest(request);
 
     const provider = this.providers.get(request.provider);
@@ -153,17 +161,24 @@ export class LocalExecutor extends AbstractExecutor {
     }
 
     try {
+      const outcomes = createModelEffortOutcomeCollector();
       // Delegate to provider's chatStream method
       const stream = provider.chatStream(request.messages, {
         ...request.options,
         model: request.model,
         tools: request.tools,
+        onModelEffortOutcome: (outcome) => {
+          outcomes.observe(outcome);
+        },
       });
 
       for await (const chunk of stream) {
         this.validateResponse(chunk);
-        yield chunk;
+        yield { kind: 'message', message: chunk };
       }
+      const modelEffortOutcome = outcomes.terminal(request.provider);
+      notifyModelEffortOutcome(this.logger, request.options, modelEffortOutcome);
+      yield { kind: 'terminal', ...(modelEffortOutcome !== undefined && { modelEffortOutcome }) };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logError('Streaming chat execution failed', err, {
@@ -234,6 +249,19 @@ export class LocalExecutor extends AbstractExecutor {
 
     await Promise.all(disposePromises);
     this.providers.clear();
+  }
+
+  private requireChatProvider(
+    request: IChatExecutionRequest,
+  ): IAIProviderInstance & { chat: NonNullable<IAIProviderInstance['chat']> } {
+    const provider = this.providers.get(request.provider);
+    if (!provider) {
+      throw new Error(`Provider "${request.provider}" not registered with LocalExecutor`);
+    }
+    if (!provider.chat) {
+      throw new Error(`Provider "${request.provider}" does not implement chat method`);
+    }
+    return provider as IAIProviderInstance & { chat: NonNullable<IAIProviderInstance['chat']> };
   }
 }
 

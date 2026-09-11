@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { resolveCliModelEffort } from '../effort-resolution.js';
+import { createCliEffortAdapter, resolveCliModelEffort } from '../effort-resolution.js';
 
 describe('resolveCliModelEffort', () => {
   it('keeps flag above every lower-priority source', () => {
@@ -21,5 +21,16 @@ describe('resolveCliModelEffort', () => {
     expect(() =>
       resolveCliModelEffort({ effort: undefined }, { ROBOTA_EFFORT: 'turbo' }, {}, {}),
     ).toThrow('ROBOTA_EFFORT');
+  });
+
+  it('keeps a live auto command as the provider-boundary selection', async () => {
+    const adapter = createCliEffortAdapter(
+      resolveCliModelEffort({ effort: undefined }, {}, {}, {}),
+    );
+    const applyModelOptions = vi.fn().mockResolvedValue(undefined);
+
+    await adapter.apply('auto', { applyModelOptions } as never);
+
+    expect(applyModelOptions).toHaveBeenCalledWith({ effort: 'auto' });
   });
 });

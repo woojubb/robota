@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type OpenAI from 'openai';
 import type {
+  IAssistantMessage,
+  IExecutor,
   IProviderNativeRawPayloadEvent,
   IToolSchema,
   TUniversalMessage,
@@ -131,6 +133,36 @@ describe('QwenProvider', () => {
       apiKey: 'dashscope-key',
       baseURL: DEFAULT_QWEN_PROVIDER_BASE_URL,
     });
+  });
+
+  it('unwraps executor chat and stream envelopes', async () => {
+    const message: IAssistantMessage = {
+      ...createUserMessage('from executor'),
+      role: 'assistant',
+    };
+    const executor: IExecutor = {
+      executeChat: vi.fn().mockResolvedValue({ message }),
+      executeChatStream: vi.fn().mockImplementation(async function* () {
+        yield { kind: 'message' as const, message };
+        yield { kind: 'terminal' as const };
+      }),
+      supportsTools: () => true,
+      validateConfig: () => true,
+      name: 'mock-executor',
+      version: '1.0.0',
+    };
+    const provider = new QwenProvider({ executor });
+
+    await expect(provider.chat([createUserMessage('hello')], { model: 'qwen-plus' })).resolves.toBe(
+      message,
+    );
+    const streamed: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream([createUserMessage('hello')], {
+      model: 'qwen-plus',
+    })) {
+      streamed.push(chunk);
+    }
+    expect(streamed).toEqual([message]);
   });
 
   it('creates a Responses API client when provider-side web tools are configured', async () => {

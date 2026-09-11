@@ -148,6 +148,25 @@ describe('loadExternalPresetsFromDir', () => {
 });
 
 describe('validateExternalPreset', () => {
+  it.each(['auto', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])(
+    'accepts the Core-owned effort selection %s',
+    (effort) => {
+      expect(
+        validateExternalPreset({
+          id: `effort-${effort}`,
+          title: 'Effort',
+          description: 'd',
+          effort,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          ok: true,
+          preset: expect.objectContaining({ effort }),
+        }),
+      );
+    },
+  );
+
   it('rejects a preset with a bogus effort value', () => {
     const result = validateExternalPreset({
       id: 'x',

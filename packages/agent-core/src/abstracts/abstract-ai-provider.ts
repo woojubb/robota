@@ -6,21 +6,25 @@
  * Defines the shared contract and helper utilities for all AI provider implementations.
  * Concrete providers should extend this class and inject their own dependencies.
  */
+import { executeProviderStreamViaExecutor } from './abstract-ai-provider-executor-stream';
+import {
+  generateGenericResponse,
+  generateGenericStreamingResponse,
+} from './abstract-ai-provider-model-effort';
 import {
   validateProviderMessages,
   validateProviderTools,
   executeChatViaExecutor,
-  executeChatStreamViaExecutor,
 } from './ai-provider-helpers';
-import { isAssistantMessage } from '../interfaces/messages';
 import {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
 } from '../interfaces/provider-capabilities';
 import { SilentLogger } from '../utils/logger';
 
-import type { IExecutor } from '../interfaces/executor';
+import type { IExecutor, IExecutorChatResult, TExecutorStreamEvent } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IProviderModelEffortTable } from '../interfaces/model-effort-capability';
 import type {
   IAIProvider,
   IToolSchema,
@@ -151,6 +155,9 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage>;
 
+  /** Optional adapter-owned effort capability data. */
+  effortTable?(): IProviderModelEffortTable | undefined;
+
   /**
    * Provider-agnostic raw response API.
    *
@@ -159,19 +166,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
    * RawProviderResponse shape.
    */
   async generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse> {
-    const response = await this.chat(payload.messages, {
-      ...(payload.model !== undefined && { model: payload.model }),
-      ...(payload.temperature !== undefined && { temperature: payload.temperature }),
-      ...(payload.maxTokens !== undefined && { maxTokens: payload.maxTokens }),
-      ...(payload.tools !== undefined && { tools: payload.tools }),
-    });
-
-    return {
-      content: response.content ?? null,
-      toolCalls: isAssistantMessage(response) ? response.toolCalls : undefined,
-      model: payload.model,
-      metadata: payload.metadata,
-    };
+    return generateGenericResponse(this, this.logger, payload);
   }
 
   /**
@@ -180,23 +175,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
    * If a provider does not implement chatStream, it does not support streaming.
    */
   async *generateStreamingResponse(payload: IProviderRequest): AsyncIterable<IRawProviderResponse> {
-    if (!this.chatStream) {
-      throw new Error(`[AI-PROVIDER] Streaming is not supported by provider "${this.name}"`);
-    }
-
-    for await (const chunk of this.chatStream(payload.messages, {
-      ...(payload.model !== undefined && { model: payload.model }),
-      ...(payload.temperature !== undefined && { temperature: payload.temperature }),
-      ...(payload.maxTokens !== undefined && { maxTokens: payload.maxTokens }),
-      ...(payload.tools !== undefined && { tools: payload.tools }),
-    })) {
-      yield {
-        content: chunk.content ?? null,
-        toolCalls: isAssistantMessage(chunk) ? chunk.toolCalls : undefined,
-        model: payload.model,
-        metadata: payload.metadata,
-      };
-    }
+    yield* generateGenericStreamingResponse(this, this.logger, payload);
   }
 
   /**
@@ -240,7 +219,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   protected async executeViaExecutorOrDirect(
     messages: TUniversalMessage[],
     options?: IChatOptions,
-  ): Promise<TUniversalMessage> {
+  ): Promise<IExecutorChatResult> {
     return executeChatViaExecutor(this.executor, this.name, messages, options);
   }
 
@@ -251,18 +230,14 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   protected async *executeStreamViaExecutorOrDirect(
     messages: TUniversalMessage[],
     options?: IChatOptions,
-  ): AsyncIterable<TUniversalMessage> {
-    this.logger.debug?.(
-      '🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Executor request',
-      {
-        provider: this.name,
-        model: options?.model,
-        hasTools: !!options?.tools,
-        toolsCount: options?.tools?.length || 0,
-        toolNames: options?.tools?.map((t: IToolSchema) => t.name) || [],
-      },
+  ): AsyncIterable<TExecutorStreamEvent> {
+    yield* executeProviderStreamViaExecutor(
+      this.logger,
+      this.executor,
+      this.name,
+      messages,
+      options,
     );
-    yield* executeChatStreamViaExecutor(this.executor, this.name, messages, options);
   }
 
   /**

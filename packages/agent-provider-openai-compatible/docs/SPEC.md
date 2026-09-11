@@ -68,6 +68,13 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 
 This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.
 
+## Executor delegation
+
+When a DeepSeek, Qwen, or Gemma provider is configured with an `IExecutor`, the provider unwraps the
+executor's non-streaming `{ message, modelEffortOutcome? }` result and yields only `message` stream
+events. The executor owns the terminal event and its effort observer; providers do not expose the
+terminal envelope as a provider message or invoke the observer a second time.
+
 ## Build Output Contract
 
 ```

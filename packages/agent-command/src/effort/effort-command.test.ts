@@ -54,6 +54,18 @@ describe('/effort', () => {
     expect(applyModelOptions).not.toHaveBeenCalled();
   });
 
+  it('reports an unadapted auto selection without treating auto as a concrete effective tier', async () => {
+    const host = createTestCommandHost({
+      session: { getModelEffort: () => 'auto' },
+    });
+
+    const result = await executeEffortCommand(host, '');
+
+    expect(result.data).toMatchObject({
+      effort: { requested: 'auto', effective: 'high', disposition: 'model-default' },
+    });
+  });
+
   it('removes a persisted explicit value when auto is selected', async () => {
     const writeSettings = vi.fn();
     const host = createTestCommandHost({
@@ -83,6 +95,16 @@ describe('/effort', () => {
     await executeEffortCommand(host, 'auto');
 
     expect(writeSettings).toHaveBeenCalledWith({ theme: 'brief' });
+  });
+
+  it('preserves auto in the session when no effort adapter is installed', async () => {
+    const applyModelOptions = vi.fn();
+    const host = createTestCommandHost({ session: { applyModelOptions } });
+
+    const result = await executeEffortCommand(host, 'auto');
+
+    expect(result.success).toBe(true);
+    expect(applyModelOptions).toHaveBeenCalledWith({ effort: 'auto' });
   });
 
   it('leaves the live value and settings unchanged when the picker is cancelled', async () => {

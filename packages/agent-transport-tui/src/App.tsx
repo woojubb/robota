@@ -41,7 +41,7 @@ import { useTerminalTitle } from './use-terminal-title.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
-import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
@@ -400,7 +400,7 @@ function AppInner(
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
   let sessionId = '';
   let activePresetId: string | undefined;
-  let effort: TModelEffort | undefined;
+  let effort: TModelEffortSelection | undefined;
   try {
     // allow-fallback: session initializes asynchronously; use defaults until ready
     const session = interactiveSession.getSession();

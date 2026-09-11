@@ -81,9 +81,8 @@ function buildRoundChatOptions(
   const tools = resolved.readAvailableTools();
   return {
     model,
-    // Default the reasoning-effort dial to 'high' at the framework→provider seam so every
-    // model call carries an explicit effort (design §5.1 — neutral default 'high').
-    effort: config.defaultModel?.effort ?? 'high',
+    // Preserve provider-default selection until the adapter resolves its verified model table.
+    effort: config.defaultModel?.effort ?? 'auto',
     ...(config.defaultModel?.maxTokens !== undefined && {
       maxTokens: config.defaultModel.maxTokens,
     }),
@@ -149,8 +148,13 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
+  // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
+  // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.
+  // The implicit `auto` fallback is not a caller selection and retains existing cache behavior.
+  const hasExplicitEffortSelection =
+    overrides?.effort !== undefined || config.defaultModel?.effort !== undefined;
 
-  if (cacheService) {
+  if (cacheService && !hasExplicitEffortSelection) {
     const cachedResponse = cacheService.lookup(
       outgoing,
       config.defaultModel.model,
