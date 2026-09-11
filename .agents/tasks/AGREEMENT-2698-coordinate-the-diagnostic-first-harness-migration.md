@@ -14,6 +14,7 @@ area:
 depends_on: []
 children:
   - INFRA-2698
+  - BEHAVIOR-2698
 ---
 
 # AGREEMENT-2698: Coordinate the diagnostic-first harness migration
@@ -35,6 +36,7 @@ checks remain outside this policy migration.
 ## Children
 
 - [x] INFRA-2698 — done — `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md`
+- [x] BEHAVIOR-2698 — done — `.agents/tasks/completed/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`
 
 ## Test Plan
 

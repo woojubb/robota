@@ -1561,8 +1561,8 @@ export async function runScans(
   // pass instead of judging it.
   // `context` and `advisoryNames` (PROC-016): under `pr`, a failing scan whose name is in
   // `advisoryNames` is TOLERATED — printed in full, surfaced on the advisory channel, and left out of
-  // the verdict. `onOutcome` receives `{ tolerated }` so the caller can refuse to write a receipt
-  // for a pass that leaned on tolerance.
+  // the verdict. `onOutcome` receives `{ tolerated, diagnosticReport }` so the caller can refuse to
+  // write a receipt for a pass that leaned on tolerance and can persist a complete-run report.
   {
     checkAdoption = false,
     writeAdoption = false,
@@ -1775,7 +1775,9 @@ export async function runScans(
   }
 
   const failed = results.filter((result) => result.code !== 0 && !tolerated.has(result.name));
-  if (typeof onOutcome === 'function') onOutcome({ tolerated: [...tolerated] });
+  if (typeof onOutcome === 'function') {
+    onOutcome({ tolerated: [...tolerated], diagnosticReport });
+  }
   if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
     // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
     // stronger claim than the run supports — and a pass that tolerated an advisory failure says so
@@ -1799,6 +1801,49 @@ export async function runScans(
   if (failed.length > 0) emit(`${failed.length} of ${results.length} scans failed`);
   await settlePublicationUnavailableNotice();
   return 1;
+}
+
+/**
+ * Replay a matching receipt without allowing its cached evidence to certify a partial fresh run.
+ * A clean receipt skips every covered detector; a non-clean receipt first renders the immutable
+ * report then reruns only the covered detector(s) named by that report, alongside tree-external
+ * scans. This helper deliberately has no receipt writer: neither form of a receipt hit observed a
+ * complete covered suite, so it cannot replace the full-run receipt.
+ */
+export async function runReusedScanReceipt({
+  scans,
+  reuse,
+  write = (line) => process.stdout.write(`${line}\n`),
+  runScansImpl = runScans,
+  context = 'integration',
+  advisoryNames = new Set(),
+}) {
+  if (!reuse?.reuse) throw new Error('runReusedScanReceipt requires a matching receipt reuse plan');
+  if (reuse.diagnosticReport !== null && reuse.diagnosticReport !== undefined) {
+    write('scan receipt replaying cached non-clean diagnostics:');
+    publishDiagnosticResults(
+      reuse.diagnosticReport.results,
+      write,
+      defaultPublicationUnavailableNotice,
+    );
+  }
+  const alwaysRun = new Set(scansThatAlwaysRun(scans.map((scan) => scan.name)));
+  const recheck = new Set(reuse.recheckCoveredScans ?? []);
+  const rerun = scans.filter((scan) => alwaysRun.has(scan.name) || recheck.has(scan.name));
+  if (rerun.length === 0) return { exitCode: 0, rerunNames: [], completeSuite: false };
+
+  write(
+    `re-running ${rerun.length} scan(s) after receipt reuse: ${rerun.map((scan) => scan.name).join(', ')}`,
+  );
+  const exitCode = await runScansImpl(rerun, write, undefined, {
+    // The adoption ratchet was judged on the full observed run that wrote this receipt. A partial
+    // reuse follow-up cannot make unrun covered detectors look absent from that measurement.
+    checkAdoption: false,
+    context,
+    advisoryNames,
+    diagnosticResults: [],
+  });
+  return { exitCode, rerunNames: rerun.map((scan) => scan.name), completeSuite: false };
 }
 
 /**
@@ -1929,33 +1974,27 @@ export async function main() {
     // A receipt speaks for the scans a tree hash can speak for. The rest — the ones reading build
     // output — are RE-RUN, not skipped: they cost milliseconds, and a run that quietly stopped
     // reporting dist staleness would be buying speed with the operator's information.
-    const alwaysRun = new Set(scansThatAlwaysRun(scanNames));
-    const rerun = scans.filter((scan) => alwaysRun.has(scan.name));
+    const rerunNames = new Set([
+      ...scansThatAlwaysRun(scanNames),
+      ...(reuse.recheckCoveredScans ?? []),
+    ]);
+    const rerun = scans.filter((scan) => rerunNames.has(scan.name));
     process.stdout.write(
       `${scanNames.length - rerun.length} scans not re-run: ${reuse.reason}.\n` +
         'Change any tracked file, or delete the receipt, to force a full run.\n',
     );
-    if (rerun.length === 0) {
-      process.exitCode = 0;
-      return;
-    }
-    process.stdout.write(
-      `re-running ${rerun.length} scan(s) that read outside the tree: ${[...alwaysRun].join(', ')}\n`,
-    );
-    // The adoption ratchet is deliberately NOT judged over this handful: it binds over the set that
-    // ran, and this set is two scans by construction, which would read as every other scan going
-    // missing. The ratchet was judged on the run that wrote the receipt.
-    process.exitCode = await runScans(rerun, undefined, undefined, {
-      checkAdoption: false,
+    const reused = await runReusedScanReceipt({
+      scans,
+      reuse,
       context,
       advisoryNames,
-      diagnosticResults: [],
     });
+    process.exitCode = reused.exitCode;
     return;
   }
   process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
 
-  let outcome = { tolerated: [] };
+  let outcome = { tolerated: [], diagnosticReport: null };
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
@@ -1978,7 +2017,11 @@ export async function main() {
         `(${outcome.tolerated.join(', ')}), and a receipt must not certify them.\n`,
     );
   } else if (process.exitCode === 0) {
-    const written = writeScanReceipt({ scanNames, root: WORKSPACE_ROOT });
+    const written = writeScanReceipt({
+      scanNames,
+      root: WORKSPACE_ROOT,
+      diagnosticReport: outcome.diagnosticReport,
+    });
     process.stdout.write(
       written.written
         ? 'scan receipt written: an unchanged tree will not be re-scanned.\n'

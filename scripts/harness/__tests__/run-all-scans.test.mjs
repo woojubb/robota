@@ -8,11 +8,12 @@ import {
   judgeExamined,
   judgeExaminedAdoption,
   parseSkips,
+  runReusedScanReceipt,
   runScans,
   writeAdoptionBaseline,
   ensureExaminedDeclaration,
 } from '../run-all-scans.mjs';
-import { DIAGNOSTIC_REPORT_VERSION } from '../diagnostic-core.mjs';
+import { DIAGNOSTIC_REPORT_VERSION, createDiagnosticReport } from '../diagnostic-core.mjs';
 
 function stubScan(name, exitCode) {
   return {
@@ -286,6 +287,99 @@ describe('run-all-scans', () => {
 
     expect(exitCode).toBe(0);
     expect(lines.join('\n')).toContain('1 scans passed, 1 non-clean diagnostic result(s) reported');
+  });
+
+  it('replays a cached finding and re-runs only that covered scan plus tree-external work', async () => {
+    const lines = [];
+    const calls = [];
+    const cachedReport = createDiagnosticReport([
+      diagnosticResult({
+        id: 'harness.fixture.cached-finding',
+        subject: { kind: 'scan', value: 'covered' },
+        examined: [{ kind: 'scan', value: 'covered' }],
+      }),
+    ]);
+    const scans = [stubScan('covered', 0), stubScan('clean-covered', 0), stubScan('dist', 0)];
+
+    const replay = await runReusedScanReceipt({
+      scans,
+      reuse: {
+        reuse: true,
+        diagnosticReport: cachedReport,
+        recheckCoveredScans: ['covered'],
+      },
+      write: (line) => lines.push(line),
+      runScansImpl: async (selected, _write, _concurrency, options) => {
+        calls.push({ names: selected.map((scan) => scan.name), options });
+        return 0;
+      },
+    });
+
+    expect(lines.join('\n')).toContain('harness.fixture.cached-finding');
+    expect(calls).toEqual([
+      {
+        names: ['covered', 'dist'],
+        options: expect.objectContaining({ checkAdoption: false, diagnosticResults: [] }),
+      },
+    ]);
+    expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
+  });
+
+  it('replays a cached unavailable result and re-runs only its covered scan plus tree-external work', async () => {
+    const lines = [];
+    const calls = [];
+    const cachedReport = createDiagnosticReport([
+      diagnosticResult({
+        id: 'harness.fixture.cached-unavailable',
+        state: 'unavailable',
+        subject: { kind: 'scan', value: 'covered' },
+        examined: [{ kind: 'scan', value: 'covered' }],
+        unavailable: {
+          code: 'fixture-unavailable',
+          detail: 'the cached detector dependency was unavailable',
+        },
+      }),
+    ]);
+    const scans = [stubScan('covered', 0), stubScan('clean-covered', 0), stubScan('dist', 0)];
+
+    const replay = await runReusedScanReceipt({
+      scans,
+      reuse: {
+        reuse: true,
+        diagnosticReport: cachedReport,
+        recheckCoveredScans: ['covered'],
+      },
+      write: (line) => lines.push(line),
+      runScansImpl: async (selected, _write, _concurrency, options) => {
+        calls.push({ names: selected.map((scan) => scan.name), options });
+        return 0;
+      },
+    });
+
+    expect(lines.join('\n')).toContain('harness.fixture.cached-unavailable');
+    expect(calls).toEqual([
+      {
+        names: ['covered', 'dist'],
+        options: expect.objectContaining({ checkAdoption: false, diagnosticResults: [] }),
+      },
+    ]);
+    expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
+  });
+
+  it('keeps clean covered scans skipped while retaining the tree-external rerun', async () => {
+    const calls = [];
+    const replay = await runReusedScanReceipt({
+      scans: [stubScan('covered', 0), stubScan('dist', 0)],
+      reuse: { reuse: true, diagnosticReport: null, recheckCoveredScans: [] },
+      write: () => {},
+      runScansImpl: async (selected) => {
+        calls.push(selected.map((scan) => scan.name));
+        return 0;
+      },
+    });
+
+    expect(calls).toEqual([['dist']]);
+    expect(replay).toEqual({ exitCode: 0, rerunNames: ['dist'], completeSuite: false });
   });
 
   it('reports writer failure even when the first summary write cannot be published', async () => {

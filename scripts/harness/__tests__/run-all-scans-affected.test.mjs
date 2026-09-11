@@ -161,7 +161,7 @@ describe('advisory scans under --context (TC-09)', () => {
     expect(out).toMatch(/⚑ prose-grader/);
     expect(out).toContain('graded prose');
     expect(out).toContain('1 advisory failure(s) tolerated (pr context)');
-    expect(outcome).toEqual({ tolerated: ['prose-grader'] });
+    expect(outcome).toEqual({ tolerated: ['prose-grader'], diagnosticReport: null });
   });
 
   it('integration: the same failure fails the run (RED control)', async () => {

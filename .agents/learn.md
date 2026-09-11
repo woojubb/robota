@@ -212,3 +212,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `pnpm --filter @robota-sdk/dag-nodes-default test` exits 1 with `Cannot find package '@robota-sdk/agent-provider-bytedance' imported from packages/agent-builtin-providers/dist/node/index.js`; 10 of 13 tests fail before the current harness diagnostic code is reached.
 - source: INFRA-2698 full-workspace verification, 2026-09-11
 - related: INFRA-2698
+
+### LRN-work-run-command-missing-entrypoint
+
+- observed-at: 2026-09-11T23:26:00+09:00
+- observation: The registered `harness:work-run` workflow points to `scripts/harness/work-run.mjs`, but that entrypoint is absent, so its documented completion step cannot execute.
+- evidence: `package.json` defines `harness:work-run` as `node scripts/harness/work-run.mjs`; invoking `node scripts/harness/work-run.mjs --help` exits with `MODULE_NOT_FOUND`.
+- source: BEHAVIOR-2698 completion
+- related: BEHAVIOR-2698
