@@ -220,3 +220,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `package.json` defines `harness:work-run` as `node scripts/harness/work-run.mjs`; invoking `node scripts/harness/work-run.mjs --help` exits with `MODULE_NOT_FOUND`.
 - source: BEHAVIOR-2698 completion
 - related: BEHAVIOR-2698
+
+### LRN-loop-ledger-duplicates-block-unrelated-ci
+
+- observed-at: 2026-09-12T01:31:00+09:00
+- observation: Current `origin/develop` contains duplicate sealed records in the architecture-audit-fanout ledger, so the mandatory `loop-run-records` scan fails before unrelated API-001 verification can proceed.
+- evidence: `pnpm harness:verify-like-ci` after rebase onto `origin/develop` reports duplicate run IDs `r20260822105018`, `r20260822110951`, `r20260822113453`, `r20260822115612`, `r20260822120239`, and `r20260830100729` in `.agents/loop-runs/architecture-audit-fanout.jsonl`; `git show origin/develop:.agents/loop-runs/architecture-audit-fanout.jsonl` contains the first duplicated record at lines 1 and 18.
+- source: API-001 final verification
+- related: origin/develop commits 0f9277b56 and 9f8c4938a
