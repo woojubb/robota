@@ -37,8 +37,9 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { isCleanTree, realDirtyLines } from './verification-receipt.mjs';
+import { assertDiagnosticReport } from './diagnostic-core.mjs';
 
-const RECEIPT_SCHEMA_VERSION = 1;
+const RECEIPT_SCHEMA_VERSION = 2;
 const RECEIPT_FILE = 'robota-verification/harness-scan.json';
 
 /**
@@ -100,13 +101,53 @@ function normalized(identity) {
   ]);
 }
 
-export function scanReceiptMatches(receipt, expectedIdentity) {
-  if (!receipt || receipt.schemaVersion !== RECEIPT_SCHEMA_VERSION || receipt.status !== 'pass') {
-    return false;
+function receiptDiagnosticReuse(receipt, expectedIdentity) {
+  if (receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) return null;
+  const expectedKeys = ['schemaVersion', 'status', 'scannedAt', 'identity', 'diagnosticReport'];
+  if (
+    Object.keys(receipt).length !== expectedKeys.length ||
+    expectedKeys.some((key) => !Object.hasOwn(receipt, key)) ||
+    receipt.schemaVersion !== RECEIPT_SCHEMA_VERSION ||
+    receipt.status !== 'pass' ||
+    typeof receipt.scannedAt !== 'string' ||
+    receipt.scannedAt.trim().length === 0
+  ) {
+    return null;
   }
   const actual = normalized(receipt.identity);
   const expected = normalized(expectedIdentity);
-  return Boolean(actual && expected && JSON.stringify(actual) === JSON.stringify(expected));
+  if (!actual || !expected || JSON.stringify(actual) !== JSON.stringify(expected)) return null;
+  if (receipt.diagnosticReport === null) {
+    return { diagnosticReport: null, recheckCoveredScans: [] };
+  }
+  try {
+    const diagnosticReport = assertDiagnosticReport(receipt.diagnosticReport);
+    const covered = new Set(actual.scans);
+    const recheckCoveredScans = [
+      ...new Set(
+        diagnosticReport.results.map((result) => {
+          if (
+            result.state === 'clean' ||
+            result.subject.kind !== 'scan' ||
+            !covered.has(result.subject.value)
+          ) {
+            throw new TypeError(
+              'diagnostic receipt result is not bound to a covered non-clean scan',
+            );
+          }
+          return result.subject.value;
+        }),
+      ),
+    ].sort();
+    if (diagnosticReport.totals.nonClean === 0 || recheckCoveredScans.length === 0) return null;
+    return { diagnosticReport, recheckCoveredScans };
+  } catch {
+    return null;
+  }
+}
+
+export function scanReceiptMatches(receipt, expectedIdentity) {
+  return receiptDiagnosticReuse(receipt, expectedIdentity) !== null;
 }
 
 export function scanReceiptPath(root) {
@@ -153,25 +194,50 @@ export function decideScanReuse({
     return { reuse: false, eligible: false, reason: `working tree is not clean: ${dirtyReason}` };
   }
   if (!receipt) return { reuse: false, eligible: true, reason: 'no receipt for this tree' };
-  if (!scanReceiptMatches(receipt, identity)) {
+  const matchedReceipt = receiptDiagnosticReuse(receipt, identity);
+  if (matchedReceipt === null) {
     return { reuse: false, eligible: true, reason: 'receipt does not match this identity' };
   }
-  return { reuse: true, eligible: true, reason: `identical tree scanned at ${receipt.scannedAt}` };
+  return {
+    reuse: true,
+    eligible: true,
+    reason: `identical tree scanned at ${receipt.scannedAt}`,
+    ...matchedReceipt,
+  };
 }
 
-export function createScanReceipt(identity, scannedAt) {
+export function createScanReceipt(identity, scannedAt, diagnosticReport = null) {
   const normalizedIdentity = normalized(identity);
   if (!normalizedIdentity)
     throw new Error('Cannot create a scan receipt from an invalid identity.');
+  const diagnosticReuse = receiptDiagnosticReuse(
+    {
+      schemaVersion: RECEIPT_SCHEMA_VERSION,
+      status: 'pass',
+      scannedAt,
+      identity: normalizedIdentity,
+      diagnosticReport,
+    },
+    normalizedIdentity,
+  );
+  if (diagnosticReuse === null) {
+    throw new Error('Cannot create a scan receipt from an invalid diagnostic report.');
+  }
   return {
     schemaVersion: RECEIPT_SCHEMA_VERSION,
     status: 'pass',
     scannedAt,
     identity: normalizedIdentity,
+    diagnosticReport: diagnosticReuse.diagnosticReport,
   };
 }
 
-export function writeScanReceipt({ scanNames, root, scannedAt = new Date().toISOString() }) {
+export function writeScanReceipt({
+  scanNames,
+  root,
+  scannedAt = new Date().toISOString(),
+  diagnosticReport = null,
+}) {
   if (receiptCoveredScans(scanNames).length === 0) {
     return { written: false, reason: 'no scan in this set is covered by a receipt' };
   }
@@ -180,7 +246,11 @@ export function writeScanReceipt({ scanNames, root, scannedAt = new Date().toISO
     return { written: false, reason: `working tree is not clean: ${dirty.join(', ')}` };
   }
   const target = scanReceiptPath(root);
-  const receipt = createScanReceipt(computeScanIdentity({ scanNames, root }), scannedAt);
+  const receipt = createScanReceipt(
+    computeScanIdentity({ scanNames, root }),
+    scannedAt,
+    diagnosticReport,
+  );
   mkdirSync(path.dirname(target), { recursive: true });
   const temporary = `${target}.${process.pid}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');

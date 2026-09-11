@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { isCleanTree, realDirtyLines } from '../verification-receipt.mjs';
+import { createDiagnosticReport } from '../diagnostic-core.mjs';
 
 import {
   TREE_EXTERNAL_SCANS,
@@ -32,6 +33,40 @@ const IDENTITY = {
 
 const receiptFor = (identity) => createScanReceipt(identity, '2026-08-19T00:00:00.000Z');
 
+const findingReport = () =>
+  createDiagnosticReport([
+    {
+      version: 1,
+      id: 'harness.receipt.finding',
+      detectorId: 'harness.receipt.detector',
+      state: 'finding',
+      subject: { kind: 'scan', value: 'consistency' },
+      examined: [{ kind: 'scan', value: 'consistency' }],
+      severity: 'warning',
+      evidence: ['The previous run found a policy problem.'],
+      recommendation: 'Run the affected scan again.',
+    },
+  ]);
+
+const unavailableReport = () =>
+  createDiagnosticReport([
+    {
+      version: 1,
+      id: 'harness.receipt.unavailable',
+      detectorId: 'harness.receipt.detector',
+      state: 'unavailable',
+      subject: { kind: 'scan', value: 'file-size' },
+      examined: [{ kind: 'scan', value: 'file-size' }],
+      severity: 'error',
+      evidence: ['The detector dependency was unavailable.'],
+      recommendation: 'Restore the dependency and run the affected scan again.',
+      unavailable: {
+        code: 'diagnostic-dependency-failure',
+        detail: 'fixture dependency unavailable',
+      },
+    },
+  ]);
+
 const decide = (overrides = {}) =>
   decideScanReuse({
     scanNames: IDENTITY.scans,
@@ -50,6 +85,48 @@ describe('decideScanReuse — the reusing direction', () => {
 
   it('does not care about the order the scans were listed in', () => {
     expect(decide({ scanNames: ['file-size', 'consistency'] }).reuse).toBe(true);
+  });
+});
+
+describe('non-clean diagnostic receipt reuse', () => {
+  it('retains a canonical finding and schedules only its covered scan for re-check', () => {
+    const diagnosticReport = findingReport();
+    const receipt = createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', diagnosticReport);
+
+    expect(receipt).toMatchObject({
+      schemaVersion: 2,
+      diagnosticReport,
+    });
+    expect(
+      decideScanReuse({
+        scanNames: IDENTITY.scans,
+        identity: IDENTITY,
+        receipt,
+        clean: true,
+      }),
+    ).toMatchObject({
+      reuse: true,
+      diagnosticReport,
+      recheckCoveredScans: ['consistency'],
+    });
+  });
+
+  it('retains an unavailable result and schedules its named covered scan for re-check', () => {
+    const diagnosticReport = unavailableReport();
+    const receipt = createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', diagnosticReport);
+
+    expect(
+      decideScanReuse({
+        scanNames: IDENTITY.scans,
+        identity: IDENTITY,
+        receipt,
+        clean: true,
+      }),
+    ).toMatchObject({
+      reuse: true,
+      diagnosticReport,
+      recheckCoveredScans: ['file-size'],
+    });
   });
 });
 
@@ -87,7 +164,11 @@ describe('decideScanReuse — every refusing direction', () => {
   it('refuses a malformed, failed, or wrong-version receipt', () => {
     expect(decide({ receipt: { schemaVersion: 1, status: 'pass' } }).reuse).toBe(false);
     expect(decide({ receipt: { ...receiptFor(IDENTITY), status: 'fail' } }).reuse).toBe(false);
-    expect(decide({ receipt: { ...receiptFor(IDENTITY), schemaVersion: 2 } }).reuse).toBe(false);
+    expect(decide({ receipt: { ...receiptFor(IDENTITY), schemaVersion: 1 } }).reuse).toBe(false);
+    expect(decide({ receipt: { ...receiptFor(IDENTITY), schemaVersion: 3 } }).reuse).toBe(false);
+    expect(decide({ receipt: { ...receiptFor(IDENTITY), diagnosticReport: {} } }).reuse).toBe(
+      false,
+    );
     expect(decide({ receipt: 'not an object' }).reuse).toBe(false);
   });
 
