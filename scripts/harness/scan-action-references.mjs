@@ -65,7 +65,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { isRateLimited, retryDelaySeconds } from './github-api.mjs';
 import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 

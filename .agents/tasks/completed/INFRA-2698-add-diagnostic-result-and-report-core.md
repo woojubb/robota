@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-2698: Add the diagnostic result and report core'
 issue: https://github.com/woojubb/robota/issues/2698
-status: in-progress
+status: done
 created: 2026-09-11
+completed: 2026-09-11
 priority: medium
 urgency: soon
 area:
@@ -20,13 +21,15 @@ Create the small, explicit result contract that lets a harness detector report `
 severity, subject, evidence, and a recommended next action, and must have human and machine-readable
 renderings suitable for the later hook, scan, and CI migrations.
 
+Spec: `.agents/spec-docs/done/INFRA-2698-add-diagnostic-result-and-report-core.md`
+
 ## Plan
 
-- [ ] Specify the result schema and the report rendering contract before modifying any enforcement path.
-- [ ] Implement the reporter with fixtures for clean, finding, and unavailable outcomes.
-- [ ] Prove a finding and an unavailable detector are visible in the summary while the diagnostic
+- [x] Specify the result schema and the report rendering contract before modifying any enforcement path.
+- [x] Implement the reporter with fixtures for clean, finding, and unavailable outcomes.
+- [x] Prove a finding and an unavailable detector are visible in the summary while the diagnostic
       command completes successfully.
-- [ ] Document the reporter as the only permitted migration target for retired harness vetoes.
+- [x] Document the reporter as the only permitted migration target for retired harness vetoes.
 
 ## Test Plan
 

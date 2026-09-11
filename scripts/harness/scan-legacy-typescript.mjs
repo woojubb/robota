@@ -98,7 +98,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } fr
 import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);

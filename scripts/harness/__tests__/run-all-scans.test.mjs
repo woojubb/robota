@@ -12,11 +12,27 @@ import {
   writeAdoptionBaseline,
   ensureExaminedDeclaration,
 } from '../run-all-scans.mjs';
+import { DIAGNOSTIC_REPORT_VERSION } from '../diagnostic-core.mjs';
 
 function stubScan(name, exitCode) {
   return {
     name,
     run: () => Promise.resolve(exitCode),
+  };
+}
+
+function diagnosticResult(overrides = {}) {
+  return {
+    version: DIAGNOSTIC_REPORT_VERSION,
+    id: 'harness.fixture.finding',
+    detectorId: 'fixture.detector',
+    state: 'finding',
+    subject: { kind: 'path', value: 'scripts/harness/fixture.mjs' },
+    examined: [{ kind: 'path', value: 'scripts/harness/fixture.mjs' }],
+    severity: 'warning',
+    evidence: ['fixture evidence'],
+    recommendation: 'inspect the fixture',
+    ...overrides,
   };
 }
 
@@ -99,6 +115,226 @@ describe('run-all-scans', () => {
     );
     expect(exitCode).toBe(1);
     expect(lines.join('\n')).toContain('2 of 3 scans failed');
+  });
+
+  it('converts a rejected scan to a visible unavailable result in the opt-in diagnostic seam', async () => {
+    const lines = [];
+    const exitCode = await runScans(
+      [{ name: 'rejected', run: () => Promise.reject(new Error('fixture timed out')) }],
+      (line) => lines.push(line),
+      1,
+      { diagnosticResults: [] },
+    );
+
+    expect(exitCode).toBe(0);
+    const output = lines.join('\n');
+    expect(output).toContain('harness.scan-unavailable.scan-c36-c2t-c2y-c2t-c2r-c38-c2t-c2s');
+    expect(output).toContain('fixture timed out');
+    expect(output).toContain('⚠ rejected (unavailable)');
+    expect(output).toContain('0 scans passed, 1 unavailable');
+    expect(output).not.toContain('✓ rejected');
+  });
+
+  it('converts a malformed resolved scan outcome to an unavailable diagnostic', async () => {
+    const lines = [];
+    const exitCode = await runScans(
+      [{ name: 'malformed', run: () => Promise.resolve(undefined) }],
+      (line) => lines.push(line),
+      1,
+      { diagnosticResults: [] },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(lines.join('\n')).toContain(
+      'harness.scan-unavailable.scan-c31-c2p-c30-c2u-c33-c36-c31-c2t-c2s',
+    );
+    expect(lines.join('\n')).toContain('returned no valid outcome object');
+  });
+
+  it('converts a non-integer numeric scan outcome to an unavailable diagnostic', async () => {
+    const lines = [];
+    const exitCode = await runScans(
+      [{ name: 'fractional', run: () => Promise.resolve(0.5) }],
+      (line) => lines.push(line),
+      1,
+      { diagnosticResults: [] },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(lines.join('\n')).toContain('harness.scan-unavailable.');
+    expect(lines.join('\n')).toContain('returned a non-integer exit code');
+  });
+
+  it('renders a structured finding for an existing nonzero scan result without changing its exit', async () => {
+    const lines = [];
+    const exitCode = await runScans([stubScan('failed', 1)], (line) => lines.push(line), 1, {
+      diagnosticResults: [],
+    });
+
+    expect(exitCode).toBe(1);
+    const output = lines.join('\n');
+    expect(output).toContain('harness.scan-finding.scan-c2u-c2p-c2x-c30-c2t-c2s');
+    expect(output).toContain('Diagnostic report JSON:');
+    expect(output).toContain('"version": 1');
+  });
+
+  it('converts invalid diagnostic input to a visible unavailable result', async () => {
+    const cycle = {};
+    cycle.self = cycle;
+    const lines = [];
+    const exitCode = await runScans([stubScan('clean', 0)], (line) => lines.push(line), 1, {
+      diagnosticResults: [diagnosticResult({ cycle })],
+    });
+
+    expect(exitCode).toBe(0);
+    expect(lines.join('\n')).toContain('harness.diagnostic-input-1');
+    expect(lines.join('\n')).toContain('could not be validated');
+  });
+
+  it('reports an unavailable publication to its caller', async () => {
+    const publicationFailures = [];
+    const exitCode = await runScans(
+      [stubScan('clean', 0)],
+      (line) => {
+        if (line.startsWith('Diagnostic report')) throw new Error('fixture writer rejected report');
+      },
+      1,
+      {
+        diagnosticResults: [diagnosticResult()],
+        onDiagnosticPublicationUnavailable: (result) => publicationFailures.push(result),
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(publicationFailures).toHaveLength(1);
+    expect(publicationFailures[0]).toMatchObject({
+      state: 'diagnostic-publication-unavailable',
+      publication: { target: 'run-all-scans writer' },
+    });
+  });
+
+  it('keeps a scan diagnostic identifier stable when unrelated scans are selected', async () => {
+    const onlyTarget = [];
+    const targetWithSibling = [];
+
+    await runScans([stubScan('target', 1)], (line) => onlyTarget.push(line), 1, {
+      diagnosticResults: [],
+    });
+    await runScans(
+      [stubScan('unrelated-clean', 0), stubScan('target', 1)],
+      (line) => targetWithSibling.push(line),
+      1,
+      { diagnosticResults: [] },
+    );
+
+    for (const output of [onlyTarget.join('\n'), targetWithSibling.join('\n')]) {
+      expect(output).toContain('harness.scan-finding.scan-c38-c2p-c36-c2v-c2t-c38');
+      expect(output).toContain('"detectorId": "harness.scan.scan-c38-c2p-c36-c2v-c2t-c38"');
+    }
+  });
+
+  it('keeps punctuation-distinct scan names as distinct diagnostic results', async () => {
+    const lines = [];
+    await runScans(
+      [stubScan('same scan', 1), stubScan('same-scan', 1)],
+      (line) => lines.push(line),
+      1,
+      { diagnosticResults: [] },
+    );
+
+    const output = lines.join('\n');
+    expect(output).toContain('harness.scan-finding.scan-c37-c2p-c31-c2t-cw-c37-c2r-c2p-c32');
+    expect(output).toContain('harness.scan-finding.scan-c37-c2p-c31-c2t-c19-c37-c2r-c2p-c32');
+    expect(output).not.toContain('harness.diagnostic-input-');
+  });
+
+  it('keeps case- and whitespace-distinct scan names as distinct diagnostic results', async () => {
+    const lines = [];
+    await runScans([stubScan('Case', 1), stubScan('case ', 1)], (line) => lines.push(line), 1, {
+      diagnosticResults: [],
+    });
+
+    const output = lines.join('\n');
+    expect(output).toContain('harness.scan-finding.scan-c1v-c2p-c37-c2t');
+    expect(output).toContain('harness.scan-finding.scan-c2r-c2p-c37-c2t-cw');
+    expect(output).not.toContain('harness.diagnostic-input-');
+  });
+
+  it('does not turn an unavailable scan into an examined-adoption regression', async () => {
+    const lines = [];
+    const exitCode = await runScans(
+      [
+        {
+          name: 'action-references',
+          run: () => Promise.reject(new Error('fixture dependency down')),
+        },
+      ],
+      (line) => lines.push(line),
+      1,
+      { checkAdoption: true, diagnosticResults: [] },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(lines.join('\n')).not.toContain('FELL:');
+  });
+
+  it('states non-clean configured diagnostics in an otherwise successful final summary', async () => {
+    const lines = [];
+    const exitCode = await runScans([stubScan('clean', 0)], (line) => lines.push(line), 1, {
+      diagnosticResults: [diagnosticResult()],
+    });
+
+    expect(exitCode).toBe(0);
+    expect(lines.join('\n')).toContain('1 scans passed, 1 non-clean diagnostic result(s) reported');
+  });
+
+  it('reports writer failure even when the first summary write cannot be published', async () => {
+    const publicationFailures = [];
+    const exitCode = await runScans(
+      [stubScan('clean', 0)],
+      () => {
+        throw new Error('fixture writer unavailable');
+      },
+      1,
+      {
+        diagnosticResults: [diagnosticResult()],
+        onDiagnosticPublicationUnavailable: (result) => publicationFailures.push(result),
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(publicationFailures).toHaveLength(1);
+    expect(publicationFailures[0].publication.detail).toContain('fixture writer unavailable');
+  });
+
+  it('waits for an asynchronous publication callback and falls back if it rejects', async () => {
+    const fallbackNotices = [];
+    const stderrWrite = process.stderr.write;
+    process.stderr.write = (line) => {
+      fallbackNotices.push(String(line));
+      return true;
+    };
+    try {
+      const exitCode = await runScans(
+        [stubScan('clean', 0)],
+        () => {
+          throw new Error('fixture writer unavailable');
+        },
+        1,
+        {
+          diagnosticResults: [diagnosticResult()],
+          onDiagnosticPublicationUnavailable: async () => {
+            throw new Error('fixture callback unavailable');
+          },
+        },
+      );
+
+      expect(exitCode).toBe(0);
+      expect(fallbackNotices).toHaveLength(1);
+      expect(fallbackNotices[0]).toContain('fixture writer unavailable');
+    } finally {
+      process.stderr.write = stderrWrite;
+    }
   });
 });
 

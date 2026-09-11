@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [infra]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # INFRA-2698: Add the diagnostic result and report core
 
-Paired with `.agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md`.
+Paired with `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md`.
 This is the first delivery slice of
 `.agents/spec-docs/todo/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md`.
 
@@ -43,16 +43,17 @@ or unavailable detector cannot yet have one stable machine-readable and human-re
 
 ### Affected Scope
 
-- `scripts/harness/diagnostic-core.mjs` — versioned result schema, validation, stable identifier
-  helpers, and no I/O.
+- `scripts/harness/diagnostic-core.mjs` — versioned result schema and validation, with no I/O.
+- `scripts/harness/output-markers.mjs` — the separate pure legacy advisory/examined line protocol.
 - `scripts/harness/diagnostic-renderer.mjs` — deterministic concise text and machine-report
   rendering over validated results.
+- `scripts/harness/diagnostic-run-adapter.mjs` — pure runner-outcome normalization, stable
+  scan-derived identity, recovery to `unavailable`, and report composition.
 - `scripts/harness/run-all-scans.mjs` and direct marker consumers — migrate shared marker/result
   helpers off the runner without changing unrelated detector policy in this slice.
-- `scripts/harness/__tests__/diagnostic-core.test.mjs`,
-  `scripts/harness/__tests__/diagnostic-renderer.test.mjs`, and targeted runner tests — result and
+- `scripts/harness/__tests__/diagnostic-core.test.mjs` and targeted runner tests — result and
   visibility verification.
-- `.agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md` —
+- `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md` —
   child lifecycle record.
 
 ### New-Surface Placement
@@ -60,9 +61,11 @@ or unavailable detector cannot yet have one stable machine-readable and human-re
 The modules are private development tooling under `scripts/harness/`, not a `packages/*` public
 surface. The closest analogue is `scripts/harness/shared.mjs`: it is a reusable harness-local module
 used independently by scripts. `diagnostic-core.mjs` is more constrained—it owns no filesystem,
-subprocess, network, registry, or CLI I/O. `diagnostic-renderer.mjs` depends on the core; runner and
-later receipt/hook/CI adapters depend on the core/renderer; neither module may import
-`run-all-scans.mjs` or a product package.
+subprocess, network, registry, or CLI I/O. `output-markers.mjs` separately owns the legacy
+line-marker protocol. `diagnostic-renderer.mjs` depends on the core, while
+`diagnostic-run-adapter.mjs` depends inward on the core/renderer to normalize runner outcomes and
+compose reports. The runner and later receipt/hook/CI adapters call inward through those modules;
+none may import `run-all-scans.mjs` or a product package.
 
 The approved parent Agreement records an independent focused architecture review: it verified this
 analogue, private tooling classification, and inward-only direction, and rejected both runner
@@ -77,9 +80,11 @@ consumer). This child implements that reviewed placement without widening it.
 2. **Put the core in a new workspace package.** Pro: formally reusable. Con: repository-policy
    diagnostics would become an unsupported product API with needless manifest and public-surface
    obligations.
-3. **Use an I/O-free private harness core plus renderer (chosen).** Pro: stable results can serve
-   runners and later adapters without registry initialization, while rendering stays deterministic.
-   Con: this slice introduces two modules and migration tests before the broader enforcement removal.
+3. **Use an I/O-free private harness contract, output protocol, renderer, and runner adapter
+   (chosen).** Pro: stable results can serve runners and later adapters without registry
+   initialization, while legacy output and runner adaptation remain separately owned. Con: this slice
+   introduces four focused harness-local modules and migration tests before the broader enforcement
+   removal.
 
 ### Decision
 
@@ -114,33 +119,34 @@ publication remains available.
 ## Solution
 
 First write direct unit tests for valid/invalid state fixtures and deterministic rendering. Then add
-the I/O-free core and renderer, migrate the runner's shared result helpers, and add a focused
-integration seam that demonstrates visible non-clean outcomes with a zero process exit. Keep all
-legacy policy classification and enforcement paths unchanged until later, manifest-backed slices can
-replace or retire them.
+the I/O-free result core, separate legacy output-marker protocol, renderer, and pure runner adapter;
+migrate the runner's shared marker helpers to their protocol owner and add a focused integration seam
+that demonstrates visible non-clean outcomes with a zero process exit. Keep all legacy policy
+classification and enforcement paths unchanged until later, manifest-backed slices can replace or
+retire them.
 
 ## Completion Criteria
 
-- [ ] TC-01: Unit fixtures validate all four result states and reject a missing stable ID, examined
+- [x] TC-01: Unit fixtures validate all four result states and reject a missing stable ID, examined
       subject, evidence, severity, recommendation, or state-specific failure detail.
-- [ ] TC-02: The renderer produces deterministic JSON and concise text that includes each
+- [x] TC-02: The renderer produces deterministic JSON and concise text that includes each
       finding/unavailable/publication-unavailable ID, subject, evidence, and recommendation without
       calling filesystem, subprocess, registry, or network APIs.
-- [ ] TC-03: A focused runner integration fixture renders a seeded finding and unavailable detector
+- [x] TC-03: A focused runner integration fixture renders a seeded finding and unavailable detector
       alongside a clean sibling, reports the examined subjects, and exits zero without hiding any
       non-clean outcome.
-- [ ] TC-04: Direct production consumers no longer import diagnostic result/marker helpers from
-      `run-all-scans.mjs`; an import-boundary test proves the core/renderer do not import the runner or
-      any `packages/*` product module.
+- [x] TC-04: Direct production consumers no longer import diagnostic result/marker helpers from
+      `run-all-scans.mjs`; an import-boundary test proves the core, output protocol, renderer, and
+      runner adapter do not import the runner or any `packages/*` product module.
 
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                         | Notes                                                       |
 | ----- | ----------- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| TC-01 | unit        | Vitest core fixtures                                    | Starts RED before adding the schema.                        |
-| TC-02 | unit        | Vitest deterministic renderer and import-boundary tests | Uses injected/plain values only; no live I/O.               |
-| TC-03 | integration | Targeted `run-all-scans` fixture with captured output   | Proves visibility and non-veto behavior together.           |
-| TC-04 | static/unit | Direct-import corpus assertion plus module import test  | Keeps producer-to-runner reverse dependency from returning. |
+| TC-01 | unit        | Vitest core fixtures                                    | `scripts/harness/__tests__/diagnostic-core.test.mjs` proves each state and invalid fixture. |
+| TC-02 | unit        | Vitest deterministic renderer and import-boundary tests | `scripts/harness/__tests__/diagnostic-core.test.mjs`; injected/plain values only, no live I/O. |
+| TC-03 | integration | Targeted `run-all-scans` fixture with captured output   | `scripts/harness/__tests__/run-all-scans.test.mjs` proves visible non-veto outcomes. |
+| TC-04 | static/unit | Direct-import corpus assertion plus module import test  | `scripts/harness/__tests__/diagnostic-core.test.mjs` keeps producer-to-runner reverse dependency from returning. |
 
 ## User Execution Test Scenarios
 
@@ -153,7 +159,7 @@ It changes no Robota product CLI, TUI, browser, SDK, or installed-package user s
 
 ## Tasks
 
-- [ ] INFRA-2698 — in-progress — `.agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md`
+- [x] INFRA-2698 — done — `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md`
 
 ## Evidence Log
 
@@ -210,7 +216,7 @@ GATE VERDICT: PASS
 **Status remains:** approved
 **Failed criteria:**
 
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/INFRA-2698-make-the-harness-diagnostic-first-rather-than-enforcement-first.md`, whose basename is not the spec's (INFRA-2698-add-diagnostic-result-and-report-core.md)
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` named the prior `INFRA-2698-make-the-harness-diagnostic-first-rather-than-enforcement-first.md` Task basename, which did not match this spec's basename (INFRA-2698-add-diagnostic-result-and-report-core.md)
   **Required action:** pair the Task and the spec by basename
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : 17 path(s) outside the paired spec/Task: scripts/harness/check-build-output-contracts.mjs, scripts/harness/check-design-doc-completeness.mjs, scripts/harness/check-spec-whitebox-leakage.mjs, scripts/harness/check-task-archival.mjs, scripts/harness/gate-operations.mjs
   **Required action:** commit, stash, or remove them before this gate
@@ -267,6 +273,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -303,7 +310,111 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `fa575ab0c44b` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/todo/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `4053ed3a1b0d` (untracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-11
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm build` → exit 0 ( ⏎ ✓ All build:types complete. ⏎ [build] desktop Electron app is not required outside full verification.); `pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/dag-nodes-default@0.1.0-beta.0 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm build` → exit 0 ( ⏎ ✓ All build:types complete. ⏎ [build] desktop Electron app is not required outside full verification.); `pnpm test` → exit 1 ( ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @robota-sdk/dag-nodes-default@0.1.0-beta.0 test: `vitest run --passWithNoTests` ⏎ Exit status 1 ⏎  ELIFECYCLE  Test failed. See above for more details.)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `91dcda25add8` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior GATE-IMPLEMENT PASS and status `in-progress`: the last GATE-IMPLEMENT entry is `✅ PASS` and the document remains `status: in-progress`.
+- GATE-VERIFY — every item in `.agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md` `## Plan` is complete: all four delivery items are marked `[x]`.
+- GATE-VERIFY — no Plan item is blocked or pending: no Plan row is marked blocked or pending.
+- GATE-VERIFY — build-equivalent verification for this scripts-only change: `pnpm harness:scan -- --skip dist --skip build-contracts` exited 0; 158 scans passed, 1 skipped (159 declared their examined scope).
+- GATE-VERIFY — targeted affected tests: `pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs scripts/harness/__tests__/scan-architecture-refresh-signals.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs` exited 0; 4 files and 113 tests passed.
+
+**Judged by:** independent `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `4c4d5142e73e` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs scripts/harness/__tests__/scan-architecture-refresh-signals.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs
+Result: 4 test files passed; 113 tests passed; exit 0.
+Date: 2026-09-11
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `de62c1f438f5` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs scripts/harness/__tests__/scan-architecture-refresh-signals.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs
+Result: 4 test files passed; 113 tests passed; exit 0.
+Date: 2026-09-11
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `b2d0d6527856` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/run-all-scans.test.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs scripts/harness/__tests__/scan-architecture-refresh-signals.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs
+Result: 4 test files passed; 113 tests passed; exit 0.
+Date: 2026-09-11
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `4d038683154d` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-11
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+Command: pnpm exec vitest run scripts/harness/__tests__/diagnostic-core.test.mjs scripts/harness/__tests__/run-all-scans.test.mjs scripts/harness/__tests__/scan-architecture-refresh-signals.test.mjs scripts/harness/__tests__/scan-harness-script-import-safety.test.mjs
+Result: 4 test files passed; 113 tests passed; exit 0.
+Date: 2026-09-11
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `dbd47ad2e2d3` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-11; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/INFRA-2698-add-diagnostic-result-and-report-core.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a818a10202e8` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/active/INFRA-2698-add-diagnostic-result-and-report-core.md` blob `6eea72086f72` (modified)

@@ -30,7 +30,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { idOf } from './check-backlog-placement.mjs';
 import { asList, asScalar, splitFrontmatter } from './frontmatter.mjs';
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { classifyTaskLifecycle } from './task-lifecycle.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';

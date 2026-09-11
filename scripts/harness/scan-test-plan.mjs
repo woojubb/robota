@@ -24,7 +24,7 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { WORKSPACE_ROOT, pathExists } from './shared.mjs';
 
 const MIN_CONTENT_LENGTH = 50;

@@ -286,6 +286,22 @@ describe('architecture-refresh runtime signal floor', () => {
     ).toBe(true);
   });
 
+  it('keeps a voided uncommitted audit record as evidence without treating it as a live proof', () => {
+    const root = workspace();
+    const valid = fanoutRun('fanout-valid');
+    const voided = fanoutRun('fanout-voided');
+    voided.terminal = 'voided';
+    voided.extensions.void = {
+      priorTerminal: 'converged',
+      reason: 'the uncommitted manifest was recorded incorrectly',
+    };
+    voided.extensions.architectureRefresh.signalObservations[0].signal =
+      'AUDIT-DIM-COMPLETE: malformed';
+
+    writeLedger(root, 'architecture-audit-fanout', [valid, voided]);
+    expect(findArchitectureRefreshSignalFindings(root)).toEqual([]);
+  });
+
   it('accepts a two-round selective retry and rejects redispatch outside prior uncovered cells', () => {
     const root = workspace();
     const run = fanoutRun();
