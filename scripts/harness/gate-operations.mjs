@@ -2145,7 +2145,7 @@ export function runApprove(options) {
       throw new Error(
         'approve --route DIRECT: --evidence is CLASS-only — a DIRECT entry records the ' +
           "user's instruction verbatim, not a note about it. For an approval that covers a " +
-          'category use --route CLASS --class <ID>; to record THIS approval\'s scope, put it ' +
+          "category use --route CLASS --class <ID>; to record THIS approval's scope, put it " +
           'inside --instruction "<verbatim>".',
       );
     if (options.conversation != null)
