@@ -183,6 +183,9 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: the individual file completed in about four minutes with one unhandled worker timeout;
   capturing fixture Git stderr, splitting the large parameter loops into per-case tests, and running
   the file in one isolated thread worker remove the worker starvation and shard deadline.
+- evidence (2026-09-11): `pnpm exec vitest run scripts/harness/__tests__` completed 321 files and
+  6,281 assertions, then exited 1 solely because Vitest reported the same unhandled
+  `[vitest-worker]: Timeout calling "onTaskUpdate"` after this 190-second test file.
 - source: INFRA-2662 full contract verification, 2026-09-09
 - related: PROC-003, INFRA-2662
 
@@ -201,3 +204,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `pnpm harness:pre-push` and `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`; `.agents/spec-docs/active/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md:10,80,157,158,220,222,333,334`.
 - source: AGREEMENT-2515 parent pre-push verification, 2026-09-09
 - related: MCP-2520, issue #2520
+
+### LRN-dag-default-provider-dist-resolution
+
+- observed-at: 2026-09-11T03:25:41+09:00
+- observation: The default DAG-node package test suite cannot load the built-in default LLM provider set because its generated provider distribution imports the undeclared or unavailable `@robota-sdk/agent-provider-bytedance` package.
+- evidence: `pnpm --filter @robota-sdk/dag-nodes-default test` exits 1 with `Cannot find package '@robota-sdk/agent-provider-bytedance' imported from packages/agent-builtin-providers/dist/node/index.js`; 10 of 13 tests fail before the current harness diagnostic code is reached.
+- source: INFRA-2698 full-workspace verification, 2026-09-11
+- related: INFRA-2698

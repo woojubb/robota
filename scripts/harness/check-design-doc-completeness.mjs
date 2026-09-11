@@ -21,7 +21,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { listManifestPackageDirs } from './workspace-packages.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 

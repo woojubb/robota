@@ -71,7 +71,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import path, { extname, join, relative, sep } from 'node:path';
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 
 const ROOT = process.cwd();

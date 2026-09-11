@@ -76,6 +76,7 @@
     "scripts/harness/check-spec-doc-frontmatter.mjs",
     "scripts/harness/check-spec-paths.mjs",
     "scripts/harness/check-task-archival.mjs",
+    "scripts/harness/output-markers.mjs",
     "scripts/harness/run-all-scans.mjs",
     "scripts/harness/scan-action-references.mjs",
     "scripts/harness/scan-authority-bypass.mjs",

@@ -42,7 +42,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
-import { ADVISORY_MARKER, EXAMINED_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER, EXAMINED_MARKER } from './output-markers.mjs';
 import { normalizeSpecHeading, readSpecSectionContract } from './spec-sections.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';

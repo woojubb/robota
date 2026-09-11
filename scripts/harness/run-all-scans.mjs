@@ -15,6 +15,21 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { classifyRange } from './classify-changed-paths.mjs';
+import {
+  errorDetail,
+  normalizeScanOutcome,
+  publicationUnavailableDiagnostic,
+  publishDiagnosticResults,
+  scanFindingDiagnostic,
+  scanUnavailableDiagnostic,
+} from './diagnostic-run-adapter.mjs';
+import {
+  ADVISORY_MARKER,
+  EXAMINED_MARKER,
+  EXPECTED_EMPTY_MARKER,
+  extractAdvisories,
+  extractExamined,
+} from './output-markers.mjs';
 import { loadScanCommands } from './discovery-loader.mjs';
 import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
@@ -39,36 +54,14 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
  * GENERAL, not a special case for one scan: any scan may print it, and several in this repo have
  * advisory output currently thrown away (e.g. `scan-dist-freshness`'s staleness notices).
  */
-export const ADVISORY_MARKER = '::advisory::';
-/**
- * SGR colour sequences, stripped so a scan's own colouring does not leak into the summary.
- *
- * The ESC is written `\x1b`, not as a raw control byte, and it is part of the pattern deliberately:
- * without it the regex is `/\[[0-9;]*m/`, which matches any bracketed digits ending in `m`, so an
- * advisory whose text happened to mention `[12m` would have had it silently deleted. A sanitiser
- * that corrupts the message it is sanitising is worse than none. Both properties are pinned below.
- */
-const ANSI_ESCAPE = '\u001b';
-const ANSI_SGR_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, 'g');
-/**
- * Advisory texts a scan emitted, in the order printed. Pure, so the rule is testable without
- * spawning anything.
- *
- * A marked line with no text after the marker is DROPPED rather than surfaced as an empty bullet —
- * an advisory channel that can print a contentless line is a way to look like it reported
- * something while reporting nothing, which is the class this whole item exists to close.
- */
-export function extractAdvisories(output) {
-  const advisories = [];
-  for (const rawLine of String(output ?? '').split('\n')) {
-    const line = rawLine.replace(ANSI_SGR_PATTERN, '');
-    const markerAt = line.indexOf(ADVISORY_MARKER);
-    if (markerAt === -1) continue;
-    const text = line.slice(markerAt + ADVISORY_MARKER.length).trim();
-    if (text.length > 0) advisories.push(text);
-  }
-  return advisories;
-}
+// Compatibility exports keep pre-migration scan adapters working while their ownership moves inward.
+export {
+  ADVISORY_MARKER,
+  EXAMINED_MARKER,
+  EXPECTED_EMPTY_MARKER,
+  extractAdvisories,
+  extractExamined,
+};
 /**
  * HOW MUCH DID YOU LOOK AT? — the one question three recurring defects all answer wrongly.
  *
@@ -95,37 +88,6 @@ export function extractAdvisories(output) {
  * with a regex, and a regex over prose both misses and invents. Eighteen scans already state a size
  * in a sentence; those sentences stay for humans, and the marker is what the runner reads.
  */
-export const EXAMINED_MARKER = '::examined::';
-export const EXPECTED_EMPTY_MARKER = '::expected-empty::';
-/**
- * Every examined-size declaration in a scan's output.
- *
- * Returns `{ size, subject, expectedEmpty }` per declaration. A declaration whose count is not a
- * number is returned with `size: null` and treated as undeclared by the caller — a marker that says
- * nothing measurable is the contentless-advisory shape one channel over.
- */
-export function extractExamined(output) {
-  const found = [];
-  for (const rawLine of String(output ?? '').split('\n')) {
-    const line = rawLine.replace(ANSI_SGR_PATTERN, '');
-    const at = line.indexOf(EXAMINED_MARKER);
-    if (at === -1) continue;
-    let rest = line.slice(at + EXAMINED_MARKER.length).trim();
-    let expectedEmpty = null;
-    const emptyAt = rest.indexOf(EXPECTED_EMPTY_MARKER);
-    if (emptyAt !== -1) {
-      expectedEmpty = rest.slice(emptyAt + EXPECTED_EMPTY_MARKER.length).trim() || null;
-      rest = rest.slice(0, emptyAt).trim();
-    }
-    const match = /^(-?\d[\d,]*)\s*(.*)$/.exec(rest);
-    found.push({
-      size: match ? Number(match[1].replace(/,/g, '')) : null,
-      subject: match ? match[2].trim() : rest,
-      expectedEmpty,
-    });
-  }
-  return found;
-}
 /**
  * The verdict on one scan's declarations: what it examined, and whether a zero was earned.
  *
@@ -1570,6 +1532,13 @@ function spawnScan(command) {
   });
 }
 
+function defaultPublicationUnavailableNotice(result) {
+  process.stderr.write(
+    `Diagnostic publication unavailable [${result.id}] ${result.publication.target}: ` +
+      `${result.publication.detail}\n`,
+  );
+}
+
 /**
  * Run scans with BOUNDED CONCURRENCY (INFRA-037), never early-exiting, then emit a final summary.
  * Each scan is `{ name, run: () => Promise<{code, output}> | Promise<number> }`. Output is CAPTURED per
@@ -1601,6 +1570,8 @@ export async function runScans(
     context = 'integration',
     advisoryNames = new Set(),
     onOutcome = null,
+    diagnosticResults = null,
+    onDiagnosticPublicationUnavailable = defaultPublicationUnavailableNotice,
   } = {},
 ) {
   if (!SCAN_CONTEXTS.includes(context)) {
@@ -1609,18 +1580,60 @@ export async function runScans(
     );
   }
   const results = new Array(scans.length);
+  const scanFailureDiagnostics = new Array(scans.length);
+  const configuredDiagnostics =
+    diagnosticResults === null
+      ? null
+      : Array.isArray(diagnosticResults)
+        ? diagnosticResults
+        : [diagnosticResults];
+  const publicationUnavailableCallback =
+    typeof onDiagnosticPublicationUnavailable === 'function'
+      ? onDiagnosticPublicationUnavailable
+      : defaultPublicationUnavailableNotice;
+  let publicationUnavailableReported = false;
+  let publicationUnavailableNotice = null;
+  function reportPublicationUnavailable(result) {
+    if (publicationUnavailableReported) return;
+    publicationUnavailableReported = true;
+    try {
+      publicationUnavailableNotice = Promise.resolve(publicationUnavailableCallback(result)).catch(
+        () => {
+          defaultPublicationUnavailableNotice(result);
+        },
+      );
+    } catch {
+      defaultPublicationUnavailableNotice(result);
+    }
+  }
+  function emit(line) {
+    try {
+      write(line);
+      return true;
+    } catch (error) {
+      if (configuredDiagnostics === null) throw error;
+      reportPublicationUnavailable(publicationUnavailableDiagnostic(errorDetail(error)));
+      return false;
+    }
+  }
+  async function settlePublicationUnavailableNotice() {
+    if (publicationUnavailableNotice !== null) await publicationUnavailableNotice;
+  }
   let next = 0;
   async function worker() {
     for (;;) {
       const index = next++;
       if (index >= scans.length) return;
       const scan = scans[index];
-      const outcome = await scan.run();
-      const raw =
-        typeof outcome === 'number'
-          ? { name: scan.name, code: outcome, output: '' }
-          : { name: scan.name, code: outcome.code, output: outcome.output ?? '' };
-      results[index] = { ...raw, output: ensureExaminedDeclaration(scan, raw.output) };
+      try {
+        const outcome = await scan.run();
+        const raw = normalizeScanOutcome(scan, index, outcome);
+        results[index] = { ...raw, output: ensureExaminedDeclaration(scan, raw.output) };
+      } catch (error) {
+        if (configuredDiagnostics === null) throw error;
+        scanFailureDiagnostics[index] = scanUnavailableDiagnostic(scan, index, error);
+        results[index] = { name: scan.name, code: 0, output: '', unavailable: true };
+      }
     }
   }
   const poolSize = Math.max(1, Math.min(concurrency, scans.length));
@@ -1638,33 +1651,49 @@ export async function runScans(
   for (const result of results) {
     if (result.code !== 0 && result.output.trim().length > 0) {
       const label = tolerated.has(result.name) ? 'FAILED — advisory in pr context' : 'FAILED';
-      write(`\n----- ${result.name} (${label}) -----`);
-      write(result.output.replace(/\n+$/, ''));
+      emit(`\n----- ${result.name} (${label}) -----`);
+      emit(result.output.replace(/\n+$/, ''));
     }
   }
 
   // Judged BEFORE the summary is printed, because the mark a scan gets depends on what it declared.
-  const examined = results.map((result) => ({
-    name: result.name,
-    ...judgeExamined(result.name, result.output),
-  }));
+  const unavailableNames = new Set(
+    results.filter((result) => result.unavailable).map((result) => result.name),
+  );
+  // A rejected scan did not examine anything, so it is reported as unavailable but excluded from
+  // the adoption ratchet. Treating a synthetic empty output as an examined run would make a
+  // dependency outage appear as an unrelated adoption-policy regression.
+  const examined = results
+    .filter((result) => !unavailableNames.has(result.name))
+    .map((result) => ({
+      name: result.name,
+      ...judgeExamined(result.name, result.output),
+    }));
   const skippedNames = new Set(examined.filter((e) => e.skipped).map((e) => e.name));
 
-  write('');
-  write('harness scan summary:');
+  emit('');
+  emit('harness scan summary:');
   for (const result of results) {
     // Three marks, not two. A skip that renders as a tick is counted in "all N scans passed" and is
     // indistinguishable from a scan that examined its whole subject — the output above it may be
     // honest while the summary line is not, and the summary is the line people read.
     const mark = tolerated.has(result.name)
       ? '⚑'
-      : result.code !== 0
-        ? '✗'
-        : skippedNames.has(result.name)
-          ? '↩'
-          : '✓';
-    write(
-      `${mark} ${result.name}${tolerated.has(result.name) ? ' (advisory: failed, not blocking in pr context)' : ''}`,
+      : unavailableNames.has(result.name)
+        ? '⚠'
+        : result.code !== 0
+          ? '✗'
+          : skippedNames.has(result.name)
+            ? '↩'
+            : '✓';
+    emit(
+      `${mark} ${result.name}${
+        unavailableNames.has(result.name)
+          ? ' (unavailable)'
+          : tolerated.has(result.name)
+            ? ' (advisory: failed, not blocking in pr context)'
+            : ''
+      }`,
     );
   }
 
@@ -1686,12 +1715,30 @@ export async function runScans(
     });
   }
   if (advisories.length > 0) {
-    write('');
-    write(
+    emit('');
+    emit(
       `⚑ ${advisories.length} advisory finding(s) — NOT failures. The verdict below is unaffected.`,
     );
-    for (const advisory of advisories) write(`⚑ ${advisory.name}: ${advisory.text}`);
-    write('');
+    for (const advisory of advisories) emit(`⚑ ${advisory.name}: ${advisory.text}`);
+    emit('');
+  }
+
+  // The structured channel is intentionally independent of the scan verdict. This first seam is
+  // opt-in while later migration slices classify every policy detector; it proves an actionable
+  // finding or unavailable dependency stays visible without turning the caller's process red.
+  let diagnosticReport = null;
+  if (configuredDiagnostics !== null) {
+    const diagnostics = [
+      ...configuredDiagnostics,
+      ...scanFailureDiagnostics.filter(Boolean),
+      ...results
+        .map((result, index) => ({ result, index }))
+        .filter(({ result }) => result.code !== 0)
+        .map(({ result, index }) => scanFindingDiagnostic(result, index)),
+    ];
+    if (diagnostics.length > 0) {
+      diagnosticReport = publishDiagnosticResults(diagnostics, emit, reportPublicationUnavailable);
+    }
   }
 
   // HOW MUCH DID EACH ONE LOOK AT (HARNESS-057). An unearned zero fails the suite outright; the
@@ -1708,8 +1755,8 @@ export async function runScans(
   let adoption = { ok: true, message: null };
   if (writeAdoption) {
     const frozen = writeAdoptionBaseline(declaringNames, evaluableNames, knownNames);
-    write('');
-    write(
+    emit('');
+    emit(
       `✎ re-froze examined-size adoption: ${frozen.length} scan(s) in ` +
         `${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
     );
@@ -1718,13 +1765,13 @@ export async function runScans(
   }
 
   if (unearnedZeros.length > 0) {
-    write('');
-    write(`✗ ${unearnedZeros.length} scan(s) reported a pass over nothing:`);
-    for (const problem of unearnedZeros) write(`  ${problem}`);
+    emit('');
+    emit(`✗ ${unearnedZeros.length} scan(s) reported a pass over nothing:`);
+    for (const problem of unearnedZeros) emit(`  ${problem}`);
   }
   if (adoption.message) {
-    write('');
-    write(adoption.message);
+    emit('');
+    emit(adoption.message);
   }
 
   const failed = results.filter((result) => result.code !== 0 && !tolerated.has(result.name));
@@ -1733,18 +1780,24 @@ export async function runScans(
     // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
     // stronger claim than the run supports — and a pass that tolerated an advisory failure says so
     // in the same line, so the verdict cannot be read as "nothing failed".
-    const ran = results.length - skippedNames.size - tolerated.size;
+    const ran = results.length - skippedNames.size - tolerated.size - unavailableNames.size;
     const tail =
       (skippedNames.size > 0 ? `, ${skippedNames.size} skipped` : '') +
-      (tolerated.size > 0 ? `, ${tolerated.size} advisory failure(s) tolerated (pr context)` : '');
-    write(
+      (tolerated.size > 0 ? `, ${tolerated.size} advisory failure(s) tolerated (pr context)` : '') +
+      (unavailableNames.size > 0 ? `, ${unavailableNames.size} unavailable` : '') +
+      (diagnosticReport?.totals.nonClean > 0
+        ? `, ${diagnosticReport.totals.nonClean} non-clean diagnostic result(s) reported`
+        : '');
+    emit(
       checkAdoption
         ? `${ran} scans passed${tail} (${declaring} declared what they examined)`
         : `${ran} scans passed${tail}`,
     );
+    await settlePublicationUnavailableNotice();
     return 0;
   }
-  if (failed.length > 0) write(`${failed.length} of ${results.length} scans failed`);
+  if (failed.length > 0) emit(`${failed.length} of ${results.length} scans failed`);
+  await settlePublicationUnavailableNotice();
   return 1;
 }
 
@@ -1896,6 +1949,7 @@ export async function main() {
       checkAdoption: false,
       context,
       advisoryNames,
+      diagnosticResults: [],
     });
     return;
   }
@@ -1910,6 +1964,7 @@ export async function main() {
     knownNames: SCAN_COMMANDS.map((scan) => scan.name),
     context,
     advisoryNames,
+    diagnosticResults: [],
     onOutcome: (result) => {
       outcome = result;
     },

@@ -71,7 +71,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 
 import { loadHarnessConfig } from './harness-config.mjs';
-import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { ADVISORY_MARKER } from './output-markers.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);

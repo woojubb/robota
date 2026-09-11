@@ -181,7 +181,7 @@ import {
   standingVerdict,
 } from './scan-standing-delegation-evidence.mjs';
 import { repointCurrentSpec, vacantAdvanceDestination } from './gate-advance-contract.mjs';
-import { extractExamined } from './run-all-scans.mjs';
+import { extractExamined } from './output-markers.mjs';
 import { AUTO_GENERATED_CHURN } from './verification-receipt-storage.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 import {
@@ -2079,7 +2079,7 @@ export function measureLaneDeclaration({ root, doc, env = process.env }) {
   const lines = output.split('\n').map((line) => line.trim());
   const summary = lines.find((line) => /^lane-declaration summary:/.test(line)) ?? null;
   // The scan's own size declaration, read through the registry's extractor rather than by a local
-  // copy of its marker — the marker belongs to run-all-scans.mjs, and a module that spells it out is
+  // copy of its marker — the marker belongs to output-markers.mjs, and a module that spells it out is
   // itself read as declaring a size (scan-measurement-provenance).
   const declared = extractExamined(output).find((entry) => Number.isFinite(entry.size));
   const examined = declared ? Number(declared.size) : -1;
@@ -2145,7 +2145,7 @@ export function runApprove(options) {
       throw new Error(
         'approve --route DIRECT: --evidence is CLASS-only — a DIRECT entry records the ' +
           "user's instruction verbatim, not a note about it. For an approval that covers a " +
-          'category use --route CLASS --class <ID>; to record THIS approval\'s scope, put it ' +
+          "category use --route CLASS --class <ID>; to record THIS approval's scope, put it " +
           'inside --instruction "<verbatim>".',
       );
     if (options.conversation != null)

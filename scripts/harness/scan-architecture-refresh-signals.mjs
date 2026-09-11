@@ -1079,6 +1079,10 @@ export function findArchitectureRefreshSignalFindings(root = WORKSPACE_ROOT) {
     let validConvergedRuns = 0;
     for (const run of runs) {
       examinedRuns += 1;
+      // `loop-run void` preserves an uncommitted malformed record as explicit local evidence. It is
+      // not an audit attempt and cannot become a clean proof, so validating its deliberately
+      // rejected protocol shape would turn the recovery marker itself into a permanent veto.
+      if (run.terminal === 'voided') continue;
       const runFindings = [];
       const at = (detail) => {
         runFindings.push(detail);
