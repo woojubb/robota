@@ -221,12 +221,12 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit | Vitest manifest/inventory fixtures | Covers the full parent denominator, registration-versus-source identity, each veto path, shims, and unknown/omitted-source RED cases. |
-| TC-02 | Unit | Vitest core, receipt, and diagnostic-adapter fixtures | Asserts distinct stable/correlation IDs, rendered delivery, and non-cacheable hook outcomes. |
-| TC-03 | Unit | Vitest duplicate and publisher-failure fixtures | The returned delivery reports failure without a recursive publish attempt. |
-| TC-04 | Repository diagnostic suite | `pnpm harness:scan` plus full/reuse runner drift fixtures | The always-run producer reports freshly with exit zero and is excluded from receipt persistence. |
+| TC-ID | Test Type                   | Tool / Approach                                           | Notes                                                                                                                                 |
+| ----- | --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit                        | Vitest manifest/inventory fixtures                        | Covers the full parent denominator, registration-versus-source identity, each veto path, shims, and unknown/omitted-source RED cases. |
+| TC-02 | Unit                        | Vitest core, receipt, and diagnostic-adapter fixtures     | Asserts distinct stable/correlation IDs, rendered delivery, and non-cacheable hook outcomes.                                          |
+| TC-03 | Unit                        | Vitest duplicate and publisher-failure fixtures           | The returned delivery reports failure without a recursive publish attempt.                                                            |
+| TC-04 | Repository diagnostic suite | `pnpm harness:scan` plus full/reuse runner drift fixtures | The always-run producer reports freshly with exit zero and is excluded from receipt persistence.                                      |
 
 ## User Execution Test Scenarios
 
@@ -392,7 +392,7 @@ introduces no Robota CLI, TUI, browser, public SDK, or installed-package behavio
   `DIRECT` route; no delegated class is asserted or needed.
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: PASS —
   `reviewFingerprint` over the current document returns `225403245438 (review e80ece68, type/tags
-  fb0f2181)`, equal to the recorded approval fingerprint.
+fb0f2181)`, equal to the recorded approval fingerprint.
 - GATE-APPROVAL — Independent architecture validation (conditional): PASS (applicable) — an
   independent `proposal-reviewer` re-read the exact current document blob `8154fab7705d` and returned
   `REVIEW VERDICT: ENDORSE`. Its placement conclusion is that
@@ -401,7 +401,7 @@ introduces no Robota CLI, TUI, browser, public SDK, or installed-package behavio
   structure-channel record is
   `.agents/loop-runs/architecture-audit-fanout.jsonl` run `r20260911161226`:
   `AUDIT-DIM-COMPLETE: dim=structure shard=1/1 blocker=0 high=2 medium=2 low=0 coverage=7/7
-  uncovered=none`. Those original findings informed the corrected document; the record is retained as
+uncovered=none`. Those original findings informed the corrected document; the record is retained as
   placement evidence, not misrepresented as a clean audit verdict.
 - GATE-APPROVAL — implementation-before-approval trigger: not triggered — current diff from
   `origin/develop` contains only planning, parent-tracking, and loop-record paths; no B1 harness,
@@ -440,6 +440,7 @@ introduces no Robota CLI, TUI, browser, public SDK, or installed-package behavio
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -478,6 +479,7 @@ introduces no Robota CLI, TUI, browser, public SDK, or installed-package behavio
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
