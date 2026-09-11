@@ -807,7 +807,7 @@ describe('ExecutionService', () => {
 
       expect(chatSpy).toHaveBeenCalledTimes(2);
       const summaryOptions = chatSpy.mock.calls[1]?.[1] as IChatOptions | undefined;
-      expect(summaryOptions?.effort).toBe('high');
+      expect(summaryOptions?.effort).toBe('auto');
 
       // Identity is not the assertion: the shared helper hands the provider a linked controller of
       // its own so it can also fire the idle timeout. What must hold is that the caller's abort

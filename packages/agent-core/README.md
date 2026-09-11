@@ -143,6 +143,14 @@ console.log(decision, summary);
 
 The same directive can be set agent-wide via `defaultModel.toolChoice`.
 
+### Model Effort Selection
+
+`defaultModel.effort` and per-call `IChatOptions.effort` accept `auto`, `none`, `minimal`, `low`,
+`medium`, `high`, `xhigh`, or `max`. `auto` is preserved to the provider adapter, which resolves its
+documented exact-model default from a source-dated capability table. The adapter reports the terminal
+resolution, native-control, and dispatch outcome through `onModelEffortOutcome`; Core does not guess
+vendor field names or defaults.
+
 ### Execution Boundary Events
 
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:

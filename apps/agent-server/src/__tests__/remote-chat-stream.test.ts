@@ -23,10 +23,26 @@ import request from 'supertest';
 
 import { createApp } from '../app.js';
 
-import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IChatOptions,
+  IModelEffortOutcome,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 
 const TEST_SECRET = 'stream-test-secret';
 const bearer = (): string => `Bearer ${jwt.sign({ sub: 'test-user' }, TEST_SECRET)}`;
+
+const SERVER_MODEL_EFFORT_OUTCOME: IModelEffortOutcome = {
+  resolution: {
+    selection: 'high',
+    effective: 'high',
+    disposition: 'exact',
+    fingerprint: 'streamy-1|high|high|exact|streamy.effort|2026-09-11',
+  },
+  nativeControl: { state: 'sent', id: 'streamy.effort' },
+  providerDispatch: { state: 'sent' },
+};
 
 /**
  * A provider that streams internally and returns the ASSEMBLED message, exactly as
@@ -39,6 +55,9 @@ function streamingProvider(): IAIProvider {
     async chat(_messages: TUniversalMessage[], options: IChatOptions): Promise<TUniversalMessage> {
       for (const piece of ['Hel', 'lo ', 'world']) {
         options.onTextDelta?.(piece);
+      }
+      if (options.effort !== undefined) {
+        options.onModelEffortOutcome?.(SERVER_MODEL_EFFORT_OUTCOME);
       }
       return {
         id: 'assembled-1',
@@ -125,6 +144,41 @@ describe('CORE-046 — POST /api/v1/remote/chat/stream', () => {
     const messages = frames.filter(([e]) => e === 'message');
     expect(messages).toHaveLength(1);
     expect(frames.at(-1)?.[0]).toBe('done');
+  });
+
+  it('transports the server-adapter outcome once on HTTP instead of letting the client invent it', async () => {
+    const res = await request(appWith())
+      .post('/api/v1/remote/chat')
+      .set('Authorization', bearer())
+      .send({
+        provider: 'streamy',
+        model: 'streamy-1',
+        messages: [{ role: 'user', content: 'hi' }],
+        options: { effort: 'high' },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.modelEffortOutcome).toEqual(SERVER_MODEL_EFFORT_OUTCOME);
+  });
+
+  it('emits exactly one server-adapter outcome frame before SSE completion', async () => {
+    const res = await request(appWith())
+      .post('/api/v1/remote/chat/stream')
+      .set('Authorization', bearer())
+      .send({
+        provider: 'streamy',
+        model: 'streamy-1',
+        messages: [{ role: 'user', content: 'hi' }],
+        options: { effort: 'high' },
+      });
+
+    const frames = parseSse(res.text);
+    const outcomes = frames.filter(([event]) => event === 'model-effort-outcome');
+    expect(outcomes).toHaveLength(1);
+    expect(JSON.parse(outcomes[0]![1])).toEqual(SERVER_MODEL_EFFORT_OUTCOME);
+    expect(frames.findIndex(([event]) => event === 'model-effort-outcome')).toBeLessThan(
+      frames.findIndex(([event]) => event === 'done'),
+    );
   });
 
   it('the tool call on the wire is ASSEMBLED, never a fragment', () => {

@@ -292,7 +292,12 @@ export function wireSessionDeps(
   backgroundTaskManager: IBackgroundTaskManager,
 ): void {
   if (agentToolDeps) agentToolDeps.parentSessionId = session.getSessionId();
-  if (agentToolDeps) agentToolDeps.getParentModelEffort = () => session.getModelEffort();
+  if (agentToolDeps) {
+    agentToolDeps.getParentModelEffort = () => {
+      const selection = session.getModelEffort();
+      return selection === 'auto' ? undefined : selection;
+    };
+  }
   // PRESET-016: wire the runtime gate to the session's live flag so a preset switch can
   // enable/disable subagent dispatch on this already-constructed session.
   if (agentToolDeps) {

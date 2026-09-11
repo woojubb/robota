@@ -1,7 +1,12 @@
 import { closeObjectSchemas } from '@robota-sdk/agent-core';
 
 import type Anthropic from '@anthropic-ai/sdk';
-import type { IChatOptions } from '@robota-sdk/agent-core';
+import type {
+  IChatOptions,
+  IModelEffortResolution,
+  TModelEffort,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 /**
  * Map a `json_schema` response format onto Anthropic's native structured-output
@@ -17,15 +22,51 @@ import type { IChatOptions } from '@robota-sdk/agent-core';
 export function buildOutputConfig(
   options: IChatOptions | undefined,
 ): Pick<Anthropic.MessageCreateParams, 'output_config'> | Record<string, never> {
-  if (options?.responseFormat?.type !== 'json_schema') {
+  const effort = resolveAnthropicNativeEffort(options?.effortResolution);
+  if (options?.responseFormat?.type !== 'json_schema' && effort === undefined) {
     return {};
   }
   return {
     output_config: {
-      format: {
-        type: 'json_schema',
-        schema: closeObjectSchemas(options.responseFormat.schema) as Record<string, unknown>,
-      },
+      ...(effort !== undefined && { effort }),
+      ...(options?.responseFormat?.type === 'json_schema' && {
+        format: {
+          type: 'json_schema' as const,
+          schema: closeObjectSchemas(options.responseFormat.schema) as Record<
+            string,
+            TUniversalValue
+          >,
+        },
+      }),
     },
   };
+}
+
+function resolveAnthropicNativeEffort(
+  resolution: IModelEffortResolution | undefined,
+): Anthropic.OutputConfig['effort'] | undefined {
+  if (
+    resolution === undefined ||
+    resolution.effective === null ||
+    resolution.disposition === 'model-default'
+  ) {
+    return undefined;
+  }
+  return toAnthropicNativeEffort(resolution.effective);
+}
+
+function toAnthropicNativeEffort(
+  effort: TModelEffort,
+): NonNullable<Anthropic.OutputConfig['effort']> {
+  switch (effort) {
+    case 'low':
+    case 'medium':
+    case 'high':
+    case 'xhigh':
+    case 'max':
+      return effort;
+    case 'none':
+    case 'minimal':
+      throw new Error(`Anthropic does not support output_config.effort=${effort}.`);
+  }
 }

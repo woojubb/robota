@@ -110,7 +110,13 @@ This package is the single source of truth (SSOT) for the following types:
 | `IOwnerPathSegment`                 | `event-service/interfaces.ts`           | Execution path tracking                                                                                                                                                                                                                                                                                                     |
 | `RobotaError`                       | `utils/errors.ts`                       | Base error hierarchy                                                                                                                                                                                                                                                                                                        |
 | `TTextDeltaCallback`                | `interfaces/provider.ts`                | Streaming text delta callback `(delta: string) => void`                                                                                                                                                                                                                                                                     |
-| `TModelEffort`                      | `interfaces/provider.ts`                | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default applied at the framework→provider seam; `MODEL_EFFORT_VALUES` and `isModelEffort` are its runtime boundary.                                                                                                 |
+| `TModelEffort`                      | `interfaces/model-effort-capability.ts` | Provider-neutral native-control vocabulary: `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. It never implies a vendor default.                                                                                                                                                                    |
+| `TModelEffortSelection`             | `interfaces/model-effort-capability.ts` | A caller selection: a concrete `TModelEffort` or `'auto'`, which preserves provider-default selection without serializing a native control.                                                                                                                                                                                 |
+| `IModelEffortResolution`            | `interfaces/model-effort-capability.ts` | Immutable Core result of resolving a selection against an adapter-owned, source-dated table.                                                                                                                                                                                                                                |
+| `IModelEffortOutcome`               | `interfaces/model-effort-capability.ts` | Serializable terminal outcome that separately states resolution, native-control, and provider-dispatch facts.                                                                                                                                                                                                               |
+| `TModelEffortOutcomeCallback`       | `interfaces/model-effort-capability.ts` | Local observer for one serializable terminal outcome; observation errors never replace provider execution errors.                                                                                                                                                                                                           |
+| `IExecutorChatResult`               | `interfaces/executor.ts`                | Non-streaming executor envelope: required assistant `message` plus optional terminal effort outcome.                                                                                                                                                                                                                        |
+| `TExecutorStreamEvent`              | `interfaces/executor.ts`                | Discriminated stream contract: zero or more `{ kind: 'message' }` events followed by one `{ kind: 'terminal' }` event.                                                                                                                                                                                                      |
 | `TPermissionMode`                   | `permissions/types.ts`                  | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                                                                                                                             |
 | `TTrustLevel`                       | `permissions/types.ts`                  | Friendly trust aliases: safe, moderate, full                                                                                                                                                                                                                                                                                |
 | `TPermissionDecision`               | `permissions/types.ts`                  | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                     |
@@ -138,7 +144,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `IHookEventPolicy`                  | `hooks/enforcement-policy.ts`           | SEC-016 one row of `HOOK_ENFORCEMENT_POLICY`: `posture`, `enforcementReachable`, `rationale`. Exported from `hooks/index.ts`, not the package root                                                                                                                                                                          |
 | `assertPolicyCoherent`              | `hooks/enforcement-policy.ts`           | SEC-016 rejects a row that is `enforcing` while `enforcementReachable` is false — the table-internal invariant. Exported from `hooks/index.ts`, not the package root                                                                                                                                                        |
 | `IHookTypeExecutor`                 | `hooks/types.ts`                        | Strategy interface for hook type execution                                                                                                                                                                                                                                                                                  |
-| `IHookInput`                        | `hooks/types.ts`                        | Input passed to hook commands via stdin; model-call events additionally carry the effective `effort` tier                                                                                                                                                                                                                   |
+| `IHookInput`                        | `hooks/types.ts`                        | Input passed to hook commands via stdin; model-call events additionally carry the selected `effort` value, including `auto`                                                                                                                                                                                                 |
 | `THookOutcome`                      | `hooks/types.ts`                        | SEC-015 decoded hook execution result: `allow \| deny \| error` discriminated union. Replaces the former `IHookResult` (exitCode/stdout/stderr), whose single numeric channel forced every failure to be coerced into a verdict                                                                                             |
 | `IContextTokenUsage`                | `context/types.ts`                      | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                                                                                            |
 | `IContextWindowState`               | `context/types.ts`                      | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                           |
@@ -213,6 +219,7 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `assertProviderNativeWebToolsAvailable` | function       | Fail before provider transport execution when requested native web search/fetch is unsupported or disabled                                                                                                                                              |
 | `MODEL_EFFORT_VALUES`                   | const          | Runtime SSOT list for the `TModelEffort` vocabulary                                                                                                                                                                                                     |
 | `isModelEffort`                         | function       | Type guard that accepts only a core-owned model-effort value at an untrusted boundary                                                                                                                                                                   |
+| `createModelEffortOutcome`              | function       | Construct the serializable record that keeps resolution, native-control, and provider-dispatch facts separate                                                                                                                                           |
 | `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
 | `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
 | `normalizeProviderConfig`               | function       | Resolve loose provider settings into a full `IProviderDefinitionConfig` (default model from `defaults.model`, `$ENV:` apiKey resolution)                                                                                                                |
@@ -689,25 +696,49 @@ This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextD
 
 ### Reasoning Effort
 
-| Export         | Kind | Description                                                                                                           |
-| -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
-| `TModelEffort` | type | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default tier. |
+| Export                         | Kind      | Description                                                                                                      |
+| ------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| `TModelEffort`                 | type      | Provider-neutral native-control union: `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. |
+| `TModelEffortSelection`        | type      | A concrete effort or `'auto'`; `auto` is selection state, not a native provider control.                         |
+| `IModelEffortCapability`       | interface | Verified per-model support, model default, and adapter-owned native-control identity.                            |
+| `IProviderModelEffortTable`    | interface | Source-dated adapter-owned map of exact model identifiers to effort capabilities.                                |
+| `TModelEffortDisposition`      | type      | Resolution result: `exact`, `clamped`, `model-default`, or `not-applied`.                                        |
+| `IModelEffortResolution`       | interface | Immutable selection result, including effective value and audit fingerprint.                                     |
+| `TModelEffortNativeControl`    | type      | Whether a verified native control was sent or was omitted with a reason.                                         |
+| `TModelEffortProviderDispatch` | type      | Whether endpoint dispatch occurred or was prevented with a reason.                                               |
+| `IModelEffortOutcome`          | interface | Serializable terminal record combining resolution, native control, and dispatch facts.                           |
+| `TModelEffortOutcomeCallback`  | type      | Local callback that observes one terminal model-effort outcome.                                                  |
+| `IExecutorChatResult`          | interface | Executor chat envelope containing the assistant message and optional terminal outcome.                           |
+| `IExecutorStreamMessageEvent`  | interface | Discriminated executor stream event carrying one universal message.                                              |
+| `IExecutorStreamTerminalEvent` | interface | Final executor stream event carrying the optional terminal outcome.                                              |
+| `TExecutorStreamEvent`         | type      | Union of executor message and terminal events; a successful stream has exactly one terminal event.               |
+| `resolveModelEffort`           | function  | Resolve a selection only from an adapter-owned verified table; a missing table/model is visible `not-applied`.   |
 
-`TModelEffort` (declared in `interfaces/provider.ts`) is the single source of truth for the
-reasoning-effort dial. The `effort` value flows through one channel from configuration to provider:
+`TModelEffort` and the separate `TModelEffortSelection` (declared in
+`interfaces/model-effort-capability.ts`) are Core-owned provider-neutral contracts. Adapter packages
+own source-dated per-model tables and native SDK serialization; Core never supplies vendor defaults or
+field names. A selection flows through one channel from configuration to provider:
 
 - `IModelConfig.effort` (`src/core/robota-types.ts`) — the shared model-config shape used by
   `setModel`/`getModel`.
 - `IAgentConfig.defaultModel.effort` (`src/interfaces/agent.ts`) — the agent-config default-model
   effort threaded into execution.
-- `IChatOptions.effort` (`src/interfaces/provider.ts`) — the per-invocation effort passed to provider
-  `chat()`.
+- `IChatOptions.effort` (`src/interfaces/provider.ts`) — the per-invocation selection passed to provider
+  `chat()` and resolved only at the adapter boundary.
 
-`setModel` writes the effort into agent config (`src/core/robota-config-manager.ts`). At the
-framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
-(`config.defaultModel.effort ?? 'high'`) so every model call carries an explicit effort. Native-effort
-providers map it to their request parameter; providers without a native effort concept ignore it as a
-documented no-op. Core must not branch on provider names to apply effort.
+`setModel` writes the selection into agent config (`src/core/robota-config-manager.ts`). At the
+framework→provider seam, `execution-round-provider.ts` preserves `auto` rather than pinning a vendor
+default. The resolver yields `exact`, downward `clamped`, `model-default`, or `not-applied` and an
+immutable fingerprint. The terminal outcome separately records whether a native control was sent or
+omitted and whether a provider dispatch occurred; cache and opaque-executor no-dispatch branches cannot
+claim native application.
+
+`IExecutor` carries the terminal record outside normal content: `executeChat()` returns
+`IExecutorChatResult { message, modelEffortOutcome? }`, while `executeChatStream()` yields message
+events and exactly one terminal event after them. `LocalExecutor` captures the provider's local observer
+without forwarding it, returns/transports the one outcome, then calls the original observer once; the
+remote executor does the same from the server-adapter envelope. Generic raw APIs attach the outcome to
+the non-streaming raw result or emit one explicit raw terminal envelope after streamed message records.
 
 **The model-configuration API answers from construction (CORE-047).** `getModel`, `setModel` and
 `swapDefaultProvider` work on a freshly built agent, before any turn and without `ensureReady()`. The

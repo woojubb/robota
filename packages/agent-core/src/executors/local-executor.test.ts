@@ -109,8 +109,51 @@ describe('LocalExecutor', () => {
 
       const response = await executor.executeChat(request);
 
-      expect(response.role).toBe('assistant');
-      expect(response.content).toContain('Mock response to: Hello!');
+      expect(response.message.role).toBe('assistant');
+      expect(response.message.content).toContain('Mock response to: Hello!');
+    });
+
+    it('returns a selected-effort terminal outcome beside, not inside, the assistant message', async () => {
+      mockProvider.chat = async (_messages, options) => {
+        options?.onModelEffortOutcome?.({
+          resolution: {
+            selection: 'high',
+            effective: 'high',
+            disposition: 'exact',
+            fingerprint: 'test-model|high|high|exact|test.effort|2026-09-11',
+          },
+          nativeControl: { state: 'sent', id: 'test.effort' },
+          providerDispatch: { state: 'sent' },
+        });
+        return {
+          id: 'outcome-message',
+          role: 'assistant',
+          content: 'outcome response',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      };
+      const result = await executor.executeChat({
+        messages: [
+          {
+            id: 'msg-outcome',
+            role: 'user',
+            content: 'Hello!',
+            state: 'complete',
+            timestamp: new Date(),
+          },
+        ],
+        provider: 'test',
+        model: 'test-model',
+        options: { effort: 'high' },
+      });
+
+      expect(result).toEqual({
+        message: expect.objectContaining({ content: 'outcome response' }),
+        modelEffortOutcome: expect.objectContaining({
+          resolution: expect.objectContaining({ selection: 'high' }),
+        }),
+      });
     });
 
     it('should throw error for unregistered provider', async () => {
@@ -150,13 +193,63 @@ describe('LocalExecutor', () => {
       };
 
       const chunks: string[] = [];
-      for await (const chunk of executor.executeChatStream(request)) {
-        if (chunk.content) {
-          chunks.push(chunk.content);
+      for await (const event of executor.executeChatStream(request)) {
+        if (event.kind === 'message' && event.message.content) {
+          chunks.push(event.message.content);
         }
       }
 
       expect(chunks).toEqual(['Mock', ' streaming', ' response']);
+    });
+
+    it('emits one terminal envelope after local stream messages', async () => {
+      mockProvider.chatStream = async function* (_messages, options) {
+        yield {
+          id: 'stream-outcome-message',
+          role: 'assistant' as const,
+          content: 'complete',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        };
+        options?.onModelEffortOutcome?.({
+          resolution: {
+            selection: 'high',
+            effective: 'high',
+            disposition: 'exact',
+            fingerprint: 'test-model|high|high|exact|test.effort|2026-09-11',
+          },
+          nativeControl: { state: 'sent', id: 'test.effort' },
+          providerDispatch: { state: 'sent' },
+        });
+      };
+      const events: unknown[] = [];
+      for await (const event of executor.executeChatStream({
+        messages: [
+          {
+            id: 'stream-outcome-input',
+            role: 'user',
+            content: 'Hello!',
+            state: 'complete',
+            timestamp: new Date(),
+          },
+        ],
+        provider: 'test',
+        model: 'test-model',
+        stream: true,
+        options: { effort: 'high' },
+      })) {
+        events.push(event);
+      }
+
+      expect(events).toEqual([
+        { kind: 'message', message: expect.objectContaining({ content: 'complete' }) },
+        {
+          kind: 'terminal',
+          modelEffortOutcome: expect.objectContaining({
+            resolution: expect.objectContaining({ selection: 'high' }),
+          }),
+        },
+      ]);
     });
   });
 

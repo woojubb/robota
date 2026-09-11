@@ -1,51 +1,49 @@
 import type { IOpenAIResponsesReasoningOptions } from './types';
-import type { TModelEffort } from '@robota-sdk/agent-core';
+import type { IModelEffortResolution, TModelEffort } from '@robota-sdk/agent-core';
 
 /**
  * Map the framework's per-call reasoning-effort dial onto the OpenAI Responses API
  * `reasoning.effort` parameter.
  *
- * OpenAI's native effort enum is `'low' | 'medium' | 'high'`. The framework union also
- * carries the long-running tiers `'xhigh'` and `'max'`; both clamp to OpenAI's highest
- * supported tier (`'high'`) since the Responses API has no stronger setting.
+ * Per-model support and downward clamping are resolved by the Core table before this boundary.
+ * This function only serializes the verified concrete value, without reinterpreting it.
  */
 export function mapEffortToOpenAIReasoningEffort(
   effort: TModelEffort,
 ): IOpenAIResponsesReasoningOptions['effort'] {
-  switch (effort) {
-    case 'low':
-      return 'low';
-    case 'medium':
-      return 'medium';
-    case 'high':
-    case 'xhigh':
-    case 'max':
-      return 'high';
-    default: {
-      // Exhaustiveness guard — a new TModelEffort member must extend this mapping.
-      const exhaustive: never = effort;
-      return exhaustive;
-    }
-  }
+  return effort;
 }
 
 /**
  * Merge the per-call effort dial into the provider's static reasoning options.
  *
- * Per-call effort takes precedence over any static `reasoning.effort`; other static
- * reasoning fields (e.g. `summary`) are preserved. Returns `undefined` when neither a
- * per-call effort nor static reasoning options are present, so no `reasoning` key is
- * emitted on the request.
+ * A verified concrete resolution takes precedence over static native control; a conflicting static
+ * control is rejected rather than silently overwritten. `auto` and `not-applied` resolutions leave
+ * the provider default untouched and never manufacture a native effort field.
  */
 export function resolveOpenAIReasoningOptions(
   staticReasoning: IOpenAIResponsesReasoningOptions | undefined,
-  effort: TModelEffort | undefined,
+  resolution: IModelEffortResolution | undefined,
 ): IOpenAIResponsesReasoningOptions | undefined {
-  if (effort === undefined) {
+  if (resolution === undefined) {
     return staticReasoning;
+  }
+  if (resolution.effective === null || resolution.disposition === 'model-default') {
+    if (staticReasoning?.effort !== undefined) {
+      throw new Error(
+        `Static reasoning.effort ${staticReasoning.effort} conflicts with ${resolution.disposition === 'model-default' ? 'provider-default selection' : 'an effort resolution that does not apply a native control'}.`,
+      );
+    }
+    return staticReasoning;
+  }
+  const effort = mapEffortToOpenAIReasoningEffort(resolution.effective);
+  if (staticReasoning?.effort !== undefined && staticReasoning.effort !== effort) {
+    throw new Error(
+      `Resolved effort ${effort} conflicts with static reasoning.effort ${staticReasoning.effort}.`,
+    );
   }
   return {
     ...staticReasoning,
-    effort: mapEffortToOpenAIReasoningEffort(effort),
+    effort,
   };
 }

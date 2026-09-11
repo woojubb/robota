@@ -1,4 +1,4 @@
-import type { TModelEffort } from '@robota-sdk/agent-core';
+import type { TModelEffortSelection } from '@robota-sdk/agent-core';
 import type {
   ICommandListEntry,
   TCommandInvocationSource,
@@ -35,7 +35,7 @@ export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
  */
 export interface IModelReapplyOptions {
   model?: string;
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
   temperature?: number;
   maxOutputTokens?: number;
 }

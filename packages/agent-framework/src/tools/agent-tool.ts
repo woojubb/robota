@@ -138,8 +138,8 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
   /** Model-visible and command-visible agent definitions available to this session. */
   agentDefinitions?: IAgentDefinition[];
-  /** The parent Session's effective effort, supplied after session assembly. */
-  getParentModelEffort?: () => TModelEffort;
+  /** The parent Session's concrete effort, if it overrides provider-default selection. */
+  getParentModelEffort?: () => TModelEffort | undefined;
   /** PRESET-016 — runtime gate; when present and returns false, subagent dispatch is refused. */
   isParallelSubagentsEnabled?: () => boolean;
 }

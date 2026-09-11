@@ -7,7 +7,7 @@ import { useScreenReader } from './screen-reader-context.js';
 import { formatStatusActivity } from './status-activity.js';
 import { PALETTE } from './tui-palette.js';
 
-import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
+import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;
@@ -33,7 +33,7 @@ interface IProps {
   showGitBranch?: boolean;
   activeAgentLabel?: string;
   activePresetId?: string;
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
 }
 
 interface IStatusLeftProps {
@@ -51,7 +51,7 @@ interface IStatusLeftProps {
   gitBranch?: string;
   showGitBranch: boolean;
   activePresetId?: string;
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
 }
 
 /** Return the color for the context percentage indicator */
@@ -143,7 +143,7 @@ function ProviderText({
 }: {
   modelName: string;
   providerDisplayName?: string | undefined;
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
 }): React.ReactElement {
   const provider =
     providerDisplayName !== undefined ? `${providerDisplayName} ${modelName}` : modelName;

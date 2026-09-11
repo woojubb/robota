@@ -44,7 +44,11 @@ function readCurrentResolution(
 ): IModelEffortResolution {
   const adapter = context.getCommandHostAdapters?.().effort;
   if (adapter !== undefined) return adapter.getResolution();
-  return resolveModelEffort({ modelDefault: context.getSession().getModelEffort() });
+  const selection = context.getSession().getModelEffort();
+  return resolveModelEffort({
+    command: selection,
+    modelDefault: selection === 'auto' ? 'high' : selection,
+  });
 }
 
 function readAdapters(context: ICommandHostAdapterAccess): ICommandHostAdapters {
@@ -98,7 +102,7 @@ export async function executeEffortCommand(
         ? resolveModelEffort({ command: selection, modelDefault: current.effective })
         : await adapter.apply(selection, context.getSession());
     if (adapter === undefined) {
-      await context.getSession().applyModelOptions({ effort: resolution.effective });
+      await context.getSession().applyModelOptions({ effort: selection });
     }
     if (context.getCommandInvocationSource() === 'user') {
       persistEffortSelection(context, selection);

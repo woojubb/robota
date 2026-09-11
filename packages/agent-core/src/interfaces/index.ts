@@ -58,6 +58,18 @@ export type {
   TProviderOptionValueBase,
 } from './provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
+export { createModelEffortOutcome, resolveModelEffort } from './model-effort-capability';
+export type {
+  IModelEffortCapability,
+  IModelEffortOutcome,
+  IModelEffortResolution,
+  IProviderModelEffortTable,
+  TModelEffortDisposition,
+  TModelEffortNativeControl,
+  TModelEffortOutcomeCallback,
+  TModelEffortProviderDispatch,
+  TModelEffortSelection,
+} from './model-effort-capability';
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
@@ -218,6 +230,10 @@ export type {
   IExecutor,
   IChatExecutionRequest,
   IStreamExecutionRequest,
+  IExecutorChatResult,
+  IExecutorStreamMessageEvent,
+  IExecutorStreamTerminalEvent,
+  TExecutorStreamEvent,
   ILocalExecutorConfig,
   IRemoteExecutorConfig,
 } from './executor';

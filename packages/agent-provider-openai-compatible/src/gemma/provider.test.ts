@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type OpenAI from 'openai';
 import { GemmaProvider } from './index';
 import type {
+  IAssistantMessage,
+  IExecutor,
   IProviderNativeRawPayloadEvent,
   IToolSchema,
   TUniversalMessage,
@@ -143,6 +145,36 @@ describe('GemmaProvider', () => {
           'Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web fetch.',
       },
     });
+  });
+
+  it('unwraps executor chat and stream envelopes', async () => {
+    const message: IAssistantMessage = {
+      ...createUserMessage('from executor'),
+      role: 'assistant',
+    };
+    const executor: IExecutor = {
+      executeChat: vi.fn().mockResolvedValue({ message }),
+      executeChatStream: vi.fn().mockImplementation(async function* () {
+        yield { kind: 'message' as const, message };
+        yield { kind: 'terminal' as const };
+      }),
+      supportsTools: () => true,
+      validateConfig: () => true,
+      name: 'mock-executor',
+      version: '1.0.0',
+    };
+    const provider = new GemmaProvider({ executor });
+
+    await expect(
+      provider.chat([createUserMessage('hello')], { model: 'supergemma4' }),
+    ).resolves.toBe(message);
+    const streamed: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream([createUserMessage('hello')], {
+      model: 'supergemma4',
+    })) {
+      streamed.push(chunk);
+    }
+    expect(streamed).toEqual([message]);
   });
 
   it('rejects request-level native web tools before LM Studio transport execution', async () => {

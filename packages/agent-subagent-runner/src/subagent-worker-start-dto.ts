@@ -116,7 +116,7 @@ function valueMatches(kind: TScalarKind, value: unknown): boolean {
     case 'number':
       return typeof value === 'number' && Number.isFinite(value);
     case 'effort':
-      return isModelEffort(value);
+      return typeof value === 'string' && isModelEffort(value);
     case 'string[]':
       return isStringArray(value);
     case 'file-entry[]':

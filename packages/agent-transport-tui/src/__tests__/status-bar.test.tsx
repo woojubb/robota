@@ -78,6 +78,11 @@ describe('StatusBar', () => {
     expect(lastFrame()).toContain('Effort: high');
   });
 
+  it('renders auto as the provider-default effort selection', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} effort="auto" />);
+    expect(lastFrame()).toContain('Effort: auto');
+  });
+
   it('does not render message count in the status bar', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} />);
     const frame = lastFrame()!;

@@ -1,3 +1,5 @@
+import { resolveGeminiThinkingConfig } from './model-effort';
+
 import type { IGeminiProviderOptions } from './types';
 import type { GenerateContentParameters } from '@google/genai';
 import type {
@@ -159,7 +161,7 @@ export function buildGenerationConfig(
   applyChatOptions(config, options);
   applySafetySettings(config, providerOptions, options);
   applyStructuredOutputOptions(config, providerOptions);
-  applyProviderGenerationOptions(config, providerOptions);
+  applyProviderGenerationOptions(config, providerOptions, options);
   return config;
 }
 
@@ -239,9 +241,14 @@ function applyStructuredOutputOptions(
 function applyProviderGenerationOptions(
   config: NonNullable<GenerateContentParameters['config']>,
   providerOptions: IGeminiProviderOptions,
+  options: IChatOptions | undefined,
 ): void {
-  if (providerOptions.thinkingConfig) {
-    config.thinkingConfig = providerOptions.thinkingConfig as NonNullable<
+  const thinkingConfig = resolveGeminiThinkingConfig(
+    providerOptions.thinkingConfig,
+    options?.effortResolution,
+  );
+  if (thinkingConfig) {
+    config.thinkingConfig = thinkingConfig as NonNullable<
       GenerateContentParameters['config']
     >['thinkingConfig'];
   }

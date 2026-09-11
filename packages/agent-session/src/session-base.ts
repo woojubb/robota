@@ -10,6 +10,7 @@ import type {
   IHistoryEntry,
   IToolSchema,
   TModelEffort,
+  TModelEffortSelection,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -114,7 +115,7 @@ export abstract class SessionBase {
    */
   async applyModelOptions(options: {
     model?: string;
-    effort?: TModelEffort;
+    effort?: TModelEffortSelection;
     temperature?: number;
     maxOutputTokens?: number;
   }): Promise<void> {
@@ -135,18 +136,19 @@ export abstract class SessionBase {
     this.model = nextModel;
   }
 
-  /** Read the effective effort for the next model call, including the neutral core default. */
-  getModelEffort(): TModelEffort {
+  /** Read the selection for the next model call; provider default remains `auto`. */
+  getModelEffort(): TModelEffortSelection {
     // Some lightweight session doubles intentionally implement only the execution surface. Keep
     // this read-only projection total for those callers; the real Robota instance exposes getModel.
-    const getModel = (this.agent as Robota & { getModel?: () => { effort?: TModelEffort } })
-      .getModel;
-    if (getModel === undefined) return 'high';
+    const getModel = (
+      this.agent as Robota & { getModel?: () => { effort?: TModelEffortSelection } }
+    ).getModel;
+    if (getModel === undefined) return 'auto';
     try {
-      return getModel.call(this.agent).effort ?? 'high';
+      return getModel.call(this.agent).effort ?? 'auto';
     } catch (error) {
       // Preserve the agent's own [LIFECYCLE] error when a destroyed agent is subsequently run.
-      if (error instanceof Error && /disposed/i.test(error.message)) return 'high';
+      if (error instanceof Error && /disposed/i.test(error.message)) return 'auto';
       throw error;
     }
   }

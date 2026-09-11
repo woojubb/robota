@@ -2,9 +2,9 @@
 
 Client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote Robota agent server over HTTP.
 
-Streaming is deliberately **not** implemented (CORE-044): the client used to post to a `/stream`
-endpoint no server in this repository serves, so every such call was a 404. Restoring it needs a
-transport decision and an owner for chunk assembly — tracked as CORE-046.
+Streaming uses `POST /api/v1/remote/chat/stream`. The server assembles the provider message and the
+client forwards text deltas to `onTextDelta`, then yields one message event and one terminal event.
+The client does not assemble provider fragments.
 
 > This package is **private** and not published to npm. Server-side hosting is handled by separate packages (`agent-transport-http`, `agent-transport-ws`).
 
@@ -24,7 +24,7 @@ const executor = new RemoteExecutor({
   timeout: 30000, // optional, default 30 000 ms
 });
 
-const response = await executor.executeChat({
+const { message, modelEffortOutcome } = await executor.executeChat({
   provider: 'anthropic',
   model: 'claude-opus-4-5',
   messages: [createUserMessage('Hello')],
@@ -34,15 +34,18 @@ const response = await executor.executeChat({
     model: 'claude-opus-4-5',
     toolChoice: 'required',
     maxTokens: 1024,
+    effort: 'auto',
   },
 });
+
+console.log(message.content, modelEffortOutcome);
 ```
 
 ## API
 
 ### `RemoteExecutor`
 
-Implements `IExecutor` from `@robota-sdk/agent-core`. Proxies `executeChat` to a remote server via HTTP POST, carrying the caller's `tools` and the serializable members of `IChatOptions`. `executeChatStream` is not implemented — the interface makes it optional, so a provider configured with this executor reports `supportsStreaming: false` rather than failing at a route nobody serves.
+Implements `IExecutor` from `@robota-sdk/agent-core`. It proxies `executeChat` to a remote server via HTTP POST and returns `{ message, modelEffortOutcome? }`. `executeChatStream` uses SSE, forwarding text deltas to the local callback before yielding one `{ kind: 'message' }` event and one `{ kind: 'terminal' }` event. The wire sends only an effort selection; the server adapter supplies the serializable outcome and the local executor invokes `onModelEffortOutcome` exactly once.
 
 The run's `AbortSignal` cannot be serialized, so it is threaded into `fetch`: cancelling the HTTP request IS the cancellation on this seam, and an abort surfaces as an `AbortError` rather than a generic transport failure.
 

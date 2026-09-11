@@ -46,3 +46,17 @@ dist/
 └── node/
     └── index.js / index.cjs / index.d.ts   # root export
 ```
+
+## Model Effort (API-001)
+
+`src/anthropic/model-effort-table.ts` owns source-dated Anthropic Messages facts and exposes them
+through `AnthropicProvider.effortTable()` only at the vendor endpoint. For a documented model, a
+concrete Core selection is serialized as `output_config.effort` and merged with an existing
+`output_config.format`; `auto` reports the table default while omitting the native effort field. An
+unknown model or configured `baseURL` reports `not-applied` and sends no unverified control. A terminal
+observer receives exactly one serializable resolution/native-control/dispatch outcome after success.
+
+`examples/verify-model-effort.ts` is typechecked with this package and source-runs with
+`ANTHROPIC_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the active
+`claude-sonnet-4-6` model itself, then prints results for `high`, `max`, and `auto` without writing
+settings or cache files.

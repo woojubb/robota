@@ -24,7 +24,7 @@ export interface IModelEffortInputs {
   readonly flag?: TEffortSelection;
   readonly environment?: TEffortSelection;
   readonly settings?: TEffortSelection;
-  readonly preset?: TModelEffort;
+  readonly preset?: TEffortSelection;
   readonly modelDefault: TModelEffort;
 }
 

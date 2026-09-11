@@ -14,6 +14,24 @@ function decodeFailure(profile: 'skill' | 'bundle-skill' | 'agent', content: str
 }
 
 describe('decodeFrontmatter', () => {
+  it.each(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])(
+    'accepts the Core-owned skill effort %s',
+    (effort) => {
+      const result = decodeFrontmatter({
+        source: 'effort-skill.md',
+        content: `---\neffort: ${effort}\n---\n`,
+        profile: 'skill',
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          ok: true,
+          metadata: expect.objectContaining({ effort }),
+        }),
+      );
+    },
+  );
+
   it('preserves a document with no frontmatter byte-for-byte', () => {
     const content = '# Skill\r\n\r\nKeep me.\r\n';
     const result = decodeFrontmatter({ source: SOURCE, content, profile: 'skill' });

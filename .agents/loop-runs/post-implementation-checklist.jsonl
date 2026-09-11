@@ -15,3 +15,5 @@
 {"runId":"r20260909234204","opened":"2026-09-09T23:42:04.472Z","closed":"2026-09-09T23:50:15.173Z","roundFindings":[0,1,0],"extensions":{},"terminal":"abandoned","ref":"superseded by fresh final verification after corrective contract test"}
 {"runId":"r20260909235015","opened":"2026-09-09T23:50:15.205Z","closed":"2026-09-09T23:56:25.132Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260910161620","opened":"2026-09-10T16:16:20.992Z","closed":"2026-09-10T16:54:57.851Z","roundFindings":[0,0,0],"extensions":{},"terminal":"converged","ref":".agents/spec-docs/done/FLOW-008-resolve-and-expose-active-model-effort-across-cli-settings-environment-and-live-.md"}
+{"runId":"r20260911140303","opened":"2026-09-11T14:03:03.334Z","closed":"2026-09-11T16:31:50.494Z","roundFindings":[3],"extensions":{},"terminal":"abandoned","ref":"orphaned: committed while OPEN and unbound; superseded by r20260911163150"}
+{"runId":"r20260911163150","opened":"2026-09-11T16:31:50.494Z","closed":null,"roundFindings":[],"extensions":{},"terminal":null,"ref":".agents/tasks/API-001-map-model-effort-to-provider-capabilities-and-visible-outcomes.md"}

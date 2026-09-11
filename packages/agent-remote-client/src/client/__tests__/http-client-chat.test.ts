@@ -11,6 +11,17 @@ import { HttpClient, type IHttpClientConfig } from '../http-client';
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+const SERVER_MODEL_EFFORT_OUTCOME = {
+  resolution: {
+    selection: 'high' as const,
+    effective: 'high' as const,
+    disposition: 'exact' as const,
+    fingerprint: 'gpt-5.1|high|high|exact|responses.reasoning.effort|2026-09-11',
+  },
+  nativeControl: { state: 'sent' as const, id: 'responses.reasoning.effort' },
+  providerDispatch: { state: 'sent' as const },
+};
+
 describe('HttpClient chat methods', () => {
   let httpClient: HttpClient;
 
@@ -46,6 +57,31 @@ describe('HttpClient chat methods', () => {
       expect(result.provider).toBe('openai');
       expect(result.model).toBe('gpt-4');
       expect(result.timestamp).toBeInstanceOf(Date);
+    });
+
+    it('preserves the server-owned terminal effort outcome without invoking a local callback', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          role: 'assistant',
+          content: 'Hello!',
+          modelEffortOutcome: SERVER_MODEL_EFFORT_OUTCOME,
+        }),
+        headers: new Map(),
+      });
+
+      const observer = vi.fn();
+      const result = await httpClient.chat(
+        [{ role: 'user' as const, content: 'Hi' }],
+        'openai',
+        'gpt-5.1',
+        undefined,
+        { effort: 'high', onModelEffortOutcome: observer },
+      );
+
+      expect(result.modelEffortOutcome).toEqual(SERVER_MODEL_EFFORT_OUTCOME);
+      expect(observer).not.toHaveBeenCalled();
     });
 
     it('passes the run signal to fetch so a remote call is cancellable (CORE-042)', async () => {

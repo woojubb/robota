@@ -48,26 +48,26 @@ are skipped. The identity triple (`id`/`title`/`description`) is stripped before
 
 Types owned by this package (SSOT):
 
-| Type                        | Location                   | Purpose                                                                   |
-| --------------------------- | -------------------------- | ------------------------------------------------------------------------- |
-| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides        |
-| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                     |
-| `TPresetEffort`             | `preset-types.ts`          | Effort dial: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`            |
-| `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`             |
-| `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT)    |
-| `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                   |
-| `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`        |
-| `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ accepted, rejected }` outcome of `partitionExternalPresets`            |
-| `IPresetRegistry`           | `resolve-preset.ts`        | `{ resolvePreset, getPreset, listPresets }` instance-scoped registry (R8) |
-| `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                   |
-| `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result          |
-| `IOutputStyle`              | `output-style-types.ts`    | Full selectable response-style definition                                 |
-| `IOutputStyleSummary`       | `output-style-types.ts`    | Discovery projection of a selectable response style                       |
-| `IOutputStyleSource`        | `output-style-types.ts`    | Trusted external style input source                                       |
-| `IOutputStyleLoadResult`    | `output-style-types.ts`    | Per-file style load outcomes                                              |
-| `IOutputStyleRegistry`      | `output-style-types.ts`    | Instance-scoped list/get output-style resolver                            |
-| `TOutputStyleSource`        | `output-style-types.ts`    | Style source scope union                                                  |
-| `TOutputStyleTokenCost`     | `output-style-types.ts`    | Qualitative style prompt-cost label union                                 |
+| Type                        | Location                   | Purpose                                                                                                         |
+| --------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides                                              |
+| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                                                           |
+| `TPresetEffort`             | `preset-types.ts`          | Core-owned effort selection: `auto` or `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` |
+| `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`                                                   |
+| `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT)                                          |
+| `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                                                         |
+| `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`                                              |
+| `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ accepted, rejected }` outcome of `partitionExternalPresets`                                                  |
+| `IPresetRegistry`           | `resolve-preset.ts`        | `{ resolvePreset, getPreset, listPresets }` instance-scoped registry (R8)                                       |
+| `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                                                         |
+| `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result                                                |
+| `IOutputStyle`              | `output-style-types.ts`    | Full selectable response-style definition                                                                       |
+| `IOutputStyleSummary`       | `output-style-types.ts`    | Discovery projection of a selectable response style                                                             |
+| `IOutputStyleSource`        | `output-style-types.ts`    | Trusted external style input source                                                                             |
+| `IOutputStyleLoadResult`    | `output-style-types.ts`    | Per-file style load outcomes                                                                                    |
+| `IOutputStyleRegistry`      | `output-style-types.ts`    | Instance-scoped list/get output-style resolver                                                                  |
+| `TOutputStyleSource`        | `output-style-types.ts`    | Style source scope union                                                                                        |
+| `TOutputStyleTokenCost`     | `output-style-types.ts`    | Qualitative style prompt-cost label union                                                                       |
 
 `TPresetPermissionMode` reuses `agent-framework`'s `ICreateSessionOptions['permissionMode']` via
 indexed access rather than redefining the permission-mode union.
@@ -152,7 +152,9 @@ User-authored presets are loaded at runtime, not just compile time. `loadExterna
 `~/.robota/presets/*.json` (override the directory via `options.dir`; `defaultExternalPresetDir()`
 returns the conventional path), JSON-parses and validates each file with `validateExternalPreset`
 (a manual type-guard — no Zod or schema library), applies the conflict policy with
-`partitionExternalPresets`, and RETURNS the survivors on `IExternalPresetLoadResult.presets`. The
+`partitionExternalPresets`, and RETURNS the survivors on `IExternalPresetLoadResult.presets`. Its
+untrusted `effort` field is validated through the framework's Core-owned parser, so every current
+Core tier (including `none` and `minimal`) and `auto` share one runtime vocabulary. The
 caller builds a `createPresetRegistry(...)` over them and owns it. Policy:
 
 - **Built-ins always win** — an external preset whose `id` collides with a built-in is rejected

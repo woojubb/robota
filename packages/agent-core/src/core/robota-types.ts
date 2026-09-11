@@ -1,5 +1,5 @@
 import type { IModuleResultData } from '../abstracts/abstract-module';
-import type { TModelEffort } from '../interfaces/provider';
+import type { TModelEffortSelection } from '../interfaces/provider';
 
 /**
  * Shared model configuration shape used in setModel / getModel. The system prompt is intentionally
@@ -12,8 +12,8 @@ export interface IModelConfig {
   temperature?: number;
   maxTokens?: number;
   topP?: number;
-  /** Reasoning effort tier read per-call by the execution round (PRESET-013 live re-application channel). */
-  effort?: TModelEffort;
+  /** Reasoning effort selection read per-call by the execution round (PRESET-013 live re-application channel). */
+  effort?: TModelEffortSelection;
 }
 
 /** Return shape of getConfiguration(). */

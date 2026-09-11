@@ -5,7 +5,7 @@ import type {
   TProviderConfigValue,
   IAIProvider,
   TTextDeltaCallback,
-  TModelEffort,
+  TModelEffortSelection,
   TToolChoice,
 } from './provider';
 import type { IResponseFormatConfig, ISafetySetting } from './response-format';
@@ -90,7 +90,7 @@ export interface IAgentConfig {
     maxTokens?: number;
     topP?: number;
     /** Reasoning-effort dial threaded to the provider request builder per call. */
-    effort?: TModelEffort;
+    effort?: TModelEffortSelection;
     /** Default tool-invocation directive for every run (CORE-017). `IRunOptions.toolChoice` wins. */
     toolChoice?: TToolChoice;
   };

@@ -88,6 +88,25 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     expect(surface.maxOutputTokens).toBe(4096);
   });
 
+  it('keeps an auto selection for the provider boundary instead of projecting its display fallback', () => {
+    const surface = buildPresetSurfaceOptions(
+      {} as IResolvedPresetOptions,
+      'acme',
+      'default',
+      undefined,
+      undefined,
+      {
+        requested: 'auto',
+        effective: 'high',
+        source: 'model-default',
+        disposition: 'model-default',
+        modelDefault: 'high',
+      },
+    );
+
+    expect(surface.effort).toBe('auto');
+  });
+
   it('projects `language` (ARCH-040 Group F)', () => {
     // Decided as a PROMPT instruction rather than a provider parameter — and the framework already
     // composes a response-language section, so this wires the existing mechanism. A preset stating a

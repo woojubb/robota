@@ -596,11 +596,13 @@ the CLI surfaces the available preset list and exits.
 
 ### Model effort resolution (FLOW-008)
 
-The CLI resolves one provider-neutral effort record before assembling the session. The precedence is
-`--effort` flag, `ROBOTA_EFFORT`, merged settings `effort`, selected preset `effort`, then the active
-model default. Accepted values are `auto`, `low`, `medium`, `high`, `xhigh`, and `max`; invalid flag,
-environment, or settings values are explicit startup errors. `auto` selects the active model default,
-and the live `/effort` command returns the same requested/effective/source/disposition record. A
+The CLI resolves one provider-neutral source-precedence record before assembling the session. The
+precedence is `--effort` flag, `ROBOTA_EFFORT`, merged settings `effort`, selected preset `effort`, then
+the active model default. Accepted values are `auto`, `none`, `minimal`, `low`, `medium`, `high`,
+`xhigh`, and `max`; invalid flag, environment, or settings values are explicit startup errors. The
+record's provisional model default is display metadata only: `auto` remains the session selection so
+the provider adapter can resolve its documented model default and report the authoritative application
+outcome. The live `/effort` command returns the same requested/effective/source/disposition record. A
 concrete live selection is applied through the framework host adapter; `auto` removes an explicit
 persisted setting, while `max` is session-only. Print mode projects the startup record into text and
 JSON/stream-JSON output, and the TUI status bar shows the active effective tier. Provider/model

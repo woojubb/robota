@@ -6,12 +6,19 @@
  */
 
 import { validateToolCallArray } from './chat-tool-call-validation';
+import { parseModelEffortOutcome } from './model-effort-outcome';
 import { toWireChatOptions } from './wire-chat-options';
 import { createHttpResponse, generateId, toResponseMessage } from '../utils/transformers';
 
 import type { IHttpResponse } from '../types/http-types';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
-import type { IChatOptions, ILogger, IToolSchema, IToolCall } from '@robota-sdk/agent-core';
+import type {
+  IChatOptions,
+  ILogger,
+  IToolSchema,
+  IToolCall,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 /** Shape of a message sent in chat request body, including optional tool-related fields */
 export interface IChatRequestMessage {
@@ -30,8 +37,9 @@ export interface IChatResponsePayload {
   toolCalls?: IToolCall[];
   state?: string;
   timestamp?: string;
-  usage?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  usage?: Record<string, TUniversalValue>;
+  metadata?: Record<string, TUniversalValue>;
+  modelEffortOutcome?: TUniversalValue;
 }
 
 /**
@@ -47,13 +55,13 @@ function mapMessages(messages: IBasicMessage[]): IChatRequestMessage[] {
     // Narrow via property presence check — IBasicMessage may carry extra
     // fields (toolCalls, toolCallId) that are not in the base interface.
     if (msg.role === 'assistant' && 'toolCalls' in msg) {
-      const toolCalls = (msg as unknown as Record<string, unknown>)['toolCalls'];
+      const toolCalls = (msg as IBasicMessage & { toolCalls?: TUniversalValue }).toolCalls;
       if (Array.isArray(toolCalls)) {
         mapped.toolCalls = validateToolCallArray(toolCalls);
       }
     }
     if (msg.role === 'tool' && 'toolCallId' in msg) {
-      const toolCallId = (msg as unknown as Record<string, unknown>)['toolCallId'];
+      const toolCallId = (msg as IBasicMessage & { toolCallId?: TUniversalValue }).toolCallId;
       if (typeof toolCallId === 'string') {
         mapped.toolCallId = toolCallId;
       }
@@ -82,7 +90,7 @@ export async function executeChatRequest(
   // travel at all: a caller's `toolChoice`, `maxTokens`, `temperature` and `effort` were dropped
   // between the agent and the model with nothing said.
   const wireOptions = toWireChatOptions(options);
-  const requestData: Record<string, unknown> = {
+  const requestData = {
     messages: mappedMessages,
     provider,
     model,
@@ -117,7 +125,7 @@ export async function executeChatRequest(
     }
 
     // Trust boundary: caller validates the response shape
-    const responseData: unknown = await fetchResponse.json();
+    const responseData = (await fetchResponse.json()) as IChatResponsePayload;
 
     const httpResponse: IHttpResponse<IChatResponsePayload> =
       createHttpResponse<IChatResponsePayload>(
@@ -149,7 +157,17 @@ export async function executeChatRequest(
       assistantMessage.toolCalls = validateToolCallArray(responsePayload.toolCalls);
     }
 
-    return toResponseMessage(assistantMessage, provider, model);
+    const modelEffortOutcome =
+      responsePayload?.modelEffortOutcome === undefined
+        ? undefined
+        : parseModelEffortOutcome(responsePayload.modelEffortOutcome);
+    if (responsePayload?.modelEffortOutcome !== undefined && modelEffortOutcome === undefined) {
+      throw new Error('Remote chat response has an invalid model-effort outcome envelope');
+    }
+    return {
+      ...toResponseMessage(assistantMessage, provider, model),
+      ...(modelEffortOutcome !== undefined && { modelEffortOutcome }),
+    };
   } catch (error) {
     // An abort is the caller's own decision, not a transport failure: rewrapping it as
     // `Request failed` would erase the `AbortError` name every cancellation check reads.

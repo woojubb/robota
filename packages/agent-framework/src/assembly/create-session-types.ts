@@ -21,7 +21,7 @@ import type {
   IHookTypeExecutor,
   TGuardrail,
   TPermissionMode,
-  TModelEffort,
+  TModelEffortSelection,
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
@@ -200,12 +200,11 @@ export interface ICreateSessionOptions {
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
-   * Reasoning-effort dial for this session, threaded to the provider request builder.
-   * Resolved from a preset's `effort` (PRESET-008). When unset, the framework→provider
-   * seam defaults it to `'high'`. Native-effort providers map it onto their request
-   * parameter; providers without native effort ignore it as a documented no-op.
+   * Reasoning-effort selection for this session, threaded to the provider request builder.
+   * Resolved from a preset's `effort` (PRESET-008). When unset, Core preserves `auto` so the
+   * adapter can use the selected model's documented default.
    */
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
   /**
    * ARCH-040: sampling temperature and output cap. Same shape as `effort` one line up, and the same
    * cause — the live `/preset` path applied both through `applyModelOptions` and startup applied
