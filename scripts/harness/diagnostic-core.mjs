@@ -79,6 +79,12 @@ export function assertDiagnosticResult(result) {
     throw new TypeError(`diagnostic result.state must be one of ${[...STATES].join(', ')}`);
   }
   const commonFields = ['version', 'id', 'detectorId', 'state', 'subject', 'examined'];
+  const correlationId =
+    result.correlationId === undefined
+      ? undefined
+      : (assertStableId(result.correlationId, 'diagnostic result.correlationId'),
+        result.correlationId);
+  const optionalCorrelationField = correlationId === undefined ? [] : ['correlationId'];
   const subject = assertSubject(result.subject, 'diagnostic result.subject');
   if (!Array.isArray(result.examined) || result.examined.length === 0) {
     throw new TypeError('diagnostic result.examined must contain at least one subject');
@@ -88,12 +94,17 @@ export function assertDiagnosticResult(result) {
   );
 
   if (result.state === 'clean') {
-    assertExactKeys(result, [...commonFields, 'summary'], 'diagnostic result');
+    assertExactKeys(
+      result,
+      [...commonFields, ...optionalCorrelationField, 'summary'],
+      'diagnostic result',
+    );
     assertNonEmptyString(result.summary, 'diagnostic result.summary');
     return {
       version: result.version,
       id: result.id,
       detectorId: result.detectorId,
+      ...(correlationId === undefined ? {} : { correlationId }),
       state: result.state,
       subject,
       examined,
@@ -101,7 +112,13 @@ export function assertDiagnosticResult(result) {
     };
   }
 
-  const nonCleanFields = [...commonFields, 'severity', 'evidence', 'recommendation'];
+  const nonCleanFields = [
+    ...commonFields,
+    ...optionalCorrelationField,
+    'severity',
+    'evidence',
+    'recommendation',
+  ];
   if (!SEVERITIES.has(result.severity)) {
     throw new TypeError(`diagnostic result.severity must be one of ${[...SEVERITIES].join(', ')}`);
   }
@@ -132,6 +149,7 @@ export function assertDiagnosticResult(result) {
     version: result.version,
     id: result.id,
     detectorId: result.detectorId,
+    ...(correlationId === undefined ? {} : { correlationId }),
     state: result.state,
     subject,
     examined,

@@ -95,6 +95,18 @@ describe('diagnostic result core', () => {
     expect(() => assertDiagnosticResult(invalid)).toThrow();
   });
 
+  it('preserves an optional correlation ID separately from result and detector identity', () => {
+    const correlated = result('finding', { correlationId: 'hook-migration.run-1' });
+    const report = createDiagnosticReport([correlated]);
+
+    expect(assertDiagnosticResult(correlated)).toEqual(correlated);
+    expect(renderDiagnosticReportText(report)).toContain('correlation: hook-migration.run-1');
+    expect(renderDiagnosticReportJson(report)).toContain('"correlationId": "hook-migration.run-1"');
+    expect(() =>
+      assertDiagnosticResult(result('finding', { correlationId: 'not a stable correlation id' })),
+    ).toThrow(/correlationId/);
+  });
+
   it('counts each state in a versioned report', () => {
     expect(
       createDiagnosticReport([

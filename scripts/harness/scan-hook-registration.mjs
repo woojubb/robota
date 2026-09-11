@@ -47,6 +47,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { collectHookRegistrationFacts } from './hook-registration-facts.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
@@ -88,27 +89,26 @@ export function declaredInvoker(text) {
 export function registeredHookFiles(settings) {
   const files = new Map();
   let matchers = 0;
-  let registrations = 0;
+  const facts = collectHookRegistrationFacts(settings);
   const hooks = settings?.hooks;
-  if (typeof hooks !== 'object' || hooks === null) return { files, matchers, registrations };
+  if (typeof hooks !== 'object' || hooks === null) {
+    return { files, matchers, registrations: facts.length };
+  }
 
-  for (const [event, entries] of Object.entries(hooks)) {
+  for (const entries of Object.values(hooks)) {
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       matchers += 1;
-      const commands = Array.isArray(entry?.hooks) ? entry.hooks : [];
-      for (const command of commands) {
-        const text = typeof command?.command === 'string' ? command.command : '';
-        for (const match of text.matchAll(/\.claude\/hooks\/([A-Za-z0-9._-]+\.sh)/g)) {
-          registrations += 1;
-          const existing = files.get(match[1]);
-          if (existing) existing.push(event);
-          else files.set(match[1], [event]);
-        }
-      }
     }
   }
-  return { files, matchers, registrations };
+
+  for (const fact of facts) {
+    const existing = files.get(fact.sourceId);
+    if (existing) existing.push(fact.event);
+    else files.set(fact.sourceId, [fact.event]);
+  }
+
+  return { files, matchers, registrations: facts.length };
 }
 
 /**
