@@ -241,6 +241,7 @@ package behavior for an end user to execute.
 ## Tasks
 
 - [x] INFRA-2698 — done — `.agents/tasks/completed/INFRA-2698-add-diagnostic-result-and-report-core.md`
+- [ ] BEHAVIOR-2698 — todo — `.agents/tasks/BEHAVIOR-2698-preserve-non-clean-diagnostic-evidence-across-scan-receipt-reuse.md`
 
 ## Evidence Log
 
@@ -381,3 +382,97 @@ entry records the tool's first-run-log limitation separately; this semantic rech
 
 **Judged by:** independent `backlog-gate-guard` semantic evaluator
 **Judged at:** HEAD `fa575ab0c44b` · base `origin/develop@fa575ab0c44b` · document `.agents/spec-docs/backlog/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-11
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-11; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (9)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 378 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 5 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/spec-docs/todo/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md",
+    ".agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md"
+  ],
+  "taskPath": ".agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-07"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-08"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-09"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/loop-runs/post-merge-cycle.jsonl",
+    ".agents/loop-runs/user-execution-scenario.jsonl",
+    ".agents/loop-runs/user-request-gate.jsonl",
+    ".agents/spec-docs/todo/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md",
+    ".agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0f9277b567b3` · base `origin/develop@0f9277b567b3` · document `.agents/spec-docs/todo/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md` blob `be5e2ab89449` (modified)
+
+### [GATE-IMPLEMENT] — 🔴 NON-COMPLIANCE | 2026-09-11
+
+**Status remains:** approved
+**Violation:** The parent Agreement's first GATE-IMPLEMENT checkpoint was attempted after integration
+commit `0f9277b567b314e5855b6e8b10733f26b2fbce41` had already delivered the diagnostic core, runner
+changes, and a completed child Task/spec pair. The independent guardian therefore found the parent
+checkpoint retrospective rather than a plan made before implementation.
+**Required action:** Do not activate this parent record as the A04 planning checkpoint. Open a new,
+properly issue-backed A04 Task/spec pair and complete its gates before any A04 source edit. If its
+issue is a child issue, obtain the required independent external-lifecycle retention review first.
+
+**Judged by:** independent `backlog-gate-guard` semantic evaluator
+GATE VERDICT: NON-COMPLIANCE
