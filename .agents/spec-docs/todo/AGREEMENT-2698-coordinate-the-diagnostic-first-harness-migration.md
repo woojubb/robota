@@ -473,6 +473,10 @@ checkpoint retrospective rather than a plan made before implementation.
 **Required action:** Do not activate this parent record as the A04 planning checkpoint. Open a new,
 properly issue-backed A04 Task/spec pair and complete its gates before any A04 source edit. If its
 issue is a child issue, obtain the required independent external-lifecycle retention review first.
+**Ledger disposition:** The uncommitted preliminary parent scenario record did not name an exact Task
+path and is superseded by BEHAVIOR-2698's committed, exact-path PLAN record. It is intentionally not
+carried forward as a second PLAN signal; this NON-COMPLIANCE entry and the halted request-gate record
+preserve the failed parent attempt and its required correction.
 
 **Judged by:** independent `backlog-gate-guard` semantic evaluator
 GATE VERDICT: NON-COMPLIANCE
