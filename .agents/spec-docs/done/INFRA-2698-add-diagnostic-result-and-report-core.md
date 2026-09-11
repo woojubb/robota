@@ -141,11 +141,11 @@ retire them.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                         | Notes                                                       |
-| ----- | ----------- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| TC-01 | unit        | Vitest core fixtures                                    | `scripts/harness/__tests__/diagnostic-core.test.mjs` proves each state and invalid fixture. |
-| TC-02 | unit        | Vitest deterministic renderer and import-boundary tests | `scripts/harness/__tests__/diagnostic-core.test.mjs`; injected/plain values only, no live I/O. |
-| TC-03 | integration | Targeted `run-all-scans` fixture with captured output   | `scripts/harness/__tests__/run-all-scans.test.mjs` proves visible non-veto outcomes. |
+| TC-ID | Test Type   | Tool / Approach                                         | Notes                                                                                                            |
+| ----- | ----------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | Vitest core fixtures                                    | `scripts/harness/__tests__/diagnostic-core.test.mjs` proves each state and invalid fixture.                      |
+| TC-02 | unit        | Vitest deterministic renderer and import-boundary tests | `scripts/harness/__tests__/diagnostic-core.test.mjs`; injected/plain values only, no live I/O.                   |
+| TC-03 | integration | Targeted `run-all-scans` fixture with captured output   | `scripts/harness/__tests__/run-all-scans.test.mjs` proves visible non-veto outcomes.                             |
 | TC-04 | static/unit | Direct-import corpus assertion plus module import test  | `scripts/harness/__tests__/diagnostic-core.test.mjs` keeps producer-to-runner reverse dependency from returning. |
 
 ## User Execution Test Scenarios
