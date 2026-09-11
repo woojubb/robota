@@ -245,6 +245,35 @@ describe('scan-hook-registration', () => {
     it('is empty for settings with no hooks block', () => {
       expect(registeredHookFiles({}).files.size).toBe(0);
     });
+
+    it('counts every command registration while aggregating reachable hook files by event', () => {
+      const settings = {
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Bash',
+              hooks: [
+                { command: '.claude/hooks/shared.sh' },
+                { command: '.claude/hooks/bash-only.sh --inspect' },
+              ],
+            },
+            {
+              matcher: 'Edit|Write',
+              hooks: [{ command: '.claude/hooks/shared.sh' }],
+            },
+          ],
+        },
+      };
+
+      const { files, matchers, registrations } = registeredHookFiles(settings);
+
+      expect(matchers).toBe(2);
+      expect(registrations).toBe(3);
+      expect([...files.entries()]).toEqual([
+        ['shared.sh', ['PreToolUse', 'PreToolUse']],
+        ['bash-only.sh', ['PreToolUse']],
+      ]);
+    });
   });
 
   it('the REAL tree passes with nothing on the findings list', () => {
