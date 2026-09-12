@@ -532,10 +532,15 @@ branch — the scan requires a checkpoint inside the branch's own range.
 Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
 commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
 missing, mixed, ambiguous, retrospective, or unreadable checkpoint. Outside that documentation-only
-route, the only pre-checkpoint non-pair
-change admitted is one append-only closed `post-merge-cycle.jsonl` record whose referenced merge commit
-is already an ancestor of the topic base; altered history, unverifiable provenance, or any additional
-path fails.
+route, one append-only closed `post-merge-cycle.jsonl` record whose referenced merge commit is
+already an ancestor of the topic base may accompany its delivery metadata in one batch. That batch
+may update one already-done Task/spec pair, existing parent records that already cite the pair,
+close its existing OPEN execution/review runs, and append a learning note. It preserves lifecycle
+metadata, plans, scenario signals and sealed evidence. It admits only regular non-executable files
+on those record paths, not source, tests, hooks, workflows or manifests. Staged and history checks
+share this boundary; the batch never supplies a checkpoint for later implementation. A previously
+approved implementation may include the same verified predecessor merge record in its delivery
+commit without another isolated ledger commit; its ordinary checkpoint checks still apply.
 
 When a delivering PR was squash-merged before its completion records were archived, the plan-order
 guard also admits one narrowly bounded post-merge completion closeout without checkpoint ancestry. It
@@ -543,7 +548,8 @@ must move exactly one same-basename `Task` from `.agents/tasks/` to `completed/`
 `spec-docs/active/` to `spec-docs/done/`, append exactly one verified closed post-merge record in the
 same change, and carry `done`/completion-date, checked criteria, the archived Task/spec binding, and
 the final `GATE-COMPLETE` PASS. A partial archive, duplicate destination, missing or rewritten ledger,
-or any extra implementation path remains a refusal.
+or any extra implementation path remains a refusal. Already-done records are not new archives;
+their delivery updates use the metadata-batch boundary above.
 
 Enforced by: `gate.mjs`, `user-execution-plan-order`, `spec-user-execution-section`
 

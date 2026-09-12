@@ -212,9 +212,26 @@ but the new direct temporary-directory call violated `temp-dir-owner`. Pascal re
 single call-site finding. Reuse `scripts/harness/__tests__/make-temp.mjs` and remove the bespoke
 creation/cleanup instead of weakening the guard. The combined security and temp-owner suites passed
 33/33 tests. `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts`
-exited 0: 113 passed, one declared skip, no full-CI receipt. Required CI remains pending on this correction.
+exited 0: 113 passed, one declared skip, no full-CI receipt. Required CI was pending at this checkpoint;
+its later success and the actual delivering-push proof are recorded below.
 
 ## Delivery
+
+**Delivered:** [PR #2709](https://github.com/woojubb/robota/pull/2709), merge
+`1c52df898f7a6df9adf715821bc9c8638a3dd967` at 2026-09-12T12:46:26Z. Pascal returned
+`MERGE VERIFIED: PASS`: the remote target and reviewed head have identical complete trees, and
+all eleven actual owning-workflow contexts passed on head `e0bb561c8b8cc42f702a66ca7d07a72eea1f6441`
+before merge. CI runs: [CI](https://github.com/woojubb/robota/actions/runs/34693840717),
+[review](https://github.com/woojubb/robota/actions/runs/34693840713),
+[provenance](https://github.com/woojubb/robota/actions/runs/34693838795).
+
+[Push run 34694593492](https://github.com/woojubb/robota/actions/runs/34694593492/job/103555778173)
+succeeded on the delivering SHA, not a manual branch lookup. Its log reports lockfile SHA256
+`04f34c2d7199d0f6db8944c4dea2bb14de5b1b6f31e9448e25c54e555fc00a7b`, 2176 packages,
+four filtered results under unchanged exclusions and `No issues found`. The four-family/nine-advisory
+disposition above therefore retains its exact lockfile identity. The source Issue's
+[partial-delivery record](https://github.com/woojubb/robota/issues/2655#issuecomment-5645983627)
+checks only this child; ARTIFACT-2655, BOUNDARY-2655 and the current partial-build proof remain unfinished.
 
 Before merge, main verifies the actual required PR CI results on the reviewed head and current base;
 a local focused result or optional diagnostic run does not replace them. No merge is performed just
@@ -235,7 +252,7 @@ Not applicable.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` — verified implementation; remote delivery acceptance remains in Delivery.
+- [x] `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` — verified implementation; remote delivery acceptance remains in Delivery. Delivery is now verified there.
 
 ## Supplied Scan Evidence
 
