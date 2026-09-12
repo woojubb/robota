@@ -4,7 +4,7 @@ export default defineConfig({
   // SEC-010: the /local entry is node-only and is built separately so the main entry stays
   // isomorphic — a browser bundle must not pull node:fs in through a shared chunk.
   entry: ['src/index.ts', 'src/local/index.ts'],
-  format: ['esm', 'cjs'],
+  format: { esm: {}, cjs: { dts: false } },
   outDir: 'dist/node',
   platform: 'neutral',
   clean: true,

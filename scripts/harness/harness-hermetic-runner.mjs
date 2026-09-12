@@ -12,6 +12,11 @@ export function runHermeticTestsInStrippedRepository(root) {
     cpSync(path.join(root, 'scripts', 'harness'), path.join(stage, 'scripts', 'harness'), {
       recursive: true,
     });
+    // These are implementation dependencies of the scanners, not live package/contract owners.
+    cpSync(path.join(root, 'scripts', 'artifacts'), path.join(stage, 'scripts', 'artifacts'), {
+      recursive: true,
+      filter: (source) => path.basename(source) !== '__tests__',
+    });
     writeFileSync(path.join(stage, 'package.json'), '{"private":true,"type":"module"}\n');
     writeFileSync(
       path.join(stage, 'vitest.config.mjs'),

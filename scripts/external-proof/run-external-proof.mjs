@@ -4,7 +4,7 @@
  *
  * Proves, from genuinely OUTSIDE the monorepo, that a third party can build a product on Robota's
  * PUBLISHED package surface. It is deliberately not a workspace link and not a relative import: the
- * runner `pnpm pack`s real tarballs from the built `dist/` output, installs them with `npm install`
+ * runner packs verified physical generations through the artifact pack owner, installs them with `npm install`
  * into a throwaway directory outside the repo, type-checks the consumer against the SHIPPED `.d.ts`
  * files, and runs the Mode A/B/C assertions.
  *
@@ -26,6 +26,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { packVerifiedPackage } from '../artifacts/pack.mjs';
+import { readWorkspaceVersions } from '../artifacts/pack-image.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..');
@@ -85,36 +87,22 @@ function resolveClosure(manifests) {
   return [...closure].sort();
 }
 
-/** Fail loudly (never silently) when a package has no build output to pack. */
-function assertBuilt(closure, manifests) {
-  const missing = closure.filter((name) => {
-    const { dir, manifest } = manifests.get(name);
-    const main = manifest.main ?? 'dist/node/index.js';
-    return !fs.existsSync(path.join(dir, main));
-  });
-  if (missing.length > 0) {
-    throw new Error(
-      `external-proof: no build output for ${missing.join(', ')}.\n` +
-        'The proof packs tarballs from dist/, so the build must be current. Run `pnpm build` first.',
-    );
-  }
-}
-
-/** `pnpm pack` each package into `tarballDir`; returns name → absolute tarball path. */
-function packAll(closure, manifests, tarballDir) {
+/** Pack each verified generation; returns name → verified absolute tarball path. */
+export async function packAll(
+  closure,
+  manifests,
+  tarballDir,
+  workspaceVersions = readWorkspaceVersions(REPO_ROOT),
+) {
   fs.mkdirSync(tarballDir, { recursive: true });
   const tarballs = new Map();
   for (const name of closure) {
     const { dir } = manifests.get(name);
-    const stdout = run('pnpm', ['pack', '--pack-destination', tarballDir], { cwd: dir });
-    const tarballPath = stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.endsWith('.tgz'))
-      .pop();
-    if (tarballPath === undefined || !fs.existsSync(tarballPath)) {
-      throw new Error(`external-proof: pnpm pack produced no tarball for ${name}.`);
-    }
+    const { tarballPath } = await packVerifiedPackage(dir, {
+      destination: tarballDir,
+      workspaceRoot: REPO_ROOT,
+      workspaceVersions,
+    });
     tarballs.set(name, tarballPath);
     log(`  packed ${name} → ${path.basename(tarballPath)}`);
   }
@@ -127,11 +115,13 @@ function packAll(closure, manifests, tarballDir) {
  * `@robota-sdk/agent-core` IS published at this version, so without the overrides npm would silently
  * install the REGISTRY build for the transitive deps and the proof would not be testing this tree.
  */
-function writeConsumerManifest(consumerDir, tarballs) {
+export function writeConsumerManifest(consumerDir, tarballs) {
+  // npm resolves file references from the physical consumer directory, as pack returns physical paths.
+  const physicalConsumerDir = fs.realpathSync(consumerDir);
   const specs = Object.fromEntries(
     [...tarballs].map(([name, tarballPath]) => [
       name,
-      `file:${path.relative(consumerDir, tarballPath)}`,
+      `file:${path.relative(physicalConsumerDir, tarballPath)}`,
     ]),
   );
   const manifest = {
@@ -151,7 +141,7 @@ function writeConsumerManifest(consumerDir, tarballs) {
   );
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const keep = argv.includes('--keep');
   const workdirFlag = argv.indexOf('--workdir');
@@ -183,10 +173,9 @@ function main() {
 
   const manifests = readWorkspaceManifests();
   const closure = resolveClosure(manifests);
-  assertBuilt(closure, manifests);
 
   log(`[1/5] pnpm pack — ${closure.length} published packages (workspace dependency closure)`);
-  const tarballs = packAll(closure, manifests, tarballDir);
+  const tarballs = await packAll(closure, manifests, tarballDir);
 
   log('\n[2/5] materialising the external consumer package');
   fs.cpSync(path.join(FIXTURE_DIR, 'src'), path.join(consumerDir, 'src'), { recursive: true });
@@ -215,11 +204,13 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  process.stderr.write(
-    `\nexternal-proof FAILED: ${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  process.exitCode = 1;
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await main();
+  } catch (error) {
+    process.stderr.write(
+      `\nexternal-proof FAILED: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  }
 }

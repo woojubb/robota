@@ -5,6 +5,7 @@ import { globSync } from 'glob';
 
 import { normalizeWorkspacePath } from './workspace-affected-git.mjs';
 import { readWorkspaceImportDependencies } from './workspace-source-dependencies.mjs';
+import { readArtifactCapability } from '../artifacts/capability.mjs';
 
 const BUILD_DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependencies'];
 const DEVELOPMENT_DEPENDENCY_FIELDS = ['devDependencies'];
@@ -80,9 +81,16 @@ function readWorkspaceManifests(root, patterns) {
     const name = manifest.name.trim();
     if (names.has(name)) throw new Error(`duplicate workspace package name: ${name}`);
     names.add(name);
+    let artifact;
+    try {
+      artifact = readArtifactCapability(manifest);
+    } catch (error) {
+      throw new Error(`${directory}: invalid robota.artifact: ${error.message}`);
+    }
     packages.push({
       name,
       directory,
+      artifact,
       scripts:
         manifest.scripts && typeof manifest.scripts === 'object' && !Array.isArray(manifest.scripts)
           ? manifest.scripts
@@ -102,12 +110,22 @@ export function readWorkspaceGraph(root) {
   );
   const packages = readWorkspaceManifests(root, patterns);
   const workspaceNames = new Set(packages.map((entry) => entry.name));
+  const byName = new Map(packages.map((entry) => [entry.name, entry]));
   for (const entry of packages) {
+    for (const copy of entry.artifact?.copies ?? []) {
+      const producer = byName.get(copy.package);
+      if (!producer?.artifact || !producer.scripts.build) {
+        throw new Error(
+          `${entry.name}: copied artifact producer ${copy.package} must declare an artifact and build script`,
+        );
+      }
+    }
     const imports = readWorkspaceImportDependencies(root, entry, workspaceNames);
     entry.buildDependencies = [
       ...new Set([
         ...entry.productionDependencyNames.filter((name) => workspaceNames.has(name)),
         ...imports.production.filter((name) => name !== entry.name),
+        ...(entry.artifact?.copies ?? []).map((copy) => copy.package),
       ]),
     ].sort();
     entry.typecheckDependencies = imports.production.filter((name) => name !== entry.name).sort();

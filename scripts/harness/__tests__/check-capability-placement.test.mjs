@@ -46,6 +46,27 @@ const projectStructure = [
 ].join('\n');
 
 describe('findCapabilityPlacementFindings', () => {
+  it('ignores generation storage and retained output while still checking authored source', async () => {
+    const declaration = 'export class BackgroundTaskRegistry {}\n';
+    const root = await createFixture({
+      '.agents/project-structure.md': projectStructure,
+      'packages/agent-cli/package.json': packageJson('@robota-sdk/agent-cli'),
+      'packages/agent-cli/src/live.ts': declaration,
+      'packages/agent-cli/.robota-artifacts-source/live.ts': declaration,
+      'packages/agent-cli/.robota-artifacts/generation/previous-dist/node/index.d.ts': declaration,
+      'packages/agent-cli/.robota-artifacts/generation/dist/node/index.d.ts': declaration,
+    });
+
+    const findings = await findCapabilityPlacementFindings(root);
+    expect(findings.map((finding) => finding.file.split(path.sep).join('/')).sort()).toEqual([
+      'packages/agent-cli/.robota-artifacts-source/live.ts',
+      'packages/agent-cli/src/live.ts',
+    ]);
+    expect(findings.every((finding) => finding.type === 'product-shell-background-registry')).toBe(
+      true,
+    );
+  });
+
   it('flags durable product-shell ownership declarations', async () => {
     const root = await createFixture({
       '.agents/project-structure.md': projectStructure,

@@ -76,6 +76,115 @@ function fixture({ cycle = false } = {}) {
 }
 
 describe('workspace affected planner', () => {
+  it('reassembles only transitive copied consumers and their prerequisites on an asset change', () => {
+    const packages = [
+      { name: 'assets', buildDependencies: [] },
+      { name: 'test-helper', buildDependencies: [] },
+      {
+        name: 'cli',
+        buildDependencies: ['assets'],
+        verificationDependencies: ['test-helper'],
+        artifact: { builder: 'tsdown', copies: [{ package: 'assets', target: 'web' }] },
+      },
+      {
+        name: 'bundle',
+        buildDependencies: ['cli'],
+        artifact: { builder: 'tsdown', copies: [{ package: 'cli', target: 'cli' }] },
+      },
+      { name: 'ordinary-consumer', buildDependencies: ['assets'] },
+    ].map((entry) => ({
+      ...entry,
+      directory: `packages/${entry.name}`,
+      dependencies: entry.buildDependencies,
+      scripts: { build: 'build' },
+    }));
+    const graph = { packages };
+    const plan = createWorkspaceAffectedPlan({
+      graph,
+      operation: 'build',
+      changedFiles: ['packages/assets/src/index.ts'],
+    });
+    expect(plan.packages.map((entry) => entry.name)).toEqual([
+      'assets',
+      'bundle',
+      'cli',
+      'test-helper',
+    ]);
+    expect(plan.dependentClosure.map((entry) => entry.name)).toEqual(['bundle', 'cli']);
+    expect(plan.packages.find((entry) => entry.name === 'cli').reasons).toContain(
+      'copied-artifact-consumer-of:assets',
+    );
+    expect(
+      createWorkspaceAffectedPlan({
+        graph,
+        operation: 'test',
+        changedFiles: ['packages/assets/src/index.ts'],
+      }).packages.map((entry) => entry.name),
+    ).toEqual(['assets']);
+  });
+
+  it.each(['@fixture/missing', '@fixture/core'])(
+    'rejects an unavailable copied producer %s',
+    (producer) => {
+      const root = fixture();
+      writeJson(root, 'packages/cli/package.json', {
+        name: '@fixture/cli',
+        scripts: { build: 'build' },
+        robota: { artifact: { builder: 'tsdown', copies: [{ package: producer, target: 'web' }] } },
+      });
+      expect(() => readWorkspaceGraph(root)).toThrow(/copied artifact producer/);
+    },
+  );
+
+  it.each([
+    { builder: 'unknown' },
+    { builder: 'tsdown', copies: null },
+    { builder: 'tsdown', copies: [{ package: '@fixture/core', target: '../web' }] },
+    { builder: 'tsdown', copies: [{ package: '@fixture/core', target: 'C:/web' }] },
+    { builder: 'tsdown', copies: [{ package: '@fixture/core', target: 'web\\assets' }] },
+    { builder: 'tsdown', copies: [{ package: '', target: 'web' }] },
+    {
+      builder: 'tsdown',
+      copies: [
+        { package: '@fixture/core', target: 'web' },
+        { package: '@fixture/core', target: 'web/assets' },
+      ],
+    },
+  ])('rejects malformed artifact declarations: %j', (artifact) => {
+    const root = fixture();
+    writeJson(root, 'packages/cli/package.json', {
+      name: '@fixture/cli',
+      scripts: { build: 'build' },
+      robota: { artifact },
+    });
+    expect(() => readWorkspaceGraph(root)).toThrow(/robota\.artifact/);
+  });
+
+  it('discovers copied artifact producers without adding test or typecheck edges', () => {
+    const root = fixture();
+    writeJson(root, 'packages/assets/package.json', {
+      name: '@fixture/assets',
+      private: true,
+      scripts: { build: 'build' },
+      robota: { artifact: { builder: 'vite' } },
+    });
+    writeJson(root, 'packages/cli/package.json', {
+      name: '@fixture/cli',
+      scripts: { build: 'build' },
+      robota: {
+        artifact: { builder: 'tsdown', copies: [{ package: '@fixture/assets', target: 'web' }] },
+      },
+    });
+    const cli = readWorkspaceGraph(root).packages.find((entry) => entry.name === '@fixture/cli');
+    expect(cli.artifact).toEqual({
+      builder: 'tsdown',
+      copies: [{ package: '@fixture/assets', target: 'web' }],
+    });
+    expect(cli.buildDependencies).toEqual(['@fixture/assets']);
+    expect(cli.typecheckDependencies).toEqual([]);
+    expect(cli.testDependencies).toEqual([]);
+  });
+
   it("accepts pnpm's explicit argument separator", () => {
     expect(parseCliArgs(['--', '--operation', 'build']).operation).toBe('build');
   });
@@ -609,6 +718,13 @@ describe('workspace affected planner', () => {
     expect(providerTypecheck.packages).toHaveLength(1);
     expect(providerBuild.packages.length).toBeLessThanOrEqual(3);
     expect(cliBuild.packages.length).toBeLessThanOrEqual(67);
-    expect(tuiBuild.packages.length).toBeLessThanOrEqual(65);
+    // ARTIFACT-2655: CLI assembly now owns the previously omitted web producer + GUI prerequisite.
+    const copiedPrerequisites = ['@robota-sdk/agent-cli-web', '@robota-sdk/agent-transport-gui'];
+    expect(tuiBuild.packages.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining(copiedPrerequisites),
+    );
+    expect(
+      tuiBuild.packages.filter((entry) => !copiedPrerequisites.includes(entry.name)).length,
+    ).toBeLessThanOrEqual(65);
   });
 });

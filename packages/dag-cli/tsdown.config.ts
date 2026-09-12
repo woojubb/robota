@@ -1,6 +1,4 @@
-export default {
-  entry: ['src/index.ts', 'src/bin.ts'],
-  format: ['esm', 'cjs'],
+const shared = {
   outDir: 'dist/node',
   clean: true,
   deps: {
@@ -13,3 +11,9 @@ export default {
     dts: ctx.format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
 };
+
+// The executable is ESM-only. Do not emit then delete files from a sealed generation.
+export default [
+  { ...shared, entry: ['src/index.ts'], format: ['esm', 'cjs'] },
+  { ...shared, entry: ['src/bin.ts'], format: ['esm'] },
+];

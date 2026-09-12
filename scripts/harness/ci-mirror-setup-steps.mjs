@@ -1,4 +1,4 @@
-/** Command steps that are CI transport/provisioning rather than local checks. */
+/** CI-only verification and transport/provisioning steps not claimed by local diagnostics. */
 const install = {
   step: 'Install dependencies',
   reason: 'runner provisioning; a local run is already installed',
@@ -6,6 +6,16 @@ const install = {
 
 export const CI_SETUP_STEPS = {
   build: [
+    {
+      step: 'Clean framework-only build and regression proof',
+      reason:
+        'CI-owned acceptance on a clean Linux checkout before any root build; a warm local build does not reproduce this condition',
+    },
+    {
+      step: 'Verify artifact generation, exact pack and release-path regressions',
+      reason:
+        'CI-owned integrated artifact regression suite; focused local runs are useful development evidence, not a mandatory mirrored stage or CI certificate',
+    },
     {
       step: 'Plan package-dist artifact membership',
       reason:
@@ -19,7 +29,7 @@ export const CI_SETUP_STEPS = {
     {
       step: 'Archive package build output',
       reason:
-        'tars dist for the `package-dist` artifact — cross-JOB plumbing with no local counterpart',
+        'exports verified physical generations and descriptors for the package-dist artifact — cross-job transport, not a local verification stage',
     },
     {
       step: 'Binary e2e not applicable',

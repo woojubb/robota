@@ -1,3 +1,5 @@
+import { listWorkspaceWideTriggers } from './check-plan.mjs';
+
 export const WORKSPACE_OPERATIONS = Object.freeze([
   'build',
   'consumer-build',
@@ -45,7 +47,11 @@ const NO_PACKAGE_FILES = new Set([
 const NO_PACKAGE_PREFIXES = ['.agents/', '.changeset/', 'docs/', 'scripts/harness/'];
 
 export function isGlobalPath(file) {
-  return GLOBAL_FILES.has(file) || GLOBAL_PREFIXES.some((prefix) => file.startsWith(prefix));
+  return (
+    GLOBAL_FILES.has(file) ||
+    GLOBAL_PREFIXES.some((prefix) => file.startsWith(prefix)) ||
+    listWorkspaceWideTriggers([file]).length > 0
+  );
 }
 
 export function isNoPackagePath(file) {

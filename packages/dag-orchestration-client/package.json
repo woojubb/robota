@@ -5,7 +5,7 @@
   "description": "Thin client contracts for Robota DAG orchestration APIs",
   "type": "module",
   "main": "dist/node/index.js",
-  "module": "dist/node/index.mjs",
+  "module": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
@@ -24,10 +24,16 @@
     "dist",
     "README.md"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",

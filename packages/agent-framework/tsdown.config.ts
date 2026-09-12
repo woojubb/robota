@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   // The ./testing subpath ships the functional test harness (TEST-003), kept out of the main entry.
   entry: { index: 'src/index.ts', 'testing/index': 'src/testing/index.ts' },
-  format: ['esm', 'cjs'],
+  format: { esm: {}, cjs: { dts: false } },
   outDir: 'dist/node',
   platform: 'node',
   clean: true,

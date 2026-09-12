@@ -266,8 +266,15 @@ export function collectReleaseGovernanceFindings(workspaceRoot = process.cwd()) 
   requireContains(
     'scripts/publish/publish-packages.sh',
     publishScript,
-    'command+=(publish -r --no-git-checks)',
-    'Publish script must publish recursively instead of per-package by default.',
+    'command=(node scripts/artifacts/publish-cli.mjs publish',
+    'Publish script must publish the verified artifact set through its owning entrypoint.',
+  );
+  requireOrder(
+    'scripts/publish/publish-packages.sh',
+    publishScript,
+    'node scripts/artifacts/publish-cli.mjs prepare',
+    'read -rp "🔑 Enter npm OTP for publish: " OTP',
+    'Publish script must verify the selected artifact set before requesting OTP.',
   );
   requireContains(
     'scripts/publish/publish-packages.sh',
