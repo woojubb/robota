@@ -137,6 +137,14 @@ export function addedRuleSections(diff) {
       sections.push(current);
       continue;
     }
+    // Context must not let another rule or an enclosing section lend us its declaration.
+    if (
+      /^[ +]#{1,3}\s/.test(line) ||
+      (line.startsWith(' ') && ADDED_RULE_BULLET.test(`+${line.slice(1)}`))
+    ) {
+      current = null;
+      continue;
+    }
     // A rule added under a heading that already existed. It opens its own section, because the
     // declaration has to arrive WITH it — a declaration already in the file, under some other rule,
     // is exactly what this floor exists to stop counting as an answer.
@@ -185,9 +193,13 @@ export function judgeSections(sections) {
     }));
 }
 
-export function readDiff(baseRef, { cwd = WORKSPACE_ROOT } = {}) {
+export function readDiff(
+  baseRef,
+  { cwd = WORKSPACE_ROOT, execFileSync: execute = execFileSync } = {},
+) {
   try {
-    return execFileSync('git', ['diff', '--unified=0', `${baseRef}...HEAD`, '--', RULES_PREFIX], {
+    // Keep ordinary unchanged blank lines between an added heading and its declaration.
+    return execute('git', ['diff', '--unified=3', `${baseRef}...HEAD`, '--', RULES_PREFIX], {
       cwd,
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,

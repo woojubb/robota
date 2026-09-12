@@ -49,6 +49,14 @@ abandoned without changing its STRUCT-012 Task or claiming that work was deliver
 
 ## Delivery
 
+PR #2707's first remote scans run failed on the renamed worktree heading's missing enforcement
+declaration; its live-repository contract test reported the same cause. Adding the explanation then
+exposed a parser false positive: zero-context diff hunks separated the heading from its declaration
+at an unchanged blank line. The bounded repair uses three context lines while preventing declaration
+borrowing across other headings and existing normative bullets. It adds no gate or required context.
+The original local scans read committed HEAD, so their pass did not establish the uncommitted rule
+change. Verify this repair at its committed head and record actual results on PR #2707 before merging.
+
 Independent local review passed with MUST 0 / SHOULD 0. The guardian's final DONE verdict passed
 after completing test-name references; implementation and already-green verification did not change.
 Final commit binding and exact-head remote CI remain delivery requirements before integration.

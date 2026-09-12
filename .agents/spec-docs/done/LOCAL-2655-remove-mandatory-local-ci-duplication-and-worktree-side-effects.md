@@ -90,6 +90,7 @@ propagation; remote CI supplies the unmodified full-suite behavior.
 - `scripts/harness/verify-like-ci*.mjs`, `ci-mirror-{stages,exclusions,map}.mjs`
 - `scripts/harness/verification-receipt*.mjs` only for dead full-receipt consumers, preserving shared helpers
 - `scripts/harness/scan-required-check-local-reachability.mjs`
+- `scripts/harness/scan-new-rule-declares-enforcement.mjs` and its existing test: bounded repair of PR #2707's red check, preserving rule/section boundaries when reading normal Markdown context
 - `.github/required-status-checks.json` local diagnostic declarations only; remote required contexts unchanged
 - Corresponding existing tests under `scripts/harness/__tests__/`
 - `.agents/specs/verification-pipeline-plan.md` superseded local-mirror description, linked to current rule ownership

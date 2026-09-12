@@ -5,6 +5,10 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ### Git Worktree — explicit permission and guardrails
 
+Enforced by: `scripts/harness/__tests__/pre-push-sequence.test.mjs` for automatic local
+side-effect exclusion. Owner permission itself has no mechanical enforcement: it depends on the
+current conversation and must be checked by the agent before using a worktree.
+
 Parallel-agent permission does not imply worktree permission. Honor the owner's working-directory
 constraint, including inside verification helpers. When worktrees are prohibited, use the existing
 checkout with disjoint file ownership and one Git-operation owner. Only use the worktree procedure
