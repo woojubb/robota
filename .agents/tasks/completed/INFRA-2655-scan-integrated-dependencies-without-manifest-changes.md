@@ -68,7 +68,8 @@ TC-03 before merge; the delivering push scan remains separate post-merge accepta
 
 ## Verification result
 
-The paired spec owns the exact commands, results and nine advisory dispositions. Focused tests and
+The [paired spec's Evidence Log](../../spec-docs/done/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md#evidence-log)
+owns the exact commands, results and nine advisory dispositions. Focused tests and
 the changed-lockfile OSV scan passed. The original manual run's develop leg passed while its main
 leg failed. Actual delivering-push acceptance remains outstanding under Delivery above.
 

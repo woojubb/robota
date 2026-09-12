@@ -188,6 +188,23 @@ The static command explicitly omits dist and build-contracts for this workflow/t
 their declared applicability result rather than counting them as execution. Format the paired
 Task/spec through their current lifecycle paths as part of the documentation check.
 
+## CI correction evidence — 2026-09-12
+
+[PR #2709's first scans job](https://github.com/woojubb/robota/actions/runs/34692830817/job/103551043798)
+failed at head `910841cf4380dd5c05090d848325e6e5a97410db`: three summary assertions hit
+`/dev/fd/3: No such device or address` on Linux, and the completed Task's shortened Verification
+result omitted a concrete citation (U2 / TC-36). Pascal classified both as CI harness infrastructure;
+the U2 document evaluation reproduced locally. These are not product/scanner-policy defects.
+
+Replace the test-only socket-backed summary descriptor with an ordinary per-case temporary file,
+read it and clean its directory in `finally`; retain every assertion and the workflow unchanged.
+Restore the Task's link to this Evidence Log without copying its contents. No Git fixture or worktree
+is created. The original macOS success does not establish Linux portability.
+
+After these corrections, `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs --no-cache`
+exited 0 (15/15), and `node scripts/harness/scan-unearned-done-claims.mjs` exited 0 (51 declared legacy
+exemptions). Linux confirmation remains the next remote scans run, not another full local suite.
+
 ## Delivery
 
 Before merge, main verifies the actual required PR CI results on the reviewed head and current base;
