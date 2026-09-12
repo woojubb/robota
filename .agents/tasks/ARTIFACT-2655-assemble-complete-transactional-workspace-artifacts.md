@@ -174,6 +174,21 @@ PR #2715 quality resource adjustment:
   required to judge the adjustment; a passing run will not prove every possible flake eliminated.
 - Exact red-check ground and standing authorization are recorded in PR comment 5647236566.
 
+PR #2715 typecheck cache isolation:
+
+- Run 34705998223 on `3d9446774e78931da171737227f098a0dac99adf` passed full quality
+  test/typecheck/lint with the existing 5000 ms limits intact. Its next output-contract check
+  rejected unexpected `.tsbuildinfo` files in dag-builder and dag-framework. Both explicit
+  `tsBuildInfoFile` paths targeted sealed dist; these are the only two such package settings.
+- Both caches now live in package-local `.cache/typecheck.tsbuildinfo`; composite checking stays
+  enabled. Actual tsgo fixtures reproduced the two manifest failures before repair and now verify
+  unchanged generations after both successful and failing noEmit checks. Focused integrated
+  cache/generation/manifest/checker tests pass 41/41. No Git fixture or cache exclusion was added.
+- The actual two package builds and typechecks pass on Node 22.23.2, followed by the actual output
+  contract scan passing all 82 packages. Package public contracts and workflow definitions are
+  unchanged. The existing full-job confirmations remain content-bound to the unchanged workflow.
+  PR comment 5647339536 records the red-check scope and standing authority; fresh CI remains open.
+
 ## Test Plan
 
 Focused positive/negative regressions plus actual execution at the owning boundary. Verify every
