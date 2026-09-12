@@ -80,6 +80,16 @@ The first archive attempt was refused because the documentation-only atomic batc
 ancestor planning ground for a later archive. Retain this Task record before its terminal move;
 do not disable the hook or widen this amendment into another checker implementation.
 
+Further diagnosis: `planningPreludeProblems` accepts only `todo` Task records, while the atomic
+documentation route accepts open records but deliberately establishes no later L0 ground. Thus
+the completed documentation batch cannot archive its own Task through either existing path.
+Do not relabel implemented work as `todo` to manufacture a planning ancestor. The mixed archive
+attempt also correctly refused two Task basenames under the single-pair ARTIFACT closeout rule.
+The verified ARTIFACT pair, parent projections and historical failed/successful merge records are
+preserved in scoped stash `f066e47468945c6ff06db347e0ae90eed4f5b322`; its terminal GATE-COMPLETE
+passed 9/9 criteria. Further archival repair needs the proper executable-change planning lane,
+not another speculative metadata commit. No hook was disabled and no protection was modified.
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
