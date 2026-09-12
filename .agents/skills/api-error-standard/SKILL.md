@@ -7,8 +7,8 @@ description: Apply RFC 7807 Problem Details when implementing or reviewing HTTP 
 
 ## Rule Anchor
 
-- `AGENTS.md` > "No Fallback Policy"
-- `AGENTS.md` > "Type System (Strict)"
+- [operational.md](../../rules/operational.md) > "No Fallback Policy"
+- [code-quality.md](../../rules/code-quality.md) > "Type System (Strict)"
 
 All HTTP API 4xx/5xx responses MUST use RFC 7807 Problem Details
 (`{ type, title, status, detail?, instance? }` — see the RFC for field semantics).

@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2710: streamline skill selection and contextual instruction routing'
-status: in-progress
+status: done
 created: 2026-09-12
+completed: 2026-09-12
 priority: high
 urgency: now
 area: repository harness guidance and skills
@@ -32,7 +33,8 @@ repository safety, permission, release, and merge constraints.
 - [x] Rewrite the repository skill selection descriptions.
 - [x] Update `AGENTS.md` and `harness-governance` with contextual routing rules.
 - [x] Verify formatting, registration, consistency, routing-document size, and diff hygiene.
-- [ ] Re-read the final integration-tree instructions against the article-derived decision.
+- [x] Re-read the final integration-tree instructions against the article-derived decision.
+- [x] Replace misleading pre-router AGENTS anchors with direct owner-document routes.
 
 ## User Execution Test Scenarios
 
@@ -55,6 +57,11 @@ interface that an end user can execute as a scenario.
 - Median description: 287.5 characters before, 99.5 after; maximum: 840 before, 126 after.
 - Formatting, skill registration, consistency, routing-document size, and diff checks passed.
 - The full harness scan passed all change-related checks; three unrelated existing-state findings remain.
+- PR #2712 landed as `a822e50a0543731cd09240ed5ef81df7dc0abdb5` on `develop`; its final-head CI passed.
+- The integration-tree follow-up compared the guidance with the
+  [official OpenAI article](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra),
+  routed stale skill anchors to their actual owner documents, and reduced `branch-guard` to an
+  operation-specific router into the large branch-policy document.
 
 ## Completion Criteria
 
@@ -62,4 +69,4 @@ interface that an end user can execute as a scenario.
 - [x] All repository skill descriptions are concise and distinguishable at selection time.
 - [x] Safety-sensitive procedural detail remains in the owning skill bodies.
 - [x] Applicable local checks pass and unrelated residual failures are recorded.
-- [ ] Remote PR evidence is recorded after the branch is published.
+- [x] Remote PR evidence is recorded after the branch is published.

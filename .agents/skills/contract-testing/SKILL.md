@@ -7,8 +7,8 @@ description: Use consumer-driven tests when designing or changing API boundaries
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "Type System (Strict)"
+- [verification.md](../../rules/verification.md) > "Build Requirements"
+- [code-quality.md](../../rules/code-quality.md) > "Type System (Strict)"
 
 For an API boundary between independently developed modules (HTTP, WebSocket, or typed interface):
 

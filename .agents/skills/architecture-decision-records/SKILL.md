@@ -7,8 +7,8 @@ description: Record or review an ADR for a significant design decision affecting
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Development Patterns"
-- `AGENTS.md` > "Build Requirements"
+- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
+- [verification.md](../../rules/verification.md) > "Build Requirements"
 
 Write one ADR per decision when a design choice affects multiple packages or modules, or has 2+ viable
 alternatives with real trade-offs. Accepted ADRs are immutable — supersede with a new ADR, never

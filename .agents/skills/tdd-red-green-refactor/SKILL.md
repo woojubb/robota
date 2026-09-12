@@ -7,8 +7,8 @@ description: Apply Red-Green-Refactor when adding code or changing observable be
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "Test-Driven Development"
+- [verification.md](../../rules/verification.md) > "Build Requirements"
+- [tdd-and-planning.md](../../rules/tdd-and-planning.md) > "Test-Driven Development"
 
 ## Core Principles (Kent Beck)
 

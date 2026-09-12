@@ -7,10 +7,10 @@ description: Model predictable TypeScript workflow failures with explicit Result
 
 ## Rule Anchor
 
-- `AGENTS.md` > "No Fallback Policy" (Result type mandatory for failable public functions)
-- `AGENTS.md` > "Development Patterns"
+- [operational.md](../../rules/operational.md) > "No Fallback Policy"
+- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
 
-The No-Fallback rule (owned by [code-quality.md](../../rules/code-quality.md)) is the constraint;
+The No-Fallback rule (owned by [operational.md](../../rules/operational.md)) is the constraint;
 this skill owns only the Result-vs-throw decision method. Model errors as data
 (`type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`), define domain-specific
 error unions, map external exceptions to typed variants once at the boundary adapter, and keep one

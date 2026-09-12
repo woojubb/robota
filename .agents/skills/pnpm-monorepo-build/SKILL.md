@@ -7,8 +7,8 @@ description: Diagnose pnpm lifecycle-script gaps or update lockfiles when worksp
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Project Structure"
-- `AGENTS.md` > "Build Requirements"
+- [project-structure.md](../../project-structure.md) > dependency direction and workspace layout
+- [verification.md](../../rules/verification.md) > "Build Requirements"
 
 Build/filter commands are listed in the root `package.json` scripts (`pnpm run` to enumerate;
 `pnpm --filter <pkg> build` to scope). This skill owns only the two learned gotchas below.

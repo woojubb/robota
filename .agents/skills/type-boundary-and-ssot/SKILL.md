@@ -7,10 +7,10 @@ description: Validate trust-boundary parsing and single-owner type contracts whe
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Type System (Strict)"
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "Execution Safety"
-- `AGENTS.md` > "Development Patterns"
+- [code-quality.md](../../rules/code-quality.md) > "Type System (Strict)"
+- [verification.md](../../rules/verification.md) > "Build Requirements"
+- [verification.md](../../rules/verification.md) > "Execution Safety"
+- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
 - `AGENTS.md` > "Rules and Skills Boundary"
 
 ## Use This Skill When

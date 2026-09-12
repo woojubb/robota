@@ -27,8 +27,9 @@ description: Audit AGENTS, skills, and repository guidance for clear routing, si
 
 ## Execution Steps
 
-1. Map each changed skill to its `AGENTS.md` anchors.
-2. Check that every anchor points to a real `AGENTS.md` section.
+1. Map each changed skill to its owner-document or `AGENTS.md` routing anchors.
+2. Check that every anchor names the document that actually owns a real section; do not label a
+   rule-file section as `AGENTS.md` merely because AGENTS links to that file.
 3. Scan for undefined rule-level terminology introduced only in a skill.
 4. Scan for examples that teach forbidden patterns:
    - unchecked casts for external data
@@ -42,6 +43,8 @@ description: Audit AGENTS, skills, and repository guidance for clear routing, si
    - Sibling descriptions are distinguishable without loading their bodies.
 7. Audit progressive disclosure:
    - `AGENTS.md` routes by task instead of requiring broad pre-reading.
+   - A route into a large owner document names the relevant section or decision branch instead of
+     requiring the whole file by default.
    - A multi-mode skill keeps shared decisions in `SKILL.md` and routes conditional detail to focused
      references or scripts.
    - A narrow skill stays self-contained; do not add a router or reference hierarchy without a real branch.
@@ -87,7 +90,7 @@ When you add a mechanical guard (a scan/check that enforces an invariant):
 
 ## Checklist
 
-- [ ] Changed skills point to real `AGENTS.md` anchors.
+- [ ] Changed skills point to real owner-document or `AGENTS.md` routing anchors.
 - [ ] No new undefined rule terminology is introduced.
 - [ ] Examples do not violate repository rules.
 - [ ] Duplicated policy prose is reduced where possible.
