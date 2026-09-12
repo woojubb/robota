@@ -5,11 +5,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   changedPathsOf,
+  citedUnitOf,
   citesWorkItem,
+  completedPlanUnits,
   mergedCommits,
   mergedRef,
   openTaskRecords,
 } from './scan-task-merged-citation.mjs';
+import { planItems, planSection } from './scan-task-plan-items.mjs';
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
@@ -52,11 +55,20 @@ export function findTerminalStateFindings(workspaceRoot = ROOT, io = {}) {
           changedPaths(commit.sha).some((file) => !file.startsWith('.agents/')),
       );
       if (deliveries.length === 0 || legacy.has(record.id)) return [];
+      const content = readFileSync(path.join(root, record.file), 'utf8');
+      const remainingWork = planItems(planSection(content) ?? '').some((item) => !item.checked);
+      const completedUnits = completedPlanUnits(content);
+      // A checked, named unit reconciles its own delivery, not completion of the whole Task.
+      const unreconciled = deliveries.filter((commit) => {
+        const unit = citedUnitOf(commit.subject, record.id);
+        return !remainingWork || unit === null || !completedUnits.has(unit);
+      });
+      if (unreconciled.length === 0) return [];
       return [
         {
           file: record.file,
           type: 'item-terminal-state',
-          detail: `${record.id} remains in-progress after ${Math.floor(io.ageDays?.(record) ?? ageDays(root, record))} day(s) and ${deliveries.length} merged delivery citation(s); reconcile Task, Issue closure, and archival state`,
+          detail: `${record.id} remains in-progress after ${Math.floor(io.ageDays?.(record) ?? ageDays(root, record))} day(s) and ${unreconciled.length} unreconciled merged delivery citation(s); reconcile Task, Issue closure, and archival state`,
         },
       ];
     });
