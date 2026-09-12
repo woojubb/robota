@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { createRequire, isBuiltin } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { tsImport } from 'tsx/esm/api';
+import { unrun } from 'unrun';
 import { validateArtifactPath } from './manifest.mjs';
 
 export function prepareTsdownConfig(config, { packageRoot, outputRoot }) {
@@ -52,8 +52,15 @@ export async function emitTsdown({ packageRoot, outputRoot }) {
     .map((extension) => path.join(root, `tsdown.config.${extension}`))
     .find((candidate) => existsSync(candidate));
   if (!configPath) throw new Error(`Missing tsdown configuration: ${root}`);
-  const imported = await tsImport(pathToFileURL(configPath).href, import.meta.url);
-  const exported = imported.default;
+  // Use the compiler's existing config loader dependency without process-global namespace hooks.
+  // API callers need not chdir: external config imports resolve from the package, not unrun's cache.
+  const { module: exported } = await unrun({
+    path: pathToFileURL(configPath),
+    inputOptions: { cwd: root },
+    outputOptions: {
+      paths: (id) => (isBuiltin(id) ? id : pathToFileURL(require.resolve(id)).href),
+    },
+  });
   const value = typeof exported === 'function' ? await exported({ cwd: root }) : await exported;
   const configs = Array.isArray(value) ? value : [value];
   const records = new Map();

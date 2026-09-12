@@ -109,6 +109,33 @@ Local review repair batch (Round A):
 - Hume's single repair-batch re-review resolved all three original findings and returned
   `ACTIONABLE FINDINGS: 0`. This records local convergence only; CI and merge acceptance remain open.
 
+PR #2715 first CI repair batch:
+
+- Published head `14af7c9812caa065b0fdb8ba29e73a403dc66800` after a non-overlapping rebase and
+  verified formatting-only amendment. The local verdict and 13-context control-plane job confirmation
+  are recorded on the PR. Workflow provenance remains intentionally red; owner-only landing applies.
+- CI run 34703411516 exposed a real configuration-loader compatibility failure on Node 22.23.2:
+  `ENOENT node:fs?tsx-namespace`. Main reproduced it on that exact runtime (15 pass / 1 fail), then
+  replaced the loader with the already-installed public `unrun` API and package-owned external
+  resolution. The same 16 emitter/build/watch tests pass on both 22.14.0 and 22.23.2; actual core
+  assembly also passes on 22.23.2. No dependency, runtime declaration or public compiler-private API
+  was added; execution on 22.14 is not a claim that tsdown officially supports that version.
+- Independent CI triage classified the remaining failures as harness infrastructure: two stale
+  archive/publish assertions, four interactive shell-fixture startup failures, the copied web
+  declaration-graph count, two undeclared CI-owned steps and four stripped-image import failures.
+  Independent scans themselves passed (157 pass, 2 skip); negative-fixture console output is not
+  reported as another repository defect. The repair keeps all assertions/tiers and restores missing
+  execution dependencies without including live package, app, rule or Git owners in the stripped image.
+- Stripped-image imports reproduced RED then GREEN in an ordinary temporary directory, without any
+  Git fixture. Main focused mapping/image checks pass 51 tests. Remote CI must re-execute before
+  delivery is accepted; no successful native Windows or clean Linux result is inferred from these runs.
+- Nash reproduced and repaired the three stale/startup test groups (121 focused tests pass).
+  Actual CLI assembly and its version regression also pass under the repaired loader. The original
+  code review is not repeated after PR creation; the next push is grounded in the published red CI
+  run and its recorded repair scope, not in a request for another opinion.
+- Main post-format integrated repair verification on Node 22.23.2: 191/191 tests passed across
+  nine files, including real release-path fixtures. Native CI remains the platform acceptance owner.
+
 ## Test Plan
 
 Focused positive/negative regressions plus actual execution at the owning boundary. Verify every

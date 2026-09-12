@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runInNewContext } from 'node:vm';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 import { classifyFiles, isBuildMachineryPath } from '../classify-changed-paths.mjs';
 import { createWorkspaceAffectedPlan, planWorkspaceAffected } from '../workspace-affected.mjs';
@@ -16,6 +16,8 @@ const workflow = parse(
 const build = workflow.jobs.build;
 const changedFile = 'packages/agent-framework/src/index.ts';
 const proof = build.steps.find((step) => step.id === 'clean_framework_proof');
+
+afterEach(() => vi.unstubAllEnvs());
 
 function inlineNode(step, bindings) {
   const body = /node --input-type=module <<'EOF'\n([\s\S]*?)\nEOF/u.exec(step.run)?.[1];
@@ -195,9 +197,16 @@ describe('ARTIFACT clean framework proof CI wiring', () => {
   it.each(['none', 'build', 'regressions', 'test'])(
     'executes ordered workflow commands and propagates %s failure without running real builds',
     (failure) => {
+      const temp = makeTemp('artifact-ci-proof-');
+      const startup = path.join(temp, 'startup.bash');
+      writeFileSync(startup, "printf 'unexpected shell startup\\n' >&2\n");
+      vi.stubEnv('BASH_ENV', startup);
+      vi.stubEnv('ENV', startup);
       const result = spawnSync(
         'bash',
         [
+          '--noprofile',
+          '--norc',
           '-euo',
           'pipefail',
           '-c',
@@ -215,7 +224,8 @@ describe('ARTIFACT clean framework proof CI wiring', () => {
         ],
         {
           encoding: 'utf8',
-          env: { ...process.env, RUNNER_TEMP: makeTemp('artifact-ci-proof-'), FAILURE: failure },
+          // This command fixture must not source developer/runner shell startup scripts.
+          env: { ...process.env, BASH_ENV: '', ENV: '', RUNNER_TEMP: temp, FAILURE: failure },
         },
       );
       const commands = result.stderr.trim().split('\n');
