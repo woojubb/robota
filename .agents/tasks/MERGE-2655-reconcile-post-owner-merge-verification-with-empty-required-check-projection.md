@@ -70,6 +70,16 @@ No new mechanical gate is introduced; the existing read-only verifier remains th
 Include this small supporting amendment in the Issue #2655 workflow. Keep Issue #2655 open for the unfinished
 BOUNDARY-2655 work. Preserve the original failed verifier result as evidence rather than rewriting it.
 
+## Result
+
+The L0 amendment is implemented and independently reviewed in commit `b97e7f9c8`.
+Both planned documentation outcomes are complete; the user-execution outcome is not applicable.
+Remote delivery remains the PR/post-merge workflow's responsibility, not implied by this local
+completion record. The original product CI and failed historical verifier record are preserved.
+The first archive attempt was refused because the documentation-only atomic batch is not an
+ancestor planning ground for a later archive. Retain this Task record before its terminal move;
+do not disable the hook or widen this amendment into another checker implementation.
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
