@@ -47,6 +47,13 @@ no scanner-config or product dependency changes are planned unless live findings
 
 ## Delivery
 
+Delivered by [PR #2709](https://github.com/woojubb/robota/pull/2709) at
+`1c52df898f7a6df9adf715821bc9c8638a3dd967` on 2026-09-12. Pascal independently verified the
+remote landing and all eleven actual owning-workflow contexts passed before merge. The
+[actual push scan](https://github.com/woojubb/robota/actions/runs/34694593492/job/103555778173)
+inspected that exact SHA: 2176 packages, four results filtered under unchanged existing exclusions,
+`No issues found`. [Issue delivery record](https://github.com/woojubb/robota/issues/2655#issuecomment-5645983627).
+
 Main verifies the actual required PR CI results on the reviewed head and current base before any
 authorized merge; focused local results are not a substitute. This is delivery evidence, not a
 circular pre-merge Plan checkbox requiring the merge to have already happened.
@@ -71,7 +78,7 @@ TC-03 before merge; the delivering push scan remains separate post-merge accepta
 The [paired spec's Evidence Log](../../spec-docs/done/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md#evidence-log)
 owns the exact commands, results and nine advisory dispositions. Focused tests and
 the changed-lockfile OSV scan passed. The original manual run's develop leg passed while its main
-leg failed. Actual delivering-push acceptance remains outstanding under Delivery above.
+leg failed. Actual delivering-push acceptance is now verified under Delivery above.
 
 ## Goal authorization and current constraints
 

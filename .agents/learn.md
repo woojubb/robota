@@ -196,6 +196,7 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` rejected the closeout with `proposed checkpoint does not stage the exact active Task/spec pair`; a linear sync attempt then rejected `second work-unit planning checkpoint transition ... INFRA-182-ci-green-develop-recovery.md`; `.agents/rules/backlog-execution.md` § Completion Steps requires the status update and `git mv` archival in one commit.
 - source: MCP-2520 closeout, 2026-09-09
 - related: MCP-2520, issue #2520, issue #2418
+- evidence (2026-09-12T12:56:09Z): After verified PR #2709 and exact-SHA push scan 34694593492, one six-path INFRA-2655 closeout (three loop ledgers, existing done Task/spec and parent TC-02 projection) is rejected as `staged post-merge completion closeout is invalid`. `postMergeCompletionPaths()` at `scripts/harness/scan-user-execution-plan-order.mjs:1589` classifies paired destination paths without checking whether they already exist at done; the next validator demands absent in-progress sources and newly archived destinations. The separate prelude path also permits only the single post-merge ledger. The staged records are preserved on `codex/2655-transactional-artifacts`; no implementation or acceptance rollback, hook bypass or artificial split was performed. User already authorized correcting obstructive harness rules while completing Issue #2655.
 
 ### LRN-mcp-2520-active-spec-stale-task-citations
 

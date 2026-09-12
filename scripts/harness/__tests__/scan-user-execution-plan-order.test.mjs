@@ -3145,6 +3145,48 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  // CI owns these existing Git-fixture tests; local verification uses the memory-only delivery
+  // predicate suite when the owner prohibits temporary repositories and worktrees.
+  it.each([false, true])(
+    'post-merge delivery batch does not supply a later checkpoint (%s)',
+    (planned) => {
+      const { root } = repository();
+      const task = `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`;
+      const spec = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
+      const ledger = '.agents/loop-runs/post-merge-cycle.jsonl';
+      write(root, task, closeoutTaskText('done', spec));
+      write(root, spec, closeoutSpecText('done', task));
+      write(root, ledger, '');
+      const base = commit(root, 'delivered archived pair (#1)');
+      git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+      write(root, task, `${closeoutTaskText('done', spec)}\n## Delivery\n\nPR #1 verified\n`);
+      write(
+        root,
+        spec,
+        closeoutSpecText('done', task).replace(
+          '## Evidence Log',
+          '## Delivery\n\nPR #1 verified\n\n## Evidence Log',
+        ),
+      );
+      write(root, ledger, `${JSON.stringify(postMergeRecord(base))}\n`);
+      git(root, ['add', '-A']);
+      expect(findStagedFindings(root, base)).toEqual([]);
+      write(root, 'residue.md', 'untracked residue');
+      expect(messages(findStagedFindings(root, base))).toMatch(/worktree|unstaged|untracked/i);
+      rmSync(path.join(root, 'residue.md'));
+      commit(root, 'batch delivery metadata');
+      expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+      if (planned) checkpoint(root);
+      write(root, 'packages/example/src/index.ts', 'export const changed = true;\n');
+      git(root, ['add', '-A']);
+      if (planned) expect(findStagedFindings(root, base)).toEqual([]);
+      else expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint|planning/i);
+      commit(root, 'later implementation');
+      if (planned) expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+      else expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(/checkpoint|planning/i);
+    },
+  );
+
   it('accepts a bounded post-merge Task/spec completion on a fresh branch without checkpoint ancestry', () => {
     const staged = deliveredCloseoutFixture();
     stageCloseout(staged);

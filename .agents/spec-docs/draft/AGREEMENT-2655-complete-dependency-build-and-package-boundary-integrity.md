@@ -74,7 +74,7 @@ against landed code, tests, actual outputs and commit ancestry. Partial delivery
 ## Completion Criteria
 
 - [ ] TC-01: From a checkout with no pre-existing package build output and a framework-only changed-file scope, affected build and affected test exit 0 without global fallback; analytics/replay dist is built before the three originally failing framework test files run and pass. The focused graph suite also passes; a full/global build or planner-only result is not substitute evidence.
-- [ ] TC-02: Every develop push scans its full lockfile; all original advisory families have verified dispositions.
+- [x] TC-02: Every develop push scans its full lockfile; all original advisory families have verified dispositions. Delivered by PR #2709 at `1c52df898f7a6df9adf715821bc9c8638a3dd967`; [exact-SHA push scan](https://github.com/woojubb/robota/actions/runs/34694593492/job/103555778173) passed, with the complete advisory disposition in the INFRA-2655 done spec.
 - [ ] TC-03: Root/affected builds assemble complete node, types and copied-web generations, propagate copied-artifact changes, replace publishable output atomically and enforce exact emitted/packed manifests with stale/failure tests.
 - [ ] TC-04: Repository-wide shared files have verified owners, neutral APIs and at least two independent package consumers; required migrations are delivered and precise affected/full selection and promotion reasons are reported and enforced.
 - [ ] TC-05: All child deliveries are ancestors of origin/develop and source Issues carry delivery evidence before Issue #2655 is closed.
