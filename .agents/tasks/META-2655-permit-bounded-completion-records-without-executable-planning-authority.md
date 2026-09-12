@@ -107,6 +107,39 @@ witness; do not rewrite their human-readable refs. The integrated closeout is no
 coherent local milestone first. This Task stays in-progress until the actual record sequence and
 final affected checks are verified. The corrected committed lane scan passed with zero violations.
 
+Local record integration now completed: implementation `f4776d116`, historical attempts `a98f2e256`,
+and exact ARTIFACT/MERGE archival `9fc15a99c`. The first canonical capture accidentally omitted
+`--ref` at close; immutable history `8f0102850` retains that mistake. The corrected record
+`r20260912233724` explicitly binds PR #2715 and merge `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`.
+Actual staged validation accepted all 12 closeout paths; committed-history validation then accepted
+all eight topic commits. The last advisory reference was corrected and its owning scan passed.
+The final DONE gate owns the remaining aggregate verification run. CI-only Git regressions have
+not been executed locally and remote CI remains required before merge. No new GitHub issue began.
+
+Final GATE-DONE attempt did not pass. Its focused tests again passed 66/66, but the full current
+branch scan found two record-process refusals. First, `scan-lane-declaration` treats the existing
+AGREEMENT-2655 parent's unchanged `lane: L2` as a new branch declaration merely because its required
+completion projection changed; that conflicts with META-2655's L1 plan and trailers. The earlier
+pre-commit scan did not include the then-uncommitted projection in that scanner's HEAD-based diff.
+This is not an under-declared executable path: all changed executable paths have floor L1, and the
+parent metadata paths have floor L0. Preserve the parent's original L2 planning classification and
+the exact completion/merge checks; do not relabel the parent or invent an L2 META checkpoint.
+
+Second, `check-task-archival` rejects all-checked Task Plans before the spec's terminal gate passes,
+while GATE-DONE requires those checkboxes checked. Its documented `archival-exempt` annotation is
+available for a deliberately still-active record; none has been added. The real lane failure means
+the final verification Plan item and TC-04 are not complete, so they are unchecked again. The
+GATE-DONE FAIL and all per-TC observations remain preserved. Two legacy catalogue-wording matches
+also remain guardian residue (Every Plan item / No Plan item), as in the earlier ARTIFACT gate;
+they are not permission to change the catalogue or fabricate a mechanical verdict.
+
+Correction to the lane diagnosis: `gatherInputs` already excludes `isLifecycleProjectionOnly`
+changes. The extra parent TC-01/TC-03 checkbox/evidence edits exceeded that existing route; the
+required child row itself was not the cause. Keep only the parent's required Tasks projection in
+this batch. Its original criteria remain intact for the initiative's own verification, while actual
+delivery remains recorded in the completed child, parent Task Progress and GitHub Issue. No new
+lane-classifier implementation, lower parent lane or extra approval is needed.
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of

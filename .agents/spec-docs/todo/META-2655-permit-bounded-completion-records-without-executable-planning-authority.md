@@ -90,19 +90,19 @@ document completion authority is the premise; tests and merge evidence are not w
 
 ## Completion Criteria
 
-- [ ] TC-01: Approved documentation-only Task archive passes the focused classifier; missing approval, incomplete Plan, changed content, paired spec, partial archive and executable additions are rejected. No later source planning authority is inferred.
-- [ ] TC-02: Ledger-only append preserves closed failed/successful attempts without creating a planning ground; existing lines, malformed/open records and executable additions remain refused. Delivery still requires a valid exact merge witness.
-- [ ] TC-03: Delivered pair archival accepts its required bound parent projections and existing execution-run closures while rejecting unrelated records, changed plans, missing terminal evidence, invalid lifecycle and source changes.
+- [x] TC-01: Approved documentation-only Task archive passes the focused classifier; missing approval, incomplete Plan, changed content, paired spec, partial archive and executable additions are rejected. No later source planning authority is inferred.
+- [x] TC-02: Ledger-only append preserves closed failed/successful attempts without creating a planning ground; existing lines, malformed/open records and executable additions remain refused. Delivery still requires a valid exact merge witness.
+- [x] TC-03: Delivered pair archival accepts its required bound parent projections and existing execution-run closures while rejecting unrelated records, changed plans, missing terminal evidence, invalid lifecycle and source changes.
 - [ ] TC-04: The new focused test file passes in full, actual current staged/history validation accepts the preserved closeout, and affected scans pass. Existing remote Git-fixture integration tests cover both callers; no local worktree/clone/Git fixture is created.
 
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                                      | Notes                                                                       |
 | ----- | ----------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| TC-01 | Unit        | `scripts/harness/__tests__/completion-record-boundaries.test.mjs`                    | RED then GREEN; in-memory/ordinary-file fixtures                            |
-| TC-02 | Unit        | Same focused file, ledger evidence cases                                             | Failed history is retained, not converted into a PASS                       |
-| TC-03 | Unit        | Same focused file, parent/run binding cases                                          | Valid terminal gate and exact merge requirements remain                     |
-| TC-04 | Integration | Real repository staged/history checks; affected scans; existing CI Git-fixture suite | No local Git fixture or product rebuild; remote results reported separately |
+| TC-01 | Unit        | `scripts/harness/__tests__/completion-record-boundaries.test.mjs` > `accepts an unchanged approved documentation Task archive in staged and history readers` | Part of the 66-test local PASS; source authority also has CI-only caller regressions |
+| TC-02 | Unit        | `scripts/harness/__tests__/completion-record-boundaries.test.mjs` > `preserves closed failed and successful post-merge attempts without requiring a merge witness` | Failed history is retained, not converted into a PASS |
+| TC-03 | Unit        | `scripts/harness/__tests__/completion-record-boundaries.test.mjs` > `admits required parent projection and execution closure beside the exact delivered pair` | Real archive passed the scope predicate; terminal and merge checks remain in the caller |
+| TC-04 | Integration | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` > `keeps failed history separate from later existing-pair delivery authority (valid witness: %s)`; actual repository staged/history scans | CI test written and syntax-checked, not executed locally. Actual closeout: 12 staged paths and 8 topic commits PASS. Remote CI is still required before merge. |
 
 ## User Execution Test Scenarios
 
@@ -206,3 +206,104 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `80b05d9d5563` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/draft/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `2df0ab24a38a` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+Closeout committed as 9fc15a99c.
+Command: node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop
+Observed after closeout commit: ::examined:: 8 topic commit(s); exit 0.
+The affected scan most recently reported 70 passed, 1 skipped, 1 advisory failure (72 selected).
+The advisory was then corrected; scan-reference-kind-qualified.mjs exited 0 over 3502 documents.
+The final DONE gate owns the next full affected scan/test invocation and its own outputs.
+
+Independent review: Hume 2 MUST findings -> both LOCAL per Pascal -> repaired -> ACTIONABLE FINDINGS: 0.
+Existing CI-only Git integration tests were updated and syntax-checked but have NOT been run locally.
+Remote CI remains required before merge. No npm publication or protected-branch promotion occurred.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `713cf9066f83` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+Closeout committed as 9fc15a99c.
+Command: node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop
+Observed after closeout commit: ::examined:: 8 topic commit(s); exit 0.
+The affected scan most recently reported 70 passed, 1 skipped, 1 advisory failure (72 selected).
+The advisory was then corrected; scan-reference-kind-qualified.mjs exited 0 over 3502 documents.
+The final DONE gate owns the next full affected scan/test invocation and its own outputs.
+
+Independent review: Hume 2 MUST findings -> both LOCAL per Pascal -> repaired -> ACTIONABLE FINDINGS: 0.
+Existing CI-only Git integration tests were updated and syntax-checked but have NOT been run locally.
+Remote CI remains required before merge. No npm publication or protected-branch promotion occurred.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `c5db447105d2` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+Closeout committed as 9fc15a99c.
+Command: node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop
+Observed after closeout commit: ::examined:: 8 topic commit(s); exit 0.
+The affected scan most recently reported 70 passed, 1 skipped, 1 advisory failure (72 selected).
+The advisory was then corrected; scan-reference-kind-qualified.mjs exited 0 over 3502 documents.
+The final DONE gate owns the next full affected scan/test invocation and its own outputs.
+
+Independent review: Hume 2 MUST findings -> both LOCAL per Pascal -> repaired -> ACTIONABLE FINDINGS: 0.
+Existing CI-only Git integration tests were updated and syntax-checked but have NOT been run locally.
+Remote CI remains required before merge. No npm publication or protected-branch promotion occurred.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `a496ca650c37` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop`
+**Exit:** 0
+**Output:** (last 10 of 33 line(s))
+
+```
+Closeout committed as 9fc15a99c.
+Command: node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop
+Observed after closeout commit: ::examined:: 8 topic commit(s); exit 0.
+The affected scan most recently reported 70 passed, 1 skipped, 1 advisory failure (72 selected).
+The advisory was then corrected; scan-reference-kind-qualified.mjs exited 0 over 3502 documents.
+The final DONE gate owns the next full affected scan/test invocation and its own outputs.
+
+Independent review: Hume 2 MUST findings -> both LOCAL per Pascal -> repaired -> ACTIONABLE FINDINGS: 0.
+Existing CI-only Git integration tests were updated and syntax-checked but have NOT been run locally.
+Remote CI remains required before merge. No npm publication or protected-branch promotion occurred.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `ca007ad53400` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-13
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 2 of 72 scans failed); `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs` → exit 0 (   Duration  291ms (transform 78ms, setup 0ms, collect 118ms, tests 30ms, environment 0ms, prepare 27ms) ⏎  ⏎ 8:41:07 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 2 of 72 scans failed); `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs` → exit 0 (   Duration  291ms (transform 78ms, setup 0ms, collect 118ms, tests 30ms, environment 0ms, prepare 27ms) ⏎  ⏎ 8:41:07 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `878ec0ad9df4` (modified)
