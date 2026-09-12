@@ -1,6 +1,6 @@
 ---
 name: doc-claim-verification
-description: Pointer stub — per-document doc-vs-code claim verification is owned by the architecture-conformance-auditor agent, which emits HOLDS/DRIFT/VIOLATION/PHANTOM/UNDOCUMENTED verdicts with evidence natively. Dispatch it via the architecture-refresh pipeline instead of following prose steps here.
+description: Verify architecture-document claims against code through the `architecture-refresh` conformance route.
 ---
 
 # Doc Claim Verification (pointer)

@@ -1,6 +1,6 @@
 ---
 name: contract-disposition
-description: Decide what to do with an unconsumed or seemingly-immovable public contract — WITHOUT reading its state from a proxy signal. "grep found no consumer" is not "dead", and "it is published" is not "we cannot change it". Verify the actual state, then choose from a closed disposition vocabulary. Use before removing, deprecating, or declining to change any exported surface, contract field, or option. Distinct from the `contract-audit` skill, which is about a package's SPEC.md Class Contract Registry.
+description: Decide whether to retain, deprecate, or remove a public contract after verifying its actual constraints.
 ---
 
 # Contract Disposition

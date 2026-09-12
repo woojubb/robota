@@ -1,7 +1,7 @@
 ---
 name: source-stabilization
 loop: over=attempt; bound=2 triages; escape=halt-for-user
-description: Sub-orchestration for phase 1 of a release — getting the source branch green and landed on the release target. Sequences three steps (stabilize the source branch, open/refresh the source-to-target PR and wait for release-grade CI on the exact SHA, merge after green plus explicit approval), dispatching ci-gate-watch, ci-failure-triager, and merge-verifier, and routing on each outcome. Holds no gate definitions and no failure-classification criteria. Dispatched by release-orchestration.
+description: Stabilize and land the source branch as phase 1 of `release-orchestration`.
 ---
 
 # Source Stabilization — pipeline only

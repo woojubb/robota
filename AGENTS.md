@@ -1,15 +1,15 @@
 # AGENTS.md — Robota Monorepo Agent Guidelines
 
-You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, agent runtime lifecycle, and multi-provider AI integration. Follow every rule in this file without exception.
+You are a senior TypeScript engineer working in this pnpm monorepo. Apply the repository rules that govern the current change, using this file to locate their owners.
 
 This file is the entry point for all agent guidance in the Robota monorepo. It is re-injected after
 every compaction, so every line here is paid on every turn: it routes, and it does not inline.
 
 ## Document Discovery Policy
 
-1. **Start here** for non-negotiable rules and routing.
-2. **Follow links** for domain detail — rules, skills, specs, structure.
-3. **Dig into packages** — `packages/<name>/docs/SPEC.md` for package contracts.
+1. **Start here** to identify the route that matches the task.
+2. **Load only that route's owner documents.** Do not preload the full rule, skill, or architecture tree.
+3. **Read package contracts when touched.** Use `packages/<name>/docs/SPEC.md` for a changed package's public contract, not as a universal preflight.
 
 **Principles:**
 
@@ -17,8 +17,9 @@ every compaction, so every line here is paid on every turn: it routes, and it do
 - Domain-specific rules belong in skills (`.agents/skills/`) or package specs (`docs/SPEC.md`).
 - Never duplicate content across levels. Each fact has exactly one owner document.
 - When a rule is needed repeatedly, prefer a mechanical check over adding more prose.
+- A rule being mandatory when applicable does not make its whole document mandatory reading for every task.
 
-**Document tree.** Every rule group below is mandatory; this table is the single list, so no fact is stated twice.
+**Document routes.** This table is the single routing index. Open an entry when its purpose matches the current task; its applicable rules remain binding whether or not the whole tree was loaded.
 
 | Document                                                                               | Purpose                                                                                                             |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -50,10 +51,7 @@ every compaction, so every line here is paid on every turn: it routes, and it do
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. pnpm workspace,
 strict TypeScript, ES modules only. North-star: [`VISION.md`](VISION.md) — **Robota builds Robota.**
 
-Toolchain versions are declared in the root `package.json` (`packageManager`, `engines`, `volta`) and
-enforced by the `node-version-single-valued` scan; read them there, never from a copy. Commands live
-in the root `package.json` `scripts` — run `pnpm run` to list them, including every `harness:*` entry
-point.
+Toolchain versions are declared in the root `package.json` (`packageManager`, `engines`, `volta`) and enforced by the `node-version-single-valued` scan; read them there when they matter. Inspect its `scripts` or run `pnpm run` when command discovery is part of the task.
 
 ## Project Structure
 
@@ -62,7 +60,7 @@ the package and app listing, and the dependency-direction rules.
 
 ## Mandatory Rules
 
-All rules in the document tree above are mandatory, non-negotiable, and domain-free. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply. Apply [execution-cadence.md](.agents/rules/execution-cadence.md) before dispatching work: batch small supplements at work-unit boundaries.
+Applicable rules are mandatory until amended; this is not a read-everything preflight. Use the [rules index](.agents/rules/index.md) to locate the owner. A disagreement is input to an amendment, not an ad-hoc exemption; [execution-cadence.md](.agents/rules/execution-cadence.md) governs dispatched work.
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 
@@ -82,14 +80,11 @@ Each has a documented override — the FORM differs and is not interchangeable. 
 
 ## Common Pitfalls
 
-Observed failure patterns and their correct approaches are catalogued in
-[`.agents/rules/common-mistakes.md`](.agents/rules/common-mistakes.md) (the SSOT). Read it before
-non-trivial work — it captures concrete mistakes (with the correct fix) seen in this repo, not
-abstract advice. Do not inline the list here.
+Observed failure patterns live in [`.agents/rules/common-mistakes.md`](.agents/rules/common-mistakes.md). Search or open the relevant entry when the touched area or an observed failure matches it; do not load or inline the whole catalogue as a generic preflight.
 
 ## Skills Reference
 
-Procedural workflows and domain-specific rules. See [.agents/skills/index.md](.agents/skills/index.md) for the full list with descriptions and links to each skill file. Consult the relevant skill before starting work in its domain.
+Procedural workflows and domain-specific rules. Select and read a skill only when its description directly matches the task. Use [.agents/skills/index.md](.agents/skills/index.md) for manual discovery; do not load adjacent skills merely because their names are related.
 
 ## Rules and Skills Boundary
 

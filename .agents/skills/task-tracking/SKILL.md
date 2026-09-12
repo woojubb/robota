@@ -1,6 +1,6 @@
 ---
 name: task-tracking
-description: Track work using task files in .agents/tasks/. Use when starting, progressing, or completing a task to maintain a persistent record of work.
+description: Create or update `.agents/tasks/` records when tracked work starts, progresses, or completes.
 ---
 
 # Task Tracking

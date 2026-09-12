@@ -1,6 +1,6 @@
 ---
 name: wiring-orchestration
-description: Thin orchestration for wiring a harness artifact — a skill, agent, rule or scan — into the places that make it reachable. It holds NO wiring policy: it sequences wiring-worker then wiring-guardian, routes on the guardian's verdict, and repeats until PASS. Every judgement lives in the agents. Use whenever an artifact has been authored and must become invocable, and after any change that could have broken a registration.
+description: Wire a newly authored harness artifact into its required registrations, then verify reachability.
 ---
 
 # Wiring Orchestration

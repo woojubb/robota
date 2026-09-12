@@ -1,6 +1,6 @@
 ---
 name: delegated-refactor-green-gate
-description: Delegate one mechanical change with focused worker verification, one integrated final gate, and one independent batch review. Route-only; does not edit or form verdicts. Use for decision-free shared-tree work.
+description: Delegate a decision-free mechanical refactor with focused verification and one independent final review.
 loop: over=finding-set; escape=no-progress; bound=2 rounds
 ---
 

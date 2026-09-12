@@ -1,6 +1,6 @@
 ---
 name: branch-guard
-description: Pointer — protected-branch commit/merge policy is owned by the git-branch.md rule and enforced mechanically by the branch-guard hook + husky pre-commit. Consult before committing when on main/master/develop.
+description: Consult protected-branch commit and merge policy before operating on main, master, or develop.
 ---
 
 # Branch Guard (pointer)

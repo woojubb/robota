@@ -1,6 +1,6 @@
 ---
 name: user-execution-scenario
-description: Sub-orchestration for the user-execution verification scenarios of one work unit. Runs in two modes at two moments — PLAN (before implementation: decide applicability, dispatch user-execution-scenario-author, gate that every scenario is written) and GATE (after implementation: execute each scenario, record the evidence, gate that it was executed and matched). Dispatches user-execution-scenario-author and backlog-gate-guard and routes on their outcomes. Holds no scenario criteria and forms no gate verdict. Dispatched by backlog-execution-orchestrator.
+description: Plan or execute user-visible verification scenarios when dispatched by the backlog item workflow.
 loop: over=finding-set; escape=no-progress; bound=2 rounds
 ---
 

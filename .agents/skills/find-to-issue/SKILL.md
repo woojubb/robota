@@ -1,6 +1,6 @@
 ---
 name: find-to-issue
-description: Record a defect or follow-up discovered MID-TASK in .agents/learn.md and keep going. Use the moment you notice something real that is not what you are currently doing — authoring a backlog file inline disturbs the work in flight, filing a GitHub issue for it costs a network round-trip and grows the issue count, and dropping the finding loses it. Recording it is not authorization to change code; a GitHub issue and the conversion to a backlog item happen later, only when a person asks for it.
+description: Record an out-of-scope defect found mid-task in `.agents/learn.md` without interrupting or expanding the active work.
 ---
 
 # Find → Learn

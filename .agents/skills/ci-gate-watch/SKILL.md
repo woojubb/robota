@@ -1,6 +1,6 @@
 ---
 name: ci-gate-watch
-description: Shared sub-orchestration for waiting on a long-running gate (a CI run, a dry-run, a publish) without spinning. Loops observe → report the current job and step → decide, escalating a gate that exceeds the expected behaviour for its current step to ci-failure-triager for the stall verdict, and terminating any watcher it started. It observes and routes only; it never decides why a check is red. Dispatched by any pipeline step that waits on a gate.
+description: Observe a long-running CI, dry-run, or publish gate and route stalls without diagnosing failures.
 ---
 
 # CI Gate Watch — pipeline only

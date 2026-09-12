@@ -1,6 +1,6 @@
 ---
 name: type-boundary-and-ssot
-description: Applies Robota's preferred workflow for trust-boundary validation, strict typing, quality gates, and owner-based SSOT reuse. Use when adding or reviewing type contracts, boundary parsing, shared contract ownership, or running quality checks.
+description: Validate trust-boundary parsing and single-owner type contracts when adding or reviewing shared data shapes.
 ---
 
 # Type Boundary and SSOT

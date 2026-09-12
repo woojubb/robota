@@ -1,6 +1,6 @@
 ---
 name: spec-writing-standard
-description: Use when creating a new SPEC.md or incrementally updating an existing one. Covers both initial authoring and the ongoing incremental-update workflow that keeps the spec live.
+description: Create or incrementally update a package SPEC.md using the repository's required contract structure.
 ---
 
 ## Rule Anchor

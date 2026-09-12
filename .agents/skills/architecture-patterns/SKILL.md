@@ -1,6 +1,6 @@
 ---
 name: architecture-patterns
-description: Applies the repo's architecture patterns — functional core/imperative shell, ports-and-adapters, and DI-based composition. Use when designing module boundaries, separating domain from infrastructure, or improving testability.
+description: Apply Robota architecture patterns when designing module boundaries or separating domain from infrastructure.
 ---
 
 # Architecture Patterns

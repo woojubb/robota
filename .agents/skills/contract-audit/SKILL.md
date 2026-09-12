@@ -1,6 +1,6 @@
 ---
 name: contract-audit
-description: Use when reviewing a package's class contract relationships (interface implementations, inheritance chains, cross-package port consumers) and updating its SPEC.md Class Contract Registry.
+description: Audit a package's class relationships and update its SPEC.md Class Contract Registry.
 ---
 
 ## Rule Anchor

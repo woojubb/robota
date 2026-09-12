@@ -1,6 +1,6 @@
 ---
 name: backlog-pipeline
-description: Orchestrator for the spec document gate pipeline. Reads current status from frontmatter, determines the next gate, invokes backlog-writer or backlog-gate-guard, and updates frontmatter status on PASS. Does nothing else.
+description: Advance one spec document through the next gate indicated by its frontmatter status.
 invocable: true
 ---
 

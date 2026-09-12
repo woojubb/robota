@@ -1,6 +1,6 @@
 ---
 name: architecture-conformance-audit
-description: Thin router for the doc-vs-code architecture conformance audit (GATE-CONFORMANCE). Routes to the mechanical conformance scan plus architecture-refresh, where conformance remains a separate channel beside the four-dimension audit fanout and downstream guardians/appliers own all judgement. Use before a release, after cross-package work, or when GATE-CONFORMANCE runs.
+description: Check architecture documents against code before releases, after cross-package changes, or for GATE-CONFORMANCE.
 ---
 
 # Architecture Conformance Audit (router)

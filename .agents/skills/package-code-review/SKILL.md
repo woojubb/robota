@@ -1,6 +1,6 @@
 ---
 name: package-code-review
-description: Systematic per-package code review using six specialist perspectives (Correctness, Architecture, Type Safety, Security, Performance, Maintainability) with severity labels. Use when reviewing an entire package or a set of changed files for quality, compliance, and improvement opportunities.
+description: Review a package or changed-file set for correctness, architecture, types, security, performance, and maintainability.
 ---
 
 # Package Code Review

@@ -1,6 +1,6 @@
 ---
 name: contract-testing
-description: Applies consumer-driven contract testing to verify API compatibility between packages or services without full E2E tests. Use when designing or evolving API boundaries between loosely coupled modules.
+description: Use consumer-driven tests when designing or changing API boundaries between packages or services.
 ---
 
 # Contract Testing (Consumer-Driven Contracts)

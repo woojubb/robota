@@ -1,6 +1,6 @@
 ---
 name: design-doc-authoring
-description: Use when documenting a component's internal realization (LLD) — module breakdown, key flows, local trade-offs. Produces a design doc that satisfies the design/LLD document-type contract (RULE-009).
+description: Create or update a component design document for internal modules, flows, and local trade-offs.
 ---
 
 # Design Doc Authoring

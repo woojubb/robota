@@ -1,6 +1,6 @@
 ---
 name: post-merge-cycle
-description: Shared sub-orchestration for everything that happens AFTER a merge command returns — verify the merge actually landed, decide whether the source branch may be deleted and delete it, then reset the working tree onto a fresh integration base for the next branch. Routes on each step's outcome with a defined failure edge; it never forms the landing verdict itself. Dispatched by any pipeline that merges.
+description: After a merge, verify landing, clean up the source branch when allowed, and return to a fresh integration base.
 loop: over=attempt; bound=2 attempts
 ---
 

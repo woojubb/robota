@@ -136,7 +136,7 @@ The **agent-definition convention** they follow is a document-type contract in
 | Skill                                                 | Description                                                                                     |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md)   | pnpm build gotchas: lifecycle pre/post silence + surgical workspace-dep lockfile edits          |
-| [harness-governance](harness-governance/SKILL.md)     | Rule-skill consistency, undefined terminology, mechanical checks                                |
+| [harness-governance](harness-governance/SKILL.md)     | AGENTS/skill routing, single ownership, progressive disclosure, and mechanical checks           |
 | [lesson-to-harness](lesson-to-harness/SKILL.md)       | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
 | [wiring-orchestration](wiring-orchestration/SKILL.md) | Thin: wiring-worker → wiring-guardian, routes on the verdict; holds no wiring policy            |
 | [contract-disposition](contract-disposition/SKILL.md) | Decide an unconsumed/immovable contract's fate from its ACTUAL state, not a proxy signal        |

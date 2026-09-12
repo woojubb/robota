@@ -1,6 +1,6 @@
 ---
 name: architecture-decision-records
-description: Records architectural decisions with context, alternatives, and consequences using the ADR format. Use when making or reviewing significant design choices that affect multiple modules or packages.
+description: Record or review an ADR for a significant design decision affecting multiple modules or packages.
 ---
 
 # Architecture Decision Records (ADR)

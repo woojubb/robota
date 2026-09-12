@@ -1,6 +1,6 @@
 ---
 name: framework-functional-testing
-description: Functionally verify a Robota feature at the framework level by driving a real InteractiveSession through the deterministic scripted provider — no CLI, no live LLM. Use whenever you add or change a capability the CLI exposes, instead of testing at the CLI surface or skipping E2E.
+description: Verify a CLI-exposed capability through a real InteractiveSession with the scripted provider, without a live LLM.
 ---
 
 # Framework Functional Testing (the agent's standard feature E2E)

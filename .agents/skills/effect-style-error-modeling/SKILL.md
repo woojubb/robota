@@ -1,6 +1,6 @@
 ---
 name: effect-style-error-modeling
-description: Models success and failure explicitly in TypeScript using Result or Either-like flows instead of uncontrolled exceptions. Use when implementing predictable error propagation across async workflows.
+description: Model predictable TypeScript workflow failures with explicit Result or Either-like flows.
 ---
 
 # Effect-Style Error Modeling

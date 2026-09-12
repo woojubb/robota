@@ -1,6 +1,6 @@
 ---
 name: github-issue-triage
-description: Audit, triage, select, and convert GitHub Issues using the declared label registry without duplicating Task execution priority. Also reconciles live label definitions through a report-first, no-delete workflow.
+description: Triage GitHub Issues and reconcile label definitions using the repository's report-first, no-delete workflow.
 ---
 
 # GitHub Issue Triage

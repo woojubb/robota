@@ -1,6 +1,6 @@
 ---
 name: capability-extraction
-description: Thin orchestration for turning a discovered recurring role into authored, guard-passing agent/skill files. It holds NO policy — it only sequences predefined agents (capability-scout → proposal-reviewer → agent-skill-author) and reads their signals, gating authoring on an ENDORSE verdict and convergence on the agent-def-convention guard. Every judgement lives in the agents. Dispatched by lesson-to-harness when an approved lesson is "a new recurring role"; not a parallel institutionalization loop.
+description: Turn an approved recurring role into wired agent and skill artifacts; invoked from `lesson-to-harness`.
 loop: over=finding-set; escape=no-progress
 ---
 

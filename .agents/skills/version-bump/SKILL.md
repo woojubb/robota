@@ -1,6 +1,6 @@
 ---
 name: version-bump
-description: Sub-orchestration for phase 2 of a release — cutting the bump branch from the freshly-fetched release target, applying the coordinated version bump, regenerating the changelog, running local release preparation, and landing the bump PR. Sequences six steps, dispatching version-management for the bump itself plus ci-gate-watch, ci-failure-triager, and merge-verifier, and routes on each outcome including the lockfile/diff-hygiene edge. Holds no versioning policy. Dispatched by release-orchestration.
+description: Apply and land the coordinated version bump as phase 2 of `release-orchestration`.
 ---
 
 # Version Bump — pipeline only
