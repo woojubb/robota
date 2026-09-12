@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli, typescript]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # ARTIFACT-2655: Assemble complete transactional workspace artifacts
 
-Paired with `.agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`.
+Paired with `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`.
 Source acceptance: https://github.com/woojubb/robota/issues/2154, retained in https://github.com/woojubb/robota/issues/2655.
 
 ## Problem
@@ -176,13 +176,13 @@ Keep related implementation, tests and delivery records in one batch; do not add
 
 ## Completion Criteria
 
-- [ ] TC-01: Clean root and affected builds exit 0 with complete declared package artifacts, including private web producer and CLI copied assets; a web-only change selects and orders CLI reassembly without duplicate producer builds.
-- [ ] TC-02: Node, browser, types and copied web are assembled only in staging; successful managed publication on Linux/macOS is atomic, and injected emit/copy/type failure or process interruption preserves the previous complete generation with no missing-path interval during publication. Windows is exempt only from atomic replacement: validate the full generation before switching, preserve prior output for recovery, and report interrupted/failed replacement explicitly.
-- [ ] TC-03: Exact emitted-manifest verification rejects seeded obsolete files, removed-source outputs, missing files, byte mismatches, internal symlinks and mixed-generation copies; expectations are not derived from the directory under verification.
-- [ ] TC-04: Actual tarball verification rejects missing/extra/modified payloads, preserves workspace dependency transformations and CLI bin/web behavior, and binds every supported pack/publish/skip-build/CI artifact path to the same verified generation.
-- [ ] TC-05: The release-path corpus executes cold, stale-seeded and partial-failure cases with real emitters and real pack; relevant independent tests and required CI pass. Pure predicate tests alone do not establish this criterion.
-- [ ] TC-06: Current clean framework-only affected build/test exits 0 without global fallback, builds analytics/replay before the three original Issue #2653 regression files, and passes those files against fresh output; record the selected scope, commands and actual results.
-- [ ] TC-07: The explicitly approved initial legacy-output transition preserves the old output, reports its non-atomic interval, and supports failure/interruption recovery. Preserve Windows build compatibility under its separate atomicity-only exception. Do not apply either exception to normal Linux/macOS managed publication. All criteria are delivered to origin/develop with issue evidence.
+- [x] TC-01: Clean root and affected builds exit 0 with complete declared package artifacts, including private web producer and CLI copied assets; a web-only change selects and orders CLI reassembly without duplicate producer builds.
+- [x] TC-02: Node, browser, types and copied web are assembled only in staging; successful managed publication on Linux/macOS is atomic, and injected emit/copy/type failure or process interruption preserves the previous complete generation with no missing-path interval during publication. Windows is exempt only from atomic replacement: validate the full generation before switching, preserve prior output for recovery, and report interrupted/failed replacement explicitly.
+- [x] TC-03: Exact emitted-manifest verification rejects seeded obsolete files, removed-source outputs, missing files, byte mismatches, internal symlinks and mixed-generation copies; expectations are not derived from the directory under verification.
+- [x] TC-04: Actual tarball verification rejects missing/extra/modified payloads, preserves workspace dependency transformations and CLI bin/web behavior, and binds every supported pack/publish/skip-build/CI artifact path to the same verified generation.
+- [x] TC-05: The release-path corpus executes cold, stale-seeded and partial-failure cases with real emitters and real pack; relevant independent tests and required CI pass. Pure predicate tests alone do not establish this criterion.
+- [x] TC-06: Current clean framework-only affected build/test exits 0 without global fallback, builds analytics/replay before the three original Issue #2653 regression files, and passes those files against fresh output; record the selected scope, commands and actual results.
+- [x] TC-07: The explicitly approved initial legacy-output transition preserves the old output, reports its non-atomic interval, and supports failure/interruption recovery. Preserve Windows build compatibility under its separate atomicity-only exception. Do not apply either exception to normal Linux/macOS managed publication. All criteria are delivered to origin/develop with issue evidence.
 
 ## Test Plan
 
@@ -200,15 +200,44 @@ test, so a macOS run cannot establish all 12 test cases; current full acceptance
 Run the explicit framework changed-file build from absent package output, then the three files and
 the full affected test operation against that output. This planner observation is not a build pass.
 
-| TC-ID | Test Type          | Tool / Approach                                                                       | Notes                                                                                                                                    |
-| ----- | ------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Integration        | Existing workspace graph/execution suites; clean root and web-only affected execution | Assert complete artifacts and copied-edge order, not only selected names                                                                 |
-| TC-02 | Integration        | Real generation switch with concurrent pinned readers and fault injection             | Compare old/new complete generations across success, failure and interruption; Windows checks staging/validation/recovery, not atomicity |
-| TC-03 | Unit / Integration | Emitter-record oracle and stale/removed-entry/mixed-copy fixtures                     | Dist enumeration is the actual side only                                                                                                 |
-| TC-04 | Integration        | Materialize and pnpm-pack real package; inspect and mutate tarball fixtures           | No registry publication; check transformed metadata and CLI bin/web contents                                                             |
-| TC-05 | CI smoke           | Existing release-path corpus extended with cold/stale/failure cases                   | Run real emitters and pack in the owning CI environment                                                                                  |
-| TC-06 | Integration        | Framework-only affected build/test from absent package output                         | Preserve Issue #2653 original three-file acceptance, analytics/replay and non-global plan                                                |
-| TC-07 | Integration        | Legacy and build-host positive/negative cases; git/gh delivery readback               | Unsupported or unverified paths are explicit failures, not partial success                                                               |
+| TC-ID | Test Type          | Tool / Approach                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Notes                                                                                                                                                                                                       |
+| ----- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration        | `scripts/harness/__tests__/workspace-affected.test.mjs` — describe `workspace affected planner`, test `reassembles only transitive copied consumers and their prerequisites on an asset change`; `scripts/artifacts/__tests__/release-path.test.mjs` — top-level test `cold root execution builds real node/browser/types plus Vite copies and packs their exact payload`                                                                                                                                                | Historical local root 82/web-only 67 tasks; final CI root 82 tasks and real release corpus passed.                                                                                                          |
+| TC-02 | Integration        | `scripts/artifacts/__tests__/generation-concurrent.test.mjs` — top-level test `keeps pinned pairs coherent and the current link complete during repeated real POSIX switches`; `scripts/artifacts/__tests__/emitters-build-package.test.mjs` — top-level test `propagates a real compiler failure without replacing the consumer generation`                                                                                                                                                                             | Historical macOS and current Linux execution; native Windows staging/recovery separately verified without an atomicity claim.                                                                               |
+| TC-03 | Unit / Integration | `scripts/artifacts/__tests__/manifest.test.mjs` — top-level tests `compares files against compiler records, rejecting an obsolete output` and `rejects an internal symlink even when its bytes match an expected emission`; `scripts/artifacts/__tests__/emitters-build-package.test.mjs` — `rejects a modified producer against its pinned manifest rather than blessing copied bytes`                                                                                                                                  | Final CI artifact tests and actual output-contract scan of all 82 packages passed; expectations remain emitter/producer-owned.                                                                              |
+| TC-04 | Integration        | `scripts/artifacts/__tests__/pack-tar.test.mjs` — top-level test `checks actual gzip tar entries against independently supplied content and mode records`; `scripts/artifacts/__tests__/publish.test.mjs` — `binds dry-run and OTP publication to the same verified tarball without directory repacking`; `scripts/artifacts/__tests__/transfer.test.mjs` — `rejects corruption in the last package before publishing the first package`                                                                                 | Real tarballs/transfer tested; registry calls in publication tests are controlled. Historical 37 public archives and 24 outside-repository installs are retained evidence, not new runs or npm publication. |
+| TC-05 | CI smoke           | `scripts/artifacts/__tests__/release-path.test.mjs` — top-level tests `cold root execution builds real node/browser/types plus Vite copies and packs their exact payload`, `web-only affected rebuild removes seeded stale output and a later config edit removes obsolete entries`, `real emit failure retains the complete prior consumer and can still pack that verified generation`                                                                                                                                 | Final CI: release corpus 3/3; artifact suite 104 passed, 1 skipped. Applicable build/test checks succeeded; provenance remained owner-exempted RED.                                                         |
+| TC-06 | Integration        | `packages/agent-framework/src/interactive/__tests__/interactive-session-background-tasks.test.ts` — describe `InteractiveSession background task integration`; `packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts` — describe `session-log external-payload replay (framework functional)`; `packages/agent-framework/src/testing/__tests__/usage-assertion-functional.test.ts` — describe `Token-usage assertions (ANALYTICS-001) via the scripted-session harness` | Final clean Linux proof: selected 15, globalFallback=false, build 15/15, explicit three files 12/12, full affected framework tests 1792/1792 across 226 files.                                              |
+| TC-07 | Integration        | `scripts/artifacts/__tests__/generation.test.mjs` — top-level tests `announces the approved non-atomic legacy transition and retains its physical backup`, `restores the legacy directory if installing the new pointer fails`, `keeps the old generation through Windows replacement failure without claiming atomicity`; `scripts/artifacts/__tests__/recovery-lock.test.mjs` — `retains a crashed recoverer record and requires quiescent claim cleanup before explicit retry`                                        | Native Windows job 103588603534 passed build and replacement/recovery. PR #2715 merged by woojubb; Issue #2655 records commit 4f3c0755. Both owner exceptions above remain verbatim and narrowly scoped.    |
+
+### Closeout evidence preparation — 2026-09-13
+
+Checked criteria record implementation/execution evidence, not a GATE-VERIFY or GATE-COMPLETE
+judgment. Historical pending notes and gate history remain intact. This preparation performs no
+product execution, status transition or archival.
+
+- Exact tested head: `3310019a22d6bc445f9daaac4b54893b9e32276c`. Read back
+  [Linux job 103588603553](https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553)
+  and [Windows job 103588603534](https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603534):
+  both `conclusion=success`. Clean proof preceded full build; full quality, 82-package output scan,
+  real artifact/pack/release-path, desktop and binary e2e steps all succeeded.
+- Actual clean commands, in order: `node scripts/harness/workspace-affected-run.mjs --operation build --changed-file packages/agent-framework/src/index.ts`;
+  `pnpm --filter @robota-sdk/agent-framework exec vitest run --no-cache src/interactive/__tests__/interactive-session-background-tasks.test.ts src/testing/__tests__/session-log-external-payload-replay-functional.test.ts src/testing/__tests__/usage-assertion-functional.test.ts`;
+  `node scripts/harness/workspace-affected-run.mjs --operation test --changed-file packages/agent-framework/src/index.ts`.
+  CI logs report 15 build tasks, 12 explicit tests, then 1792 affected tests; this supersedes the
+  earlier planner-only limitation without relabeling historical macOS evidence as Linux execution.
+- API confirms [PR #2715](https://github.com/woojubb/robota/pull/2715) merged into develop by
+  `woojubb` at `2026-09-12T22:16:52Z`, commit `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`.
+  [Issue #2655](https://github.com/woojubb/robota/issues/2655) currently records that landing and
+  clean-partial acceptance. Main supplied Hume's independent ancestry/substance verification:
+  238 paths and exact tree `022a449a0c887981377b35a7ed3c924af058d773`; this author did not repeat it.
+- Main supplied Hume's amended-rule `MERGE VERIFIED PASS`: the confirmed-empty required projection
+  was reconciled against actual declared results after local doc amendments `b97e7f9c8` and
+  `d5335fdb9`, reviewed from one finding to zero. These amendments are not claimed remotely delivered.
+  Workflow provenance remained owner-exempted RED, never GREEN; the separate main-owned final gates,
+  lifecycle reconciliation and parent completion are not asserted here. No npm publication occurred.
+- Per-TC command records below summarize observed historical/remote output. Their recorder PASS
+  labels are command evidence only, not an independently judged terminal completion gate.
 
 ## User Execution Test Scenarios
 
@@ -219,7 +248,7 @@ Internal artifact storage and publication introduce no new product interaction f
 
 ## Tasks
 
-- [ ] `.agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` — existing full-scope Task; detailed design validation before implementation.
+- [x] `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` — GATE-COMPLETE passed; delivered by PR #2715 at `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`.
 
 ## Evidence Log
 
@@ -384,3 +413,166 @@ Internal artifact storage and publication introduce no new product interaction f
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `7dc3ead0181f` · base `origin/develop@7dc3ead0181f` · document `.agents/spec-docs/todo/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `9cf17df83557` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm build`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+CI full build: artifact workspace build: PASS tasks=82; command completed successfully.
+Historical Task evidence: macOS root build 82 tasks; web-only affected build 67 tasks, exit 0, no global fallback.
+Copied web producer and CLI execute once in the ordered selection; real release corpus passed 3/3 in current CI.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `15446850dc15` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/artifacts/__tests__`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+CI command pnpm exec vitest run scripts/artifacts/__tests__ completed successfully: 104 passed, 1 skipped.
+Includes real POSIX concurrent pinned-reader switches and compiler failure preservation; historical macOS evidence retained.
+Windows job 103588603534 reports native generation replacement/recovery success; Windows atomicity remains exempt.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `956692f56327` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/artifacts/__tests__`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+CI artifact tests completed successfully: 104 passed, 1 skipped.
+Manifest, independent emitter-record, modified-producer, stale-output and internal-link rejection tests are included.
+Actual output-contract scan: Build output contract check passed for 82 package(s), dist/ read on 82.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `ffbf0fb1e4ea` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/artifacts/__tests__`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+CI artifact tests completed successfully: 104 passed, 1 skipped; real tarball/verified publication boundary/transfer cases included.
+Task historical evidence: 37 public verified archives, 24 outside-repository tarball installations, 72 Mode A/B/C assertions.
+Publication tests use controlled registry commands; no npm publication was performed or newly authorized.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `3fb5e7a04bf7` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/artifacts/__tests__`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+CI command pnpm exec vitest run scripts/artifacts/__tests__ completed successfully: 104 passed, 1 skipped.
+release-path.test.mjs: 3 tests passed (cold real assembly/pack; stale web/config rebuild; real emit failure preserves prior packable generation).
+Full quality, output scan, desktop and binary e2e steps succeeded. Provenance is separately owner-exempted RED, not green.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `35210d5d7050` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-13
+
+**Command:** `node scripts/harness/workspace-affected-run.mjs --operation test --changed-file packages/agent-framework/src/index.ts`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+Summarized observed output, not raw stdout and not a new local execution.
+CI run 34706938357; head 3310019a22d6bc445f9daaac4b54893b9e32276c.
+Source: https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553
+Clean framework proof: packages=15, globalFallback=false; analytics/replay present; build PASS tasks=15 n/a=0.
+Three explicit original regression files with --no-cache: 3 files passed, 12 tests passed.
+Full affected test command: 226 files passed, 1792 tests passed; workspace-affected-run: PASS tasks=1 n/a=0.
+Clean proof ran 2026-09-12T17:01:41Z–17:03:03Z before the full workspace build.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `8afb9c607151` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-13
+
+**Command:** `gh api repos/woojubb/robota/pulls/2715 --jq '{merged,merged_at,merged_by:.merged_by.login,merge_commit_sha,head:.head.sha,base:.base.ref}'`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Summarized observed API output plus attributed existing evidence; not a new test or gate judgment.
+PR API: merged=true; merged_by=woojubb; merged_at=2026-09-12T22:16:52Z; base=develop.
+head=3310019a22d6bc445f9daaac4b54893b9e32276c; merge_commit_sha=4f3c0755dd70d3830127ffecdbdc8cb7a9704abc.
+Source: https://github.com/woojubb/robota/pull/2715 ; Issue #2655 body records this landing.
+Windows https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603534: package builds and native generation replacement/recovery success.
+Hume independently verified 238 paths and tree 022a449a0c887981377b35a7ed3c924af058d773 (supplied by main).
+Both atomicity exceptions retained; subsequent POSIX managed publication is not exempted. Provenance remained owner-exempted RED.
+Local doc amendments b97e7f9c8+d5335fdb9 and amended-rule MERGE VERIFIED PASS are not a remote-delivery claim or this author's gate judgment.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `c7726711fac1` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering: PASS — the last GATE-IMPLEMENT entry is PASS (2026-09-12); the document is in `active/` with `status: in-progress`.
+- GATE-VERIFY — Every Task Plan item is complete: PASS — the exact paired Task's `## Plan` has 3/3 `[x]` items, covering design/TC-07, implementation/TC-01–04 and verification/TC-05–06.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — none of those three items is blocked, pending or unchecked. Historical pending notes outside `## Plan` are not current Plan items.
+- GATE-VERIFY — Build passes for all affected packages: PASS — independently read job 103588603553 API and logs: head `3310019a22d6bc445f9daaac4b54893b9e32276c`, conclusion `success`; actual `pnpm build` reports `artifact workspace build: PASS tasks=82`. Earlier clean framework-only build reports `PASS tasks=15 n/a=0`.
+- GATE-VERIFY — Tests pass for all affected packages: PASS — the same job's full `pnpm test` child reports `test (exit 0)`; typecheck/lint also exit 0. Clean framework proof passed 12 explicit tests and 1792 affected tests. Additional artifact tests passed 104 with 1 explicit skip, including release corpus 3/3; this is not a zero-skip claim.
+
+**Verdict reason:** All four catalogue criteria and ordering pass. The two mechanical residues are wording mismatches: evaluator patterns expect “All tasks” and “No tasks”, while the catalogue specifies “Every item in the Plan section” and “No Plan item”. Direct inspection resolves both without changing the matcher or the Task.
+
+**Evidence source:** https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553 — API/log readback only, no product rerun. Read-only diffs from the tested head to local HEAD and from HEAD to the current tracked tree contain only governance/record documents, no product/build/test implementation change. Workflow provenance remains owner-exempted RED, not a green-workflow claim. This entry judges GATE-VERIFY only; it does not judge GATE-COMPLETE, change status/location, authorize publication or close the parent.
+
+**Judged by:** `backlog-gate-guard` independent guardian (Carson), current conversation
+**Judged at:** HEAD `d5335fdb982446feea0dce9618d367e318244289` · base `origin/develop@4f3c0755dd70d3830127ffecdbdc8cb7a9704abc` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `0bf07a63d10e0226534562132066cd3e5d1a82d8` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-13; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (7)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 3/3 tasks `[x]` in .agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5335fdb9824` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md` blob `b3d2eef28200` (modified)

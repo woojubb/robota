@@ -1,7 +1,8 @@
 ---
 title: 'MERGE-2655: Reconcile post-owner merge verification with empty required-check projection'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
+completed: 2026-09-13
 created: 2026-09-13
 priority: medium
 urgency: now

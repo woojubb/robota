@@ -32,13 +32,30 @@ Verify all deliveries on origin/develop and close Issue #2655 only after every s
 ## Children
 
 - [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
-- [ ] ARTIFACT-2655 — in-progress — `.agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
+- [x] ARTIFACT-2655 — done — `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
 - [ ] BOUNDARY-2655 — todo — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 ## Test Plan
 
 Inspect child regressions, actual build/scan execution, merged commits and original source criteria.
 Neither decomposition nor a source Issue's CLOSED state proves delivery.
+
+## Progress
+
+2026-09-13: PR #2715 delivered artifacts and the current clean framework-only acceptance to
+`origin/develop` at `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`. Final CI run 34706938357
+passed on head `3310019a22d6bc445f9daaac4b54893b9e32276c`; actual build job 103588603553
+includes successful clean-partial proof, full build/quality, exact output/pack/release-path and
+desktop/CLI binary checks. Native Windows also passed. Hume verified exact head/merge tree
+identity and remote ancestry. The owner-only provenance exception is recorded on the PR and
+is not reported as green. MERGE-2655 reconciles the confirmed-empty required-check projection
+with actual check evidence; no product verification or merge permission was waived.
+
+Actual delivery evidence is posted to source Issues #2154 and #2653, and the umbrella register
+is updated. The prior source closures were consolidation, not implementation evidence. The
+original Windows atomicity-only and first physical-dist migration exceptions remain narrow.
+BOUNDARY-2655 is still unfinished: its read-only candidate inventory is not full classification,
+does not establish neutral API ownership for every file, and has performed no migrations.
 
 ## Authorization and baseline
 

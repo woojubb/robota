@@ -1,7 +1,8 @@
 ---
 title: 'ARTIFACT-2655: Assemble complete transactional workspace artifacts'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
+completed: 2026-09-13
 created: 2026-09-12
 priority: high
 urgency: now
@@ -17,7 +18,7 @@ Make root and affected builds discover complete publishable artifact tasks, incl
 
 Parent: AGREEMENT-2655; canonical umbrella: https://github.com/woojubb/robota/issues/2655.
 
-Spec: `.agents/spec-docs/active/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`.
+Spec: `.agents/spec-docs/done/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
 
 Owner decision (verbatim, 2026-09-12): "windows 빌드의 원자성 보장 제외를 허용합니다."
 Windows remains a supported build path with staging, complete-output validation and failure recovery;
@@ -34,14 +35,29 @@ The existing full-scope Task addresses the foundational cause; no new Task is re
 ## Plan
 
 - [x] Validate the detailed design against current code and inherited source criteria, including TC-07 legacy and Windows transition boundaries.
-- [ ] Implement TC-01 complete graph/assembly, TC-02 publication and recovery, TC-03 exact emitted manifests, and TC-04 exact pack consumers with failure-reproducing regressions.
-- [ ] Verify TC-05 real release-path corpus and TC-06 current clean framework-only partial build/test; prepare CI and delivery evidence.
+- [x] Implement TC-01 complete graph/assembly, TC-02 publication and recovery, TC-03 exact emitted manifests, and TC-04 exact pack consumers with failure-reproducing regressions.
+- [x] Verify TC-05 real release-path corpus and TC-06 current clean framework-only partial build/test; prepare CI and delivery evidence.
 
 ## Delivery
 
 Merge into origin/develop after verification and record the delivering commit in the source Issue.
 
 ## Progress
+
+Final CI and owner landing, 2026-09-13:
+
+- CI run [34706938357](https://github.com/woojubb/robota/actions/runs/34706938357)
+  passed on exact head `3310019a22d6bc445f9daaac4b54893b9e32276c`. Job 103588603553
+  reports success for clean framework-only proof, full workspace build, full package quality,
+  output-contract scan, real artifact/pack/release regressions, desktop Electron and CLI binary e2e.
+  Native Windows, scans, examples and TUI also passed. Earlier pending-CI notes below are historical.
+- GitHub records owner `woojubb` merging PR #2715 into develop at 2026-09-12T22:16:52Z
+  (2026-09-13 07:16:52 KST), commit `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`.
+  [Control-plane landing record](https://github.com/woojubb/robota/pull/2715#issuecomment-5649075061)
+  preserves the intentional workflow-provenance failure and owner-only merge; it is not a green
+  check claim. Review-gate was not applicable and CodeQL did not run, as recorded on the PR.
+- Independent landing verification and final completion gates remain separate from these observed
+  CI/merge facts. Umbrella Issue #2655 remains open for BOUNDARY-2655; no registry publication occurred.
 
 2026-09-13 integration checkpoint (not delivery):
 
@@ -149,7 +165,7 @@ PR #2715 consumer fallback repair:
   The repair must reuse uploaded artifacts despite an unrelated later producer failure, distinguish
   actual complete restore from missing/partial output, and preserve hard failure on corrupt archives.
 - Repair authority and exact failing job are recorded in PR comment 5647112859 under the owner's
-  standing #2655 instructions. Remote CI, current automated feedback and owner-only control-plane
+  standing Issue #2655 instructions. Remote CI, current automated feedback and owner-only control-plane
   landing remain open; this is not delivery acceptance.
 - Executable workflow regressions cover full/global/affected plans, missing/partial restores,
   build failure propagation and corrupt-archive refusal. Human-readable planner reasons are not
@@ -188,6 +204,40 @@ PR #2715 typecheck cache isolation:
   contract scan passing all 82 packages. Package public contracts and workflow definitions are
   unchanged. The existing full-job confirmations remain content-bound to the unchanged workflow.
   PR comment 5647339536 records the red-check scope and standing authority; fresh CI remains open.
+
+## Result
+
+All seven criteria passed GATE-COMPLETE on 2026-09-13 after independent GATE-VERIFY and actual
+remote delivery verification. Implementation landed in PR #2715 at
+`4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`; exact-head CI evidence and both narrow owner
+atomicity exceptions are preserved in the paired done spec. Source Issue #2154 delivery comment
+5649149867 and source Issue #2653 comment 5649149991 distinguish implementation from their earlier
+consolidation closures. Parent Issue #2655 remains open for BOUNDARY-2655. No npm publication occurred.
+
+## Verification Evidence
+
+Closeout evidence preparation, 2026-09-13 (no lifecycle or gate judgment):
+
+- API readback of [Linux job 103588603553](https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603553)
+  confirms success on head `3310019a22d6bc445f9daaac4b54893b9e32276c`: clean 15-package build,
+  three framework regression files 12/12, full affected framework suite 1792/1792, full root build
+  82 tasks, full quality, 82-package output scan, artifact suite 104 passed/1 skipped including
+  real release corpus 3/3, desktop and CLI binary e2e. These are observed CI results, not local reruns.
+- [Native Windows job 103588603534](https://github.com/woojubb/robota/actions/runs/34706938357/job/103588603534)
+  passed the retained core/process/executor builds, native generation replacement/recovery,
+  PowerShell and executor checks. Neither Windows nor the initial legacy transition is claimed atomic;
+  both original owner exceptions in Objective remain verbatim.
+- PR API confirms owner `woojubb`, merge time `2026-09-12T22:16:52Z`, and develop commit
+  `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`. [Issue #2655](https://github.com/woojubb/robota/issues/2655)
+  already cites the ARTIFACT landing and current clean-partial proof. Main reports Hume independently
+  verified ancestry/substance, 238 paths and tree `022a449a0c887981377b35a7ed3c924af058d773`.
+- Hume's amended-rule `MERGE VERIFIED PASS` is supplied independent evidence, not this author's
+  judgment. Local doc amendments `b97e7f9c8` + `d5335fdb9` resolve the confirmed-empty required
+  projection using actual declared results; their review converged 1→0. They are not claimed
+  remotely delivered. Provenance stayed owner-exempted RED. Final gates/archive remain main-owned;
+  BOUNDARY-2655 and the umbrella remain open. No registry publication occurred.
+- The paired active spec now maps every TC to exact existing test files and observed test/describe
+  names and prepares command-result evidence. This documentation pass ran no product tests/builds.
 
 ## Test Plan
 
