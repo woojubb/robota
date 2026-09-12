@@ -14,13 +14,15 @@
  * reproduces it sat in `package.json` the whole time and was even named in a header comment. Writing
  * it down was not the missing piece; a connection between the command and the act was.
  *
- * So every required context answers one of two things, and BOTH are legitimate:
+ * Each required context names a local diagnostic, a technical limitation, or deliberate CI ownership:
  *
  *   "local": { "entryPoint": "pnpm harness:verify:release" }
  *   "local": { "notRunnable": "<why no local run could produce this verdict>" }
+ *   "local": { "ciOwned": "<why the existing CI job owns this verification>" }
  *
  * THE SECOND IS NOT A DODGE. `windows-shell` needs a Windows runner; `review-gate` reads a
- * code-scanning analysis that only exists once a real pull request has been analysed. Recorded, that
+ * code-scanning analysis that only exists once a real pull request has been analysed. Deliberate CI
+ * ownership does not claim a local command is impossible. Recorded, that
  * is an answer. Omitted, it is indistinguishable from nobody having looked — the distinction the
  * whole vacuous-green family of items is about.
  *
@@ -81,22 +83,22 @@ export function judgeContexts(branches, { scripts, fileExists, excusedByMirrorMa
       const local = entry.local;
       const where = `${branch} → ${entry.context}`;
 
-      if (!local || (!local.entryPoint && !local.notRunnable)) {
+      if (!local || (!local.entryPoint && !local.notRunnable && !local.ciOwned)) {
         findings.push({
           where,
           kind: 'no-answer',
           detail:
-            'declares neither a local entry point nor a reason it cannot have one. An unanswered ' +
+            'declares no local diagnostic, technical limitation, or CI-ownership reason. An unanswered ' +
             'context reads like an oversight, and is how an unrunnable gate stays undiscovered.',
         });
         continue;
       }
 
-      if (local.entryPoint && local.notRunnable) {
+      if ([local.entryPoint, local.notRunnable, local.ciOwned].filter(Boolean).length > 1) {
         findings.push({
           where,
           kind: 'answers-both-ways',
-          detail: 'names an entry point AND claims it cannot be run locally. Only one is true.',
+          detail: 'declares conflicting local diagnostic, limitation, or CI-ownership answers.',
         });
         continue;
       }
@@ -122,8 +124,8 @@ export function judgeContexts(branches, { scripts, fileExists, excusedByMirrorMa
         continue;
       }
 
-      // notRunnable
-      if (local.notRunnable === DEFERS_TO_MIRROR_MAP) {
+      const reason = local.ciOwned ?? local.notRunnable;
+      if (reason === DEFERS_TO_MIRROR_MAP) {
         if (!(branch === MIRROR_MAP_BRANCH && excusedByMirrorMap.has(entry.context))) {
           findings.push({
             where,
@@ -138,12 +140,12 @@ export function judgeContexts(branches, { scripts, fileExists, excusedByMirrorMa
       // is not a verdict, and this file's whole subject is telling "I could not check" apart from
       // "I checked". It gets the same finding an empty reason does, because it is the same state:
       // the field was filled in without a reason in it.
-      if (typeof local.notRunnable !== 'string' || local.notRunnable.trim().length === 0) {
+      if (typeof reason !== 'string' || reason.trim().length === 0) {
         findings.push({
           where,
           kind: 'excused-without-a-reason',
           detail:
-            'claims it cannot be run locally and says nothing about why. The reason is the decision.',
+            'declares a limitation or CI owner without its reason. The reason is the decision.',
         });
       }
     }

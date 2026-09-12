@@ -1,11 +1,9 @@
 import { spawnSync } from 'node:child_process';
 
-import { CI_STAGES, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { CI_STAGES, NOT_MIRRORED } from './ci-mirror-map.mjs';
 import { executeStages } from './verify-like-ci-scheduler.mjs';
 import { staleDistScopes } from './scan-dist-freshness.mjs';
 import { appendJobSummary } from './shared.mjs';
-import { realDirtyLines, shouldWriteFullReceipt } from './verification-receipt.mjs';
-import { runDistFreeScanSuite, runScanSuite } from './verify-like-ci-dist-free.mjs';
 import { runFormatCheck } from './verify-like-ci-format.mjs';
 import {
   describeAffectedScopes,
@@ -60,24 +58,14 @@ async function runPackageQuality(options, context) {
   return { ...outcome, note: describeAffectedScopes(context) };
 }
 
-async function runAffectedContractTests({ baseRef }) {
-  const code = await run('pnpm', [
-    'harness:test:contracts:affected',
-    '--',
-    '--base-ref',
-    baseRef,
-    '--head-ref',
-    'HEAD',
-  ]);
-  return { code };
+async function runScanSuite() {
+  const code = await run('pnpm', ['harness:scan:build-contracts']);
+  return { code, note: 'dist-dependent build-output contracts only; not pristine scan evidence' };
 }
 
 export const STAGE_RUNNERS = {
   'format-check': runFormatCheck,
   commitlint: runCommitlint,
-  'harness-self-test': runAffectedContractTests,
-  'harness-hermetic-test': async () => ({ code: await run('pnpm', ['harness:test:hermetic']) }),
-  'scan-suite-dist-free': runDistFreeScanSuite,
   build: runBuild,
   'scan-suite': runScanSuite,
   'package-quality': runPackageQuality,
@@ -139,47 +127,6 @@ async function annotateStaleDist(stageName, outcome) {
   return outcome.note ? `${outcome.note}; ${hint}` : hint;
 }
 
-async function writeReceiptIfEligible({ exitCode, selected, options }) {
-  let clean = false;
-  let dirty = [];
-  try {
-    dirty = realDirtyLines(WORKSPACE_ROOT);
-    clean = dirty.length === 0;
-  } catch (error) {
-    process.stderr.write(`verification receipt eligibility failed: ${error?.message ?? error}\n`);
-  }
-  if (
-    shouldWriteFullReceipt({
-      exitCode,
-      clean,
-      selectedStages: selected.map((stage) => stage.name),
-      requiredStages: CI_STAGES.map((stage) => stage.name),
-    })
-  ) {
-    return run('scripts/harness/with-repo-lock.sh', [
-      process.execPath,
-      'scripts/harness/verification-receipt.mjs',
-      '--base-ref',
-      options.baseRef,
-      ...selected.flatMap((stage) => ['--stage', stage.name]),
-    ]);
-  }
-  if (exitCode === 0) {
-    const missing = CI_STAGES.map((stage) => stage.name).filter(
-      (name) => !selected.some((stage) => stage.name === name),
-    );
-    const reasons = [];
-    if (missing.length > 0)
-      reasons.push(`partial run — stage(s) not selected: ${missing.join(', ')}`);
-    if (!clean) reasons.push(`working tree is not clean: ${dirty.join(', ')}`);
-    process.stdout.write(
-      `verification receipt not written: ${reasons.join('; ') || 'eligibility check failed'}\n` +
-        '  (without a receipt the next `git push` re-runs this entire gate)\n',
-    );
-  }
-  return 0;
-}
-
 async function runVerification(options) {
   if (options.unknown.length > 0) {
     process.stderr.write(`unknown --only stage(s): ${options.unknown.join(', ')}\n`);
@@ -201,7 +148,7 @@ async function runVerification(options) {
     return;
   }
   process.stdout.write(
-    `\nmirroring the required checks of \`${MIRRORED_BRANCH}\` — ${context.changedFiles.length} changed file(s) vs ${options.baseRef}, ` +
+    `\nlocal diagnostics (not a CI verdict) — ${context.changedFiles.length} changed file(s) vs ${options.baseRef}, ` +
       `${context.codeChanged ? 'CODE' : 'docs-only'}, ${context.distRequired ? 'build output required' : 'no build output required'}\n`,
   );
   const { results, totalDurationMs, execution, thrown } = await executeStages(
@@ -223,12 +170,7 @@ async function runVerification(options) {
   process.stdout.write(`${summary.lines.join('\n')}\n`);
   appendJobSummary(`${summary.lines.join('\n')}\n`);
   if (thrown !== undefined) throw thrown;
-  const receiptCode = await writeReceiptIfEligible({
-    exitCode: summary.exitCode,
-    selected,
-    options,
-  });
-  process.exitCode = summary.exitCode === 0 && receiptCode === 0 ? 0 : 1;
+  process.exitCode = summary.exitCode;
 }
 
 export async function main(argv = process.argv.slice(2)) {

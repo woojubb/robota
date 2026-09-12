@@ -104,9 +104,8 @@ export function createPrePushChangeContext({ baseRef, pushSubject, headOid, root
   return { subjectRef, changeClassification };
 }
 
-/** Keep the work-run gate before receipt reuse and every verification path. */
+/** Local checks run once; neither worktree maintenance nor CI receipts belong to this path. */
 export function runPrePushGate(steps) {
-  steps.pruneAndWarnStaleWorktrees();
   steps.assertCleanWorkingTree();
   steps.assertLockfileConsistency();
   steps.reportBaseResolution();
@@ -115,12 +114,6 @@ export function runPrePushGate(steps) {
   if (!decision.shouldRun) {
     steps.reportSkipped(decision.reason);
     return { verified: false, reason: decision.reason };
-  }
-
-  const receipt = steps.findReusableReceipt();
-  if (receipt.reusable) {
-    steps.reportReceiptReused(receipt);
-    return { verified: true, reused: true, reason: 'exact verify-like-ci receipt' };
   }
 
   steps.assertTreePrerequisites();

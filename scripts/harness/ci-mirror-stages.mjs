@@ -1,4 +1,4 @@
-/** Local verification stages and the exact required CI steps they reproduce. */
+/** Optional local diagnostic stages and the CI steps they exercise, not a merge verdict. */
 export const CI_STAGES = [
   {
     name: 'format-check',
@@ -11,30 +11,6 @@ export const CI_STAGES = [
     needsBuildOutput: false,
     mirrors: [{ job: 'commitlint', steps: ['Lint PR commit messages'] }],
     why: 'a subject over the length limit fails a REQUIRED check after the push, for a defect visible before it',
-  },
-  {
-    name: 'harness-self-test',
-    needsBuildOutput: false,
-    mirrors: [
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ],
-    why: 'runs affected repository-contract assertions and relies on their fail-closed full-suite fallback',
-  },
-  {
-    name: 'harness-hermetic-test',
-    needsBuildOutput: false,
-    mirrors: [
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ],
-    why: 'runs the complete stripped-root-proven tier whenever a harness execution owner changes',
-  },
-  {
-    name: 'scan-suite-dist-free',
-    needsBuildOutput: false,
-    mirrors: [
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ],
-    why: 'a hardcoded build-output path literal resolves on a built tree and is a GHOST path in CI',
   },
   {
     name: 'build',

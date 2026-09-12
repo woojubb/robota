@@ -1,3 +1,7 @@
+/**
+ * CI command-reference data retained for workflow contract tests and the existing facade.
+ * LOCAL-2655 removes its automatic pre-push caller; this module executes no commands.
+ */
 export const CI_BASE_REF_PLACEHOLDER = 'origin/$GITHUB_BASE_REF';
 export const CI_HEAD_REF_PLACEHOLDER = 'HEAD';
 

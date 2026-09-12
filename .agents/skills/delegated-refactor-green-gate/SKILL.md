@@ -21,7 +21,7 @@ mechanism.
 - [verification.md](../../rules/verification.md) — "Delegated Verification Claims" (a delegated green
   claim is a hypothesis until independently reproduced); the build/test/harness gates.
 - [git-branch.md](../../rules/git-branch.md) — "Clean Working Tree Before Every Commit and Push"
-  (it names the project's CI-equivalent verification entry point); who may commit, and when.
+  (local diagnostics and required remote verification); who may commit, and when.
 - [enforcement-architecture.md](../../rules/enforcement-architecture.md) — worker / guardian /
   orchestrator; this skill is the orchestrator and does neither of the other two jobs.
 
@@ -62,10 +62,10 @@ Both are conditions you evaluate from observable state, not verdicts: you read e
 lists. Forming a judgement about the diff is step 4's job, and not yours.
 
 **3a. Verify the integrated batch.** Inspect the worker's scoped evidence without calling it branch
-green. At the parent work unit's final boundary, the integration owner runs the full CI-equivalent
-entry point and frozen-lockfile install when applicable. If this is a sub-step, return the scoped
-result to that owner instead of running another full gate here. Read the final gate's reported
-uncovered contexts; they remain unverified, not implicitly passed.
+green. At the parent work unit's final boundary, the integration owner verifies the final affected
+batch and inspects required remote results under the git rule, with a frozen-lockfile install when
+applicable. If this is a sub-step, return the scoped result to that owner instead of duplicating
+verification. Unexecuted contexts remain unverified, not implicitly passed.
 
 **3b. Check the changed file set against step 1's list.** Compare the paths the diff touches with the
 paths the specification allowed. A file outside the list is out-of-scope work, decidable without reading
@@ -98,14 +98,14 @@ state, and do not proceed.
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                          | Owner                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------ |
-| Make the edits / reach green                  | `mechanical-refactor-worker`                                                   |
-| Judge the diff's quality (defects, severity)  | `pr-review-reviewer` → `ACTIONABLE FINDINGS`                                   |
-| Guarantee the change reached every site       | `mechanical-refactor-worker` (its target-set enumeration)                      |
-| Define the CI-equivalent verification entry   | [git-branch.md](../../rules/git-branch.md)                                     |
-| Mandate that a delegated green be re-verified | [verification.md](../../rules/verification.md)                                 |
-| Run several delegated items concurrently      | [worktree-parallel-orchestration](../worktree-parallel-orchestration/SKILL.md) |
+| Not this skill's job                           | Owner                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Make the edits / reach green                   | `mechanical-refactor-worker`                                                   |
+| Judge the diff's quality (defects, severity)   | `pr-review-reviewer` → `ACTIONABLE FINDINGS`                                   |
+| Guarantee the change reached every site        | `mechanical-refactor-worker` (its target-set enumeration)                      |
+| Define local and remote verification ownership | [git-branch.md](../../rules/git-branch.md)                                     |
+| Mandate that a delegated green be re-verified  | [verification.md](../../rules/verification.md)                                 |
+| Run several delegated items concurrently       | [worktree-parallel-orchestration](../worktree-parallel-orchestration/SKILL.md) |
 
 If you find yourself editing, or forming a judgement about the diff, stop — dispatch the owning agent.
 

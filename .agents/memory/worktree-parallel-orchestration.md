@@ -1,6 +1,9 @@
 # Worktree-parallel subagent orchestration — proven pattern + incident lessons
 
-## STATUS: OPERATIONAL (2026-07-24, waves 1–3: PRs #1288–#1296)
+## Historical evidence — not current permission
+
+The newer [execution permission](current-execution-permissions.md) prohibits worktrees. The
+following 2026-07-24 record preserves incident lessons; do not execute its historical procedure.
 
 In-repo mirror (memory-mirroring rule). Owner enabled worktrees (#1285) explicitly to parallelize subagents.
 

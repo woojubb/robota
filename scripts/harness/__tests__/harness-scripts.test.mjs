@@ -21,6 +21,22 @@ import {
   parsePrePushUpdates,
 } from '../pre-push-updates.mjs';
 import { repositoryCheckEnvironment, selectRepositoryChecks } from '../verify-change.mjs';
+import { runPrePushVerification } from '../pre-push-verification-execution.mjs';
+
+function captureLocalPrePush({ baseRef = 'origin/develop', mode = 'fast' } = {}) {
+  const calls = [];
+  const output = [];
+  runPrePushVerification(
+    {
+      baseRef,
+      baseArgs: ['--base-ref', baseRef],
+      prePushMode: mode,
+      scopeExpansionArgs: mode === 'fast' ? ['--skip-dependent-scopes'] : [],
+    },
+    { run: (command, args) => calls.push([command, args]), write: (value) => output.push(value) },
+  );
+  return { calls, output: output.join('') };
+}
 
 // ---------------------------------------------------------------------------
 // parseScopeArgs
@@ -142,20 +158,33 @@ describe('repository-check ownership', () => {
     );
   });
 
-  it('assigns harness self-tests to exactly one owner in each aggregate execution graph', () => {
+  it('keeps harness suites CI-owned without automatic pre-push or local diagnostic execution', () => {
     const localGate = readFileSync('scripts/harness/verify-like-ci-execution.mjs', 'utf8');
     const prePushRuntime = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
     const prePushMirror = readFileSync('scripts/harness/pre-push-ci-mirror.mjs', 'utf8');
-    const prePushVerification = readFileSync(
-      'scripts/harness/pre-push-verification-execution.mjs',
-      'utf8',
-    );
+    const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const scansStart = ci.indexOf('\n  scans:');
+    const scansEnd = ci.indexOf('\n  dependency-audit:', scansStart);
+    expect(scansStart).toBeGreaterThanOrEqual(0);
+    expect(scansEnd).toBeGreaterThan(scansStart);
+    const scansJob = ci.slice(scansStart, scansEnd);
 
     expect(prePushRuntime).toContain('runPrePushVerification');
-    expect(prePushVerification).toContain("'--skip-repository-check',\n    'harness-tests'");
-    expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
-    expect(localGate).toContain("'harness:test:contracts:affected'");
-    expect(localGate).toContain("'--head-ref',\n    'HEAD'");
+    expect(prePushRuntime).not.toContain('createCiScansJobMirror');
+    expect(localGate).not.toMatch(/'harness-(?:self|hermetic)-test'|'scan-suite-dist-free'/);
+    expect(localGate).not.toMatch(/['"]harness:test(?::[^'"]*)?['"]/);
+    expect(scansJob.match(/pnpm harness:test:contracts:affected\b/g)).toHaveLength(1);
+    expect(scansJob.match(/pnpm harness:test:hermetic\b/g)).toHaveLength(1);
+    expect(scansJob).toContain('--head-ref HEAD');
+    const { calls } = captureLocalPrePush({ mode: 'full' });
+    expect(calls).toEqual([
+      ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
+      [
+        'pnpm',
+        ['harness:verify-like-ci', '--', '--base-ref', 'origin/develop', '--only', 'format-check'],
+      ],
+    ]);
+    // The pure command reference remains available for the CI workflow coverage assertions.
     expect(prePushMirror).toContain("'harness:test:contracts:affected'");
     expect(prePushMirror).toContain("return [command, ['harness:test:contracts']]");
     expect(prePushMirror).toContain("['pnpm', ['harness:test:hermetic']]");
@@ -485,16 +514,20 @@ describe('pre-push hook', () => {
     expect(content).not.toContain('harness:scan:dist');
   });
 
-  it('keeps dependent scope expansion opt-in for pre-push', () => {
+  it('keeps dependent scope expansion opt-in for planning without expanding local execution', () => {
     const content = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
-    const verification = readFileSync(
-      'scripts/harness/pre-push-verification-execution.mjs',
-      'utf8',
-    );
 
     expect(content).toContain('HARNESS_PRE_PUSH_MODE');
     expect(content).toContain('--skip-dependent-scopes');
-    expect(verification).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
+    const fast = captureLocalPrePush();
+    const full = captureLocalPrePush({ mode: 'full' });
+    expect(fast.calls[0][1]).toContain('--skip-dependent-scopes');
+    expect(full.calls[0][1]).not.toContain('--skip-dependent-scopes');
+    expect(fast.calls[1]).toEqual(full.calls[1]);
+    expect(fast.calls).toHaveLength(2);
+    expect(full.calls).toHaveLength(2);
+    expect(fast.output).toContain('planning dependent scope expansion: skipped');
+    expect(full.output).toContain('Local checks passed: planning, formatting — not CI-equivalent');
   });
 
   it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
@@ -504,18 +537,20 @@ describe('pre-push hook', () => {
     expect(content).toContain('basePlan.decisionBaseRef && !hasWorkingTreeChanges()');
   });
 
-  it('threads the one resolved base plan through every pre-push consumer', () => {
+  it('threads the resolved base through the remaining consumers, not mirror or receipt reuse', () => {
     const content = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
-    const verification = readFileSync(
-      'scripts/harness/pre-push-verification-execution.mjs',
-      'utf8',
-    );
 
     expect(content).toContain('baseRef: basePlan.classificationBaseRef');
-    expect(verification).toContain('baseRef: runtime.basePlan.classificationBaseRef ?? null');
     expect(content).toContain('baseRef: runtime.basePlan.decisionBaseRef');
-    expect(content).toContain('baseRef: runtime.basePlan.receiptBaseRef');
     expect(content).toContain('baseArgs: basePlan.baseArgs');
+    expect(content).not.toContain('basePlan.receiptBaseRef');
+    expect(content).not.toContain('findReusableVerification');
+    const { calls } = captureLocalPrePush({ baseRef: 'origin/integration' });
+    for (const [, args] of calls) {
+      const index = args.indexOf('--base-ref');
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(args[index + 1]).toBe('origin/integration');
+    }
   });
 
   it('parses Git pre-push update lines', () => {

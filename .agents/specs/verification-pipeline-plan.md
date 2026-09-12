@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning document. No implementation is authorized by this document alone.
+Historical migration plan. No implementation is authorized by this document alone. Current local
+and remote verification ownership is defined by [verification.md](../rules/verification.md) and
+[git-branch.md](../rules/git-branch.md); historical hook tables below are not current instructions.
 
 ## Objective
 
@@ -77,18 +79,16 @@ Routine verification has one substantive owner per check. The required `scans` j
 self-test tiers: repository-contract tests always run, while only a conservatively allowlisted tier
 proven in a stripped repository is gated by the canonical `harness` changed-path capability. The
 `quality` job owns affected package checks and must not rediscover either tier as a repository check.
-The local CI-equivalent and pre-push commands consume the same classifier verdict and skip only the
-hermetic tier after an explicit `harness=false`; missing or failed classification runs both tiers.
+Local automatic entry points do not repeat those suites or materialize a temporary worktree.
+The implementation owner runs focused tests in the existing checkout; complete suite and pristine
+evidence comes from the existing CI scans job.
 Standalone `harness:verify` retains every repository check unless its caller names an already-covered
 check explicitly; unknown omissions fail. Release-grade verification retains the complete suite.
 
-A completed CI-equivalent local gate may satisfy the weaker pre-push gate only through an exact
-verification receipt. A receipt is created only for a full successful stage set on a clean tracked
-tree and binds the pushed commit/tree, resolved base commit, verification profile, Node/pnpm versions,
-lockfile, and verification-owner fingerprint. It lives under Git's common directory and is written
-atomically. Partial runs and approximate matches never certify a full gate. Missing, malformed, dirty,
-stale-base, stale-tool, different-object, or weaker-profile evidence is a cache miss and runs the normal
-fail-closed verification path.
+The full-local-mirror receipt requirement is retired. Optional local diagnostics report what they
+executed and do not certify CI equivalence. Pre-push does not consume a full-mirror receipt, run
+package/scenario suites, or prune worktrees. Its limited checks and the mandatory final affected
+verification are owned by the verification rule; remote required results remain a separate obligation.
 
 Root manifest planning is semantic. Changes confined to the explicitly allowlisted developer-only
 `lint:fix` and `lint:fix:staged` scripts are repository-quality changes, not workspace-wide product
@@ -102,7 +102,7 @@ and report explicit non-applicability instead of disappearing.
 
 When the plan genuinely selects the full workspace, package-owned commands run through a bounded pnpm
 recursive/filter scheduler with complete per-scope result accounting; no global worker ceiling is
-raised. Every CI-equivalent stage and the total command report measured elapsed time.
+raised. Every local diagnostic stage and the total command report measured elapsed time.
 
 ## Declaration Build Topology (INFRA-092)
 

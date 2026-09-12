@@ -1,14 +1,14 @@
 {
-  "$schema-note": "INFRA-055 / INFRA-056. SOURCE OF TRUTH for which status checks each protected branch's ruleset must require, keyed by branch. This file is the source, not a mirror. Two consumers read it, with DIFFERENT assertions per branch: `scripts/harness/scan-main-required-checks.mjs` (registered in `pnpm harness:scan`) asserts offline that every `main` context resolves to a workflow job that ACTUALLY RUNS AND CAN FAIL on a PR whose base is `main`, and reconciles both branches against the live rulesets under `--live` (run on a schedule by `.github/workflows/ruleset-drift.yml`); `scripts/harness/ci-mirror-map.mjs` asserts that every `develop` context is either reproduced by a `pnpm harness:verify-like-ci` stage — step for step — or declared un-mirrorable with a reason. Change a ruleset and this file in the same change.",
+  "$schema-note": "SOURCE OF TRUTH for required status checks, keyed by branch. scan-main-required-checks.mjs checks main workflow reachability and reconciles both branches with live rulesets under --live. ci-mirror-map.mjs relates optional local diagnostics to CI steps and explicitly declares CI-owned checks. Local diagnostics are not CI-equivalent verification or merge approval. A declaration alone does not prove the live ruleset applies to its branch.",
   "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`dependency audit` (then still named `security audit`) were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
   "branches": {
     "develop": {
       "ruleset": "protect-develop",
       "ruleset_id": 18715844,
-      "mirrored_by": "pnpm harness:verify-like-ci",
+      "local_diagnostics": "pnpm harness:verify-like-ci",
       "strict_required_status_checks_policy": false,
       "strict_policy_why": "INFRA-162 / issue #2219. \"Require branches to be up to date before merging\" is OFF on `protect-develop`, and that is the deliberate choice `fd0752f90` recorded: base freshness is asked mechanically at the one moment it matters by `.claude/hooks/merge-gate.sh`, which refuses a merge whose base moved over any file the pull request touches, instead of charging every pull request a rebase and a CI cycle. Declared here so that turning it on or off is a visible change: `scripts/harness/scan-main-required-checks.mjs --live` reconciles this value against the live ruleset and refuses rather than defaulting when it cannot be read.",
-      "why": "INFRA-056. `verify-like-ci` is named across the rules and skills as THE CI-equivalent verification entry point, and it ran neither `pnpm build` nor any package's test suite — the two required gates most likely to catch a functional regression. This list is what that claim is measured against: `scripts/harness/ci-mirror-map.mjs` pins every context below to a stage, step for step, or to an explicit un-mirrorable reason, so a context added here without a stage turns `pnpm harness:test` RED.",
+      "why": "These eleven contexts remain the remote verification floor. Local affected checks provide development feedback; complete repository-contract, hermetic and pristine scans belong to the existing CI job and are not repeated automatically before push. Optional local diagnostics must state their actual coverage and cannot authorize a merge.",
       "required_status_checks": [
         {
           "context": "build",
@@ -34,7 +34,7 @@
           "job": "scans",
           "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all.",
           "local": {
-            "entryPoint": "pnpm harness:pre-push"
+            "ciOwned": "ci-mirror-map NOT_MIRRORED"
           }
         },
         {

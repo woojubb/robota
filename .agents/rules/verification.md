@@ -33,16 +33,21 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Pre-Push Local Verification Requirement
 
-Before broad verification, identify and run the tests that own each changed implementation file. Use
-`pnpm harness:test:owning <file>` for harness files; it prints the selected tests and fails when no
-owner can be established. Changes under `scripts/harness/**` also require `pnpm harness:test:hermetic`
-before the full verification entry point. A green command proves only its own contract, not that the
-changed file's contract was exercised.
+Before pushing, identify and execute focused tests for each changed behavior and build affected
+product source at the batch boundary. Inspect the selected commands and fixtures before execution;
+do not invoke a suite that violates the owner's working-directory constraints. The complete
+repository-contract, hermetic and pristine scan suites remain CI's responsibility, not an automatic
+local prerequisite. A local green command proves only its stated scope.
 
-- **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
-- The default fast local gate is `pnpm harness:pre-push`, which resolves one comparison base and runs the scoped package checks for content that is actually being pushed. `HARNESS_BASE_REF` wins; otherwise an exact single-current-branch push to the checkout's matching `origin` destination may use the unique same-repository OPEN PR's immutable base OID. Another remote name/URL, ambiguous, cross-repository, renamed, multi-ref, detached, unavailable, or mismatched discovery reports one reason and uses the existing broader resolver (including `GITHUB_BASE_REF`) rather than narrowing verification.
-- Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
-- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — what it runs is owned by [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, and is not restated here. If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
+- The automatic `pnpm harness:pre-push` path checks the push subject, clean tree, lockfile, change
+  plan and formatting. It does not run package/scenario suites or reproduce CI. Those local tests
+  are intentionally selected by the implementation owner; the hook reports them as not executed.
+- Pre-push resolves one comparison base. `HARNESS_BASE_REF` wins; otherwise an exact single-current-
+  branch push to the matching `origin` destination may use the unique same-repository open PR's
+  immutable base. Failed or ambiguous discovery reports its reason and uses the broader resolver.
+- Explicit `pnpm harness:verify` and `pnpm harness:verify-like-ci` diagnostics remain available when
+  their execution scope is appropriate. No full local mirror or full-mirror receipt is required.
+- Do not repeat affected build/test results on unchanged inputs merely because a push follows.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
@@ -66,10 +71,10 @@ changed file's contract was exercised.
 
 - A worker's result covers only the commands and source state it actually verified, not the integrated
   branch. Inspect its evidence and preserve failures; never promote a partial result to full green.
-- The integration owner runs the CI-equivalent entry point named in [git-branch.md](git-branch.md)
-  on the final batch, plus a frozen-lockfile install when the lockfile changed. Workers do focused
-  verification; intermediary agents do not each reproduce the full gate. Cadence and re-run triggers
-  are owned by [execution-cadence.md](execution-cadence.md).
+- The integration owner verifies the final affected batch and checks the actual required remote
+  results under [git-branch.md](git-branch.md), plus a frozen-lockfile install when the lockfile
+  changed. Workers do focused verification; no actor must duplicate the complete remote scans job
+  locally. Cadence and re-run triggers are owned by [execution-cadence.md](execution-cadence.md).
 
 ### Headless CLI Verification Requirement
 
@@ -95,8 +100,8 @@ changed file's contract was exercised.
   stage set, runtime/tool versions, lockfile, and verification-owner fingerprint.
 - Only a complete successful gate may write a receipt. Partial, failed, malformed, stale, dirty,
   different-object, different-base, or weaker-profile receipts MUST miss and run the normal gate.
-- A stronger exact receipt may satisfy a weaker local pre-push gate. The inverse is forbidden, and
-  clean-tree plus lockfile checks still run before any reuse decision.
+- Local diagnostics do not issue a full-CI receipt, and pre-push does not consume one. A cached
+  local result must not substitute for the actual required remote verdict.
 
 ### Harness Direction
 
@@ -112,11 +117,9 @@ changed file's contract was exercised.
 
 ### Harness Verification Requirement
 
-- After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
-- Run the CI-equivalent verification entry point named in [git-branch.md](git-branch.md) → Clean
-  Working Tree Before Every Commit and Push. What it runs is owned there; it reports which required
-  contexts it could not run. Do not substitute a hand-written list of those commands: a second list
-  is what drifts.
+- Verify the affected batch before publishing and inspect its actual required remote checks before
+  merging, under [git-branch.md](git-branch.md). A merge or branch deletion alone does not invalidate
+  verification of identical inputs and does not require another local run.
 - For release prep — a promotion to `main` — the protected PR's `release-grade verification`
   required check runs `pnpm harness:verify:release` as the sole automatic content-verification
   owner. The same root command remains available as an explicit local diagnostic; `promote.mjs`

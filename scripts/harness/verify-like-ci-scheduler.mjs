@@ -8,8 +8,6 @@ import {
 
 const BATCHES = [
   ['format-check', 'commitlint'],
-  ['scan-suite-dist-free'],
-  ['harness-self-test', 'harness-hermetic-test'],
   ['build'],
   ['scan-suite'],
   ['package-quality'],
@@ -26,7 +24,9 @@ export function executionBatches(selected, declared = CI_STAGES) {
     declared.some((stage) => !names.includes(stage.name)) ||
     selected.some((stage) => !names.includes(stage.name))
   ) {
-    throw new Error('CI execution batches must cover every declared check exactly once');
+    throw new Error(
+      'Local diagnostic execution batches must cover every declared check exactly once',
+    );
   }
   const byName = new Map(selected.map((stage) => [stage.name, stage]));
   return BATCHES.map((names) =>
@@ -66,7 +66,9 @@ export async function executeStages(selected, options, context, runners, annotat
         if (blocked) return { ...blocked, durationMs: 0 };
         batchRan = true;
         executedChecks += 1;
-        process.stdout.write(`\n===== ${stage.name} =====\nmirrors: ${describeCiSource(stage)}\n`);
+        process.stdout.write(
+          `\n===== ${stage.name} =====\nCI reference: ${describeCiSource(stage)}\n`,
+        );
         const outcome = await runners[stage.name](options, context);
         if (stage.name === 'build') buildState = advanceBuildState(buildState, stage, outcome.code);
         return {

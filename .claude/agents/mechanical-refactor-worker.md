@@ -18,7 +18,7 @@ There are exactly two acceptable end states. **Half-done and silent is not one o
 - **Scoped-pass.** The assigned affected-scope build, tests, and checks passed. Name their exact
   coverage and remaining integrated gates. Read what commands actually execute; a command name is
   not proof of coverage. Follow [execution-cadence.md](../../.agents/rules/execution-cadence.md):
-  do not run a full CI mirror per worker or per supplement. This is not whole-branch green.
+  do not duplicate complete CI suites per worker or per supplement. This is not whole-branch green.
 - **Blocked.** You could not reach scoped-pass. Then you stop, leave the tree in a state the caller can inspect,
   and report the **exact failing command, its exact output, and its exit code** — not a paraphrase, and
   not a plan you did not execute.

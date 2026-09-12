@@ -12,45 +12,19 @@ export function reportPrePushBaseResolution(
   write(`▶ pre-push base: ${baseRef} (${baseResolution.source})\n`);
 }
 
-function runMirroredScans(runtime, operations) {
-  operations.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
-  const mirror = operations.createMirror(runtime.changeClassification, {
-    baseRef: runtime.basePlan.classificationBaseRef ?? null,
-  });
-  for (const [command, args] of mirror) {
-    const started = operations.now();
-    operations.run(command, args);
-    operations.write(
-      `▶ ${args[0]} wall time: ${((operations.now() - started) / 1000).toFixed(1)}s\n`,
-    );
-  }
-}
-
-function runCliSmoke(classification, operations) {
-  if (classification?.product === false) {
-    operations.write(
-      '\n▶ CLI smoke check skipped: no product code changed (harness/docs-only push)\n',
-    );
-    return;
-  }
-  operations.write('\n▶ CLI smoke check (cli:dev --version)\n');
-  operations.run('pnpm', ['cli:dev', '--version']);
-}
-
 export function runPrePushVerification(runtime, input) {
   const operations = {
-    now: Date.now,
     write: process.stdout.write.bind(process.stdout),
     ...input,
   };
-  operations.write(`▶ scoped pre-push verification (${runtime.prePushMode})\n`);
+  operations.write(`▶ local pre-push checks (planning mode: ${runtime.prePushMode})\n`);
   operations.write(
     runtime.baseRef
       ? `base: ${runtime.baseRef}\n`
       : 'base: unresolved; using working-tree changes only\n',
   );
   if (runtime.prePushMode === 'fast') {
-    operations.write('dependent scope expansion: skipped; use HARNESS_PRE_PUSH_MODE=full\n');
+    operations.write('planning dependent scope expansion: skipped\n');
   }
   operations.run('pnpm', [
     'harness:plan',
@@ -59,17 +33,17 @@ export function runPrePushVerification(runtime, input) {
     ...runtime.scopeExpansionArgs,
   ]);
   operations.run('pnpm', [
-    'harness:verify',
+    'harness:verify-like-ci',
     '--',
-    ...runtime.baseArgs,
-    ...runtime.scopeExpansionArgs,
-    '--skip-record-check',
-    '--skip-repository-check',
-    'harness-tests',
+    '--base-ref',
+    runtime.baseRef ?? 'HEAD',
+    '--only',
+    'format-check',
   ]);
-  runMirroredScans(runtime, operations);
-  runCliSmoke(runtime.changeClassification, operations);
-  operations.write('\nRelease-grade verification remains explicit:\n');
-  operations.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');
-  operations.write('  pnpm harness:verify:release\n');
+  operations.write('\nLocal checks passed: planning, formatting — not CI-equivalent\n');
+  operations.write('CI-owned (not run locally): repository-contract, hermetic, pristine\n');
+  operations.write(
+    'Manual (not run by pre-push): focused changed-code tests and affected product diagnostics\n',
+  );
+  operations.write('Merge still requires checking the current remote CI results.\n');
 }

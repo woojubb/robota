@@ -42,7 +42,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 const CI_YAML = readCiWorkflow(REPO_ROOT);
 const REQUIRED = readRequiredContexts(REPO_ROOT, MIRRORED_BRANCH);
 
-/** Contexts the map claims it cannot reproduce. */
+/** Contexts intentionally left to CI or not locally reproducible. */
 const notMirroredContexts = new Set(NOT_MIRRORED.map((entry) => entry.context));
 
 /** Required contexts that a stage is expected to reproduce. */
@@ -54,20 +54,20 @@ describe(`every required check on \`${MIRRORED_BRANCH}\` is answered for (anti-d
   });
 
   it.each(REQUIRED.map((entry) => entry.context))(
-    '`%s` is either mirrored by a stage or declared un-mirrorable',
+    '`%s` has a local diagnostic or declared CI ownership',
     (context) => {
       const entry = REQUIRED.find((candidate) => candidate.context === context);
       const stages = stagesMirroring(entry.job);
       const declared = NOT_MIRRORED.find((candidate) => candidate.context === context);
       expect(
         stages.length > 0 || Boolean(declared),
-        `\`${context}\` is REQUIRED on \`${MIRRORED_BRANCH}\` but no verify-like-ci stage mirrors it and NOT_MIRRORED does not declare it. Add a stage, or declare why it cannot be run locally — a required check the entry point silently drops is the INFRA-056 defect.`,
+        `\`${context}\` is REQUIRED on \`${MIRRORED_BRANCH}\` but has neither a local diagnostic nor a declared CI owner. State what is verified locally and what remains remote.`,
       ).toBe(true);
     },
   );
 
   it.each(NOT_MIRRORED.map((entry) => entry.context))(
-    '`%s` is declared un-mirrorable with a reason and a manual command',
+    '`%s` has a CI-ownership reason and an inspection command',
     (context) => {
       const entry = NOT_MIRRORED.find((candidate) => candidate.context === context);
       expect(
@@ -159,19 +159,23 @@ describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
 });
 
 describe('the stage table itself is well-formed', () => {
-  it('maps the three concurrent CI checks to independently gated local stages', () => {
-    const contracts = CI_STAGES.find((stage) => stage.name === 'harness-self-test');
-    const hermetic = CI_STAGES.find((stage) => stage.name === 'harness-hermetic-test');
-    const scans = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
-    expect(contracts?.mirrors).toEqual([
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ]);
-    expect(hermetic?.mirrors).toEqual([
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ]);
-    expect(scans?.mirrors).toEqual([
-      { job: 'scans', steps: ['Harness affected verification (concurrent, dist-independent)'] },
-    ]);
+  it('keeps the scans context in CI without duplicating its three checks locally', () => {
+    expect(stagesMirroring('scans')).toEqual([]);
+    expect(REQUIRED).toHaveLength(11);
+    expect(REQUIRED.find((entry) => entry.context === 'scans')).toMatchObject({
+      workflow: '.github/workflows/ci.yml',
+      job: 'scans',
+    });
+    expect(NOT_MIRRORED.find((entry) => entry.context === 'scans')).toMatchObject({
+      relevance: 'every-pull-request',
+    });
+    expect(jobRunSteps(CI_YAML, 'scans')).toContain(
+      'Harness affected verification (concurrent, dist-independent)',
+    );
+    // The existing CI command retains all three checks; no replacement local Git layer is needed.
+    expect(CI_YAML).toContain('harness:test:contracts:affected');
+    expect(CI_YAML).toContain('harness:test:hermetic');
+    expect(CI_YAML).toContain('scan_args=(harness:scan');
   });
 
   it('every stage either mirrors a real ci.yml job or declares why it is extra', () => {

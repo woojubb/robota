@@ -1,5 +1,4 @@
-// harness-coverage: dist-free-subject-identity.mjs
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -7,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { describeCiSource } from '../ci-mirror-map.mjs';
-import { resolveDistFreeSubject, runWithDistFreeSubject } from '../dist-free-subject-identity.mjs';
 import { ceilingIn } from '../scan-lint-ceiling-declared-vs-frozen.mjs';
 import {
   advanceBuildState,
@@ -20,12 +18,9 @@ import {
   globExtensions,
   lintStagedExtensions,
   listBuildablePackageDirs,
-  listNodeModulesOwners,
   NOT_MIRRORED,
   parseArgs,
-  parseDistIndependentScanSkips,
   parseGitFileList,
-  readDistIndependentScanSkips,
   readLintStagedExtensions,
   readsDistTypes,
   selectFormatTargets,
@@ -125,54 +120,6 @@ describe('parseGitFileList', () => {
 
   it('returns an empty list for no output', () => {
     expect(parseGitFileList(undefined)).toEqual([]);
-  });
-});
-
-describe('resolveDistFreeSubject', () => {
-  it('uses CI-provided PR identity without consulting symbolic-ref on detached HEAD', () => {
-    const calls = [];
-    const subject = resolveDistFreeSubject(
-      {
-        PR_HEAD_SHA: '0123456789abcdef0123456789abcdef01234567',
-        GITHUB_HEAD_REF: 'codex/detached-pr',
-      },
-      (args) => {
-        calls.push(args);
-        throw new Error('detached HEAD has no symbolic ref');
-      },
-    );
-
-    expect(subject).toEqual({
-      subjectSha: '0123456789abcdef0123456789abcdef01234567',
-      subjectBranch: 'codex/detached-pr',
-    });
-    expect(calls).toEqual([]);
-  });
-
-  it('injects the original subject into the detached scan process', async () => {
-    const calls = [];
-    const code = await runWithDistFreeSubject(
-      (...args) => {
-        calls.push(args);
-        return Promise.resolve(0);
-      },
-      ['scan.mjs'],
-      '/detached/tree',
-      { PR_HEAD_SHA: 'subject-sha', GITHUB_HEAD_REF: 'codex/subject' },
-      () => {
-        throw new Error('provided identity must not query git');
-      },
-    );
-
-    expect(code).toBe(0);
-    expect(calls).toEqual([
-      [
-        'node',
-        ['scan.mjs'],
-        '/detached/tree',
-        { env: { PR_HEAD_SHA: 'subject-sha', GITHUB_HEAD_REF: 'codex/subject' } },
-      ],
-    ]);
   });
 });
 
@@ -359,116 +306,6 @@ describe('the loop sequence a run actually walks', () => {
 });
 
 // ---------------------------------------------------------------------------
-// dist-free tree (HARNESS-047): the scans CI runs on a checkout with NO dist
-// ---------------------------------------------------------------------------
-
-const CI_SCANS_JOB_FIXTURE = `
-  scans:
-    name: scans
-    steps:
-      - name: Harness scan test suite
-        run: pnpm harness:test
-      - name: Harness scan suite (dist-independent)
-        run: |
-          scan_args=(harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "\${HARNESS_BASE_REF}")
-          if [[ "$BENCHMARK_MODE" == "true" ]]; then
-            scan_args+=(--skip lane-declaration --skip user-execution-plan-order --skip work-run-measurement)
-          fi
-          start_check scans pnpm "\${scan_args[@]}"
-`;
-
-describe('parseDistIndependentScanSkips', () => {
-  it("derives the skip set from ci.yml's scans job instead of hardcoding it", () => {
-    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).toEqual([
-      'dist',
-      'build-contracts',
-    ]);
-  });
-
-  it('follows CI drift — a third skip in ci.yml is picked up automatically', () => {
-    const drifted = CI_SCANS_JOB_FIXTURE.replace(
-      '--skip build-contracts',
-      '--skip build-contracts --skip docs-structure',
-    );
-    expect(parseDistIndependentScanSkips(drifted)).toEqual([
-      'dist',
-      'build-contracts',
-      'docs-structure',
-    ]);
-  });
-
-  it('does not add benchmark-only skips to the mirrored PR scan set', () => {
-    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain('lane-declaration');
-    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain(
-      'user-execution-plan-order',
-    );
-    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).not.toContain(
-      'work-run-measurement',
-    );
-  });
-
-  it('fails closed when a scan_args append is not benchmark-only', () => {
-    const unguarded = CI_SCANS_JOB_FIXTURE.replace(
-      'if [[ "$BENCHMARK_MODE" == "true" ]]; then',
-      'if [[ "$RUN_HERMETIC" == "true" ]]; then',
-    );
-    expect(() => parseDistIndependentScanSkips(unguarded)).toThrow(
-      /outside the BENCHMARK_MODE-only branch/,
-    );
-  });
-
-  it('fails closed when the dynamic scan_args command is not invoked exactly once', () => {
-    expect(() =>
-      parseDistIndependentScanSkips(
-        CI_SCANS_JOB_FIXTURE.replace('start_check scans pnpm "\${scan_args[@]}"', ''),
-      ),
-    ).toThrow(/exactly one/);
-  });
-
-  it('throws when no dist-independent scan step exists — never silently scans nothing', () => {
-    expect(() => parseDistIndependentScanSkips('jobs:\n  scans:\n    steps: []\n')).toThrow(
-      /harness:scan/,
-    );
-  });
-
-  it('throws when ci.yml has more than one such invocation (ambiguous mirror target)', () => {
-    expect(() => parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE.repeat(2))).toThrow(
-      /more than one/i,
-    );
-  });
-
-  it('reads the LIVE ci.yml — the stage mirrors the real job, not a copy of it', () => {
-    expect(readDistIndependentScanSkips(WORKSPACE_ROOT)).toEqual(['dist', 'build-contracts']);
-  });
-});
-
-describe('listNodeModulesOwners', () => {
-  it('lists every dir owning an installed node_modules (linked so the scans can run)', () => {
-    const root = createFixture({
-      'node_modules/vitest/index.js': '',
-      'packages/a/node_modules/dep/index.js': '',
-      'packages/a/dist/index.js': '',
-      'packages/b/src/index.ts': '',
-    });
-    expect(listNodeModulesOwners(root)).toEqual(['', 'packages/a']);
-  });
-
-  it('never descends into node_modules or dist (their inner installs are irrelevant)', () => {
-    const root = createFixture({
-      'node_modules/dep/node_modules/nested/index.js': '',
-      'packages/a/dist/node_modules/ghost/index.js': '',
-    });
-    expect(listNodeModulesOwners(root)).toEqual(['']);
-  });
-
-  it('finds the live workspace installs (root + packages)', () => {
-    const owners = listNodeModulesOwners(WORKSPACE_ROOT);
-    expect(owners).toContain('');
-    expect(owners.some((dir) => dir.startsWith('packages/'))).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // stage table + summary + args
 // ---------------------------------------------------------------------------
 
@@ -487,27 +324,17 @@ describe('CI_STAGES', () => {
     expect(names.indexOf('build')).toBeLessThan(names.indexOf('tui-e2e'));
   });
 
-  it('mirrors BOTH CI scan halves — the built-tree job and the dist-free job (neither replaces the other)', () => {
+  it('keeps only built-output diagnostics and deletes the dist-free materializer', () => {
     const built = CI_STAGES.find((stage) => stage.name === 'scan-suite');
-    const distFree = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
-    // `build` owns the build-dependent scan after producing dist; `scans` runs on a fresh checkout.
-    const builtSource = describeCiSource(built);
-    expect(builtSource).toBe('ci.yml → build → Build-output contracts scan (dist-dependent)');
-    expect(builtSource).not.toMatch(/→ quality →/);
-    expect(describeCiSource(distFree)).toMatch(/scans/);
-    expect(describeCiSource(distFree)).toMatch(/dist/);
-    expect(builtSource).not.toEqual(describeCiSource(distFree));
-  });
-
-  it('passes the original branch and head identity into detached dist-free scans', () => {
-    const source = readFileSync(
-      path.resolve(import.meta.dirname, '../verify-like-ci-dist-free.mjs'),
-      'utf8',
+    expect(describeCiSource(built)).toBe(
+      'ci.yml → build → Build-output contracts scan (dist-dependent)',
     );
-    expect(source).toContain('runWithDistFreeSubject(run, args, treeDir, process.env, gitOrThrow)');
-    expect(source).toContain("'--affected'");
-    expect(source).toContain("'--context',\n      'pr'");
-    expect(source).toContain("run('pnpm', ['harness:scan:build-contracts'])");
+    for (const name of ['harness-self-test', 'harness-hermetic-test', 'scan-suite-dist-free']) {
+      expect(CI_STAGES.some((stage) => stage.name === name)).toBe(false);
+    }
+    for (const file of ['verify-like-ci-dist-free.mjs', 'dist-free-subject-identity.mjs']) {
+      expect(existsSync(path.resolve(import.meta.dirname, '..', file))).toBe(false);
+    }
   });
 
   it('names the real definition each stage mirrors, or says out loud that it mirrors none', () => {
@@ -544,7 +371,6 @@ describe('stageGate', () => {
     examplesChanged: false,
     cliChanged: false,
     agentAppChanged: false,
-    harnessChanged: false,
     fullProductVerification: false,
     missingDist: [],
   };
@@ -567,7 +393,7 @@ describe('stageGate', () => {
     expect(gate.note).toMatch(/product build N\/A/);
   });
 
-  it('gates binary-e2e and the e2e suites on the same conditions CI gates their jobs on', () => {
+  it('gates binary-e2e and other e2e suites on affected product capabilities', () => {
     expect(stageGate('binary-e2e', { ...base, cliChanged: true }).run).toBe(true);
     expect(stageGate('binary-e2e', { ...base, agentAppChanged: true }).run).toBe(true);
     expect(stageGate('binary-e2e', base).run).toBe(false);
@@ -577,17 +403,8 @@ describe('stageGate', () => {
     expect(stageGate('examples-typecheck', base).run).toBe(false);
   });
 
-  it('skips only the hermetic harness tier for a proven non-harness change', () => {
-    expect(stageGate('harness-self-test', base).run).toBe(true);
-    expect(stageGate('harness-hermetic-test', base).run).toBe(false);
-    expect(stageGate('harness-hermetic-test', { ...base, harnessChanged: true }).run).toBe(true);
-    expect(stageGate('harness-hermetic-test', { ...base, harnessChanged: undefined }).run).toBe(
-      true,
-    );
-  });
-
   it('runs infrastructure stages unconditionally and product quality only when applicable', () => {
-    for (const name of ['format-check', 'commitlint', 'harness-self-test']) {
+    for (const name of ['format-check', 'commitlint']) {
       expect(stageGate(name, base).run).toBe(true);
     }
     expect(stageGate('scan-suite', base).run).toBe(false);
@@ -722,6 +539,19 @@ describe('annotateNotMirrored', () => {
 });
 
 describe('summarize', () => {
+  it('keeps a complete successful run local-only and names the CI-owned evidence', () => {
+    const { lines, exitCode } = summarize(
+      CI_STAGES.map(({ name }) => ({ name, status: 'pass' })),
+      { notMirrored: annotateNotMirrored([]) },
+    );
+    const output = lines.join('\n');
+    expect(exitCode).toBe(0);
+    expect(output).toContain('Local diagnostic only — NOT a CI-equivalent result');
+    expect(output).toContain('scans — NOT mirrored locally');
+    expect(output).not.toMatch(
+      /required coverage satisfied|mirrors the required checks|before claiming the gate is green/,
+    );
+  });
   it('distinguishes not-applicable checks and blocked work from executed checks', () => {
     const execution = {
       selectedChecks: 2,
@@ -737,7 +567,7 @@ describe('summarize', () => {
       { execution },
     );
     expect(passed.lines.join('\n')).toContain(
-      '1 checks executed, 1 not applicable, 1 execution batches; required coverage satisfied',
+      '1 checks executed, 1 not applicable, 1 execution batches; local diagnostics passed',
     );
     const failed = summarize(
       [
@@ -752,7 +582,7 @@ describe('summarize', () => {
   });
   it('reports PASS and exit 0 when every stage passed', () => {
     const { lines, exitCode } = summarize([
-      { name: 'harness-self-test', status: 'pass' },
+      { name: 'commitlint', status: 'pass' },
       { name: 'format-check', status: 'pass' },
     ]);
     expect(exitCode).toBe(0);
@@ -763,13 +593,13 @@ describe('summarize', () => {
     const { lines } = summarize(
       [
         { name: 'format-check', status: 'pass', durationMs: 1234 },
-        { name: 'harness-self-test', status: 'pass', durationMs: 65_000 },
+        { name: 'commitlint', status: 'pass', durationMs: 65_000 },
       ],
       { totalDurationMs: 66_234 },
     );
     const text = lines.join('\n');
     expect(text).toContain('format-check [1.2s]');
-    expect(text).toContain('harness-self-test [1m 5.0s]');
+    expect(text).toContain('commitlint [1m 5.0s]');
     expect(text).toContain('total elapsed: 1m 6.2s');
   });
 
@@ -793,10 +623,10 @@ describe('summarize', () => {
     }).lines.join('\n');
     expect(quiet).toContain('dependency audit — NOT mirrored locally');
     expect(quiet).toContain('windows-shell — NOT mirrored locally');
-    // review-gate judges every PR's body (RULE-016), so it is the one un-mirrorable context that is
-    // relevant to every diff; the others stay quiet on a diff that touches nothing of theirs.
+    // Both fresh-checkout scans and review-gate remain CI-owned for every PR.
     expect(quiet).toContain('review-gate');
-    expect(quiet.split('this diff makes it relevant').length - 1).toBe(1);
+    expect(quiet).toContain('scans — NOT mirrored locally');
+    expect(quiet).toMatch(/scans[^\n]*\n[^\n]*this diff makes it relevant/);
     expect(quiet).not.toMatch(/dependency audit[^\n]*\n[^\n]*this diff makes it relevant/);
 
     const loud = summarize([{ name: 'typecheck', status: 'pass' }], {
@@ -808,16 +638,16 @@ describe('summarize', () => {
 
   it('names the failing stage and exits 1', () => {
     const { lines, exitCode } = summarize([
-      { name: 'harness-self-test', status: 'fail' },
+      { name: 'commitlint', status: 'fail' },
       { name: 'format-check', status: 'pass' },
       { name: 'scan-suite', status: 'fail', note: 'dist missing' },
     ]);
     expect(exitCode).toBe(1);
     const text = lines.join('\n');
-    expect(text).toContain('FAIL — 2 of 3 stage(s) failed: harness-self-test, scan-suite');
+    expect(text).toContain('FAIL — 2 of 3 stage(s) failed: commitlint, scan-suite');
     expect(text).toContain('dist missing');
     // The failing stage points at the CI definition it mirrors, so the fix target is unambiguous.
-    expect(text).toContain('harness-self-test covers ci.yml');
+    expect(text).toContain('commitlint CI reference: ci.yml');
   });
 });
 

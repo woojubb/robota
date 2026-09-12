@@ -26,7 +26,7 @@ the outcome tokens it routes on, because those _are_ the mechanism.
   Branches" (the local/remote deletion mechanics, the ancestry precondition, never the integration
   branches); "Work that reaches `develop` is resolved" (the closure is performed, not inferred, and what a
   partial delivery does instead); "Post-Merge Branch Cycle" (churn discipline and the fresh-base requirement); "Clean Working
-  Tree Before Every Commit and Push" (names the CI-equivalent verification entry point).
+  Tree Before Every Commit and Push" (separates local diagnostics from required remote verification).
 - The `merge-verifier` agent definition in `.claude/agents/merge-verifier.md`.
 
 ## Input

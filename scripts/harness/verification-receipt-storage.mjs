@@ -1,17 +1,8 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-
 import { boundedGitStatus } from './bounded-git-status.mjs';
-import { runVerificationCommand } from './verification-receipt-command.mjs';
-import {
-  computeVerificationIdentity,
-  createVerificationReceipt,
-} from './verification-receipt-identity.mjs';
 
-const RECEIPT_FILE = 'robota-verification/verify-like-ci.json';
 const PORCELAIN_PATH_OFFSET = 3;
 
-/** Auto-generated scan outputs are the only working-tree dirt ignored for receipt reuse. */
+/** Auto-generated scan outputs are the only working-tree dirt ignored by shared clean-tree checks. */
 export const AUTO_GENERATED_CHURN = new Set([
   '.agents/evals/lessons/auto-lessons.md',
   '.agents/evals/lessons/weekly-digest.md',
@@ -29,38 +20,4 @@ export function realDirtyLines(root) {
 
 export function isCleanTree(root) {
   return realDirtyLines(root).length === 0;
-}
-
-export function verificationReceiptPath(root) {
-  const commonDir = runVerificationCommand(
-    'git',
-    ['rev-parse', '--path-format=absolute', '--git-common-dir'],
-    root,
-  );
-  return path.join(commonDir, RECEIPT_FILE);
-}
-
-export function readVerificationReceipt(root) {
-  try {
-    return JSON.parse(readFileSync(verificationReceiptPath(root), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-export function writeVerificationReceipt({ baseRef, stages, root }) {
-  const dirty = realDirtyLines(root);
-  if (dirty.length > 0) {
-    return {
-      written: false,
-      reason: `working tree is not clean: ${dirty.join(', ')}`,
-    };
-  }
-  const target = verificationReceiptPath(root);
-  const receipt = createVerificationReceipt(computeVerificationIdentity({ baseRef, stages, root }));
-  mkdirSync(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
-  renameSync(temporary, target);
-  return { written: true, target, receipt };
 }
