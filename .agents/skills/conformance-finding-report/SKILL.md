@@ -1,6 +1,6 @@
 ---
 name: conformance-finding-report
-description: Pointer stub — conformance findings reporting is owned by the architecture-conformance-auditor agent, which returns classified findings plus a machine-readable ACTIONABLE FINDINGS count natively. Dispatch it via the architecture-refresh pipeline instead of assembling a report from prose steps here.
+description: Route architecture conformance finding reports through `architecture-refresh`; do not assemble them manually.
 ---
 
 # Conformance Finding Report (pointer)

@@ -1,6 +1,6 @@
 ---
 name: architecture-refresh
-description: Thin orchestration for the recurring architecture audit→synthesis→verification→depth→reconciliation/apply→re-audit loop. It delegates four-dimension coverage to architecture-audit-fanout, keeps conformance separate, records every expected and observed guardian signal, and routes outcomes until every material finding is resolved. Every judgement lives in the agents.
+description: Run the full architecture audit and remediation loop when material findings must converge.
 loop: over=finding-set; escape=no-progress; bound=3 rounds
 invocable: true
 ---

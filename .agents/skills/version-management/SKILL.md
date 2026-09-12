@@ -1,6 +1,6 @@
 ---
 name: version-management
-description: All packages must have the same version. Use changesets for coordinated version bumps. Never version packages independently. Includes the semver impact classification for public API surface changes.
+description: Use changesets for coordinated repository-wide package versions and classify public API semver impact.
 ---
 
 # Version Management

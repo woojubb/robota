@@ -1,6 +1,6 @@
 ---
 name: api-error-standard
-description: Defines the standard error response format for HTTP APIs based on RFC 7807 Problem Details. Use when implementing or reviewing API error responses.
+description: Apply RFC 7807 Problem Details when implementing or reviewing HTTP API error responses.
 ---
 
 # API Error Response Standard

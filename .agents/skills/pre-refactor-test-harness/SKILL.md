@@ -1,6 +1,6 @@
 ---
 name: pre-refactor-test-harness
-description: Before modularizing or refactoring a package, analyze the code for extraction points, write characterization tests for current behavior, then modularize under test protection. Use when a package has monolithic files that need to be broken into testable modules.
+description: Add characterization tests before breaking monolithic package code into smaller modules.
 ---
 
 # Pre-Refactor Test Harness

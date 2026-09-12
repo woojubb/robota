@@ -1,6 +1,6 @@
 ---
 name: repo-change-loop
-description: Runs the standard Robota change loop by identifying impact, building affected scope, running targeted verification, and summarizing residual risk. Use when making or reviewing repository changes that should end in an explicit verification result.
+description: Verify a repository change by identifying impact, building affected scope, and reporting residual risk.
 ---
 
 # Repository Change Loop

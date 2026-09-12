@@ -1,6 +1,6 @@
 ---
 name: pnpm-monorepo-build
-description: pnpm workspace build gotchas — lifecycle-script (pre/post) silence and surgical lockfile edits for workspace dependencies. Use when a build step silently does not run or when adding/removing a workspace dependency.
+description: Diagnose pnpm lifecycle-script gaps or update lockfiles when workspace dependencies change.
 ---
 
 # pnpm Monorepo Build

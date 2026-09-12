@@ -1,6 +1,6 @@
 ---
 name: scenario-verification-harness
-description: Verify a change against a recorded scenario — check scope, preserve canonical ownership of the recorded artifact, re-record only on intentional behavior change, and stop on verification failures. Use when scenario files, example flows, or execution-path behavior changes.
+description: Verify scenario files or recorded execution flows, re-recording only intentional behavior changes.
 ---
 
 # Scenario Verification Harness

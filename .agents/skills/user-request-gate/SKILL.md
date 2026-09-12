@@ -1,6 +1,6 @@
 ---
 name: user-request-gate
-description: Use immediately when the user requests any implementation, code change, feature addition, fix, or modification. Gates code writing behind a backlog draft document. Read-only exploration is always permitted.
+description: Route a requested source-code change through its required lane and planning gate before implementation.
 loop: over=finding-set; escape=no-progress
 invocable: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: automated-review-convergence
-description: Procedure for iterating on a PR's automated review feedback until it converges — fetch the findings (not the check status), judge each one, fix or refute it, push, then re-read the review the push re-triggered, and repeat until a fresh round yields nothing actionable. Use whenever a PR carries automated review output, before the merge is armed.
+description: Resolve findings from an already-open PR's automated reviewer until no actionable findings remain.
 loop: over=finding-set; escape=no-progress
 ---
 

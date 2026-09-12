@@ -1,6 +1,6 @@
 ---
 name: vitest-testing-strategy
-description: Defines a practical testing strategy for TypeScript and JavaScript using Vitest across unit, integration, and type-level tests. Use when adding features, refactoring, or preventing regressions with fast feedback loops.
+description: Design focused Vitest unit, integration, or type-level tests for JavaScript and TypeScript changes.
 ---
 
 # Vitest Testing Strategy

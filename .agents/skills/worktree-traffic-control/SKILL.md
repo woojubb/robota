@@ -1,6 +1,6 @@
 ---
 name: worktree-traffic-control
-description: The two gates around any worktree-isolated work — an entry gate before the first command and an exit gate before the work leaves. Routing only; it decides WHEN each gate is asked and what a verdict means, and delegates the parallel-work procedure to worktree-parallel-orchestration and every git constraint to the rules that own them. Use whenever work is done in a git worktree, whether one item or several.
+description: Apply entry and exit gates whenever work is performed in a git worktree.
 ---
 
 # Worktree Traffic Control

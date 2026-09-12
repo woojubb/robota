@@ -1,6 +1,6 @@
 ---
 name: spec-code-conformance
-description: Mandatory verification loop after any SPEC.md or contract document change. Compares spec against implementation code, fixes code to match spec, repeats until zero discrepancies, then runs regression tests. Spec is always the source of truth — never modify the spec within this workflow.
+description: After a SPEC or contract change, reconcile implementation code to that approved document and run regressions.
 loop: over=finding-set; escape=no-progress
 ---
 

@@ -1,15 +1,15 @@
 ---
 name: harness-governance
-description: Governs the Robota harness by checking rule-skill-owner consistency, finding undefined terminology, spotting examples that violate rules, and preferring mechanical checks over duplicated prose. Use when editing AGENTS, skills, or repository guidance.
+description: Audit AGENTS, skills, and repository guidance for clear routing, single ownership, contradictions, and enforceable invariants.
 ---
 
 # Harness Governance
 
 ## Rule Anchor
 
+- `AGENTS.md` > "Document Discovery Policy"
 - `AGENTS.md` > "Rules and Skills Boundary"
 - `AGENTS.md` > "Owner Knowledge Policy"
-- `AGENTS.md` > "Harness Direction"
 
 ## Use This Skill When
 
@@ -23,6 +23,7 @@ description: Governs the Robota harness by checking rule-skill-owner consistency
 - Identify the changed rule, skill, or owner files.
 - Identify the `AGENTS.md` sections a skill or owner document depends on.
 - Identify whether the change should become a mechanical check instead of more prose.
+- Inventory sibling skill names and descriptions before changing a selection boundary.
 
 ## Execution Steps
 
@@ -35,12 +36,26 @@ description: Governs the Robota harness by checking rule-skill-owner consistency
    - hierarchy-implying agent naming
    - blanket dynamic import guidance that contradicts repository policy
 5. Remove duplicated policy text when the rule already exists in `AGENTS.md`.
-6. If the invariant is important and repeated, propose or add a mechanical scan instead of expanding prose.
-7. Summarize:
-   - anchor validity
-   - contradictions found
-   - rule-violating examples found
-   - candidate checks to automate
+6. Audit the instruction-selection surface:
+   - A description says what the skill does and the task boundary that activates it.
+   - Workflow steps, implementation details, history, and exhaustive exclusions stay out of descriptions.
+   - Sibling descriptions are distinguishable without loading their bodies.
+7. Audit progressive disclosure:
+   - `AGENTS.md` routes by task instead of requiring broad pre-reading.
+   - A multi-mode skill keeps shared decisions in `SKILL.md` and routes conditional detail to focused
+     references or scripts.
+   - A narrow skill stays self-contained; do not add a router or reference hierarchy without a real branch.
+   - Preserve exact sequences only where safety, permissions, or a fragile protocol makes deviation risky.
+8. Remove model-specific handholding that duplicates capabilities, but keep model-independent safety,
+   authorization, repository, and verification boundaries.
+9. If the invariant is important and repeated, propose or add a mechanical scan instead of expanding prose.
+   Do not replace selection clarity with an arbitrary character-count check.
+10. Summarize:
+    - anchor validity
+    - contradictions found
+    - rule-violating examples found
+    - description overlap and instruction-loading findings
+    - candidate checks to automate
 
 ## Introducing a Mechanical Guard — Scope Discipline
 
@@ -76,6 +91,10 @@ When you add a mechanical guard (a scan/check that enforces an invariant):
 - [ ] No new undefined rule terminology is introduced.
 - [ ] Examples do not violate repository rules.
 - [ ] Duplicated policy prose is reduced where possible.
+- [ ] Skill descriptions state a discriminating activation boundary without workflow detail.
+- [ ] Sibling skills remain distinguishable from descriptions alone.
+- [ ] Conditional detail is loaded only by the workflow branch that needs it.
+- [ ] Safe flexibility is preserved; fragile safety and permission protocols remain explicit.
 - [ ] Repeated invariants are considered for automation.
 
 ## Focused Examples
@@ -97,6 +116,9 @@ rg -n "await import\\(" .agents/skills AGENTS.md
 - Leaving stale anchors after renaming `AGENTS.md` sections.
 - Adding more prose when a simple scan would enforce the invariant better.
 - Keeping examples that contradict the written rule because they are "just illustrative".
+- Putting the skill's itinerary, internal agents, or historical rationale in its selection description.
+- Requiring every task to read a document because some tasks need it.
+- Turning a description-length proxy into a substitute for testing routing clarity.
 
 ## Related Harness Commands
 

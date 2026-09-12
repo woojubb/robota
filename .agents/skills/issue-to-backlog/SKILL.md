@@ -1,6 +1,6 @@
 ---
 name: issue-to-backlog
-description: Convert a filed GitHub issue into the backlog Task document(s) it actually is — deciding how many items its contents are, not assuming one. Use when a session picks up an issue to work on, before any code changes. The counterpart to find-to-issue, which files at a different time for a different reason.
+description: Convert a selected GitHub issue into one or more cause-aligned backlog Tasks before implementation.
 ---
 
 # Issue → Task

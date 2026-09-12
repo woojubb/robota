@@ -1,6 +1,6 @@
 ---
 name: architecture-audit-fanout
-description: Thin coverage orchestration for four independent architecture dimensions. It shards targets, dispatches structure/design/runtime/gate auditors in parallel, records and parses their exact coverage signals, and redispatches only uncovered target-by-criterion cells. It never performs conformance, synthesis, verification, depth, reconciliation, or finding judgement.
+description: Run parallel structure, design, runtime, and gate audits when broad architecture coverage is required.
 loop: over=finding-set; escape=no-progress; bound=3 rounds
 ---
 

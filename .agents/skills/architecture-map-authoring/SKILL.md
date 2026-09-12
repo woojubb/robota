@@ -1,6 +1,6 @@
 ---
 name: architecture-map-authoring
-description: Use when creating or updating an architecture-map document (`.agents/specs/architecture-map/*`). Produces a doc that satisfies the architecture-map document-type contract (RULE-008) and its completeness gate.
+description: Create or update an architecture-map document under `.agents/specs/architecture-map/`.
 ---
 
 # Architecture Map Authoring

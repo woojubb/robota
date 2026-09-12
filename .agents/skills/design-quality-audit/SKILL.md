@@ -1,6 +1,6 @@
 ---
 name: design-quality-audit
-description: Pointer stub — deep "is this design right?" judgement is divided across the structure, design, runtime, and gate architecture auditors. Dispatch their coverage-controlled fanout through architecture-refresh; doc↔code conformance remains a separate axis.
+description: Route broad design-quality audits through `architecture-refresh`; keep doc-code conformance separate.
 ---
 
 # Design-Quality Audit (pointer)

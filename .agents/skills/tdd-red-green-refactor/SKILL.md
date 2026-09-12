@@ -1,6 +1,6 @@
 ---
 name: tdd-red-green-refactor
-description: Kent Beck's TDD workflow. Use when writing new code or modifying existing behavior. Enforces the Red-Green-Refactor cycle with small, verifiable steps.
+description: Apply Red-Green-Refactor when adding code or changing observable behavior.
 ---
 
 # TDD: Red-Green-Refactor

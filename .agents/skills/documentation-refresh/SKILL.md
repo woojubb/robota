@@ -1,6 +1,6 @@
 ---
 name: documentation-refresh
-description: Thin orchestration for the recurring documentation audit→depth→fix→re-audit loop. It holds NO documentation policy — it only sequences three subagents (doc-auditor, finding-depth-triager, doc-fixer), routes each finding on its depth verdict, and re-calls them until every finding of a round is RESOLVED. All judgement (what to audit, what "good" means, where the defect is, how to fix) lives in the agents. Use when docs must be brought current with the code and a single pass won't finish it.
+description: Run the recurring documentation audit and repair loop when docs need more than one focused edit.
 loop: over=finding-set; escape=no-progress
 invocable: true
 ---
