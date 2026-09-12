@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [typescript]
 lane: L1
@@ -93,7 +93,7 @@ document completion authority is the premise; tests and merge evidence are not w
 - [x] TC-01: Approved documentation-only Task archive passes the focused classifier; missing approval, incomplete Plan, changed content, paired spec, partial archive and executable additions are rejected. No later source planning authority is inferred.
 - [x] TC-02: Ledger-only append preserves closed failed/successful attempts without creating a planning ground; existing lines, malformed/open records and executable additions remain refused. Delivery still requires a valid exact merge witness.
 - [x] TC-03: Delivered pair archival accepts its required bound parent projections and existing execution-run closures while rejecting unrelated records, changed plans, missing terminal evidence, invalid lifecycle and source changes.
-- [ ] TC-04: The new focused test file passes in full, actual current staged/history validation accepts the preserved closeout, and affected scans pass. Existing remote Git-fixture integration tests cover both callers; no local worktree/clone/Git fixture is created.
+- [x] TC-04: The new focused test file passes in full, actual current staged/history validation accepts the preserved closeout, and affected scans pass. Existing remote Git-fixture integration tests cover both callers; no local worktree/clone/Git fixture is created.
 
 ## Test Plan
 
@@ -106,13 +106,13 @@ document completion authority is the premise; tests and merge evidence are not w
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** This changes internal repository record validation only and introduces no CLI, TUI, browser or public SDK behavior for an end user to execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` — todo
+- [x] `.agents/tasks/completed/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` — done
 
 ## Evidence Log
 
@@ -307,3 +307,30 @@ Remote CI remains required before merge. No npm publication or protected-branch 
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9fc15a99c368` · base `origin/develop@4f3c0755dd70` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `878ec0ad9df4` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — Ordering: PASS — lane L1, current `todo/` and `status: approved`; the recorded GATE-PLAN PASS of 2026-09-13 upgrades draft to approved, satisfying the catalogue's recorded-pass rule. The prior GATE-DONE FAIL remains historical evidence, not a missing prerequisite.
+- GATE-VERIFY — Every item in the Task Plan is marked complete: PASS — the exact paired Task's `## Plan` contains 3/3 `[x]` items: reproduction, bounded implementation and actual verification.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — none of the three current Plan items is unchecked, blocked or pending. Historical Progress failures and remote pre-merge obligations are not open Plan items.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — this harness-only change uses the evaluator's existing build-equivalent command, `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop`; the completed 08:46 KST invocation records exit 0, 71 PASS and 1 explicit SKIP out of 72 selected checks. No product build is claimed or rerun.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — `pnpm exec vitest run scripts/harness/__tests__/completion-record-boundaries.test.mjs` exited 0 in the same invocation; both supplied verification commands exited 0. The earlier detailed transcript records 66/66 focused tests. CI-only Git-fixture tests remain unexecuted locally, not claimed passing.
+- GATE-COMPLETE — The checkbox is checked (`[x]`): PASS — TC-01, TC-02, TC-03 and TC-04 are each checked.
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists: PASS — all four IDs have entries with exact command, observed output and exit 0. The newer DONE transcript supplies the final aggregate result without rewriting the earlier scan/advisory/failure history.
+- GATE-COMPLETE — One of test written or explicit test skip is recorded: PASS — TC-01/02/03 name existing tests in `completion-record-boundaries.test.mjs`; TC-04 names the existing parameterized staged/history caller test in `scan-user-execution-plan-order.test.mjs` and actual repository scans. File/test names were read and confirmed; the Git-fixture test is written, not locally executed.
+- GATE-COMPLETE — No TC-N is silently unaddressed: PASS — all four Test Plan rows identify their verification and execution limits. Actual staged validation examined 12 paths and history validation examined eight topic commits, both exit 0, as recorded in the supplied execution transcript.
+- GATE-COMPLETE — Spec Completion Criteria checkboxes are all `[x]`: PASS — 4/4 checked, including the restored final TC-04 after the recorded failed attempt.
+- GATE-COMPLETE — Test Plan updated with test references or skip reasons for all TC-N rows: PASS — four referenced rows correspond exactly to TC-01 through TC-04; no absent row or unnamed test placeholder.
+- GATE-COMPLETE — Tasks section names the exact active Task path: PASS — `.agents/tasks/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` is the sole paired path and exists.
+- GATE-COMPLETE — Active Task exists and is completion-ready: PASS — its current Plan is 3/3 complete with no blocker; status remains in-progress pending the authorized completion handoff. The explicit archival-exempt annotation is temporary until that handoff, not permanent exemption or executable planning authority.
+
+**Verdict reason:** All 13 results (ordering plus 12 composite criteria) pass. The two guardian residues come from evaluator patterns for “All tasks” / “No tasks” not matching the catalogue's Plan-specific wording; the actual Plan satisfies both criteria. The later successful invocation supersedes the prior failed invocation. The recorded repair restores the existing projection-only lane route by removing optional parent TC edits, not by changing the lane checker or lowering the parent's lane.
+
+**Evidence sources:** `/tmp/robota-meta2655-done-check.txt` (completed 08:46 KST command transcript, HEAD 050e5bfc3, evaluator exit 2 solely for two guardian residues) and `/tmp/robota-meta2655-verification.txt` (earlier focused RED/GREEN and actual staged/history observations), plus direct reads of the current pair, catalogue, evaluator and named test declarations. No verification commands or Git fixtures were rerun by this guardian. Remote CI remains required before merge; no merge, publication or remote success is asserted.
+
+**Handoff limitation:** The spec's `## Tasks` pointer is still unchecked and labelled todo. The catalogue requires its exact active path, which is present; `task-complete.mjs` additionally requires a checked paired pointer before execution. Main owns that completion bookkeeping and removal of the temporary archival-exempt annotation. This guardian appends only this entry and changes neither pointer, lifecycle status nor location.
+
+**Judged by:** `backlog-gate-guard` independent guardian (Carson), current conversation
+**Judged at:** HEAD `050e5bfc3a3d0d906e936046669b4068b2296758` · base `origin/develop@4f3c0755dd70d3830127ffecdbdc8cb7a9704abc` · document `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md` blob `0d86534399940144e763a364dc0f992ff6b11a07` (modified)

@@ -1,17 +1,18 @@
 ---
 title: 'META-2655: Permit bounded completion records without executable planning authority'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
 created: 2026-09-13
 priority: medium
 urgency: soon
 area: completion-record validation
 depends_on: []
+completed: 2026-09-13
 ---
 
 # META-2655: Permit bounded completion records without executable planning authority
 
-Spec: `.agents/spec-docs/todo/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md`
+Spec: `.agents/spec-docs/done/META-2655-permit-bounded-completion-records-without-executable-planning-authority.md`
 
 ## Objective
 
@@ -33,7 +34,7 @@ Owner authorization (verbatim):
 
 - [x] Reproduce the three metadata refusals with ordinary-file/in-memory fixtures; no local Git fixtures.
 - [x] Extend the existing record classifier and shared staged/history routes with bounded metadata handling.
-- [ ] Verify refusal cases, actual staged/history closeout and owner-document consistency; preserve existing executable gates.
+- [x] Verify refusal cases, actual staged/history closeout and owner-document consistency; preserve existing executable gates.
 
 ## Test Plan
 
@@ -139,6 +140,15 @@ required child row itself was not the cause. Keep only the parent's required Tas
 this batch. Its original criteria remain intact for the initiative's own verification, while actual
 delivery remains recorded in the completed child, parent Task Progress and GitHub Issue. No new
 lane-classifier implementation, lower parent lane or extra approval is needed.
+
+## Result
+
+Final affected verification passed 71 scans with one explicit skip; all 66 focused tests passed.
+The independent GATE-DONE guardian accepted all criteria at HEAD `050e5bfc3`, including the two
+Plan-wording checks not matched by the mechanical evaluator. The temporary archival exemption
+is removed on this completion handoff. Existing failure evidence remains unchanged. The implementation
+and actual historical delivery-record sequence are verified locally; remote CI-only Git regressions
+and merge of this branch remain pending, and BOUNDARY-2655 is not completed by this repair.
 
 ## User Execution Test Scenarios
 
