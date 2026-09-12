@@ -196,14 +196,23 @@ failed at head `910841cf4380dd5c05090d848325e6e5a97410db`: three summary asserti
 result omitted a concrete citation (U2 / TC-36). Pascal classified both as CI harness infrastructure;
 the U2 document evaluation reproduced locally. These are not product/scanner-policy defects.
 
-Replace the test-only socket-backed summary descriptor with an ordinary per-case temporary file,
-read it and clean its directory in `finally`; retain every assertion and the workflow unchanged.
+Replace the test-only socket-backed summary descriptor with an ordinary per-case temporary file;
+retain every assertion and the workflow unchanged. The initial correction used `finally` cleanup;
+the follow-up below delegates creation and cleanup to the existing owner.
 Restore the Task's link to this Evidence Log without copying its contents. No Git fixture or worktree
 is created. The original macOS success does not establish Linux portability.
 
 After these corrections, `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs --no-cache`
 exited 0 (15/15), and `node scripts/harness/scan-unearned-done-claims.mjs` exited 0 (51 declared legacy
-exemptions). Linux confirmation remains the next remote scans run, not another full local suite.
+exemptions).
+
+[The second scans run](https://github.com/woojubb/robota/actions/runs/34693340847/job/103552492654)
+at `e1244ca5f2e592163803b72cd73e9c5c05e853e5` passed those Linux assertions and U2/TC-36,
+but the new direct temporary-directory call violated `temp-dir-owner`. Pascal reproduced the
+single call-site finding. Reuse `scripts/harness/__tests__/make-temp.mjs` and remove the bespoke
+creation/cleanup instead of weakening the guard. The combined security and temp-owner suites passed
+33/33 tests. `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts`
+exited 0: 113 passed, one declared skip, no full-CI receipt. Required CI remains pending on this correction.
 
 ## Delivery
 

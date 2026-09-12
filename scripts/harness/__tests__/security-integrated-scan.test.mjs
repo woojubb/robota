@@ -1,10 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { makeTemp } from './make-temp.mjs';
 
 const workflow = parse(
   readFileSync(
@@ -45,40 +45,36 @@ function runStep(step, environment = {}) {
     chmod() { record chmod "$@"; }
     function /mock/osv-scanner { record scanner "$@"; }
   `;
-  const directory = mkdtempSync(join(tmpdir(), 'robota-integrated-scan-'));
+  const directory = makeTemp('robota-integrated-scan-');
   const summaryPath = join(directory, 'summary.md');
-  try {
-    // Actions supplies a regular file. Node's extra stdio pipe cannot be reopened
-    // through /dev/fd/3 on Linux, despite working on macOS.
-    writeFileSync(summaryPath, '');
-    const result = spawnSync(
-      '/bin/bash',
-      ['--noprofile', '--norc', '-c', `${functions}\n${step.run}`],
-      {
-        encoding: 'utf8',
-        timeout: 3000,
-        // No inherited credentials, executable search path or shell startup scripts.
-        env: {
-          PATH: '/nonexistent',
-          GITHUB_EVENT_NAME: 'push',
-          GITHUB_SHA: SHA_A,
-          CHECKOUT_SHA: SHA_A,
-          SCAN_BRANCH: 'develop',
-          LOCK_SHA,
-          FAIL_COMMAND: '',
-          RUNNER_TEMP: '/mock',
-          GITHUB_STEP_SUMMARY: summaryPath,
-          ...workflow.env,
-          ...environment,
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
+  // Actions supplies a regular file. Node's extra stdio pipe cannot be reopened
+  // through /dev/fd/3 on Linux, despite working on macOS.
+  writeFileSync(summaryPath, '');
+  const result = spawnSync(
+    '/bin/bash',
+    ['--noprofile', '--norc', '-c', `${functions}\n${step.run}`],
+    {
+      encoding: 'utf8',
+      timeout: 3000,
+      // No inherited credentials, executable search path or shell startup scripts.
+      env: {
+        PATH: '/nonexistent',
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_SHA: SHA_A,
+        CHECKOUT_SHA: SHA_A,
+        SCAN_BRANCH: 'develop',
+        LOCK_SHA,
+        FAIL_COMMAND: '',
+        RUNNER_TEMP: '/mock',
+        GITHUB_STEP_SUMMARY: summaryPath,
+        ...workflow.env,
+        ...environment,
       },
-    );
-    expect(result.error).toBeUndefined();
-    return { ...result, summary: readFileSync(summaryPath, 'utf8') };
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  expect(result.error).toBeUndefined();
+  return { ...result, summary: readFileSync(summaryPath, 'utf8') };
 }
 
 describe('integrated dependency scan event contract (INFRA-2655)', () => {
