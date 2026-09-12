@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -27,6 +27,16 @@ import {
 } from '../github-issue-triage.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+function expectRule021Archived(root) {
+  expect(
+    existsSync(path.join(root, '.agents/tasks/RULE-021-close-parent-on-decomposition.md')),
+  ).toBe(false);
+  const candidates = [...collectOpenTaskCandidates(root).values()].flat();
+  expect(
+    candidates.filter(({ taskPath }) => path.basename(taskPath).startsWith('RULE-021-')),
+  ).toEqual([]);
+}
 
 function proceduralBoundaryHolds(text) {
   const normalized = text.replace(/\s+/g, ' ');
@@ -1402,7 +1412,7 @@ describe('the rule owns policy and the skill owns procedure', () => {
   });
 
   it('archives RULE-021 as superseded without claiming Issue #2490', () => {
-    expect(collectOpenTaskCandidates(WORKSPACE_ROOT).has(2490)).toBe(false);
+    expectRule021Archived(WORKSPACE_ROOT);
 
     const archivedTask = readFileSync(
       path.join(
@@ -1434,5 +1444,39 @@ describe('the rule owns policy and the skill owns procedure', () => {
     expect(rejectedSpec).toContain(
       "GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/RULE-021-close-parent-on-decomposition.md`, whose basename is the spec's", // allow-missing-artifact: assertion verifies a frozen historical path, not a live citation
     );
+  });
+
+  it('allows legitimate same-Issue work beside an archived record', () => {
+    const root = makeTemp('robota-issue-triage-archive-');
+    const taskDirectory = path.join(root, '.agents/tasks');
+    mkdirSync(path.join(taskDirectory, 'completed'), { recursive: true });
+    const citation = 'issue: https://github.com/woojubb/robota/issues/2490';
+    writeFileSync(
+      path.join(taskDirectory, 'completed/RULE-021-close-parent-on-decomposition.md'),
+      `---\nstatus: superseded\n${citation}\n---\n`,
+    );
+    writeFileSync(
+      path.join(taskDirectory, 'RULE-2490-legitimate-migration.md'),
+      `---\nstatus: todo\n${citation}\n---\n`,
+    );
+
+    expect(
+      collectOpenTaskCandidates(root)
+        .get(2490)
+        .map(({ taskPath }) => taskPath),
+    ).toEqual(['.agents/tasks/RULE-2490-legitimate-migration.md']);
+    expectRule021Archived(root);
+  });
+
+  it.each([
+    ['RULE-021-close-parent-on-decomposition.md', ''],
+    ['RULE-021-renamed.md', 'issue: https://github.com/woojubb/robota/issues/1987\n'],
+  ])('rejects a reactivated archived record: %s', (name, citation) => {
+    const root = makeTemp('robota-issue-triage-reactivated-');
+    const taskDirectory = path.join(root, '.agents/tasks');
+    mkdirSync(taskDirectory, { recursive: true });
+    writeFileSync(path.join(taskDirectory, name), `---\nstatus: todo\n${citation}---\n`);
+
+    expect(() => expectRule021Archived(root)).toThrow();
   });
 });
