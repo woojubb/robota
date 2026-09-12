@@ -66,7 +66,8 @@ Every entry MUST use this format. No exceptions.
 ### [<GATE-NAME>] — ✅ PASS | <YYYY-MM-DD>
 
 **Status upgrade:** <current> → <next>
-<Specific evidence for each criterion checked. One line per criterion.>
+
+- <GATE-NAME> — <criterion>: <specific observed result>
 
 ### [<GATE-NAME>] — ❌ FAIL | <YYYY-MM-DD>
 

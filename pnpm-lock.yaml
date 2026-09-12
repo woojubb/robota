@@ -140,6 +140,9 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
 
   apps/action:
     dependencies:

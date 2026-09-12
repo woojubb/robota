@@ -31,7 +31,7 @@ Verify all deliveries on origin/develop and close Issue #2655 only after every s
 
 ## Children
 
-- [ ] INFRA-2655 — todo — `.agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
+- [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
 - [ ] ARTIFACT-2655 — todo — `.agents/tasks/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
 - [ ] BOUNDARY-2655 — todo — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
