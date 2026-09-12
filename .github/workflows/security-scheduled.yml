@@ -1,19 +1,20 @@
-name: Security scan (on demand)
+name: Security scan (develop push and on demand)
 
 # INFRA-044 (part 2): the PR-time `security audit` job runs osv-scanner ONLY when a PR changes
 # package.json / pnpm-lock.yaml, so advisories published against dependencies ALREADY in the lockfile
 # accumulate invisibly (18 did exactly that before INFRA-044 part 1). This run scans the whole
-# lockfile, so those advisories surface when someone asks — not at the next manifest edit. Nothing
-# asks on a clock any more: it is dispatch-only, so surfacing them is now a deliberate act.
+# lockfile on every develop push, regardless of changed paths, and on demand for main/develop.
+# No clock schedule: advisories published during inactivity still need a manual scan.
 # Same scanner, same config SSOT (osv-scanner.toml) as ci.yml — one source of accepted-risk truth.
 #
 # INFRA-061: the run used to check out `develop` ONLY, so the branch that is actually released and
 # deployed — `main` — was never scanned on any schedule. An advisory against a dependency still pinned on
 # main but already bumped on develop produced a green "Scheduled security scan". Both branches are now
-# separate matrix legs, so the check's name matches what it covers and a finding names the branch it is
-# on. When main and develop are identical the second leg costs ~30s.
+# separate manual matrix legs; a push scans only its exact integrated develop commit.
 
 on:
+  push:
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -35,11 +36,28 @@ jobs:
       # fail-fast off: an advisory on one branch must not cancel — and so hide — the other branch's result.
       fail-fast: false
       matrix:
-        branch: [main, develop]
+        branch: ${{ fromJSON(github.event_name == 'push' && '["develop"]' || '["main","develop"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ matrix.branch }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && matrix.branch || github.sha }}
+          persist-credentials: false
+
+      - name: Record scan subject
+        env:
+          SCAN_BRANCH: ${{ matrix.branch }}
+        run: |
+          set -euo pipefail
+          checkout_sha="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_EVENT_NAME" == 'push' && "$checkout_sha" != "$GITHUB_SHA" ]]; then
+            echo '::error::Push checkout does not match triggering SHA' >&2
+            exit 1
+          fi
+          lockfile_sha256="$(sha256sum pnpm-lock.yaml)"
+          lockfile_sha256="${lockfile_sha256%% *}"
+          identity="$(printf 'Branch: %s\nCheckout SHA: %s\nLockfile SHA256: %s' "$SCAN_BRANCH" "$checkout_sha" "$lockfile_sha256")"
+          printf '%s\n' "$identity"
+          printf '%s\n' "$identity" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install osv-scanner
         run: |

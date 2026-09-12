@@ -128,7 +128,7 @@ Imports, comments and checks left behind by the change that removed their subjec
 
 ## L7 — Fragmenting one approved outcome into repeated process gates
 
-**Count: 2** · First seen 2026-09-05 · Last seen 2026-09-05 · Mechanism: open — next consolidated
+**Count: 3** · First seen 2026-09-05 · Last seen 2026-09-12 · Mechanism: open — next consolidated
 harness cycle, tracked by this open entry after the PROC-034 cadence amendment · Rule: `execution-cadence.md`
 
 - 2026-09-05 — a second continuation checkpoint was added to the same S2 branch after a local
@@ -136,6 +136,17 @@ harness cycle, tracked by this open entry after the PROC-034 cadence amendment �
 - 2026-09-05 — per-supplement scope questions and validation handoffs continued after repeated owner
   requests to batch work. Owner explicitly approved the permanent rule/skill amendment and made it
   the highest priority. These two concrete instances are the counted floor, not an estimate of prior days.
+
+- 2026-09-12 — INFRA-2655 spent about 14 minutes between parent-plan landing and its implementation
+  checkpoint, then repeated the same passing 22-test batch during GATE-VERIFY without a source change.
+  Two catalogue criteria marked mechanical also routed to a guardian because `verifyChecks()` still
+  matches the old Task wording. Stop speculative next-item preparation and per-phase revalidation;
+  reuse the scoped evidence already produced and one final review, as `execution-cadence.md` requires.
+  The gate-binding defect and duplicate verification ownership remain OPEN for the consolidated cycle;
+  this record does not claim a new prevention mechanism or start another prerequisite project.
+  A second avoidable retry came from the catalogue's PASS example omitting the per-criterion gate
+  prefix already required by `gate.mjs advance`; the example now matches that existing parser
+  contract. This is a documentation repair, not a new guard or a complete fix for this class.
 
 ## Retired
 

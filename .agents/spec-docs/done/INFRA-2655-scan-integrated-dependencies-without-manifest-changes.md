@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # INFRA-2655: Scan integrated dependencies without manifest changes
 
-Paired with `.agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`.
+Paired with `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`.
 Source: https://github.com/woojubb/robota/issues/2655; parent AGREEMENT-2655.
 
 ## Problem
@@ -157,10 +157,10 @@ addition does not authorize unrelated product dependency or scanner-config chang
 
 ## Completion Criteria
 
-- [ ] TC-01: The focused workflow suite exits 0 and proves every develop push, including source-only changes, selects a full-lockfile scan of exactly its triggering SHA; later pushes do not retarget or cancel the earlier scan.
-- [ ] TC-02: The same suite exits 0 for both manual targets and proves actual per-leg SHA reporting, read-only credentials, preserved scanner/checksum pins, checksum-before-execution and nonzero propagation for checksum and scanner failures.
-- [ ] TC-03: A real full-lockfile scan of an identified develop SHA exits 0 with reviewed exclusions; all nine original advisory IDs across the four families have explicit version-bound dispositions and no unreviewed actionable remainder.
-- [ ] TC-04: Focused regression suites, affected static checks and formatting exit 0 with recorded scope; any declared inapplicable checks are named and are not counted as passes or as a full local CI verdict.
+- [x] TC-01: The focused workflow suite exits 0 and proves every develop push, including source-only changes, selects a full-lockfile scan of exactly its triggering SHA; later pushes do not retarget or cancel the earlier scan.
+- [x] TC-02: The same suite exits 0 for both manual targets and proves actual per-leg SHA reporting, read-only credentials, preserved scanner/checksum pins, checksum-before-execution and nonzero propagation for checksum and scanner failures.
+- [x] TC-03: A real full-lockfile scan of an identified develop SHA exits 0 with reviewed exclusions; all nine original advisory IDs across the four families have explicit version-bound dispositions and no unreviewed actionable remainder.
+- [x] TC-04: Focused regression suites, affected static checks and formatting exit 0 with recorded scope; any declared inapplicable checks are named and are not counted as passes or as a full local CI verdict.
 
 ## Test Plan
 
@@ -209,7 +209,7 @@ Not applicable.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` — existing paired Task; planning only.
+- [x] `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` — verified implementation; remote delivery acceptance remains in Delivery.
 
 ## Supplied Scan Evidence
 
@@ -228,6 +228,47 @@ versions are traced to `15d423073`. Reconcile each ID explicitly against the sup
 retain the main-leg failure for finding-specific review. Do not infer that 4 filtered results mean
 four newly accepted advisory IDs, or silently extend exclusions. All TC boxes remain unchecked
 for the owning review and verification; the delivering SHA still needs its own actual push run.
+
+## Current lockfile advisory dispositions
+
+On 2026-09-12 the actual OSV scanner 2.0.2 scanned the modified working lockfile after the direct
+root `yaml@2.9.0` declaration. Exit: 0; 2176 scanned packages; four results filtered by the existing
+three ip/sharp exclusions; final output: `No issues found`. This is a real scan, not the mocked
+workflow suite and not a claim that the new remote push path has executed.
+
+- Lockfile SHA256: `04f34c2d7199d0f6db8944c4dea2bb14de5b1b6f31e9448e25c54e555fc00a7b`.
+- Config SHA256: `7ca87a8d2cb693093e87621ea7e90aab696df91dd65f68e838c58aca59980e75`.
+- Official Darwin arm64 scanner SHA256: `e1571489b0e4d41d187f044791dc74eba9866db2a2e731098427e2c71726a99f`, verified against the release's `osv-scanner_SHA256SUMS` before enabling execution.
+- Command: `/tmp/robota-2655-osv.5Cdcn5/osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml`.
+- Local evidence: `/tmp/robota-2655-infra-current-lock-scan.log`; checkpoint HEAD `214d5c49132c6363e4a80bee6c07d39fc5025b02` plus the lockfile bytes identified above.
+- Frozen install passed. The lockfile diff is only the root importer declaration; all 2407 resolved-package snapshot entries are unchanged. Snapshot entries and the scanner's 2176 packages are different populations, not interchangeable coverage counts.
+- Earlier remote develop baseline: [run 34691164956, develop job](https://github.com/woojubb/robota/actions/runs/34691164956/job/103546546315), inspected commit `30e0cd876971cd98ab08050d3e988cee3936fdff`. The main leg and whole manual run failed; only the develop leg passed.
+
+Every original advisory below was reconciled against the current resolved version, the real full
+scan above and the unchanged exclusion config. These nine IDs are not excluded. Disposition is
+resolved at the upgraded version and not reported by this scan; it is not a promise about future
+advisories or a claim of exploitability analysis.
+
+| Original advisory   | Package        | Resolved version | Disposition                          |
+| ------------------- | -------------- | ---------------- | ------------------------------------ |
+| GHSA-6gmq-8vp8-gcm6 | @xmldom/xmldom | 0.9.12           | Upgraded; not reported; not excluded |
+| GHSA-73wf-gq98-2v4g | browserslist   | 4.28.9           | Upgraded; not reported; not excluded |
+| GHSA-c83g-rgw3-j3cx | browserslist   | 4.28.9           | Upgraded; not reported; not excluded |
+| GHSA-5jgf-p345-68v8 | fast-uri       | 3.1.7            | Upgraded; not reported; not excluded |
+| GHSA-f65p-4m7j-42xc | fast-uri       | 3.1.7            | Upgraded; not reported; not excluded |
+| GHSA-fph4-wmhf-6fwf | fast-uri       | 3.1.7            | Upgraded; not reported; not excluded |
+| GHSA-jqff-g426-hqxp | fast-uri       | 3.1.7            | Upgraded; not reported; not excluded |
+| GHSA-4mjr-xmp4-gh2g | qs             | 6.16.0           | Upgraded; not reported; not excluded |
+| GHSA-x5fp-wj9c-mxmx | qs             | 6.16.0           | Upgraded; not reported; not excluded |
+
+## Verification evidence interpretation
+
+The first TC-04 receipt preserves the GATE-VERIFY dispatcher's exit 2 for two unbound mechanical
+criteria; the actual commands both exited 0 (113 static checks passed, one declared skip; 22 tests
+passed). The latest TC-04 receipt records that existing child scan result, not another execution or
+an assertion that the dispatcher returned 0. The guardian resolved only the two Plan criteria from
+the recorded results and the four completed Plan items. A separate PR-audit compatibility check
+passed one selected test; its other 87 tests were not selected and are not counted as passes.
 
 ## Historical Provenance
 
@@ -386,3 +427,166 @@ run or status advanced by this draft author; the Evidence Log is intentionally e
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `faab23566d7a` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/todo/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `0fbd2b18b444` (untracked)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-12
+
+**Command:** `/tmp/robota-2655-osv.5Cdcn5/osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+Scanned /Users/jungyoun/Documents/dev/woojubb/robota-5/pnpm-lock.yaml file and found 2176 packages
+GHSA-2p57-rm9w-gvfp and 1 alias have been filtered out because: ip@2.0.1 SSRF unreachable in werift (no fix published); guarded by cve-2024-29415-reachability.test.ts — REMOTE-001.
+GHSA-f88m-g3jw-g9cj has been filtered out because: sharp build-time-only on trusted site images (unreachable); 0.35.0 bump breaks the CF Pages docs build env — INFRA-044.
+GHSA-rgj7-g3m4-5g8c has been filtered out because: sharp libheif decoder is build-time-only on trusted site images (unreachable for untrusted input); 0.35.x breaks the CF Pages docs build env — INFRA-044.
+GHSA-rgj7-g3m4-5g8c has been filtered out because: sharp libheif decoder is build-time-only on trusted site images (unreachable for untrusted input); 0.35.x breaks the CF Pages docs build env — INFRA-044.
+Filtered 4 vulnerabilities from output
+No issues found
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `3c14559382f9` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-12
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/github-actions-maintenance.test.mjs (7 tests) 5ms
+ ✓ scripts/harness/__tests__/security-integrated-scan.test.mjs (15 tests) 65ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  20:48:02
+   Duration  231ms (transform 19ms, setup 0ms, collect 42ms, tests 70ms, environment 0ms, prepare 62ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `3014c4d69056` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-12
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/github-actions-maintenance.test.mjs (7 tests) 5ms
+ ✓ scripts/harness/__tests__/security-integrated-scan.test.mjs (15 tests) 65ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  20:48:02
+   Duration  231ms (transform 19ms, setup 0ms, collect 42ms, tests 70ms, environment 0ms, prepare 62ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `3daf18e1dea9` (modified)
+
+### [GATE-COMPLETE: TC-04] — ❌ FAIL | 2026-09-12
+
+**Command:** `node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc .agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md --verify-cmd "node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts" --verify-cmd "pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache"`
+**Exit:** 2
+**Output:** (last 7 of 7 line(s))
+
+```
+PASS             GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress` — [GATE-IMPLEMENT] — ✅ PASS | 2026-09-12; status `in-progress`
+PENDING-GUARDIAN GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`). — tagged mechanical, but gate.mjs binds no judgement to this wording — treated as semantic
+PENDING-GUARDIAN GATE-VERIFY — No Plan item is blocked or pending — tagged mechanical, but gate.mjs binds no judgement to this wording — treated as semantic
+PASS             GATE-VERIFY — Build passes for all affected packages (`pnpm build`) — build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts` → exit 0 ( ⏎ 113 scans passed, 1 skipped (114 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M  .agents/loop-runs/backlog-execution-orchestrator.jsonl, MM .agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md, M  .agents/spec-docs/draft/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md, M  .agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md, MM .agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md, M  .github/workflows/security-scheduled.yml, M  package.json, M  pnpm-lock.yaml, A  scripts/harness/__tests__/security-integrated-scan.test.mjs); all 2 supplied commands exit 0
+PASS             GATE-VERIFY — Tests pass for all affected packages (`pnpm test`) — test-shaped `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache` → exit 0 (   Duration  232ms (transform 21ms, setup 0ms, collect 43ms, tests 70ms, environment 0ms, prepare 62ms) ⏎  ⏎ 8:50:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+gate GATE-VERIFY (lane L2): 5 criteria judged — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN
+no entry written: pending criteria are the guardian's to judge and record
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `c926e356ac6a` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-12
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check:** PASS — the recorded GATE-IMPLEMENT PASS precedes this gate; the active spec and paired Task both currently have `status: in-progress`. This entry does not change either status or location.
+
+**Per-criterion evidence:**
+
+- GATE-VERIFY — Plan complete: PASS — the exact paired Task's `## Plan` contains TC-01 through TC-04, all four `[x]`. The existing `/tmp/robota-2655-infra-statics.log` records `task-plan-items` PASS; direct inspection confirms the current Plan state.
+- GATE-VERIFY — No blocked or pending Plan item: PASS — none of those four items is unchecked, blocked or pending, and none is a merge, landing, issue-closure or publishing disposition. Separate Delivery requirements are not Plan items and remain outstanding.
+- GATE-VERIFY — Affected build verification: PASS — retain the mechanical result in `/tmp/robota-2655-infra-gate-verify.log`: `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts` exited 0, reporting 113 PASS and 1 SKIP. There is no affected product-package build scope; this is scoped static verification, not a claimed `pnpm build`, full local CI run or clean-tree receipt. The earlier statics log's tolerated advisory result is not represented as the later 113-PASS result.
+- GATE-VERIFY — Affected tests: PASS — retain that same gate log's exit-0 result for `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache`; the existing integrated-test log records 22/22 PASS. The separate `/tmp/robota-2655-infra-pr-audit-compatibility.log` records 1 PASS and 87 unselected tests, not 88 passes.
+
+**Verdict reason:** The mechanical evaluation recorded ordering/build/tests PASS and two unbound Plan criteria, not failing Plan evidence. `scripts/harness/gate-operations.mjs` still matches the obsolete “All tasks” / “No tasks” wording; the two current catalogue predicates are independently satisfied above. The earlier TC-04 exit-2 FAIL entry is preserved, not rewritten. No command was rerun and no implementation, routing, completion or delivery judgement is added by this one gate.
+
+**Judged by:** `backlog-gate-guard` independent guardian, current conversation
+**Judged at:** HEAD `214d5c49132c6363e4a80bee6c07d39fc5025b02` · base `origin/develop@30e0cd876971cd98ab08050d3e988cee3936fdff` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `88fea8b485ab1411e168ce70dbf1de2e624baaeb` (modified, before this append)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-12
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+PASS             GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress` — [GATE-IMPLEMENT] — ✅ PASS | 2026-09-12; status `in-progress`
+PENDING-GUARDIAN GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`). — tagged mechanical, but gate.mjs binds no judgement to this wording — treated as semantic
+PENDING-GUARDIAN GATE-VERIFY — No Plan item is blocked or pending — tagged mechanical, but gate.mjs binds no judgement to this wording — treated as semantic
+PASS             GATE-VERIFY — Build passes for all affected packages (`pnpm build`) — build-shaped `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts` → exit 0 ( ⏎ 113 scans passed, 1 skipped (114 declared what they examined) ⏎ scan receipt NOT written: working tree is not clean: M  .agents/loop-runs/backlog-execution-orchestrator.jsonl, MM .agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md, M  .agents/spec-docs/draft/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md, M  .agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md, MM .agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md, M  .github/workflows/security-scheduled.yml, M  package.json, M  pnpm-lock.yaml, A  scripts/harness/__tests__/security-integrated-scan.test.mjs); all 2 supplied commands exit 0
+PASS             GATE-VERIFY — Tests pass for all affected packages (`pnpm test`) — test-shaped `pnpm exec vitest run scripts/harness/__tests__/security-integrated-scan.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs --no-cache` → exit 0 (   Duration  232ms (transform 21ms, setup 0ms, collect 43ms, tests 70ms, environment 0ms, prepare 62ms) ⏎  ⏎ 8:50:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+gate GATE-VERIFY (lane L2): 5 criteria judged — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN
+no entry written: pending criteria are the guardian's to judge and record
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `61f0231a1406` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-12
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `b3ff8a0b7ba6` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-12
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check:** PASS — reaffirm the preceding independent GATE-VERIFY PASS and its recorded GATE-IMPLEMENT predecessor; the document remains `in-progress`. The intervening GATE-COMPLETE ordering FAIL correctly records that transition had not occurred and is preserved. This is a record-format reaffirmation, not a new review or a GATE-COMPLETE verdict.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — retain the previous full guardian entry's exact paired Task inspection, TC-01–TC-04 all four `[x]`, and existing `task-plan-items` PASS in `/tmp/robota-2655-infra-statics.log`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — retain the same four-item inspection; no unchecked, blocked, pending or disposition item. Separate Delivery remains outstanding.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — retain the exact scoped scan command and exit-0 evidence in the previous full entry and `/tmp/robota-2655-infra-gate-verify.log`: 113 PASS, 1 SKIP. No affected product-package build scope; no claim of `pnpm build`, full local CI or a clean-tree receipt.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — retain the previous full entry's exact focused Vitest command and exit-0 evidence in `/tmp/robota-2655-infra-gate-verify.log` and `/tmp/robota-2655-infra-integrated-tests.log`: 22/22 PASS. The separate compatibility result remains 1 PASS, 87 unselected.
+
+**Verdict reason:** Existing observations and verdict are unchanged; this single append supplies the machine-required criterion prefixes after the intervening premature completion attempt. No verification command was rerun, no status was changed and no earlier evidence was removed.
+
+**Judged by:** `backlog-gate-guard` independent guardian, current conversation
+**Judged at:** Existing review binding retained: HEAD `214d5c49132c6363e4a80bee6c07d39fc5025b02` · base `origin/develop@30e0cd876971cd98ab08050d3e988cee3936fdff`; reaffirmation refers to the preceding full independent GATE-VERIFY evidence, without a fresh Git binding.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-12
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-12; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `214d5c49132c` · base `origin/develop@30e0cd876971` · document `.agents/spec-docs/active/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` blob `3fa69d2a0733` (modified)

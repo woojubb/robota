@@ -1,8 +1,9 @@
 ---
 title: 'INFRA-2655: Scan integrated dependencies without manifest changes'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
 created: 2026-09-12
+completed: 2026-09-12
 priority: high
 urgency: now
 area: workspace build and verification
@@ -19,17 +20,17 @@ Parent: AGREEMENT-2655; canonical umbrella: https://github.com/woojubb/robota/is
 
 ## Plan
 
-- [ ] TC-01: Implement and regression-test full-lockfile scanning on every develop push, bound to the triggering SHA without path filters or cancellation by a later push.
-- [ ] TC-02: Preserve manual main/develop scans, actual per-leg identity, read-only credentials, scanner/checksum pins and fail-closed execution; verify positive and negative cases.
-- [ ] TC-03: Obtain a real develop full-scan result and explicit version-bound dispositions for all nine original advisory IDs across the four families.
-- [ ] TC-04: Run focused workflow/compatibility tests, affected static checks and formatting; record exact scope, results and any declared omissions without claiming local CI equivalence.
+- [x] TC-01: Implement and regression-test full-lockfile scanning on every develop push, bound to the triggering SHA without path filters or cancellation by a later push.
+- [x] TC-02: Preserve manual main/develop scans, actual per-leg identity, read-only credentials, scanner/checksum pins and fail-closed execution; verify positive and negative cases.
+- [x] TC-03: Obtain a real develop full-scan result and explicit version-bound dispositions for all nine original advisory IDs across the four families.
+- [x] TC-04: Run focused workflow/compatibility tests, affected static checks and formatting; record exact scope, results and any declared omissions without claiming local CI equivalence.
 
 ## Cause and design ownership
 
 Nash's supplied assessment is `DEPTH: FOUNDATIONAL`: the automatic integrated-dependency scan path
 is absent. INFRA-2655 already owns that cause and the four-family reconciliation; no additional
 Task or reduced scope is needed. The paired design is
-`.agents/spec-docs/draft/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`.
+`.agents/spec-docs/done/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`.
 
 The proposed direction extends the existing full-lockfile workflow, not the PR audit or a new
 schedule. Alternatives and the complete nine-advisory population are owned by the paired spec.
@@ -65,17 +66,11 @@ global CI or the removed local CI mirror for execution evidence. Inspect tests b
 use no Git initialization, worktree or clone fixtures. A real develop manual scan can establish
 TC-03 before merge; the delivering push scan remains separate post-merge acceptance.
 
-## Supplied scan evidence
+## Verification result
 
-Main supplied manual run `34691164956`: develop job `103546546315` succeeded at `30e0cd876`,
-reporting 2176 packages, 4 existing filtered results and `No issues found`; log
-`/tmp/robota-2655-infra-develop-full-scan.log`. Main job `103546546215` failed; log
-`/tmp/robota-2655-infra-main-full-scan.log`. The overall workflow failed.
-
-This is a real develop baseline, not a whole-workflow pass, new push-path proof or current gate
-verdict. All nine original advisory IDs remain outside the exclusions, with resolved versions
-traced to `15d423073`; explicit per-ID reconciliation and main-failure review remain work to record.
-The author does not check TC boxes or advance lifecycle based on this supplied evidence.
+The paired spec owns the exact commands, results and nine advisory dispositions. Focused tests and
+the changed-lockfile OSV scan passed. The original manual run's develop leg passed while its main
+leg failed. Actual delivering-push acceptance remains outstanding under Delivery above.
 
 ## Goal authorization and current constraints
 
@@ -83,29 +78,21 @@ The author does not check TC boxes or advance lifecycle based on this supplied e
 
 **Instruction (verbatim):** "#2655 이슈를 처리하고 origin/develop 브랜치에 머지할 때까지 반복해서 처리 완료 해줘."
 
-**Additional goal instruction (verbatim):** "이 깃헙 이슈를 이번에 닫는걸 목표로 하고 #2655 안에 모든 이슈를 처리해야 합니다."
-
 **Given:** 2026-09-12, owner-preserved conversation instructions.
 
 **Current owner instruction (verbatim):** "멀티에이전트는 허용합니다. 워크트리는 여전히 불허합니다"
 
 These preserve the goal authorization, not a current spec approval or gate PASS. Main owns all Git
 operations; use the existing checkout with disjoint delegated ownership, no worktrees or clones.
-This assignment restores only this Task and its paired draft, with no implementation, gate runs,
-status advances or duplicate scenario pipeline.
 
 ## Historical provenance
 
-The prior Task and active spec are preserved in the main tree of stash
-`90e57a5f76ebe8fea2590c2d675c3ec19102167e` at their original exact paths. Its checkpoint/gate evidence
-is historical and unchanged, not current approval or execution evidence. The current dependency
-upgrade reference is `15d423073`; the old plan's attribution of all four families to `101fda832`
-was incorrect. The paired draft preserves the requirements while correcting that attribution,
-the test path, permissions, local-CI assumptions and separation of verification from delivery.
+The paired spec records the preserved stash and corrected dependency-upgrade attribution.
+Historical checkpoint evidence is not substituted for the current implementation checkpoint.
 
 ## User Execution Test Scenarios
 
-**Subject:** INFRA-2655 — `.agents/tasks/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md` and its paired draft.
+**Subject:** INFRA-2655 — this Task and its paired spec.
 
 **Author assessment:** Nash; supplied for this exact dependency-scan work unit.
 
