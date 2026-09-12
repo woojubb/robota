@@ -1,12 +1,13 @@
 ---
 title: 'HARNESS-2655: Scope archived-task regression to its owning record'
 issue: https://github.com/woojubb/robota/issues/2655
-status: todo
+status: done
 created: 2026-09-12
 priority: medium
 urgency: soon
 area: harness regression scope
 depends_on: []
+completed: 2026-09-12
 ---
 
 # HARNESS-2655: Scope archived-task regression to its owning record
@@ -16,7 +17,7 @@ depends_on: []
 Repair the archived-record assertion that prevents the legitimate parent conversion for Issue #2655.
 Preserve valid original-source citations and collector behavior while narrowing the test to its owner.
 
-Spec: `.agents/spec-docs/todo/HARNESS-2655-scope-archived-task-regression-to-its-owning-record.md`
+Spec: `.agents/spec-docs/done/HARNESS-2655-scope-archived-task-regression-to-its-owning-record.md`
 
 Owner authorization (verbatim):
 
@@ -24,15 +25,22 @@ Owner authorization (verbatim):
 
 ## Plan
 
-- [ ] TC-01: Verify archived-record exclusion and legitimate same-Issue discoverability with RED/GREEN evidence.
-- [ ] TC-02: Run affected repository scans without expanding their scope or bypassing failures.
-- [ ] TC-03: Run the full owning regression file and inspect sibling assertions.
+- [x] TC-01: Verify archived-record exclusion and legitimate same-Issue discoverability with RED/GREEN evidence.
+- [x] TC-02: Run affected repository scans without expanding their scope or bypassing failures.
+- [x] TC-03: Run the full owning regression file and inspect sibling assertions.
 
 ## Test Plan
 
 Run `pnpm exec vitest run scripts/harness/__tests__/github-issue-triage.test.mjs` and the affected
 scan command recorded in the paired spec. Preserve the failing parent-conversion log and exercise
 an isolated fixture combining an archived record with a valid open citation.
+
+Observed RED: `/tmp/robota-2655-archive-regression-red.log` records one failed fixture under the
+original Issue-wide assertion. GREEN: `/tmp/robota-2655-archive-regression-green.log` records 122/122
+tests passing, including archived citation exclusion, legitimate same-Issue discovery and rejection of
+reactivation with no citation or a different Issue. Affected scans passed 61/61 with one declared skip
+in `/tmp/robota-2655-archive-regression-scans.log`. Of three Issue-absence assertions in the owning
+file, the other two concern controlled resolver-conflict fixtures and do not forbid future live work.
 
 ## Delivery
 
