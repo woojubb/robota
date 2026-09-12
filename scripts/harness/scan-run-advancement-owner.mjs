@@ -11,6 +11,7 @@
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { GENERATION_DIRECTORY } from '../artifacts/writer-lock.mjs';
 
 import * as ts from './lib/ts-ast.mjs';
 
@@ -116,6 +117,7 @@ function collectProductionFiles(root) {
       if (
         entry.name === 'node_modules' ||
         entry.name === 'dist' ||
+        entry.name === GENERATION_DIRECTORY ||
         entry.name === '__tests__' ||
         entry.name === 'fixtures'
       ) {

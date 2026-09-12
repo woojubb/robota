@@ -1,4 +1,12 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+  realpathSync,
+  renameSync,
+} from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -34,12 +42,14 @@ import { startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui
  * static asset is served, a missing path is 404, and a path-traversal attempt is rejected (403).
  */
 describe('startMonitorUiServer (GUI-007)', () => {
+  let fixtureRoot: string;
   let webRoot: string;
   let server: IMonitorUiServer;
   const wsUrl = 'ws://127.0.0.1:7070';
 
   beforeAll(async () => {
-    webRoot = realpathSync(mkdtempSync(join(tmpdir(), 'monitor-ui-')));
+    fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'monitor-ui-')));
+    webRoot = join(fixtureRoot, 'web');
     mkdirSync(join(webRoot, 'assets'), { recursive: true });
     writeFileSync(
       join(webRoot, 'index.html'),
@@ -55,8 +65,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
   });
   afterAll(async () => {
     await server.close();
-    rmSync(webRoot, { recursive: true, force: true });
-    rmSync(join(webRoot, '..', 'secret.txt'), { force: true });
+    rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
   it('injects the live ws-url meta into index.html', async () => {
@@ -71,6 +80,27 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('javascript');
     expect(await res.text()).toContain('export const x = 1;');
+  });
+
+  it('keeps serving the startup generation after its public pointer is replaced', async () => {
+    const pointer = join(fixtureRoot, 'current');
+    const nextPointer = join(fixtureRoot, 'next');
+    const replacement = join(fixtureRoot, 'replacement');
+    mkdirSync(replacement);
+    writeFileSync(join(replacement, 'index.html'), '<html>replacement</html>');
+    symlinkSync(webRoot, pointer, 'junction');
+    const pinnedServer = await startMonitorUiServer(pointer, wsUrl);
+    try {
+      symlinkSync(replacement, nextPointer, 'junction');
+      // Windows replacement is explicitly non-atomic; the server must still pin its generation.
+      if (process.platform === 'win32') rmSync(pointer);
+      renameSync(nextPointer, pointer);
+      const response = await fetch(`${pinnedServer.url}/assets/app.js`);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('export const x = 1;');
+    } finally {
+      await pinnedServer.close();
+    }
   });
 
   it('returns 404 for a missing path', async () => {

@@ -14,7 +14,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
   },
-  format: ['esm', 'cjs'],
+  format: { esm: {}, cjs: { dts: false } },
   outDir: 'dist/node',
   platform: 'node',
   sourcemap: false,

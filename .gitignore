@@ -5,8 +5,12 @@ node_modules/.pnpm
 # output
 out
 dist
+dist-bun
 dist-ssr
 *.tgz
+# ARTIFACT-2655: immutable outputs, recovery records and temporary publication links.
+.robota-artifacts/
+packages/**/.dist-*
 
 # generated files
 packages/**/*.js

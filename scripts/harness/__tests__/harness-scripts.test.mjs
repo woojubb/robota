@@ -2,6 +2,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import { describe, it, expect } from 'vitest';
+import { parse } from 'yaml';
 
 // harness:scan delegates to the aggregating runner (HARNESS-011); wiring
 // assertions check the runner's scan table.
@@ -207,9 +208,21 @@ describe('CI build workflow', () => {
       'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
     );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
-    expect(content).toContain(
-      'tar --null -czf package-dist.tgz --files-from .agents/evals/local-metrics/package-dist-membership.bin',
+    const steps = parse(content).jobs.build.steps;
+    const archiveIndex = steps.findIndex((step) => step.name === 'Archive package build output');
+    expect(archiveIndex).toBeGreaterThan(
+      steps.findIndex((step) => step.name === 'Build full or affected workspace'),
     );
+    expect(steps[archiveIndex].run).toBe(
+      'node scripts/artifacts/transfer.mjs export --plan .agents/evals/local-metrics/workspace-build-plan.json --archive package-dist.tgz',
+    );
+    expect(steps[archiveIndex].if).toBe(
+      "env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'",
+    );
+    const uploadIndex = steps.findIndex((step) => step.name === 'Upload package build output');
+    expect(uploadIndex).toBeGreaterThan(archiveIndex);
+    expect(steps[uploadIndex].with.path).toBe('package-dist.tgz');
+    expect(steps[uploadIndex].if).toBe(steps[archiveIndex].if);
     expect(content).not.toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
       'package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}',
@@ -303,14 +316,32 @@ describe('CI build workflow', () => {
 // publish workflow
 // ---------------------------------------------------------------------------
 describe('publish workflow', () => {
-  it('syncs and verifies beta dist-tags after recursive publish', () => {
+  it('publishes the prepared verified release set before syncing and verifying beta dist-tags', () => {
     const script = readFileSync('scripts/publish/publish-packages.sh', 'utf8');
 
-    expect(script).toContain('command+=(publish -r --no-git-checks)');
-    expect(script).toContain('command+=(--otp "$OTP")');
-    expect(script).toContain('Already published packages will be skipped on retry.');
+    expect(script).toContain('command=(node scripts/artifacts/publish-cli.mjs publish');
+    expect(script).toContain(
+      '"$PUBLISH_ARTIFACT_DIR/release-set.json" "$mode" "${MISSING_PACKAGES[@]}"',
+    );
+    expect(script).toContain('output=$(ROBOTA_PUBLISH_OTP="$OTP" "${command[@]}" 2>&1)');
+    const orderedSteps = [
+      'node scripts/artifacts/publish-cli.mjs prepare "$PUBLISH_ARTIFACT_DIR" "${PUBLISHABLE_PACKAGES[@]}"',
+      'run_publish_command dry-run',
+      'read -rp "🔑 Enter npm OTP for publish: " OTP',
+      'if run_publish_command publish; then',
+      'Syncing beta dist-tags',
+      'Verifying npm dist-tags',
+    ].map((step) => {
+      expect(script).toContain(step);
+      return script.indexOf(step);
+    });
+    expect(orderedSteps).toEqual([...orderedSteps].sort((left, right) => left - right));
+    expect(script).toContain('OTP is required.');
+    expect(script).toContain('Enter fresh npm OTP for remaining packages:');
+    expect(script).not.toContain('command+=(publish -r --no-git-checks)');
     expect(script).toContain('Syncing beta dist-tags');
     expect(script).toContain('npm dist-tag add "$1@$VERSION" beta');
+    expect(script).toContain('beta --otp "$TAG_OTP" --registry https://registry.npmjs.org/');
     expect(script).toContain('Verifying npm dist-tags');
     expect(script).toContain('dist-tags.latest');
     expect(script).toContain('dist-tags.beta');

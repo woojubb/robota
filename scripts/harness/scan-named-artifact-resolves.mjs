@@ -40,6 +40,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { GENERATION_DIRECTORY } from '../artifacts/writer-lock.mjs';
 
 import { EXTENSIONS, hasStem, isTemplateSlot } from './lib/file-name-shape.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
@@ -48,7 +49,15 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 /** The trees whose prose is governed. Archives are historical and name a tree that has moved on. */
 const ROOTS = ['.agents/rules', '.agents/skills', 'scripts/harness', '.claude/hooks'];
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'completed', 'done', 'rejected', 'archive']);
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  GENERATION_DIRECTORY,
+  'completed',
+  'done',
+  'rejected',
+  'archive',
+]);
 
 // The extension list moved to `lib/file-name-shape.mjs`: `hasStem` needs it to tell `.gitignore`
 // (a file) from `.ts` (an extension), and this scan needs it to decide what to look for. Two

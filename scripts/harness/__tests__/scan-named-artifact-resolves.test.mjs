@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { makeTemp } from './make-temp.mjs';
 
 // allow-missing-artifact-file: every name in this file is an invented fixture — the case is what a name looks like
 
@@ -11,8 +14,44 @@ import {
   isTemplateSlot,
   judgeAgainstBaseline,
   readBaseline,
+  repositoryBasenames,
   scanNamedArtifacts,
 } from '../scan-named-artifact-resolves.mjs';
+
+it('ignores generation names and prose without hiding authored artifacts or changing the baseline', () => {
+  const root = makeTemp('robota-named-artifact-storage-');
+  for (const directory of ['.agents/rules', '.agents/skills', 'scripts/harness', '.claude/hooks']) {
+    mkdirSync(path.join(root, directory), { recursive: true });
+  }
+  const files = {
+    '.agents/rules/first.md': 'References `index.js` and `live.ts`.\n',
+    '.agents/skills/second.md': 'References `index.js` and `.github/workflows/ci.yml`.\n',
+    'packages/pkg/src/live.ts': 'export const live = true;\n',
+    '.github/workflows/ci.yml': 'name: fixture\n',
+    'packages/pkg/.robota-artifacts/generation/previous-dist/node/index.js': 'generated\n',
+    'scripts/harness/.robota-artifacts/generation/previous-dist/note.md':
+      'References `never-created.ts`.\n',
+    'scripts/harness/.robota-artifacts-source/live.mjs': '// References `live.ts`.\n',
+  };
+  for (const [relative, content] of Object.entries(files)) {
+    const target = path.join(root, relative);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
+  const present = repositoryBasenames(root);
+  expect(present.has('index.js')).toBe(false);
+  expect(present.has('live.ts')).toBe(true);
+  expect(present.has('live.mjs')).toBe(true);
+  expect(present.has('ci.yml')).toBe(true);
+  const { findings, examined } = scanNamedArtifacts(root);
+  const frozen = new Set([
+    `${path.join('.agents', 'rules', 'first.md')} -> index.js`,
+    `${path.join('.agents', 'skills', 'second.md')} -> index.js`,
+  ]);
+  expect(findings).toHaveLength(2);
+  expect(judgeAgainstBaseline(findings, frozen)).toEqual({ unfrozen: [], stale: [] });
+  expect(examined).toBe(3);
+});
 
 describe('a name is read from a code span, not from prose', () => {
   it('reads a backticked file name', () => {

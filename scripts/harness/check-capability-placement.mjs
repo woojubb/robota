@@ -9,6 +9,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { GENERATION_DIRECTORY } from '../artifacts/writer-lock.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
@@ -150,6 +151,7 @@ async function walkFiles(root, relativeDir) {
   const entries = await fs.readdir(absoluteDir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
+    if (entry.isDirectory() && entry.name === GENERATION_DIRECTORY) continue;
     const childRelativePath = path.join(relativeDir, entry.name);
     if (isIgnoredPath(childRelativePath)) {
       continue;

@@ -8,8 +8,8 @@
 #   pnpm publish:beta --skip-build # skip the build preflight (dist already current, e.g. from CI)
 #
 # Key design decisions:
-#   - Uses `pnpm publish -r` (single command, ~4 seconds) instead of
-#     per-package `pnpm publish --filter` (sequential, minutes).
+#   - Prepares exact-verified tarballs before OTP, then publishes only those bytes
+#     with bounded parallel package commands; retries never re-pack directories.
 #   - Publishes without --tag so npm sets `latest`, then explicitly syncs
 #     the `beta` dist-tag to the same version (in parallel, to fit one OTP window).
 #   - ALL slow, OTP-free work (build, release-run check, auth, dry-run) runs BEFORE
@@ -66,9 +66,9 @@ echo ""
 # ── Build preflight (before any OTP, so the OTP → publish step is immediate) ──
 # All slow, OTP-free work happens here; entering the OTP later should run to completion at once.
 if [ "$SKIP_BUILD" = "true" ]; then
-  echo "🛠️  Skipping build (--skip-build); assuming dist is already current."
+  echo "🛠️  Skipping build (--skip-build); exact generation and tarball verification still run."
 else
-  echo "🛠️  Building all packages (turbo-cached)..."
+  echo "🛠️  Building complete package artifacts..."
   pnpm build
 fi
 echo ""
@@ -111,6 +111,10 @@ if [ "${#PUBLISHABLE_PACKAGES[@]}" -eq 0 ]; then
   echo "❌ No publishable @robota-sdk packages found."
   exit 1
 fi
+
+# Retained on failure for inspection/retry evidence; contains no OTP or credentials.
+PUBLISH_ARTIFACT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-publish-artifacts.XXXXXX")
+node scripts/artifacts/publish-cli.mjs prepare "$PUBLISH_ARTIFACT_DIR" "${PUBLISHABLE_PACKAGES[@]}"
 
 PUBLISHED_PACKAGES=()
 MISSING_PACKAGES=()
@@ -165,27 +169,13 @@ run_publish_command() {
   local mode="$1"
   local output
   local status
-  local package_name
   local -a command
 
-  command=(pnpm)
-  if [ "${#MISSING_PACKAGES[@]}" -eq "${#PUBLISHABLE_PACKAGES[@]}" ]; then
-    command+=(publish -r --no-git-checks)
-  else
-    for package_name in "${MISSING_PACKAGES[@]}"; do
-      command+=(--filter "$package_name")
-    done
-    command+=(publish --no-git-checks)
-  fi
-
-  if [ "$mode" = "dry-run" ]; then
-    command+=(--dry-run)
-  else
-    command+=(--otp "$OTP")
-  fi
+  command=(node scripts/artifacts/publish-cli.mjs publish
+    "$PUBLISH_ARTIFACT_DIR/release-set.json" "$mode" "${MISSING_PACKAGES[@]}")
 
   set +e
-  output=$("${command[@]}" 2>&1)
+  output=$(ROBOTA_PUBLISH_OTP="$OTP" "${command[@]}" 2>&1)
   status=$?
   set -e
 

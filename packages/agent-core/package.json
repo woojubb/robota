@@ -61,11 +61,17 @@
     "README.md",
     "CHANGELOG.md"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
-    "dev": "tsup --watch",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "dev": "node ../../scripts/artifacts/watch-package.mjs",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",

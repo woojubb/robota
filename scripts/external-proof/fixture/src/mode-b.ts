@@ -4,10 +4,10 @@
  * The consumer hand-writes an `IPreset` against the published contract and passes it in the profile. Two
  * things must hold: the RESOLVED options reflect the preset (persona / model / permission posture, and the
  * posture reaches the runtime session options), and the preset does NOT leak — `assembleProduct` builds a
- * PER-CALL instance-scoped registry (ARCH-005 R8) rather than mutating agent-preset's module-level global.
+ * PER-CALL instance-scoped registry (ARCH-005 R8) without mutating an independently owned built-in registry.
  */
 
-import { resolvePreset as globalResolvePreset } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
@@ -18,6 +18,7 @@ export function runModeB(): void {
   mode('MODE B — author your own preset in code and layer it');
 
   const providerDefinitions = createDefaultProviderDefinitions();
+  const builtInRegistry = createPresetRegistry();
 
   section("B1 — the consumer's own preset resolves through the assembled product");
   const product = assembleProduct({
@@ -106,8 +107,8 @@ export function runModeB(): void {
     /Unknown preset: "acme-reviewer"/,
   );
   checkThrows(
-    "agent-preset's module-level global registry was never mutated either",
-    () => globalResolvePreset('acme-reviewer'),
+    'an independently created built-in registry was never mutated either',
+    () => builtInRegistry.resolvePreset('acme-reviewer'),
     /Unknown preset: "acme-reviewer"/,
   );
   check(

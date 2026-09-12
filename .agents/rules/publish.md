@@ -165,7 +165,7 @@ The publish-specific consequence, which that document does not carry:
   answered — `--otp`/`--tag-otp` MUST be passed explicitly. See the OTP Protocol below.
 - **NEVER** use any of these:
   - `pnpm publish --filter` (sequential per-package = minutes, OTP expires)
-  - `pnpm publish` (without -r)
+  - manual `pnpm publish` commands (including recursive directory publishing)
   - `pnpm changeset publish`
   - `npm publish`
 - **No `--tag` flag on publish**: npm automatically sets `latest` to the newly published version. The
@@ -174,12 +174,12 @@ The publish-specific consequence, which that document does not carry:
 ### pnpm publish only — npm publish is blocked (non-negotiable)
 
 - All publish operations MUST go through `pnpm publish`. Never `npm publish`.
-- `pnpm publish` resolves `workspace:*` dependencies to actual version numbers in the tarball. `npm publish` does NOT — it publishes `workspace:*` literally, which causes `ETARGET` install failures for consumers.
+- The canonical pack step uses pnpm to resolve `workspace:*` dependencies before verifying the tarball. Publication must consume those verified bytes without re-packing a package directory.
 - Each package has `"prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"` which blocks `npm publish` at runtime. This is a safety net, not a replacement for following the rule.
 
 ### All packages must be published together (non-negotiable)
 
-- `pnpm publish -r` publishes ALL non-private packages in one command. This is why we use `-r` instead of `--filter`.
+- The canonical publish command covers the complete non-private release set; its internal bounded concurrency does not permit manual package selection.
 - `workspace:*` dependencies resolve to the exact version at publish time. If any package is missing, `npm install` fails with `ETARGET`.
 - Never cherry-pick which packages to publish. Changesets fixed group means all packages share the same version.
 - Any committed change under a package directory, including `README.md`, `docs/README.md`, `docs/SPEC.md`, examples, metadata, or other documentation, is a package change and MUST be represented by a changeset, coordinated version bump, and npm publish when the package is non-private.
@@ -187,7 +187,7 @@ The publish-specific consequence, which that document does not carry:
 ### Publish Safety Gate
 
 - Before entering the publish flow, the Release Control Plane (above) must identify the current SHA, target version, active gate, next action, and stop condition, and the matching release-run artifact must pass `pnpm harness:release:check -- --version <version> --publish`.
-- Build must pass BEFORE running dry-run. The script does NOT run build internally — the agent must verify build first.
+- Build must pass BEFORE running dry-run. The canonical command builds by default; `--skip-build` is permitted only with current build evidence and still verifies generations and tarballs.
 - MUST use `pnpm publish`, NEVER `npm publish`.
 - When a package is published for the first time, search `content/` and `docs/` for "not yet published" references and remove them.
 
@@ -210,7 +210,7 @@ complete before the next begins. The prohibitions below hold however it is drive
 - Asking the user to "type the OTP when prompted" — Claude Code cannot relay interactive prompts
 - Running `npm whoami` as the first step of the flow (wastes time if auth is valid; user logs in when needed, not before)
 
-If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
+If `pnpm publish:beta` fails during dry-run, inspect its full failure output and retained verified release set. Diagnose with the same verified-set dry-run entry point documented in `version-management`; do not re-pack directories to reproduce the failure.
 
 Treat sandbox, network, and npm cache errors as environment failures until confirmed otherwise. Re-run npm registry preflight and full dry-run outside the restricted sandbox when the first failure includes `ENOTFOUND`, registry fetch failures, npm cache permission errors, or missing npm log output.
 
@@ -226,7 +226,7 @@ If publish fails, first classify the failure with the CI Failure Triage rules. R
 
 ### Publish Scope Approval
 
-- `pnpm publish -r` publishes all non-private packages automatically. No cherry-picking needed.
+- `pnpm publish:beta` selects the complete non-private release set automatically. No cherry-picking is permitted.
 - Packages marked as `private: true` in package.json are never published.
 - New packages that have never been published require explicit user approval on their first publish.
 

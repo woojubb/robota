@@ -20,7 +20,7 @@ export default defineConfig([
     // Node build also emits the test-only ./testing subpath (TEST-003 scripted-provider SSOT).
     // `node.ts` is the Node-only surface the browser build must not reach (CORE-028).
     entry: { index: 'src/index.ts', node: 'src/node.ts', 'testing/index': 'src/testing/index.ts' },
-    format: ['esm', 'cjs'],
+    format: { esm: {}, cjs: { dts: false } },
     outDir: 'dist/node',
     platform: 'node',
     clean: true,

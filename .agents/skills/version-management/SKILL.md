@@ -41,14 +41,16 @@ pnpm publish:beta
 
 Runs `scripts/publish/publish-packages.sh`:
 
-1. Reads version from `agent-core/package.json`
-2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
-3. Prompts for OTP (after dry-run so it doesn't expire)
-4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
-5. Syncs `beta` dist-tags for all published packages to the same version
-6. Verifies both `latest` and `beta` dist-tags point to the published version
+1. Reads the target version, builds complete artifacts unless `--skip-build` is justified, and checks the release-run.
+2. Selects the complete public release set and prepares exact-verified pnpm tarballs plus a retained `release-set.json` before authentication or OTP. <!-- allow-missing-artifact: generated in the invocation's temporary artifact directory by publish-set.mjs -->
+3. Checks authentication and registry state, then dry-runs the pending tarballs.
+4. Requests OTP and publishes those same bytes, checking hashes before each bounded batch (four package commands) and each command. A failed batch settles before exit; later batches do not start.
+5. Retries only missing packages from the retained set within the invocation, then syncs and verifies `beta` and `latest` for the complete release set.
 
-Key: uses `pnpm publish -r` (single command) not `--filter` per package (sequential, minutes).
+Only the canonical publisher internally invokes `pnpm publish <verified.tgz> --no-git-checks`.
+It never publishes from package directories. To diagnose dry-run failure without publishing, use
+`node scripts/artifacts/publish-cli.mjs publish <retained-release-set.json> dry-run <pending-package-names...>`;
+obtain those names from the failed invocation, not an arbitrary partial release selection.
 No `--tag` flag on publish: npm automatically sets `latest` to the new version. The script explicitly syncs `beta` afterward.
 
 ### Release-Time Gotchas (observed in beta.76, 2026-06-14)
@@ -63,7 +65,7 @@ No `--tag` flag on publish: npm automatically sets `latest` to the new version. 
    some packages had changesets, the bump produces an incomplete CHANGELOG — revert the bump, add
    the missing `.changeset/*.md`, and re-run `pnpm run version`. Checklist before bumping: every
    package touched since the last release tag is named in some changeset.
-3. **OTP expiry mid-publish is recoverable.** OTPs are short-lived and `pnpm publish -r` across many
+3. **OTP expiry mid-publish is recoverable.** OTPs are short-lived and publishing many
    packages can outlast one. `scripts/publish/publish-packages.sh` is idempotent — already-published
    packages are skipped — so on `EOTP`/`E401` simply re-run `pnpm publish:beta` with a fresh OTP.
 4. **Registry propagation lag causes false dist-tag mismatches.** The publish script's final

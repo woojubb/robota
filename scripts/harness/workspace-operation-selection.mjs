@@ -58,8 +58,19 @@ export function selectPackagesForOperation(context) {
   let dependentNames = new Set();
   let selectedNames = new Set(ownerNames);
   if (operation === 'build') {
-    dependencyNames = transitiveClosure(ownerNames, dependencies);
-    selectedNames = new Set([...ownerNames, ...dependencyNames]);
+    const copiedDependents = new Map([...byName.keys()].map((name) => [name, []]));
+    for (const entry of byName.values()) {
+      for (const copy of entry.artifact?.copies ?? []) {
+        copiedDependents.get(copy.package)?.push(entry.name);
+      }
+    }
+    dependentNames = transitiveClosure(ownerNames, copiedDependents);
+    for (const name of dependentNames) {
+      addReason(reasons, name, `copied-artifact-consumer-of:${[...ownerNames].sort().join(',')}`);
+    }
+    const consumers = new Set([...ownerNames, ...dependentNames]);
+    dependencyNames = transitiveClosure(consumers, dependencies);
+    selectedNames = new Set([...consumers, ...dependencyNames]);
   } else if (operation === 'consumer-build') {
     dependentNames = transitiveClosure(ownerNames, dependents);
     const consumers = new Set([...ownerNames, ...dependentNames]);

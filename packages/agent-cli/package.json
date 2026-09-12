@@ -37,10 +37,27 @@
     "dist",
     "bin"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown",
+      "copies": [
+        {
+          "package": "@robota-sdk/agent-cli-web",
+          "target": "web"
+        }
+      ],
+      "variants": {
+        "bun": {
+          "output": "dist-bun"
+        }
+      }
+    }
+  },
   "scripts": {
-    "build": "pnpm --filter @robota-sdk/agent-transport-gui build && pnpm --filter @robota-sdk/agent-cli-web build && node scripts/copy-web-assets.mjs && tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "dev": "tsx src/bin.ts",
     "start": "node dist/node/bin.js",
     "test": "vitest run --passWithNoTests",

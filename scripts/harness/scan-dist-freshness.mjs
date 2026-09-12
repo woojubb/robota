@@ -54,9 +54,8 @@
  * SEVERITY: presence is an ERROR, freshness is an ADVISORY that never changes the exit code. A
  * freshness rule that hard-failed would redden a legitimately-reverted file, and `ci.yml` already
  * carries a `--skip dist`, so the suppression path for a noisy gate here is literally pre-wired. The
- * blocking enforcement for staleness already exists and is sound: `verify-like-ci`'s `build` stage
- * REBUILDS rather than trusting this scan. This check's job is a legible message at the moment of
- * confusion, not a second gate.
+ * actual clean builds in CI establish runtime/build evidence. A verified managed manifest proves
+ * exact output bytes, not source freshness. This check's mtime advice is not CI-equivalent proof.
  *
  * VISIBILITY: staleness lines carry `ADVISORY_MARKER`, so they reach `pnpm harness:scan`'s summary
  * even though this scan exits 0. That marker is load-bearing, not decoration. MEASURED before it
@@ -69,8 +68,10 @@
  * Run: node scripts/harness/scan-dist-freshness.mjs
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync } from 'node:fs';
 import path, { extname, join, relative, sep } from 'node:path';
+import { readArtifactCapability } from '../artifacts/capability.mjs';
+import { pinGeneration } from '../artifacts/generation.mjs';
 import { ADVISORY_MARKER } from './output-markers.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 
@@ -127,29 +128,25 @@ export function isEmittedSourceFile(relativePath) {
  * simply not measurable.
  */
 export function walkTree(dirPath, accept = () => true) {
-  if (!existsSync(dirPath)) return { fileCount: 0, newest: null };
-  let entries;
-  try {
-    entries = readdirSync(dirPath, { recursive: true, withFileTypes: true });
-  } catch {
-    return { fileCount: 0, newest: null };
-  }
-
   let fileCount = 0;
   let newest = null;
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const fullPath = join(entry.parentPath ?? entry.path, entry.name);
-    const relativePath = relative(dirPath, fullPath);
-    if (!accept(relativePath)) continue;
-    fileCount++;
-    let mtimeMs;
+  const pending = [dirPath];
+  while (pending.length > 0) {
+    const fullPath = pending.pop();
     try {
-      mtimeMs = statSync(fullPath).mtimeMs;
+      const stat = lstatSync(fullPath);
+      if (stat.isDirectory()) {
+        pending.push(...readdirSync(fullPath).map((name) => join(fullPath, name)));
+        continue;
+      }
+      const relativePath = relative(dirPath, fullPath);
+      if (!stat.isFile() || !accept(relativePath)) continue;
+      fileCount++;
+      const mtimeMs = stat.mtimeMs;
+      if (newest === null || mtimeMs > newest.mtimeMs) newest = { path: relativePath, mtimeMs };
     } catch {
       continue;
     }
-    if (newest === null || mtimeMs > newest.mtimeMs) newest = { path: relativePath, mtimeMs };
   }
   return { fileCount, newest };
 }
@@ -233,34 +230,50 @@ export function presenceResults(scope, pkg, hasDist) {
  * Returns ordered results (`{ kind: 'ok' | 'warn' | 'error' | 'stale', message }`), the buildable
  * count, and a `freshness` tally so the CLI can report what it MEASURED alongside what it found.
  */
-export async function collectDistFreshnessResults(root, scopes) {
+export async function collectDistFreshnessResults(
+  root,
+  scopes,
+  { requireVerifiedGeneration = false } = {},
+) {
   const buildable = scopes.filter((s) => s.scripts.build);
   const results = [];
   const freshness = { measured: 0, fresh: 0, stale: 0, unmeasurable: 0 };
 
   for (const scope of buildable) {
     const scopeDir = join(root, scope.relativeDir);
-    const distWalk = walkTree(join(scopeDir, 'dist'));
     const pkg = await readJson(join(scopeDir, 'package.json'));
+    const capability = readArtifactCapability(pkg);
+    let distRoot = join(scopeDir, 'dist');
+    let managed = false;
+    if (
+      requireVerifiedGeneration ||
+      (capability && lstatSync(distRoot, { throwIfNoEntry: false }))
+    ) {
+      try {
+        // Resolve the public pointer once; verification and the mtime walk use its physical tree.
+        distRoot = pinGeneration(scopeDir).root;
+        managed = true;
+      } catch (error) {
+        results.push({
+          kind: 'error',
+          message: `${scope.workspaceName}: invalid managed generation: ${error.message}`,
+        });
+        freshness.unmeasurable++;
+        continue;
+      }
+    }
+    const distWalk = walkTree(distRoot);
 
-    results.push(...presenceResults(scope, pkg, distWalk.fileCount > 0));
+    results.push(
+      ...(managed
+        ? [{ kind: 'ok', message: `${scope.workspaceName}: verified managed dist/ present` }]
+        : presenceResults(scope, pkg, distWalk.fileCount > 0)),
+    );
 
-    // Freshness is only compared for packages the STANDARD build rebuilds. Root `pnpm build` is
-    // `pnpm --filter "./packages/**" build:js`, so `apps/**` and any package without a `build:js`
-    // script are never refreshed by it. Measured on a tree immediately after a clean `pnpm build`:
-    // agent-app (312h), remote-signaling (383h) and agent-cli-web (167h) still reported stale, and
-    // no amount of running the command the advisory recommends would ever clear them.
-    //
-    // An advisory that cannot be cleared by the action it advises is the shape that trains people
-    // to ignore the channel — the same defect HARNESS-054 records for a scan whose red has no path
-    // back to green. Their dist genuinely is old; it is just not this scan's claim to make, because
-    // the claim it exists to support is "your cross-package typecheck is reading a stale dist,
-    // rebuild", and rebuilding does not apply to them.
-    // BOTH halves of the filter matter. `apps/remote-signaling` declares `build:js` and is still
-    // never rebuilt, because the filter is `./packages/**` — the script's presence says nothing
-    // about whether the root build reaches it.
+    // Managed capabilities (including Vite) belong to complete root assembly. The alias is only
+    // a compatibility signal for legacy packages, not a separate JavaScript/types build owner.
     const rebuiltByRootBuild =
-      scope.relativeDir.startsWith('packages/') && Boolean(scope.scripts['build:js']);
+      scope.relativeDir.startsWith('packages/') && Boolean(capability || scope.scripts['build:js']);
     if (!rebuiltByRootBuild) {
       freshness.unmeasurable++;
       continue;
@@ -306,7 +319,9 @@ export async function staleDistScopes(root = ROOT) {
 
 export async function main() {
   const scopes = await listWorkspaceScopes();
-  const { results, buildableCount, freshness } = await collectDistFreshnessResults(ROOT, scopes);
+  const { results, buildableCount, freshness } = await collectDistFreshnessResults(ROOT, scopes, {
+    requireVerifiedGeneration: process.argv.includes('--require-verified-generation'),
+  });
 
   // FAIL CLOSED on an empty subject. MEASURED, not assumed: before this guard, a
   // `pnpm-workspace.yaml` resolving to zero packages printed "dist/ present on all 0 package(s)"
@@ -362,14 +377,14 @@ export async function main() {
     console.warn(
       `\x1b[33m${ADVISORY_MARKER} ${freshness.stale} package(s) have a dist/ older than their ` +
         'src/. A cross-package type error seen only in a whole-workspace typecheck should be ' +
-        're-checked after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before ' +
+        're-checked after the affected complete package build before ' +
         'it is treated as a branch defect.\x1b[0m',
     );
   }
 
   if (errors > 0) {
     console.error(
-      `\x1b[31m${errors} package(s) have missing dist/. Run \`pnpm build\` before pushing.\x1b[0m`,
+      `\x1b[31m${errors} package(s) have missing or invalid dist/. Run the affected complete build.\x1b[0m`,
     );
     process.exit(1);
   } else {

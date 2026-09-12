@@ -85,6 +85,27 @@ const WORKSPACE_FULL_FILES = new Set([
   'vitest.shared.ts',
 ]);
 
+/** Build machinery changes need the clean partial-build regression, not ordinary product edits. */
+export function isBuildMachineryPath(file) {
+  const normalized = String(file ?? '').replaceAll('\\', '/');
+  if (isDocsOnlyPath(normalized)) return false;
+  return (
+    /^(scripts\/artifacts\/|scripts\/build-|scripts\/harness\/workspace-)/u.test(normalized) ||
+    [
+      '.github/workflows/ci.yml',
+      'package.json',
+      'pnpm-lock.yaml',
+      'pnpm-workspace.yaml',
+      '.npmrc',
+      'tsconfig.base.json',
+      'tsconfig.json',
+    ].includes(normalized) ||
+    /^packages\/.*\/(package\.json|(?:tsdown|vite)\.config\.[cm]?[jt]s|tsconfig\.build\.json)$/u.test(
+      normalized,
+    )
+  );
+}
+
 /** Inputs that can change product ownership, graph traversal, or root product configuration. */
 export function isFullVerificationPath(file, { rootManifestChange = null } = {}) {
   const normalized = String(file ?? '').replaceAll('\\', '/');
@@ -126,8 +147,9 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
     Boolean(capabilities?.error);
 
   const product = codeFiles.some((file) => {
-    if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
     if (file === 'package.json' && rootManifestChange?.workspaceWide === false) return false;
+    if (isBuildMachineryPath(file)) return true;
+    if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
     return true;
   });
   return {

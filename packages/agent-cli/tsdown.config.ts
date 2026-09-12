@@ -1,8 +1,13 @@
 import { defineConfig } from 'tsdown';
 
+import manifest from './package.json' with { type: 'json' };
+
+const define = { __ROBOTA_VERSION__: JSON.stringify(manifest.version) };
+
 export default defineConfig([
   {
     entry: { bin: 'src/bin.ts' },
+    define,
     format: ['esm'],
     outDir: 'dist/node',
     platform: 'node',
@@ -24,7 +29,8 @@ export default defineConfig([
     entry: {
       index: 'src/index.ts',
     },
-    format: ['esm', 'cjs'],
+    define,
+    format: { esm: {}, cjs: { dts: false } },
     outDir: 'dist/node',
     platform: 'node',
     clean: false,

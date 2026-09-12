@@ -75,7 +75,8 @@ jobs:
 `;
 
 const GREEN_PUBLISH_SCRIPT = `#!/bin/bash
-command+=(publish -r --no-git-checks)
+node scripts/artifacts/publish-cli.mjs prepare "$PUBLISH_ARTIFACT_DIR" "\${PUBLISHABLE_PACKAGES[@]}"
+command=(node scripts/artifacts/publish-cli.mjs publish
 run_publish_command dry-run
 pnpm harness:release:check -- --version "$VERSION" --publish
 read -rp "🔑 Enter npm OTP for publish: " OTP
@@ -220,6 +221,19 @@ describe('collectReleaseGovernanceFindings', () => {
     expect(findings).toContainEqual({
       file: 'package.json',
       detail: 'Release verification must build before harness scan so dist checks have artifacts.',
+    });
+  });
+
+  it('requires the verified artifact preparation before OTP and its publish entrypoint', async () => {
+    const root = await createFixture({
+      'scripts/publish/publish-packages.sh': GREEN_PUBLISH_SCRIPT.replace(
+        'node scripts/artifacts/publish-cli.mjs prepare',
+        'node unsupported-pack.mjs prepare',
+      ),
+    });
+    expect(collectReleaseGovernanceFindings(root)).toContainEqual({
+      file: 'scripts/publish/publish-packages.sh',
+      detail: 'Publish script must verify the selected artifact set before requesting OTP.',
     });
   });
 

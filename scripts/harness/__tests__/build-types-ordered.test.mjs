@@ -102,7 +102,8 @@ describe('createBuildTypeTiers', () => {
 
     // The COUNT changes on every contract-migration leaf under issue #2068 — each creates one owner
     // package — and is kept anyway, because it catches a package nobody meant to add. 76 before
-    // ARCH-103, then 77, 78, 79, 80, and 81 after ARCH-107. One more if issue #2113 adds one.
+    // ARCH-103, then 77, 78, 79, 80, and 81 after ARCH-107. ARTIFACT-2655 includes the
+    // private Vite web producer: build:types is now a complete-build alias, not DTS-only.
     //
     // The ORDER mirrors the declared layers. agent-interface-transport sat at tier 3 rather than the 0
     // its four CONTRACT modules would allow, because its /testing subpath imported a session type:
@@ -114,7 +115,7 @@ describe('createBuildTypeTiers', () => {
     // the build graph, not the interface-layer graph, and the two number different things. What makes
     // it corroboration is the DIRECTION and the cause: both fell to their floor from the same edge
     // removal, measured by tools that share no code. Had only one moved, that would be the finding.
-    expect(packages).toHaveLength(81);
+    expect(packages).toHaveLength(82);
     expect(tiers).toHaveLength(11);
     expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);
@@ -124,6 +125,18 @@ describe('createBuildTypeTiers', () => {
     expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-cli')).toBe(10);
     expect(cli).toBeDefined();
+    const web = packages.find((pkg) => pkg.name === '@robota-sdk/agent-cli-web');
+    expect(web).toBeDefined();
+    expect(web.manifest).toMatchObject({
+      private: true,
+      robota: { artifact: { builder: 'vite' } },
+      scripts: { 'build:types': 'pnpm run build' },
+    });
+    expect(cli.manifest.robota.artifact.copies).toContainEqual({
+      package: web.name,
+      target: 'web',
+    });
+    expect(tierByName.get(web.name)).toBeLessThan(tierByName.get(cli.name));
     for (const dependency of cli.deps) {
       expect(tierByName.get(dependency), dependency).toBeLessThan(
         tierByName.get('@robota-sdk/agent-cli'),

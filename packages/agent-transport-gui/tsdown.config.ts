@@ -17,7 +17,7 @@ const shared = {
 export default defineConfig([
   {
     ...shared,
-    format: ['esm', 'cjs'],
+    format: { esm: {}, cjs: { dts: false } },
     outDir: 'dist/node',
     platform: 'node',
     clean: true,

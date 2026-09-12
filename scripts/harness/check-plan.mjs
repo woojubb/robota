@@ -10,6 +10,7 @@ export const WORKSPACE_WIDE_BUILD_TOOLING_PATHS = [
   '.eslintrc.json',
   'package.json',
   'pnpm-workspace.yaml',
+  'scripts/artifacts/build-workspace.mjs',
   'scripts/build-agent-app-if-full.mjs',
   'scripts/build-types-ordered.mjs',
   'tsconfig.base.json',
@@ -19,7 +20,11 @@ export const WORKSPACE_WIDE_BUILD_TOOLING_PATHS = [
 
 export function listWorkspaceWideTriggers(changedFiles) {
   const declared = new Set(WORKSPACE_WIDE_BUILD_TOOLING_PATHS);
-  return (changedFiles ?? []).filter((file) => declared.has(file));
+  // Runtime assembly/imported execution machinery changes every package's build contract.
+  // Keep this owner shared with operation planning; fixtures and documentation are not runtime.
+  const runtimeMachinery =
+    /^scripts\/(?:artifacts\/(?!__tests__\/).+|harness\/workspace-[^/]+)\.mjs$/u;
+  return (changedFiles ?? []).filter((file) => declared.has(file) || runtimeMachinery.test(file));
 }
 
 export function planRequiresPackageDist(plan) {
