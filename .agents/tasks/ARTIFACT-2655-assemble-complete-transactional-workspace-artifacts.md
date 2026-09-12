@@ -136,6 +136,27 @@ PR #2715 first CI repair batch:
 - Main post-format integrated repair verification on Node 22.23.2: 191/191 tests passed across
   nine files, including real release-path fixtures. Native CI remains the platform acceptance owner.
 
+PR #2715 consumer fallback repair:
+
+- Run 34704266770 on `6c5d720e89afb35b033fa5a027b8eb07ed1c437d` passed native Windows,
+  scans, the Linux clean framework proof (1792 tests), complete workspace build/export, typecheck,
+  lint, TUI real-binary tests and advisory coverage. Full quality failed one framework test's
+  5000 ms limit after the identical test passed in the clean proof. Carson classified this as a
+  test race or flake; no product code or timeout limit is changed speculatively.
+- Examples then failed because its prerequisite fallback rejected a valid global plan. Carson
+  reproduced that rejection; Pascal classified the consumer state handling LOCAL, with no
+  foundational planner/artifact defect. Existing full/affected build paths remain the owners.
+  The repair must reuse uploaded artifacts despite an unrelated later producer failure, distinguish
+  actual complete restore from missing/partial output, and preserve hard failure on corrupt archives.
+- Repair authority and exact failing job are recorded in PR comment 5647112859 under the owner's
+  standing #2655 instructions. Remote CI, current automated feedback and owner-only control-plane
+  landing remain open; this is not delivery acceptance.
+- Executable workflow regressions cover full/global/affected plans, missing/partial restores,
+  build failure propagation and corrupt-archive refusal. Human-readable planner reasons are not
+  reclassified by the consumer. Nash's focused batch passes 71 tests after RED evidence; Main's
+  post-format integrated CI consumer/classifier/framework-proof/wiring batch passes 183/183 tests
+  on Node 22.23.2. No package rebuild or timeout increase was needed for this workflow repair.
+
 ## Test Plan
 
 Focused positive/negative regressions plus actual execution at the owning boundary. Verify every

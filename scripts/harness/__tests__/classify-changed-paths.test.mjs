@@ -566,8 +566,12 @@ describe('CI capability wiring', () => {
     );
     expect(coverage).toContain('name: Guarantee affected coverage dist');
     expect(coverage).toContain('run: pnpm build:affected');
-    expect(examples).not.toContain("steps.restore.outputs.restored != 'true'");
-    expect(tui).not.toContain("steps.restore.outputs.restored != 'true'");
+    for (const consumer of [examples, tui]) {
+      expect(consumer).toContain(
+        "steps.restore.outputs.restored != 'true' || needs.build.outputs.package_dist_complete != 'true'",
+      );
+      expect(consumer).not.toContain("needs.build.result == 'success'");
+    }
   });
 
   it('runs CLI binary e2e only for CLI-reachable changes and guarantees its dist first', () => {

@@ -1122,7 +1122,7 @@ jobs:
       # than failing the gate.
       - name: Download package build output
         id: dist
-        if: env.EXAMPLES_APPLICABLE == 'true' && needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        if: env.EXAMPLES_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
@@ -1140,21 +1140,38 @@ jobs:
       # then synthesize those owners into one build plan so their complete dependency dist closure
       # exists without traversing unrelated reverse dependents.
       - name: Guarantee affected example consumer dist
-        if: env.EXAMPLES_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        if: env.EXAMPLES_APPLICABLE == 'true' && (steps.restore.outputs.restored != 'true' || needs.build.outputs.package_dist_complete != 'true')
         env:
           HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         shell: bash
         run: |
+          if [[ "$FULL_VERIFICATION" == "true" ]]; then
+            pnpm build
+            exit 0
+          fi
           plan_file="${RUNNER_TEMP}/examples-affected-plan.json"
           targets_file="${RUNNER_TEMP}/examples-affected-targets.txt"
           node scripts/harness/workspace-affected.mjs --operation examples-typecheck --base-ref "$HARNESS_BASE_REF" --format json >"$plan_file"
           PLAN_FILE="$plan_file" node --input-type=module <<'EOF' >"$targets_file"
           import { readFileSync } from 'node:fs';
           const plan = JSON.parse(readFileSync(process.env.PLAN_FILE, 'utf8'));
-          if (plan.mode !== 'packages' || plan.packages.length === 0) process.exit(2);
+          if (plan.mode === 'global' && Array.isArray(plan.packages)) {
+            console.log('global');
+            process.exit(0);
+          }
+          if (plan.mode !== 'packages' || !Array.isArray(plan.packages) || plan.packages.length === 0 ||
+              plan.packages.some((item) => typeof item?.directory !== 'string' ||
+                item.directory.trim().length === 0)) {
+            console.error('Invalid example consumer plan: expected package targets or global mode');
+            process.exit(2);
+          }
           for (const item of plan.packages) console.log(`${item.directory}/__ci_consumer_target__.ts`);
           EOF
           mapfile -t targets <"$targets_file"
+          if [[ "${targets[0]}" == global ]]; then
+            pnpm build
+            exit 0
+          fi
           args=(harness:workspace:run -- --operation build)
           for target in "${targets[@]}"; do args+=(--changed-file "$target"); done
           pnpm "${args[@]}"
@@ -1344,7 +1361,7 @@ jobs:
       # than failing the gate.
       - name: Download package build output
         id: dist
-        if: env.TUI_APPLICABLE == 'true' && needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        if: env.TUI_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
@@ -1361,7 +1378,7 @@ jobs:
       # PTY tests execute the CLI/TUI target, not merely the changed owner. Complete exactly those
       # targets' dependency graph after any partial restore; do not traverse reverse dependents.
       - name: Guarantee CLI and TUI consumer dist
-        if: env.TUI_APPLICABLE == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
+        if: env.TUI_APPLICABLE == 'true' && (steps.restore.outputs.restored != 'true' || needs.build.outputs.package_dist_complete != 'true')
         run: pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_consumer_target__.ts --changed-file packages/agent-transport-tui/src/__ci_consumer_target__.ts
 
       - name: Run the TUI PTY E2E suite against the real binary
