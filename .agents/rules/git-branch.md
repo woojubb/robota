@@ -3,12 +3,16 @@
 Mandatory rules for git operations and branch policy.
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
-### Git Worktree — allowed for parallel agents, with guardrails
+### Git Worktree — explicit permission and guardrails
 
-**`git worktree` is ALLOWED.** Its purpose here is to run **multiple subagents in parallel** for speed: each
-agent works in its own isolated worktree, so their file edits never collide and the One-Branch-At-A-Time
-serialization does not throttle independent work. Prefer the Claude Code `Agent` tool's `isolation: "worktree"`
-parameter — it creates the worktree in an isolated path and auto-removes it when unchanged.
+Enforced by: `scripts/harness/__tests__/pre-push-sequence.test.mjs` for automatic local
+side-effect exclusion. Owner permission itself has no mechanical enforcement: it depends on the
+current conversation and must be checked by the agent before using a worktree.
+
+Parallel-agent permission does not imply worktree permission. Honor the owner's working-directory
+constraint, including inside verification helpers. When worktrees are prohibited, use the existing
+checkout with disjoint file ownership and one Git-operation owner. Only use the worktree procedure
+when the owner explicitly permits worktrees; the guardrails below apply in that case.
 
 **Guardrails (each closes a real failure mode of shared working trees):**
 
@@ -22,8 +26,7 @@ parameter — it creates the worktree in an isolated path and auto-removes it wh
 - **Clean up when done:** `git worktree remove <path>` then `git worktree prune`. `Agent`-tool worktrees
   auto-clean; manual ones are your responsibility.
 
-**Automated safeguard (non-blocking):** `scripts/harness/pre-push.mjs` runs `pruneAndWarnStaleWorktrees()` — it
-prunes administrative junk and WARNS about locked/stale leftover worktrees, but no longer blocks the push.
+Automatic local verification must not create, remove or prune worktrees as a side effect.
 
 ### Clean Working Tree Before Every Commit and Push
 
@@ -42,32 +45,17 @@ git status --short
 belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
 with uncommitted modifications or staged changes is blocked with exit code 1.
 
-**Before merging — and before reporting a branch green — run `pnpm harness:verify-like-ci`** — the
-single entry that reproduces the required status checks of `protect-develop`, the ruleset a feature
-branch's PR must satisfy (`scripts/harness/verify-like-ci.mjs`). A bare `run-all-scans` is not that
-gate, and neither is any narrower command. Which local gate runs at PUSH time — the fast scoped
-`pnpm harness:pre-push` by default, the full entry point opt-in — is owned by
-[verification.md](verification.md) § Pre-Push Local Verification Requirement, not here.
-For an integration-child PR, that entry point binds PR-base discovery to the actual single pushed ref, HEAD
-object, and matching `origin` destination; it never infers a narrow base from the checkout while another
-remote or ref, or multiple refs, are being pushed.
+Before merging, verify the actual required CI results at the current head and the review/base
+conditions below. The declaration in `.github/required-status-checks.json` is not proof that a live
+ruleset applies. If required-check discovery is empty or disagrees with that declaration, inspect
+every declared context's actual owning workflow; missing, failed, cancelled or skipped results do
+not authorize an agent merge. Do not change remote protection settings without owner authority.
 
-- It runs the monorepo **build** and the affected packages' **test** suites, gated on exactly the
-  conditions CI gates its own jobs on. Do not re-add a separate "plus build and tests" instruction
-  anywhere: the entry point owns that, and a second list is how the two drift — an entry point named
-  as the CI mirror while running less makes "I ran the CI-equivalent check" a much weaker claim than
-  it reads as.
-- It does NOT run two required contexts and says so in its own summary: `dependency audit` (needs
-  network and an external binary) and `windows-shell` (needs a Windows runner). Nothing local covers
-  those.
-- The stage list cannot drift from CI: `scripts/harness/ci-mirror-map.mjs` pins every required
-  context, step for step, to `.github/workflows/ci.yml` and `.github/required-status-checks.json`,
-  and `pnpm harness:test` fails when they diverge.
-- **`--only` is not the gate.** A partial run prints `PARTIAL — this is NOT a CI-equivalent result`.
-  Never report a partial run as green.
-- Cost is reported from the current plan, per stage and in total. Run it in the foreground and wait;
-  do not rely on a fixed historical duration, because selected scopes and retained E2E capabilities
-  determine the actual time.
+Local affected verification is owned by [verification.md](verification.md). The historical command
+`pnpm harness:verify-like-ci` remains an optional local diagnostic, not a mandatory pre-merge gate
+or CI-equivalent certificate. The existing remote scans job owns fresh-checkout contract, hermetic
+and dist-independent verification. A local result reports only what ran, and never replaces the
+remote checks. Do not repeat an already-passing verification solely to obtain a push receipt.
 
 **A PR into `main` is a different gate.** `protect-main` requires `promotion ancestry`, `main PR
 source guard` and `release-grade verification`; the entry point that reproduces the last of those is

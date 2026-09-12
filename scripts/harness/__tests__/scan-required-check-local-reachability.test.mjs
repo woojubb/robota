@@ -38,6 +38,34 @@ describe('a named entry point must resolve', () => {
 });
 
 describe('every required context answers', () => {
+  it('accepts deliberate CI ownership without claiming local execution is impossible', () => {
+    expect(
+      judge([
+        {
+          context: 'scans',
+          local: { ciOwned: 'The existing fresh-checkout CI job owns this verdict.' },
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('rejects conflicting or unsubstantiated CI ownership', () => {
+    for (const ciOwned of ['', '   ', true, 1, {}, null]) {
+      expect(judge([{ context: 'scans', local: { ciOwned } }])).not.toEqual([]);
+    }
+    expect(
+      judge([
+        { context: 'scans', local: { ciOwned: 'CI owns this', entryPoint: 'pnpm harness:scan' } },
+      ])[0].kind,
+    ).toBe('answers-both-ways');
+    expect(judge([{ context: 'scans', local: { ciOwned: DEFERS_TO_MIRROR_MAP } }])[0].kind).toBe(
+      'defers-to-an-owner-that-does-not-own-it',
+    );
+    expect(judge([{ context: 'windows-shell', local: { ciOwned: DEFERS_TO_MIRROR_MAP } }])).toEqual(
+      [],
+    );
+  });
+
   it('refuses a context that declares nothing', () => {
     const findings = judge([{ context: 'quality' }]);
 

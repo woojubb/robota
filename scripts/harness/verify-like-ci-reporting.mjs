@@ -1,4 +1,4 @@
-import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { CI_STAGES, describeCiSource, NOT_MIRRORED } from './ci-mirror-map.mjs';
 import { classifyFiles } from './classify-changed-paths.mjs';
 
 const DEFAULT_BASE_REF = 'origin/develop';
@@ -39,7 +39,11 @@ export function summarize(
   results,
   { skippedStages = [], notMirrored = [], totalDurationMs = null, execution = null } = {},
 ) {
-  const lines = ['', 'verify-like-ci summary:'];
+  const lines = [
+    '',
+    'verify-like-ci summary:',
+    'Local diagnostic only — NOT a CI-equivalent result, including a full run. No full-CI receipt is issued.',
+  ];
   if (execution)
     lines.push(
       `checks: ${execution.selectedChecks} selected, ${execution.applicableChecks} applicable, ${execution.executedChecks} executed; execution batches: ${execution.executedBatches}`,
@@ -57,7 +61,7 @@ export function summarize(
     lines.push(`${mark} ${entry.context} — NOT mirrored locally: ${entry.reason}`);
     if (entry.relevant) {
       lines.push(
-        `    this diff makes it relevant (${entry.relevantWhen}). Run it yourself: ${entry.manualCommand}`,
+        `    this diff makes it relevant (${entry.relevantWhen}). Evidence/action: ${entry.manualCommand}`,
       );
     }
   }
@@ -75,27 +79,24 @@ export function summarize(
       );
     for (const result of failed) {
       const stage = CI_STAGES.find((entry) => entry.name === result.name);
-      if (stage) lines.push(`  ${result.name} covers ${describeCiSource(stage)}`);
+      if (stage) lines.push(`  ${result.name} CI reference: ${describeCiSource(stage)}`);
     }
     return { lines, exitCode: 1 };
   }
   if (skippedStages.length > 0) {
     lines.push(
       `PARTIAL — ${results.length} selected stage(s) passed. This is NOT a CI-equivalent result: ` +
-        `${skippedStages.length} stage(s) were not run (${skippedStages.join(', ')}). ` +
-        'Run `pnpm harness:verify-like-ci` with no --only before claiming the gate is green.',
+        `${skippedStages.length} local stage(s) were not run (${skippedStages.join(', ')}).`,
     );
     return { lines, exitCode: 0 };
   }
   if (execution) {
     lines.push(
-      `PASS — ${execution.executedChecks} checks executed, ${results.filter((result) => result.status === 'skip').length} not applicable, ${execution.executedBatches} execution batches; required coverage satisfied.`,
+      `PASS — ${execution.executedChecks} checks executed, ${results.filter((result) => result.status === 'skip').length} not applicable, ${execution.executedBatches} execution batches; local diagnostics passed.`,
     );
     return { lines, exitCode: 0 };
   }
-  lines.push(
-    `PASS — all ${results.length} stage(s) passed; mirrors the required checks of \`${MIRRORED_BRANCH}\`.`,
-  );
+  lines.push(`PASS — all ${results.length} selected local diagnostic stage(s) passed.`);
   return { lines, exitCode: 0 };
 }
 

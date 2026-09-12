@@ -34,9 +34,10 @@ evidence about changed content cannot be passed off as evidence about the final 
 ## One verification owner and one record
 
 Assign one actor to the integrated verification boundary. Workers run focused tests and report
-their exact scope and failures; they do not each run the full CI mirror. The integration owner runs
-the full required gate on the final batch once, and repeats it only when its inputs have changed
-or a run actually failed. A partial worker result is never whole-branch green. Preserve required
+their exact scope and failures; they do not duplicate the complete CI suites locally. The integration
+owner verifies the final affected batch once and checks actual required remote results, repeating
+only invalidated verification when inputs changed or a run failed. A partial worker result is never
+whole-branch green. Preserve required
 CI checks, runtime scenarios, regression RED proof, and final independent review.
 
 Before that full gate, integrate every known authorized source, documentation and completion-record

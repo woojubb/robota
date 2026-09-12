@@ -20,8 +20,8 @@ annotation, and analysis-alert streams a PR carries — because those _are_ the 
 - `AGENTS.md` > "Rules and Skills Boundary" — skills are procedure; rules win on conflict.
 - [git-branch.md](../../rules/git-branch.md) — "Pre-Merge Code-Review Gate" (the fixed / refuted / deferred
   resolution taxonomy and the record-it-on-the-PR requirement — this skill reuses that vocabulary and does
-  not invent its own); "Clean Working Tree Before Every Commit and Push" (names the CI-equivalent
-  verification entry point); "Merge Landing Verification".
+  not invent its own); "Clean Working Tree Before Every Commit and Push" (local and remote
+  verification ownership); "Merge Landing Verification".
 - [verification.md](../../rules/verification.md) — the gates a fix must re-clear before it is pushed.
 - [tdd-and-planning.md](../../rules/tdd-and-planning.md) — red-before-green, when a finding warrants a
   regression test.

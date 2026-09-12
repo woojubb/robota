@@ -25,7 +25,7 @@
   ".agents/daily-reports/2026-07-18.md": 42,
   ".agents/daily-reports/2026-07-19.md": 43,
   ".agents/evals/lessons/recurrence-ledger.md": 37,
-  ".agents/memory/MEMORY.md": 27,
+  ".agents/memory/MEMORY.md": 23,
   ".agents/memory/ci-cancelled-reads-as-failed.md": 1,
   ".agents/memory/comment-asserted-invariants.md": 1,
   ".agents/memory/core-027-failure-contract.md": 1,

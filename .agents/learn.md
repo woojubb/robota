@@ -228,3 +228,19 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `pnpm harness:verify-like-ci` after rebase onto `origin/develop` reports duplicate run IDs `r20260822105018`, `r20260822110951`, `r20260822113453`, `r20260822115612`, `r20260822120239`, and `r20260830100729` in `.agents/loop-runs/architecture-audit-fanout.jsonl`; `git show origin/develop:.agents/loop-runs/architecture-audit-fanout.jsonl` contains the first duplicated record at lines 1 and 18.
 - source: API-001 final verification
 - related: origin/develop commits 0f9277b56 and 9f8c4938a
+
+### LRN-2655-work-item-prefix-parser-disagreement
+
+- observed-at: 2026-09-12T10:00:00Z
+- observation: The allocator accepts a multi-segment work-item prefix, but the staged planning checkpoint rejects the exact Task/spec pair because its Task-ID parser cannot derive that ID.
+- evidence: `allocate-work-item-id.mjs` allocated `HARNESS-LOCAL-2655`; pre-commit returned `cannot derive a Task ID from paired basename` and rejected its otherwise complete GATE-PLAN checkpoint; original uncommitted records are preserved at `/tmp/robota-2655-unsupported-prefix-task.md` and `/tmp/robota-2655-unsupported-prefix-plan.md`; the same scope was subsequently allocated as `LOCAL-2655` and committed at `a73823d00`.
+- source: LOCAL-2655 planning
+- related: Issue #2655
+
+### LRN-2655-live-required-check-projection-gap
+
+- observed-at: 2026-09-12T09:52:49Z
+- observation: Develop declares eleven required contexts but no live rules apply to that branch, and two newer skipped CI stub jobs shadow successful owning-workflow jobs when check runs are selected only by name.
+- evidence: `gh api repos/woojubb/robota/rules/branches/develop` returns `[]`; branch protection returns `404 Branch not protected`; PR #2706 head `0d5e077b491c5a49c4f00084233aa73baa5bc1ed` has nine latest-name successes plus two skipped stubs, while owning `review-gate` job `103534851084` and `workflow provenance` job `103534831956` succeeded before the owner merged it. No remote protection settings were changed.
+- source: LOCAL-2655 and PR #2706 post-merge verification
+- related: Issue #2655, PR #2706

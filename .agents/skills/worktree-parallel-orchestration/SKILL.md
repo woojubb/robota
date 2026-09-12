@@ -22,7 +22,7 @@ mechanism.
 - [git-branch.md](../../rules/git-branch.md) — "Git Worktree" (isolation + guardrails);
   "One-Branch-At-A-Time Rule" (Exception 2 authorizes concurrent worktree branches on a **disjoint file
   set**, and names the branch-guard override that permits them); "Clean Working Tree Before Every Commit
-  and Push" (names the CI-equivalent verification entry point); the merge-time branch-deletion ban;
+  and Push" (local and remote verification ownership); the merge-time branch-deletion ban;
   "Merge Landing Verification"; "Delete Merged Branches"; "PR Batching".
 - [spec-workflow.md](../../rules/spec-workflow.md) + [backlog-execution.md](../../rules/backlog-execution.md)
   — the spec gate pipeline for code work.
@@ -31,7 +31,7 @@ mechanism.
 
 ## When to Use / When NOT to Use
 
-- **Use** when there are **≥ 2 independent items** whose file territories can be made disjoint, and the
+- **Use only with explicit owner permission for worktrees**, when there are **≥ 2 independent items** whose file territories can be made disjoint, and the
   speedup of running them concurrently is worth the partition overhead.
 - **Do NOT use** for a **single item** (just do it on one branch) or for **tightly-coupled changes** that
   cannot be split into non-overlapping file sets — run those sequentially on one branch instead.
@@ -42,7 +42,7 @@ mechanism.
   _effect_. Landing one while other branches are in flight makes every downstream failure ambiguous — an
   agent cannot tell its own defect from fallout, and bisecting afterwards costs far more than waiting.
   Run such an item **serially, on an empty queue**: no other open PRs, no running implementation agents,
-  and the integration branch green on the project's CI-equivalent verification entry point. Re-check that
+  and the integration branch's applicable verification confirmed under the git rule. Re-check that
   the queue is still empty immediately before starting.
 
 ## The Procedure
@@ -103,15 +103,9 @@ Each implementer produces exactly one PR and does **not** self-merge:
 - **Prove it fails first.** A new or changed regression test does not count as verification until it has
   been demonstrated to FAIL against the pre-change state, then pass. Never skip this because the test is
   green now.
-- **Self-verify in the FOREGROUND using the project's CI-equivalent verification entry point** — the
-  single entry that reproduces what CI's required checks assert, including the build and the affected
-  packages' tests. All green, evidence reported. **A partial check is not the gate:** a narrower
-  scan-only or hook-only run can report a pass where CI fails, because it treats baseline notices and
-  missing build outputs as clean, and a freshly-created worktree may not carry the installed
-  hook/formatter toolchain the project's checks assume. Never substitute a narrower command for the
-  CI-equivalent one, never restrict it to a subset of its stages, and never background the
-  verification and report before it finishes. It takes minutes on a code branch — that is the gate,
-  not an overrun.
+- **Verify the affected scope** under the verification rule and report the exact evidence. Do not
+  label a local result CI-equivalent or duplicate the complete remote suites. Required remote
+  results remain the orchestrator's merge precondition under the git rule.
 - Correct commit footers; open **exactly one** PR against the integration branch.
 - Stop-and-report on a blocker rather than merging or leaving a broken commit.
 
@@ -176,13 +170,13 @@ The shared registry is owned by exactly one agent (a3). A fourth item touching `
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                      | Owner                                            |
-| ----------------------------------------- | ------------------------------------------------ |
-| Define git/branch/merge/worktree policy   | `.agents/rules/git-branch.md`                    |
-| Name the CI-equivalent verification entry | `.agents/rules/git-branch.md`                    |
-| Define the spec gate pipeline             | `spec-workflow.md` / `backlog-execution.md`      |
-| Define red-before-green / verification    | `tdd-and-planning.md` / `verification.md`        |
-| Verify a merge landed / delete a branch   | [post-merge-cycle](../post-merge-cycle/SKILL.md) |
-| Do the implementation or judge the PR     | the spawned implementer / the code-review gate   |
+| Not this skill's job                           | Owner                                            |
+| ---------------------------------------------- | ------------------------------------------------ |
+| Define git/branch/merge/worktree policy        | `.agents/rules/git-branch.md`                    |
+| Define local and remote verification ownership | `.agents/rules/git-branch.md`                    |
+| Define the spec gate pipeline                  | `spec-workflow.md` / `backlog-execution.md`      |
+| Define red-before-green / verification         | `tdd-and-planning.md` / `verification.md`        |
+| Verify a merge landed / delete a branch        | [post-merge-cycle](../post-merge-cycle/SKILL.md) |
+| Do the implementation or judge the PR          | the spawned implementer / the code-review gate   |
 
 If you find yourself restating a rule here, stop — link the rule instead.

@@ -4,15 +4,21 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { resolveGitBaseRef } from '../shared.mjs';
 
 import {
   addedRuleSections,
   judgeSections,
+  readDiff,
   resolveBaseRef,
 } from '../scan-new-rule-declares-enforcement.mjs';
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
+});
 
 /**
  * A rule added to this repository says how it is enforced — or says that it is not, and why.
@@ -45,10 +51,15 @@ describe('what the diff adds', () => {
     // A declaration that was already in the file, under a different section, must not excuse the new
     // one. Unchanged context carries no `+`, so it never reaches the body.
     const sections = addedRuleSections(
-      diffFor('.agents/rules/operational.md', ['+### A New Rule', ' Enforced by: `something-old`']),
+      diffFor('.agents/rules/operational.md', [
+        '+### A New Rule',
+        ' ',
+        ' Enforced by: `something-old`',
+      ]),
     );
 
     expect(sections[0].body).not.toContain('Enforced by');
+    expect(judgeSections(sections)).toHaveLength(1);
   });
 
   it('does not let a distant hunk answer for a heading', () => {
@@ -81,6 +92,59 @@ describe('what the diff adds', () => {
     );
 
     expect(judgeSections(sections).map((f) => f.title)).toEqual(['Undeclared']);
+  });
+});
+
+describe('context-aware rule boundaries', () => {
+  it('requests three context lines and connects a declaration across a normal blank line', () => {
+    const diff = diffFor('.agents/rules/x.md', [
+      '@@ -1,3 +1,4 @@',
+      '-### Old Title',
+      '+### Clearer Title',
+      ' ',
+      '+Enforced by: `existing-check`',
+      ' Existing explanation.',
+    ]);
+    const operation = vi.fn(() => diff);
+    // Never invoke Git, even if a regression ignores the injected operation.
+    const defaultOperation = vi.mocked(execFileSync).mockReturnValue('');
+    try {
+      const actual = readDiff('BASE', { cwd: '/fixture', execFileSync: operation });
+
+      expect(operation).toHaveBeenCalledExactlyOnceWith(
+        'git',
+        ['diff', '--unified=3', 'BASE...HEAD', '--', '.agents/rules/'],
+        { cwd: '/fixture', encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
+      );
+      expect(defaultOperation).not.toHaveBeenCalled();
+      const sections = addedRuleSections(actual);
+      expect(sections).toHaveLength(1);
+      expect(judgeSections(sections)).toEqual([]);
+    } finally {
+      defaultOperation.mockRestore();
+    }
+  });
+
+  it.each([
+    ' ### Existing Rule',
+    '+### Added Rule',
+    ' ## Existing Group',
+    '+## Added Group',
+    ' # Existing Document',
+    '+# Added Document',
+    ' - **Another worker MUST declare its scope.**',
+  ])('does not borrow a declaration across %s', (boundary) => {
+    const sections = addedRuleSections(
+      diffFor('.agents/rules/x.md', [
+        '@@ -1,3 +1,5 @@',
+        '+### New Rule',
+        ' ',
+        boundary,
+        '+Enforced by: `other-rule-check`',
+      ]),
+    );
+
+    expect(judgeSections(sections).map((section) => section.title)).toEqual(['New Rule']);
   });
 });
 

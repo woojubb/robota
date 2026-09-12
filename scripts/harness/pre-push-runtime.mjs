@@ -1,16 +1,13 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { CI_STAGES } from './ci-mirror-map.mjs';
 import { createPrePushBasePlan, resolvePrePushBaseRef } from './pre-push-base-ref.mjs';
 import { createPrePushCommandRunner } from './pre-push-command-runner.mjs';
-import { createCiScansJobMirror } from './pre-push-ci-mirror.mjs';
 import {
   assertCleanWorkingTree,
   assertLockfileConsistency,
   assertTreePrerequisitesFor,
   hasWorkingTreeChanges,
-  pruneAndWarnStaleWorktrees,
   runGitQuiet,
 } from './pre-push-local-checks.mjs';
 import { decidePrePushVerification, parsePrePushUpdates } from './pre-push-updates.mjs';
@@ -20,7 +17,6 @@ import {
 } from './pre-push-verification-execution.mjs';
 import { createPrePushChangeContext, resolvePrePushHookContext } from './pre-push-work-run.mjs';
 import { WORKSPACE_ROOT } from './shared.mjs';
-import { findReusableVerification } from './verification-receipt.mjs';
 
 function readPrePushInput() {
   if (process.stdin.isTTY) return { input: '', provided: false };
@@ -102,10 +98,9 @@ export function createPrePushSteps({
 } = {}) {
   const run = createCommandRunner({ root: WORKSPACE_ROOT, ...commandRunnerOptions });
   return {
-    pruneAndWarnStaleWorktrees,
     assertCleanWorkingTree,
     assertLockfileConsistency,
-    assertTreePrerequisites: () => assertTreePrerequisitesFor(runtime.changeClassification),
+    assertTreePrerequisites: assertTreePrerequisitesFor,
     reportBaseResolution: () => reportPrePushBaseResolution(runtime),
     decideVerification: () =>
       decidePrePushVerification({
@@ -122,28 +117,8 @@ export function createPrePushSteps({
               ])
             : false,
       }),
-    findReusableReceipt: () =>
-      findReusableVerification({
-        baseRef: runtime.basePlan.receiptBaseRef,
-        stages: CI_STAGES.map((stage) => stage.name),
-        updates: runtime.updates,
-        root: WORKSPACE_ROOT,
-      }),
-    reportReceiptReused: (receipt) =>
-      process.stdout.write(
-        `▶ exact verify-like-ci receipt reused for ${receipt.headCommit.slice(0, 12)}; pre-push verification is already covered\n`,
-      ),
     reportSkipped: (reason) =>
-      process.stdout.write(`▶ scoped pre-push verification skipped: ${reason}\n`),
-    runVerification: () =>
-      runPrePushVerification(runtime, {
-        run,
-        createMirror: (classification, options) =>
-          createCiScansJobMirror(classification, {
-            ...options,
-            headRef: runtime.subjectRef,
-            full: runtime.prePushMode === 'full',
-          }),
-      }),
+      process.stdout.write(`▶ local pre-push checks skipped: ${reason}; no CI verdict\n`),
+    runVerification: () => runPrePushVerification(runtime, { run }),
   };
 }

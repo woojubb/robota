@@ -10,6 +10,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { runPrePushVerification } from '../pre-push-verification-execution.mjs';
+
 const HARNESS_TESTS_DIR = 'scripts/harness/__tests__';
 
 function read(relativePath) {
@@ -64,7 +66,7 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
   });
 });
 
-describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
+describe('globbed harness suite remains CI-owned, not automatic pre-push work (LOCAL-2655)', () => {
   it('CI runs affected contracts and gates only the hermetic tier on the develop path', () => {
     const content = read('.github/workflows/ci.yml');
     const stepIndex = content.indexOf(
@@ -97,10 +99,28 @@ describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
     expect(packageJson.scripts?.['harness:verify:release']).toContain('pnpm harness:test');
   });
 
-  it('pre-push runs harness:verify, whose harness-tests check uses the globbed run', () => {
-    const content = read('scripts/harness/pre-push-verification-execution.mjs');
+  it('pre-push runs planning and formatting without invoking any harness or product test suite', () => {
+    const calls = [];
+    runPrePushVerification(
+      {
+        baseRef: 'origin/develop',
+        baseArgs: ['--base-ref', 'origin/develop'],
+        scopeExpansionArgs: [],
+        prePushMode: 'full',
+        changeClassification: { product: true, harness: true },
+      },
+      { run: (command, args) => calls.push([command, args]), write: () => {} },
+    );
 
-    expect(content).toContain('harness:verify');
+    // Exact command arguments: a substring search for harness:verify also accepts the
+    // format-only harness:verify-like-ci command and cannot establish this boundary.
+    expect(calls).toEqual([
+      ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
+      [
+        'pnpm',
+        ['harness:verify-like-ci', '--', '--base-ref', 'origin/develop', '--only', 'format-check'],
+      ],
+    ]);
   });
 });
 

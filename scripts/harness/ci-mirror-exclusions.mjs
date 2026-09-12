@@ -1,5 +1,14 @@
-/** Required contexts that local verification cannot reproduce deterministically. */
+/** Required contexts owned by CI, whether intentionally remote-only or locally unreproducible. */
 const NOT_MIRRORED_ENTRIES = [
+  {
+    context: 'scans',
+    reason:
+      'CI owns the fresh-checkout repository-contract, hermetic and dist-independent suites. Local focused tests remain available, but automatic duplication and temporary worktree materialization are removed; a built local checkout is not pristine evidence.',
+    relevance: 'every-pull-request',
+    relevantWhen: 'every pull request — the existing scans job determines its affected checks',
+    manualCommand:
+      'inspect the scans job in the pull request CI run; use focused local tests for development, not a replacement pristine verdict',
+  },
   {
     context: 'regression-red-proof (enforcing: accidental-green only)',
     reason:
@@ -55,7 +64,7 @@ function keyByContext(entries) {
     if (existing) {
       throw new Error(
         `ci-mirror-map: NOT_MIRRORED declares \`${entry.context}\` twice. A required check cannot ` +
-          'have two reasons for being un-mirrorable — verify-like-ci prints both and names neither ' +
+          'have two governing CI-ownership declarations — verify-like-ci prints both and names neither ' +
           `as governing. First reason: ${existing.reason.slice(0, 80)}… Second: ${entry.reason.slice(0, 80)}…`,
       );
     }

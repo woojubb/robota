@@ -61,28 +61,62 @@ const SKIP_NO_DELTA = { shouldRun: false, reason: 'no content delta from origin/
 const VERIFY = { shouldRun: true, reason: null };
 
 describe('runPrePushGate step order', () => {
-  it('asserts the tree prerequisites only AFTER deciding to verify', () => {
+  it.each([
+    'assertCleanWorkingTree',
+    'assertLockfileConsistency',
+    'decideVerification',
+    'assertTreePrerequisites',
+    'runVerification',
+  ])('does not swallow failure from %s', (failingStep) => {
     const { order, steps } = recordingSteps(VERIFY);
-    runPrePushGate(steps);
+    steps[failingStep] = () => {
+      order.push('failed');
+      throw new Error(failingStep);
+    };
+    expect(() => runPrePushGate(steps)).toThrow(failingStep);
+    expect(order.at(-1)).toBe('failed');
+    expect(order).not.toContain('run-verification');
+    expect(order).not.toContain('report-skipped');
+  });
+
+  it('LOCAL-2655 runs local checks without pruning worktrees or consulting full receipts', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    steps.findReusableReceipt = () => {
+      order.push('find-reusable-receipt');
+      return { reusable: true, headCommit: 'abc123' };
+    };
+
+    expect(runPrePushGate(steps)).toEqual({ verified: true, reason: null });
     expect(order).toEqual([
-      'prune-worktrees',
       'clean-working-tree',
       'lockfile-consistency',
       'report-base-resolution',
       'decide-verification',
-      'find-reusable-receipt',
       'tree-prerequisites',
       'run-verification',
     ]);
   });
 
-  it('never places a build-output-reading step before the decision', () => {
+  it('asserts the tree prerequisites only AFTER deciding to verify', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    runPrePushGate(steps);
+    expect(order).toEqual([
+      'clean-working-tree',
+      'lockfile-consistency',
+      'report-base-resolution',
+      'decide-verification',
+      'tree-prerequisites',
+      'run-verification',
+    ]);
+  });
+
+  it('never checks install prerequisites before the decision', () => {
     const { order, steps } = recordingSteps(VERIFY);
     runPrePushGate(steps);
     // Stated as an ordering invariant rather than an index, so it keeps its meaning if steps are
     // added around it: a prerequisite is owed only by work that is going to happen.
     expect(order.indexOf('tree-prerequisites')).toBeGreaterThan(
-      order.indexOf('find-reusable-receipt'),
+      order.indexOf('decide-verification'),
     );
     expect(order.indexOf('tree-prerequisites')).toBeLessThan(order.indexOf('run-verification'));
   });
@@ -94,7 +128,6 @@ describe('runPrePushGate step order', () => {
     const { order, steps } = recordingSteps(decision);
     const result = runPrePushGate(steps);
     expect(order).toEqual([
-      'prune-worktrees',
       'clean-working-tree',
       'lockfile-consistency',
       'report-base-resolution',
@@ -119,33 +152,10 @@ describe('runPrePushGate step order', () => {
     expect(runPrePushGate(steps)).toEqual({ verified: true, reason: null });
   });
 
-  it('reuses exact full-gate evidence before demanding build prerequisites', () => {
-    const { order, steps } = recordingSteps(VERIFY);
-    steps.findReusableReceipt = () => {
-      order.push('find-reusable-receipt');
-      return { reusable: true, headCommit: 'abc123' };
-    };
-
-    expect(runPrePushGate(steps)).toEqual({
-      verified: true,
-      reused: true,
-      reason: 'exact verify-like-ci receipt',
-    });
-    expect(order).toEqual([
-      'prune-worktrees',
-      'clean-working-tree',
-      'lockfile-consistency',
-      'report-base-resolution',
-      'decide-verification',
-      'find-reusable-receipt',
-      'report-receipt-reused',
-    ]);
-  });
-
   it.each([
     ['verification', VERIFY, false],
     ['no-delta skip', SKIP_NO_DELTA, false],
-    ['receipt reuse', VERIFY, true],
+    ['legacy receipt available', VERIFY, true],
   ])('reports the resolved base exactly once on the %s path', (_label, decision, reusable) => {
     const { order, steps } = recordingSteps(decision);
     steps.findReusableReceipt = () => {
@@ -205,19 +215,19 @@ describe('the real decision reaches the gate as a skip', () => {
   });
 });
 
-describe('the prerequisites a push owes follow the change classification (PROC-016)', () => {
+describe('pre-push prerequisites follow its local work, not the product change classification', () => {
   it('a harness-only or docs-only push owes install only — no build output', () => {
     expect(prerequisitesFor({ code: true, product: false, harness: true })).toEqual(['install']);
     expect(prerequisitesFor({ code: false, product: false })).toEqual(['install']);
   });
 
-  it('a product-code push owes install AND build output', () => {
-    expect(prerequisitesFor({ code: true, product: true })).toEqual(['install', 'build-output']);
+  it('LOCAL-2655 a product-code push owes install only for local formatting', () => {
+    expect(prerequisitesFor({ code: true, product: true })).toEqual(['install']);
   });
 
-  it('an unclassifiable change owes everything — fail closed', () => {
-    expect(prerequisitesFor(undefined)).toEqual(['install', 'build-output']);
-    expect(prerequisitesFor({})).toEqual(['install', 'build-output']);
+  it('an unclassifiable change still owes install, but no unused product build', () => {
+    expect(prerequisitesFor(undefined)).toEqual(['install']);
+    expect(prerequisitesFor({})).toEqual(['install']);
   });
 });
 
@@ -279,4 +289,101 @@ describe('pre-push command runner characterization (INFRA-148)', () => {
 
     expect(exit).toHaveBeenCalledWith(7);
   });
+});
+
+describe('LOCAL-2655 local pre-push execution', () => {
+  it('keeps unresolved-base formatting on checkout changes instead of a diagnostic default base', () => {
+    const calls = [];
+    const writes = [];
+    runPrePushVerification(
+      { baseRef: null, baseArgs: [], scopeExpansionArgs: [], prePushMode: 'full' },
+      { run: (command, args) => calls.push([command, args]), write: (value) => writes.push(value) },
+    );
+    expect(calls).toEqual([
+      ['pnpm', ['harness:plan', '--']],
+      ['pnpm', ['harness:verify-like-ci', '--', '--base-ref', 'HEAD', '--only', 'format-check']],
+    ]);
+    expect(writes.join('')).toContain('base: unresolved; using working-tree changes only');
+  });
+
+  it('wires only planning and formatting, even for a full product-code push', () => {
+    const calls = [];
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      const steps = createPrePushSteps({
+        runtime: {
+          baseRef: 'origin/develop',
+          baseArgs: ['--base-ref', 'origin/develop'],
+          basePlan: { classificationBaseRef: 'origin/develop' },
+          scopeExpansionArgs: [],
+          prePushMode: 'full',
+          subjectRef: 'a'.repeat(40),
+          changeClassification: { code: true, product: true, harness: true },
+        },
+        createCommandRunner: () => (command, args) => calls.push([command, args]),
+      });
+
+      steps.runVerification();
+
+      expect(calls).toEqual([
+        ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
+        [
+          'pnpm',
+          [
+            'harness:verify-like-ci',
+            '--',
+            '--base-ref',
+            'origin/develop',
+            '--only',
+            'format-check',
+          ],
+        ],
+      ]);
+      expect(steps).not.toHaveProperty('findReusableReceipt');
+      expect(steps).not.toHaveProperty('reportReceiptReused');
+      expect(steps).not.toHaveProperty('pruneAndWarnStaleWorktrees');
+      const output = write.mock.calls.map(([value]) => value).join('');
+      expect(output).toContain('Local checks passed: planning, formatting');
+      expect(output).toContain('not CI-equivalent');
+      expect(output).toContain(
+        'CI-owned (not run locally): repository-contract, hermetic, pristine',
+      );
+      expect(output).toContain('Manual (not run by pre-push): focused changed-code tests');
+    } finally {
+      write.mockRestore();
+    }
+  });
+
+  it.each(['harness:plan', 'harness:verify-like-ci'])(
+    'propagates a failing %s without claiming local success',
+    (failingScript) => {
+      const calls = [];
+      const writes = [];
+      expect(() =>
+        runPrePushVerification(
+          {
+            baseRef: 'origin/develop',
+            baseArgs: ['--base-ref', 'origin/develop'],
+            scopeExpansionArgs: ['--skip-dependent-scopes'],
+            prePushMode: 'fast',
+          },
+          {
+            write: (value) => writes.push(value),
+            run: (command, args) => {
+              calls.push([command, args]);
+              if (args[0] === failingScript) throw new Error('local check failed');
+            },
+          },
+        ),
+      ).toThrow('local check failed');
+      expect(calls.map(([, args]) => args[0])).toEqual(
+        failingScript === 'harness:plan'
+          ? ['harness:plan']
+          : ['harness:plan', 'harness:verify-like-ci'],
+      );
+      expect(writes.join('')).not.toContain('Local checks passed');
+      expect(calls[0][1]).toContain('--skip-dependent-scopes');
+      if (calls.length === 2) expect(calls[1][1]).not.toContain('--skip-dependent-scopes');
+    },
+  );
 });

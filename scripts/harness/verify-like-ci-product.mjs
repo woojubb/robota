@@ -12,10 +12,11 @@ import {
 } from './shared.mjs';
 import {
   checkTreePrerequisites,
+  findMissingDist,
   formatPrerequisiteFailure,
   inspectTree,
+  listBuildablePackageDirs,
 } from './tree-prerequisites.mjs';
-import { findMissingDist, listBuildablePackageDirs } from './verify-like-ci-dist-free.mjs';
 import { WORKSPACE_ROOT, run } from './verify-like-ci-shared.mjs';
 
 function affectedScriptArgs(script, baseRef) {
@@ -30,7 +31,7 @@ function affectedScriptArgs(script, baseRef) {
 // simply wrong — the tree measures 2353 warnings and 0 errors, under the 2356 the root `lint`
 // script declares and `lint-warning-baseline.json` freezes, so the same eslint invocation ran
 // twice inside this one stage and disagreed with itself: green at 2356, red at 2203. A diff with
-// zero affected package scopes — which this stage's own note says CI lints none of — therefore
+// zero affected package scopes therefore
 // failed locally on a ceiling no required check applies at that scope.
 //
 // `scan-lint-ceiling-declared-vs-frozen.mjs` compares the root script against the baseline and says
@@ -123,7 +124,7 @@ export async function runProductStage(stageName, options, context, { concurrent 
 export function describeAffectedScopes(context) {
   const scopes = (context?.plan?.scopes ?? []).map((scope) => scope.scope);
   return scopes.length === 0
-    ? 'no package/app scope affected — CI verifies none either'
+    ? 'no package/app scope affected'
     : `${scopes.length} affected scope(s): ${scopes.slice(0, 4).join(', ')}${scopes.length > 4 ? ' …' : ''}`;
 }
 
@@ -174,7 +175,11 @@ export async function resolveRunContext(baseRef, { forceFull = false } = {}) {
     rootManifestChange,
     includeDependentScopes: true,
   });
-  const missingDist = findMissingDist(listBuildablePackageDirs());
+  const missingDist = findMissingDist(
+    listBuildablePackageDirs(WORKSPACE_ROOT),
+    undefined,
+    WORKSPACE_ROOT,
+  );
   const distRequired = planRequiresPackageDist(plan);
   const local = classifyLocalProductChanges(changedFiles, { rootManifestChange, forceFull });
   return {
@@ -189,7 +194,6 @@ export async function resolveRunContext(baseRef, { forceFull = false } = {}) {
     windowsChanged: local.windowsChanged,
     cliChanged: local.cliChanged,
     agentAppChanged: forceFull || plan.scopes.some((scope) => scope.scope === 'apps/agent-app'),
-    harnessChanged: local.classification.harness,
     missingDist,
     buildReason: describeBuildReason({
       distRequired,
@@ -204,7 +208,7 @@ export function preflight(root = WORKSPACE_ROOT) {
 }
 
 function readMissingDistNow() {
-  return findMissingDist(listBuildablePackageDirs());
+  return findMissingDist(listBuildablePackageDirs(WORKSPACE_ROOT), undefined, WORKSPACE_ROOT);
 }
 
 export function initialBuildState(selected, context) {
@@ -233,37 +237,30 @@ export function stageBlockCause(stage, state) {
 
 export function stageGate(name, context) {
   switch (name) {
-    case 'harness-hermetic-test':
-      return context.harnessChanged !== false
-        ? { run: true }
-        : {
-            run: false,
-            note: 'harness capability is not affected — CI skips only the hermetic tier',
-          };
     case 'build':
       return context.productChanged
         ? { run: true }
-        : { run: false, note: 'product capability is not affected — CI reports product build N/A' };
+        : { run: false, note: 'product capability is not affected — local product build N/A' };
     case 'binary-e2e':
       return context.cliChanged || context.agentAppChanged
         ? { run: true }
         : {
             run: false,
-            note: 'CLI and desktop capabilities are not affected — CI reports e2e N/A',
+            note: 'CLI and desktop capabilities are not affected — local e2e N/A',
           };
     case 'package-quality':
     case 'scan-suite':
       return context.productChanged
         ? { run: true }
-        : { run: false, note: 'product capability is not affected — CI reports quality N/A' };
+        : { run: false, note: 'product capability is not affected — local quality N/A' };
     case 'examples-typecheck':
       return context.examplesChanged
         ? { run: true }
-        : { run: false, note: 'examples capability is not affected — CI reports N/A' };
+        : { run: false, note: 'examples capability is not affected — local N/A' };
     case 'tui-e2e':
       return context.tuiChanged
         ? { run: true }
-        : { run: false, note: 'TUI capability is not affected — CI reports N/A' };
+        : { run: false, note: 'TUI capability is not affected — local N/A' };
     default:
       return { run: true };
   }

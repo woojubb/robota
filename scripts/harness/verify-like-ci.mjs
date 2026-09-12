@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 
-/** Stable public import and CLI boundary for the local CI mirror. */
+/** Stable public import and CLI boundary for the optional local diagnostics. */
 import path from 'node:path';
 
 import { main } from './verify-like-ci-execution.mjs';
 
 export { CI_STAGES, NOT_MIRRORED, firstParentCommits, main } from './verify-like-ci-execution.mjs';
-export {
-  findMissingDist,
-  listBuildablePackageDirs,
-  listNodeModulesOwners,
-  parseDistIndependentScanSkips,
-  readDistIndependentScanSkips,
-} from './verify-like-ci-dist-free.mjs';
+export { findMissingDist, listBuildablePackageDirs } from './tree-prerequisites.mjs';
 export {
   collectChangedFiles,
   globExtensions,

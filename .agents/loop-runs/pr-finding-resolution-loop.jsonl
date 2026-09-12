@@ -27,3 +27,4 @@
 {"runId":"r20260902152406","opened":"2026-09-02T15:24:06.545Z","closed":"2026-09-02T15:24:59.116Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"6f7ea2083f97c55f3f503a70c3a5c704d4472aa2"}
 {"runId":"r20260906015628","opened":"2026-09-06T01:56:28.573Z","closed":"2026-09-06T02:00:11.273Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260911143133","opened":"2026-09-11T14:31:33.132Z","closed":"2026-09-11T14:37:06.160Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260912100928","opened":"2026-09-12T10:09:28.350Z","closed":"2026-09-12T10:24:26.944Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"LOCAL-2655 Round A Pascal: base 56552374a04f873eb634ab65739830db4a67de91, source manifest 130f410dcad0db74b081f2bc23e9df2234fe8f79f6efdd829eaba6a5c042078d, MUST 0 SHOULD 0; final commit binding remains delivery evidence"}
