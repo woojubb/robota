@@ -48,6 +48,7 @@ import { visibleMarkdown } from './markdown-visibility.mjs';
 import { documentationBatchReader } from './documentation-batch-reader.mjs';
 import {
   CHECKPOINT_EVIDENCE_CONTRACT_MARKERS,
+  checkpointCheckboxItems,
   parseCheckpointEvidence,
   parseCheckpointEvidenceContract,
   parseCheckpointEvidenceContracts,
@@ -963,7 +964,7 @@ function appendedRecord(before, after) {
   }
 }
 
-function validLoopRecord(record) {
+function validLoopRecord(record, { requireRounds = true } = {}) {
   const allowedKeys = new Set([
     'runId',
     'opened',
@@ -989,7 +990,7 @@ function validLoopRecord(record) {
     Date.parse(record.closed) >= Date.parse(record.opened) &&
     LOOP_TERMINALS.has(record.terminal) &&
     Array.isArray(record.roundFindings) &&
-    record.roundFindings.length > 0 &&
+    (!requireRounds || record.roundFindings.length > 0) &&
     record.roundFindings.every((count) => Number.isInteger(count) && count >= 0),
   );
 }
@@ -1008,6 +1009,48 @@ function successfulLoopRecord(record) {
   return (
     validLoopRecord(record) && record.terminal === 'converged' && record.roundFindings.at(-1) === 0
   );
+}
+
+/** Closed history only: never a merge witness, planning prelude, or authority for other paths. */
+export function isPostMergeHistoryAppend({ paths, before, after, isPlainFile }) {
+  if (paths.length !== 1 || paths[0] !== POST_MERGE_LEDGER || !isPlainFile(POST_MERGE_LEDGER))
+    return false;
+  if (before.length > 0 && !before.endsWith('\n') && !after.slice(before.length).startsWith('\n'))
+    return false;
+  const appended = appendedLedgerLines(before, after);
+  if (appended === null || appended.length === 0) return false;
+  try {
+    const seen = new Set(lines(before).map((line) => JSON.parse(line).runId));
+    return appended.every((line) => {
+      const record = JSON.parse(line);
+      if (!validLoopRecord(record, { requireRounds: false }) || seen.has(record.runId))
+        return false;
+      if (record.terminal === 'converged' && !successfulLoopRecord(record)) return false;
+      seen.add(record.runId);
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+function postMergeHistoryBetween(root, parent, revision, paths) {
+  if (paths.length !== 1 || paths[0] !== POST_MERGE_LEDGER) return false;
+  return isPostMergeHistoryAppend({
+    paths,
+    before: gitText(root, parent, POST_MERGE_LEDGER) ?? '',
+    after:
+      (revision === null
+        ? indexText(root, POST_MERGE_LEDGER)
+        : gitText(root, revision, POST_MERGE_LEDGER)) ?? '',
+    isPlainFile: (file) => {
+      const result = runGit(
+        root,
+        revision === null ? ['ls-files', '--stage', '--', file] : ['ls-tree', revision, '--', file],
+      );
+      return result.code === 0 && /^100644 /.test(result.stdout);
+    },
+  });
 }
 
 function exactSubjectRef(ref, basename) {
@@ -1677,6 +1720,7 @@ function postMergeCompletionProblems({
   parentTextForPath,
   ledgerBefore,
   ledgerAfter,
+  isPlainFile,
 }) {
   const candidate = postMergeCompletionPaths(paths, parentTextForPath);
   if (candidate === null) return null;
@@ -1685,9 +1729,17 @@ function postMergeCompletionProblems({
 
   const { basename, expected } = candidate;
   const actual = [...new Set(paths)].sort();
-  if (actual.length !== expected.length || actual.some((file, index) => file !== expected[index])) {
+  if (
+    !isPostMergeCompletionBatch({
+      paths,
+      basename,
+      textBefore: parentTextForPath,
+      textAfter: textForPath,
+      isPlainFile,
+    })
+  ) {
     problems.push(
-      `post-merge completion closeout must change exactly these paths: ${expected.join(', ')}; got ${actual.join(', ') || '(none)'}.`,
+      `post-merge completion closeout requires the exact pair plus only bound parent/run metadata: ${expected.join(', ')}; got ${actual.join(', ') || '(none)'}.`,
     );
   }
 
@@ -1785,6 +1837,10 @@ function validatePostMergeCompletion(root, parent, commit, paths, base) {
     parentTextForPath: (file) => gitText(root, parent, file),
     ledgerBefore: gitText(root, parent, POST_MERGE_LEDGER) ?? '',
     ledgerAfter: gitText(root, commit, POST_MERGE_LEDGER) ?? '',
+    isPlainFile: (file) => {
+      const result = runGit(root, ['ls-tree', commit, '--', file]);
+      return result.code === 0 && /^100644 /.test(result.stdout);
+    },
   });
 }
 
@@ -1797,15 +1853,38 @@ function stagedPostMergeCompletion(root, paths, base) {
     parentTextForPath: (file) => gitText(root, 'HEAD', file),
     ledgerBefore: gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '',
     ledgerAfter: indexText(root, POST_MERGE_LEDGER) ?? '',
+    isPlainFile: (file) => {
+      const result = runGit(root, ['ls-files', '--stage', '--', file]);
+      return result.code === 0 && /^100644 /.test(result.stdout);
+    },
   });
 }
+
+const PRESERVED_DELIVERY_SECTIONS = [
+  '## Problem',
+  '## Objective',
+  '## Prior Art Research',
+  '## Architecture Review',
+  '## Solution',
+  '## Affected Files',
+  '## Plan',
+  '## Test Plan',
+  '## User Execution Test Scenarios',
+  '## Evidence Log',
+];
 
 /**
  * Delivery metadata is not a new work unit. Scope: one existing done Task/spec pair, existing
  * parents that already cite it, its OPEN execution/review runs, and an append-only learning note.
  * This checks record shape only; the Git reader below separately proves the merge ancestry.
  */
-export function isPostMergeDeliveryBatch({ paths, textBefore, textAfter, isPlainFile }) {
+export function isPostMergeDeliveryBatch({
+  paths,
+  textBefore,
+  textAfter,
+  isPlainFile,
+  historicalClosures = false,
+}) {
   if (!paths.includes(POST_MERGE_LEDGER) || !paths.every(isPlainFile)) return false;
   if (paths.length === 1) return true;
   const tasks = paths.filter((file) => file.startsWith(`${TASK_PREFIX}completed/`));
@@ -1822,18 +1901,8 @@ export function isPostMergeDeliveryBatch({ paths, textBefore, textAfter, isPlain
     `${LOOP_RUNS_PREFIX}backlog-execution-orchestrator.jsonl`,
     `${LOOP_RUNS_PREFIX}pr-finding-resolution-loop.jsonl`,
   ]);
-  const preservedSections = [
-    '## Problem',
-    '## Objective',
-    '## Prior Art Research',
-    '## Architecture Review',
-    '## Solution',
-    '## Affected Files',
-    '## Plan',
-    '## Test Plan',
-    '## User Execution Test Scenarios',
-    '## Evidence Log',
-  ];
+  if (historicalClosures)
+    closeableLedgers.add(`${LOOP_RUNS_PREFIX}post-implementation-checklist.jsonl`);
   return paths.every((file) => {
     if (file === POST_MERGE_LEDGER) return true;
     const before = textBefore(file);
@@ -1854,13 +1923,23 @@ export function isPostMergeDeliveryBatch({ paths, textBefore, textAfter, isPlain
       if (previous.length !== next.length) return false;
       return previous.every((line, index) => {
         if (line === next[index]) return true;
-        const old = JSON.parse(line);
-        const current = JSON.parse(next[index]);
+        let old;
+        let current;
+        try {
+          old = JSON.parse(line);
+          current = JSON.parse(next[index]);
+        } catch {
+          return false;
+        }
         return (
           old?.terminal === null &&
           old.closed === null &&
           old.ref === subject &&
-          successfulLoopRecord(current) &&
+          (historicalClosures && current?.terminal !== 'converged'
+            ? validLoopRecord(current, { requireRounds: false })
+            : successfulLoopRecord(current)) &&
+          (!historicalClosures ||
+            new RegExp(`\\b${escapeRegExp(subject)}\\b`).test(String(current.ref))) &&
           current.runId === old.runId &&
           current.opened === old.opened &&
           JSON.stringify(current.extensions) === JSON.stringify(old.extensions) &&
@@ -1876,7 +1955,7 @@ export function isPostMergeDeliveryBatch({ paths, textBefore, textAfter, isPlain
     if (JSON.stringify(frontmatterObject(before)) !== JSON.stringify(frontmatterObject(after)))
       return false;
     if (
-      !preservedSections.every(
+      !PRESERVED_DELIVERY_SECTIONS.every(
         (heading) =>
           markdownSection(before, heading, true) === markdownSection(after, heading, true),
       )
@@ -1917,6 +1996,128 @@ export function isPostMergeDeliveryBatch({ paths, textBefore, textAfter, isPlain
         return false;
     }
     return true;
+  });
+}
+
+/** Scope only; the caller separately verifies terminal gates and the actual merge ancestor. */
+export function isPostMergeCompletionBatch({
+  paths,
+  basename,
+  textBefore,
+  textAfter,
+  isPlainFile,
+}) {
+  const taskSource = `${TASK_PREFIX}${basename}`;
+  const taskDestination = `${TASK_PREFIX}completed/${basename}`;
+  const specSource = `${SPEC_PREFIX}active/${basename}`;
+  const specDestination = `${SPEC_PREFIX}done/${basename}`;
+  const sources = new Set([taskSource, specSource]);
+  const destinations = new Set([taskDestination, specDestination]);
+  const required = [taskSource, taskDestination, specSource, specDestination, POST_MERGE_LEDGER];
+  if (new Set(paths).size !== paths.length || required.some((file) => !paths.includes(file)))
+    return false;
+  if (
+    [...sources].some(
+      (file) => frontmatterStatus(textBefore(file)) !== 'in-progress' || textAfter(file) !== null,
+    )
+  )
+    return false;
+  if (
+    [...destinations].some(
+      (file) => textBefore(file) !== null || frontmatterStatus(textAfter(file)) !== 'done',
+    )
+  )
+    return false;
+  for (const [original, archived] of [
+    [taskSource, taskDestination],
+    [specSource, specDestination],
+  ]) {
+    const before = textBefore(original);
+    const after = textAfter(archived);
+    const beforeMetadata = frontmatterObject(before);
+    const afterMetadata = frontmatterObject(after);
+    for (const metadata of [beforeMetadata, afterMetadata]) {
+      delete metadata.status;
+      delete metadata.completed;
+    }
+    if (JSON.stringify(beforeMetadata) !== JSON.stringify(afterMetadata)) return false;
+    const normalizedSource = before.replace(
+      new RegExp(`^Spec:\\s*\\\`${escapeRegExp(specSource)}\\\`\\.?[ \\t]*$`, 'm'),
+      `Spec: \`${specDestination}\``,
+    );
+    if (
+      !PRESERVED_DELIVERY_SECTIONS.filter(
+        (heading) =>
+          !(heading === '## Plan' && original === taskSource) &&
+          !(heading === '## Evidence Log' && original === specSource) &&
+          // GATE-COMPLETE requires the spec's Test Plan to record actual test references.
+          // Acceptance text remains checked separately below; source-planning authority is absent.
+          !(heading === '## Test Plan' && original === specSource),
+      ).every(
+        (heading) =>
+          markdownSection(normalizedSource, heading, true) ===
+          markdownSection(after, heading, true),
+      )
+    )
+      return false;
+  }
+  const normalizePlan = (text) =>
+    markdownSection(text, '## Plan', true)?.replace(/^(\s*[-*]\s+)\[[ xX]\]/gm, '$1[x]');
+  if (normalizePlan(textBefore(taskSource)) !== normalizePlan(textAfter(taskDestination)))
+    return false;
+  const previousEvidence = markdownSection(textBefore(specSource), '## Evidence Log', true);
+  const nextEvidence = markdownSection(textAfter(specDestination), '## Evidence Log', true);
+  if (
+    previousEvidence !== null &&
+    (nextEvidence === null || !nextEvidence.startsWith(previousEvidence.trimEnd()))
+  )
+    return false;
+  for (const [original, archived] of [
+    [taskSource, taskDestination],
+    [specSource, specDestination],
+  ]) {
+    for (const heading of ['## Completion Criteria', '## Independent completion criteria']) {
+      const before = markdownSection(textBefore(original), heading);
+      if (before === null) continue;
+      const after = markdownSection(textAfter(archived), heading);
+      if (after === null) return false;
+      const previous = checkpointCheckboxItems(before.split('\n'));
+      const next = checkpointCheckboxItems(after.split('\n'));
+      if (
+        previous.length !== next.length ||
+        !previous.every(
+          (item, index) => next[index].checked && next[index].text.startsWith(item.text),
+        )
+      )
+        return false;
+    }
+  }
+  const normalizeProjection = (text) => {
+    if (text === null) return null;
+    const projection = visibleMarkdown(text, true);
+    const output = [...projection.sourceLines];
+    let section = null;
+    projection.lines.forEach((line, index) => {
+      const heading = atxHeading(line);
+      if (heading?.level <= 2) section = heading.level === 2 ? heading.content : null;
+      if (section === 'Children' || section === 'Tasks') {
+        const rawIndex = projection.rawIndices[index];
+        output[rawIndex] = output[rawIndex]
+          .split(taskSource)
+          .join(taskDestination)
+          .split(specSource)
+          .join(specDestination);
+      }
+    });
+    return output.join('\n');
+  };
+  return isPostMergeDeliveryBatch({
+    paths: paths.filter((file) => !sources.has(file)),
+    textBefore: (file) =>
+      destinations.has(file) ? textAfter(file) : normalizeProjection(textBefore(file)),
+    textAfter,
+    isPlainFile,
+    historicalClosures: true,
   });
 }
 
@@ -2181,6 +2382,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     let l0Ground = null;
     for (const entry of entries) {
       if (entry.paths.length === 0) continue;
+      if (postMergeHistoryBetween(root, entry.parent, entry.commit, entry.paths)) continue;
       if (onlyLedgerAppends(entry.paths, textIn(entry.commit), textIn(entry.parent))) continue;
       const completion = validatePostMergeCompletion(
         root,
@@ -2316,6 +2518,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
   let planningStarted = false;
   for (const entry of entries) {
     if (entry.commit === first.commit) break;
+    if (postMergeHistoryBetween(root, entry.parent, entry.commit, entry.paths)) continue;
     if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base)) {
       postMergePreludes += 1;
       if (postMergePreludes > 1 || planningStarted) {
@@ -2551,6 +2754,14 @@ function stagedCheckpoint(root, paths) {
   return { pairs, basename, problems };
 }
 
+/** Historical captures do not consume the one predecessor-delivery allowance. */
+export function hasPriorPostMergeDelivery(commits, pathsForCommit, isHistoryOnlyCommit) {
+  return commits.some((commit) => {
+    const paths = pathsForCommit(commit);
+    return paths.includes(POST_MERGE_LEDGER) && !isHistoryOnlyCommit(commit, paths);
+  });
+}
+
 export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {
   const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   try {
@@ -2558,6 +2769,16 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (staged.length === 0) return [];
     const history = historyAnalysis(root, requestedBase);
     if (history.findings.length > 0) return history.findings;
+    if (postMergeHistoryBetween(root, 'HEAD', null, staged)) {
+      const residue = worktreePaths(root);
+      return residue.length === 0
+        ? []
+        : [
+            finding(
+              `unstaged or untracked path(s) exist during post-merge history capture: ${residue.join(', ')}.`,
+            ),
+          ];
+    }
     if (staged.includes(BACKLOG_RULE_PATH)) {
       const stagedRule = indexText(root, BACKLOG_RULE_PATH);
       const stagedContract = parseCheckpointEvidenceContract(stagedRule);
@@ -2625,8 +2846,10 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     if (staged.includes(POST_MERGE_LEDGER)) {
       const before = gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '';
       const after = indexText(root, POST_MERGE_LEDGER) ?? '';
-      const priorTopicLedgerChange = history.commits.some((commit) =>
-        changedPaths(root, `${commit}^`, commit).includes(POST_MERGE_LEDGER),
+      const priorTopicLedgerChange = hasPriorPostMergeDelivery(
+        history.commits,
+        (commit) => changedPaths(root, `${commit}^`, commit),
+        (commit, paths) => postMergeHistoryBetween(root, `${commit}^`, commit, paths),
       );
       const residue = worktreePaths(root);
       const validPrelude =

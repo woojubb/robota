@@ -130,6 +130,14 @@ set Task `status: done` and `completed: YYYY-MM-DD`, and `git mv` it into `compl
 Task/spec pointers and all required parent projections in that same delivery commit. A missing spec
 is valid only for the L0/no-spec route; it is not permission to bypass a required paired plan.
 
+When implementation already landed, archive the exact delivered pair with its terminal gate and
+verified merge witness. The same batch may update existing parents' bound `Children`/`Tasks`
+projections and close that Task's existing OPEN execution, checklist and review runs. Preserve
+parent planning text, sealed evidence and each run's identity, opening time, extensions and prior
+rounds; an unsuccessful closure stays unsuccessful. Unrelated records and executable changes are
+not completion metadata. For approved documentation-only archives and ledger-only historical
+storage, use the bounded routes in [execution-cadence.md](../rules/execution-cadence.md#enforcement-boundary).
+
 **Never** move a file to `completed/` without first updating `status` in its frontmatter.
 **Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).
 

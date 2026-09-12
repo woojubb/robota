@@ -752,15 +752,61 @@ function closeoutSpecText(status = 'in-progress', taskPath = CLOSEOUT_TASK_PATH)
   ].join('\n');
 }
 
-function deliveredCloseoutFixture({ squashed = false } = {}) {
+const CLOSEOUT_PARENT_TASK = '.agents/tasks/AGREEMENT-903-closeout-parent.md';
+const CLOSEOUT_PARENT_SPEC = '.agents/spec-docs/draft/AGREEMENT-903-closeout-parent.md';
+const CLOSEOUT_RUN_LEDGERS = [
+  '.agents/loop-runs/backlog-execution-orchestrator.jsonl',
+  '.agents/loop-runs/post-implementation-checklist.jsonl',
+  '.agents/loop-runs/pr-finding-resolution-loop.jsonl',
+];
+
+function closeoutParentText(section, childPath, completed = false) {
+  return [
+    '---',
+    `status: ${section === 'Tasks' ? 'draft' : 'todo'}`,
+    '---',
+    '',
+    '# AGREEMENT-903: preserve the remaining child scope',
+    '',
+    '## Plan',
+    '',
+    '- [ ] Finish all children, not only this delivery.',
+    '',
+    `## ${section}`,
+    '',
+    `- [${completed ? 'x' : ' '}] HARNESS-902 — ${completed ? 'done' : 'in-progress'} — \`${childPath}\``,
+    '- [ ] HARNESS-904 — todo — remaining independent child',
+    '',
+  ].join('\n');
+}
+
+function closeoutRunRows(index, closed = false) {
+  const sealed = userScenarioRecord('HARNESS-904', 'r20260909000000');
+  const current = {
+    ...userScenarioRecord('HARNESS-902', `r2026091000000${index}`),
+    roundFindings: closed ? [1, 0] : [1],
+    terminal: closed ? 'converged' : null,
+    closed: closed ? '2026-08-25T00:02:00.000Z' : null,
+  };
+  return `${JSON.stringify(sealed)}\n${JSON.stringify(current)}\n`;
+}
+
+function deliveredCloseoutFixture({ squashed = false, boundRecords = false } = {}) {
   const fixture = repository();
   git(fixture.root, ['switch', 'develop']);
   write(fixture.root, CLOSEOUT_TASK_PATH, closeoutTaskText());
   write(fixture.root, CLOSEOUT_SPEC_PATH, closeoutSpecText());
+  if (boundRecords) {
+    write(fixture.root, CLOSEOUT_PARENT_TASK, closeoutParentText('Children', CLOSEOUT_TASK_PATH));
+    write(fixture.root, CLOSEOUT_PARENT_SPEC, closeoutParentText('Tasks', CLOSEOUT_SPEC_PATH));
+    CLOSEOUT_RUN_LEDGERS.forEach((file, index) =>
+      write(fixture.root, file, closeoutRunRows(index)),
+    );
+  }
   const base = commit(fixture.root, `delivered closeout fixture${squashed ? '' : ' (#1)'}`);
   git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
   git(fixture.root, ['switch', '-C', 'feature', base]);
-  return { ...fixture, base, squashed };
+  return { ...fixture, base, squashed, boundRecords };
 }
 
 function stageCloseout(
@@ -794,6 +840,17 @@ function stageCloseout(
       fixture.root,
       '.agents/loop-runs/post-merge-cycle.jsonl',
       `${JSON.stringify(squash ? postMergeSquashRecord(fixture.base) : postMergeRecord(fixture.base))}\n`,
+    );
+  }
+  if (fixture.boundRecords) {
+    write(
+      fixture.root,
+      CLOSEOUT_PARENT_TASK,
+      closeoutParentText('Children', taskDestination, true),
+    );
+    write(fixture.root, CLOSEOUT_PARENT_SPEC, closeoutParentText('Tasks', specDestination, true));
+    CLOSEOUT_RUN_LEDGERS.forEach((file, index) =>
+      write(fixture.root, file, closeoutRunRows(index, true)),
     );
   }
   if (mixed) write(fixture.root, 'packages/example/implementation.ts', 'implementation\n');
@@ -3131,7 +3188,7 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(root, base))).toMatch(/completed|done|draft|mix/i);
   });
 
-  it('accepts one append-only closed predecessor post-merge ledger record', () => {
+  it('accepts closed post-merge history before a separately valid planning checkpoint', () => {
     const { root, base } = repository();
     write(root, '.agents/loop-runs/post-merge-cycle.jsonl', '');
     write(
@@ -3142,7 +3199,7 @@ describe('user-execution PLAN order — branch history', () => {
     commit(root, 'post-merge prelude');
     checkpoint(root);
 
-    expect(findHistoryFindings(root, base)).toEqual([]);
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
   });
 
   // CI owns these existing Git-fixture tests; local verification uses the memory-only delivery
@@ -3187,6 +3244,65 @@ describe('user-execution PLAN order — branch history', () => {
     },
   );
 
+  it.each([true, false])(
+    'keeps failed history separate from later existing-pair delivery authority (valid witness: %s)',
+    (validWitness) => {
+      const { root } = repository();
+      const task = `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`;
+      const spec = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
+      const ledger = '.agents/loop-runs/post-merge-cycle.jsonl';
+      write(root, task, closeoutTaskText('done', spec));
+      write(root, spec, closeoutSpecText('done', task));
+      write(root, ledger, '');
+      const base = commit(root, 'delivered archived pair (#1)');
+      git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+
+      const failed = {
+        ...postMergeRecord(base),
+        terminal: 'halted-for-user',
+        roundFindings: [1],
+        ref: 'PR #1 MERGE VERIFIED FAIL: required projection unavailable',
+      };
+      const prefix = `${JSON.stringify(failed)}\n`;
+      write(root, ledger, prefix);
+      git(root, ['add', '-A']);
+      expect(findStagedFindings(root, base)).toEqual([]);
+      commit(root, 'preserve closed failed verification before delivery');
+      expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+
+      write(root, task, `${closeoutTaskText('done', spec)}\n## Delivery\n\nPR #1 verified\n`);
+      write(
+        root,
+        spec,
+        closeoutSpecText('done', task).replace(
+          '## Evidence Log',
+          '## Delivery\n\nPR #1 verified\n\n## Evidence Log',
+        ),
+      );
+      const witness = postMergeRecord(validWitness ? base : 'f'.repeat(40), 'r20260825000001');
+      write(root, ledger, `${prefix}${JSON.stringify(witness)}\n`);
+      git(root, ['add', '-A']);
+      expect(readOptional(root, ledger)).toBe(`${prefix}${JSON.stringify(witness)}\n`);
+      if (validWitness) expect(findStagedFindings(root, base)).toEqual([]);
+      else
+        expect(messages(findStagedFindings(root, base))).toMatch(/post-merge|verified|ancestor/i);
+      commit(root, 'append one canonical delivery witness without rewriting failed history');
+      if (!validWitness) {
+        expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(
+          /post-merge|verified|ancestor/i,
+        );
+        return;
+      }
+      expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+
+      write(root, 'packages/example/src/unplanned.ts', 'export const unplanned = true;\n');
+      git(root, ['add', '-A']);
+      expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint|planning/i);
+      commit(root, 'delivery and failed history cannot authorize later implementation');
+      expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(/checkpoint|planning/i);
+    },
+  );
+
   it('accepts a bounded post-merge Task/spec completion on a fresh branch without checkpoint ancestry', () => {
     const staged = deliveredCloseoutFixture();
     stageCloseout(staged);
@@ -3200,6 +3316,149 @@ describe('user-execution PLAN order — branch history', () => {
     const squashed = deliveredCloseoutFixture({ squashed: true });
     stageCloseout(squashed);
     expect(findStagedFindings(squashed.root, squashed.base)).toEqual([]);
+  });
+
+  it.each([
+    ['converged', [0], 'PR #1 merged; human-readable verification history'],
+    ['halted-for-user', [1], 'PR #1 MERGE VERIFIED FAIL: required projection unavailable'],
+    ['abandoned', [], 'Attempt closed before verification could begin'],
+    ['no-progress', [2, 2], null],
+  ])(
+    'stores %s history without granting later source authority',
+    (terminal, roundFindings, ref) => {
+      const { root, base } = repository();
+      const ledger = '.agents/loop-runs/post-merge-cycle.jsonl';
+      const record = { ...postMergeRecord(base), terminal, roundFindings, ref };
+      write(root, ledger, `${JSON.stringify(record)}\n`);
+      git(root, ['add', '-A']);
+      expect(findStagedFindings(root, base)).toEqual([]);
+      commit(root, 'preserve closed verification attempt');
+      expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+
+      write(root, 'packages/example/src/unplanned.ts', 'export const unplanned = true;\n');
+      git(root, ['add', '-A']);
+      expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint|planning/i);
+      commit(root, 'history cannot authorize implementation');
+      expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(/checkpoint|planning/i);
+    },
+  );
+
+  it('appends multiple failed and successful attempts without rewriting closed history', () => {
+    const { root, base } = repository();
+    const ledger = '.agents/loop-runs/post-merge-cycle.jsonl';
+    const failed = {
+      ...postMergeRecord(base),
+      terminal: 'halted-for-user',
+      roundFindings: [1],
+      ref: 'PR #1 MERGE VERIFIED FAIL: human record, not a delivery witness',
+    };
+    const first = `${JSON.stringify(failed)}\n`;
+    write(root, ledger, first);
+    commit(root, 'preserve failed attempt');
+    const next = [
+      { ...failed, runId: 'r20260825000001', terminal: 'abandoned', roundFindings: [] },
+      postMergeRecord(base, 'r20260825000002'),
+    ];
+    write(root, ledger, `${first}${next.map((record) => JSON.stringify(record)).join('\n')}\n`);
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'append both later attempts');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+    expect(readOptional(root, ledger).startsWith(first)).toBe(true);
+  });
+
+  it.each(['open', 'malformed', 'duplicate-run'])(
+    'rejects %s ledger-only history in both callers',
+    (defect) => {
+      const { root, base } = repository();
+      const record = postMergeRecord(base);
+      const contents =
+        defect === 'malformed'
+          ? '{not-json}\n'
+          : defect === 'open'
+            ? `${JSON.stringify({ ...record, closed: null, terminal: null })}\n`
+            : `${JSON.stringify(record)}\n${JSON.stringify(record)}\n`;
+      write(root, '.agents/loop-runs/post-merge-cycle.jsonl', contents);
+      git(root, ['add', '-A']);
+      expect(messages(findStagedFindings(root, base))).toMatch(/post-merge|ledger/i);
+      commit(root, 'invalid closed-history shape');
+      expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(/post-merge|ledger/i);
+    },
+  );
+
+  it('archives a delivered pair with bound parent projections and existing OPEN run closures', () => {
+    const fixture = deliveredCloseoutFixture({ boundRecords: true });
+    stageCloseout(fixture);
+    expect(findStagedFindings(fixture.root, fixture.base)).toEqual([]);
+    commit(fixture.root, 'archive pair and required parent and run projections atomically');
+    expect(findHistoryFindingsFromGit(fixture.root, fixture.base)).toEqual([]);
+
+    for (const file of CLOSEOUT_RUN_LEDGERS) {
+      const [sealed, closed] = readOptional(fixture.root, file).trim().split('\n').map(JSON.parse);
+      expect(sealed).toEqual(userScenarioRecord('HARNESS-904', 'r20260909000000'));
+      expect(closed).toMatchObject({
+        ref: 'HARNESS-902',
+        terminal: 'converged',
+        roundFindings: [1, 0],
+      });
+    }
+    expect(readOptional(fixture.root, CLOSEOUT_PARENT_TASK)).toContain(
+      '- [ ] HARNESS-904 — todo — remaining independent child',
+    );
+    write(fixture.root, 'packages/example/src/unplanned.ts', 'export const unplanned = true;\n');
+    git(fixture.root, ['add', '-A']);
+    expect(messages(findStagedFindings(fixture.root, fixture.base))).toMatch(
+      /checkpoint|planning/i,
+    );
+    commit(fixture.root, 'completion cannot authorize later source');
+    expect(messages(findHistoryFindingsFromGit(fixture.root, fixture.base))).toMatch(
+      /checkpoint|planning/i,
+    );
+  });
+
+  it.each([
+    'missing-terminal',
+    'non-ancestor',
+    'unbound-ref',
+    'failed-witness',
+    'multiple-witnesses',
+  ])('rejects delivered archive with %s despite valid parent and run projections', (defect) => {
+    const fixture = deliveredCloseoutFixture({ boundRecords: true });
+    stageCloseout(fixture);
+    if (defect === 'missing-terminal') {
+      const spec = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
+      write(
+        fixture.root,
+        spec,
+        readOptional(fixture.root, spec).replace(
+          '### [GATE-COMPLETE] — ✅ PASS',
+          '### [NOTE] — ✅ PASS',
+        ),
+      );
+    } else {
+      const record = postMergeRecord(fixture.base);
+      if (defect === 'non-ancestor') record.ref = `PR #1 MERGE VERIFIED PASS ${'f'.repeat(40)}`;
+      if (defect === 'unbound-ref') record.ref = 'PR #1 verified by the owner';
+      if (defect === 'failed-witness') {
+        record.terminal = 'halted-for-user';
+        record.roundFindings = [1];
+      }
+      const records =
+        defect === 'multiple-witnesses'
+          ? [record, postMergeRecord(fixture.base, 'r20260825000001')]
+          : [record];
+      write(
+        fixture.root,
+        '.agents/loop-runs/post-merge-cycle.jsonl',
+        `${records.map((item) => JSON.stringify(item)).join('\n')}\n`,
+      );
+    }
+    git(fixture.root, ['add', '-A']);
+    const expected =
+      defect === 'missing-terminal' ? /GATE-COMPLETE/ : /merge ancestor|ledger record/i;
+    expect(messages(findStagedFindings(fixture.root, fixture.base))).toMatch(expected);
+    commit(fixture.root, 'reject invalid delivery evidence, not merely historical storage');
+    expect(messages(findHistoryFindingsFromGit(fixture.root, fixture.base))).toMatch(expected);
   });
 
   it('keeps the ordinary archive path after a recognised planning checkpoint', () => {
@@ -3356,7 +3615,7 @@ describe('user-execution PLAN order — branch history', () => {
     ).toMatch(/no planning checkpoint/);
   });
 
-  it('rejects more than one predecessor post-merge prelude', () => {
+  it('accepts multiple append-only closed attempts before a separately valid checkpoint', () => {
     const { root, base } = repository();
     write(
       root,
@@ -3372,9 +3631,10 @@ describe('user-execution PLAN order — branch history', () => {
       )}\n`,
     );
     commit(root, 'second prelude');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
     checkpoint(root);
 
-    expect(messages(findHistoryFindings(root, base))).toMatch(/more than one|multiple.*prelude/i);
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
   });
 
   it('rejects rewriting an earlier ledger line while appending a new one', () => {
@@ -3398,10 +3658,10 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(root, base))).toMatch(/append-only|ledger/i);
   });
 
-  it('rejects a forged predecessor ledger and a ledger mixed with implementation', () => {
-    const forged = repository();
+  it('stores unbound historical refs but rejects history mixed with implementation', () => {
+    const unbound = repository();
     write(
-      forged.root,
+      unbound.root,
       '.agents/loop-runs/post-merge-cycle.jsonl',
       `${JSON.stringify({
         runId: 'r20260825000000',
@@ -3412,9 +3672,10 @@ describe('user-execution PLAN order — branch history', () => {
         ref: 'PR #1 MERGE VERIFIED PASS deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
       })}\n`,
     );
-    commit(forged.root, 'forged prelude');
-    checkpoint(forged.root);
-    expect(messages(findHistoryFindings(forged.root, forged.base))).toMatch(/ledger|ancestor/i);
+    commit(unbound.root, 'store historical ref without granting merge authority');
+    expect(findHistoryFindingsFromGit(unbound.root, unbound.base)).toEqual([]);
+    checkpoint(unbound.root);
+    expect(findHistoryFindingsFromGit(unbound.root, unbound.base)).toEqual([]);
 
     const mixed = repository();
     write(
@@ -3439,18 +3700,17 @@ describe('user-execution PLAN order — branch history', () => {
     expect(messages(findHistoryFindings(root, base))).toContain('packages/example/src.ts');
   });
 
-  it('rejects unsuccessful predecessor ledger records even when their ref claims PASS', () => {
-    for (const record of [
-      { ...postMergeRecord('PLACEHOLDER'), terminal: 'halted-for-user' },
-      { ...postMergeRecord('PLACEHOLDER'), roundFindings: [1] },
-    ]) {
-      const fixture = repository();
-      const bound = { ...record, ref: postMergeRecord(fixture.base).ref };
-      write(fixture.root, '.agents/loop-runs/post-merge-cycle.jsonl', `${JSON.stringify(bound)}\n`);
-      commit(fixture.root, 'unsuccessful predecessor ledger');
-      checkpoint(fixture.root);
-      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(/ledger|closed/i);
-    }
+  it('rejects a converged history record with unresolved findings even when its ref claims PASS', () => {
+    const fixture = repository();
+    const record = { ...postMergeRecord(fixture.base), roundFindings: [1] };
+    write(fixture.root, '.agents/loop-runs/post-merge-cycle.jsonl', `${JSON.stringify(record)}\n`);
+    git(fixture.root, ['add', '-A']);
+    expect(messages(findStagedFindings(fixture.root, fixture.base))).toMatch(/ledger|post-merge/i);
+    commit(fixture.root, 'invalid converged history');
+    checkpoint(fixture.root);
+    expect(messages(findHistoryFindingsFromGit(fixture.root, fixture.base))).toMatch(
+      /ledger|closed/i,
+    );
   });
 
   it('rejects stale single-path active, completed, and done documents as planning preludes', () => {
@@ -3821,7 +4081,7 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint/i);
   });
 
-  it('accepts exactly one verified predecessor post-merge ledger append in the index', () => {
+  it('accepts a closed post-merge history append in the index', () => {
     const { root, base } = repository();
     write(
       root,
@@ -3833,15 +4093,15 @@ describe('user-execution PLAN order — staged transaction', () => {
     expect(findStagedFindings(root, base)).toEqual([]);
   });
 
-  it('rejects forged or mixed staged predecessor post-merge ledger appends', () => {
-    const forged = repository();
+  it('stores an unbound staged history ref but rejects a mixed executable batch', () => {
+    const unbound = repository();
     write(
-      forged.root,
+      unbound.root,
       '.agents/loop-runs/post-merge-cycle.jsonl',
-      `${JSON.stringify({ ...postMergeRecord(forged.base), ref: `PR #1 MERGE VERIFIED PASS ${'f'.repeat(40)}` })}\n`,
+      `${JSON.stringify({ ...postMergeRecord(unbound.base), ref: `PR #1 MERGE VERIFIED PASS ${'f'.repeat(40)}` })}\n`,
     );
-    git(forged.root, ['add', '.agents/loop-runs/post-merge-cycle.jsonl']);
-    expect(messages(findStagedFindings(forged.root, forged.base))).toMatch(/post-merge|verified/i);
+    git(unbound.root, ['add', '.agents/loop-runs/post-merge-cycle.jsonl']);
+    expect(findStagedFindings(unbound.root, unbound.base)).toEqual([]);
 
     const mixed = repository();
     write(
@@ -4578,7 +4838,7 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
     expect(messages(findings)).toContain(USER_REQUEST_LEDGER);
   });
 
-  it('keeps the post-merge ledger outside the generic append allowance', () => {
+  it('keeps an unbound post-merge record mixed with a Task outside the ledger-only allowance', () => {
     const { root, base } = repository();
     write(root, TASK_PATH, taskText().replace('status: in-progress', 'status: todo'));
     write(root, '.agents/loop-runs/post-merge-cycle.jsonl', ledgerRecord());
@@ -4765,6 +5025,37 @@ describe('an L0 implementation is grounded by its ancestor planning unit (issue 
     expect(findStagedFindings(root, base)).toEqual([]);
     commit(root, 'approved documentation batch');
     expect(findHistoryFindings(root, base)).toEqual([]);
+  });
+
+  it('archives an approved documentation Task without granting later source authority', () => {
+    const { root, base } = l0Repository();
+    const approved = approvedDocumentationTask().replace(
+      '## Test Plan',
+      '## Plan\n\n- [x] Record the approved documentation changes.\n\n## Test Plan',
+    );
+    write(root, GROUND_TASK, approved);
+    write(root, '.agents/rules/example.md', '# Example\n\nApproved documentation change.\n');
+    commit(root, 'approved documentation batch with its checked Plan');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+
+    mkdirSync(path.dirname(path.join(root, ARCHIVED_GROUND)), { recursive: true });
+    git(root, ['mv', GROUND_TASK, ARCHIVED_GROUND]);
+    write(
+      root,
+      ARCHIVED_GROUND,
+      approved.replace('status: in-progress', 'status: done\ncompleted: 2026-09-13'),
+    );
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'archive only the approved documentation Task');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+    expect(readOptional(root, GROUND_TASK)).toBeNull();
+
+    write(root, 'packages/example/src/unplanned.ts', 'export const unplanned = true;\n');
+    git(root, ['add', '-A']);
+    expect(messages(findStagedFindings(root, base))).toMatch(/checkpoint|planning/i);
+    commit(root, 'documentation completion is not executable authority');
+    expect(messages(findHistoryFindingsFromGit(root, base))).toMatch(/checkpoint|planning/i);
   });
 
   it.each([

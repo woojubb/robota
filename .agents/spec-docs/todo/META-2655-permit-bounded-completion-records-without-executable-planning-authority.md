@@ -81,6 +81,7 @@ document completion authority is the premise; tests and merge evidence are not w
 ## Affected Files
 
 - `scripts/harness/plan-order-records.mjs`
+- `scripts/harness/documentation-batch-reader.mjs` (the existing staged/history binding)
 - `scripts/harness/scan-user-execution-plan-order.mjs`
 - `scripts/harness/__tests__/completion-record-boundaries.test.mjs`
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` (remote Git-fixture wiring cases only)

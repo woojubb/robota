@@ -67,9 +67,23 @@ a lower lane. Runnable code, scripts, hooks, CI, manifests and gate-contract cha
 their own planning. Unstaged/untracked work is not hidden by this path. The permission applies only
 to that documentation commit; it never grounds later implementation.
 
+That Task's later archive is also metadata, not a new plan: only the same-basename source and
+completed destination may change. Original approval, a complete existing Plan, N/A scenario and
+absence of a paired spec must remain demonstrable; only terminal status and a valid completion
+date may differ. This archival allowance supplies no executable planning authority.
+
+Closed post-merge attempts may be preserved by a ledger-only append, including unsuccessful
+attempts. Preserve existing lines and unique run identities; reject malformed/open records and
+false convergence. Historical storage is neither a verified merge witness nor a planning ground.
+A delivery batch still requires its exact successful PR/merge ancestor proof. Required completion
+projections and bound existing run closures follow [Tasks README — Process](../tasks/README.md#process),
+not a new planning checkpoint. No metadata route admits executable additions.
+
 Enforced by: `scan-user-execution-plan-order` — the shared documentation-batch predicate is reached
-by staged checks and both history replay paths. Regression tests exercise accepted batches and
-mixed-scope, missing-evidence, residue and later-implementation refusals.
+by staged checks and both history replay paths. The completion/history predicates use the same
+record boundaries in the index and committed trees. Regression tests exercise accepted batches,
+archives and closed history, plus mixed-scope, missing-evidence, residue and later-implementation
+refusals. Loop-specific terminal semantics remain owned by `scan-loop-run-records`.
 
 Enforced by: nothing — deciding whether two edits implement the same approved outcome requires
 semantic judgement, and current execution receipts do not identify duplicate manual invocations.
