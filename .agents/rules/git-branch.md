@@ -378,6 +378,20 @@ in the post-merge sequence, before any branch deletion.
   hop, not only the last.
 - A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
   **never treat "pending" or "not-required-skipped" as pass**.
+- **Verification of a completed merge is not permission to perform one.** If the provider's
+  required-check projection is confirmed empty by readable live protection state, report that fact
+  and verify every declared applicable context at the exact merged PR head through its actual
+  owning workflow, using results completed before the merge. An unsuccessful or indeterminate
+  query is not a confirmed empty projection. Unreadable or indeterminate declarations, workflows
+  or results, and failed, missing, pending, cancelled or skipped applicable checks, block PASS.
+  A non-empty provider projection remains authoritative. This evidence route applies only after
+  merge state, ancestry, substance and drift have been independently verified; it does not change
+  protection or grant pre-merge authority.
+- **The control-plane exception remains owner-only.** For a completed owner landing, apply
+  "Landing a control-plane change" below: verify the host's merged actor and all required records.
+  Only the covered provenance failure may be excluded from the success requirement, whether the
+  provider projection is populated or confirmed empty. Report it as an owner exception, never as
+  green. All other applicable checks retain the success requirement above.
 - **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
   returns every run ever created for the commit, so a re-triggered workflow leaves superseded rows
   behind as `completed`/`cancelled` — rows that say "concluded" about a check that never ran on the

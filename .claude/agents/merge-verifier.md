@@ -38,7 +38,15 @@ verify the git graph directly.
    dropped by a bad conflict resolution — check the substance, not just the commit. Confirm deletions are
    truly gone and additions truly present.
 4. **CI was green.** Read the exact merged PR head with `gh pr view <n> --json headRefOid`, then use
-   `gh pr checks <n> --required` as the canonical CI verdict for that head. Any current required fail,
+   `gh pr checks <n> --required` as the canonical CI verdict for that head. Apply
+   [Git rules — Merge Landing Verification](../../.agents/rules/git-branch.md#merge-landing-verification-mandatory)
+   for a completed merge with a confirmed empty provider projection, and separately for the
+   documented owner-only control-plane exception.
+   Never report an owner-exempted failure as green. A landing verdict verifies a completed merge,
+   not permission to perform another merge.
+
+   **Outside those documented evidence routes**, retain the ordinary evidence contract:
+   Any current required fail,
    cancel, or pending result blocks PASS; a query failure or indeterminate required-check set also fails
    closed. Unfiltered checks and historical attempts are diagnostic only and must not affect the verdict.
    They may be reported as supplemental evidence, but cannot override the provider's current required
@@ -53,6 +61,7 @@ verify the git graph directly.
    (`gh run list --commit <headRefOid> --json name,conclusion,createdAt,event`): judge the merge on
    the attempts that completed BEFORE `mergedAt`, and report a post-merge `edited` re-run as a finding
    about the workflow, not about the landing.
+
 5. **No unrelated drift.** The merge did not sweep in unexpected commits or files beyond the PR's stated
    scope (compare the PR's file list / diffstat to what actually landed). Flag surprises — this catches
    the "branched off the wrong base and swept in old commits" class of error.
