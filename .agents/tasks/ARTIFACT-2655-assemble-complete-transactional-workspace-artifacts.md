@@ -157,6 +157,23 @@ PR #2715 consumer fallback repair:
   post-format integrated CI consumer/classifier/framework-proof/wiring batch passes 183/183 tests
   on Node 22.23.2. No package rebuild or timeout increase was needed for this workflow repair.
 
+PR #2715 quality resource adjustment:
+
+- Run 34705248271 on `dfea467c9ad49313e80e82cef99e2c4adc558d14` passed Windows, scans,
+  clean framework proof, complete build/export, typecheck, lint, repaired examples consumption,
+  TUI and advisory coverage. Full quality again timed out the first system-context regression
+  case and additionally the Git-environment subprocess scenario; both retain their 5000 ms limits.
+- Carson identified the configured difference: clean framework runs at most four Vitest forks,
+  while recursive quality permits four workspaces times four forks alongside typecheck and lint.
+  This supports resource contention as a hypothesis, not a measured CPU-saturation conclusion.
+  Pascal classified use of the existing CI-specific resource override LOCAL (0 foundational).
+- Only the quality test child now receives `VITEST_MAX_FORKS=1`, reducing its configured total
+  ceiling to four forks while preserving assertions, timeouts, heap limits and check concurrency.
+  Actual child-environment regressions reproduced two failures before the change; integrated
+  post-format verification passes 185/185 tests. No local Git fixture was executed. Full CI remains
+  required to judge the adjustment; a passing run will not prove every possible flake eliminated.
+- Exact red-check ground and standing authorization are recorded in PR comment 5647236566.
+
 ## Test Plan
 
 Focused positive/negative regressions plus actual execution at the owning boundary. Verify every

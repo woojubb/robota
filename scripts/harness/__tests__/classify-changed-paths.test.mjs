@@ -517,7 +517,9 @@ describe('CI capability wiring', () => {
     expect(workflow).toContain('pnpm lint:affected');
     expect(workflow).toContain('pnpm examples:typecheck:affected');
     expect(workflow).toContain('pnpm build\n');
-    expect(workflow).toContain('start_check test env HOME="$empty_home" pnpm test\n');
+    expect(workflow).toContain(
+      'start_check test env HOME="$empty_home" VITEST_MAX_FORKS=1 pnpm test\n',
+    );
     expect(workflow).toContain('start_check typecheck pnpm typecheck\n');
     expect(workflow).toContain('start_check lint pnpm lint\n');
     expect(workflow).toContain('pnpm examples:typecheck\n');

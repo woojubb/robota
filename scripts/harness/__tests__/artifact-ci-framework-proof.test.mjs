@@ -27,6 +27,55 @@ function inlineNode(step, bindings) {
 }
 
 describe('ARTIFACT clean framework proof CI wiring', () => {
+  it.each(['test', 'test:affected'])(
+    'limits recursive quality workers in the actual %s child environment',
+    (operation) => {
+      const quality = build.steps.find(
+        (step) => step.name === 'Verify full or affected package quality concurrently',
+      );
+      const line = quality.run
+        .split('\n')
+        .find((candidate) => candidate.trim().endsWith(`pnpm ${operation}`));
+      const environment = line
+        .trim()
+        .replace(/^start_check test /u, '')
+        .replace(/ pnpm test(?::affected)?$/u, '');
+      const temp = makeTemp('robota-quality-workers-');
+      const result = spawnSync(
+        'bash',
+        [
+          '--noprofile',
+          '--norc',
+          '-euo',
+          'pipefail',
+          '-c',
+          `empty_home="$RUNNER_TEMP"; ${environment} "$NODE_BINARY" -e 'process.stdout.write(JSON.stringify({forks: process.env.VITEST_MAX_FORKS, home: process.env.HOME}))'`,
+        ],
+        {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            BASH_ENV: '',
+            ENV: '',
+            RUNNER_TEMP: temp,
+            NODE_BINARY: process.execPath,
+            VITEST_MAX_FORKS: '7',
+          },
+        },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({ forks: '1', home: temp });
+      for (const other of ['typecheck', 'lint']) {
+        expect(
+          quality.run
+            .split('\n')
+            .filter((candidate) => candidate.includes(`start_check ${other} `))
+            .every((candidate) => !candidate.includes('VITEST_MAX_FORKS')),
+        ).toBe(true);
+      }
+    },
+  );
+
   it('declares the root artifact driver and gives every runtime artifact module actual full build/test scope', () => {
     expect(WORKSPACE_WIDE_BUILD_TOOLING_PATHS).toContain('scripts/artifacts/build-workspace.mjs');
     const runtimeFiles = readdirSync(new URL('../../artifacts/', import.meta.url), {

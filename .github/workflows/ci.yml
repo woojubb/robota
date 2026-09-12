@@ -507,11 +507,13 @@ jobs:
           }
 
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
-            start_check test env HOME="$empty_home" pnpm test
+            # Recursive pnpm already runs four workspaces; one fork per workspace avoids
+            # multiplying that into sixteen test workers alongside typecheck and lint.
+            start_check test env HOME="$empty_home" VITEST_MAX_FORKS=1 pnpm test
             start_check typecheck pnpm typecheck
             start_check lint pnpm lint
           else
-            start_check test env HOME="$empty_home" pnpm test:affected
+            start_check test env HOME="$empty_home" VITEST_MAX_FORKS=1 pnpm test:affected
             start_check typecheck pnpm typecheck:affected
             start_check lint pnpm lint:affected
           fi
