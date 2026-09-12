@@ -4,14 +4,22 @@
   "private": true,
   "description": "agent-cli-web — the CLI's built-in web monitor SPA (Vite). A minimal localhost-WS session monitor (index.html → SessionMonitor from the shared GUI core). agent-cli builds this package's dist/ and serves it over localhost HTTP (GUI-007). Not a deployable app — a CLI-owned product shell.",
   "type": "module",
+  "robota": {
+    "artifact": {
+      "builder": "vite"
+    }
+  },
   "scripts": {
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
     "dev": "vite",
-    "build": "vite build",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsgo --noEmit",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build"
   },
   "dependencies": {
     "@robota-sdk/agent-transport-gui": "workspace:*",

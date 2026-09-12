@@ -181,7 +181,7 @@ Keep related implementation, tests and delivery records in one batch; do not add
 - [ ] TC-03: Exact emitted-manifest verification rejects seeded obsolete files, removed-source outputs, missing files, byte mismatches, internal symlinks and mixed-generation copies; expectations are not derived from the directory under verification.
 - [ ] TC-04: Actual tarball verification rejects missing/extra/modified payloads, preserves workspace dependency transformations and CLI bin/web behavior, and binds every supported pack/publish/skip-build/CI artifact path to the same verified generation.
 - [ ] TC-05: The release-path corpus executes cold, stale-seeded and partial-failure cases with real emitters and real pack; relevant independent tests and required CI pass. Pure predicate tests alone do not establish this criterion.
-- [ ] TC-06: Current clean framework-only affected build/test exits 0 without global fallback, builds analytics/replay before the three original #2653 regression files, and passes those files against fresh output; record the selected scope, commands and actual results.
+- [ ] TC-06: Current clean framework-only affected build/test exits 0 without global fallback, builds analytics/replay before the three original Issue #2653 regression files, and passes those files against fresh output; record the selected scope, commands and actual results.
 - [ ] TC-07: The explicitly approved initial legacy-output transition preserves the old output, reports its non-atomic interval, and supports failure/interruption recovery. Preserve Windows build compatibility under its separate atomicity-only exception. Do not apply either exception to normal Linux/macOS managed publication. All criteria are delivered to origin/develop with issue evidence.
 
 ## Test Plan
@@ -200,22 +200,22 @@ test, so a macOS run cannot establish all 12 test cases; current full acceptance
 Run the explicit framework changed-file build from absent package output, then the three files and
 the full affected test operation against that output. This planner observation is not a build pass.
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Integration | Existing workspace graph/execution suites; clean root and web-only affected execution | Assert complete artifacts and copied-edge order, not only selected names |
-| TC-02 | Integration | Real generation switch with concurrent pinned readers and fault injection | Compare old/new complete generations across success, failure and interruption; Windows checks staging/validation/recovery, not atomicity |
-| TC-03 | Unit / Integration | Emitter-record oracle and stale/removed-entry/mixed-copy fixtures | Dist enumeration is the actual side only |
-| TC-04 | Integration | Materialize and pnpm-pack real package; inspect and mutate tarball fixtures | No registry publication; check transformed metadata and CLI bin/web contents |
-| TC-05 | CI smoke | Existing release-path corpus extended with cold/stale/failure cases | Run real emitters and pack in the owning CI environment |
-| TC-06 | Integration | Framework-only affected build/test from absent package output | Preserve #2653 original three-file acceptance, analytics/replay and non-global plan |
-| TC-07 | Integration | Legacy and build-host positive/negative cases; git/gh delivery readback | Unsupported or unverified paths are explicit failures, not partial success |
+| TC-ID | Test Type          | Tool / Approach                                                                       | Notes                                                                                                                                    |
+| ----- | ------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration        | Existing workspace graph/execution suites; clean root and web-only affected execution | Assert complete artifacts and copied-edge order, not only selected names                                                                 |
+| TC-02 | Integration        | Real generation switch with concurrent pinned readers and fault injection             | Compare old/new complete generations across success, failure and interruption; Windows checks staging/validation/recovery, not atomicity |
+| TC-03 | Unit / Integration | Emitter-record oracle and stale/removed-entry/mixed-copy fixtures                     | Dist enumeration is the actual side only                                                                                                 |
+| TC-04 | Integration        | Materialize and pnpm-pack real package; inspect and mutate tarball fixtures           | No registry publication; check transformed metadata and CLI bin/web contents                                                             |
+| TC-05 | CI smoke           | Existing release-path corpus extended with cold/stale/failure cases                   | Run real emitters and pack in the owning CI environment                                                                                  |
+| TC-06 | Integration        | Framework-only affected build/test from absent package output                         | Preserve Issue #2653 original three-file acceptance, analytics/replay and non-global plan                                                |
+| TC-07 | Integration        | Legacy and build-host positive/negative cases; git/gh delivery readback               | Unsupported or unverified paths are explicit failures, not partial success                                                               |
 
 ## User Execution Test Scenarios
 
 Not applicable.
 
-**Reason:** This changes repository build and artifact publication machinery rather than adding an
-installed Robota product interaction. Real CLI packaged-output smoke checks remain engineering tests.
+**Reason:** Installed CLI commands, web-monitor interactions and public API behavior are preserved.
+Internal artifact storage and publication introduce no new product interaction for a user to perform.
 
 ## Tasks
 
@@ -327,6 +327,7 @@ installed Robota product interaction. Real CLI packaged-output smoke checks rema
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 5 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -378,6 +379,7 @@ installed Robota product interaction. Real CLI packaged-output smoke checks rema
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

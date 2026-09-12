@@ -245,3 +245,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `gh api repos/woojubb/robota/rules/branches/develop` returns `[]`; branch protection returns `404 Branch not protected`; PR #2706 head `0d5e077b491c5a49c4f00084233aa73baa5bc1ed` has nine latest-name successes plus two skipped stubs, while owning `review-gate` job `103534851084` and `workflow provenance` job `103534831956` succeeded before the owner merged it. No remote protection settings were changed.
 - source: LOCAL-2655 and PR #2706 post-merge verification
 - related: Issue #2655, PR #2706
+
+### LRN-cli-monitor-missing-favicon
+
+- observed-at: 2026-09-13T00:18:00+09:00
+- observation: The built CLI monitor loads and connects, but Chrome reports a 404 for its implicit favicon request because the application declares and ships no icon.
+- evidence: Native Chrome through cua_repl loaded the actual CLI `dist/web` under `startMonitorUiServer` and displayed `CLI MONITOR · Connected`; DevTools showed only `favicon.ico:1 Failed to load resource: 404`. The unchanged `origin/develop:packages/agent-cli-web/index.html` declares no favicon and no favicon/public icon source exists in that package.
+- source: ARTIFACT-2655 browser artifact verification
+- related: Issue #2655

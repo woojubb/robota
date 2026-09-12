@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  createWorkspaceBuildExecution,
+  runWorkspaceBuild,
+} from '../../artifacts/build-workspace.mjs';
 
 import {
   createWorkspaceExecution,
@@ -75,6 +79,74 @@ function packagePlan(operation, names) {
 }
 
 describe('workspace affected executor', () => {
+  it('executes root builds through the existing engine and propagates prerequisite failure', async () => {
+    const calls = [];
+    await expect(
+      runWorkspaceBuild({
+        root: '/unused',
+        graph: buildGraph,
+        runTask: async (task) => {
+          calls.push(task.packageName);
+          return { status: 23, signal: null, error: null };
+        },
+      }),
+    ).rejects.toThrow(/packages\/core:build.*23/);
+    expect(calls).toEqual(['@fixture/core']);
+    const summary = await runWorkspaceBuild({
+      root: '/unused',
+      graph: buildGraph,
+      runTask: async () => ({ status: 0, signal: null, error: null }),
+    });
+    expect(summary).toMatchObject({ ok: true, taskCount: 2 });
+  });
+
+  it('uses the same complete package tasks for root builds including private copied producers', () => {
+    const artifactGraph = {
+      packages: [
+        {
+          name: 'assets',
+          directory: 'packages/assets',
+          artifact: { builder: 'vite' },
+          scripts: { build: 'assemble' },
+          dependencies: [],
+        },
+        {
+          name: 'cli',
+          directory: 'packages/cli',
+          artifact: { builder: 'tsdown', copies: [{ package: 'assets', target: 'web' }] },
+          scripts: { build: 'assemble' },
+          dependencies: ['assets'],
+        },
+        {
+          name: 'docs',
+          directory: 'apps/docs',
+          scripts: { build: 'docs-build' },
+          dependencies: [],
+        },
+      ],
+    };
+    const execution = createWorkspaceBuildExecution(artifactGraph);
+    expect(execution.errors).toEqual([]);
+    expect(execution.stages.map((stage) => stage.map((task) => task.packageName))).toEqual([
+      ['assets'],
+      ['cli'],
+    ]);
+    expect(execution.tasks.map((task) => task.args)).toEqual([
+      ['--filter', 'assets', 'run', 'build'],
+      ['--filter', 'cli', 'run', 'build'],
+    ]);
+    expect(execution).toEqual(
+      createWorkspaceExecution({
+        graph: artifactGraph,
+        plan: {
+          mode: 'packages',
+          operation: 'build',
+          packages: artifactGraph.packages.slice(0, 2),
+        },
+      }),
+    );
+  });
+
   it('uses real package scripts and records explicit N/A decisions', () => {
     const execution = createWorkspaceExecution({
       plan: packagePlan('test', ['@fixture/core', 'robota-docs']),

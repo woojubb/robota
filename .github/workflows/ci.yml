@@ -391,10 +391,14 @@ jobs:
         run: |
           node --input-type=module <<'EOF'
           import { appendFileSync, readFileSync } from 'node:fs';
+          import { isBuildMachineryPath } from './scripts/harness/classify-changed-paths.mjs';
 
           const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
+          const workspaceBuildPlan = JSON.parse(readFileSync('.agents/evals/local-metrics/workspace-build-plan.json', 'utf8'));
+          const cleanFrameworkProof = !Array.isArray(plan.changedFiles) || plan.changedFiles.length === 0 || plan.changedFiles.some(isBuildMachineryPath);
+          appendFileSync(process.env.GITHUB_OUTPUT, `clean_framework_proof=${cleanFrameworkProof}\n`);
           const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck']);
-          const required = process.env.FULL_VERIFICATION === 'true' || plan.scopes.some((scope) =>
+          const required = workspaceBuildPlan.mode === 'global' || process.env.FULL_VERIFICATION === 'true' || plan.scopes.some((scope) =>
             scope.checks.some((check) => checksRequiringPackageDist.has(check)),
           );
           const agentAppRequired = process.env.FULL_VERIFICATION === 'true' || plan.scopes.some(
@@ -411,6 +415,42 @@ jobs:
           }
           EOF
 
+      # #2653: prove a clean partial build, not a partial build warmed by the full build below.
+      - name: Clean framework-only build and regression proof
+        id: clean_framework_proof
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.clean_framework_proof == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/harness/workspace-affected.mjs --operation build --changed-file packages/agent-framework/src/index.ts --format json > "$RUNNER_TEMP/framework-build-plan.json"
+          node --input-type=module <<'EOF'
+          import assert from 'node:assert/strict';
+          import { lstatSync, readFileSync } from 'node:fs';
+          import path from 'node:path';
+          import { readWorkspaceGraph } from './scripts/harness/workspace-graph.mjs';
+          const plan = JSON.parse(readFileSync(path.join(process.env.RUNNER_TEMP, 'framework-build-plan.json'), 'utf8'));
+          assert.equal(plan.mode, 'packages');
+          assert.equal(plan.globalFallback, false);
+          assert.equal(plan.packages.length, 15);
+          for (const name of ['@robota-sdk/agent-framework', '@robota-sdk/agent-provider-replay', '@robota-sdk/agent-session-analytics']) {
+            assert.ok(plan.packages.some((pkg) => pkg.name === name), `missing producer: ${name}`);
+          }
+          for (const pkg of readWorkspaceGraph(process.cwd()).packages) {
+            if (!pkg.directory.startsWith('packages/')) continue;
+            for (const output of ['dist', '.robota-artifacts']) {
+              assert.equal(lstatSync(path.join(pkg.directory, output), { throwIfNoEntry: false }), undefined, `clean proof requires absent ${pkg.directory}/${output}`);
+            }
+          }
+          console.log(`Clean framework proof: packages=${plan.packages.length}, globalFallback=${plan.globalFallback}`);
+          console.log(plan.packages.map((pkg) => pkg.name).join('\n'));
+          EOF
+          node scripts/harness/workspace-affected-run.mjs --operation build --changed-file packages/agent-framework/src/index.ts
+          pnpm --filter @robota-sdk/agent-framework exec vitest run --no-cache \
+            src/interactive/__tests__/interactive-session-background-tasks.test.ts \
+            src/testing/__tests__/session-log-external-payload-replay-functional.test.ts \
+            src/testing/__tests__/usage-assertion-functional.test.ts
+          node scripts/harness/workspace-affected-run.mjs --operation test --changed-file packages/agent-framework/src/index.ts
+
       - name: Build full or affected workspace
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         env:
@@ -425,36 +465,7 @@ jobs:
       - name: Archive package build output
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         shell: bash
-        run: |
-          node --input-type=module <<'EOF'
-          import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-          import { readWorkspaceGraph } from './scripts/harness/workspace-affected.mjs';
-
-          const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/workspace-build-plan.json', 'utf8'));
-          const graph = readWorkspaceGraph(process.cwd());
-          const byName = new Map(graph.packages.map((item) => [item.name, item]));
-          const selected = plan.mode === 'global' ? graph.packages : plan.packages.map((item) => byName.get(item.name));
-          if (selected.some((item) => !item)) throw new Error('build plan references an unknown workspace');
-
-          const containsDistPath = (value) => {
-            if (typeof value === 'string') return /(?:^|\/)dist\//u.test(value);
-            if (!value || typeof value !== 'object') return false;
-            return Object.values(value).some(containsDistPath);
-          };
-          const required = [];
-          for (const item of selected) {
-            if (!item.directory.startsWith('packages/')) continue;
-            const manifest = JSON.parse(readFileSync(`${item.directory}/package.json`, 'utf8'));
-            if (!containsDistPath({ main: manifest.main, types: manifest.types, exports: manifest.exports, bin: manifest.bin })) continue;
-            const dist = `${item.directory}/dist`;
-            if (!existsSync(dist)) throw new Error(`planned build output is missing: ${dist}`);
-            required.push(dist);
-          }
-          if (required.length === 0) throw new Error('build plan produced no package dist contract');
-          writeFileSync('.agents/evals/local-metrics/package-dist-membership.bin', `${required.join('\0')}\0`);
-          console.log(`Verified ${required.length} planned package dist directories.`);
-          EOF
-          tar --null -czf package-dist.tgz --files-from .agents/evals/local-metrics/package-dist-membership.bin
+        run: node scripts/artifacts/transfer.mjs export --plan .agents/evals/local-metrics/workspace-build-plan.json --archive package-dist.tgz
 
       - name: Upload package build output
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
@@ -525,6 +536,10 @@ jobs:
       - name: Build-output contracts scan (dist-dependent)
         if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:scan:build-contracts
+
+      - name: Verify artifact generation, exact pack and release-path regressions
+        if: env.PRODUCT_APPLICABLE == 'true'
+        run: pnpm exec vitest run scripts/artifacts/__tests__
 
       # ARCH-2164: these valid-wire product paths were previously exercised only by scripts that no
       # required check invoked. Keep them inside the already-required build job and only select them
@@ -1118,7 +1133,7 @@ jobs:
         id: restore
         if: env.EXAMPLES_APPLICABLE == 'true' && steps.dist.outcome == 'success'
         run: |
-          tar -xzf .artifacts/package-dist/package-dist.tgz
+          node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
       # A restored affected archive is intentionally incomplete. Resolve the affected examples,
@@ -1212,6 +1227,10 @@ jobs:
         # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
         # minimal job resolves workspace deps from built dist, so agent-process must be built too.
         run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process --filter @robota-sdk/agent-executor build
+
+      - name: Verify native Windows generation replacement and recovery
+        if: env.WINDOWS_APPLICABLE == 'true'
+        run: pnpm exec vitest run scripts/artifacts/__tests__/generation.test.mjs scripts/artifacts/__tests__/manifest.test.mjs
 
       # INFRA-058: `pnpm exec vitest`, NOT `pnpm ... test -- --run <pattern>`. Both packages' `test`
       # script is `vitest run --passWithNoTests`, and a name-FILTERED run through it reports success on
@@ -1336,7 +1355,7 @@ jobs:
         id: restore
         if: env.TUI_APPLICABLE == 'true' && steps.dist.outcome == 'success'
         run: |
-          tar -xzf .artifacts/package-dist/package-dist.tgz
+          node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
       # PTY tests execute the CLI/TUI target, not merely the changed owner. Complete exactly those
@@ -1491,7 +1510,7 @@ jobs:
 
       - name: Restore package build output
         if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
-        run: tar -xzf .artifacts/package-dist/package-dist.tgz
+        run: node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
 
       # Coverage consumes changed package tests and their imports. A partial restore is not enough;
       # complete exactly the changed owners' build prerequisites. A successful full producer needs

@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 import {
   DOCS_ONLY_GLOBS,
@@ -214,19 +215,22 @@ describe('classifyFiles', () => {
     '.github/workflows/ci.yml',
     'scripts/harness/workspace-affected.mjs',
     'scripts/build-types-ordered.mjs',
-  ])('keeps harness/control-plane input %s out of product-full verification', (file) => {
-    expect(isFullVerificationPath(file)).toBe(false);
-    expect(classifyFiles([file])).toMatchObject({
-      code: true,
-      product: false,
-      full: false,
-      harness: true,
-      tui: false,
-      examples: false,
-      windows: false,
-      cli: false,
-    });
-  });
+  ])(
+    'runs build machinery regressions for %s without promoting every capability to full',
+    (file) => {
+      expect(isFullVerificationPath(file)).toBe(false);
+      expect(classifyFiles([file])).toMatchObject({
+        code: true,
+        product: true,
+        full: false,
+        harness: true,
+        tui: false,
+        examples: false,
+        windows: false,
+        cli: false,
+      });
+    },
+  );
 
   it('treats a semantically proven harness-only root manifest as infrastructure', () => {
     expect(
@@ -250,7 +254,7 @@ describe('classifyFiles', () => {
     ).toBe(false);
   });
 
-  it('keeps this infrastructure change shape on explicit product N/A paths', () => {
+  it('keeps build machinery applicable even alongside a harness-only manifest edit', () => {
     const capabilities = resolveCapabilityReachability(
       [
         '.github/workflows/ci.yml',
@@ -274,7 +278,7 @@ describe('classifyFiles', () => {
         },
       ),
     ).toMatchObject({
-      product: false,
+      product: true,
       full: false,
       harness: true,
       tui: false,
@@ -611,11 +615,32 @@ describe('CI capability wiring', () => {
     expect(build).toContain('workspace-build-plan.json');
     expect(build).toContain('node scripts/harness/workspace-affected.mjs');
     expect(build).not.toMatch(/pnpm harness:workspace:affected[^\n]+workspace-build-plan\.json/);
-    expect(build).toContain('planned build output is missing: ${dist}');
-    expect(build).toContain('package-dist-membership.bin');
-    expect(build.indexOf('planned build output is missing')).toBeLessThan(
-      build.indexOf('tar --null -czf package-dist.tgz'),
+    const steps = parse(workflow).jobs.build.steps;
+    const archive = steps.find((step) => step.name === 'Archive package build output');
+    expect(archive.run).toBe(
+      'node scripts/artifacts/transfer.mjs export --plan .agents/evals/local-metrics/workspace-build-plan.json --archive package-dist.tgz',
     );
+    expect(archive.if).toBe(
+      "env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'",
+    );
+    expect(archive['continue-on-error']).toBeUndefined();
+    expect(archive.shell).toBe('bash');
+    const archiveIndex = steps.indexOf(archive);
+    expect(archiveIndex).toBeGreaterThan(
+      steps.findIndex((step) => step.name === 'Build full or affected workspace'),
+    );
+    expect(archiveIndex).toBeLessThan(
+      steps.findIndex((step) => step.name === 'Upload package build output'),
+    );
+    // transfer.test.mjs owns the executable negative oracle: physical/unverified dist refuses
+    // export; missing/corrupt archive entries refuse restore before any generation is published.
+    // CI must run that owner's suite, not retain the removed inline tar/presence implementation.
+    const regression = steps.find(
+      (step) => step.name === 'Verify artifact generation, exact pack and release-path regressions',
+    );
+    expect(regression.run).toBe('pnpm exec vitest run scripts/artifacts/__tests__');
+    expect(regression.if).toBe("env.PRODUCT_APPLICABLE == 'true'");
+    expect(regression['continue-on-error']).toBeUndefined();
   });
 
   it('assigns the harness suite to scans instead of rerunning it in quality', () => {

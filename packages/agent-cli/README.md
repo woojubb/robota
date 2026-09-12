@@ -109,10 +109,25 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Development Setup (Monorepo)
 
 ```bash
-# Build dependencies and CLI
-pnpm build:deps
-pnpm --filter @robota-sdk/agent-cli build
+# Build all packages, including the CLI and its web monitor
+pnpm build
 ```
+
+Root and affected builds assemble complete, verified output before switching `dist` to a new
+generation. A web-monitor change also selects CLI reassembly. Existing monitor servers retain their
+original generation. Do not edit managed output or pack its symlink directly; create a verified archive
+from the repository root with:
+
+```bash
+node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
+```
+
+Standalone Bun builds use the separate `dist-bun` variant (`pnpm --filter @robota-sdk/agent-cli build:bun`).
+If a build reports an interrupted transaction, first ensure its writer has exited, then run
+`node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
+previous output; it refuses to take over an active writer. The first transition from physical `dist`
+requires readers to be stopped. Only that transition and Windows replacement are non-atomic;
+normal managed Linux/macOS replacement is atomic.
 
 ## Usage (Monorepo)
 

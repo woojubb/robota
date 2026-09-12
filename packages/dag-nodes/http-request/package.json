@@ -5,7 +5,7 @@
   "description": "DAG node for making HTTP requests",
   "type": "module",
   "main": "dist/node/index.js",
-  "module": "dist/node/index.mjs",
+  "module": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
@@ -26,11 +26,17 @@
   "files": [
     "dist"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
-    "dev": "tsdown --dts --watch",
+    "prepack": "node ../../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "dev": "node ../../../scripts/artifacts/watch-package.mjs",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",

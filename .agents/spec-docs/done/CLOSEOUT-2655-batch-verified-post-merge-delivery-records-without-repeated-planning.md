@@ -9,6 +9,14 @@ lane: L2
 
 Paired with `.agents/tasks/CLOSEOUT-2655-batch-verified-post-merge-delivery-records-without-repeated-planning.md`. Arising from [issue #2655](https://github.com/woojubb/robota/issues/2655).
 
+## Delivery
+
+PR #2713 delivered this amendment on develop at `7dc3ead0181f82705e048d57439ff3a21de97856`.
+The exact reviewed head passed eleven actual owning CI contexts before merge. Independent
+verification confirmed the whole merged tree and all 14 changed paths match the PR head.
+Issue #2655 remains open for the existing ARTIFACT, BOUNDARY and parent TC-01 outcomes.
+Historical gate evidence below is preserved unchanged.
+
 ## Problem
 
 After PR #2709 merged, `scan-user-execution-plan-order --staged` rejected its delivery-only

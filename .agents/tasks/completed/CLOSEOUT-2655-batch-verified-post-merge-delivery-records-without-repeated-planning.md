@@ -12,6 +12,14 @@ completed: 2026-09-12
 
 # CLOSEOUT-2655: Batch verified post-merge delivery records without repeated planning
 
+## Delivery
+
+PR #2713 landed on develop as `7dc3ead0181f82705e048d57439ff3a21de97856` on 2026-09-12.
+Independent merge verification: PASS; exact reviewed head and merged tree identical, all 14
+changed paths retained, eleven actual owning CI contexts succeeded before merge.
+Issue #2655 remains open for ARTIFACT, BOUNDARY and parent TC-01; the supporting closeout fix
+does not complete those outcomes. Delivery comment: https://github.com/woojubb/robota/issues/2655#issuecomment-5646268102.
+
 ## Objective
 
 Remove the false archive classification and forced isolated ledger commit that reject verified

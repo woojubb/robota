@@ -26,10 +26,16 @@
     "dist",
     "README.md"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
-    "build:js": "tsdown --no-dts && rm -f dist/node/bin.cjs",
-    "build:types": "tsdown --dts && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",

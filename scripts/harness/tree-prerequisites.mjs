@@ -44,6 +44,8 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { readArtifactCapability } from '../artifacts/capability.mjs';
+import { pinGeneration } from '../artifacts/generation.mjs';
 
 /** The prerequisite ids, in the order they must be satisfied — install produces what build needs. */
 export const PREREQUISITE_ORDER = ['install', 'build-output'];
@@ -72,9 +74,8 @@ export function isInstalled(root, exists = existsSync) {
 }
 
 /**
- * Workspace dirs that produce build output — a package whose manifest declares `build:js`
- * (the script the root `pnpm build` fans out to). Mirrors the `packages/*` + `packages/dag-nodes/*`
- * set ci.yml archives as `package-dist.tgz`.
+ * Managed build capabilities include private Vite packages. A legacy build:js script remains a
+ * compatibility signal, not a separate JavaScript/types build owner.
  */
 export function listBuildablePackageDirs(root) {
   const roots = [path.join(root, 'packages'), path.join(root, 'packages', 'dag-nodes')];
@@ -86,7 +87,9 @@ export function listBuildablePackageDirs(root) {
       const manifest = path.join(base, entry.name, 'package.json');
       if (!existsSync(manifest)) continue;
       const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
-      if (pkg?.scripts?.['build:js']) dirs.push(path.relative(root, path.join(base, entry.name)));
+      if (readArtifactCapability(pkg) || pkg?.scripts?.['build:js']) {
+        dirs.push(path.relative(root, path.join(base, entry.name)));
+      }
     }
   }
   return dirs.sort();
@@ -154,10 +157,34 @@ export function inspectTree(root, required = PREREQUISITE_ORDER) {
   const installed = isInstalled(root);
   const buildable = required.includes('build-output') ? listBuildablePackageDirs(root) : [];
   const missingDist = findMissingDist(buildable, existsSync, root);
+  const invalidGenerations = [];
+  for (const directory of buildable) {
+    if (missingDist.includes(directory)) continue;
+    const packageRoot = path.join(root, directory);
+    const pkg = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+    if (!readArtifactCapability(pkg)) continue;
+    try {
+      pinGeneration(packageRoot);
+    } catch (error) {
+      invalidGenerations.push({ directory, reason: error.message });
+    }
+  }
   const missing = [];
   if (required.includes('install') && !installed) missing.push('install');
-  if (required.includes('build-output') && missingDist.length > 0) missing.push('build-output');
-  return { root, installed, buildable, missingDist, missing, tree: describeTree(root) };
+  if (
+    required.includes('build-output') &&
+    (missingDist.length > 0 || invalidGenerations.length > 0)
+  )
+    missing.push('build-output');
+  return {
+    root,
+    installed,
+    buildable,
+    missingDist,
+    invalidGenerations,
+    missing,
+    tree: describeTree(root),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -190,11 +217,18 @@ function describeMissing(state) {
     );
   }
   if (state.missing.includes('build-output')) {
-    const sample = state.missingDist.slice(0, 4).join(', ');
-    lines.push(
-      `  MISSING  build-output  ${state.missingDist.length} of ${state.buildable.length} buildable package(s) have no dist/.`,
-      `                         e.g. ${sample}${state.missingDist.length > 4 ? ` … (+${state.missingDist.length - 4})` : ''}`,
-    );
+    if (state.missingDist.length > 0) {
+      const sample = state.missingDist.slice(0, 4).join(', ');
+      lines.push(
+        `  MISSING  build-output  ${state.missingDist.length} of ${state.buildable.length} buildable package(s) have no dist/.`,
+        `                         e.g. ${sample}${state.missingDist.length > 4 ? ` … (+${state.missingDist.length - 4})` : ''}`,
+      );
+    }
+    for (const invalid of state.invalidGenerations ?? []) {
+      lines.push(
+        `  MISSING  build-output  ${invalid.directory}: invalid managed generation: ${invalid.reason}`,
+      );
+    }
   }
   return lines;
 }

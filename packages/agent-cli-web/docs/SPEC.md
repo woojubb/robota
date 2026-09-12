@@ -5,7 +5,7 @@
 `agent-cli-web` is the CLI's built-in **web monitor SPA** (GUI-007): a minimal Vite single-page app whose one
 entry (`index.html` → `src/main.tsx`) mounts `SessionMonitor` from the shared GUI core
 (`@robota-sdk/agent-transport-gui/client`) over a localhost WebSocket. It reads the live WS URL from a
-server-injected `<meta name="ws-url">` tag. `agent-cli` builds this package's `dist/` (via `copy-web-assets`)
+server-injected `<meta name="ws-url">` tag. The workspace artifact graph builds this package before CLI assembly,
 and serves it over a localhost HTTP host on `robota --serve --open` — the CLI OWNS and SERVES its own monitor.
 
 It is a **`private` product-shell package** (like `packages/agent-playground`), sanctioned under the Library
@@ -23,7 +23,7 @@ Neutrality Rule: a product UI assembled from the shared libraries, not an import
 ## Public API Surface
 
 None — this package ships a built SPA bundle (`dist/`), not an importable module. It has no exports consumed by
-other workspace packages; `agent-cli` depends on its `dist/` at build time only (file copy, not a package edge).
+other workspace packages; `agent-cli` consumes its complete output through an explicit copied-artifact build edge.
 
 ## Dependencies
 
@@ -32,7 +32,10 @@ other workspace packages; `agent-cli` depends on its `dist/` at build time only 
 
 ## Build
 
-`vite build` → `dist/` (single `index.html` entry). `agent-cli`'s build runs this first, then
-`scripts/copy-web-assets.mjs` copies `dist/` into `agent-cli/dist/web`. The GUI library imports the
+The artifact adapter runs Vite with a fresh generation output directory (single `index.html` entry),
+verifies exact compiler emissions, then publishes managed `dist`. CLI assembly copies the pinned,
+verified producer generation into its own staged `web/` directory before publishing its complete
+output. A web-only change selects CLI reassembly through the copied-artifact reverse edge; neither
+root nor affected assembly relies on recursive package build scripts. The GUI library imports the
 protocol package's published browser-safe `./client` entrypoint; this SPA carries no package alias or
 private source-path workaround for protocol decoding.

@@ -126,6 +126,19 @@ runtime `dependencies` have zero `@robota-sdk`" is enforced by `scripts/harness/
 (check #4), and `dep-kind` exempts agent-cli's `@robota-sdk` devDep value-imports as bundled
 (`BUNDLED_WORKSPACE_PACKAGES`).
 
+**Complete artifact assembly (ARTIFACT-2655).** Root and affected builds use the same package-owned
+artifact capability. Node, types and copied web assets are validated together in a fresh immutable
+generation before publication. The copied web producer is an explicit ordered build edge; CLI build
+does not recursively rebuild producers. Managed Linux/macOS `dist` switches are atomic. The owner
+approved non-atomic Windows replacement and the first legacy physical-directory transition only;
+both retain previous output and explicit recovery evidence. Packing materializes ordinary files from
+one pinned, exact-verified generation. A running monitor server pins the physical web root at startup
+and opens all later requests under that same root, retaining its generation across new builds.
+
+Node and Bun compilation inject the CLI's own manifest version into the existing build-time version
+constant. Version reporting must not depend on the depth of a managed generation directory; both
+managed execution and an installed ordinary-file package report that same package version.
+
 **Remaining dev-only guarded hook:** `--session-log` replay (`@robota-sdk/agent-provider-replay`,
 INFRA-017) is an internal test-harness provider loaded via a guarded `createRequire` in `cli.ts`. It is
 NOT bundled (not an end-user feature); absent in published installs it yields a clear error only when
@@ -749,13 +762,16 @@ runtime dependencies of the bundled workspace packages (see § Self-contained bu
 
 Alongside the npm/Node package, `agent-cli` can be compiled to a **standalone single-file executable** via
 Bun. **Bun is used for build/packaging ONLY — never at runtime, and no Bun-specific APIs are used.** The
-existing Node path (`bin/robota.cjs` → `dist/node/bin.js`) and every existing `package.json` script are
-**byte-identical / unchanged**.
+existing Node entry path (`bin/robota.cjs` → `dist/node/bin.js`) is retained. Binary assembly pins its
+validated input generation and publishes the separately declared `bun` output variant; it never writes
+into the sealed npm/Node generation.
 
 - **Build:** `scripts/build-bun.mjs` (run under Bun) `Bun.build({ compile, define, plugins })`s the built
   `dist/node/bin.js` per target. Additive scripts: `build:bun` (host), `build:bun:all`, and per-target
   `build:bun:<os>-<arch>` (darwin-arm64/x64, linux-x64/arm64, windows-x64). Prereq: `pnpm build` (produces
-  `dist/node/bin.js`); output → `dist/bin/robota-<os>-<arch>[.exe]`.
+  `dist/node/bin.js`); output → `dist-bun/robota-<os>-<arch>[.exe]`. All requested targets are staged and
+  verified against Bun emission records before the variant pointer changes. A failed target retains
+  the previous complete binary generation.
 - **Two build-time fixes** (do not affect Node): a plugin stubs ink 7.x's DEV-only static
   `react-devtools-core` import (Bun's compiler resolves it eagerly; the code path never runs in production);
   and `src/startup/version.ts` reads a `--define`d `__ROBOTA_VERSION__` through a `typeof` guard (the single

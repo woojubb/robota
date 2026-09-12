@@ -72,8 +72,11 @@ jobs:
       - name: Compile Bun binaries (all 5 targets)
         run: pnpm --filter @robota-sdk/agent-cli build:bun:all
 
+      - name: Materialize verified binary generation for release metadata
+        run: node scripts/artifacts/generation-image.mjs packages/agent-cli dist-bun "${{ runner.temp }}/robota-binaries"
+
       - name: Sanity — host binary prints the real version (no Node)
-        run: ./packages/agent-cli/dist/bin/robota-linux-x64 --version
+        run: '"${{ runner.temp }}/robota-binaries/robota-linux-x64" --version'
 
       # Only the host (linux-x64) binary above can actually be EXECUTED on this runner, so the other four
       # were previously published without a single assertion of any kind. `file` is the cheapest check that
@@ -81,7 +84,7 @@ jobs:
       # NAME promises. A target silently emitting the host arch — or emitting nothing — reaches users as a
       # download that cannot run, which is exactly the failure class DIST-002 exists over.
       - name: Assert all five targets exist, are non-trivial, and match their advertised architecture
-        working-directory: packages/agent-cli/dist/bin
+        working-directory: ${{ runner.temp }}/robota-binaries
         run: |
           set -euo pipefail
           check() { # check <filename> <expected substring of `file` output>
@@ -113,7 +116,7 @@ jobs:
           file -b robota-linux-arm64 | grep -q 'ARM aarch64' || { echo "::error::robota-linux-arm64 is not aarch64"; exit 1; }
 
       - name: Generate SHA-256 checksums
-        working-directory: packages/agent-cli/dist/bin
+        working-directory: ${{ runner.temp }}/robota-binaries
         run: |
           set -euo pipefail
           sha256sum robota-* > SHA256SUMS.txt
@@ -136,7 +139,7 @@ jobs:
         run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --notes-file "${{ runner.temp }}/release-notes.md"
 
       - name: Publish binaries to the GitHub Release
-        working-directory: packages/agent-cli/dist/bin
+        working-directory: ${{ runner.temp }}/robota-binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
@@ -157,7 +160,7 @@ jobs:
       # back and compare each asset's PUBLISHED size against the local file, so a partial or dropped upload
       # cannot leave a green run behind a release users cannot install from.
       - name: Verify the assets actually landed on the Release
-        working-directory: packages/agent-cli/dist/bin
+        working-directory: ${{ runner.temp }}/robota-binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
