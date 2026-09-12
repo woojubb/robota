@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-2711: reconcile owner-paused STRUCT-012 lifecycle records'
-status: todo
+status: in-progress
 created: 2026-09-12
 priority: high
 urgency: now
@@ -18,9 +18,9 @@ after S2 until an explicit resume, so unrelated harness changes are not blocked 
 
 ## Plan
 
-- [ ] Close backlog-execution run `r20260905080635` as abandoned with the pause reason.
-- [ ] Change STRUCT-012 from active execution to the blocked state while the owner pause remains.
-- [ ] Verify loop-run, terminal-state, Task-plan, Task-archival, and plan-order scans.
+- [x] Close backlog-execution run `r20260905080635` as abandoned with the pause reason.
+- [x] Change STRUCT-012 from active execution to the blocked state while the owner pause remains.
+- [x] Verify loop-run, terminal-state, Task-plan, Task-archival, and plan-order scans.
 - [ ] Confirm the integrated tree preserves the owner-directed pause and contains no product-code change.
 
 ## User Execution Test Scenarios
@@ -28,7 +28,7 @@ after S2 until an explicit resume, so unrelated harness changes are not blocked 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** This lifecycle-record correction changes no runnable product behavior or end-user interface
-that can be exercised through a user execution scenario.
+that can be exercised through a user execution test scenario.
 
 ## Test Plan
 
@@ -40,6 +40,6 @@ that can be exercised through a user execution scenario.
 
 ## Completion Criteria
 
-- [ ] The abandoned run has a terminal timestamp, outcome, and reason.
-- [ ] STRUCT-012 remains open with S3–S5 intact and accurately records that execution is paused.
-- [ ] Relevant lifecycle scans pass without changing product source.
+- [x] The abandoned run has a terminal timestamp, outcome, and reason.
+- [x] STRUCT-012 remains open with S3–S5 intact and accurately records that execution is paused.
+- [x] Relevant lifecycle scans pass without changing product source.

@@ -1,6 +1,6 @@
 ---
 title: 'STRUCT-012: refactor the transport family onto its name hierarchy'
-status: in-progress
+status: blocked
 created: 2026-09-05
 priority: high
 urgency: soon
