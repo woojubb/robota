@@ -7,9 +7,9 @@ description: Add characterization tests before breaking monolithic package code 
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Test-Driven Development"
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "No Fallback Policy"
+- [tdd-and-planning.md](../../rules/tdd-and-planning.md) > "Test-Driven Development"
+- [verification.md](../../rules/verification.md) > "Build Requirements"
+- [operational.md](../../rules/operational.md) > "No Fallback Policy"
 
 **Never refactor without tests. Never modularize without first proving the current behavior is
 captured.** The sequence is always: **Analyze → Test → Extract → Verify**.

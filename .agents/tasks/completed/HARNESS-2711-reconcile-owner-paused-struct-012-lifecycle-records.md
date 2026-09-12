@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2711: reconcile owner-paused STRUCT-012 lifecycle records'
-status: in-progress
+status: done
 created: 2026-09-12
+completed: 2026-09-12
 priority: high
 urgency: now
 area: repository harness lifecycle records
@@ -21,7 +22,7 @@ after S2 until an explicit resume, so unrelated harness changes are not blocked 
 - [x] Close backlog-execution run `r20260905080635` as abandoned with the pause reason.
 - [x] Change STRUCT-012 from active execution to the blocked state while the owner pause remains.
 - [x] Verify loop-run, terminal-state, Task-plan, Task-archival, and plan-order scans.
-- [ ] Confirm the integrated tree preserves the owner-directed pause and contains no product-code change.
+- [x] Confirm the integrated tree preserves the owner-directed pause and contains no product-code change.
 
 ## User Execution Test Scenarios
 
@@ -43,3 +44,9 @@ that can be exercised through a user execution test scenario.
 - [x] The abandoned run has a terminal timestamp, outcome, and reason.
 - [x] STRUCT-012 remains open with S3–S5 intact and accurately records that execution is paused.
 - [x] Relevant lifecycle scans pass without changing product source.
+
+## Verification Evidence
+
+- PR #2712 landed as `a822e50a0543731cd09240ed5ef81df7dc0abdb5` on `develop`.
+- The integrated diff leaves STRUCT-012 blocked with S3–S5 intact and contains no product source change.
+- The final-head CI scan passed, including loop-run and Task lifecycle checks.

@@ -12,9 +12,9 @@ format). The underlying code rules are NOT restated here — they are owned by
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Type System (Strict)"
-- `AGENTS.md` > "No Fallback Policy"
-- `AGENTS.md` > "Development Patterns"
+- [code-quality.md](../../rules/code-quality.md) > "Type System (Strict)"
+- [operational.md](../../rules/operational.md) > "No Fallback Policy"
+- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
 
 ## Severity Labels
 

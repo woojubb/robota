@@ -7,9 +7,9 @@ description: Apply Robota architecture patterns when designing module boundaries
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Development Patterns"
-- `AGENTS.md` > "Type System (Strict)"
-- `AGENTS.md` > "Execution Safety"
+- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
+- [code-quality.md](../../rules/code-quality.md) > "Type System (Strict)"
+- [verification.md](../../rules/verification.md) > "Execution Safety"
 
 The binding rules live in [code-quality.md](../../rules/code-quality.md) (development patterns) and
 [.agents/project-structure.md](../../project-structure.md) (dependency direction). This skill is a

@@ -10,7 +10,6 @@ State machine orchestrator for spec documents. This skill manages ONLY the pipel
 
 ## Rule Anchor
 
-- `AGENTS.md` > Mandatory Rules > Process
 - `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation
 - `.agents/rules/spec-workflow.md` > Lanes — which gates a document runs, by its `lane:`
 

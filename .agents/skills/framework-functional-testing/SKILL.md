@@ -9,7 +9,8 @@ description: Verify a CLI-exposed capability through a real InteractiveSession w
 
 - [.agents/rules/testing-layering.md](../../rules/testing-layering.md) — CLI = thin-wrapper/TUI tests
   only; feature behaviour MUST have a framework-level functional test.
-- `AGENTS.md` > "Build Requirements", "No Fallback".
+- [verification.md](../../rules/verification.md) > "Build Requirements"
+- [operational.md](../../rules/operational.md) > "No Fallback Policy"
 
 ## Use This Skill When
 
