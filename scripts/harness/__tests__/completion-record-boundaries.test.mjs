@@ -197,7 +197,7 @@ describe('completion record boundaries without Git fixtures', () => {
     fixture.after.set(
       archived,
       fixture.after.get(archived) +
-      '\n## Test Plan\n\nActual test reference: `caller.test.mjs`, `rejects unplanned implementation`.\n', // allow-missing-artifact: synthetic in-memory Test Plan reference; no file is created or executed
+        '\n## Test Plan\n\nActual test reference: `caller.test.mjs`, `rejects unplanned implementation`.\n', // allow-missing-artifact: synthetic in-memory Test Plan reference; no file is created or executed
     );
     expect(isPostMergeCompletionBatch(fixture.input)).toBe(true);
   });
