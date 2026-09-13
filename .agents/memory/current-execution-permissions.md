@@ -25,3 +25,21 @@ does not authorize bypassing valid checks, changing remote protection settings o
 Current trial: LOCAL-2655 removes automatic local CI duplication and worktree side effects. The
 active policy belongs to [verification.md](../rules/verification.md) and
 [git-branch.md](../rules/git-branch.md); this memory records the owner feedback, not another rule set.
+
+## Delegated merge decisions
+
+Owner instruction, 2026-09-13 (verbatim):
+
+> 병합 승인해. 앞으로 병합은
+> 너가 확인해서 타당할 경우 셀프승인하고 병합해
+
+The owner approved PR #2716 and delegated future justified merges into `develop` to the owning
+agent. Evaluate current CI, review findings, head/base and scope, record the decision under this
+delegated authority, and merge without requesting the same owner approval again. Record the
+agent's decision honestly; do not claim the owner clicked a GitHub review or reviewed future code.
+This does not waive verification, authorize a red-check bypass or protection changes, or expand
+authority to `main`, release promotion, publication or deployment. Existing push/rebase constraints
+and the worktree prohibition remain unchanged.
+
+Published approval provenance: [PR #2716 decision](https://github.com/woojubb/robota/pull/2716#issuecomment-5649757760).
+The general next-action policy remains owned by [git-branch.md](../rules/git-branch.md).

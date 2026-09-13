@@ -584,16 +584,16 @@ Enforced mechanically for pushes by `.claude/hooks/pre-push-check.sh`; merge/reb
 `ACTIONABLE FINDINGS: 0` and a non-zero count. It is not a signal to merge, not a deadline, and not a
 reason to hurry.
 
-Before every next action (edit/push, rebase, or merge), the owning session must read the latest verdict
-and publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR. A maintainer
-must approve it. The comment
-must contain exactly these auditable fields:
+Before every next action (edit/push, rebase, or merge), the owning session must read the latest verdict.
+For push/rebase, publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR
+with maintainer approval and exactly these auditable fields. Merge decisions use the separate
+operator-owned record below, not this push/rebase format:
 
 ```
 POST_FINDINGS_ACTION_REQUEST
 HEAD: <exact current PR head SHA>
 VERDICT: <latest ACTIONABLE FINDINGS count>
-ACTION: push | rebase | merge
+ACTION: push | rebase
 GROUND: finding | red-check | rebase
 EVIDENCE: <link or command output another person can inspect>
 SCOPE: <the files/operation the request permits>
@@ -601,8 +601,23 @@ APPROVED: yes
 APPROVED-BY: @<maintainer>
 ```
 
-The next-action guard checks the marker, latest verdict count, exact head, action, explicit ground,
-evidence, scope, and approval. A local review record, private judgement, advice attached to a passing
+For a merge, publish a `POST_FINDINGS_ACTION_REQUEST` decision naming the current PR, head/base,
+latest verdict, `ACTION: merge`, inspected CI/review evidence, scope, approval and actual approver.
+A maintainer approves unless an explicit, unrevoked owner delegation covers that merge into
+`develop`; then the owning agent may make the per-PR decision without requesting fresh owner
+approval. Include the deciding agent and owner's delegation provenance, and use
+`APPROVED-BY: agent:<name> (owner-delegated)` for that decision; do not
+present it as a new direct owner approval or an independent code review. Re-evaluate changed
+evidence for each merge. Delegation does not waive the merge gate, expand push/rebase authority,
+authorize `main` or release merges, or permit protection changes or red-check bypasses.
+A justified merge does not require a finding, red check or rebase; those named grounds restrict
+pushes, not the decision to land verified work.
+
+The next-action guard checks push/rebase requests: marker, latest verdict count, exact head,
+action, explicit ground, evidence, scope, and maintainer approval. Its parser does not accept
+merge actions or delegated-agent approver values. Merge decisions remain an operator gate;
+do not claim that this parser verifies a delegated merge decision. A local review record,
+private judgement, advice attached to a passing
 verdict, or an override token is not approval. After an approved action, a new head or verdict requires
 a new decision comment.
 
