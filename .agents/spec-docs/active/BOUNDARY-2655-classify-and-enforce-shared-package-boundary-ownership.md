@@ -157,6 +157,18 @@ evidence. `readWorkspaceGraph` remains the sole package graph and preserves mani
 artifact and verification-prerequisite edges. `selectPackagesForOperation` keeps the existing
 fanout policy; ownership evidence alone never creates reverse-test fanout.
 
+Artifact compatibility: the default graph retains full Git-backed tracked/nonignored input
+analysis and propagates collection errors. Ordinary root builds explicitly request filesystem
+inventory from the same source-inventory owner, preserving full source/config resolution without
+requiring Git metadata. This is a selected input mode, never a fallback after a Git failure.
+Filesystem inventory records its own provenance rather than claiming tracked/untracked coverage;
+it never follows symlinks or traverses dependency storage, `.git`, or declared generated outputs.
+Metadata-only artifact consumers may explicitly disable source analysis while retaining manifest,
+capability, copied-producer and manifest/copy-cycle validation. The graph reports source analysis
+as not performed, distinct from a performed empty result, and such a projection cannot be used
+for operation scheduling. Root/affected build regressions continue to analyze actual fixture
+source files and preserve copied ordering, exact payloads and failure recovery without Git fixtures.
+
 For root contract tests, `contract-test-inputs.mjs` currently has a second regex relative closure
 and treats every quoted executable-looking filename as executable. Replace that inference in
 `relativeImportClosure`/`createContractTestRegistry` with the same typed reference evidence.

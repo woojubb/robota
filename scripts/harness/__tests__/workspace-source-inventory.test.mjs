@@ -2,6 +2,119 @@ import { expect, it } from 'vitest';
 
 import { collectWorkspaceSourceInventory } from '../workspace-source-inventory.mjs';
 
+it('collects an explicit filesystem population without Git or following excluded directories', () => {
+  const directories = new Map([
+    [
+      '/fixture',
+      [
+        '.git',
+        'node_modules',
+        '.next',
+        '.turbo',
+        'coverage',
+        'dist',
+        'out',
+        'packages',
+        'README.md',
+      ],
+    ],
+    ['/fixture/packages', ['a']],
+    [
+      '/fixture/packages/a',
+      [
+        'package.json',
+        'src',
+        'dist',
+        'dist-bun',
+        'out',
+        '.next',
+        '.turbo',
+        'coverage',
+        '.robota-artifacts',
+        'linked',
+      ],
+    ],
+    ['/fixture/packages/a/src', ['index.ts']],
+  ]);
+  const inspected = [];
+  const read = [];
+  const result = collectWorkspaceSourceInventory('/fixture', {
+    mode: 'filesystem',
+    packages: [
+      {
+        name: '@fixture/a',
+        directory: 'packages/a',
+        artifact: { builder: 'tsdown', variants: { bun: { output: 'dist-bun' } } },
+      },
+    ],
+    collect: () => {
+      throw new Error('Git collection must not run');
+    },
+    readDirectory: (file) => {
+      read.push(file);
+      if (!directories.has(file)) throw new Error(`unexpected traversal: ${file}`);
+      return directories.get(file);
+    },
+    stat: (file) => {
+      inspected.push(file);
+      return {
+        isSymbolicLink: () => file.endsWith('/linked'),
+        isDirectory: () => directories.has(file),
+        isFile: () => !directories.has(file) && !file.endsWith('/linked'),
+      };
+    },
+  });
+  expect(result.mode).toBe('filesystem');
+  expect(result).not.toHaveProperty('population');
+  expect(result).not.toHaveProperty('untrackedPopulation');
+  expect([...result.files]).toEqual([
+    'README.md',
+    'packages/a/package.json',
+    'packages/a/src/index.ts',
+  ]);
+  expect(
+    result.filesystemPopulation.find((entry) => entry.path === 'packages/a/linked'),
+  ).toMatchObject({ category: 'symlink', reason: 'not-followed' });
+  expect(
+    result.filesystemPopulation.find((entry) => entry.path.endsWith('index.ts')),
+  ).toMatchObject({
+    owner: '@fixture/a',
+    category: 'source',
+    contractEvidence: ['packages/a/package.json'],
+  });
+  expect(read).toEqual([...directories.keys()]);
+  expect(
+    inspected.some((file) =>
+      /\/(?:\.git|node_modules|dist|dist-bun|out|\.next|\.turbo|coverage|\.robota-artifacts)(?:\/|$)/u.test(
+        file,
+      ),
+    ),
+  ).toBe(false);
+});
+
+it('propagates filesystem read errors and rejects unknown inventory modes', () => {
+  expect(() =>
+    collectWorkspaceSourceInventory('/fixture', {
+      mode: 'filesystem',
+      packages: [],
+      collect: () => {
+        throw new Error('unexpected Git');
+      },
+      stat: () => ({ isSymbolicLink: () => false, isDirectory: () => true }),
+      readDirectory: () => {
+        throw new Error('filesystem denied');
+      },
+    }),
+  ).toThrow('filesystem denied');
+  expect(() =>
+    collectWorkspaceSourceInventory('/fixture', {
+      mode: 'automatic',
+      packages: [],
+      collect: () => [],
+    }),
+  ).toThrow('inventory mode');
+});
+
 it('reports out-of-root population entries without inspecting them', () => {
   const inspected = [];
   const result = collectWorkspaceSourceInventory('/fixture', {

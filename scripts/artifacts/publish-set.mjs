@@ -13,7 +13,7 @@ export async function prepareReleaseArtifacts({
   if (!packageNames.length || new Set(packageNames).size !== packageNames.length) {
     throw new Error('artifact publish: select a nonempty unique package set');
   }
-  const graph = readWorkspaceGraph(root);
+  const graph = readWorkspaceGraph(root, { includeSourceDependencies: false });
   const inventory = graph.packages.map((entry) => ({
     root: path.join(root, entry.directory),
     manifest: JSON.parse(readFileSync(path.join(root, entry.directory, 'package.json'), 'utf8')),

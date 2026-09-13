@@ -4,7 +4,7 @@ status: todo
 created: 2026-08-13
 priority: low
 urgency: later
-area: packages/agent-framework, apps/agent-web, packages/agent-playground, packages/agent-testing, packages/agent-provider-openai
+area: packages/agent-framework, apps/agent-web, packages/agent-playground, packages/agent-provider-openai
 depends_on: []
 ---
 

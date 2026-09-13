@@ -123,20 +123,40 @@ function readWorkspaceManifests(root, patterns) {
 }
 
 /** Discover all workspace manifests from pnpm's declared globs. */
-export function readWorkspaceGraph(root, { inventory, collectSourceFiles } = {}) {
+export function readWorkspaceGraph(
+  root,
+  {
+    inventory,
+    collectSourceFiles,
+    includeSourceDependencies = true,
+    sourceInventoryMode = 'git',
+  } = {},
+) {
+  if (typeof includeSourceDependencies !== 'boolean')
+    throw new Error('includeSourceDependencies must be a boolean');
+  if (!['git', 'filesystem'].includes(sourceInventoryMode))
+    throw new Error(`invalid source inventory mode: ${sourceInventoryMode}`);
   const patterns = parseWorkspacePatterns(
     readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8'),
   );
   const packages = readWorkspaceManifests(root, patterns);
-  const sourceInventory =
-    inventory ?? collectWorkspaceReferenceInventory(root, packages, collectSourceFiles);
-  const resolutionContext = {
-    packages,
-    files: sourceInventory.files,
-    readFile: (file) => readFileSync(path.join(root, file), 'utf8'),
-    // One cache per graph analysis; content validation remains in the shared resolver owner.
-    parsedInputs: new Map(),
-  };
+  const sourceInventory = includeSourceDependencies
+    ? (inventory ??
+      collectWorkspaceReferenceInventory(root, packages, collectSourceFiles, {
+        mode: sourceInventoryMode,
+      }))
+    : null;
+  if (includeSourceDependencies && !(sourceInventory?.files instanceof Set))
+    throw new Error('source inventory files must be a Set');
+  const resolutionContext = includeSourceDependencies
+    ? {
+        packages,
+        files: sourceInventory.files,
+        readFile: (file) => readFileSync(path.join(root, file), 'utf8'),
+        // One cache per graph analysis; content validation remains in the shared resolver owner.
+        parsedInputs: new Map(),
+      }
+    : null;
   const workspaceNames = new Set(packages.map((entry) => entry.name));
   const byName = new Map(packages.map((entry) => [entry.name, entry]));
   for (const entry of packages) {
@@ -148,30 +168,51 @@ export function readWorkspaceGraph(root, { inventory, collectSourceFiles } = {})
         );
       }
     }
-    const imports = readWorkspaceImportDependencies(root, entry, workspaceNames, {
-      resolutionContext,
-    });
-    entry.sourceReferences = imports.references;
+    const imports = includeSourceDependencies
+      ? readWorkspaceImportDependencies(root, entry, workspaceNames, {
+          resolutionContext,
+        })
+      : null;
+    entry.sourceReferences = imports?.references ?? null;
     entry.buildDependencies = [
       ...new Set([
         ...entry.productionDependencyNames.filter((name) => workspaceNames.has(name)),
-        ...imports.production.filter((name) => name !== entry.name),
+        ...(imports?.production ?? []).filter((name) => name !== entry.name),
         ...(entry.artifact?.copies ?? []).map((copy) => copy.package),
       ]),
     ].sort();
-    entry.typecheckDependencies = imports.production.filter((name) => name !== entry.name).sort();
-    entry.testDependencies = imports.verification.filter((name) => name !== entry.name).sort();
-    entry.verificationDependencies = [...entry.testDependencies];
+    entry.typecheckDependencies = imports
+      ? imports.production.filter((name) => name !== entry.name).sort()
+      : null;
+    entry.testDependencies = imports
+      ? imports.verification.filter((name) => name !== entry.name).sort()
+      : null;
+    entry.verificationDependencies = imports ? [...entry.testDependencies] : null;
     entry.dependencies = [...entry.buildDependencies];
     delete entry.productionDependencyNames;
     delete entry.developmentDependencyNames;
   }
   const sortedPackages = packages.sort((a, b) => a.directory.localeCompare(b.directory));
   assertAcyclicWorkspaceGraph(sortedPackages);
-  return { patterns, packages: sortedPackages };
+  return {
+    patterns,
+    packages: sortedPackages,
+    sourceAnalysis: {
+      status: includeSourceDependencies ? 'performed' : 'not-performed',
+      inventoryMode: includeSourceDependencies
+        ? inventory != null
+          ? 'provided'
+          : sourceInventoryMode
+        : null,
+    },
+  };
 }
 
 export function workspaceDependenciesForOperation(workspacePackage, operation) {
+  if (workspacePackage.sourceReferences === null)
+    throw new Error(
+      `${workspacePackage.name}: source analysis was not performed; cannot schedule ${operation}`,
+    );
   if (operation === 'consumer-build') {
     return [...(workspacePackage.buildDependencies ?? workspacePackage.dependencies ?? [])].sort();
   }

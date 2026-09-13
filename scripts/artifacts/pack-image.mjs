@@ -24,12 +24,14 @@ const DOCUMENT = /^(?:readme|copying|licen[cs]e)(?:\..+)?$/iu;
 
 export function readWorkspaceVersions(workspaceRoot) {
   return new Map(
-    readWorkspaceGraph(workspaceRoot).packages.map((entry) => {
-      const manifest = JSON.parse(
-        readFileSync(path.join(workspaceRoot, entry.directory, 'package.json'), 'utf8'),
-      );
-      return [entry.name, manifest.version];
-    }),
+    readWorkspaceGraph(workspaceRoot, { includeSourceDependencies: false }).packages.map(
+      (entry) => {
+        const manifest = JSON.parse(
+          readFileSync(path.join(workspaceRoot, entry.directory, 'package.json'), 'utf8'),
+        );
+        return [entry.name, manifest.version];
+      },
+    ),
   );
 }
 

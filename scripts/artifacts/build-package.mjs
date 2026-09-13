@@ -29,7 +29,7 @@ function workspaceRoot(packageRoot) {
 function pinCopies(packageRoot, copies) {
   if (copies.length === 0) return [];
   const root = workspaceRoot(packageRoot);
-  const { packages } = readWorkspaceGraph(root);
+  const { packages } = readWorkspaceGraph(root, { includeSourceDependencies: false });
   return copies.map((copy) => {
     const producer = packages.find((entry) => entry.name === copy.package);
     if (!producer) throw new Error(`Copied producer is not a workspace package: ${copy.package}`);

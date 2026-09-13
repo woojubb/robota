@@ -14,7 +14,7 @@ import {
 import { releaseWorkspace, writeConsumerConfig } from './release-path-fixture.mjs';
 
 async function affectedBuild(root, changedFiles) {
-  const graph = readWorkspaceGraph(root);
+  const graph = readWorkspaceGraph(root, { sourceInventoryMode: 'filesystem' });
   const plan = createWorkspaceAffectedPlan({ root, graph, operation: 'build', changedFiles });
   expect(plan.mode).toBe('packages');
   const execution = createWorkspaceExecution({ plan, graph });
@@ -24,6 +24,7 @@ async function affectedBuild(root, changedFiles) {
 
 it('cold root execution builds real node/browser/types plus Vite copies and packs their exact payload', async () => {
   const { root, consumer, web } = releaseWorkspace();
+  expect(existsSync(path.join(root, '.git'))).toBe(false);
   expect(existsSync(path.join(consumer, 'dist'))).toBe(false);
   expect(existsSync(path.join(web, 'dist'))).toBe(false);
   expect(await runWorkspaceBuild({ root, concurrency: 1 })).toMatchObject({

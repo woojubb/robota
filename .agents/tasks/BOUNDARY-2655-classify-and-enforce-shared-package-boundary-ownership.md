@@ -39,6 +39,40 @@ PR; remote CI, verified landing and terminal completion evidence are not waived.
 
 ## Progress
 
+2026-09-13 Git-free artifact compatibility repair: the completed run 34740793748 passed the
+full package-quality step, then failed 22 artifact regressions before their intended assertions
+because the graph's new unconditional source inventory required Git metadata. The same graph
+owner now exposes explicit metadata-only and filesystem-backed full-analysis
+paths, preserving ordinary root builds rather than creating Git fixtures or weakening assertions.
+PR comment 5651524203 records the bounded LOCAL repair and approval scope. At that run's
+`f1cef7238763658e98b64b9efb57a3a4f3fb7dda` head, build job 103680096030 logged the relocated
+`spawn-pty.test.ts` 6/6, `command-handoff-pty-e2e.test.ts` 2/2 and
+`terminal-handoff-pty-e2e.test.ts` 1/1 passing. TUI job 103681682466 ran the real `test:pty`
+command: 15 files / 32 tests passed. These are historical exact-head runtime results, not a
+successful artifact-suite or final repaired-head CI verdict. TC-03 and TC-06 remain unchecked.
+
+Final local repair verification: Pascal's graph/inventory suite passed 71/71 at 512 MB after
+proving the new rejection and generated-enumeration cases RED. Nash reproduced the 22 original
+artifact failures, then ran the final shared-file hashes against `emitters-build-package`, `pack`,
+`release-path` and `transfer` tests (34 passed), plus only the pre-OTP preparation case in
+`publish.test.mjs` (1 passed / 8 unselected); both commands exited 0. All 14 relevant file hashes
+were unchanged across that final run. Real Git-free root/affected builds, exact pack/transfer and
+failure recovery are preserved. No live publication, local Git fixture, HOME override or PTY
+execution was performed. Carson's bounded spec/code comparison found zero claim gaps across
+the eight production files. These 106 focused passes do not replace final-head remote CI.
+
+2026-09-13 supplemental CI repair: run 34740793748 at `f1cef7238763658e98b64b9efb57a3a4f3fb7dda`
+reported one failed live contract test and one failed static scan, both for REFACTOR-026's stale
+frontmatter area. Its historical inline-code evidence was already exempt; the current area was not.
+The earlier local ghost scan PASS was insufficient: ignored generated directories still exist for
+the retired package locally, masking the clean-checkout failure. No local directories were removed.
+The repair removes only that retired current-area entry. A read-only assertion resolving every area
+against the committed Git tree failed before the edit (one missing path, exit 1), then passed after
+the edit (four valid areas, exit 0), independently of local build artifacts. A byte comparison also
+proved all other REFACTOR-026 content unchanged. PR comment 5651473799 records the named red-check
+ground and standing approval. The prior CI was allowed to finish before publishing;
+these focused metadata checks do not replace the next head's actual remote scans.
+
 2026-09-13 CI repair batch: run 34737185726 attempt 2 acquired runners. TUI E2E, Windows
 and examples-typecheck passed at `189e01c8b61c80448350c812cc65395f85e59881`; build and scans
 failed, with quality and advisory coverage failing downstream. The published red-check action

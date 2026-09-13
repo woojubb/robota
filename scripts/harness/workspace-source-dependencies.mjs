@@ -1,30 +1,31 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { GENERATION_DIRECTORY } from '../artifacts/writer-lock.mjs';
-
 import { extractSourceReferences } from './workspace-source-reference-extraction.mjs';
 import { resolveSourceReference } from './workspace-source-reference-resolution.mjs';
 import { normalizeWorkspacePath } from './workspace-affected-git.mjs';
 import { collectFiles } from './enumerate-files.mjs';
-import { collectWorkspaceSourceInventory } from './workspace-source-inventory.mjs';
+import {
+  collectWorkspaceSourceInventory,
+  WORKSPACE_SOURCE_EXCLUSIONS,
+} from './workspace-source-inventory.mjs';
 
 export { extractSourceReferences } from './workspace-source-reference-extraction.mjs';
 
 const WORKSPACE_CODE_GLOB = '**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}';
 const SOURCE_IGNORES = [
-  '**/node_modules/**',
-  '**/dist/**',
-  '**/coverage/**',
-  '**/.next/**',
-  '**/.turbo/**',
-  'out/**',
-  `**/${GENERATION_DIRECTORY}/**`,
+  ...WORKSPACE_SOURCE_EXCLUSIONS.directoryNames.map((name) => `**/${name}/**`),
+  ...WORKSPACE_SOURCE_EXCLUSIONS.packageRootDirectoryNames.map((name) => `${name}/**`),
 ];
 
-/** One outer checkout enumeration, including authored files not yet staged. No Git fallback. */
-export function collectWorkspaceReferenceInventory(root, packages, collect = collectFiles) {
-  return collectWorkspaceSourceInventory(root, { packages, collect });
+/** One explicit inventory selection. Default checkout enumeration never falls back from Git. */
+export function collectWorkspaceReferenceInventory(
+  root,
+  packages,
+  collect = collectFiles,
+  { mode = 'git' } = {},
+) {
+  return collectWorkspaceSourceInventory(root, { packages, collect, mode });
 }
 
 function isAuthoredCode(file) {
@@ -34,12 +35,10 @@ function isAuthoredCode(file) {
     file !== '..' &&
     !file.startsWith('../') &&
     !path.posix.isAbsolute(file) &&
-    !segments.some((segment) =>
-      ['node_modules', 'dist', 'coverage', '.next', '.turbo', GENERATION_DIRECTORY].includes(
-        segment,
-      ),
-    ) &&
-    !file.startsWith('out/')
+    !segments.some((segment) => WORKSPACE_SOURCE_EXCLUSIONS.directoryNames.includes(segment)) &&
+    !WORKSPACE_SOURCE_EXCLUSIONS.packageRootDirectoryNames.some((name) =>
+      file.startsWith(`${name}/`),
+    )
   );
 }
 

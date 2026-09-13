@@ -102,6 +102,152 @@ function fixture({ cycle = false } = {}) {
   return root;
 }
 
+describe('explicit artifact graph inventory modes', () => {
+  async function graph(root, options) {
+    const actual = await vi.importActual('../workspace-graph.mjs');
+    return actual.readWorkspaceGraph(root, options);
+  }
+
+  it('uses manifest-only projection without enumerating source and refuses scheduling it', async () => {
+    const result = await graph(fixture(), {
+      includeSourceDependencies: false,
+      collectSourceFiles: () => {
+        throw new Error('source inventory must not run');
+      },
+    });
+    expect(result.sourceAnalysis).toEqual({ status: 'not-performed', inventoryMode: null });
+    const web = result.packages.find((entry) => entry.name === '@fixture/web');
+    expect(web.buildDependencies).toEqual(['@fixture/plugin']);
+    expect(web.sourceReferences).toBeNull();
+    expect(web.typecheckDependencies).toBeNull();
+    expect(web.testDependencies).toBeNull();
+    for (const operation of [
+      'consumer-build',
+      'build',
+      'test',
+      'typecheck',
+      'examples-typecheck',
+      'lint',
+    ]) {
+      expect(() => workspaceDependenciesForOperation(web, operation)).toThrow(
+        'source analysis was not performed',
+      );
+    }
+  });
+
+  it('performs filesystem source and config resolution in an ordinary non-Git workspace', async () => {
+    const root = fixture();
+    writeJson(root, 'apps/web/tsconfig.json', {
+      compilerOptions: { paths: { '@core/*': ['../../packages/core/src/*'] } },
+    });
+    mkdirSync(path.join(root, 'packages/core/src'), { recursive: true });
+    writeFileSync(path.join(root, 'packages/core/src/value.ts'), 'export const value = 1;');
+    writeFileSync(
+      path.join(root, 'apps/web/src/index.ts'),
+      "import '../../../packages/core/src/value.js'; import '@core/value'; await import(selected);",
+    );
+    const result = await graph(root, {
+      sourceInventoryMode: 'filesystem',
+      collectSourceFiles: () => {
+        throw new Error('Git collection must not run');
+      },
+    });
+    expect(result.sourceAnalysis).toEqual({ status: 'performed', inventoryMode: 'filesystem' });
+    const web = result.packages.find((entry) => entry.name === '@fixture/web');
+    expect(workspaceDependenciesForOperation(web, 'build')).toEqual([
+      '@fixture/core',
+      '@fixture/plugin',
+    ]);
+    expect(web.sourceReferences).toMatchObject([
+      { resolution: { status: 'resolved', targets: ['packages/core/src/value.ts'] } },
+      {
+        resolution: {
+          status: 'resolved',
+          targets: ['packages/core/src/value.ts'],
+          evidenceInputs: ['apps/web/tsconfig.json'],
+        },
+      },
+      { resolution: { status: 'unresolved', reason: 'nonliteral-reference' } },
+    ]);
+  });
+
+  it('keeps default Git collection fail-closed and identifies provided inventory separately', async () => {
+    const root = fixture();
+    const fail = () => {
+      throw new Error('Git collector failed');
+    };
+    await expect(graph(root, { collectSourceFiles: fail })).rejects.toThrow('Git collector failed');
+    const result = await graph(root, {
+      inventory: { files: new Set(fixtureFiles(root)) },
+      collectSourceFiles: fail,
+    });
+    expect(result.sourceAnalysis).toEqual({ status: 'performed', inventoryMode: 'provided' });
+    const calls = [];
+    const collected = await graph(root, {
+      collectSourceFiles: (_, options) => {
+        calls.push(options.includeUntracked);
+        return fixtureFiles(root);
+      },
+    });
+    expect(calls).toEqual([false, true]);
+    expect(collected.sourceAnalysis).toEqual({ status: 'performed', inventoryMode: 'git' });
+  });
+
+  it('retains manifest and copied-producer validation without source analysis', async () => {
+    const root = fixture();
+    const options = {
+      includeSourceDependencies: false,
+      collectSourceFiles: () => {
+        throw new Error('unexpected source collection');
+      },
+    };
+    writeJson(root, 'packages/core/package.json', {
+      name: '@fixture/core',
+      scripts: { build: 'build' },
+      robota: {
+        artifact: { builder: 'tsdown', copies: [{ package: '@fixture/missing', target: 'web' }] },
+      },
+    });
+    await expect(graph(root, options)).rejects.toThrow('copied artifact producer');
+    await expect(graph(fixture({ cycle: true }), options)).rejects.toThrow(
+      'workspace dependency cycle',
+    );
+    writeJson(root, 'packages/core/package.json', { name: '@fixture/core', dependencies: [] });
+    await expect(graph(root, options)).rejects.toThrow('manifest dependencies must be an object');
+  });
+
+  it('rejects malformed provided inventory rather than claiming performed source analysis', async () => {
+    await expect(graph(fixture(), { inventory: { files: [] } })).rejects.toThrow(
+      'source inventory files must be a Set',
+    );
+  });
+
+  it('retains copied ordering and validation in a manifest-only projection', async () => {
+    const root = fixture();
+    writeJson(root, 'packages/core/package.json', {
+      name: '@fixture/core',
+      scripts: { build: 'build' },
+      robota: { artifact: { builder: 'vite' } },
+    });
+    writeJson(root, 'packages/util/package.json', {
+      name: '@fixture/util',
+      scripts: { build: 'build' },
+      robota: {
+        artifact: { builder: 'tsdown', copies: [{ package: '@fixture/core', target: 'web' }] },
+      },
+    });
+    const result = await graph(root, {
+      includeSourceDependencies: false,
+      collectSourceFiles: () => {
+        throw new Error('unexpected source collection');
+      },
+    });
+    expect(
+      result.packages.find((entry) => entry.name === '@fixture/util').buildDependencies,
+    ).toEqual(['@fixture/core']);
+  });
+});
+
 describe('workspace affected planner', () => {
   it('does not read workspace manifests through a linked directory', () => {
     const root = fixture();

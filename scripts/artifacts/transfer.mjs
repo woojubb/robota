@@ -61,7 +61,11 @@ function exportDescriptor(root, plan, graph) {
 
 export async function exportArtifacts({ root = process.cwd(), plan, archive }) {
   const owner = realpathSync(root);
-  const { packages, descriptor } = exportDescriptor(owner, plan, readWorkspaceGraph(owner));
+  const { packages, descriptor } = exportDescriptor(
+    owner,
+    plan,
+    readWorkspaceGraph(owner, { includeSourceDependencies: false }),
+  );
   return withTransferDirectory(async (work) => {
     mkdirSync(path.join(work, 'package'));
     const descriptorBytes = JSON.stringify(descriptor);
@@ -89,7 +93,7 @@ async function prepareRestore(root, archive, work) {
   const bytes = await readTransferDescriptor(snapshot);
   const descriptor = validateTransferDescriptor(
     JSON.parse(bytes.toString('utf8')),
-    readWorkspaceGraph(root),
+    readWorkspaceGraph(root, { includeSourceDependencies: false }),
   );
   const expected = transferExpectedFiles(descriptor, bytes);
   const extracted = path.join(work, 'extracted');
