@@ -1,5 +1,4 @@
 ---
-'@robota-sdk/agent-transport-protocol': major
 '@robota-sdk/agent-transport-ws': patch
 '@robota-sdk/agent-transport-webrtc': patch
 ---

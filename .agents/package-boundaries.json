@@ -235,12 +235,6 @@
       "reason": "Repository verification owns the shared worker resource ceiling and Git environment isolation; this package imports that configuration contract."
     },
     {
-      "source": "packages/agent-transport-protocol/vitest.config.ts",
-      "target": "vitest.shared.ts",
-      "kind": "module",
-      "reason": "Repository verification owns the shared worker resource ceiling and Git environment isolation; this package imports that configuration contract."
-    },
-    {
       "source": "packages/agent-ui-terminal/vitest.config.ts",
       "target": "vitest.shared.ts",
       "kind": "module",
@@ -836,18 +830,6 @@
     },
     {
       "source": "packages/agent-transport-mcp/tsconfig.json",
-      "target": "tsconfig.base.json",
-      "kind": "config",
-      "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
-    },
-    {
-      "source": "packages/agent-transport-protocol/tsconfig.eslint.json",
-      "target": "tsconfig.eslint.json",
-      "kind": "config",
-      "reason": "Repository-owned lint compiler settings; this exact package configuration inherits the shared root contract."
-    },
-    {
-      "source": "packages/agent-transport-protocol/tsconfig.json",
       "target": "tsconfig.base.json",
       "kind": "config",
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."

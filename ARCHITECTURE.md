@@ -46,8 +46,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │  Subagents       agent-subagent-runner                      │
 │  Tools           agent-tools / agent-tool-mcp               │
 │  Transports      agent-framework (headless/registry hosts);   │
-│                  standalone: agent-transport-{tui,http,      │
-│                  ws,mcp}                                     │
+│                  standalone: agent-transport-{http,ws,mcp};  │
+│                  presentation: agent-ui-terminal             │
 │  Type contracts  agent-interface-transport /                │
 │                  agent-interface-tui                         │
 │  Providers       agent-provider                             │

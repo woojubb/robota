@@ -116,8 +116,9 @@ describe('createBuildTypeTiers', () => {
     // this is the build graph, not the interface-layer graph, and the two number different things.
     // STRUCT-012 S3 absorbed the protocol substrate into agent-transport and left the old package as
     // a dependency-free tombstone. Removing that redundant build edge shortened the deepest path by
-    // one tier, so agent-cli now sits at tier 9 of 10.
-    expect(packages).toHaveLength(81);
+    // one tier, so agent-cli now sits at tier 9 of 10. S5 removes the tombstone itself, leaving 80
+    // producers without changing the tier count.
+    expect(packages).toHaveLength(80);
     expect(tierByName.has('@robota-sdk/agent-testing')).toBe(false);
     expect(tierByName.has('@robota-sdk/agent-ui-terminal')).toBe(true);
     expect(tiers).toHaveLength(10);

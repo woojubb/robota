@@ -47,8 +47,8 @@ The drift scan parses both forms (a transport declares its `name` in one of two 
   `headless` (`agent-framework/src/transport-host/headless/headless-transport.ts` — the framework-owned
   host directory is explicitly included in drift discovery).
 
-**Excluded** (export no transport `name`): `agent-transport-protocol` (transitional empty tombstone),
-`agent-ui-terminal`, `agent-ui-web`, and `agent-transport-webrtc-web` (presentation).
+**Excluded** (export no transport `name`): `agent-ui-terminal`, `agent-ui-web`, and
+`agent-transport-webrtc-web` (presentation).
 
 ## Fan-out (one session → many transports)
 

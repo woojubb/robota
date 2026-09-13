@@ -11,8 +11,8 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md) | [agent-system.md](ag
 Runtime hosts live in `agent-framework/src/transport-host`; terminal I/O lives in `agent-cli`.
 The `agent-transport` parent owns the transport-neutral wire/session substrate. Each concrete adapter
 (WS, HTTP, MCP, node WebRTC) and presentation (TUI, GUI, browser WebRTC) remains in its own package;
-the old protocol package is an empty tombstone until STRUCT-012 S5. Sibling packages must not
-cross-import each other.
+the old protocol package was absorbed into the parent and removed by STRUCT-012 S5. Sibling
+packages must not cross-import each other.
 
 | Package                      | Subpath / Entry             | Protocol / Purpose                                                                                    | React/Ink              | Consumers                                                                             |
 | ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
@@ -20,7 +20,6 @@ cross-import each other.
 | `agent-framework`            | `.`                         | `TransportRegistry` runtime implementation                                                            | No                     | Shared registry/testing imports                                                       |
 | `agent-framework`            | `.`                         | Programmatic agent driver (`createProgrammaticAgent`, `ProgrammaticInteractionChannel`)               | No                     | Non-interactive programmatic session consumers                                        |
 | `agent-transport`            | `.` / `./client` / `./node` | Transport-neutral session bridge, wire protocol, browser decoders, and Node admission/handoff helpers | No                     | Transport implementations and presentation clients                                    |
-| `agent-transport-protocol`   | `.`                         | Transitional empty tombstone; removed in STRUCT-012 S5                                                | No                     | None                                                                                  |
 | `agent-transport-http`       | `.`                         | Hono-based REST adapter                                                                               | No                     | `apps/agent-server` HTTP composition                                                  |
 | `agent-transport-ws`         | `.`                         | WebSocket real-time adapter                                                                           | No                     | `agent-ui-web` (`useWsSession`); the loopback WS sidecar served by `startRuntimeHost` |
 | `agent-transport-mcp`        | `.`                         | MCP **server** adapter — exposes `InteractiveSession` as an MCP server                                | No                     | External MCP clients connecting to a Robota session                                   |
@@ -29,10 +28,10 @@ cross-import each other.
 | `agent-ui-web`               | `.` / `./client`            | React DOM GUI presentation core — `SessionMonitor`, `useWsSession` reducer, view components           | Yes (React ≥18)        | `apps/agent-app` (desktop), `apps/agent-web-monitor`, `agent-transport-webrtc-web`    |
 | `agent-transport-webrtc-web` | `.`                         | Browser WebRTC **peer** — `RemoteClient`, `useRtcSession` over the GUI core (REMOTE-009)              | Yes (React ≥18)        | `apps/agent-web-monitor` remote page                                                  |
 
-The `agent-framework` root export (`.`) surfaces its `TransportRegistry` implementation. Application code
-imports the transport-neutral substrate from `@robota-sdk/agent-transport`, a specific transport package
-(`@robota-sdk/agent-transport-{tui,ws,http,mcp,gui,webrtc,webrtc-web}`), or the `agent-framework` root
-for print mode.
+The `agent-framework` root export (`.`) surfaces its `TransportRegistry` implementation. Application
+code imports the transport-neutral substrate from `@robota-sdk/agent-transport`, a specific adapter
+(`@robota-sdk/agent-transport-ws`, `-http`, `-mcp`, `-webrtc`, or `-webrtc-web`), a presentation
+package (`@robota-sdk/agent-ui-terminal` or `-web`), or the `agent-framework` root for print mode.
 
 Session-owning transport entry points that accept `cwd` also carry
 `projectAccess?: TWorkspaceProjectAccess`: headless, programmatic, and TUI rendering/channel options

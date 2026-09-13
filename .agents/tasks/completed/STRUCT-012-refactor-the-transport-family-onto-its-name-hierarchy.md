@@ -1,13 +1,13 @@
 ---
 title: 'STRUCT-012: refactor the transport family onto its name hierarchy'
-status: in-progress
+status: done
 created: 2026-09-05
 priority: high
 urgency: soon
 area:
   - scripts/harness/check-dependency-direction.mjs
+  - scripts/harness/__tests__/build-types-ordered.test.mjs
   - packages/agent-transport
-  - packages/agent-transport-protocol
   - packages/agent-framework
   - packages/agent-transport-ws
   - packages/agent-transport-http
@@ -21,7 +21,10 @@ area:
   - ARCHITECTURE.md
 depends_on: []
 no-issue: the owner directed this item to be created locally as a foundational root item — "현재 더이상 이방향으로 처리하지 말고 파운데이셔널 이슈로 로컬에 새로 생성하고 리팩터링 진행하세요" (2026-09-05); registration on GitHub is the owner's step after the spec is read
+completed: 2026-09-14
 ---
+
+Spec: `.agents/spec-docs/done/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`
 
 # STRUCT-012: refactor the transport family onto its name hierarchy
 
@@ -166,7 +169,7 @@ Recorded, not absorbed:
       `agent-ui-*/` row.
   - ST-3: `scan-public-project-authority` `-tui` scope replaced
   - TC-13: ARCH-005 `forbiddenDependencyPrefixes` carry `@robota-sdk/agent-ui-` in both lists with a fixture red-proof, and the `:24` purity reason no longer names the retired packages
-- [ ] S5 — delete `packages/agent-transport-protocol` and its routing-document rows; retain
+- [x] S5 — delete `packages/agent-transport-protocol` and its routing-document rows; retain
       `scripts/harness/family-sibling-baseline.json` with only the independently tracked provider
       edge until that root item lands; carry the two `npm deprecate` pointer commands from the
       spec's S5 into the owner's release checklist.
@@ -337,6 +340,46 @@ Verification on 2026-09-14:
   formatting, commit lint, full workspace build, build-contract scans, package quality, binary E2E,
   examples typecheck and TUI E2E (2m 46.2s). Fresh-checkout scans, dependency audit, Windows and
   GitHub review gates remain the pull-request CI authority.
+
+## S5 implementation and verification evidence
+
+The empty `packages/agent-transport-protocol` tombstone and every current routing/publication entry
+for it are removed. The lockfile now contains 108 workspace projects and no tombstone importer;
+pending changeset frontmatter and the fixed package group no longer target a package that will not
+exist at release time. Historical changeset prose and completed records remain unchanged. The
+provider-only family-sibling baseline remains intact under `frozen` and dependency-direction reports
+zero violations.
+
+Verification on 2026-09-14:
+
+- The exact TC-05–TC-07 end-state commands passed: the transport parent remains interface-only,
+  browser-safe root imports contain no Node subpath, `./node` retains `browser: null`, the tombstone
+  directory and current references are absent, and the provider baseline contains exactly its one
+  independently owned edge.
+- `pnpm harness:scan` passed 161 scans with one declared non-applicable scan. Its first invocation
+  exposed that three inventory scans read unstaged deletions from the Git index; staging only the
+  exact tombstone deletion made their input truthful and the unchanged rerun passed.
+- The focused S1–S5 package test command passed for all ten selected packages. The final
+  `pnpm harness:verify-like-ci` passed all eight selected stages in 2m 44.0s, including the complete
+  80-package build, package tests/typechecks/lint, binary and Electron E2E, examples and 32 real-PTY
+  TUI tests. `pnpm docs:build` generated all 356 static pages and indexed 353 pages successfully.
+- SPEC conformance run `r20260913204805` converged in one round with zero findings. Code→SPEC checked
+  the desktop app's direct presentation dependency and absent direct protocol dependency (2 items);
+  SPEC→code checked the two owner packages plus the transitive `agent-ui-web` imports and manifest
+  edges (4 items).
+- Independent final review found retired GUI/TUI names hidden in brace notation, a stale protocol
+  tombstone sentence, and the renamed terminal package's old changelog heading. The current owner
+  documents and heading were corrected, and the strengthened TC-08 exact/brace/title check passed.
+- The final live harness-suite run exposed its package-count assertion still expecting the S4
+  tombstone. `build-types-ordered.test.mjs` now expects the 80 post-S5 producers; its focused test
+  passes without changing the ten-tier order.
+
+Release handoff (manual owner step in the first successor release; not an implementation task):
+
+- `npm deprecate @robota-sdk/agent-transport-protocol "Moved into @robota-sdk/agent-transport as of 3.0.0-beta.N"`
+- `npm deprecate @robota-sdk/agent-transport-tui "Renamed to @robota-sdk/agent-ui-terminal as of 3.0.0-beta.N"`
+
+Replace `N` with that release run's version. Do not unpublish either retired name.
 
 ## Test Plan
 

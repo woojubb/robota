@@ -53,8 +53,8 @@ resolvers and never reveal credentials, and deep links pass through workspace tr
 
 - `packages/agent-cli`, `packages/agent-command`, `packages/agent-framework`
 - `packages/agent-interface-session`, `packages/agent-interface-execution`
-- current `packages/agent-transport`, `packages/agent-transport-protocol`,
-  `packages/agent-ui-terminal`, `packages/agent-ui-web` and their final renamed owners
+- current `packages/agent-transport`, `packages/agent-ui-terminal`, `packages/agent-ui-web` and
+  their final renamed owners
 - `apps/agent-app` plus live package/build/CI/documentation references affected by STRUCT-012
 - the existing STRUCT-012 and REFACTOR-025 Task/spec records and nine new child pairs
 

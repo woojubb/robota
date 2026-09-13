@@ -66,7 +66,7 @@ filed three times, each time discovered by a human audit re-deriving the rule fr
 | Record                | Package                                                    | How it was found                                                                     |
 | --------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `STRUCT-011`          | `agent-provider-defaults` → `agent-builtin-providers`      | owner ruling on issue #2198, 2026-08-23; rename of 63 live files                     |
-| `STRUCT-012`          | `agent-transport-protocol` (6 sibling edges)               | owner ruling 2026-09-05; the absorbed issue #2197 draft had read the prefix by hand  |
+| `STRUCT-012`          | retired transport-protocol sibling (6 sibling edges)       | owner ruling 2026-09-05; the absorbed issue #2197 draft had read the prefix by hand  |
 | `STRUCT-012` baseline | `agent-provider-openai → agent-provider-openai-compatible` | found only by the prototype gate written for STRUCT-012, frozen pending its own item |
 
 None of the documents that should have refused the first one mention the rule. Measured, the

@@ -530,7 +530,6 @@
       "packages/agent-ui-web/src/index.ts",
       "packages/agent-transport-http/src/index.ts",
       "packages/agent-transport-mcp/src/index.ts",
-      "packages/agent-transport-protocol/src/index.ts",
       "packages/agent-ui-terminal/src/index.ts",
       "packages/agent-transport-webrtc-web/src/index.ts",
       "packages/agent-transport-webrtc/src/index.ts",

@@ -40,8 +40,8 @@ spec-doc, which is a plan, not a rule. Measured at `4b03d3248`: `git grep -l "FA
 one file, `.agents/spec-docs/backlog/STRUCT-012-…`, and `scan-rule-statement-floor.mjs` deliberately
 treats `.agents/spec-docs/` as non-normative. No rule document, no authoring skill, no audit skill
 and no reviewer agent definition states or cites it. That is how the same defect was filed three
-times under three names — `agent-provider-defaults` (STRUCT-011), `agent-transport-protocol`
-(STRUCT-012), `agent-provider-openai-compatible` (frozen in STRUCT-012's baseline) — each time
+times under three names — `agent-provider-defaults` (STRUCT-011), the retired transport-protocol
+sibling (STRUCT-012), `agent-provider-openai-compatible` (frozen in STRUCT-012's baseline) — each time
 discovered by an audit re-deriving the rule from a prefix, never by a document that stated it.
 
 This item gives the rule its name and its normative home, makes every document that authors,

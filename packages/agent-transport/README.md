@@ -115,7 +115,8 @@ immediately, and returns a complete ordered aggregate whose pending runners beco
 
 The heavier protocol dependencies (`ws`, `hono`, `@modelcontextprotocol/sdk`,
 `react`, `ink`, and friends) now live in the split transport packages
-(`@robota-sdk/agent-transport-{http,ws,mcp,tui}`).
+(`@robota-sdk/agent-transport-{http,ws,mcp}`) and presentation packages
+(`@robota-sdk/agent-ui-{terminal,web}`).
 
 ## Links
 

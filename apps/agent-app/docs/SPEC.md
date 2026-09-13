@@ -14,7 +14,7 @@ lives **below the wire**, in a `robota` sidecar process reached over a loopback 
   policy — those run in the spawned `robota` sidecar and are reached over WS (`agent-ui-web`'s reducer folds
   the `TServerMessage` stream). The GUI never imports `@robota-sdk/agent-framework` or `agent-core`.
 - **Does NOT own the wire protocol or the session contract** — those belong to
-  `agent-transport-protocol` / `agent-interface-transport`, consumed transitively via `agent-ui-web`.
+  `agent-transport` / `agent-interface-transport`, consumed transitively via `agent-ui-web`.
 - **Does NOT own packaging/signing** in Stage 1 — per-OS installers, code-signing, notarization, and
   auto-update are deferred to **GUI-003** (`electron-builder`).
 

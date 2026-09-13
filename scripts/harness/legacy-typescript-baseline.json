@@ -56,7 +56,6 @@
     "packages/agent-ui-web/package.json",
     "packages/agent-transport-http/package.json",
     "packages/agent-transport-mcp/package.json",
-    "packages/agent-transport-protocol/package.json",
     "packages/agent-ui-terminal/package.json",
     "packages/agent-transport-webrtc-web/package.json",
     "packages/agent-transport-webrtc/package.json",

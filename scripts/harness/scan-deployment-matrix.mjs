@@ -14,8 +14,8 @@
  *   - class form:   `readonly name = 'ws'`      (tui / ws / webrtc)
  *   - factory form: `name: 'http'`              (http / mcp / ws)
  *
- * EXCLUDED (export no transport `name`): `agent-transport-protocol` (transitional empty tombstone) +
- * `agent-ui-web` / `agent-transport-webrtc-web` (React/browser presentation). Scope is transport packages and framework's
+ * EXCLUDED (export no transport `name`): `agent-ui-web` / `agent-transport-webrtc-web`
+ * (React/browser presentation). Scope is transport packages and framework's
  * `src/transport-host`, restricted to `*transport*.ts` files.
  *
  * Exit 0 = clean, 1 = findings.
@@ -29,12 +29,8 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const MATRIX = path.join(WORKSPACE_ROOT, '.agents/specs/deployment-matrix.md');
 
-/** Packages that export NO transport `name` (transitional tombstone + React/browser presentation). */
-const EXCLUDED_PACKAGES = new Set([
-  'agent-transport-protocol',
-  'agent-ui-web',
-  'agent-transport-webrtc-web',
-]);
+/** Packages that export no transport `name` (React/browser presentation). */
+const EXCLUDED_PACKAGES = new Set(['agent-ui-web', 'agent-transport-webrtc-web']);
 
 // A transport declares its `name` as a class field (`readonly name = 'ws'`, optionally typed
 // `readonly name: TName = 'ws'`) or a factory object-literal (`name: 'http'`).
