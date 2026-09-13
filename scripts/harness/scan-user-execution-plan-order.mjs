@@ -43,7 +43,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import { documentationBatchReader } from './documentation-batch-reader.mjs';
 import {
@@ -650,16 +650,24 @@ function isBlockedTaskResume(parentTask, task) {
   ) {
     return false;
   }
-  const normalize = (text) => {
-    const end = text.indexOf('\n---', 3);
-    if (end === -1) return null;
-    const frontmatter = text.slice(0, end);
-    const statusLines = [...frontmatter.matchAll(/^status:\s*[^\n]+$/gm)];
-    if (statusLines.length !== 1) return null;
-    return `${frontmatter.replace(/^status:\s*[^\n]+$/m, 'status: <open>')}${text.slice(end)}`;
-  };
-  const before = normalize(parentTask);
-  return before !== null && before === normalize(task);
+  const parent = splitFrontmatter(parentTask);
+  const current = splitFrontmatter(task);
+  if (parent.entries === null || current.entries === null || parent.body !== current.body)
+    return false;
+
+  const withoutStatus = (entries) =>
+    JSON.stringify([...entries].filter(([key]) => key !== 'status'));
+  if (withoutStatus(parent.entries) !== withoutStatus(current.entries)) return false;
+
+  const parentLines = parentTask.split('\n');
+  const currentLines = task.split('\n');
+  if (parentLines.length !== currentLines.length) return false;
+  return (
+    parentLines.reduce(
+      (differences, line, index) => differences + Number(line !== currentLines[index]),
+      0,
+    ) === 1
+  );
 }
 
 function isCheckpointTransition({
