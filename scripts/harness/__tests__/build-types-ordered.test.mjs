@@ -112,21 +112,22 @@ describe('createBuildTypeTiers', () => {
     // that gap is what refuted ARCH-107's layer prediction. ARCH-108 moved the double to the package
     // that declares the contract it doubles, and the tier fell to 1 in the same change.
     //
-    // Tier 1 rather than 0 because agent-core is tier 0 and transport still depends on it — this is
-    // the build graph, not the interface-layer graph, and the two number different things. What makes
-    // it corroboration is the DIRECTION and the cause: both fell to their floor from the same edge
-    // removal, measured by tools that share no code. Had only one moved, that would be the finding.
+    // Tier 1 rather than 0 because agent-core is tier 0 and interface-transport still depends on it —
+    // this is the build graph, not the interface-layer graph, and the two number different things.
+    // STRUCT-012 S3 absorbed the protocol substrate into agent-transport and left the old package as
+    // a dependency-free tombstone. Removing that redundant build edge shortened the deepest path by
+    // one tier, so agent-cli now sits at tier 9 of 10.
     expect(packages).toHaveLength(81);
     expect(tierByName.has('@robota-sdk/agent-testing')).toBe(false);
     expect(tierByName.has('@robota-sdk/agent-transport-tui')).toBe(true);
-    expect(tiers).toHaveLength(11);
+    expect(tiers).toHaveLength(10);
     expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-execution')).toBe(1);
     expect(tierByName.get('@robota-sdk/agent-interface-session')).toBe(2);
     expect(tierByName.get('@robota-sdk/agent-interface-session-mobility')).toBe(3);
     expect(tierByName.get('@robota-sdk/agent-interface-transport')).toBe(1);
-    expect(tierByName.get('@robota-sdk/agent-cli')).toBe(10);
+    expect(tierByName.get('@robota-sdk/agent-cli')).toBe(9);
     expect(cli).toBeDefined();
     const web = packages.find((pkg) => pkg.name === '@robota-sdk/agent-cli-web');
     expect(web).toBeDefined();
