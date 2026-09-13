@@ -85,7 +85,7 @@ For every shared candidate, record the owner/API, independent package consumers,
 
 Extend existing analysis with source file, target, reference kind, owner and resolved/unresolved state. Cover literal relative imports (including emitted `.js` to source resolution), aliases where declared, JSON configuration inheritance and literal file/URL references. Dynamic references must be explicitly unresolved unless a bounded declared input resolves them. Never silently report them as absent consumers.
 
-Project only justified edges into existing operation selection and input/cache ownership. Retain the current explicit global-promotion policy for unknown/global inputs; report the actual reason. A reference is not automatic justification for reverse-testing every consumer. Distinguish planned, selected, executed, skipped and full-promoted coverage in the existing output path; do not add a parallel CI planner.
+Project only justified edges into existing operation selection and input/cache ownership. Preserve explicit global promotion for invalid registry structure, unreadable change inputs and control-plane changes. A well-formed unresolved runtime input instead makes its affected test entry conservatively selected and non-cacheable; it does not invalidate other entries. Report the actual reason and uncertain population. A reference is not automatic justification for reverse-testing every consumer. Distinguish planned, selected, executed, skipped and full-promoted coverage in the existing output path; do not add a parallel CI planner.
 
 First concrete migration: move the framework goal recording tool from CLI scripts into framework-owned non-published tooling. Keep the fixture, goal objective, iteration budget and cassette in framework. Inject the provider created by the current public factory into the existing recording harness. The owner approved the tooling-only composition root and devDependency exception; amend its governing contract explicitly and verify runtime/published reachability remains provider-neutral. Preserve cassette bytes and do not run paid live recording by default.
 
@@ -98,7 +98,10 @@ First concrete migration: move the framework goal recording tool from CLI script
 
 ## Fallback & Degradation Declaration
 
-No new silent fallback proposed. Preserve explicit global promotion with its reason for unresolved verification inputs. Unknown ownership is not a successful boundary classification.
+No silent fallback is permitted. Global uncertainty preserves complete promotion with its reason.
+Entry-local unresolved runtime inputs preserve their diagnostics and force that test to run without
+cache reuse when no narrower safe scope has been proved. Unknown ownership or unknown consumer
+evidence needed for a shared-retention decision is not a successful boundary classification.
 
 ## Classification Contract To Validate
 
@@ -161,14 +164,33 @@ and treats every quoted executable-looking filename as executable. Replace that 
 semantics, with a cache-schema change where the key meaning changes. Name enumeration hashes
 the matching path set; content reads hash bytes; execution traverses the justified closure.
 Do not equate a broad directory literal with a content dependency on every product source file.
-Preserve explicit complete/global promotion on unknown inputs and its actual reason. Existing
+Preserve explicit complete/global promotion on global uncertainty and its actual reason. Well-formed
+entry-local unresolved inputs instead force conservative selection and disable both cache reads and
+writes for that entry. Do not infer a safe input scope merely from its source package location.
+Report the counts of uncertain/always-run and cacheable entries; renaming almost-full execution is
+not performance improvement evidence. Existing
 execution result owners distinguish selected, cache-hit, executed, failed and not-run outcomes;
 planned tasks and cached results are never reported as newly executed tests.
 
 Regressions cover fake imports in comments/string data, emitted-source and exports/alias mapping,
 ambiguous mappings, symlink non-traversal, content versus name-set sensitivity, newly added files,
-unresolved promotion, preserved copied edges and cache-hit/non-execution reporting. Tests use
+entry-local uncertainty versus global promotion, preserved copied edges and cache-hit/non-execution reporting. Tests use
 in-memory or ordinary-file fixtures, not auxiliary Git repositories.
+
+### Engineering refinement after measured integration
+
+On 2026-09-13, integration found 1,000 distinct unresolved runtime expressions affecting 234 of
+266 contract-test entries. The original Issue #2490 requires repository-wide ownership decisions,
+actual moves, a boundary gate and truthful affected/full execution reporting, not exhaustive runtime
+argument interpretation. The first implementation conflated unresolved evidence with malformed
+registry structure and promoted all entries. Main corrected that engineering overreach under the
+owner's standing direction to remove unnecessary work and improve obstructive harness rules.
+Hume independently recommended entry-local conservative execution and selective, evidence-backed
+owner input contracts instead of a new interprocedural analyzer or 1,000 individual exceptions.
+The policy above is an explicit revision, not a claim that earlier global-promotion wording already
+specified this behavior. Earlier approval/gate evidence remains historical and unchanged. Public SDK
+protection, the two-independent-consumer criterion, all owner-local migrations and ownership drift
+checks are unchanged. Final review must assess this revised policy and actual selection counts.
 
 ### Owner-local moves
 
@@ -232,11 +254,20 @@ Existing owners to extend, not parallel replacements:
 
 ## Completion Criteria
 
-- [ ] TC-01: Full tracked population is reconciled to declared workspace roots and repository tooling; every excluded class has an explicit reason, every unresolved reference is visible, and every shared candidate has a reviewed disposition.
-- [ ] TC-02: Retained shared files have an owned, domain-neutral API and at least two independently justified package consumers; same-scenario recording/replay or several files in one package do not inflate this evidence. Public contract dispositions are validated rather than guessed from internal counts.
+2026-09-13 local acceptance reconciliation: the two process API decisions, exact tooling/config
+dispositions, drift regressions and conservative input/cache reporting are verified in the paired
+Task's final local integration evidence. The earlier `extractDtlsFingerprint` candidate is retained
+as a domain-owned public pairing/channel-binding API: its owner SPEC declares it, the public
+barrel exports it, and the Node WebRTC transport and browser RTC client consume it. It is not a
+generic shared API or an alias exception, so no artificial fourth alias registry row is required.
+Remote PTY/HOME execution and final CI/landing remain outstanding; local scanner zero does not
+discharge those requirements or establish semantic classification of unknown file kinds.
+
+- [x] TC-01: Full tracked population is reconciled to declared workspace roots and repository tooling; every excluded class has an explicit reason, every unresolved reference is visible, and every shared candidate has a reviewed disposition. Evidence: paired Task final population reconciliation and bounded supplement, with exact original unknown-path fingerprint and the additional owned SDP sample.
+- [x] TC-02: Retained shared files have an owned, domain-neutral API and at least two independently justified package consumers; same-scenario recording/replay or several files in one package do not inflate this evidence. Public contract dispositions are validated rather than guessed from internal counts. Evidence: local acceptance reconciliation above and paired Task final local integration.
 - [ ] TC-03: All classified package-specific helpers, fixtures, constants and data are moved to their owners, with old cross-owner internal references removed and runtime/record-replay behavior preserved. Includes the known framework goal recording tool, not only a registry entry.
-- [ ] TC-04: Existing reference analysis and drift gate reject missing owners, stale/missing consumer evidence, invalid shared retention and newly introduced ownership leaks; aliases, relative imports, config/data refs and unresolved dynamic cases have positive/negative regressions.
-- [ ] TC-05: Existing affected selection and cache inputs consume consistent justified references; output distinguishes selected versus executed coverage and states every global promotion reason, without a parallel graph or unjustified broad fanout.
+- [x] TC-04: Existing reference analysis and drift gate reject missing owners, stale/missing consumer evidence, invalid shared retention and newly introduced ownership leaks; aliases, relative imports, config/data refs and unresolved dynamic cases have positive/negative regressions. Evidence: paired Task final local integration and independently accepted scanner/wiring regressions.
+- [x] TC-05: Existing affected selection and cache inputs consume consistent justified references; output distinguishes selected versus executed coverage and states every global promotion reason, without a parallel graph or unjustified broad fanout. Evidence: paired Task final local integration, typed registry validation and cache/projection/execution reporting regressions.
 - [ ] TC-06: Focused regressions, affected package checks and current remote CI verify the complete changed scope. Parent/source issue completion is reconciled only after all criteria land on origin/develop.
 
 ## Test Plan
@@ -501,6 +532,7 @@ continuation and grants no implementation authority. Earlier committed entries r
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -544,6 +576,7 @@ continuation and grants no implementation authority. Earlier committed entries r
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -562,6 +595,7 @@ continuation and grants no implementation authority. Earlier committed entries r
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -606,6 +640,7 @@ continuation and grants no implementation authority. Earlier committed entries r
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

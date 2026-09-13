@@ -51,7 +51,6 @@
     "packages/agent-session-analytics/package.json",
     "packages/agent-session/package.json",
     "packages/agent-subagent-runner/package.json",
-    "packages/agent-testing/package.json",
     "packages/agent-tool-mcp/package.json",
     "packages/agent-tools/package.json",
     "packages/agent-transport-gui/package.json",

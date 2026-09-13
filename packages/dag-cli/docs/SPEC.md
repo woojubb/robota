@@ -59,7 +59,12 @@ Local-first top-level commands (`src/commands/`):
 - `catalog <subcommand>` — manage the local workflow catalog
 - `template <subcommand>` — built-in topology templates
 - `migrate` — migrate DAG file formats
-- `doctor` — environment diagnostics
+- `doctor` — environment diagnostics; compiled entries use `__ROBOTA_DAG_CLI_VERSION__`, injected
+  by the owning tsdown configuration from its package manifest, so sealed-generation depth does
+  not affect version reporting. Source execution uses a `typeof` guard and the owner-local
+  `../../package.json` fallback, without an exported manifest subpath or ancestor-search ladder.
+  Unreadable manifests or non-string versions retain `unknown`; other diagnostics and output
+  formats are unchanged.
 - `build` — generate a DAG file from a simplified spec
 - `convert` — convert spec formats (linear, mermaid → IBuildSpec JSON)
 - `diff` — structural diff between two DAG files
@@ -219,6 +224,13 @@ None.
 
 ## Test Strategy
 
+- `src/__tests__/doctor-version.test.ts` executes the actual source doctor in an ordinary temporary
+  cwd with captured IO and a child environment containing only PATH. It checks the owner version,
+  expected missing-configuration diagnostics and unchanged JSON output without reading user
+  credentials or rebinding HOME. A built regression runs the actual physical binary after the
+  owning build and compares its reported version with the owner manifest; Node filesystem
+  permissions allow only repository reads and disposable-workspace reads/writes.
 - Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, cost metadata CRUD/formula routing, cost metadata argument validation, and JSON output.
-- Tests inject a fake fetch and fake file reader; no network or filesystem access is required.
+- IO-isolated command tests inject a fake fetch and fake file reader; the doctor regressions
+  above instead exercise real disposable filesystem state without network requests.
 - Run: `pnpm --filter @robota-sdk/dag-cli test`

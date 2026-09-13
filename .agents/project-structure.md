@@ -27,7 +27,6 @@ packages/
 ├── agent-transport/             # Interim empty transport root; runtime hosts moved to agent-framework (STRUCT-012 S2)
 ├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
 ├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell + SessionMonitor web shell; the GUI analog of -tui, consumed by apps/agent-app, packages/agent-cli-web (CLI-served monitor), and agent-transport-webrtc-web; deps: interface-transport + transport-protocol only, GUI-005/006), agent-transport-webrtc-web (BROWSER WebRTC peer — native RTCPeerConnection answerer + RemoteClient + useRtcSession over the GUI core; browser mirror of node -webrtc; deps: agent-transport-gui + agent-remote-pairing + transport-protocol, GUI-006), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
-├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 ├── pack-*/                      # Capability packs (`@robota-sdk/pack-*`): additive ICapabilityPack bundles composed by agent-product's assembleProduct. e.g. pack-coding — robota's coding capability (built-in tools + /shell + /editor command modules + coding subagents); imports agent-tools/agent-command/agent-framework, re-implements nothing (ARCH-005)
@@ -132,6 +131,37 @@ agent-cli         ← product/UI layer: consumes agent-framework and selected co
 - **CLI/TUI command thinness.** `agent-cli` may parse the leading slash, register composed command modules, render generic command prompts, apply typed host effects, and provide host adapters. It must not own command-specific state machines, setup flows, provider profile mutation, command metadata, command-specific switch branches, or duplicated command descriptors when an `ICommandModule` can own them.
 - **Legacy SDK-embedded commands are not precedent.** Existing SDK-embedded command behavior is migration debt unless it is only generic command infrastructure. New internal commands must be implemented as command modules first; expanding SDK command implementation files requires a SPEC-backed migration plan and a mechanical check exception.
 - **Per-product assembly ownership — no shared product factory.** Each deployable product (the CLI, a second CLI, an embedded host, an app) owns its own composition/wiring of provider, preset, and command modules. The reusable, product-agnostic capability lives in the framework/transport layers (e.g., the interaction runtime and the in-process/built-binary driver adapters over a shared interaction contract). Do NOT extract a shared cross-product assembly factory (e.g., a `createCliAgent`): a product shell is one assembler among many, not a shared utility. Reuse is achieved by sharing lower-layer materials, not by sharing the product's assembly. **Carve-out (ARCH-005, coupled to mechanical guards):** a **pure, IO-free, data-driven assembler that hard-codes no product's choices** IS a lower-layer material (a composition mechanism), not a shared product factory, and MAY be published and shared — this carve-out covers `@robota-sdk/agent-product`'s `assembleProduct` and is deliberately narrow: it does **NOT** bless "profile-driven assemblers" in general (a profile-driven function could still accrete `if (profile.id === '…')` branches and become a de-facto shared product factory). The relaxation holds ONLY while the assembler stays pure — it is coupled to the composition-neutrality guards (`scripts/harness/scan-composition-neutrality.mjs`: (a) no concrete transport/TUI/CLI dependency, (b) no fs/env/settings read, (c) no product-identity conditional). A shared factory that bakes in any product's provider/preset/command/transport choices remains forbidden. See `feedback_no_shared_cli_factory`.
+
+### Shared Material Ownership
+
+Public SDK contracts and generic internal shared material are different classifications. A
+domain-owned or forward-provisioned public contract is retained under its owning SPEC and manifest
+exports; local consumer counts alone do not authorize deleting it. A generic shared implementation
+or test utility requires an owned, domain-neutral API and at least two independently justified
+consumer packages. Multiple files in one package and the recording/replay halves of one scenario
+are not independent consumers. Owner-local implementation, fixtures and data stay with that owner.
+
+Repository build and verification infrastructure is separately owned. Root placement is not an
+exemption: any cross-owner internal reference must have a concrete source/target/kind disposition
+and a contract explaining why that reference is needed. New or stale internal boundary accesses and
+missing shared-consumer evidence fail the package-boundary gate. Public-entry aliases are checked
+against the target's real exported entry instead of being mistaken for private implementation use.
+
+`.agents/package-boundaries.json` records the reviewed dispositions. Named shared API candidates
+must retain matching static imported-name evidence, not merely an import of the same barrel.
+Root `tsconfig.base.json` owns shared strict compiler defaults; `tsconfig.eslint.json` owns lint
+compiler inputs, and `tsconfig.json` owns repository compiler defaults. Their configuration
+consumers are recorded as exact `extends` edges, not a wildcard permission to read root files.
+Reviewed source-to-public-export correspondences bind the export map and owner build configuration;
+changing those inputs invalidates the prior correspondence without invalidating unrelated version
+metadata changes.
+
+The gate reuses the workspace graph and source-reference analysis. Its inventory accounts for
+tracked paths, non-ignored untracked additions, symlinks, declared generated outputs and unsupported
+inputs without reading through symlinks. Unresolved runtime inputs remain visible; they cannot prove
+consumer absence or justify shared retention. Runtime input uncertainty and a file's owner are
+separate judgments. Verification executes uncertain entries conservatively without cache reuse,
+while malformed global inputs retain explicit complete promotion.
 
 ### Implementation Owner Boundaries
 

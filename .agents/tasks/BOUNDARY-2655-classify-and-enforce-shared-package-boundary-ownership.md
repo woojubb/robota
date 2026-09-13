@@ -21,11 +21,11 @@ Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490),
 
 ## Plan
 
-- [ ] TC-01: Reconcile the complete tracked population, reference coverage, exclusions and reviewed ownership dispositions.
-- [ ] TC-02: Validate retained generic shared material against independent consumer evidence and preserve domain-owned public contracts.
+- [x] TC-01: Reconcile the complete tracked population, reference coverage, exclusions and reviewed ownership dispositions. Evidence: final population reconciliation and bounded supplement in Test Plan, including both repaired ownership/path findings.
+- [x] TC-02: Validate retained generic shared material against independent consumer evidence and preserve domain-owned public contracts. Evidence: final local integration and the paired spec's local acceptance reconciliation.
 - [ ] TC-03: Migrate all classified owner-local material, including recording, hook, session migration and private PTY tooling, preserving behavior.
-- [ ] TC-04: Extend the existing reference analysis and reject ownership drift with positive/negative regressions.
-- [ ] TC-05: Integrate justified operation/cache inputs and truthful selected/executed/skipped/global-promotion reporting.
+- [x] TC-04: Extend the existing reference analysis and reject ownership drift with positive/negative regressions. Evidence: final local integration, 24 scanner regressions and independent wiring PASS.
+- [x] TC-05: Integrate justified operation/cache inputs and truthful selected/executed/skipped/global-promotion reporting. Evidence: final local integration and typed registry/cache/execution regressions; uncertainty remains conservative.
 - [ ] TC-06: Verify focused and affected scope plus final remote CI, land on origin/develop and reconcile source/parent completion.
 
 ## Delivery
@@ -61,6 +61,136 @@ exception no longer require another owner decision. Independent design validatio
 verification remain outstanding; this approval alone does not complete a Plan item or gate.
 
 ## Test Plan
+
+Supplement review converged after correcting one newly authored fixture-location description
+from session-level to its actual media-level fingerprint. All four test assertions and both
+existing SDP samples remain unchanged. Hume independently returned ACTIONABLE FINDINGS: 0,
+binding the same ten reviewed/reference paths to fingerprint
+`1a21bc8ffc36e0eadca8f5d80f6c9aabcb95e394917ed9880fd1af2363a33011` on HEAD
+`36f4ff11e8dbe5ea525978c8648ceca9720ee329` plus working bytes. Earlier bounded reviews remain
+applicable to unchanged files; TC-03 and TC-06 remain open for remote runtime/CI and landing.
+
+Final bounded supplement (2026-09-13): the two population findings were independently classified
+LOCAL (zero foundational). The four fingerprint parity tests now live with the pairing contract;
+their owner-local native SDP sample is byte-identical to the retained browser sample, whose RTC
+consumer remains unchanged. Only the nonexistent CSS source directive was removed. Nash recorded
+the actual two ownership/path failures before repair and both passing afterward. Main reproduced
+seven parity/RTC tests and both ownership/path checks after repair. Main's first Vitest CLI probe
+incorrectly treated `--config false` as a filename and failed at startup; the corrected native
+`startVitest` API with `config: false`, `cache: false` executed the seven tests successfully.
+Supplement ESLint and formatting passed. This adds two changed test-ownership SPEC claim groups
+to the seven below, not product runtime changes or a claim that all package suites were run.
+
+After staging this supplement the actual ownership scanner reports 8,608 tracked paths, zero
+untracked, 12 exclusions and 123 unknown file kinds: the reviewed 122 plus the newly owned SDP
+contract sample (test fixture). All other source/reference/config/uncertainty counts below are
+unchanged, and findings remain zero. New README files account for the other two added paths.
+The pre-push planning command selects 91/91 scopes because workspace analysis tooling changed;
+that is a justified remote verification plan, not 91 locally executed suites.
+
+Final population reconciliation (2026-09-13): Nash reviewed all 122 tracked unknown-kind paths
+from `collectWorkspaceSourceInventory`; main reproduced the exact sorted newline-terminated
+path-list SHA-256 `3eeaf066c6c792b4d77600bb9801a7fd3eb72b60ffe5a10ffee66c13d161195e`
+and owner split (74 repository, 48 workspace). Categories/dispositions are 32 agent/Git hooks
+(repository operations), 26 config/deployment inputs (declaring owner), 13 environment templates
+(declaring owner; contents deliberately not read), 17 HTML/CSS/Astro sources (UI owner), 16
+directory/document publication markers (seven gitkeep, nine nojekyll), four documents/licenses/
+diagrams (documentation owner), seven test fixtures (test owner), and seven install/deploy/harness
+shell entries (repository operations). Total 122; semantic file-kind uncertainty remaining: zero.
+The automatic category remains unknown for these uncommon extensions: this disposition record
+does not pretend the source analyzer parses CSS, shell or SDP, or infer absence of hidden consumers.
+Two concrete findings emerged and are retained for correction: browser fingerprint parity tests
+read the pairing owner's private SDP fixture, and agent-web CSS names a deleted package source.
+The real ownership scanner's earlier zero remains its bounded result, not a claim it detected
+these unresolved/non-TypeScript references. TC-01 was held until the repair recorded above.
+
+Bidirectional conformance, changed claims only: code→SPEC: seven package claim groups checked;
+SPEC→code: the same seven checked (core hook/role checks, session migration storage contract,
+framework recorder/replay and export exclusion, builtin provider composition, process PTY-owner
+reference, TUI internal PTY ownership, and DAG doctor source/build version). Local discrepancies
+are zero after the reviewed repairs. This does not audit unrelated sections of those SPECs or
+claim the unexecuted remote PTY/full affected regression gate passed.
+
+2026-09-13 final local integration: 193/193 tests passed in 16 safe focused files,
+including scanner 24, wiring 5, config-reference extraction 4 and real DAG doctor 3.
+Affected builds and typechecks passed 6/6 (the five packages below plus dag-cli).
+The DAG doctor physical-generation regression was observed RED (`vunknown`) on the old
+artifact and GREEN (`v3.0.0-beta.63`) on the newly built artifact; the expected missing-config
+exit was 1 with empty stderr. No user-home access was permitted in that built-artifact probe.
+Frozen installation with lifecycle scripts disabled passed after the final lockfile edit.
+Staged ESLint and supported-file formatting passed. Documentation rebuilt successfully
+(360 pages, 357 indexed); the migration guide returned HTTP 200 in headless Chrome with the
+new contributor paths and no page/console errors. This is not deployment evidence.
+
+The final real ownership scanner examined 8,605 tracked paths, excluded 12, classified 122
+unknown-population paths, and analyzed 4,210 sources / 20,261 references plus 197 config
+references. Findings: 0. Its 2,381 unresolved references remain explicitly reported, not
+proof of absence or semantic neutrality. In particular, historical declared npm dependencies
+under the SDK scope are not missing workspace APIs merely because source resolution is unknown.
+The typed contract registry contains 272 entries: 238 uncertain/always-run, 34 cacheable,
+and 1,021 unique unresolved inputs. No broad-execution performance improvement is claimed.
+
+Independent reviews accepted the two named shared process APIs, 37 tooling references and
+171 exact config dispositions. Four scanner findings were repaired and independently reviewed
+to zero: config-reference coverage, named API consumer identity, public-alias approval binding,
+and measured population lifecycle. The wiring guardian returned PASS. Hume's final 25-file
+review bound HEAD `36f4ff11e8dbe5ea525978c8648ceca9720ee329` plus working bytes to manifest
+SHA-256 `853682b63c788b40f5f83e1e4794e76ad27f201af06fde17c2af63aac2ccec15`;
+Carson's package review separately returned zero findings. These are bounded local reviews,
+not remote-CI, merged-head or whole-repository conformance verdicts. Remote PTY/HOME execution,
+final CI, origin/develop landing and Issue reconciliation remain outstanding.
+
+2026-09-13 integrated verification (12:13–12:18 KST, uncommitted implementation on HEAD
+`36f4ff11e8dbe5ea525978c8648ceca9720ee329`): affected builds and package typechecks each passed
+5/5 for core, session, framework, builtin-providers and transport-tui. The core browser build
+reported `node:child_process` as an unresolved external import warning; all builders exited 0.
+The source-reference/planner/inventory/parser/input suite passed 137/137 tests in eight files.
+Cache/projection/execution-reporting integration passed 20/20 in four files, including RED→GREEN
+for explicit `cacheable: false`. Owner migrations passed 24/24 tests in five files after rebuilding;
+framework offline recording/replay passed 4/4 in three files, preserving committed cassette bytes.
+The real session migration example additionally reported first-run 1/3/4, repeat 0/4/4,
+unchanged skipped bytes and no creation of missing storage. PTY/HOME runtime tests and the full
+repository/Git-fixture suites were not executed locally; remote CI remains required.
+
+The typed contract registry is structurally valid with entry-local uncertainty: Hume measured
+269 entries, 236 uncertain/always-run, 33 cacheable and 1,016 unique unresolved inputs before
+the final scanner/wiring additions. These are intermediate population counts, not final-head
+performance or full-coverage claims. The initial real boundary scanner exposed false positives
+for declared public APIs whose physical source resolution was incomplete; correction and final
+scan review remain pending. Nash's independent semantic review found zero actionable findings
+in exactly two shared process API decisions and 37 tooling edges (32 Vitest, three artifact
+tool consumers and two compiler-configuration checks), not the complete population.
+
+2026-09-13 engineering refinement: the original source Issue #2490 was reread after the reference
+integration surfaced 1,000 unresolved runtime expressions across 234/266 contract-test entries.
+Main identified the exhaustive caller-binding expansion as unnecessary scope; Hume's independent
+read-only assessment agreed. The active spec now explicitly separates entry-local uncertainty
+(conservative execution, no cache reuse/write) from genuinely global uncertainty (complete
+promotion). This uses the owner's standing authorization to simplify unnecessary work and improve
+the harness; it does not alter the three approved public-contract/PTY/recorder decisions or remove
+any source Issue outcome. Unknowns remain visible and cannot justify shared retention. Final
+selection counts and review remain required; this is not a claim that broad execution was fixed.
+
+2026-09-13 implementation checkpoint (not completion): the first implementation gate landed in
+`36f4ff11e8dbe5ea525978c8648ceca9720ee329`. The three disjoint owner migrations are implemented:
+core hook examples, session migration tooling, framework cassette tooling, and the private PTY
+support consolidation into TUI. Worker focused evidence reports core/session 20 tests and framework
+4 tests passing; PTY runtime tests remain deliberately unexecuted locally. The lockfile importer
+changes were applied surgically. `pnpm install --frozen-lockfile --ignore-scripts` exited 0 without
+lockfile regeneration; this does not establish native lifecycle-script execution. Framework examples
+and TUI source `tsgo --noEmit --incremental false` checks both exited 0 after installation and the
+recorder's public provider config validation correction.
+
+At 11:32 KST, the actual four-file harness run passed 53/53 tests: workspace affected planner 39,
+source evidence 10, inventory 2, and native-parser lifecycle 2. Earlier whole-repository runs failed
+the existing 512 MB heap limit. Instrumented reads identified generated `.robota-artifacts`
+transaction backups in the source population; generated static export output was also included.
+Excluding those generated inputs and releasing scoped native snapshots produced the passing run
+under the unchanged limit. The later inventory classification increment passed 3/3 focused tests.
+Resolver ownership returned with 22/22 focused tests passing. These are intermediate engineering
+results, not final-head CI or completion evidence: complete population dispositions, drift checks,
+selection/cache integration, final review, remote CI and merge remain outstanding. No TC is checked
+complete by this checkpoint.
 
 2026-09-13: Hume independently endorsed the latest recommendation, including the single reference
 analysis/graph route, shared typed selection/cache evidence and approved non-published recorder
@@ -122,7 +252,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=runHooks returns blocked=true and reason="Bash tool blocked: dangerous command detected" Comparison: Capture the actual `runHooks result` JSON and exit 0. The example's later manually assembled `IToolResult` and its PASS prose do not prove PermissionEnforcer or AI delivery behavior.
 - cleanup: No scenario files are created; allow the short hook child to exit.
-- evidence: pending
+- evidence: 2026-09-13 direct owner-local command exited 0; actual runHooks result was blocked=true with reason="Bash tool blocked: dangerous command detected" and empty stdout. Illustrative tool-result prose was not substituted for the SDK return.
 
 ### Scenario 2: Relocated JSON hook responses
 
@@ -135,7 +265,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=stopReason blocks with Security policy violation; PreToolUse returns permissionDecision=deny; systemMessage returns blocked=false and stdout="User has elevated permissions today." Comparison: Compare all three actual returned objects printed by the example and require exit 0; do not substitute its summary string for the returned values.
 - cleanup: No persistent files or services; hook children exit normally.
-- evidence: pending
+- evidence: 2026-09-13 direct owner-local command exited 0; actual results were blocked=true/reason="Security policy violation", blocked=true/permissionDecision="deny", then blocked=false/stdout="User has elevated permissions today.".
 
 ### Scenario 3: Relocated permission-mode stdin forwarding
 
@@ -148,7 +278,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=hook stdout is "default" then "bypassPermissions", with blocked=false for both invocations Comparison: Capture both child stdout values and exit 0. These strings verify forwarding only; the scenario does not change the verifier's own permission posture.
 - cleanup: No scenario files; both stdin-reading children exit.
-- evidence: pending
+- evidence: 2026-09-13 direct owner-local command exited 0; child stdout was "default" then "bypassPermissions", and blocked=false for both results. No verifier permission setting was changed.
 
 ### Scenario 4: Relocated timeout example with explicit runtime outcomes
 
@@ -161,7 +291,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=timeout:1 returns blocked=false with errors containing kind=timeout; timeout:5 returns blocked=false with stdout containing "hook completed" Comparison: Capture both actual result objects, exit 0 and the existing elapsed-time checks (first below 1800ms; second at least 1800ms and below 4000ms). A slow host failure must be reported, not silently retried into a PASS. Reading DEFAULT_TIMEOUT_SECONDS=600 is source inspection, not evidence that a default-duration command executed; the old "exit code 1" description is not the current timeout outcome contract. Preserve and observe the explicit timeout diagnostic.
 - cleanup: Let the short sleep children finish; no persistent data is created.
-- evidence: pending
+- evidence: 2026-09-13 direct owner-local command exited 0; timeout:1 returned blocked=false with errors[0].kind="timeout" at 1007ms; timeout:5 returned blocked=false/stdout="hook completed" at 2019ms. Both elapsed bounds matched; the inspected default constant was not runtime evidence.
 
 ### Scenario 5: Session migration on explicitly injected disposable data
 
@@ -174,7 +304,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=first migration reports Migrated: 1, Skipped: 3, Total: 4; legacy history has two chat entries; second migration reports Migrated: 0, Skipped: 4, Total: 4 with unchanged bytes Comparison: The example invokes the real owner command with `execFileSync(process.execPath, [absoluteScriptPath, '--sessions-dir', absoluteFixtureDirectory])`, without a shell or environment override. Report captured command stdout plus the parsed migrated JSON: original messages remain, history types/data preserve user "hello" and assistant "world", each entry has a UUID and the fixed updatedAt timestamp. Existing history, empty-message JSON, malformed JSON and the non-JSON sentinel must remain byte-identical. Compare all bytes again after the second invocation. Also invoke the same command with an explicit missing child directory below the fixture root: observe `No sessions directory found.` and no directory creation. Do not execute the default path, even with `--help`: the old command ignores arguments and would discover the actual home directory. Emit a compact result containing the actual counts and entry values; assertion failure exits nonzero, but exit status alone is not the user evidence.
 - cleanup: In `finally`, remove only the exact ordinary temporary directory created by this example; never derive a cleanup target from HOME, a workspace root or an unvalidated command argument.
-- evidence: pending
+- evidence: 2026-09-13 direct example exited 0; real command reported 1/3/4 then 0/4/4 migrated/skipped/total. Printed history retained user hello and assistant world with distinct UUIDs and timestamp 2026-01-01T00:00:00.000Z. Skipped/sentinel bytes and all repeat-run bytes matched; missing storage remained absent. Only the owned ordinary temporary fixture was removed.
 
 ### Scenario 6: Existing framework goal cassette replay, without recording
 
@@ -187,7 +317,7 @@ HOME overrides. The live recorder and default-home migration paths remain unexec
 - observable rationale: source=public-sdk-return
 - expected observable: result=goal.status=satisfied; goal.stopReason=satisfied; GOAL.txt contains "done"; tool calls include Bash and report_goal_status Comparison: Execute `runGoal(buildGoalObjective(harness.cwd), { maxIterations: GOAL_MAX_ITERATIONS })` and print the actual status, stopReason, GOAL.txt content and tool names before disposal. Assert the committed cassette bytes are unchanged. The recorder moves to `packages/agent-framework/scripts/record-goal-cassette.mts`, but this offline run proves preserved replay behavior, not successful live recording or the new concrete provider composition. Keep recorder import/dependency wiring verification in engineering evidence; no paid recording or committed cassette regeneration is authorized. The existing replay test remains in framework.
 - cleanup: Always `await harness.dispose()` in `finally`; it removes only its owned temporary workspace after shutdown. Do not write to user settings or delete the committed cassette.
-- evidence: pending
+- evidence: 2026-09-13 direct pnpm exec tsx example exited 0 and printed status=satisfied, stopReason=satisfied, GOAL.txt=done, tool calls=Bash, report_goal_status. Disposal completed and the example's cassette-byte assertion passed; no live recording, credentials or HOME override was used.
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-13
 
@@ -230,6 +360,7 @@ No authored scenario was changed, no product scenario or test suite was run, and
 Only this gate evidence is appended. Scenario bodies, the previous FAIL, Task status and Plan checkboxes are unchanged. No Stage-2 result, implementation completion or new owner approval is claimed.
 
 <!-- checkpoint-evidence:v1:start -->
+
 ```json
 {
   "version": 1,
@@ -353,4 +484,25 @@ Only this gate evidence is appended. Scenario bodies, the previous FAIL, Task st
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v1:end -->
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** in-progress → in-progress
+
+- DONE-GATE-STAGE-2 — Independent guardian: Hume. Subject: `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, current implementation working tree on HEAD `36f4ff11e8dbe5ea525978c8648ceca9720ee329`. Main directly executed the six commands and recorded their results above; this guardian inspected those records and the actual repository examples, rather than claiming to have independently rerun them.
+- DONE-GATE-STAGE-2 — Ordering: PASS. The retained 2026-09-13 DONE-GATE-STAGE-1 PASS precedes the completed scenario implementation and these execution records. The Task remains in-progress. The sealed Stage-1 checkpoint's historical pending evidence remains unchanged; the six live scenario evidence fields now contain execution results.
+- DONE-GATE-STAGE-2 — Direct execution: PASS, 6/6. Main's current-conversation execution report and each scenario's evidence record identify direct owner-local example execution, each exit 0, not execution through test runners.
+- DONE-GATE-STAGE-2 — Expected observables: PASS, 6/6. The actual hook results, timeout bounds, migration data/byte preservation and public SDK goal replay match the authored expectations, as detailed below. No scenario expectation was changed by this guardian.
+- DONE-GATE-STAGE-2 — Concrete evidence: PASS, 6/6. Each named scenario above contains its observed output and exit code under `evidence`; the following existing repository artifacts bind the commands to their implementations.
+- DONE-GATE-STAGE-2 — Scenario 1: From `packages/agent-core`, `node examples/hook-block-demo.mjs` exited 0; actual runHooks returned blocked=true, reason="Bash tool blocked: dangerous command detected", empty stdout. Evidence: Scenario 1 evidence field; durable executable: `packages/agent-core/examples/hook-block-demo.mjs`. The later illustrative tool-result prose is not the observed product result.
+- DONE-GATE-STAGE-2 — Scenario 2: From `packages/agent-core`, `node examples/hook-json-response-demo.mjs` exited 0; actual results were blocked=true/reason="Security policy violation", blocked=true/permissionDecision="deny", then blocked=false/stdout="User has elevated permissions today.". Evidence: Scenario 2 evidence field; durable executable: `packages/agent-core/examples/hook-json-response-demo.mjs`.
+- DONE-GATE-STAGE-2 — Scenario 3: From `packages/agent-core`, `node examples/hook-permission-mode-demo.mjs` exited 0; child stdout was "default" then "bypassPermissions", both blocked=false. Evidence: Scenario 3 evidence field; durable executable: `packages/agent-core/examples/hook-permission-mode-demo.mjs`. This proves stdin forwarding, not a change to verifier permissions.
+- DONE-GATE-STAGE-2 — Scenario 4: From `packages/agent-core`, `node examples/hook-timeout-demo.mjs` exited 0; timeout:1 returned blocked=false with a timeout diagnostic at 1007ms (<1800ms); timeout:5 returned blocked=false/stdout="hook completed" at 2019ms (>=1800ms and <4000ms). Evidence: Scenario 4 evidence field; durable executable: `packages/agent-core/examples/hook-timeout-demo.mjs`. Reading the default constant is not runtime evidence.
+- DONE-GATE-STAGE-2 — Scenario 5: From `packages/agent-session`, `node examples/verify-session-history-migration.mjs` exited 0; the real command reported migrated/skipped/total 1/3/4 then 0/4/4, retained user hello and assistant world with distinct UUIDs and the expected timestamp, preserved skipped/sentinel and repeated-run bytes, and left missing storage absent. Evidence: Scenario 5 evidence field; durable executable: `packages/agent-session/examples/verify-session-history-migration.mjs`, invoking `packages/agent-session/scripts/migrate-session-history.mjs` with explicit disposable storage. Only its owned temporary fixture was removed.
+- DONE-GATE-STAGE-2 — Scenario 6: From `packages/agent-framework`, `pnpm exec tsx examples/verify-goal-cassette-replay.mts` exited 0; public scriptedSession with bare:true produced status=satisfied, stopReason=satisfied, GOAL.txt=done and Bash/report_goal_status calls. Disposal completed and cassette bytes remained unchanged. Evidence: Scenario 6 evidence field; durable executable: `packages/agent-framework/examples/verify-goal-cassette-replay.mts`. This is offline replay evidence, not a live recorder/provider claim.
+- DONE-GATE-STAGE-2 — Durable test artifacts: PASS, existing paths inspected: `packages/agent-core/src/__tests__/owned-hook-examples.test.ts`, `packages/agent-session/src/__tests__/migrate-session-history.test.ts`, and `packages/agent-framework/scripts/__tests__/goal-cassette-replay-example.test.ts`. These are supporting durable references only; their test results are not substituted for the direct execution evidence above, and this guardian did not run them.
+- DONE-GATE-STAGE-2 — Engineering-evidence substitution: absent. The reported 193 safe tests, build/type checks and scans are separate engineering evidence, not the basis for this scenario verdict.
+- DONE-GATE-STAGE-2 — Capability absence/manual exception: N/A. All six scenarios executed; no missing-capability claim or manual-only exception is used. No live credentials, HOME override, PTY or Git fixture is claimed or required by these executions.
+- DONE-GATE-STAGE-2 — Boundary: PASS is limited to executed scenarios. It does not certify remote CI, TC-06 landing, GATE-VERIFY, GATE-COMPLETE, issue closure or merge authorization. Scenario bodies, criteria, status and historical checkpoint evidence were not changed.

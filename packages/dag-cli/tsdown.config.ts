@@ -1,4 +1,7 @@
+import manifest from './package.json' with { type: 'json' };
+
 const shared = {
+  define: { __ROBOTA_DAG_CLI_VERSION__: JSON.stringify(manifest.version) },
   outDir: 'dist/node',
   clean: true,
   deps: {

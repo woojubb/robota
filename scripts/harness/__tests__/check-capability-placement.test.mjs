@@ -46,6 +46,77 @@ const projectStructure = [
 ].join('\n');
 
 describe('findCapabilityPlacementFindings', () => {
+  it('accepts the documented TUI owner with local PTY support, without a testing package', async () => {
+    const root = await createFixture({
+      '.agents/project-structure.md': 'packages/\n- agent-transport-tui/\n',
+      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
+      'packages/agent-transport-tui/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
+      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+        'export function spawnPty() {}\n',
+      'packages/agent-transport-tui/src/__tests__/pty/isolated-home.ts':
+        'export function createIsolatedHome() {}\n',
+      'packages/agent-transport-tui/src/__tests__/pty/pty-driver.ts':
+        'import { spawnPty } from "./spawn-pty";\n',
+    });
+
+    expect(await findCapabilityPlacementFindings(root)).toEqual([]);
+  });
+
+  it('still requires documentation for the TUI owner of local PTY support', async () => {
+    const root = await createFixture({
+      '.agents/project-structure.md': 'packages/\n- agent-cli/\n',
+      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
+      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+        'export function spawnPty() {}\n',
+    });
+
+    expect(await findCapabilityPlacementFindings(root)).toEqual([
+      {
+        file: '.agents/project-structure.md',
+        type: 'workspace-package-not-documented',
+        detail:
+          'packages/agent-transport-tui is not covered by project-structure package family rules.',
+      },
+    ]);
+  });
+
+  it('does not restore the retired testing workspace admission from a stale document mention', async () => {
+    const root = await createFixture({
+      '.agents/project-structure.md': `${projectStructure}\n- agent-testing/\n`,
+      'packages/agent-testing/package.json': packageJson('@robota-sdk/agent-testing'),
+    });
+
+    expect(await findCapabilityPlacementFindings(root)).toEqual([
+      {
+        file: '.agents/project-structure.md',
+        type: 'workspace-package-not-documented',
+        detail: 'packages/agent-testing is not covered by project-structure package family rules.',
+      },
+    ]);
+  });
+
+  it('still rejects product-shell imports into the relocated private PTY support', async () => {
+    const root = await createFixture({
+      '.agents/project-structure.md': projectStructure,
+      'packages/agent-cli/package.json': packageJson('@robota-sdk/agent-cli'),
+      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
+      'packages/agent-transport-tui/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
+      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+        'export function spawnPty() {}\n',
+      'packages/agent-cli/src/cli.ts':
+        'import { spawnPty } from "@robota-sdk/agent-transport-tui/src/__tests__/pty/spawn-pty";\n',
+    });
+
+    expect(await findCapabilityPlacementFindings(root)).toEqual([
+      {
+        file: 'packages/agent-cli/src/cli.ts',
+        type: 'product-shell-internal-import',
+        detail:
+          '@robota-sdk/agent-transport-tui/src/__tests__/pty/spawn-pty reaches into implementation internals; import the owner package public API instead.',
+      },
+    ]);
+  });
+
   it('ignores generation storage and retained output while still checking authored source', async () => {
     const declaration = 'export class BackgroundTaskRegistry {}\n';
     const root = await createFixture({

@@ -190,6 +190,14 @@ Most users should use `InteractiveSession` or `createQuery()` from `@robota-sdk/
 
 - `@robota-sdk/agent-core` (production) — Robota agent, permission system, hook system, core types
 
+## Legacy Session Migration
+
+For legacy session history, run `node scripts/migrate-session-history.mjs --sessions-dir
+<absolute-directory>` from `packages/agent-session` in the repository. This writes the selected
+legacy session files; back them up first. The disposable example
+`node examples/verify-session-history-migration.mjs` checks conversion without using your stored
+sessions. See [Session Data Migration](./docs/SPEC.md#session-data-migration) for the exact policy.
+
 ## License
 
 Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

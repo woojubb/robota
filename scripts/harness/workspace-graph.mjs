@@ -1,10 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { globSync } from 'glob';
 
 import { normalizeWorkspacePath } from './workspace-affected-git.mjs';
-import { readWorkspaceImportDependencies } from './workspace-source-dependencies.mjs';
+import {
+  collectWorkspaceReferenceInventory,
+  readWorkspaceImportDependencies,
+} from './workspace-source-dependencies.mjs';
 import { readArtifactCapability } from '../artifacts/capability.mjs';
 
 const BUILD_DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependencies'];
@@ -49,6 +52,21 @@ function manifestDependencyNames(manifest, fields) {
   return [...names].sort();
 }
 
+function isRegularManifest(root, directory) {
+  try {
+    const segments = [...directory.split('/'), 'package.json'];
+    let info;
+    for (let count = 1; count <= segments.length; count += 1) {
+      info = lstatSync(path.join(root, ...segments.slice(0, count)));
+      if (info.isSymbolicLink()) return false;
+    }
+    return info.isFile();
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return false;
+    throw error;
+  }
+}
+
 function readWorkspaceManifests(root, patterns) {
   const excluded = patterns
     .filter((pattern) => pattern.startsWith('!'))
@@ -58,10 +76,11 @@ function readWorkspaceManifests(root, patterns) {
     cwd: root,
     onlyDirectories: true,
     dot: false,
+    follow: false,
     ignore: ['**/node_modules/**', ...excluded],
   })
     .map(normalizeWorkspacePath)
-    .filter((directory) => directory && existsSync(path.join(root, directory, 'package.json')))
+    .filter((directory) => directory && isRegularManifest(root, directory))
     .sort();
   const packages = [];
   const names = new Set();
@@ -104,11 +123,20 @@ function readWorkspaceManifests(root, patterns) {
 }
 
 /** Discover all workspace manifests from pnpm's declared globs. */
-export function readWorkspaceGraph(root) {
+export function readWorkspaceGraph(root, { inventory, collectSourceFiles } = {}) {
   const patterns = parseWorkspacePatterns(
     readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8'),
   );
   const packages = readWorkspaceManifests(root, patterns);
+  const sourceInventory =
+    inventory ?? collectWorkspaceReferenceInventory(root, packages, collectSourceFiles);
+  const resolutionContext = {
+    packages,
+    files: sourceInventory.files,
+    readFile: (file) => readFileSync(path.join(root, file), 'utf8'),
+    // One cache per graph analysis; content validation remains in the shared resolver owner.
+    parsedInputs: new Map(),
+  };
   const workspaceNames = new Set(packages.map((entry) => entry.name));
   const byName = new Map(packages.map((entry) => [entry.name, entry]));
   for (const entry of packages) {
@@ -120,7 +148,10 @@ export function readWorkspaceGraph(root) {
         );
       }
     }
-    const imports = readWorkspaceImportDependencies(root, entry, workspaceNames);
+    const imports = readWorkspaceImportDependencies(root, entry, workspaceNames, {
+      resolutionContext,
+    });
+    entry.sourceReferences = imports.references;
     entry.buildDependencies = [
       ...new Set([
         ...entry.productionDependencyNames.filter((name) => workspaceNames.has(name)),

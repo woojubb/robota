@@ -72,3 +72,13 @@ short that check turns out to be.
 
 Not applicable — manifest/file hygiene with no runnable user-facing behavior. Verification is the
 build/scan checks in the Test Plan.
+
+## Partial resolution observed 2026-09-13 (BOUNDARY-2655)
+
+The current checkout removes the private `agent-testing` package after relocating its PTY
+helpers and six characterization tests into `packages/agent-transport-tui/src/__tests__/pty/`.
+The stray `publishConfig` item above therefore has no remaining manifest to repair in this
+checkout. The superseded published-intent charter is reconciled in
+[`agent-transport-tui/docs/SPEC.md`](../../packages/agent-transport-tui/docs/SPEC.md#boundaries).
+This is a partial implementation observation, not evidence of landing or passing remote CI.
+The original findings are retained; no other item in this Task is completed by this note.

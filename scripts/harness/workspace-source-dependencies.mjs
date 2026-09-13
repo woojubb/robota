@@ -1,9 +1,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { globSync } from 'glob';
+import { GENERATION_DIRECTORY } from '../artifacts/writer-lock.mjs';
 
+import { extractSourceReferences } from './workspace-source-reference-extraction.mjs';
+import { resolveSourceReference } from './workspace-source-reference-resolution.mjs';
 import { normalizeWorkspacePath } from './workspace-affected-git.mjs';
+import { collectFiles } from './enumerate-files.mjs';
+import { collectWorkspaceSourceInventory } from './workspace-source-inventory.mjs';
+
+export { extractSourceReferences } from './workspace-source-reference-extraction.mjs';
 
 const WORKSPACE_CODE_GLOB = '**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}';
 const SOURCE_IGNORES = [
@@ -12,18 +18,55 @@ const SOURCE_IGNORES = [
   '**/coverage/**',
   '**/.next/**',
   '**/.turbo/**',
+  'out/**',
+  `**/${GENERATION_DIRECTORY}/**`,
 ];
 
-export function extractLiteralModuleSpecifiers(source) {
-  const specifiers = new Set();
-  for (const pattern of [
-    /\bfrom\s*['"]([^'"]+)['"]/gu,
-    /\bimport\s*['"]([^'"]+)['"]/gu,
-    /\b(?:import|require(?:\.resolve)?)\s*\(\s*['"]([^'"]+)['"]/gu,
-  ]) {
-    for (const match of String(source ?? '').matchAll(pattern)) specifiers.add(match[1]);
-  }
-  return [...specifiers].sort();
+/** One outer checkout enumeration, including authored files not yet staged. No Git fallback. */
+export function collectWorkspaceReferenceInventory(root, packages, collect = collectFiles) {
+  return collectWorkspaceSourceInventory(root, { packages, collect });
+}
+
+function isAuthoredCode(file) {
+  const segments = file.split('/');
+  return (
+    /\.[cm]?[jt]sx?$/u.test(file) &&
+    file !== '..' &&
+    !file.startsWith('../') &&
+    !path.posix.isAbsolute(file) &&
+    !segments.some((segment) =>
+      ['node_modules', 'dist', 'coverage', '.next', '.turbo', GENERATION_DIRECTORY].includes(
+        segment,
+      ),
+    ) &&
+    !file.startsWith('out/')
+  );
+}
+
+function sourceFilesFor(root, workspacePackage, { listSourceFiles, sourceFiles } = {}) {
+  const directory = workspacePackage.directory;
+  const candidates = listSourceFiles
+    ? listSourceFiles(WORKSPACE_CODE_GLOB, {
+        cwd: path.join(root, directory),
+        onlyFiles: true,
+        dot: true,
+        follow: false,
+        ignore: SOURCE_IGNORES,
+      })
+    : [...(sourceFiles ?? collectWorkspaceReferenceInventory(root, [workspacePackage]).files)]
+        .filter((file) => file.startsWith(`${directory}/`))
+        .map((file) => file.slice(directory.length + 1));
+  return [...new Set(candidates.map(normalizeWorkspacePath))].filter(isAuthoredCode).sort();
+}
+
+export function extractLiteralModuleSpecifiers(source, fileName = 'workspace-reference.ts') {
+  return [
+    ...new Set(
+      extractSourceReferences(source, fileName)
+        .filter((reference) => reference.kind === 'module' && reference.specifier !== undefined)
+        .map((reference) => reference.specifier),
+    ),
+  ].sort();
 }
 
 function isProductionSourcePath(relativeFile) {
@@ -32,9 +75,22 @@ function isProductionSourcePath(relativeFile) {
   return /^(?:src|app|pages|components|server|lib)\//u.test(relativeFile);
 }
 
-function importedWorkspaceNames(source, workspaceNames) {
+function importedWorkspaceNames(references, workspaceNames, packages = []) {
   const found = new Set();
-  for (const specifier of extractLiteralModuleSpecifiers(source)) {
+  const owners = [...packages].sort((a, b) => b.directory.length - a.directory.length);
+  for (const reference of references) {
+    if (reference.kind !== 'module') continue;
+    if (reference.resolution?.status === 'resolved') {
+      for (const target of reference.resolution.targets) {
+        const owner = owners.find((entry) => target.startsWith(`${entry.directory}/`));
+        if (owner && workspaceNames.has(owner.name)) found.add(owner.name);
+      }
+      continue;
+    }
+    // Preserve the existing named-package prerequisite even when its entry cannot be resolved.
+    // The unresolved evidence remains visible; this is not a fabricated source target.
+    if (reference.specifier === undefined) continue;
+    const specifier = reference.specifier;
     for (const name of workspaceNames) {
       if (specifier === name || specifier.startsWith(`${name}/`)) {
         found.add(name);
@@ -49,20 +105,17 @@ export function readWorkspaceImportDependencies(
   root,
   workspacePackage,
   workspaceNames,
-  { listSourceFiles = globSync, readSourceFile = readFileSync } = {},
+  { listSourceFiles, sourceFiles, readSourceFile = readFileSync, resolutionContext } = {},
 ) {
-  if (workspacePackage.directory === 'scratch') return { production: [], verification: [] };
+  if (workspacePackage.directory === 'scratch')
+    return { production: [], verification: [], references: [] };
   const workspaceRoot = path.join(root, workspacePackage.directory);
   let files;
   try {
-    files = listSourceFiles(WORKSPACE_CODE_GLOB, {
-      cwd: workspaceRoot,
-      onlyFiles: true,
-      dot: true,
-      ignore: SOURCE_IGNORES,
-    })
-      .map(normalizeWorkspacePath)
-      .sort();
+    files = sourceFilesFor(root, workspacePackage, {
+      listSourceFiles,
+      sourceFiles: sourceFiles ?? resolutionContext?.files,
+    });
   } catch (error) {
     throw new Error(
       `cannot enumerate workspace source ${workspacePackage.directory}: ${error.message}`,
@@ -70,6 +123,7 @@ export function readWorkspaceImportDependencies(
   }
   const production = new Set();
   const verification = new Set();
+  const references = [];
   for (const file of files) {
     let source;
     try {
@@ -79,11 +133,26 @@ export function readWorkspaceImportDependencies(
         `cannot read workspace source ${workspacePackage.directory}/${file}: ${error.message}`,
       );
     }
-    const imported = importedWorkspaceNames(source, workspaceNames);
+    const context = isProductionSourcePath(file)
+      ? 'production'
+      : isIntegrationTestEvidencePath(file)
+        ? 'verification'
+        : 'tooling';
+    const fileReferences = extractSourceReferences(source, `${workspacePackage.directory}/${file}`)
+      .map((reference) => ({ ...reference, context }))
+      .map((reference) =>
+        resolutionContext ? resolveSourceReference(reference, resolutionContext) : reference,
+      );
+    references.push(...fileReferences);
+    const imported = importedWorkspaceNames(
+      fileReferences,
+      workspaceNames,
+      resolutionContext?.packages,
+    );
     for (const name of imported) verification.add(name);
     if (isProductionSourcePath(file)) for (const name of imported) production.add(name);
   }
-  return { production: [...production].sort(), verification: [...verification].sort() };
+  return { production: [...production].sort(), verification: [...verification].sort(), references };
 }
 
 export function isIntegrationTestEvidencePath(relativeFile) {
@@ -94,27 +163,22 @@ export function isIntegrationTestEvidencePath(relativeFile) {
   );
 }
 
-function escapeForRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-}
-
 export function hasLiteralWorkspaceReference({
   root,
   workspacePackage,
   packageName,
   readCandidateFile = readFileSync,
-  listCandidateFiles = globSync,
+  listCandidateFiles,
+  sourceFiles,
+  resolutionContext,
 }) {
   const candidateRoot = path.join(root, workspacePackage.directory);
   let files;
   try {
-    files = listCandidateFiles(WORKSPACE_CODE_GLOB, {
-      cwd: candidateRoot,
-      onlyFiles: true,
-      dot: true,
-      ignore: SOURCE_IGNORES,
+    files = sourceFilesFor(root, workspacePackage, {
+      listSourceFiles: listCandidateFiles,
+      sourceFiles: sourceFiles ?? resolutionContext?.files,
     })
-      .map(normalizeWorkspacePath)
       .filter(isIntegrationTestEvidencePath)
       .sort();
   } catch (error) {
@@ -122,17 +186,21 @@ export function hasLiteralWorkspaceReference({
       `cannot enumerate integration candidate ${workspacePackage.directory}: ${error.message}`,
     );
   }
-  const specifier = `${escapeForRegExp(packageName)}(?:/[^'"\\s]+)?`;
-  const reference = new RegExp(
-    `(?:\\b(?:import|export)[\\s\\S]{0,200}?\\bfrom\\s*['"]${specifier}['"]|` +
-      `\\bimport\\s*['"]${specifier}['"]|` +
-      `\\bimport\\s*\\(\\s*['"]${specifier}['"]|` +
-      `\\brequire(?:\\.resolve)?\\s*\\(\\s*['"]${specifier}['"])`,
-    'u',
-  );
   for (const file of files) {
     try {
-      if (reference.test(readCandidateFile(path.join(candidateRoot, file), 'utf8'))) return true;
+      const references = extractSourceReferences(
+        readCandidateFile(path.join(candidateRoot, file), 'utf8'),
+        `${workspacePackage.directory}/${file}`,
+      ).map((reference) =>
+        resolutionContext ? resolveSourceReference(reference, resolutionContext) : reference,
+      );
+      if (
+        importedWorkspaceNames(references, new Set([packageName]), resolutionContext?.packages).has(
+          packageName,
+        )
+      ) {
+        return true;
+      }
     } catch (error) {
       throw new Error(
         `cannot read integration candidate ${workspacePackage.directory}/${file}: ${error.message}`,

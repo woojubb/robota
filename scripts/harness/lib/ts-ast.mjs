@@ -128,6 +128,7 @@ function extensionFor(fileName, scriptKind) {
   if (scriptKind === ScriptKind.TS) return '.ts';
   if (scriptKind === ScriptKind.JSX) return '.jsx';
   if (scriptKind === ScriptKind.JS) return '.js';
+  if (/\.jsx$/i.test(fileName)) return '.jsx';
   return /\.tsx$/i.test(fileName) ? '.tsx' : '.ts';
 }
 
@@ -151,14 +152,32 @@ export function createSourceFile(
   setParentNodes,
   scriptKind,
 ) {
+  return createParsedSource(fileName, sourceText, scriptKind).sourceFile;
+}
+
+/** Visit synchronously and return detached evidence, never AST nodes that outlive the snapshot. */
+export function withSourceFile(fileName, sourceText, visit, scriptKind) {
+  const { sourceFile, snapshot } = createParsedSource(fileName, sourceText, scriptKind);
+  try {
+    return visit(sourceFile);
+  } finally {
+    snapshot.dispose();
+  }
+}
+
+function createParsedSource(fileName, sourceText, scriptKind) {
   const client = ensureApi();
   const virtualPath = `${VIRTUAL_ROOT}/p${parseCounter++}${extensionFor(fileName, scriptKind)}`;
   virtualFiles.set(virtualPath, sourceText);
+  if (openFile !== undefined) virtualFiles.delete(openFile);
 
   const snapshot = client.updateSnapshot({
     openFiles: [virtualPath],
     closeFiles: openFile === undefined ? undefined : [openFile],
-    fileChanges: { created: [virtualPath] },
+    fileChanges: {
+      created: [virtualPath],
+      deleted: openFile === undefined ? undefined : [openFile],
+    },
   });
 
   const previous = openFile;
@@ -170,7 +189,7 @@ export function createSourceFile(
   if (sourceFile === undefined) {
     throw new Error(`ts-ast: the native parser returned no source file for ${fileName}`);
   }
-  return sourceFile;
+  return { sourceFile, snapshot };
 }
 
 /**

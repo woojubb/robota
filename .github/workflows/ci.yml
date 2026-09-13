@@ -644,9 +644,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .cache/robota-contract-tests
-          key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: robota-contract-tests-v2-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            robota-contract-tests-v1-${{ runner.os }}-node22-
+            robota-contract-tests-v2-${{ runner.os }}-node22-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

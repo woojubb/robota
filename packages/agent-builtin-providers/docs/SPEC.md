@@ -41,6 +41,26 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 
 This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.
 
+## Test Strategy
+
+`src/default-role-models.test.ts` verifies the concrete default role chains and cross-provider
+fallback. Neutral role-map contract checks belong to agent-core's owner-local tests; this package
+does not read agent-core's internal source to verify them.
+
+`examples/deepseek-provider-demo.mjs` verifies the public DeepSeek definition from
+`@robota-sdk/agent-provider-openai-compatible` and this package's public
+`createDefaultProviderDefinitions()` composition. From this package, run
+`node examples/deepseek-provider-demo.mjs` after the package and its provider prerequisites
+have been built. The example checks definition defaults, active/deprecated catalog entries,
+and DeepSeek's presence and position in the default list. It never creates a provider, resolves
+an API-key environment reference, or sends a request. A failed assertion exits nonzero.
+
+`src/deepseek-provider-demo.test.ts` runs the real example and checks failure reporting with an
+in-memory catalog mutation in a separate process. These are offline composition checks, not
+proof of CLI integration. The CLI owns that proof in
+`packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts`, under
+`offers the same provider surface`; no compiled CLI chunk names are inspected here.
+
 ## Build Output Contract
 
 ```

@@ -106,7 +106,10 @@ here (no pass-through re-exports).
 ## Test Strategy
 
 - `src/client/__tests__/` — the responder gate (incl. E3), session client, signaling, credential store, ICE
-  parsing, location parsing, and fingerprint parity (REMOTE-009..013). The shared reducer + WS client are tested
+  parsing and location parsing (REMOTE-009..013). The session-client test retains its owner-local
+  `fixtures/native-browser-answer.sdp`; SDP-dialect fingerprint parity belongs to
+  [agent-remote-pairing's tests](../../agent-remote-pairing/docs/SPEC.md#test-strategy), not a cross-package
+  read of its private fixtures. The shared reducer + WS client are tested
   in `agent-transport-gui`.
 
 ## Class Contract Registry

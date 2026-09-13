@@ -4,9 +4,15 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import path from 'node:path';
 
 import { matchesInput } from './affected-contract-tests.mjs';
-import { CONTRACT_CONTROL_PLANE_INPUTS } from './contract-test-inputs.mjs';
+import { projectContractInputPath } from './contract-input-matching.mjs';
+import {
+  CONTRACT_CONTROL_PLANE_INPUTS,
+  validateContractInputProjection,
+} from './contract-test-inputs.mjs';
+import { collectFiles } from './enumerate-files.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
-export const CONTRACT_TEST_CACHE_SCHEMA = 'robota-contract-tests-v1';
+export const CONTRACT_TEST_CACHE_SCHEMA = 'robota-contract-tests-v2';
 
 export const CONTRACT_TEST_GLOBAL_INPUTS = CONTRACT_CONTROL_PLANE_INPUTS;
 
@@ -25,19 +31,20 @@ function hashPart(hash, label, value) {
   hash.update('\0');
 }
 
-function trackedRepositoryFiles(root, runGit = spawnSync) {
-  const result = runGit('git', ['ls-files', '--cached', '-z'], {
+function repositoryInputFiles(root, runGit = spawnSync) {
+  return collectFiles([], {
     cwd: root,
-    encoding: 'utf8',
+    run: (args, cwd) => {
+      const result = runGit('git', args, { cwd, encoding: 'utf8', env: envWithoutGitVars() });
+      if ((result.status ?? 1) !== 0 || result.signal) {
+        throw new Error('repository inputs could not be enumerated');
+      }
+      return String(result.stdout ?? '')
+        .split('\0')
+        .map(normalizePath)
+        .filter(Boolean);
+    },
   });
-  if ((result.status ?? 1) !== 0 || result.signal) {
-    throw new Error('tracked repository inputs could not be enumerated');
-  }
-  return String(result.stdout ?? '')
-    .split('\0')
-    .map(normalizePath)
-    .filter(Boolean)
-    .sort();
 }
 
 function validatedInputFiles(root, entry, trackedFiles, repositoryMatches = new Map()) {
@@ -49,6 +56,7 @@ function validatedInputFiles(root, entry, trackedFiles, repositoryMatches = new 
   ) {
     throw new Error('contract cache received invalid registry metadata');
   }
+  validateContractInputProjection(entry);
   const implementation = [...new Set(entry.implementationInputs.map(normalizePath))].sort();
   if (
     implementation.length !== entry.implementationInputs.length ||
@@ -62,15 +70,38 @@ function validatedInputFiles(root, entry, trackedFiles, repositoryMatches = new 
     }
   }
   const repository = new Set();
-  for (const input of entry.repositoryInputs) {
-    let matches = repositoryMatches.get(input);
+  const names = new Set();
+  const projected =
+    entry.projectedInputs ??
+    entry.repositoryInputs.map((targetOrPattern) => ({
+      targetOrPattern,
+      sensitivity: 'content',
+    }));
+  for (const projection of projected) {
+    if (projection.sensitivity === 'execution') continue;
+    const input = projection.targetOrPattern;
+    const exact =
+      entry.projectedInputs !== undefined && !input.includes('*') && !input.includes('?');
+    const matchKey = `${exact ? 'exact' : 'population'}:${projection.sensitivity}:${input}`;
+    let matches = repositoryMatches.get(matchKey);
     if (!matches) {
-      matches = trackedFiles.filter((file) => matchesInput(file, input));
-      repositoryMatches.set(input, matches);
+      matches = exact
+        ? [input]
+        : [
+            ...new Set(
+              trackedFiles
+                .map((file) => projectContractInputPath(file, projection))
+                .filter((file) => file !== undefined),
+            ),
+          ];
+      repositoryMatches.set(matchKey, matches);
     }
-    for (const file of matches) repository.add(file);
+    for (const file of matches) {
+      if (projection.sensitivity === 'name-set') names.add(file);
+      else repository.add(file);
+    }
   }
-  return { implementation, repository: [...repository].sort() };
+  return { implementation, repository: [...repository].sort(), names: [...names].sort() };
 }
 
 function contentDigest(root, file, digests) {
@@ -97,7 +128,8 @@ export function createContractTestCacheKey({
   repositoryMatches = new Map(),
 }) {
   if (entry.always) throw new Error(`always-run contract test is not cacheable: ${entry.test}`);
-  const tracked = trackedFiles ?? trackedRepositoryFiles(root, runGit);
+  if (entry.cacheable === false) throw new Error(`contract test is not cacheable: ${entry.test}`);
+  const tracked = trackedFiles ?? repositoryInputFiles(root, runGit);
   const inputs = validatedInputFiles(root, entry, tracked, repositoryMatches);
   const globalPatterns = [...new Set(globalInputs.map(normalizePath))].sort();
   if (globalPatterns.length !== globalInputs.length || globalPatterns.some((file) => !file)) {
@@ -136,6 +168,10 @@ export function createContractTestCacheKey({
   for (const pattern of [...entry.repositoryInputs].sort()) {
     hashPart(hash, 'repository-pattern', normalizePath(pattern));
   }
+  for (const file of inputs.names) hashPart(hash, 'name-set-path', file);
+  for (const projection of entry.projectedInputs ?? []) {
+    hashPart(hash, 'projection', `${projection.sensitivity}:${projection.targetOrPattern}`);
+  }
   for (const pattern of globalPatterns) hashPart(hash, 'global-pattern', pattern);
   return hash.digest('hex');
 }
@@ -167,7 +203,7 @@ export function inspectContractTestCache({
   const byTest = new Map(entries.map((entry) => [normalizePath(entry.test), entry]));
   let trackedFiles;
   try {
-    trackedFiles = trackedRepositoryFiles(root, runGit);
+    trackedFiles = repositoryInputFiles(root, runGit);
   } catch {
     return {
       cacheRoot,

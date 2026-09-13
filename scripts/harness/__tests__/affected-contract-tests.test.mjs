@@ -21,7 +21,11 @@ import {
   relativeImportClosure,
   validateContractTestRegistry,
 } from '../contract-test-inputs.mjs';
-import { groupContractTestsByOwner } from '../contract-test-owners.mjs';
+import {
+  contractInputDomains,
+  groupContractTestsByOwner,
+  inferContractTestPrimaryOwner,
+} from '../contract-test-owners.mjs';
 import {
   classifyHarnessTestFiles,
   contractShardTimeoutMs,
@@ -54,41 +58,64 @@ function fixture() {
     mkdirSync(path.join(root, 'packages', name), { recursive: true });
     writeFileSync(path.join(root, 'packages', name, 'package.json'), '{}\n');
   }
-  writeFileSync(
-    path.join(root, files.floor),
-    "import '../lib/shared.mjs';\nconst owner = '.agents/rules/**';\n",
-  );
-  writeFileSync(
-    path.join(root, files.alpha),
-    "import '../lib/alpha.mjs';\nconst owner = 'packages/alpha/**';\n",
-  );
-  writeFileSync(path.join(root, files.beta), "const owner = 'packages/beta/**';\n");
-  writeFileSync(path.join(root, files.gamma), 'export const gamma = true;\n');
-  writeFileSync(path.join(root, files.delta), 'export const delta = true;\n');
-  writeFileSync(path.join(root, files.epsilon), 'export const epsilon = true;\n');
-  writeFileSync(path.join(root, files.isolated), "import '../lib/shared.mjs';\n");
-  writeFileSync(path.join(root, files.workspace), "const owner = 'packages/**';\n");
-  writeFileSync(path.join(root, files.global), "const owner = 'pnpm-workspace.yaml';\n");
-  writeFileSync(
-    path.join(root, files.crossWorkspace),
-    "const packages = 'packages/**';\nconst docs = 'docs/**';\n",
-  );
-  writeFileSync(
-    path.join(root, files.narrowCrossWorkspace),
-    "const alpha = 'packages/alpha/src/**';\nconst docs = 'docs/**';\n",
-  );
+  // This fixture tests the existing explicit registry metadata contract, not source inference.
+  // Broad patterns are deliberate declarations validated below, never quoted-code "evidence".
+  const declarations = [
+    { test: files.floor, source: "import '../lib/shared.mjs';", inputs: ['.agents/rules/**'] },
+    { test: files.alpha, source: "import '../lib/alpha.mjs';", inputs: ['packages/alpha/**'] },
+    { test: files.beta, source: '', inputs: ['packages/beta/**'] },
+    { test: files.gamma, source: 'export const gamma = true;', inputs: [] },
+    { test: files.delta, source: 'export const delta = true;', inputs: [] },
+    { test: files.epsilon, source: 'export const epsilon = true;', inputs: [] },
+    { test: files.isolated, source: "import '../lib/shared.mjs';", inputs: [] },
+    { test: files.workspace, source: '', inputs: ['packages/**'] },
+    { test: files.global, source: '', inputs: ['pnpm-workspace.yaml'] },
+    { test: files.crossWorkspace, source: '', inputs: ['docs/**', 'packages/**'] },
+    { test: files.narrowCrossWorkspace, source: '', inputs: ['docs/**', 'packages/alpha/src/**'] },
+  ];
+  for (const entry of declarations) writeFileSync(path.join(root, entry.test), `${entry.source}\n`);
   writeFileSync(
     path.join(root, 'scripts/harness/lib/alpha.mjs'),
     "export * from './shared.mjs';\n",
   );
   writeFileSync(path.join(root, 'scripts/harness/lib/shared.mjs'), 'export const shared = true;\n');
   const contracts = Object.values(files);
+  const referenceContext = {
+    files: new Set([
+      ...contracts,
+      'scripts/harness/lib/alpha.mjs',
+      'scripts/harness/lib/shared.mjs',
+      'packages/alpha/package.json',
+      'packages/beta/package.json',
+    ]),
+    packages: [],
+    cwd: '.',
+  };
+  const registry = declarations.map(({ test, inputs }) => {
+    const implementationInputs = relativeImportClosure(root, test, referenceContext);
+    const floor = CONTRACT_SAFETY_FLOOR.find((entry) => entry.test === test);
+    return {
+      test,
+      always: Boolean(floor),
+      alwaysReason: floor?.reason ?? null,
+      implementationInputs,
+      repositoryInputs: inputs,
+      broadSourceDomains: [],
+      inputDomains: contractInputDomains(root, inputs),
+      primaryOwner: inferContractTestPrimaryOwner(root, {
+        implementationInputs,
+        repositoryInputs: inputs,
+      }),
+    };
+  });
+  validateContractTestRegistry(root, contracts, registry);
   return {
     root,
     files,
     contracts,
     isolated: [files.isolated],
-    registry: createContractTestRegistry(root, contracts),
+    referenceContext,
+    registry,
   };
 }
 
@@ -573,7 +600,7 @@ describe('contract input registry', () => {
 
   it('follows relative static re-exports and rejects duplicate declarations', () => {
     const data = fixture();
-    expect(relativeImportClosure(data.root, data.files.alpha)).toEqual([
+    expect(relativeImportClosure(data.root, data.files.alpha, data.referenceContext)).toEqual([
       data.files.alpha,
       'scripts/harness/lib/alpha.mjs',
       'scripts/harness/lib/shared.mjs',

@@ -18,7 +18,8 @@ Current surface:
 
 This package is published (`@robota-sdk/*` scope) with **zero `@robota-sdk` dependencies**, so any
 package — `agent-executor`, `agent-tools`, `agent-subagent-runner`, or an external consumer — can
-depend down onto it without a cycle. `agent-testing`'s PTY runner uses a different process
+depend down onto it without a cycle. The [TUI-owned PTY runner](../../agent-transport-tui/docs/SPEC.md#test-strategy)
+uses a different process
 abstraction (`node-pty`'s `IPty`), so it applies the same escalation _pattern_ rather than this
 `ChildProcess` helper.
 

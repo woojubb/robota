@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readdirSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 import {
@@ -16,6 +16,32 @@ import {
 } from '../workspace-affected.mjs';
 import { workspaceDependenciesForOperation } from '../workspace-graph.mjs';
 
+const fixtureRoots = vi.hoisted(() => new Set());
+
+// Inject only file discovery for explicitly registered ordinary fixtures. All graph/resolver
+// logic stays real; no Git repository, Git fallback, or product source execution is involved.
+vi.mock('../workspace-graph.mjs', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    readWorkspaceGraph(root, options = {}) {
+      return actual.readWorkspaceGraph(
+        root,
+        fixtureRoots.has(root)
+          ? { collectSourceFiles: () => fixtureFiles(root), ...options }
+          : options,
+      );
+    },
+  };
+});
+
+function fixtureFiles(root, relative = '') {
+  return readdirSync(path.join(root, relative), { withFileTypes: true }).flatMap((entry) => {
+    const file = path.posix.join(relative, entry.name);
+    return entry.isDirectory() ? fixtureFiles(root, file) : entry.isFile() ? [file] : [];
+  });
+}
+
 function writeJson(root, relative, value) {
   const target = path.join(root, relative);
   mkdirSync(path.dirname(target), { recursive: true });
@@ -24,6 +50,7 @@ function writeJson(root, relative, value) {
 
 function fixture({ cycle = false } = {}) {
   const root = makeTemp('robota-workspace-affected-');
+  fixtureRoots.add(root);
   writeFileSync(
     path.join(root, 'pnpm-workspace.yaml'),
     [
@@ -76,6 +103,60 @@ function fixture({ cycle = false } = {}) {
 }
 
 describe('workspace affected planner', () => {
+  it('does not read workspace manifests through a linked directory', () => {
+    const root = fixture();
+    writeJson(root, 'external/package.json', { name: '@fixture/linked' });
+    symlinkSync(path.join(root, 'external'), path.join(root, 'packages/linked'), 'dir');
+    expect(readWorkspaceGraph(root).packages.map((entry) => entry.name)).not.toContain(
+      '@fixture/linked',
+    );
+  });
+
+  it('resolves cross-owner relative and alias imports on the existing graph without reverse-test fanout', () => {
+    const root = fixture();
+    writeJson(root, 'apps/web/tsconfig.json', {
+      compilerOptions: { paths: { '@core/*': ['../../packages/core/src/*'] } },
+    });
+    mkdirSync(path.join(root, 'packages/core/src'), { recursive: true });
+    writeFileSync(path.join(root, 'packages/core/src/value.ts'), 'export const value = 1;');
+    writeFileSync(
+      path.join(root, 'apps/web/src/index.ts'),
+      "import '../../../packages/core/src/value.js'; import '@core/value'; await import(selected);",
+    );
+    const graph = readWorkspaceGraph(root);
+    const web = graph.packages.find((entry) => entry.name === '@fixture/web');
+    expect(web.buildDependencies).toEqual(['@fixture/core', '@fixture/plugin']);
+    expect(web.typecheckDependencies).toEqual(['@fixture/core']);
+    expect(web.sourceReferences).toMatchObject([
+      { resolution: { status: 'resolved', targets: ['packages/core/src/value.ts'] } },
+      {
+        resolution: {
+          status: 'resolved',
+          targets: ['packages/core/src/value.ts'],
+          evidenceInputs: ['apps/web/tsconfig.json'],
+        },
+      },
+      { resolution: { status: 'unresolved', reason: 'nonliteral-reference' } },
+    ]);
+    expect(
+      createWorkspaceAffectedPlan({
+        root,
+        graph,
+        operation: 'test',
+        changedFiles: ['packages/core/src/value.ts'],
+      }).packages.map((entry) => entry.name),
+    ).toEqual(['@fixture/core']);
+  });
+
+  it('keeps parsed source evidence on the existing workspace graph', () => {
+    const root = fixture();
+    const graph = readWorkspaceGraph(root);
+    const web = graph.packages.find((entry) => entry.name === '@fixture/web');
+    expect(web.sourceReferences).toMatchObject([
+      { source: 'apps/web/src/index.ts', specifier: '@fixture/plugin', context: 'production' },
+    ]);
+  });
+
   it('reassembles only transitive copied consumers and their prerequisites on an asset change', () => {
     const packages = [
       { name: 'assets', buildDependencies: [] },

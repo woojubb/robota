@@ -13,6 +13,24 @@ import { vitestInvocation, vitestInvocationAsync } from './harness-vitest-proces
 
 export const DEFAULT_CONTRACT_SHARD_CONCURRENCY = 2;
 
+/** A submitted shard is not proof that every individual test in it finished executing. */
+export function summarizeContractExecution(selected, cacheHits, runs) {
+  const invoked = [...new Set(runs.flatMap((run) => run.files))].sort();
+  const accounted = new Set([...invoked, ...cacheHits]);
+  return {
+    cacheHits: [...cacheHits].sort(),
+    invoked,
+    notInvoked: selected.filter((file) => !accounted.has(file)).sort(),
+    failedShards: runs
+      .filter(({ result }) => (result.status ?? 1) !== 0 || result.signal)
+      .map(({ files, result }) => ({
+        files: [...files],
+        status: result.status ?? null,
+        signal: result.signal ?? null,
+      })),
+  };
+}
+
 function contractShardConcurrency(environment = process.env) {
   const configured = Number(environment.HARNESS_CONTRACT_SHARD_CONCURRENCY);
   return Number.isSafeInteger(configured) && configured > 0
@@ -75,9 +93,11 @@ export async function runAffectedContractTier(argv, root, tiers) {
     ? { ok: false, reason: null }
     : resolveChangedContractInputs({ root, ...changedRefs(argv) });
   let registry;
+  let registryFailure;
   try {
     registry = createContractTestRegistry(root, tiers.contract);
-  } catch {
+  } catch (error) {
+    registryFailure = error.message;
     registry = [];
   }
   const plan = createAffectedContractPlan({
@@ -93,6 +113,10 @@ export async function runAffectedContractTier(argv, root, tiers) {
   } else if (!resolved.ok) {
     plan.mode = 'complete';
     plan.reason = `changed-file resolution failed closed: ${resolved.reason}`;
+  }
+  if (registryFailure !== undefined) {
+    plan.mode = 'complete';
+    plan.reason = `${plan.reason}; registry construction failed: ${registryFailure}`;
   }
   process.stdout.write(
     `[contract-tests] ${plan.mode}: ${plan.reason}; ${plan.selected.length}/${tiers.contract.length} selected\n`,
@@ -151,5 +175,12 @@ export async function runAffectedContractTier(argv, root, tiers) {
     process.stdout.write(`[contract-tests] cache: recorded ${recorded} successful miss(es)\n`);
   }
   process.exitCode = failed ? 1 : 0;
-  return { ...plan, status: process.exitCode };
+  const coverage = summarizeContractExecution(plan.selected, cache.hits, [
+    ...shardRuns,
+    ...isolatedRuns,
+  ]);
+  process.stdout.write(
+    `[contract-tests] coverage: ${coverage.cacheHits.length} cache-reused; ${coverage.invoked.length} submitted to runners; ${coverage.notInvoked.length} not invoked; ${coverage.failedShards.length} failed shard(s)\n`,
+  );
+  return { ...plan, coverage, status: process.exitCode };
 }

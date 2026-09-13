@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 import {
   CONTRACT_TEST_GLOBAL_INPUTS,
+  CONTRACT_TEST_CACHE_SCHEMA,
   createContractTestCacheKey,
   inspectContractTestCache,
   recordSuccessfulContractShard,
@@ -66,7 +67,144 @@ function key(data) {
   });
 }
 
+function declareInput(data, kind, target) {
+  const input = kind === 'list-names' ? (target === '.' ? '*' : `${target}/*`) : target;
+  data.entry.repositoryInputs = [input];
+  data.entry.references = [
+    {
+      id: 'owner',
+      source: data.files.test,
+      span: { start: 0, end: 1 },
+      kind: 'module',
+      resolution: { status: 'resolved', targets: [data.files.implementation], evidenceInputs: [] },
+    },
+    {
+      id: 'input',
+      source: data.files.test,
+      span: { start: 2, end: 3 },
+      kind,
+      resolution: { status: 'resolved', targets: [target], evidenceInputs: [] },
+    },
+  ];
+  data.entry.projectedInputs = [
+    { targetOrPattern: data.files.test, sensitivity: 'execution', referenceIds: [] },
+    {
+      targetOrPattern: data.files.implementation,
+      sensitivity: 'execution',
+      referenceIds: ['owner'],
+    },
+    {
+      targetOrPattern: input,
+      sensitivity: kind === 'list-names' ? 'name-set' : 'content',
+      referenceIds: ['input'],
+    },
+  ].sort((a, b) => a.targetOrPattern.localeCompare(b.targetOrPattern));
+}
+
 describe('content-addressed contract-test cache', () => {
+  it('refuses to cache unresolved reference evidence', () => {
+    const data = fixture();
+    declareInput(data, 'read-content', data.files.repositoryA);
+    data.entry.references[1].resolution = { status: 'unresolved', reason: 'nonliteral-reference' };
+    data.entry.references[1].expression = 'dynamicPath';
+    expect(() => key(data)).toThrow(/invalid contract input uncertainty policy/);
+    expect(inspect(data)).toMatchObject({ hits: [], misses: [data.entry.test] });
+  });
+
+  it('does not cache an explicitly noncacheable entry', () => {
+    const data = fixture();
+    data.entry.cacheable = false;
+    expect(() => key(data)).toThrow(/not cacheable/);
+    expect(inspect(data)).toMatchObject({ hits: [], misses: [data.entry.test] });
+  });
+
+  it('hashes directory name sets without treating content-only edits as changed input', () => {
+    const data = fixture();
+    declareInput(data, 'list-names', 'docs');
+    const initial = key(data);
+    writeFileSync(path.join(data.root, data.files.repositoryA), 'changed content, same name');
+    expect(key(data)).toBe(initial);
+    const added = 'docs/new.md';
+    writeFileSync(path.join(data.root, added), 'new name');
+    const originalRun = data.runGit;
+    data.runGit = () => ({ ...originalRun(), stdout: `${originalRun().stdout}${added}\0` });
+    expect(key(data)).not.toBe(initial);
+  });
+
+  it('hashes an exact content input even before that file is staged', () => {
+    const data = fixture();
+    const input = 'docs/new.json';
+    declareInput(data, 'read-content', input);
+    writeFileSync(path.join(data.root, input), 'first');
+    const initial = key(data);
+    writeFileSync(path.join(data.root, input), 'second');
+    expect(key(data)).not.toBe(initial);
+  });
+
+  it('includes non-ignored untracked names in a directory enumeration key', () => {
+    const data = fixture();
+    declareInput(data, 'list-names', 'docs');
+    const tracked = Object.values(data.files).join('\0') + '\0';
+    let untracked = '';
+    data.runGit = (_command, args) => ({
+      status: 0,
+      signal: null,
+      stdout: args.includes('--others') ? untracked : tracked,
+    });
+    const initial = key(data);
+    untracked = 'docs/not-staged.md\0';
+    expect(key(data)).not.toBe(initial);
+  });
+
+  it('includes immediate subdirectory names implied by tracked descendants', () => {
+    const data = fixture();
+    declareInput(data, 'list-names', 'docs');
+    const initial = key(data);
+    const originalRun = data.runGit;
+    data.runGit = () => ({
+      ...originalRun(),
+      stdout: `${originalRun().stdout}docs/new-directory/file.json\0`,
+    });
+    expect(key(data)).not.toBe(initial);
+  });
+
+  it('uses normalized root membership and notices a new top-level directory', () => {
+    const data = fixture();
+    declareInput(data, 'list-names', '.');
+    const initial = key(data);
+    const originalRun = data.runGit;
+    data.runGit = () => ({
+      ...originalRun(),
+      stdout: `${originalRun().stdout}docs/deeper/file.json\0`,
+    });
+    expect(key(data)).toBe(initial);
+    data.runGit = () => ({
+      ...originalRun(),
+      stdout: `${originalRun().stdout}new-owner/file.json\0`,
+    });
+    expect(key(data)).not.toBe(initial);
+  });
+
+  it('does not reuse a legacy empty match for a resolved exact content input', () => {
+    const data = fixture();
+    const input = 'docs/not-tracked.json';
+    writeFileSync(path.join(data.root, input), 'first');
+    data.entry.repositoryInputs = [input];
+    const repositoryMatches = new Map();
+    const options = {
+      root: data.root,
+      entry: data.entry,
+      runGit: data.runGit,
+      globalInputs: data.globalInputs,
+      repositoryMatches,
+    };
+    createContractTestCacheKey(options);
+    declareInput(data, 'read-content', input);
+    const initial = createContractTestCacheKey(options);
+    writeFileSync(path.join(data.root, input), 'second');
+    expect(createContractTestCacheKey(options)).not.toBe(initial);
+  });
+
   it('uses the selector control-plane SSOT as its global cache dependency list', () => {
     expect(CONTRACT_TEST_GLOBAL_INPUTS).toBe(CONTRACT_CONTROL_PLANE_INPUTS);
   });
@@ -190,6 +328,6 @@ describe('content-addressed contract-test cache', () => {
     expect(cacheStep).toContain('${{ github.event.pull_request.head.sha || inputs.head_ref }}');
     expect(cacheStep).toContain('${{ github.run_id }}-${{ github.run_attempt }}');
     expect(cacheStep).toContain('restore-keys:');
-    expect(cacheStep).toContain('robota-contract-tests-v1-${{ runner.os }}-node22-');
+    expect(cacheStep).toContain(`${CONTRACT_TEST_CACHE_SCHEMA}-` + '${{ runner.os }}-node22-');
   });
 });

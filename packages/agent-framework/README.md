@@ -650,6 +650,12 @@ Settings are merged from lowest to highest priority:
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture details, and design decisions.
 
+From `packages/agent-framework` in a built repository, run
+`pnpm exec tsx examples/verify-goal-cassette-replay.mts` for offline goal replay through the public
+testing SDK. The credentialed recorder now lives at `scripts/record-goal-cassette.mts`; it is
+non-published development tooling, not a runtime provider dependency. Recording is an explicit
+live-provider operation; replay needs no credentials and preserves the committed cassette.
+
 ## License
 
 Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

@@ -126,7 +126,6 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                   | Execution engine for the agentic loop                                              |
 | [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)     | Subagent dispatch runner                                                           |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session log timing analysis                                                        |
-| `@robota-sdk/agent-testing` _(internal, not published)_                                                    | Real-PTY E2E test harness                                                          |
 
 **Products & transports** — the reference CLI and its interaction surfaces:
 
@@ -146,8 +145,8 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | `@robota-sdk/agent-transport-protocol` _(not yet published)_                                                   | Wire protocol shared by the transports                                                                                                                                                                                                                   |
 
 These tables are a **curated index**, not the full workspace: they name the packages you are most
-likely to want. They omit most of the 55 workspace-private packages, list one deliberately
-(`agent-testing`, marked), and omit several published ones that are not part of a usual assembly. A
+likely to want. They omit most workspace-private packages and several published ones that are not
+part of a usual assembly. A
 row marked _(not yet published)_ or _(internal, not published)_ is in the repository but not on the
 registry. The complete package layout lives in
 [`.agents/project-structure.md`](.agents/project-structure.md), which owns it.

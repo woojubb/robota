@@ -12,6 +12,10 @@ The `robota-dag` binary is available within the monorepo via workspace reference
 
 ## Commands
 
+`robota-dag doctor` reports the CLI's own version. Built binaries embed it from this package's
+manifest so package-local immutable generation paths do not change the result. Source execution
+reads the same owner manifest; missing diagnostic configuration still produces an error status.
+
 Commands operate against the current workspace layout, which defaults to `.workflows/`. Pass a
 leading `--workspace <dir>` to point at a different workspace root.
 

@@ -253,3 +253,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: Native Chrome through cua_repl loaded the actual CLI `dist/web` under `startMonitorUiServer` and displayed `CLI MONITOR · Connected`; DevTools showed only `favicon.ico:1 Failed to load resource: 404`. The unchanged `origin/develop:packages/agent-cli-web/index.html` declares no favicon and no favicon/public icon source exists in that package.
 - source: ARTIFACT-2655 browser artifact verification
 - related: Issue #2655
+
+### LRN-first-checkpoint-dirty-inventory-mismatch
+
+- observed-at: 2026-09-13T11:00:00+09:00
+- observation: GATE-IMPLEMENT can report PASS with only the spec dirty, then advance activates the Task and the checkpoint consumer rejects the script's own spec-only inventory.
+- evidence: `scripts/harness/gate-checkpoint-evidence-common.mjs` produces the first checkpoint evidence from observed dirty paths; `scripts/harness/gate-implement-entry-results.mjs:96` requires both Task and spec. At HEAD `5cfa1b18f91a5005f3fe4060b9176a062f2dd3ce`, the judge returned 7 PASS but commit failed with `gateImplementFirst.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`. The original uncommitted payload and withdrawal are preserved in the BOUNDARY-2655 spec; rejudging actual Task/spec planning changes produced the accepted checkpoint `36f4ff11e8dbe5ea525978c8648ceca9720ee329`.
+- source: BOUNDARY-2655
+- related: Issue #2655

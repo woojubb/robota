@@ -49,3 +49,6 @@ await killProcessTree(child, {
 | `IKillProcessOptions`   | `{ graceMs?, signal?, processGroup?, preKill? }`                                        |
 
 See [`docs/SPEC.md`](./docs/SPEC.md) for the full termination contract.
+
+The TUI owns its separate internal PTY test driver. Its `node-pty` process abstraction is not
+Node's `ChildProcess`; sharing the escalation pattern does not make those drivers interchangeable.
