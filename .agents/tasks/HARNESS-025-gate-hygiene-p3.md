@@ -25,7 +25,7 @@ TTL 100ms, PTY 300ms), vi.stubEnv 없는 env 변이, PTY e2e 실HOME 전달(조�
 `@robota-sdk/agent-testing` gained `createPtyEnv` / `createIsolatedHome` / `disposeIsolatedHomes`
 (`src/pty/isolated-home.ts`). Every PTY child now gets an empty throwaway HOME, including
 `spawnPty`'s **default** env — so the leak cannot be reintroduced by a caller who simply omits `env`.
-`agent-transport-tui`'s two PTY e2e suites use it; `pty/pty-driver.ts` already took an explicit
+`agent-ui-terminal`'s two PTY e2e suites use it; `pty/pty-driver.ts` already took an explicit
 `homeDir` and was the model.
 
 Four self-tests pin the contract, one of which asks the child to report the `HOME` it actually sees.
@@ -57,7 +57,7 @@ advance another process's clock, so converting them would break the test, not ha
 ### 1c. env 변이 → vi.stubEnv — DONE for every owned package
 
 19 test files / ~110 mutation sites converted across `dag-cli`, `dag-nodes`, `dag-framework`,
-`agent-core`, `agent-tools`, `agent-command`, `agent-transport-tui`. Manual save/restore bookkeeping
+`agent-core`, `agent-tools`, `agent-command`, `agent-ui-terminal`. Manual save/restore bookkeeping
 was deleted in favour of `vi.unstubAllEnvs()`. Four latent leaks were fixed as a side effect:
 
 - `dag-cli/init-command` restored `CI` from a possibly-`undefined` value, which Node coerces to the
@@ -121,7 +121,7 @@ Not applicable — test-hygiene only. Engineering evidence: isolated-env suite r
 
 Evidence (2026-07-25):
 
-- `agent-testing` 6/6 (4 new HOME-isolation tests), `agent-transport-tui` 69 files / 526 tests
+- `agent-testing` 6/6 (4 new HOME-isolation tests), `agent-ui-terminal` 69 files / 526 tests
   including all 3 PTY e2e suites, `agent-core` 904, `agent-command` 244, `agent-tools` 202,
   `dag-framework` 107, `dag-cli` 63 files / 1007 tests, `dag-nodes` 351 across 20 packages,
   `agent-web` cache 8/8. Every count matches the pre-change baseline — no test dropped or skipped.

@@ -6,7 +6,7 @@
 '@robota-sdk/agent-transport-mcp': major
 '@robota-sdk/agent-transport-ws': major
 '@robota-sdk/agent-transport-webrtc': major
-'@robota-sdk/agent-transport-tui': major
+'@robota-sdk/agent-ui-terminal': major
 '@robota-sdk/agent-cli': patch
 ---
 

@@ -1,18 +1,14 @@
-import {
-  CenteredChrome,
-  SessionSurface,
-  useWsSession,
-} from '@robota-sdk/agent-transport-gui/client';
+import { CenteredChrome, SessionSurface, useWsSession } from '@robota-sdk/agent-ui-web/client';
 import { useEffect, useState } from 'react';
 
 import type { TSidecarState } from '../electron/sidecar.js';
 
 /**
  * GUI-005 renderer compose-root. Mirrors the TUI/`RemoteClient` pattern: the desktop app is a thin binding
- * over the GUI presentation core (`@robota-sdk/agent-transport-gui`) — it owns NO session/command/permission
+ * over the GUI presentation core (`@robota-sdk/agent-ui-web`) — it owns NO session/command/permission
  * logic. The loopback endpoint (with the auth token) comes from the Electron preload bridge; the sidecar owns
  * everything below the wire. The layout/components (SessionSurface, chrome) belong to the shared GUI core, the
- * GUI analog of how the TUI presentation lives in `agent-transport-tui`.
+ * GUI analog of how the TUI presentation lives in `agent-ui-terminal`.
  */
 
 /** Thin wire binding: connect to the loopback sidecar over WS and render the shared desktop surface. */

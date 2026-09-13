@@ -1,6 +1,6 @@
-# @robota-sdk/agent-transport-gui
+# @robota-sdk/agent-ui-web
 
-The **GUI presentation layer** for a robota session — the graphical analog of `@robota-sdk/agent-transport-tui`.
+The **GUI presentation layer** for a robota session — the graphical analog of `@robota-sdk/agent-ui-terminal`.
 It reconstructs conversation state from the transport-neutral `TServerMessage` stream and renders it as React
 components, and it ships the desktop **session shell** (title/status bar, conversation column, background
 activity rail, composer, permission modal). Consumed by the desktop app (`apps/agent-app`) and the
@@ -17,7 +17,7 @@ browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 ## Using it
 
 ```tsx
-import { useWsSession, SessionSurface } from '@robota-sdk/agent-transport-gui/client';
+import { useWsSession, SessionSurface } from '@robota-sdk/agent-ui-web/client';
 
 export function App({ url }: { url: string }) {
   const state = useWsSession(url);
@@ -31,8 +31,8 @@ entry and sources this package's `src`:
 ```css
 /* app entry css */
 @import 'tailwindcss';
-@import '@robota-sdk/agent-transport-gui/styles/theme.css';
-@source '../../node_modules/@robota-sdk/agent-transport-gui/src';
+@import '@robota-sdk/agent-ui-web/styles/theme.css';
+@source '../../node_modules/@robota-sdk/agent-ui-web/src';
 @source './';
 ```
 

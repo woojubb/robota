@@ -1,6 +1,6 @@
 ---
 '@robota-sdk/pack-coding': major
-'@robota-sdk/agent-transport-tui': minor
+'@robota-sdk/agent-ui-terminal': minor
 '@robota-sdk/agent-transport': minor
 '@robota-sdk/agent-cli': minor
 ---

@@ -4,7 +4,7 @@ status: todo
 created: 2026-07-12
 priority: medium
 urgency: later
-area: packages/(new agent-transport-gui), apps/(new agent-gui desktop)
+area: packages/(new agent-ui-web), apps/(new agent-gui desktop)
 depends_on: []
 ---
 
@@ -17,7 +17,7 @@ depends_on: []
 ## Problem / Goal
 
 `agent-cli` drives a live `IInteractiveSession` through a **thin TUI presentation layer**
-(`@robota-sdk/agent-transport-tui` — `renderApp`, `createDefaultTuiCliAdapter`, `TuiInteractionChannel`),
+(`@robota-sdk/agent-ui-terminal` — `renderApp`, `createDefaultTuiCliAdapter`, `TuiInteractionChannel`),
 which is a display/interaction adapter over the transport-neutral session contract
 (`@robota-sdk/agent-interface-transport`). The session logic, command routing, permission/ask prompts, and
 co-drive attribution (REMOTE-014) all live BELOW the presentation layer; the TUI is "just another surface".
@@ -34,7 +34,7 @@ contract as sensible, rather than re-implement session logic.
 ## Execution Plan (research-first)
 
 1. **Research phase (read-only).**
-   - Study the TUI thin-layer seam: `agent-transport-tui` (`renderApp`, `createDefaultTuiCliAdapter`,
+   - Study the TUI thin-layer seam: `agent-ui-terminal` (`renderApp`, `createDefaultTuiCliAdapter`,
      `TuiInteractionChannel`, plugin/command/permission handlers) and how `agent-cli` composes it
      (`packages/agent-cli/src/cli.ts`). Extract the exact "presentation-layer contract" the GUI must satisfy.
    - Study the existing React session surface (`agent-web-ui`: `SessionMonitor`, `useWsSession`/`useRtcSession`,
@@ -46,7 +46,7 @@ contract as sensible, rather than re-implement session logic.
      deps the session needs, and packaging/signing per-OS. Deliverable: a findings doc + a recommended
      architecture feeding the spec.
 2. **Spec phase (gate).** Author `.agents/spec-docs/draft/*` and take it through GATE-APPROVAL
-   (proposal-reviewer ENDORSE). Decide: the new package boundary (`agent-transport-gui` presentation layer vs
+   (proposal-reviewer ENDORSE). Decide: the new package boundary (`agent-ui-web` presentation layer vs
    reusing `agent-web-ui`), the desktop shell, how the GUI hosts the session (in-process node vs a local
    agent-server the GUI connects to), the command/permission/ask surface, and packaging.
 3. **Development phase (gated stages).** Build the thin GUI presentation layer + the `agent-gui` desktop app
@@ -54,7 +54,7 @@ contract as sensible, rather than re-implement session logic.
 
 ## Open Questions (resolve in the spec)
 
-- Package shape: a new `@robota-sdk/agent-transport-gui` presentation layer mirroring `agent-transport-tui`,
+- Package shape: a new `@robota-sdk/agent-ui-web` presentation layer mirroring `agent-ui-terminal`,
   or does `agent-web-ui` already ARE the GUI layer (React) — is the desktop app just a shell hosting it?
 - Session hosting: does the GUI run the `IInteractiveSession` in-process (like `agent-cli` + TUI) or does it
   connect to a local `agent-server`/`remote-signaling`-style transport (reusing the WS/RTC surface)?

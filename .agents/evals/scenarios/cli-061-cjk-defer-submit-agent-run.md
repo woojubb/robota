@@ -8,13 +8,13 @@ byte-ordering race; no owner terminal smoke — per the agent-run capability rul
 ## Scenario
 
 ```bash
-pnpm --filter @robota-sdk/agent-transport-tui build
+pnpm --filter @robota-sdk/agent-ui-terminal build
 
 # Integration (red-before-green): render the REAL CjkTextInput, write the composed text, write '\r', then write
 # the trailing syllable AFTER Enter, wait past the defer window, and assert the FULL value was submitted.
-npx vitest run packages/agent-transport-tui/src/__tests__/cjk-defer-submit.test.tsx
+npx vitest run packages/agent-ui-terminal/src/__tests__/cjk-defer-submit.test.tsx
 # Unit: the deferred-submit orchestration reads the LATEST value at fire time, guards double-submit, cancels.
-npx vitest run packages/agent-transport-tui/src/flows/__tests__/defer-submit.test.ts
+npx vitest run packages/agent-ui-terminal/src/flows/__tests__/defer-submit.test.ts
 ```
 
 **Expected:** the submitted value is the full `안녕하세요` (not `안녕하세`); no double-submit on a second Enter;
@@ -35,7 +35,7 @@ Tests  2 passed
     ✓ cancel clears a pending timer and releases the guard (no submit after unmount)
 Tests  4 passed
 
-Full agent-transport-tui suite: 426 passed (59 files), no regression.
+Full agent-ui-terminal suite: 426 passed (59 files), no regression.
 ```
 
 **Red-before-green proof (anti-accidental-green):** temporarily reverting the fix (submit synchronously with

@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-transport-tui",
+  "name": "@robota-sdk/agent-ui-terminal",
   "version": "3.0.0-beta.79",
-  "description": "Terminal UI (React + Ink) transport for the Robota SDK",
+  "description": "Terminal UI package (React + Ink) for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -48,7 +48,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-rendering.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-transport-tui --output examples/scenarios/session-event-rendering.record.json -- pnpm scenario:verify",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-ui-terminal --output examples/scenarios/session-event-rendering.record.json -- pnpm scenario:verify",
     "test:pty": "vitest run --config vitest.pty.config.ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

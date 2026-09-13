@@ -91,13 +91,13 @@ packages/agent-cli/src/bin.ts
    |     `- channel.run(prompt); process.exit(channel.getExitCode())
    `- otherwise interactive mode
       `- renderApp({ cwd, provider, projectAccess, ..., transportRegistry, cliAdapter,
-         |           agentName, activePresetId, persona, enableParallelSubagents, selfVerification })  (agent-transport-tui)
+         |           agentName, activePresetId, persona, enableParallelSubagents, selfVerification })  (agent-ui-terminal)
          |  |- transportRegistry = createDefaultTransportRegistry()  (LOCAL helper in cli.ts:62-66 —
          |  |     new TransportRegistry(...) from agent-transport, registers WsTransport from agent-transport-ws)
-         |  |- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport-tui)
+         |  |- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-ui-terminal)
          |  |     `- reloadPluginCommandSource  (agent-command)
          |  `- agentName/activePresetId/persona forwarded from resolvedPreset + selectedPresetId
-         `- App.tsx  (agent-transport-tui)  [createChannel factory -> TuiInteractionChannel]
+         `- App.tsx  (agent-ui-terminal)  [createChannel factory -> TuiInteractionChannel]
             |- useTuiChannel()
             |  |- new TuiInteractionChannel({ cwd, provider, projectAccess, commandModules, commandHostAdapters,
             |  |    agentName, activePresetId, persona, ... })
@@ -131,17 +131,17 @@ packages/agent-cli/src/bin.ts
 
 When reading older branches or PRs, use this map.
 
-| Old name (pre-2026-05) | Current name                                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `agent-runtime`        | `agent-executor`                                                                                                |
-| `agent-sessions`       | `agent-session`                                                                                                 |
-| `agent-providers`      | `agent-provider-*` (per-vendor split; no bare `agent-provider` package)                                         |
-| `agent-plugins`        | `agent-plugin`                                                                                                  |
-| `agent-sdk`            | `agent-framework`                                                                                               |
-| `agent-transport/ws`   | `agent-transport-ws` (separate package)                                                                         |
-| `agent-transport/tui`  | `agent-transport-tui` (separate package)                                                                        |
-| `agent-command-*`      | `agent-command`                                                                                                 |
-| `agent-web`            | `agent-transport-gui` / `agent-transport-webrtc-web` (pkgs), `apps/agent-web-monitor` / `apps/agent-web` (apps) |
+| Old name (pre-2026-05) | Current name                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `agent-runtime`        | `agent-executor`                                                                                         |
+| `agent-sessions`       | `agent-session`                                                                                          |
+| `agent-providers`      | `agent-provider-*` (per-vendor split; no bare `agent-provider` package)                                  |
+| `agent-plugins`        | `agent-plugin`                                                                                           |
+| `agent-sdk`            | `agent-framework`                                                                                        |
+| `agent-transport/ws`   | `agent-transport-ws` (separate package)                                                                  |
+| `agent-transport/tui`  | `agent-ui-terminal` (separate package)                                                                   |
+| `agent-command-*`      | `agent-command`                                                                                          |
+| `agent-web`            | `agent-ui-web` / `agent-transport-webrtc-web` (pkgs), `apps/agent-web-monitor` / `apps/agent-web` (apps) |
 
 ## Startup Module Boundary Map
 

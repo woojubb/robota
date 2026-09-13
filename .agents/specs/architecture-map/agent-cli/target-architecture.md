@@ -37,7 +37,7 @@ agent-cli
       |      CLI selects an id + forwards CLI overrides — owns no merge logic
       |
       v
-agent-framework  [React-free — React belongs in the presentation transports (tui/gui) only]
+agent-framework  [React-free — React belongs in the presentation UI packages (terminal/web) only]
   owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
   workspace project authority/facets, host adapter ports, prompt file-reference preprocessing,
   session orchestration,
@@ -101,7 +101,7 @@ Target ownership rules:
 
 ```mermaid
 flowchart TD
-  CLI["@robota-sdk/agent-cli\nbin.ts, cli.ts, React/Ink UI\n(via agent-transport-tui)"]
+  CLI["@robota-sdk/agent-cli\nbin.ts, cli.ts, React/Ink UI\n(via agent-ui-terminal)"]
   Framework["@robota-sdk/agent-framework\nInteractiveSession, command contracts, common APIs"]
   Commands["@robota-sdk/agent-command\nall built-in command modules\n+ plugin-to-command bridge adapters"]
   Core["@robota-sdk/agent-core\nprovider, permission, history, message contracts"]
@@ -110,7 +110,7 @@ flowchart TD
   Executor["@robota-sdk/agent-executor\nbackground tasks, subagents, worktree"]
   Provider["@robota-sdk/agent-builtin-providers\nprovider definitions + createDefaultProviderDefinitions()"]
   Transport["@robota-sdk/agent-transport\nheadless transport + TransportRegistry (root + /headless)"]
-  TransportTui["@robota-sdk/agent-transport-tui\nrenderApp, App, TuiTransport, TuiInteractionChannel,\ncreateDefaultTuiCliAdapter"]
+  TransportTui["@robota-sdk/agent-ui-terminal\nrenderApp, App, TuiTransport, TuiInteractionChannel,\ncreateDefaultTuiCliAdapter"]
   TransportWs["@robota-sdk/agent-transport-ws\nWsTransport"]
   TransportHttp["@robota-sdk/agent-transport-http\nHTTP transport (not a CLI dependency)"]
   TransportMcp["@robota-sdk/agent-transport-mcp\nMCP transport (not a CLI dependency)"]
@@ -159,7 +159,7 @@ flowchart TD
 | CLI → agent-command                    | Allowed   | Product composition root selects default command modules and plugin adapters.                                    |
 | CLI → agent-provider                   | Allowed   | CLI owns provider definition composition and provider instance creation.                                         |
 | CLI → agent-transport                  | Allowed   | CLI uses headless transport (print mode), `TransportRegistry`, `PrintTerminal`, `promptInput`.                   |
-| CLI → agent-transport-tui              | Allowed   | CLI imports `renderApp`, `createDefaultTuiCliAdapter` (TuiTransport / App / TuiInteractionChannel live here).    |
+| CLI → agent-ui-terminal                | Allowed   | CLI imports `renderApp`, `createDefaultTuiCliAdapter` (TuiTransport / App / TuiInteractionChannel live here).    |
 | CLI → agent-transport-ws               | Allowed   | CLI imports `WsTransport` and registers it via the local `createDefaultTransportRegistry` helper.                |
 | CLI → agent-subagent-runner            | Allowed   | CLI wires child-process subagent factory; subagent support is opt-in.                                            |
 | CLI → agent-preset                     | Allowed   | CLI calls `resolvePreset()`, `loadExternalPresets()`, `DEFAULT_AGENT_NAME`; selection glue only, no merge logic. |

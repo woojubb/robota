@@ -37,7 +37,7 @@ Warning breakdown from a full `pnpm lint` run (health-skill measurement):
 **Concentration (Pareto):** the largest source files are dominated by `packages/dag-cli/src/commands/*` —
 7 of the top 11 by line count: `run.ts` (2389), `node.ts` (1484), `benchmark.ts` (907), `validate.ts` (814),
 `explain.ts` (785), `lint.ts` (732), `compare.ts` (701), plus `agent-framework/src/interactive/interactive-session.ts`
-(854) and `agent-transport-tui/src/TuiInteractionChannel.ts` (692). `max-lines-per-function` + `complexity`
+(854) and `agent-ui-terminal/src/TuiInteractionChannel.ts` (692). `max-lines-per-function` + `complexity`
 warnings co-occur in these god-functions, so a small file set holds a disproportionate share of the 556 combined.
 
 ## Prior Art Research
@@ -120,7 +120,7 @@ god-function (split + re-verify) × ~30 = the larger cost. Total spread across ~
 | `packages/dag-cli/src/commands/node.ts` (1484)                                        | Same                                       |
 | `packages/dag-cli/src/commands/{benchmark,validate,explain,lint,compare,tutorial}.ts` | Same                                       |
 | `packages/agent-framework/src/interactive/interactive-session.ts` (854)               | Same                                       |
-| `packages/agent-transport-tui/src/TuiInteractionChannel.ts` (692)                     | Same                                       |
+| `packages/agent-ui-terminal/src/TuiInteractionChannel.ts` (692)                       | Same                                       |
 | `.eslintrc.json`                                                                      | **NO CHANGE** (asserted by AC-1)           |
 
 ## Out of Scope

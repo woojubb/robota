@@ -10,13 +10,14 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 flowchart TD
   ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Playground["Product app\nagent-playground"]
-  TransportGui["GUI presentation core\nagent-transport-gui\n(SessionMonitor, useWsSession)"]
+  TransportGui["Web UI presentation core\nagent-ui-web\n(SessionMonitor, useWsSession)"]
+  TerminalUi["Terminal UI presentation\nagent-ui-terminal\n(TuiTransport, renderApp)"]
   WebRtcWeb["Browser WebRTC peer\nagent-transport-webrtc-web"]
   WebMonitor["Product app\napps/agent-web-monitor\n(CLI-served SPA)"]
   DesktopApp["Desktop shell\napps/agent-app (Electron)\nspawns robota --serve → startRuntimeHost"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
-  TransportShells["Transport shells\nagent-transport (+ /headless), agent-transport-tui, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
+  TransportShells["Transport shells\nagent-transport, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
   TypeContracts["Type contracts\nagent-interface-transport, agent-interface-tui\n(ZERO runtime deps)"]
   Orchestration["Orchestration\nagent-remote-client"]
   Sessions["Session services\nagent-session"]
@@ -41,6 +42,8 @@ flowchart TD
   TransportShells --> Assembly
   TransportShells --> TypeContracts
   Assembly --> TransportShells
+  TerminalUi --> Assembly
+  TerminalUi --> TypeContracts
   Orchestration --> Domain
   Assembly --> Orchestration
   OptIn --> Assembly
@@ -58,7 +61,7 @@ flowchart TD
 ```
 
 `apps/agent-app` (desktop Electron shell) imports the GUI presentation core
-(`agent-transport-gui`) and the WS transport (`agent-transport-ws`, within Transport shells); it does
+(`agent-ui-web`) and the WS transport (`agent-transport-ws`, within Transport shells); it does
 **not** import `agent-framework` or `agent-core`. It drives the session by spawning the CLI runtime
 host — `robota --serve` → `startRuntimeHost` — and rendering the GUI core over the loopback WS sidecar
 that host serves. The `DesktopApp → Transport shells` edge is the `agent-transport-ws` import; the
@@ -70,6 +73,8 @@ See [capability-placement.md](capability-placement.md).
 
 `TransportShells ↔ Assembly` is bidirectional: Assembly exposes `InteractiveSession` (an
 assembly-level object) which transports consume, while Assembly registers transport adapters.
+Presentation UI packages may consume Assembly and type contracts but are not transport-family
+members.
 
 `agent-subagent-runner` is opt-in: install only when child-process subagent support is needed.
 It depends on agent-core, agent-framework, agent-executor, agent-provider, agent-interface-transport,
@@ -81,6 +86,7 @@ Layer rules:
 | ------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Product shells      | UI, CLI flags, process entrypoints, concrete host adapters        | Domain rules, reusable contracts, provider semantics                      |
 | Assembly/API layers | Session assembly, command contracts, HTTP/API composition         | Product-specific rendering, vendor SDK behavior                           |
+| Presentation UI     | Terminal/browser rendering and user interaction adapters          | Protocol framing, session state, provider semantics                       |
 | Transport shells    | Protocol framing, WebSocket/HTTP exposure of `InteractiveSession` | Session state, domain logic, provider semantics                           |
 | Orchestration       | Multi-agent task delegation, remote-agent HTTP client             | Session persistence, UI, provider semantics                               |
 | Session services    | Conversation lifecycle, persistence, compaction                   | UI, command contracts, provider semantics                                 |

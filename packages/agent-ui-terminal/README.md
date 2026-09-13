@@ -1,4 +1,4 @@
-# @robota-sdk/agent-transport-tui
+# @robota-sdk/agent-ui-terminal
 
 React + Ink terminal UI presentation for the Robota SDK. It owns its interactive session through
 `TuiInteractionChannel`; it is not a borrowed-session `ITransportAdapter`.
@@ -17,7 +17,7 @@ session exposes it. This is a read-only view of session state and remains separa
 display settings.
 
 ```typescript
-import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-terminal';
 ```
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

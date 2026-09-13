@@ -432,7 +432,7 @@ describe('local product classification and commands', () => {
   });
 
   it('uses direct ownership for ordinary product capabilities', () => {
-    const result = classifyLocalProductChanges(['packages/agent-transport-tui/src/index.ts'], {
+    const result = classifyLocalProductChanges(['packages/agent-ui-terminal/src/index.ts'], {
       cwd: WORKSPACE_ROOT,
     });
 

@@ -4,7 +4,7 @@ status: todo
 created: 2026-07-04
 priority: medium
 urgency: later
-area: packages/agent-playground, packages/agent-framework, packages/agent-transport-tui, scripts/harness
+area: packages/agent-playground, packages/agent-framework, packages/agent-ui-terminal, scripts/harness
 depends_on: ['INFRA-026']
 ---
 

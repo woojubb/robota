@@ -4,7 +4,7 @@
  * Harness config ghost-path scan (LESSON-006).
  *
  * Harness scan scripts hardcode workspace file paths in their config (e.g.
- * `file: 'packages/agent-transport-tui/src/TuiInteractionChannel.ts'`). When a
+ * `file: 'packages/agent-ui-terminal/src/TuiInteractionChannel.ts'`). When a
  * package or file is relocated, those literals go stale and the dependent scan
  * silently checks a path that no longer exists — exactly what happened during
  * the DQ-AUDIT-004/005 relocations (hardcoded tui paths failed several scans,

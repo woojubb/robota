@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-transport-tui': major
+'@robota-sdk/agent-ui-terminal': major
 ---
 
 Stop presenting `TuiInteractionChannel` as an `IInteractionChannel`: the TUI owns its session and

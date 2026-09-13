@@ -1,7 +1,7 @@
 ---
 '@robota-sdk/agent-framework': major
 '@robota-sdk/agent-interface-transport': major
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-ui-terminal': patch
 ---
 
 Remove the obsolete session-level permission and ask callback options and the stale

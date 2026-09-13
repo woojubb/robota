@@ -51,5 +51,5 @@ node packages/agent-cli/bin/robota.cjs -p "Reply with exactly: OK"
 
 - `packages/agent-transport/src/headless/__tests__/headless-channel-options.test.ts` — TC-02 (CLI-076):
   the explicit `model` reaches the session options verbatim; omitted when not provided.
-- `packages/agent-transport-tui/src/__tests__/render-channel-options.test.ts` — CLI-076: the display
+- `packages/agent-ui-terminal/src/__tests__/render-channel-options.test.ts` — CLI-076: the display
   `modelId` threads into the channel `model` override; undefined when unset.

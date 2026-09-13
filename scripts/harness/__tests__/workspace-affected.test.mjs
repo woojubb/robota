@@ -939,14 +939,14 @@ describe('workspace affected planner', () => {
       operation: 'build',
       changedFiles: [
         'packages/agent-cli/src/__ci_consumer_target__.ts',
-        'packages/agent-transport-tui/src/__ci_consumer_target__.ts',
+        'packages/agent-ui-terminal/src/__ci_consumer_target__.ts',
       ],
     });
     expect(providerTypecheck.packages).toHaveLength(1);
     expect(providerBuild.packages.length).toBeLessThanOrEqual(3);
     expect(cliBuild.packages.length).toBeLessThanOrEqual(67);
     // ARTIFACT-2655: CLI assembly now owns the previously omitted web producer + GUI prerequisite.
-    const copiedPrerequisites = ['@robota-sdk/agent-cli-web', '@robota-sdk/agent-transport-gui'];
+    const copiedPrerequisites = ['@robota-sdk/agent-cli-web', '@robota-sdk/agent-ui-web'];
     expect(tuiBuild.packages.map((entry) => entry.name)).toEqual(
       expect.arrayContaining(copiedPrerequisites),
     );

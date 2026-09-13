@@ -1,7 +1,7 @@
 /**
  * RUNTIME-001 TC-01 — the shared runtime host builds the session, owns the transport lifecycle
  * (startAll on start, stopAll on shutdown), and shuts down idempotently. Presentation-free: this test
- * imports no `agent-transport-tui`/ink.
+ * imports no `agent-ui-terminal`/ink.
  */
 
 import { createHook } from 'node:async_hooks';

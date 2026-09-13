@@ -9,7 +9,7 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 ```mermaid
 flowchart TD
   AgentCLI["agent-cli\nlifecycle owner + assembly"]
-  TuiTransport["agent-transport-tui\nTUI I/O adapter (terminal)"]
+  TuiTransport["agent-ui-terminal\nTUI I/O adapter (terminal)"]
   Headless["agent-transport/headless\nprint-mode transport"]
   Commands["agent-command\nuser-visible commands"]
   Framework["agent-framework\nassembly layer — InteractiveSession,\nworkspace authority + command APIs\n(React-free)"]
@@ -61,7 +61,7 @@ Agent stack ownership:
 
 | Concern                                           | Owner                                                   | Contract                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Terminal input/rendering                          | `agent-transport-tui`                                   | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                                                                                                                                                         |
+| Terminal input/rendering                          | `agent-ui-terminal`                                     | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                                                                                                                                                         |
 | CLI lifecycle + assembly                          | `agent-cli`                                             | Composes transports, providers, commands; owns `process.exit()`.                                                                                                                                                                                                                                                                                                                |
 | Framework assembly layer                          | `agent-framework`                                       | Composes sessions/executor/tools/core. React-free.                                                                                                                                                                                                                                                                                                                              |
 | Workspace project authority                       | `agent-framework`                                       | Host trust decision becomes an opaque, root-bound authority; framework derives relative read/named-state/settings/mutation facets and adapts lower neutral ports.                                                                                                                                                                                                               |
@@ -73,7 +73,7 @@ Agent stack ownership:
 | Background/subagent lifecycle ports               | `agent-executor`                                        | CLI keeps concrete local process/worktree adapters.                                                                                                                                                                                                                                                                                                                             |
 | Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)                        | CLI imports factory; dispatches worker mode in bin.ts and passes workerEntry (DIST-006).                                                                                                                                                                                                                                                                                        |
 | Background workspace/read model                   | `agent-framework` + `agent-executor`                    | CLI renders framework projections; keeps only ephemeral UI selection state.                                                                                                                                                                                                                                                                                                     |
-| Named preset profiles / live preset switching     | `agent-preset` (data) + `agent-framework` (application) | Data owner `agent-preset` (`IPreset` + `resolvePreset` + built-in + external presets); application owner `agent-framework` (`applyPresetToSession`); command `agent-command/preset`; runtime state `agent-session`; UI `agent-transport-tui`.                                                                                                                                   |
+| Named preset profiles / live preset switching     | `agent-preset` (data) + `agent-framework` (application) | Data owner `agent-preset` (`IPreset` + `resolvePreset` + built-in + external presets); application owner `agent-framework` (`applyPresetToSession`); command `agent-command/preset`; runtime state `agent-session`; UI `agent-ui-terminal`.                                                                                                                                     |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
 
@@ -139,7 +139,7 @@ The sidecar is served by the shared runtime host, not a bespoke CLI server. `rob
 (`serve-mode.ts`) runs `startRuntimeHost` (`agent-framework`), which builds the `InteractiveSession`
 through the `buildRuntimeSession` seam and starts the loopback WS transport lifecycle. The desktop
 Electron shell `apps/agent-app` spawns `robota --serve` and renders the shared GUI presentation core
-`agent-transport-gui` over the transport-neutral `TServerMessage` stream; `apps/agent-web-monitor`
+`agent-ui-web` over the transport-neutral `TServerMessage` stream; `apps/agent-web-monitor`
 serves the same GUI core (monitor + Stage-D remote page) as a CLI-served SPA.
 
 Sidecar mode spans these packages:
@@ -150,7 +150,7 @@ Sidecar mode spans these packages:
 | `agent-cli`                  | `robota --serve` (`serve-mode.ts`) runs `startRuntimeHost` headless (no ink); alive until SIGTERM/SIGINT    | landed |
 | `agent-transport`            | `createSessionMessageHandler({ session, send })` + `TServerMessage` — transport-neutral relay contract      | landed |
 | `agent-transport-ws`         | `WsTransport` — WebSocket adapter serving the relay over the loopback socket                                | landed |
-| `agent-transport-gui`        | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components                      | landed |
+| `agent-ui-web`               | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components                      | landed |
 | `agent-transport-webrtc-web` | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) over the GUI core                                     | landed |
 | `apps/agent-app`             | Desktop Electron shell; spawns `robota --serve` and renders the GUI core over the loopback WS sidecar       | landed |
 | `apps/agent-web-monitor`     | CLI-served Vite SPA (monitor + remote page) over the GUI core                                               | landed |

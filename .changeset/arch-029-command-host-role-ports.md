@@ -2,7 +2,7 @@
 '@robota-sdk/agent-framework': major
 '@robota-sdk/agent-command': patch
 '@robota-sdk/agent-command-workflows': patch
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-ui-terminal': patch
 ---
 
 ARCH-029: decompose the command host into role ports

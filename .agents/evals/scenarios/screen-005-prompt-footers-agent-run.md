@@ -9,7 +9,7 @@ Before SCREEN-005, three incompatible footer dialects coexisted across nine call
 keycap pairs, single-space run-on, prose), the confirm/permission prompts described the same reducer
 with different words ("arrow keys" vs "left/right"), and the deliberate Esc hard-stop on
 confirm/permission prompts was undocumented. SCREEN-005 introduces the package-local SSOT
-(`packages/agent-transport-tui/src/key-hint-footer.tsx`: `IKeyHint`, `formatKeyHints`,
+(`packages/agent-ui-terminal/src/key-hint-footer.tsx`: `IKeyHint`, `formatKeyHints`,
 `KeyHintFooter`, `KEY_HINT_SEPARATOR = ' · '`, `SELECTION_INDICATOR`/`_NONE`) and migrates every
 footer/indicator call site onto it.
 
@@ -19,10 +19,10 @@ footer/indicator call site onto it.
 pnpm build:deps   # built robota binary for the PTY suite
 
 # The three User Execution Test Scenarios, on the real binary in a real PTY:
-pnpm --filter @robota-sdk/agent-transport-tui test:pty   # includes screen-005-prompt-footers.ptytest.ts
+pnpm --filter @robota-sdk/agent-ui-terminal test:pty   # includes screen-005-prompt-footers.ptytest.ts
 
 # Anti-drift floor + per-component footer assertions (default suite):
-pnpm --filter @robota-sdk/agent-transport-tui test
+pnpm --filter @robota-sdk/agent-ui-terminal test
 ```
 
 **Expected:** S1 — typing `/` shows `↑↓ Navigate · Tab Complete · Enter Select · Esc Close` and the

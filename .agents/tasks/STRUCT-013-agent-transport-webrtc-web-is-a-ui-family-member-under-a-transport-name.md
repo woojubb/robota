@@ -6,7 +6,7 @@ priority: medium
 urgency: later
 area:
   - packages/agent-transport-webrtc-web
-  - packages/agent-transport-gui
+  - packages/agent-ui-web
   - packages/agent-interface-tui
 depends_on: [STRUCT-012]
 no-issue: root item filed from the STRUCT-012 proposal review (2026-09-05) under the same owner direction that created STRUCT-012 locally — "파운데이셔널 이슈로 로컬에 새로 생성"; registration on GitHub is the owner's step
@@ -21,12 +21,12 @@ name it instead of carrying it.
 
 ## Problem
 
-After STRUCT-012's unit S4 renames `agent-transport-gui` → `@robota-sdk/agent-ui-web` and
-`agent-transport-tui` → `@robota-sdk/agent-ui-terminal`, exactly one family member is left whose name
+After STRUCT-012's unit S4 renames `agent-ui-web` → `@robota-sdk/agent-ui-web` and
+`agent-ui-terminal` → `@robota-sdk/agent-ui-terminal`, exactly one family member is left whose name
 and dependencies contradict each other. Measured on `develop` at `4b03d3248` (2026-09-05):
 
 - `packages/agent-transport-webrtc-web/package.json`: `private: true`; `dependencies` =
-  `agent-remote-pairing`, `agent-transport-gui`, `agent-transport-protocol`. **No edge to
+  `agent-remote-pairing`, `agent-ui-web`, `agent-transport-protocol`. **No edge to
   `agent-transport-webrtc`** — the Node WebRTC transport it is described as the browser mirror of
   (`.agents/project-structure.md:29`).
 - `src/` is `client/`, `components/`, `hooks/`, `index.ts` — React components and hooks over the GUI
@@ -39,7 +39,7 @@ agent-transport`: a transport by name whose runtime content is UI. The STRUCT-01
 
 Two related facts belong in the same scope, recorded here as candidates rather than decided:
 
-1. **Neither `agent-transport-gui` nor `agent-transport-webrtc-web` declares a `browser` export
+1. **Neither `agent-ui-web` nor `agent-transport-webrtc-web` declares a `browser` export
    condition or a `browser` field** (`node -e` over both manifests: `browserField=false`,
    `browserCondition=false`), although both are built for the browser (`vite`, `tsdown`
    `platform: 'browser'`). `CORE-028`'s scan (`scripts/harness/scan-browser-package-node-subpath.mjs`)

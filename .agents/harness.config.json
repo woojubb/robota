@@ -21,7 +21,7 @@
       "$comment": "Package-purity POLICY (check-dependency-direction Rule 10, absorbed from check-sdk-react-free.mjs). Each entry forbids a package from importing OR declaring the listed modules; a missing scan target is a hard finding, not a silent pass (HARNESS-016 / ARL-16g dead-guard guard).",
       "dir": "packages/agent-framework",
       "forbiddenModules": ["react"],
-      "reason": "agent-framework is a platform-neutral assembly layer; React hooks/context/components belong in the product/UI packages (agent-cli, agent-transport-tui, agent-transport-gui) only."
+      "reason": "agent-framework is a platform-neutral assembly layer; React hooks/context/components belong in the product/UI packages (agent-cli, agent-ui-terminal, agent-ui-web) only."
     }
   ],
   "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST",
@@ -110,6 +110,7 @@
       ],
       "forbiddenDependencyPrefixes": [
         "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-ui-",
         "@robota-sdk/agent-interface-tui"
       ],
       "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
@@ -139,6 +140,7 @@
       ],
       "forbiddenDependencyPrefixes": [
         "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-ui-",
         "@robota-sdk/agent-interface-tui"
       ],
       "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
@@ -525,11 +527,11 @@
       "packages/agent-tool-defaults/src/index.ts",
       "packages/agent-tool-mcp/src/index.ts",
       "packages/agent-tools/src/index.ts",
-      "packages/agent-transport-gui/src/index.ts",
+      "packages/agent-ui-web/src/index.ts",
       "packages/agent-transport-http/src/index.ts",
       "packages/agent-transport-mcp/src/index.ts",
       "packages/agent-transport-protocol/src/index.ts",
-      "packages/agent-transport-tui/src/index.ts",
+      "packages/agent-ui-terminal/src/index.ts",
       "packages/agent-transport-webrtc-web/src/index.ts",
       "packages/agent-transport-webrtc/src/index.ts",
       "packages/agent-transport-ws/src/index.ts",

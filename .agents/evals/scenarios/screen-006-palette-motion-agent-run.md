@@ -2,11 +2,11 @@
 
 Spec: `.agents/spec-docs/active/SCREEN-006-tui-shared-palette-and-motion.md`
 Run by the agent (no owner terminal smoke), 2026-07-25, on the rebuilt `robota` binary
-(`packages/agent-cli/bin/robota.cjs` after `pnpm build` of `agent-transport-tui` + `agent-cli`).
+(`packages/agent-cli/bin/robota.cjs` after `pnpm build` of `agent-ui-terminal` + `agent-cli`).
 
 ## Scenario 1 — NO_COLOR legibility
 
-Command: `pnpm --filter @robota-sdk/agent-transport-tui test:pty`
+Command: `pnpm --filter @robota-sdk/agent-ui-terminal test:pty`
 Backing test: `src/__tests__/pty/screen-006-no-color.ptytest.ts` **S1** — spawns the built CLI in a
 real pty with `NO_COLOR=1` and `--session-log` replay, drives a full turn, then scans the ENTIRE
 raw transcript for SGR color params (30-38/39/40-49/90-97/100-107, incl. 38;5/48;5 extended).
@@ -52,7 +52,7 @@ yellow), GREEN after.
 
 ## Gate runs (all agent-run, 2026-07-25)
 
-- `pnpm --filter @robota-sdk/agent-transport-tui test` → 68 files, **525 passed**.
-- `pnpm --filter @robota-sdk/agent-transport-tui test:pty` → 12 files, **19 passed** (full suite).
+- `pnpm --filter @robota-sdk/agent-ui-terminal test` → 68 files, **525 passed**.
+- `pnpm --filter @robota-sdk/agent-ui-terminal test:pty` → 12 files, **19 passed** (full suite).
 - `pnpm -w typecheck` → clean.
 - `node scripts/harness/run-all-scans.mjs` → **all 60 scans passed**.

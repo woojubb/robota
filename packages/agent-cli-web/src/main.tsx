@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import { SessionMonitor } from '@robota-sdk/agent-transport-gui/client';
+import { SessionMonitor } from '@robota-sdk/agent-ui-web/client';
 
 import { ErrorBoundary } from './error-boundary.js';
 import { requireRootElement } from './root-element.js';

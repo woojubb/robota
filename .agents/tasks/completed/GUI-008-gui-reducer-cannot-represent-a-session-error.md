@@ -23,7 +23,7 @@ never shown the error in any GUI surface.
 
 ## Evidence (adversarially verified 2026-08-13, CONFIRMED)
 
-- `packages/agent-transport-gui/src/hooks/useSessionClient.ts:112-216` — the reducer switch has cases
+- `packages/agent-transport-gui/src/hooks/useSessionClient.ts:112-216` — the reducer switch has cases <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-web/src/hooks/useSessionClient.ts. -->
   for messages/user_message/text_delta/thinking/tool_start/tool_end/execution_workspace_event/prompts/
   ui_intent/session_renamed/history_cleared/complete/interrupted and NO case (and no default) for
   `error` or `protocol_error`; `IWsSessionState` (`:62-85`) has no error field. Both are real wire

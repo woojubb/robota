@@ -42,7 +42,7 @@ registry. Nothing on this path starts or stops a runtime transport.
 The method is `async` and returns `Promise<void>` while doing nothing asynchronous, which is what
 makes the caller's `await` look like it is waiting for an operation.
 
-**The silence half.** `packages/agent-transport-tui/src/TransportTUI.tsx:71-79`:
+**The silence half.** `packages/agent-transport-tui/src/TransportTUI.tsx:71-79`: <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-terminal/src/TransportTUI.tsx. -->
 
 ```tsx
 registry

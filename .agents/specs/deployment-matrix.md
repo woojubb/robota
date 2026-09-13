@@ -26,9 +26,9 @@ moves that factory into framework `src/transport-host`; discovery follows that e
 
 | Surface        | Runtime                                              | Transport `name`   | Client / presentation        | Prior art in-repo                                           |
 | -------------- | ---------------------------------------------------- | ------------------ | ---------------------------- | ----------------------------------------------------------- |
-| CLI / terminal | local `agent-cli` process                            | —                  | `agent-transport-tui`        | `renderApp` + `TuiInteractionChannel` presentation boundary |
+| CLI / terminal | local `agent-cli` process                            | —                  | `agent-ui-terminal`          | `renderApp` + `TuiInteractionChannel` presentation boundary |
 | CLI / one-shot | local `agent-cli` print mode (`-p`), non-interactive | `headless`         | —                            | `agent-framework` (print / JSON / stream-json runner)       |
-| Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001                                       |
+| Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-ui-web`               | GUI-002 / RUNTIME-001                                       |
 | Web            | `apps/agent-server` (Express + WS) / browser peer    | `ws`               | `agent-transport-webrtc-web` | playground stack                                            |
 | HTTP/WS server | headless `robota --serve` / `apps/agent-server`      | `http` / `ws`      | —                            | RUNTIME-001                                                 |
 | Remote (P2P)   | local host + signaling relay                         | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001                                                  |
@@ -48,7 +48,7 @@ The drift scan parses both forms (a transport declares its `name` in one of two 
   host directory is explicitly included in drift discovery).
 
 **Excluded** (export no transport `name`): `agent-transport-protocol` (transitional empty tombstone),
-`agent-transport-tui`, `agent-transport-gui`, and `agent-transport-webrtc-web` (presentation).
+`agent-ui-terminal`, `agent-ui-web`, and `agent-transport-webrtc-web` (presentation).
 
 ## Fan-out (one session → many transports)
 

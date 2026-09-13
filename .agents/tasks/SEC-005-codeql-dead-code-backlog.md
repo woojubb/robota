@@ -150,16 +150,16 @@ each was ruled out:
 
 ## What changed, by package
 
-| Package                                                                                     | Alerts | Notable                                                                                        |
-| ------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
-| `agent-core`                                                                                | 28     | C2 assertion gaps (2b); dead `CASSETTE_RECORD_CWD`, `EXECUTION_EVENTS`, superseded test locals |
-| `agent-playground`                                                                          | 28     | Vendored shadcn primitives trimmed to their export list; 4 blocked (see § Blocked)             |
-| `agent-framework`                                                                           | 7      | Dead `GATING_EVENT`; redundant `createdAt` initializer                                         |
-| `dag-cli`                                                                                   | 6      | Dead imports + a duplicate `resolveErrorMessage`                                               |
-| `dag-framework`                                                                             | 2      | **Both category 2** — see 2a                                                                   |
-| `agent-plugin`                                                                              | 3      | Unused error-class imports                                                                     |
-| `agent-transport-tui` / `-webrtc` / `-webrtc-web` / `-ws` / `-protocol` / `agent-transport` | 8      | Destructure omissions + dead mock helper                                                       |
-| `agent-cli`, `agent-server`, 4 providers, `agent-subagent-runner`, `dag-node`, `dag-nodes`  | 9      | Dead imports / dead schema constant                                                            |
+| Package                                                                                    | Alerts | Notable                                                                                        |
+| ------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------- |
+| `agent-core`                                                                               | 28     | C2 assertion gaps (2b); dead `CASSETTE_RECORD_CWD`, `EXECUTION_EVENTS`, superseded test locals |
+| `agent-playground`                                                                         | 28     | Vendored shadcn primitives trimmed to their export list; 4 blocked (see § Blocked)             |
+| `agent-framework`                                                                          | 7      | Dead `GATING_EVENT`; redundant `createdAt` initializer                                         |
+| `dag-cli`                                                                                  | 6      | Dead imports + a duplicate `resolveErrorMessage`                                               |
+| `dag-framework`                                                                            | 2      | **Both category 2** — see 2a                                                                   |
+| `agent-plugin`                                                                             | 3      | Unused error-class imports                                                                     |
+| `agent-ui-terminal` / `-webrtc` / `-webrtc-web` / `-ws` / `-protocol` / `agent-transport`  | 8      | Destructure omissions + dead mock helper                                                       |
+| `agent-cli`, `agent-server`, 4 providers, `agent-subagent-runner`, `dag-node`, `dag-nodes` | 9      | Dead imports / dead schema constant                                                            |
 
 `agent-playground`'s `hooks/use-block-tracking.ts` was deleted outright as an unreachable husk — an
 unexported hook whose only trace was a never-read optional `blockTracking` field on

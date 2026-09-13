@@ -14,20 +14,20 @@ The `agent-transport` parent owns the transport-neutral wire/session substrate. 
 the old protocol package is an empty tombstone until STRUCT-012 S5. Sibling packages must not
 cross-import each other.
 
-| Package                      | Subpath / Entry             | Protocol / Purpose                                                                                    | React/Ink              | Consumers                                                                                    |
-| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| `agent-framework`            | `.`                         | Non-interactive print mode — text/JSON/stream output                                                  | No                     | `agent-cli` print mode (`runPrintMode`), headless host execution                             |
-| `agent-framework`            | `.`                         | `TransportRegistry` runtime implementation                                                            | No                     | Shared registry/testing imports                                                              |
-| `agent-framework`            | `.`                         | Programmatic agent driver (`createProgrammaticAgent`, `ProgrammaticInteractionChannel`)               | No                     | Non-interactive programmatic session consumers                                               |
-| `agent-transport`            | `.` / `./client` / `./node` | Transport-neutral session bridge, wire protocol, browser decoders, and Node admission/handoff helpers | No                     | Transport implementations and presentation clients                                           |
-| `agent-transport-protocol`   | `.`                         | Transitional empty tombstone; removed in STRUCT-012 S5                                                | No                     | None                                                                                         |
-| `agent-transport-http`       | `.`                         | Hono-based REST adapter                                                                               | No                     | `apps/agent-server` HTTP composition                                                         |
-| `agent-transport-ws`         | `.`                         | WebSocket real-time adapter                                                                           | No                     | `agent-transport-gui` (`useWsSession`); the loopback WS sidecar served by `startRuntimeHost` |
-| `agent-transport-mcp`        | `.`                         | MCP **server** adapter — exposes `InteractiveSession` as an MCP server                                | No                     | External MCP clients connecting to a Robota session                                          |
-| `agent-transport-webrtc`     | `.`                         | Node-side WebRTC P2P **host** transport — data-channel session bridge (REMOTE-001)                    | No                     | CLI remote-control host                                                                      |
-| `agent-transport-tui`        | `.`                         | Ink/React terminal TUI — full interactive CLI                                                         | Yes (React 19 + Ink 7) | `agent-cli` interactive mode (`runTuiMode`)                                                  |
-| `agent-transport-gui`        | `.` / `./client`            | React DOM GUI presentation core — `SessionMonitor`, `useWsSession` reducer, view components           | Yes (React ≥18)        | `apps/agent-app` (desktop), `apps/agent-web-monitor`, `agent-transport-webrtc-web`           |
-| `agent-transport-webrtc-web` | `.`                         | Browser WebRTC **peer** — `RemoteClient`, `useRtcSession` over the GUI core (REMOTE-009)              | Yes (React ≥18)        | `apps/agent-web-monitor` remote page                                                         |
+| Package                      | Subpath / Entry             | Protocol / Purpose                                                                                    | React/Ink              | Consumers                                                                             |
+| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
+| `agent-framework`            | `.`                         | Non-interactive print mode — text/JSON/stream output                                                  | No                     | `agent-cli` print mode (`runPrintMode`), headless host execution                      |
+| `agent-framework`            | `.`                         | `TransportRegistry` runtime implementation                                                            | No                     | Shared registry/testing imports                                                       |
+| `agent-framework`            | `.`                         | Programmatic agent driver (`createProgrammaticAgent`, `ProgrammaticInteractionChannel`)               | No                     | Non-interactive programmatic session consumers                                        |
+| `agent-transport`            | `.` / `./client` / `./node` | Transport-neutral session bridge, wire protocol, browser decoders, and Node admission/handoff helpers | No                     | Transport implementations and presentation clients                                    |
+| `agent-transport-protocol`   | `.`                         | Transitional empty tombstone; removed in STRUCT-012 S5                                                | No                     | None                                                                                  |
+| `agent-transport-http`       | `.`                         | Hono-based REST adapter                                                                               | No                     | `apps/agent-server` HTTP composition                                                  |
+| `agent-transport-ws`         | `.`                         | WebSocket real-time adapter                                                                           | No                     | `agent-ui-web` (`useWsSession`); the loopback WS sidecar served by `startRuntimeHost` |
+| `agent-transport-mcp`        | `.`                         | MCP **server** adapter — exposes `InteractiveSession` as an MCP server                                | No                     | External MCP clients connecting to a Robota session                                   |
+| `agent-transport-webrtc`     | `.`                         | Node-side WebRTC P2P **host** transport — data-channel session bridge (REMOTE-001)                    | No                     | CLI remote-control host                                                               |
+| `agent-ui-terminal`          | `.`                         | Ink/React terminal TUI — full interactive CLI                                                         | Yes (React 19 + Ink 7) | `agent-cli` interactive mode (`runTuiMode`)                                           |
+| `agent-ui-web`               | `.` / `./client`            | React DOM GUI presentation core — `SessionMonitor`, `useWsSession` reducer, view components           | Yes (React ≥18)        | `apps/agent-app` (desktop), `apps/agent-web-monitor`, `agent-transport-webrtc-web`    |
+| `agent-transport-webrtc-web` | `.`                         | Browser WebRTC **peer** — `RemoteClient`, `useRtcSession` over the GUI core (REMOTE-009)              | Yes (React ≥18)        | `apps/agent-web-monitor` remote page                                                  |
 
 The `agent-framework` root export (`.`) surfaces its `TransportRegistry` implementation. Application code
 imports the transport-neutral substrate from `@robota-sdk/agent-transport`, a specific transport package
@@ -49,7 +49,7 @@ flowchart TD
   CLI["agent-cli\n(product shell)"]
   FW["agent-framework\n(assembly layer)"]
   Transport["agent-transport\n(wire/session substrate)"]
-  TransportTui["agent-transport-tui\n(Ink/React TUI)"]
+  TransportTui["agent-ui-terminal\n(Ink/React TUI)"]
   IfaceTransport["agent-interface-transport\nITransportAdapter · IConfigurableTransport\n(zero runtime deps)"]
   IfaceTui["agent-interface-tui\nITuiCommandInteraction\n(zero runtime deps)"]
   Core["agent-core"]
@@ -79,21 +79,21 @@ There is no back-edge from `agent-framework` into a presentation or protocol tra
 
 ## React Isolation Contract
 
-React lives in the **presentation** transports — `agent-transport-tui` (Ink/terminal, React 19 + Ink 7)
-and `agent-transport-gui` (React DOM GUI core, React ≥18) plus `agent-transport-webrtc-web` (browser
+React lives in the **presentation UI** packages — `agent-ui-terminal` (Ink/terminal, React 19 + Ink 7)
+and `agent-ui-web` (React DOM GUI core, React ≥18) plus `agent-transport-webrtc-web` (browser
 peer, React ≥18). The **protocol/wire** transports — `agent-transport` core, `agent-transport-ws`,
 `agent-transport-http`, `agent-transport-mcp`, and the node-side
 `agent-transport-webrtc` host — stay React-free. This means:
 
 - Server-side or non-terminal consumers can import `agent-framework`, `agent-transport-http`,
   `agent-transport-ws`, `agent-transport-mcp`, or `agent-transport` without bundling React.
-- `agent-framework` must not import any presentation transport (`agent-transport-tui`,
-  `agent-transport-gui`, `agent-transport-webrtc-web`) — it has no React dependency.
-- `agent-cli` imports `agent-transport-tui` only at the product shell layer (composition root); the
-  GUI presentation transports are consumed by the desktop/browser shells (`apps/agent-app`,
+- `agent-framework` must not import any presentation UI package (`agent-ui-terminal`,
+  `agent-ui-web`, `agent-transport-webrtc-web`) — it has no React dependency.
+- `agent-cli` imports `agent-ui-terminal` only at the product shell layer (composition root); the
+  GUI presentation packages are consumed by the desktop/browser shells (`apps/agent-app`,
   `apps/agent-web-monitor`), not by the CLI's terminal path.
 - Any new protocol/wire transport package must stay React-free; React belongs only in a presentation
-  transport (TUI or GUI).
+  UI package (TUI or GUI).
 
 ## MCP Disambiguation
 
@@ -122,10 +122,10 @@ consume them.
 | Contract package            | Owns                                                                    | Consumed by                                                                          |
 | --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `agent-interface-transport` | `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`       | `agent-transport`, `agent-framework` (transitive: `agent-cli` via `agent-framework`) |
-| `agent-interface-tui`       | `ITuiCommandInteraction`, `ITuiPickerItem`, `TAnyTuiCommandInteraction` | `agent-transport-tui` (transitive: `agent-cli` via `agent-transport-tui`)            |
+| `agent-interface-tui`       | `ITuiCommandInteraction`, `ITuiPickerItem`, `TAnyTuiCommandInteraction` | `agent-ui-terminal` (transitive: `agent-cli` via `agent-ui-terminal`)                |
 
-`ITuiCliAdapter` is **not** an interface-package contract — it is owned by `agent-transport-tui`
-(`packages/agent-transport-tui/src/tui-cli-adapter.ts`).
+`ITuiCliAdapter` is **not** an interface-package contract — it is owned by `agent-ui-terminal`
+(`packages/agent-ui-terminal/src/tui-cli-adapter.ts`).
 
 `agent-interface-tui` has **zero workspace dependencies** — not even `agent-core`.
 `agent-interface-transport` has a **type-only** dependency on `agent-core`

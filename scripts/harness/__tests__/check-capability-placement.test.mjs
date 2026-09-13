@@ -38,6 +38,7 @@ const projectStructure = [
   '- agent-command-*',
   '- agent-provider-*',
   '- agent-transport-*',
+  '- agent-ui-*/',
   'apps/',
   '- agent-web',
   '- apps/docs',
@@ -48,14 +49,14 @@ const projectStructure = [
 describe('findCapabilityPlacementFindings', () => {
   it('accepts the documented TUI owner with local PTY support, without a testing package', async () => {
     const root = await createFixture({
-      '.agents/project-structure.md': 'packages/\n- agent-transport-tui/\n',
-      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
-      'packages/agent-transport-tui/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
-      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+      '.agents/project-structure.md': 'packages/\n- agent-ui-terminal/\n',
+      'packages/agent-ui-terminal/package.json': packageJson('@robota-sdk/agent-ui-terminal'),
+      'packages/agent-ui-terminal/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
+      'packages/agent-ui-terminal/src/__tests__/pty/spawn-pty.ts':
         'export function spawnPty() {}\n',
-      'packages/agent-transport-tui/src/__tests__/pty/isolated-home.ts':
+      'packages/agent-ui-terminal/src/__tests__/pty/isolated-home.ts':
         'export function createIsolatedHome() {}\n',
-      'packages/agent-transport-tui/src/__tests__/pty/pty-driver.ts':
+      'packages/agent-ui-terminal/src/__tests__/pty/pty-driver.ts':
         'import { spawnPty } from "./spawn-pty";\n',
     });
 
@@ -65,8 +66,8 @@ describe('findCapabilityPlacementFindings', () => {
   it('still requires documentation for the TUI owner of local PTY support', async () => {
     const root = await createFixture({
       '.agents/project-structure.md': 'packages/\n- agent-cli/\n',
-      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
-      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+      'packages/agent-ui-terminal/package.json': packageJson('@robota-sdk/agent-ui-terminal'),
+      'packages/agent-ui-terminal/src/__tests__/pty/spawn-pty.ts':
         'export function spawnPty() {}\n',
     });
 
@@ -75,7 +76,7 @@ describe('findCapabilityPlacementFindings', () => {
         file: '.agents/project-structure.md',
         type: 'workspace-package-not-documented',
         detail:
-          'packages/agent-transport-tui is not covered by project-structure package family rules.',
+          'packages/agent-ui-terminal is not covered by project-structure package family rules.',
       },
     ]);
   });
@@ -99,12 +100,12 @@ describe('findCapabilityPlacementFindings', () => {
     const root = await createFixture({
       '.agents/project-structure.md': projectStructure,
       'packages/agent-cli/package.json': packageJson('@robota-sdk/agent-cli'),
-      'packages/agent-transport-tui/package.json': packageJson('@robota-sdk/agent-transport-tui'),
-      'packages/agent-transport-tui/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
-      'packages/agent-transport-tui/src/__tests__/pty/spawn-pty.ts':
+      'packages/agent-ui-terminal/package.json': packageJson('@robota-sdk/agent-ui-terminal'),
+      'packages/agent-ui-terminal/docs/SPEC.md': '# TUI\nOwns src/__tests__/pty/ support.\n',
+      'packages/agent-ui-terminal/src/__tests__/pty/spawn-pty.ts':
         'export function spawnPty() {}\n',
       'packages/agent-cli/src/cli.ts':
-        'import { spawnPty } from "@robota-sdk/agent-transport-tui/src/__tests__/pty/spawn-pty";\n',
+        'import { spawnPty } from "@robota-sdk/agent-ui-terminal/src/__tests__/pty/spawn-pty";\n',
     });
 
     expect(await findCapabilityPlacementFindings(root)).toEqual([
@@ -112,7 +113,7 @@ describe('findCapabilityPlacementFindings', () => {
         file: 'packages/agent-cli/src/cli.ts',
         type: 'product-shell-internal-import',
         detail:
-          '@robota-sdk/agent-transport-tui/src/__tests__/pty/spawn-pty reaches into implementation internals; import the owner package public API instead.',
+          '@robota-sdk/agent-ui-terminal/src/__tests__/pty/spawn-pty reaches into implementation internals; import the owner package public API instead.',
       },
     ]);
   });

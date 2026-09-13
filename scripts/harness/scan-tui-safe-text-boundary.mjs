@@ -3,7 +3,7 @@
 /**
  * A TUI render site cannot reach the terminal except through `SafeText` (#2222).
  *
- * `packages/agent-transport-tui/src/SafeText.tsx` sanitizes every string child before Ink sees it.
+ * `packages/agent-ui-terminal/src/SafeText.tsx` sanitizes every string child before Ink sees it.
  * That boundary is worth exactly as much as this scan: without it, `SafeText` is one more thing to
  * remember, which is the shape SEC-019 measured failing three times in six review rounds. So every
  * OTHER production module in the package is refused a `Text` import from `ink` — the plain form,
@@ -31,7 +31,7 @@ import path from 'node:path';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
-const PACKAGE_SRC = 'packages/agent-transport-tui/src';
+const PACKAGE_SRC = 'packages/agent-ui-terminal/src';
 export const BOUNDARY_MODULE = `${PACKAGE_SRC}/SafeText.tsx`;
 
 // One statement at a time: the clause cannot cross a `;`, so a later `from 'ink'` in the file does
@@ -169,7 +169,7 @@ function reportStrippedStyling(sites) {
 
 function main() {
   const { examined, violations, strippedStyling } = findBoundaryViolations();
-  console.log(`::examined:: ${examined} agent-transport-tui production module(s)`);
+  console.log(`::examined:: ${examined} agent-ui-terminal production module(s)`);
   if (violations.length === 0 && strippedStyling.length === 0) {
     console.log('✓ tui-safe-text-boundary: only SafeText.tsx imports Text from ink');
     console.log(`✓ tui-safe-text-boundary: no ${RENDERER} output is sanitized a second time`);

@@ -26,7 +26,7 @@ Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production 
 
 Status: resolved — `fix/cli-command-effect-boundary`.
 
-`CommandEffectQueue` (`agent-transport-tui/src/hooks/command-effect-queue.ts`) now owns the explicit
+`CommandEffectQueue` (`agent-ui-terminal/src/hooks/command-effect-queue.ts`) now owns the explicit
 effect transport. `InteractiveSession` is no longer used as an `ISideEffects` mutable carrier.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags `_pendingCommandInteraction`,
@@ -106,7 +106,7 @@ framework/executor/command/provider capability first.
 
 Status: resolved — commit c4282565c (refactor/arch-002-slim-agent-cli, 2026-05-17).
 
-`createDefaultTuiCliAdapter` moved to `packages/agent-transport-tui/src/create-default-tui-cli-adapter.ts`.
+`createDefaultTuiCliAdapter` moved to `packages/agent-ui-terminal/src/create-default-tui-cli-adapter.ts`.
 `cli.ts` imports and calls it — no local definition.
 
 ### CLI-AUDIT-011: cli.ts contains behavior logic — must be pure composition root

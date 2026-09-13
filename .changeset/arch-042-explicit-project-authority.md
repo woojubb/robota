@@ -5,7 +5,7 @@
 '@robota-sdk/agent-interface-transport': major
 '@robota-sdk/agent-session': major
 '@robota-sdk/agent-transport': major
-'@robota-sdk/agent-transport-tui': major
+'@robota-sdk/agent-ui-terminal': major
 ---
 
 **BREAKING — ARCH-042: project filesystem access is now an explicit, host-issued authority instead of an ambient consequence of `cwd`.**

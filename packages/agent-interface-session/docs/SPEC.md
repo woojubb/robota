@@ -21,17 +21,17 @@ Rule permits at the entry.
 
 ## Boundaries
 
-| Concern                                             | Owner                                        |
-| --------------------------------------------------- | -------------------------------------------- |
-| Constructing and running a session                  | `agent-framework`, `agent-session`           |
-| Persisting a session record                         | `agent-session`                              |
-| Rendering a session to a surface                    | `agent-transport-tui`, `agent-transport-gui` |
-| Carrying a session across a wire                    | `agent-transport-*`                          |
-| Background tasks, job groups, subagents, workspaces | `agent-interface-execution`                  |
-| Commands and capability descriptors                 | `agent-interface-command`                    |
-| Usage and run-trace measurements                    | `agent-interface-analytics`                  |
-| Transport adapters, channels, admission             | `agent-interface-transport`                  |
-| Peer messaging and handoff                          | `agent-interface-session-mobility`           |
+| Concern                                             | Owner                               |
+| --------------------------------------------------- | ----------------------------------- |
+| Constructing and running a session                  | `agent-framework`, `agent-session`  |
+| Persisting a session record                         | `agent-session`                     |
+| Rendering a session to a surface                    | `agent-ui-terminal`, `agent-ui-web` |
+| Carrying a session across a wire                    | `agent-transport-*`                 |
+| Background tasks, job groups, subagents, workspaces | `agent-interface-execution`         |
+| Commands and capability descriptors                 | `agent-interface-command`           |
+| Usage and run-trace measurements                    | `agent-interface-analytics`         |
+| Transport adapters, channels, admission             | `agent-interface-transport`         |
+| Peer messaging and handoff                          | `agent-interface-session-mobility`  |
 
 ## Architecture Overview
 

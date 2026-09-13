@@ -35,7 +35,7 @@
     "robota-www": "0.1.0",
     "@robota-sdk/agent-preset": "3.0.0-beta.74",
     "@robota-sdk/agent-session-analytics": "3.0.0-beta.75",
-    "@robota-sdk/agent-transport-tui": "3.0.0-beta.75",
+    "@robota-sdk/agent-ui-terminal": "3.0.0-beta.75",
     "@robota-sdk/dag-runtime-server": "3.0.0-beta.0",
     "robota-example-batch-processor": "0.1.0",
     "robota-capability-decision-agent": "0.1.0",

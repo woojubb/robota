@@ -197,28 +197,28 @@ describe('R3 exclusion integrity', () => {
     // Simulated by pointing the live `test:pty` exclusion at a workflow that says nothing about it.
     const exclusion = EXCLUSIONS.find((e) => e.script === 'test:pty');
     const root = baseRoot({
-      'packages/agent-transport-tui/package.json': {
-        name: '@robota-sdk/agent-transport-tui',
+      'packages/agent-ui-terminal/package.json': {
+        name: '@robota-sdk/agent-ui-terminal',
         scripts: { test: 'vitest run', 'test:pty': 'vitest run --config vitest.pty.config.ts' },
       },
-      'packages/agent-transport-tui/vitest.pty.config.ts': 'export default {};',
+      'packages/agent-ui-terminal/vitest.pty.config.ts': 'export default {};',
       [exclusion.workflow]: 'jobs:\n  something-else:\n    runs-on: ubuntu-latest\n',
     });
     const findings = onFixture(root);
-    expect(findings.map((f) => f.subject)).toContain('packages/agent-transport-tui#test:pty');
+    expect(findings.map((f) => f.subject)).toContain('packages/agent-ui-terminal#test:pty');
     expect(findings.map((f) => f.detail).join()).toMatch(/no invocation of/);
   });
 
   it('accepts the same claim when the workflow really invokes it', () => {
     const exclusion = EXCLUSIONS.find((e) => e.script === 'test:pty');
     const root = baseRoot({
-      'packages/agent-transport-tui/package.json': {
-        name: '@robota-sdk/agent-transport-tui',
+      'packages/agent-ui-terminal/package.json': {
+        name: '@robota-sdk/agent-ui-terminal',
         scripts: { test: 'vitest run', 'test:pty': 'vitest run --config vitest.pty.config.ts' },
       },
-      'packages/agent-transport-tui/vitest.pty.config.ts': 'export default {};',
+      'packages/agent-ui-terminal/vitest.pty.config.ts': 'export default {};',
       [exclusion.workflow]:
-        'jobs:\n  tui-e2e:\n    steps:\n      - run: pnpm --filter @robota-sdk/agent-transport-tui test:pty\n',
+        'jobs:\n  tui-e2e:\n    steps:\n      - run: pnpm --filter @robota-sdk/agent-ui-terminal test:pty\n',
     });
     expect(onFixture(root)).toEqual([]);
   });

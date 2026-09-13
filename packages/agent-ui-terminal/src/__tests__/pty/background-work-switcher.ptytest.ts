@@ -5,7 +5,7 @@
  * App-level wiring end to end against the BUILT robota binary: pressing `Ctrl+B` in the live TUI
  * opens the execution-workspace switcher (the only way into a background task), and `Esc` returns to
  * the prompt. The switcher always lists the main thread, so this is assertable without seeding
- * background work. Runs in the dedicated PTY project (`pnpm --filter @robota-sdk/agent-transport-tui
+ * background work. Runs in the dedicated PTY project (`pnpm --filter @robota-sdk/agent-ui-terminal
  * test:pty`) against `packages/agent-cli/bin/robota.cjs`.
  */
 

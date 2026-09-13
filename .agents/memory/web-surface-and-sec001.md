@@ -2,7 +2,7 @@
 
 ## STATUS: DONE — merged #1249 (2026-07-20)
 
-GUI-007 (dissolve agent-web-monitor: monitor→packages/agent-cli-web CLI-served over localhost `--serve --open`; remote→apps/agent-web `/remote`; agent-transport-gui keeps transport name) + SEC-001 (auto-mint loopback token + Host/Origin 403-at-upgrade + fail-closed; token delivered via the served monitor `ws-url` `?token=`) BOTH implemented + gated (WRITE/APPROVAL/VERIFY/COMPLETE) + AGENT-RUN verified + merged. Review 1 SHOULD (malformed-URL DoS in serve-monitor-ui → try/catch 400) + CONSIDER (monitor Host guard) fixed. DEFERRED tracked: SEC-001 0600 connection file (no consumer — injection+env cover today), interactive-mode `--open`. Superseded branch `feat/sec-001-loopback-ws-auth` to delete. Distribution direction (single engine + layered CLI/GUI bundles, GUI .app ships `robota` shim) = separate future DIST spec, unwritten.
+GUI-007 (dissolve agent-web-monitor: monitor→packages/agent-cli-web CLI-served over localhost `--serve --open`; remote→apps/agent-web `/remote`; the then-current GUI package name was retained) + SEC-001 (auto-mint loopback token + Host/Origin 403-at-upgrade + fail-closed; token delivered via the served monitor `ws-url` `?token=`) BOTH implemented + gated (WRITE/APPROVAL/VERIFY/COMPLETE) + AGENT-RUN verified + merged. Review 1 SHOULD (malformed-URL DoS in serve-monitor-ui → try/catch 400) + CONSIDER (monitor Host guard) fixed. DEFERRED tracked: SEC-001 0600 connection file (no consumer — injection+env cover today), interactive-mode `--open`. Superseded branch `feat/sec-001-loopback-ws-auth` to delete. Distribution direction (single engine + layered CLI/GUI bundles, GUI .app ships `robota` shim) = separate future DIST spec, unwritten. STRUCT-012 S4 later renamed that GUI core to `agent-ui-web`.
 
 In-repo mirror (memory-mirroring rule) of the 2026-07-19 owner-steered web/GUI-surface + loopback-security
 workstream. Host mirror: session memory `web-surface-and-sec001.md`.
@@ -14,8 +14,9 @@ workstream. Host mirror: session memory `web-surface-and-sec001.md`.
   (no Electron; CI/agents/servers) + a `Robota.app` GUI bundle that spawns the engine AND installs a `robota` PATH
   shim (VS Code `code` pattern). A single GUI-only app is rejected (headless/self-hosting can't take Electron);
   features live in the ENGINE, GUI is presentation. The CLI-shim/packaging piece = a separate future DIST spec.
-- **`agent-transport-gui` keeps its `agent-transport-*` name** (transport family) even though it is the GUI
-  component core, not a transport (owner constraint).
+- **Historical GUI-007 decision:** the GUI component core kept its then-current `agent-transport-*`
+  name. STRUCT-012 S4 supersedes only that naming decision by moving the package to `agent-ui-web`;
+  GUI-007's surface ownership and SEC-001's security behavior remain unchanged.
 
 ## GUI-007 (approved, spec-docs/todo/, INFRA)
 

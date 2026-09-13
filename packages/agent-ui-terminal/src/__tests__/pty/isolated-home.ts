@@ -10,7 +10,7 @@
  * Every PTY child gets a throwaway directory instead. The directories are tracked and removed on
  * process exit, so a test that forgets to dispose leaks nothing beyond the run.
  *
- * `packages/agent-transport-tui/src/__tests__/pty/pty-driver.ts` already took an explicit
+ * `packages/agent-ui-terminal/src/__tests__/pty/pty-driver.ts` already took an explicit
  * `homeDir`; this generalizes that discipline to every `spawnPty` caller, including the default.
  */
 import { mkdtempSync, rmSync } from 'node:fs';

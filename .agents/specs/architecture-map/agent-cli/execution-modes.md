@@ -81,7 +81,7 @@ sequenceDiagram
   participant CLI as robota --serve (serve-mode.ts)
   participant Host as startRuntimeHost (agent-framework)
   participant WS as agent-transport-ws WsTransport
-  participant GUI as agent-transport-gui renderer (useWsSession)
+  participant GUI as agent-ui-web renderer (useWsSession)
 
   App->>CLI: spawn `robota --serve`
   CLI->>Host: startRuntimeHost({ session, transportRegistry })

@@ -5,7 +5,7 @@
  * a real terminal: the provider command self-asks (via the injected `askHandler` → `TuiInteractionChannel.askUser`)
  * and the TUI renders the request through `PendingActionPrompt`. Proves the masked secret field hides
  * the typed API key on the real CLI — the User Execution evidence the done-gate requires (no human
- * needed; the PTY drives the binary). Run via `pnpm --filter @robota-sdk/agent-transport-tui test:pty`
+ * needed; the PTY drives the binary). Run via `pnpm --filter @robota-sdk/agent-ui-terminal test:pty`
  * against a freshly built CLI.
  */
 

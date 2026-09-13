@@ -25,7 +25,7 @@ The CLI assembles a `TransportRegistry` (the generic registry class is owned by
 `@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) via a local
 composition-root helper `createDefaultTransportRegistry()` in `cli.ts` that registers `WsTransport`
 from `@robota-sdk/agent-transport-ws`, and passes it to `renderApp()` (from
-`@robota-sdk/agent-transport-tui`). `renderApp()` creates a `TuiInteractionChannel` which starts all
+`@robota-sdk/agent-ui-terminal`). `renderApp()` creates a `TuiInteractionChannel` which starts all
 enabled transports against the active `InteractiveSession` it owns.
 
 Registered transports:

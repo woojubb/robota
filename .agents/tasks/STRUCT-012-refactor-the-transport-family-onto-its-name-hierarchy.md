@@ -12,9 +12,7 @@ area:
   - packages/agent-transport-ws
   - packages/agent-transport-http
   - packages/agent-transport-webrtc
-  - packages/agent-transport-gui
   - packages/agent-transport-webrtc-web
-  - packages/agent-transport-tui
   - packages/agent-ui-web
   - packages/agent-ui-terminal
   - packages/agent-cli
@@ -158,7 +156,7 @@ Recorded, not absorbed:
       and remove the five `-protocol` baseline entries — about 104 live files.
   - ST-6: dead devDependencies `agent-transport-tui → agent-transport` and `agent-transport → agent-command` dropped with the `-protocol` one
   - ST-7: the undeclared-import check parses import declarations only (`^import` anchor), never JSDoc or template strings
-- [ ] S4 — `git mv` `agent-transport-gui` → `agent-ui-web` and `agent-transport-tui` →
+- [x] S4 — `git mv` `agent-transport-gui` → `agent-ui-web` and `agent-transport-tui` →
       `agent-ui-terminal` with `STRUCT-011`'s live/historical policy; rewrite the routing rows
       (`project-structure.md:29,78,325`, `publish-registry.md:54,67`, `harness.config.json:506,510`,
       `README.md:141`, `ARCHITECTURE.md:56`, `ci.yml:1322,1326`, guide and diagram lines), fix the S4
@@ -168,9 +166,10 @@ Recorded, not absorbed:
       `agent-ui-*/` row.
   - ST-3: `scan-public-project-authority` `-tui` scope replaced
   - TC-13: ARCH-005 `forbiddenDependencyPrefixes` carry `@robota-sdk/agent-ui-` in both lists with a fixture red-proof, and the `:24` purity reason no longer names the retired packages
-- [ ] S5 — delete `packages/agent-transport-protocol`, its routing-document rows, and the baseline
-      file once it is empty; carry the two `npm deprecate` pointer commands from the spec's S5 into
-      the owner's release checklist.
+- [ ] S5 — delete `packages/agent-transport-protocol` and its routing-document rows; retain
+      `scripts/harness/family-sibling-baseline.json` with only the independently tracked provider
+      edge until that root item lands; carry the two `npm deprecate` pointer commands from the
+      spec's S5 into the owner's release checklist.
 
 ## Prospective S2 sequencing clarification — host tests and scenario ownership
 
@@ -314,6 +313,31 @@ Verification on 2026-09-14:
   passed. Together the two runs cover and pass all eight selected local diagnostic stages without
   repeating the already-passing full build.
 
+## S4 implementation and verification evidence
+
+The two presentation packages now live at `packages/agent-ui-web` and
+`packages/agent-ui-terminal` with matching package names. Live consumers, workspace manifests,
+CI paths, package routing, architecture maps, documentation, examples and changeset frontmatter
+now use the UI-family names. Historical records retain their original claims, with explicit
+supersession annotations where the current path checker requires them. The family-sibling baseline
+now contains only the independently tracked provider edge, and both ARCH-005 prefix lists reject
+`@robota-sdk/agent-ui-*` dependencies from the product and capability-pack layers with fixture
+coverage.
+
+Verification on 2026-09-14:
+
+- The affected harness selection passed all 162 declared checks, including package-name,
+  dependency-direction, workspace-reference, documentation-path and historical-evidence scans.
+- Focused verification passed for both UI packages and every changed consumer: web UI 26 tests,
+  terminal UI 807 tests plus 32 real-PTY tests, CLI web 6 tests, desktop app 22 tests and WebRTC web
+  48 tests; all seven affected package/application typechecks and builds passed.
+- The CLI-owned Linux scenario correctly reported `notApplicable` on macOS under ARCH-047; no
+  execution record was rewritten.
+- `pnpm harness:verify-like-ci` passed all eight selected local diagnostic stages in one run:
+  formatting, commit lint, full workspace build, build-contract scans, package quality, binary E2E,
+  examples typecheck and TUI E2E (2m 46.2s). Fresh-checkout scans, dependency audit, Windows and
+  GitHub review gates remain the pull-request CI authority.
+
 ## Test Plan
 
 TC-01 is the load-bearing one and it is a fixture test over synthetic package maps — the shape
@@ -330,8 +354,9 @@ four `agent-interface-*` edges are judged once, by `INTERFACE-DEPS`, before and 
 TC-05 and TC-06 are the parent's standing invariants and stay in the tree after this item: the
 manifest names only `@robota-sdk/agent-interface-*`, no `agent-core`/`agent-framework` import in
 `src/`, and no `node:` import reachable from the root barrel (only under `src/node/`, exported as
-`./node`). TC-07 and TC-08 are the end-state checks (no baseline file, zero family findings; the
-removed and renamed names absent from live files with the historical counts unchanged). TC-09 runs
+`./node`). TC-07 and TC-08 are the end-state checks (a provider-only baseline with zero
+transport-family findings; the removed and renamed names absent from live executable/current-routing
+files while narrowly excluded historical records remain untouched). TC-09 runs
 the affected package suites and TC-10 `pnpm harness:verify-like-ci` at the end of **every** unit
 S1–S5, not only the last — S2 in particular moves live `agent-cli` paths and must leave that suite
 green before S3 begins. All ten are stated in command form in the paired spec.

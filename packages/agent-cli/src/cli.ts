@@ -30,7 +30,7 @@ import {
   selectProductCommandModules,
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
-import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-terminal';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';

@@ -4,7 +4,7 @@ The **browser** WebRTC transport peer for a robota session (REMOTE-009 Stage D) 
 node-side host transport [`@robota-sdk/agent-transport-webrtc`](../agent-transport-webrtc). It answers the
 host's WebRTC offer over a native `RTCPeerConnection`, runs the directional-HMAC pairing handshake as RESPONDER
 behind a fail-closed gate, and co-drives the SAME session over an `RTCDataChannel`, reusing the shared session
-reducer + view components from [`@robota-sdk/agent-transport-gui`](../agent-transport-gui).
+reducer + view components from [`@robota-sdk/agent-ui-web`](../agent-ui-web).
 
 > Private, browser-only, React 18+.
 
@@ -26,7 +26,7 @@ export function App() {
 }
 ```
 
-The shared conversation view / prompt components come from `@robota-sdk/agent-transport-gui`. This package does
+The shared conversation view / prompt components come from `@robota-sdk/agent-ui-web`. This package does
 NOT re-export the core (no pass-through re-exports).
 
 See [SPEC.md](./SPEC.md) for the full contract.

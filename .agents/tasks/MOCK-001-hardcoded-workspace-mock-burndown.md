@@ -52,7 +52,7 @@ hardcoded one, which the old check would have passed.
 
 - **20 entries cleared by the detector fix** — already-correct partial mocks (all 6 `agent-session`,
   6 of the `agent-framework` entries, `agent-provider-anthropic/response-parser`, all 3
-  `agent-transport-tui/TuiInteractionChannel.*`, and 4 `dag-cli` files). No test changed.
+  `agent-ui-terminal/TuiInteractionChannel.*`, and 4 `dag-cli` files). No test changed.
 - **9 entries cleared by real conversions** — 5 `dag-cli` files (`describe-command`,
   `explain-suggest`, `fix-command`, `from-mermaid-command`, `runner-cli`; `fix-command` also had an
   unlisted hardcoded `dag-builder` mock, converted too), 2 `dag-nodes` files
@@ -84,5 +84,5 @@ Closing these three empties the allowlist and completes the item.
 - Evidence (2026-07-25): `node scripts/harness/check-test-module-mocks.mjs` →
   `test-module-mocks scan passed (3 legacy allowlisted).` (was 32). Suites green and unchanged in
   count vs. baseline: `dag-cli` 63 files / 1007 tests, `dag-nodes` 351 tests across 20 packages,
-  `agent-transport-tui` 69 files / 526 tests. Scan unit tests 18/18, including 4 new cases pinning
+  `agent-ui-terminal` 69 files / 526 tests. Scan unit tests 18/18, including 4 new cases pinning
   the anti-rot guard and 3 pinning the two detector gaps.

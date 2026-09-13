@@ -127,7 +127,7 @@
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
-    "@robota-sdk/agent-transport-tui": "workspace:*",
+    "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@robota-sdk/agent-transport-ws": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",

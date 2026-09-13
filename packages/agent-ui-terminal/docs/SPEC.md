@@ -1,4 +1,4 @@
-# agent-transport-tui Specification
+# agent-ui-terminal Specification
 
 ## Transport Admission (SEC-008)
 
@@ -30,7 +30,7 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ## Architecture Overview
 
 ```
-agent-transport-tui
+agent-ui-terminal
   ├── renderApp              ← mounts the Ink <App/>
   ├── TuiInteractionChannel  ← session-owning TUI presentation surface
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer

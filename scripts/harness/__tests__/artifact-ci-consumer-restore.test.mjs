@@ -168,9 +168,9 @@ describe('CI consumer artifact recovery', () => {
     const result = execute(steps[index].run);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toBe(
-      'pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_consumer_target__.ts --changed-file packages/agent-transport-tui/src/__ci_consumer_target__.ts\n',
+      'pnpm harness:workspace:run -- --operation build --changed-file packages/agent-cli/src/__ci_consumer_target__.ts --changed-file packages/agent-ui-terminal/src/__ci_consumer_target__.ts\n',
     );
-    expect(steps[index + 1].run).toBe('pnpm --filter @robota-sdk/agent-transport-tui test:pty');
+    expect(steps[index + 1].run).toBe('pnpm --filter @robota-sdk/agent-ui-terminal test:pty');
     expect(execute(steps[index].run, { failure: 23 }).status).toBe(23);
   });
 });

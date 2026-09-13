@@ -4,7 +4,7 @@ status: in-progress
 created: 2026-06-28
 priority: low
 urgency: backlog
-area: packages/agent-tools, packages/agent-cli, packages/agent-transport-tui
+area: packages/agent-tools, packages/agent-cli, packages/agent-ui-terminal
 depends_on: [TERM-001, TERM-002, TERM-003, TERM-005]
 ---
 

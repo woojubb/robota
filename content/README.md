@@ -189,7 +189,7 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command          ← All slash command modules (/agent, /help, /provider, /skills, /plugin, …)
 agent-transport        ← Browser-safe protocol/delivery substrate (sub-paths: /client, /node)
-agent-transport-tui    ← TUI transport (Ink/React) — standalone package
+agent-ui-terminal    ← Terminal UI (Ink/React) — standalone package
 agent-transport-http   ← HTTP/REST transport — standalone package
 agent-transport-ws     ← WebSocket transport — standalone package
 agent-transport-mcp    ← MCP transport — standalone package

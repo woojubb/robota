@@ -2,7 +2,7 @@
 '@robota-sdk/agent-interface-execution': minor
 '@robota-sdk/agent-interface-command': minor
 '@robota-sdk/agent-subagent-runner': minor
-'@robota-sdk/agent-transport-tui': minor
+'@robota-sdk/agent-ui-terminal': minor
 '@robota-sdk/agent-framework': major
 '@robota-sdk/agent-executor': minor
 '@robota-sdk/agent-command': minor

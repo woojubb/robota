@@ -30,7 +30,7 @@ modules. Each extraction left the imports that had backed the moved code behind:
 
 - `packages/agent-framework/src/interactive/interactive-session-init.ts` — `NOOP_TERMINAL`,
   `FileSessionLogger`
-- `packages/agent-transport-tui/src/TuiInteractionChannel.ts` — `IAIProvider`,
+- `packages/agent-transport-tui/src/TuiInteractionChannel.ts` — `IAIProvider`, <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-terminal/src/TuiInteractionChannel.ts. -->
   `IToolWithEventService`, `TPermissionMode`, `IInteractiveSession`, `IInteractiveSessionStore`,
   `ITransportRegistryView`, and earlier eleven more from `@robota-sdk/agent-framework`
 
