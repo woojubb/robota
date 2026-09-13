@@ -150,6 +150,30 @@ is removed on this completion handoff. Existing failure evidence remains unchang
 and actual historical delivery-record sequence are verified locally; remote CI-only Git regressions
 and merge of this branch remain pending, and BOUNDARY-2655 is not completed by this repair.
 
+## PR verification correction
+
+PR #2716 at `444fb8621d804ec4672ab5649f3897041cbda4ef` failed remote scans in run
+34726750538: the existing-pair integration case failed (251 passed, one failed), and the
+frontmatter SSOT test failed (1217 hermetic tests passed, one failed). The earlier local PASS
+did not certify these remote suites. Owner approval: "PR #2716의 두 CI 실패 수정과 푸시 승인";
+recorded at https://github.com/woojubb/robota/pull/2716#issuecomment-5649671735. No merge approval.
+
+The initial missing-Delivery-heading diagnosis was incorrect and withdrawn after reading the exact
+committed fixture. Its unchanged scope predicate passes a memory-only invocation. The actual
+reproduced defect is caching `HEAD` file contents across head movement: the old empty ledger makes
+the next append appear to contain two records. `post-merge-symbolic-cache.test.mjs` reproduces
+that false rejection without creating a Git repository; caching now applies only to full immutable
+object IDs. Exact merge ancestry and protected-section checks remain unchanged.
+
+The SSOT test independently reproduced the two lifecycle-key regex violations. The repair uses
+`parseFrontmatterEntryLine` while preserving duplicate-key counts and non-lifecycle source text.
+After both fixes, three focused files passed 81 tests (14 parser, 66 completion-boundary, one
+symbolic-cache regression). Existing real-Git integration tests remain remote-only and must pass
+on the repair head before merge. No user session files, package runtime, BOUNDARY work or remote
+protection settings changed. The corrected batch's affected scan passed 71 checks with one explicit
+skip (72 selected). Nash independently confirmed the symbolic-HEAD cache cause by control-flow
+inspection; that confirmation does not claim a local Git-fixture execution.
+
 ## User Execution Test Scenarios
 
 <!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of

@@ -147,11 +147,14 @@ function nulPaths(text) {
 }
 
 function gitText(root, revision, file) {
+  // Symbolic refs such as HEAD may move between checks in the same process. Only a full object
+  // identity is immutable; caching an earlier HEAD can turn one appended record into two.
+  const immutable = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(revision);
   const key = `${root}\0${revision}\0${file}`;
-  if (gitTextCache.has(key)) return gitTextCache.get(key);
+  if (immutable && gitTextCache.has(key)) return gitTextCache.get(key);
   const result = runGit(root, ['show', `${revision}:${file}`]);
   const text = result.code === 0 ? result.stdout : null;
-  gitTextCache.set(key, text);
+  if (immutable) gitTextCache.set(key, text);
   return text;
 }
 

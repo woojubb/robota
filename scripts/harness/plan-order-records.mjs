@@ -28,7 +28,7 @@ import {
   parseLaneFloors,
   parseSpecTriggerSections,
 } from './scan-lane-declaration.mjs';
-import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asScalar, frontmatterObject, parseFrontmatterEntryLine } from './frontmatter.mjs';
 import { checkboxItems, sectionBody } from './gate-document.mjs';
 import { classifyTaskLifecycle } from './task-lifecycle.mjs';
 
@@ -351,14 +351,18 @@ export function isApprovedDocumentationArchive({
     const lines = text.split('\n');
     const end = lines.indexOf('---', 1);
     if (lines[0] !== '---' || end === -1) return null;
-    const metadata = lines.slice(1, end);
+    const keys = lines.map((line) => parseFrontmatterEntryLine(line)?.key);
+    const metadata = keys.slice(1, end);
     if (
-      metadata.filter((line) => /^status:/.test(line)).length !== 1 ||
-      metadata.filter((line) => /^completed:/.test(line)).length !== expectedCompleted
+      metadata.filter((key) => key === 'status').length !== 1 ||
+      metadata.filter((key) => key === 'completed').length !== expectedCompleted
     )
       return null;
     return lines
-      .filter((line, index) => !(index > 0 && index < end && /^(status|completed):/.test(line)))
+      .filter(
+        (line, index) =>
+          !(index > 0 && index < end && ['status', 'completed'].includes(keys[index])),
+      )
       .join('\n');
   };
   const unchanged = withoutLifecycle(before, 0);
