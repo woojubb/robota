@@ -226,6 +226,7 @@ function stubbedPath({
       'if (args.includes("--json commits")) { console.log(f.headAt ?? ""); process.exit(0); }',
       'if (args.includes("--json comments")) {',
       '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
+      '  if (jq === ".comments") { console.log(JSON.stringify(f.comments)); process.exit(0); }',
       '  // Apply the pattern the HOOK passed, never one written here. Filtering by a copy of the',
       '  // expected login made every case pass no matter what the hook looked for — the wrong',
       '  // reviewer name, the exact defect under test, stayed green. Measured, not assumed.',
@@ -309,6 +310,32 @@ const REVIEW = (
     : body,
 });
 
+const MERGE_DECISION = (
+  createdAt = '2026-07-28T10:05:00Z',
+  { baseOid = BASE_OID, headOid = HEAD_OID } = {},
+) => ({
+  author: { login: 'woojubb' },
+  authorAssociation: 'OWNER',
+  createdAt,
+  id: 'IC_fixture',
+  includesCreatedEdit: false,
+  url: 'https://github.com/woojubb/robota/pull/7#issuecomment-81',
+  body: `PR_MERGE_DECISION
+PR: 7
+HEAD: ${headOid}
+BASE: develop
+BASE-OID: ${baseOid}
+VERDICT: 0
+CI-OBSERVER: ci-gate-watch
+CI-RESULT: GREEN
+REMOTE-FEEDBACK: empty
+SCOPE: test fixture
+AUTHORITY: direct
+AUTHORITY-EVIDENCE: https://github.com/woojubb/robota/issues/2724
+APPROVED: yes
+APPROVED-BY: @woojubb`,
+});
+
 describe('the merge gate decides on CI and on a current review', () => {
   it('allows a merge when CI is clean and the review names the exact current pair', () => {
     const verdict = judge({
@@ -321,16 +348,25 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/READ IT/);
   });
 
-  // ── INFRA-201: the automated reviewer (github-actions[bot]) was retired 2026-09-06 (INFRA-2631)
-  // and posts nothing on any PR now. Review verification is skipped, not blocked, when nobody
-  // matching REVIEWER_RE has ever spoken on the PR — CI-clean is still required.
+  // ── PROC-2724: the retired reviewer path consumes one exact remote merge decision rather than
+  // skipping review verification or manufacturing a second empty review verdict.
 
-  it('skips review verification when nobody matching the reviewer has ever commented', () => {
+  it('refuses when the retired reviewer is silent and the merge receipt is missing', () => {
     const verdict = judge({ state: 'CLEAN', headAt: '2026-07-28T10:00:00Z', comments: [] });
 
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/missing-merge-decision/);
+  });
+
+  it('accepts one trusted exact merge receipt when remote feedback is empty', () => {
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [MERGE_DECISION()],
+    });
+
     expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output).toMatch(/Review verification SKIPPED/);
-    expect(verdict.output).toMatch(/INFRA-2631/);
+    expect(verdict.output).toMatch(/exact base\/head PR_MERGE_DECISION/);
   });
 
   it('still refuses on CI before it ever asks whether the reviewer spoke', () => {
@@ -338,7 +374,7 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status).toBe(2);
     expect(verdict.output).toMatch(/is BLOCKED, not CLEAN/);
-    expect(verdict.output).not.toMatch(/Review verification SKIPPED/);
+    expect(verdict.output).not.toMatch(/PR_MERGE_DECISION/);
   });
 
   it('re-engages the full check the moment the reviewer identity comments again', () => {
@@ -479,8 +515,8 @@ describe('the merge gate decides on CI and on a current review', () => {
   it('does not read a login merely CONTAINING the reviewer name as the reviewer (INFRA-201)', () => {
     // The identity check judges logins with the same anchored pattern the old diagnostic used — an
     // unanchored substring match would misread `not-github-actions-fan` as "the reviewer spoke".
-    // Since INFRA-201, nobody matching REVIEWER_RE means review verification is SKIPPED, not
-    // blocked — the retired-reviewer case this early exit exists for.
+    // A look-alike login does not restore the automated reviewer and cannot replace the required
+    // trusted merge decision.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -493,9 +529,9 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.status, verdict.output).toBe(2);
     expect(verdict.output, 'a containing login was read as the reviewer').toMatch(
-      /Review verification SKIPPED/,
+      /missing-merge-decision/,
     );
   });
 
@@ -633,11 +669,11 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
-  it('skips review on a reviewer mismatch, PR #2649 reproduction (INFRA-201)', () => {
+  it('requires a receipt on a reviewer mismatch, PR #2649 reproduction', () => {
     // Reproduces the exact PR #2649 shape: a real comment exists (an independent internal review,
     // posted under the authenticated `woojubb` CLI login, not the retired `github-actions[bot]`),
     // CI is clean, and before INFRA-201 this refused forever with "no review" — the failure review
-    // predicted that outcome. Since INFRA-201 this is the retired-reviewer case: skipped, not blocked.
+    // predicted that outcome. The silent automation path now needs an exact remote decision.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -646,10 +682,8 @@ describe('the merge gate decides on CI and on a current review', () => {
       ],
     });
 
-    expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output, 'a login mismatch was reported as blocked instead of skipped').toMatch(
-      /Review verification SKIPPED/,
-    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/missing-merge-decision/);
   });
 
   it('accepts the reviewer under either spelling of the bot login', () => {

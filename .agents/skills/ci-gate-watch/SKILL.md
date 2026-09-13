@@ -32,6 +32,11 @@ The gate to watch: the run or check name, the exact SHA or version it applies to
 expectation of how long its current step normally takes. Without the expectation there is no way to
 distinguish slow from stalled — ask for it rather than inventing a timeout.
 
+One watcher owns one gate/SHA tuple. The caller hands observation to that watcher and consumes its one
+terminal result; it does not poll the same tuple in parallel or re-read it after `GREEN` merely to
+produce another report. A successful job's informational warning is not a finding and receives no
+separate depth judgement unless it identifies a required-check omission or a published review finding.
+
 ## The loop
 
 Track `observations = 0`.

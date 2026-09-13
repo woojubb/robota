@@ -2,12 +2,14 @@
 name: post-merge-cycle
 description: After a merge, verify landing, clean up the source branch when allowed, and return to a fresh integration base.
 loop: over=attempt; bound=2 attempts
+remote-record: DELIVERY_COMPLETION_RECORD
 ---
 
 # Post-Merge Cycle — pipeline only
 
-A merge command returning is not the end of a merge. This skill is the ordered tail: **verify → delete →
-re-base**, in that order, because each step's safety depends on the one before it. Deleting before the
+A merge command returning is not the end of a merge. This skill is the ordered tail: **verify → decide
+issue disposition → delete/retain → re-base/skip → record once and apply issue state**, in that order,
+because each step's safety and the final receipt depend on the one before it. Deleting before the
 landing is confirmed orphans work; branching before the base is reset forks the next branch off the wrong
 commit. Both are incidents this repo has already had.
 
@@ -52,21 +54,22 @@ and do not treat a host UI's "merged" label as the answer.
 The `FAIL` edge is absolute: a merge that did not land is exactly the case where deleting the source
 branch destroys the only copy of the work.
 
-### 2. Close what the merge resolved
+### 2. Decide what the merge resolved
 
-The merge landed, so the work is resolved — `develop` is where that happens, and the issue does not wait
-for a promotion. Close it here, in this step, as an act.
+The merge landed, so compare the issue criteria here and decide `closed`, `open-partial`, or `no-issue`.
+Do not mutate the issue yet: the single completion receipt must include the actual branch and base
+outcomes from the next steps.
 
 Do not look for the host to have closed it. The rule owns why: a closing keyword needs a pull request
 based on the default branch, and this one was not, so nothing fired. A closed-looking issue at this point
 was closed by someone, not by the merge.
 
-| Outcome                                     | Routes to                                                                                                             |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| the issue's criteria are all delivered      | close it with a comment naming the delivering commit on the integration branch, then advance to 3                     |
-| some criteria remain                        | **leave it open**, comment which were delivered and which were not, then advance to 3                                 |
-| the merge delivered no issue                | advance to 3 — recorded as "none", never as an empty step                                                             |
-| the merge names an issue it did not deliver | **leave it open** — a pull request that files, tracks, or cross-references an issue has not resolved it; advance to 3 |
+| Outcome                                     | Routes to                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| the issue's criteria are all delivered      | record the pending `closed` disposition, then advance to 3                  |
+| some criteria remain                        | record `open-partial` plus delivered/remaining criteria, then advance to 3  |
+| the merge delivered no issue                | record `no-issue`, then advance to 3                                        |
+| the merge names an issue it did not deliver | record `open-partial`; a cross-reference is not delivery, then advance to 3 |
 
 The last row is the failure this step is most likely to cause, and it is the opposite of the one it was
 added to fix. Most merged pull requests here name issues they are _registering_, not delivering. Read what
@@ -108,14 +111,41 @@ phase:
 
 | Outcome                  | Routes to                                                                                                                           |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| base verification passes | **terminate** — the cycle is complete                                                                                               |
+| base verification passes | advance to 5                                                                                                                        |
 | base verification fails  | return to step 4.1 and re-cut, **bounded at 2 attempts**                                                                            |
 | still failing after 2    | **terminate and escalate to the user** — a base that will not resolve is a repository-state problem, not something to keep retrying |
 
+When the caller will not continue in this working tree, record `BASE-RESET: skipped` and advance
+directly to step 5 after branch cleanup.
+
+### 5. Write one completion record and apply the issue state
+
+Post exactly one `DELIVERY_COMPLETION_RECORD` carrying the step 1–4 outcomes. Post it on the resolved
+or partial issue; for `no-issue`, post it on the PR. Apply the declared issue action, then read the
+record and final live issue state back with the bounded closeout audit. Close the issue only for
+`OUTCOME: closed`; leave it open for `open-partial`. Do not post a separate
+landing-verification comment or final closeout receipt, and do not append a tracked post-merge ledger row.
+
+```text
+DELIVERY_COMPLETION_RECORD
+OUTCOME: closed | open-partial | no-issue
+ISSUE: <number> | none
+PR: <number>
+HEAD: <40-hex>
+MERGE: <40-hex>
+BASE: <branch>
+LANDING: verified
+BRANCH: deleted | retained
+BRANCH-DETAIL: <branch or retention reason>
+BASE-RESET: skipped | <branch>@<40-hex>
+CRITERIA: delivered | remaining:<specific criteria> | none
+ACTION: close | leave-open | none
+```
+
 ## Termination
 
-Terminate on any of: `merge-verifier` returning `FAIL`; the base-reset bound being exhausted; a caller
-with no next branch reaching the end of step 3; or any of the conditions the governing rules define as a
+Terminate on any of: `merge-verifier` returning `FAIL`; the base-reset bound being exhausted; step 5
+completing its readback and issue action; or any of the conditions the governing rules define as a
 stop. Those stop conditions are owned by the rules — do not restate them here.
 
 ## Outcome contract
@@ -141,14 +171,7 @@ If you find yourself restating a rule here, stop — link the rule instead.
 
 ## Record the run
 
-Open a ledger entry before the first round, record each round's finding count, and close it with the
-terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
-`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
-run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
-what each terminal reason means).
-
-```bash
-node scripts/harness/loop-run.mjs open  --loop post-merge-cycle
-node scripts/harness/loop-run.mjs round --loop post-merge-cycle --run <id> --findings <n>
-node scripts/harness/loop-run.mjs close --loop post-merge-cycle --run <id> --terminal <reason>
-```
+`DELIVERY_COMPLETION_RECORD` is this remote-terminal loop's sole durable record. The readback command
+verifies its trusted, unedited comment identity, the merge decision's base against the merge commit's
+first parent, and the live PR/issue state. Historical
+`post-merge-cycle.jsonl` rows remain history; never create a new one.
