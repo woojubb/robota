@@ -37,9 +37,29 @@ The owner approved PR #2716 and delegated future justified merges into `develop`
 agent. Evaluate current CI, review findings, head/base and scope, record the decision under this
 delegated authority, and merge without requesting the same owner approval again. Record the
 agent's decision honestly; do not claim the owner clicked a GitHub review or reviewed future code.
-This does not waive verification, authorize a red-check bypass or protection changes, or expand
-authority to `main`, release promotion, publication or deployment. Existing push/rebase constraints
-and the worktree prohibition remain unchanged.
+This original delegation does not itself authorize a red-check bypass; the subsequent narrow
+control-plane delegation below is separate. It does not waive verification, permit protection
+changes, or extend authority to `main`, release promotion, publication or deployment. Existing
+push/rebase constraints and the worktree prohibition remain unchanged.
 
 Published approval provenance: [PR #2716 decision](https://github.com/woojubb/robota/pull/2716#issuecomment-5649757760).
 The general next-action policy remains owned by [git-branch.md](../rules/git-branch.md).
+
+## Delegated control-plane exception
+
+Owner instruction, 2026-09-13 (verbatim), directly answering the owner-only workflow-provenance
+bypass request after the owner completed the merge:
+
+> 병합완료. 다음부터는 너가 직접해. 나에게 그만시켜
+
+The owner explicitly extended standing delegation to the same control-plane provenance exception
+for future `develop` landings. This is authority to make and execute the scoped per-PR decision,
+not a fresh direct owner approval of future code or a claim that the agent performed the already
+completed owner merge. Do not ask the owner to repeat this approval or operate that merge when
+the delegation still applies and the required evidence holds. The authoritative safeguards,
+truthful agent-approver record and exclusions are owned by
+[Landing a control-plane change](../rules/git-branch.md#landing-a-control-plane-change-a-workflow-that-provides-a-required-check).
+
+Provenance: the current Issue #2655 conversation following PR #2718's owner merge; no public
+comment URL for this instruction has been supplied. Quote this instruction and identify that
+conversation provenance in each delegated decision rather than inventing a public approval link.

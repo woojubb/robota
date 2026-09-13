@@ -17,7 +17,7 @@ Inventory shared code across the repository and verify API ownership, domain neu
 
 Parent: AGREEMENT-2655; canonical umbrella: https://github.com/woojubb/robota/issues/2655.
 
-Spec: `spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+Spec: `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490), transferred to the umbrella by its [recorded disposition](https://github.com/woojubb/robota/issues/2490#issuecomment-5642818355). Full-population classification and actual migrations remain binding.
 

@@ -128,7 +128,7 @@ Imports, comments and checks left behind by the change that removed their subjec
 
 ## L7 — Fragmenting one approved outcome into repeated process gates
 
-**Count: 4** · First seen 2026-09-05 · Last seen 2026-09-13 · Mechanism: open — next consolidated
+**Count: 5** · First seen 2026-09-05 · Last seen 2026-09-13 · Mechanism: open — next consolidated
 harness cycle, tracked by this open entry after the PROC-034 cadence amendment · Rule: `execution-cadence.md`
 
 - 2026-09-05 — a second continuation checkpoint was added to the same S2 branch after a local
@@ -153,6 +153,14 @@ harness cycle, tracked by this open entry after the PROC-034 cadence amendment �
   with that delegation while retaining exact-head decisions and CI/review gates. Count this as
   one owner correction, not three incidents for three duplicated statements. No new permission
   parser or gate is introduced; semantic decision enforcement remains open for this cycle.
+
+- 2026-09-13 — the owner completed PR #2718's control-plane merge and explicitly delegated the
+  same future exception: “병합완료. 다음부터는 너가 직접해. 나에게 그만시켜”. This is one further
+  correction in the existing process-exception routing class, not approval to bypass unrelated
+  failed checks. The bounded Issue #2655 amendment reconciles the existing Git exception,
+  delegated-merge qualifier, landing-verifier route and permission memory; it retains actual
+  agent attribution and all other CI/review requirements. No new mechanism or issue is created;
+  this class remains OPEN for the existing consolidated cycle, not mechanized by documentation.
 
 ## Retired
 
