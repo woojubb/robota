@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: AGREEMENT
 tags: [cli]
 lane: L2
@@ -15,11 +15,11 @@ child implementation. Issue #2655 remains open until this parent is completed an
 
 The existing-parent planning route was repaired by PR #2722 at
 `27cf0f024701eeb6846bb5fd1e34fab46557e843`, independently merge-verified by Hume.
-This approved planning pair resumes on that integration base; the earlier failed gate remains
-historical evidence, and the parent's own remaining gates have not yet passed.
+The earlier failed gates remain historical evidence. The parent's current IMPLEMENT, VERIFY
+and COMPLETE gates have now passed; final metadata CI, landing and issue closure remain pending.
 
-The restored approved pair is now committed as a planning-only prelude. Main enters the parent's
-completion coordination gate with only this exact Task/spec pair changed; no new product
+The restored approved pair and actual IMPLEMENT checkpoint are committed. VERIFY and COMPLETE
+now pass using the exact child delivery evidence and current remote readback; no new product
 implementation is introduced or authorized retroactively.
 
 ## Problem
@@ -187,7 +187,7 @@ The child records six directly executed owner-local scenarios with independent s
 scanner/wiring regressions and conservative typed input/cache projections. CI run 34742172142 on
 c8e finished with all 13 non-skipped jobs SUCCESS, including TUI, examples and Windows; Main's
 reported scan execution was 272 submitted, 0 not-invoked and 0 failed. The [Round B record](https://github.com/woojubb/robota/pull/2718#issuecomment-5651707829)
-disposes the ten existing warnings as 3 refuted / 7 deferred to #2680, not ten fixes or a new whole-PR
+disposes the ten existing warnings as 3 refuted / 7 deferred to issue #2680, not ten fixes or a new whole-PR
 review. Hume's final landing PASS is supplied under TC-05. The [completed child spec](../done/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md)
 now contains all six canonical TC records and terminal GATE-COMPLETE PASS, and its Task is
 actually under completed/ with status done. TC-04's former child-closeout hold is discharged.
@@ -213,14 +213,14 @@ and merge_base_commit.sha equal to the exact child commit:
 (ahead_by=3). BOUNDARY's delivering merge is that verified develop tip itself. Readback commands
 exited 0. All three actual done Task/spec pairs are present, and both parent child projections
 now name their completed Task paths.
-Prior real source records remain [#2154](https://github.com/woojubb/robota/issues/2154#issuecomment-5649149867),
-[#2653](https://github.com/woojubb/robota/issues/2653#issuecomment-5649149991) and
+Prior real source records remain [issue #2154](https://github.com/woojubb/robota/issues/2154#issuecomment-5649149867),
+[issue #2653](https://github.com/woojubb/robota/issues/2653#issuecomment-5649149991) and
 [INFRA/#2655](https://github.com/woojubb/robota/issues/2655#issuecomment-5645983627).
-[Source #2490 delivery](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
+[Source issue #2490 delivery](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
 was posted after the explicit Hume PASS handoff and read back byte-for-byte. It binds the approved
 public/domain versus generic-shared distinction, actual migrations, current CI, retained
 uncertainty and exact merge; the old CLOSED/consolidation state is not treated as implementation.
-The [#2655 partial-delivery receipt](https://github.com/woojubb/robota/issues/2655#issuecomment-5651949683)
+The [issue #2655 partial-delivery receipt](https://github.com/woojubb/robota/issues/2655#issuecomment-5651949683)
 was posted and read back, with OPEN state separately confirmed. It records all four outcomes and
 explicitly retained the then-pending child/parent metadata and audit. The child/ancestry/source
 acceptance audit is now complete; its combined evidence, not the partial receipt alone, satisfies
@@ -239,7 +239,7 @@ interface for an end user.
 
 ## Tasks
 
-The exact active parent Task paired with this spec is `.agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`; the three rows below are child-state projections, not replacement Task bindings.
+The exact completed parent Task paired with this spec is `.agents/tasks/completed/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`; the three rows below are child-state projections, not replacement Task bindings.
 
 - [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
 - [x] ARTIFACT-2655 — done — `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
@@ -557,3 +557,214 @@ completion, issue closure or merge verdict is supplied here.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `c77db915462e` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `34cde8e62fe7` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** in-progress → verifying
+
+Independent judgement of this one parent GATE-VERIFY. This Agreement coordinates already-delivered
+outcomes; verification reuses their exact execution and landing evidence, rather than claiming a
+new product run on the metadata-only parent checkpoint. The earlier FAIL entries remain unchanged.
+
+- GATE-VERIFY — Ordering: PASS; the latest GATE-IMPLEMENT entry is PASS with the first v2
+  `gateImplementFirst` record, `deliveryMode: single` and approved to in-progress transition.
+  It is committed in checkpoint `8593c73b9919b240bbd2ab5697f774a3e4237b2f`; the current spec is
+  in-progress in active/. No continuation, retrospective child checkpoint or skipped gate is claimed.
+- GATE-VERIFY — Every Plan item complete: PASS; the exact paired parent Task's Plan contains
+  five items and all five are checked: clean framework-only acceptance, integrated dependency
+  scanning, transactional artifacts, boundary ownership/migrations and item-by-item acceptance
+  evidence. Each names its corresponding TC reconciliation or completed child evidence.
+  This direct inspection resolves the first mechanical wording-binding pending result.
+- GATE-VERIFY — No Plan item blocked or pending: PASS; no unchecked or blocked implementation
+  Plan item remains. The current Children projection names all three completed Tasks, and the
+  five TC reconciliations retain exact execution, ancestry and source-writeback references.
+  Historical incomplete-state paragraphs remain historical, not current implementation holds.
+  Parent completion, metadata CI, landing and final issue writeback are separate remaining
+  delivery obligations, not silently checked implementation tasks. This resolves the second pending result.
+- GATE-VERIFY — Build passes for affected scope: PASS by actual delivered execution readback.
+  Main's two read-only API assertion commands exited 0, as recorded in
+  `/tmp/robota-2655-parent-verification.txt`. Independent `gh api repos/woojubb/robota/actions/jobs/103683620725`
+  readback confirms exact head `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`, completed/success,
+  including the clean framework proof, full/affected workspace build and build-output contracts
+  steps. The paired TC-01 and Main's direct-log assertions record packages=16,
+  globalFallback=false and PASS tasks=16 n/a=0; root build records 81 tasks and the direct job log
+  confirms 81 packages with a build contract. Existing independent child/merge verification is
+  reused. No build execution on this parent checkpoint, product rebuild or global substitution
+  for the clean partial acceptance is claimed.
+- GATE-VERIFY — Tests pass for affected scope: PASS by the same exact-head execution.
+  The job API confirms successful full/affected quality and exact-pack/release-path regression
+  owning steps. Main's direct-log assertions and paired TC-01 record the original three framework
+  files/12 passing tests and framework-only affected 1795 passing tests. Independent direct
+  `gh api repos/woojubb/robota/actions/jobs/103683620725/logs` readback also confirms 1795 tests,
+  the release-path file's three passing cases and the artifact corpus of 104 PASS / 1 SKIP.
+  The skip is not a pass. The completed INFRA and BOUNDARY test/scenario records and their
+  previously verified deliveries remain their own evidence; this parent adds no new product tests.
+
+Main's mechanical result was 3 PASS, 0 FAIL, 2 PENDING with no entry written. All five checks above,
+including ordering, are now explicitly resolved. The API reads inspect previous real executions;
+they are not reruns of product tests, proof of current parent metadata CI, a new vulnerability
+audit or a new source review. This guardian appended only this evidence and changed no status,
+source, Task, index or Git history.
+
+The orchestrator owns the verifying transition and subsequent GATE-COMPLETE. Parent completion,
+archive, remote metadata CI, merge and closing issue #2655 are not supplied by this PASS.
+
+**Judged by:** Hume — independent `backlog-gate-guard`; parent Plan and TC evidence inspected, existing child/merge verification reused, exact-job API/log readback only
+**Judged at:** HEAD `8593c73b9919b240bbd2ab5697f774a3e4237b2f` · base `27cf0f024701eeb6846bb5fd1e34fab46557e843` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `ba1606019985d1bf01e76e5ba5c87ee215680975` (before this append)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `Consume actual exact-head GitHub job/API-log assertions for the 16-package non-global clean framework build and 12/1795 passing tests; existing graph and clean-proof regressions remain bound in the Test Plan.`
+
+**Supplemental observed output (Main):** The original automatic excerpt below retained only the
+shared audit's last ten lines, omitting this TC's result. Main's actual read-only assertions against
+`gh api repos/woojubb/robota/actions/jobs/103683620725` and its `/logs` endpoint exited 0:
+tested head `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`, job completed/success;
+`Clean framework proof: packages=16, globalFallback=false`;
+`workspace-affected-run: PASS tasks=16 n/a=0`; original three files/12 tests PASS and
+framework-only affected 228 files/1795 tests PASS. This supplements the previously observed
+execution without rerunning it or replacing the original generated excerpt.
+
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+Main read actual #2490 delivery receipt 5651937294: full recorded population8608,12exclusions,123reviewed unknown-kind paths;
+2381 unresolved references explicit; approved public/domain SDK distinction, named generic APIs and independent consumers;
+actual owner-local migrations and drift enforcement, six executed owner-local scenarios, exact-head CI receipts.
+git diff fa7984f59358682ab472b1adf96297767715ef4e..origin/develop confirms no subsequent product, artifact, boundary-scanner or registry change.
+No narrow scanner PASS is substituted for population classification; unresolved references remain a disclosed limitation.
+TC-05: all three archived child pairs exist; Pascal confirmed remote completed/done paths and issue OPEN.
+Main git merge-base --is-ancestor for INFRA1c52,ARTIFACT4f3c,BOUNDARYfa798,archiveca214 against current origin/develop all exited0.
+Main fetched and read actual source delivery comments: #2154/5649149867, #2653/5649149991, #2490/5651937294 and INFRA/#2655/5645983627.
+These are implementation receipts, not the older consolidation closures. Historical pending wording remains historical.
+Parent terminal gate/archive, final metadata CI/merge and final issue close remain outstanding; this audit does not claim them complete.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `ccc1362573b6` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `Read exact INFRA push-job API and original log, nine-ID disposition table, current four resolved versions, and unchanged workflow/exclusion diff; all read-only commands completed successfully.`
+
+**Supplemental observed output (Main):** The original automatic excerpt below omitted this TC's
+result. `gh api repos/woojubb/robota/actions/jobs/103555778173` confirmed completed/success at
+`1c52df898f7a6df9adf715821bc9c8638a3dd967`; its original `/logs` response states 2176 packages,
+four vulnerabilities filtered by existing exclusions, and `No issues found`. All nine original
+advisories have upgraded/not-reported/not-excluded dispositions in the completed INFRA spec.
+Current lockfile entries retain xmldom 0.9.12, browserslist 4.28.9, fast-uri 3.1.7 and qs 6.16.0;
+the workflow/exclusion diff since that delivery is empty. These read-only commands succeeded.
+This is original version-bound scan evidence, not a new vulnerability scan or future guarantee.
+
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+Main read actual #2490 delivery receipt 5651937294: full recorded population8608,12exclusions,123reviewed unknown-kind paths;
+2381 unresolved references explicit; approved public/domain SDK distinction, named generic APIs and independent consumers;
+actual owner-local migrations and drift enforcement, six executed owner-local scenarios, exact-head CI receipts.
+git diff fa7984f59358682ab472b1adf96297767715ef4e..origin/develop confirms no subsequent product, artifact, boundary-scanner or registry change.
+No narrow scanner PASS is substituted for population classification; unresolved references remain a disclosed limitation.
+TC-05: all three archived child pairs exist; Pascal confirmed remote completed/done paths and issue OPEN.
+Main git merge-base --is-ancestor for INFRA1c52,ARTIFACT4f3c,BOUNDARYfa798,archiveca214 against current origin/develop all exited0.
+Main fetched and read actual source delivery comments: #2154/5649149867, #2653/5649149991, #2490/5651937294 and INFRA/#2655/5645983627.
+These are implementation receipts, not the older consolidation closures. Historical pending wording remains historical.
+Parent terminal gate/archive, final metadata CI/merge and final issue close remain outstanding; this audit does not claim them complete.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `c693befce1b6` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `Consume exact-head original API-log assertions for root 81 tasks, 81 output contracts, artifact 104 PASS/1 SKIP and three release-path cases; retain approved Windows and first physical-dist exceptions.`
+
+**Supplemental observed output (Main):** The original automatic excerpt below omitted this TC's
+result. Main's actual API assertions against job `103683620725` and its original `/logs` response
+exited 0, bound to tested head `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`:
+`artifact workspace build: PASS tasks=81`; `81 packages with a build contract`;
+`release-path.test.mjs (3 tests)`; `Tests 104 passed | 1 skipped (105)`.
+The corresponding build, output-contract, quality and artifact-regression steps completed
+successfully. Approved Windows replacement and first physical-dist migration exceptions remain
+narrow; the skipped test is not a pass. No new build, test run or publication is claimed.
+
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+Main read actual #2490 delivery receipt 5651937294: full recorded population8608,12exclusions,123reviewed unknown-kind paths;
+2381 unresolved references explicit; approved public/domain SDK distinction, named generic APIs and independent consumers;
+actual owner-local migrations and drift enforcement, six executed owner-local scenarios, exact-head CI receipts.
+git diff fa7984f59358682ab472b1adf96297767715ef4e..origin/develop confirms no subsequent product, artifact, boundary-scanner or registry change.
+No narrow scanner PASS is substituted for population classification; unresolved references remain a disclosed limitation.
+TC-05: all three archived child pairs exist; Pascal confirmed remote completed/done paths and issue OPEN.
+Main git merge-base --is-ancestor for INFRA1c52,ARTIFACT4f3c,BOUNDARYfa798,archiveca214 against current origin/develop all exited0.
+Main fetched and read actual source delivery comments: #2154/5649149867, #2653/5649149991, #2490/5651937294 and INFRA/#2655/5645983627.
+These are implementation receipts, not the older consolidation closures. Historical pending wording remains historical.
+Parent terminal gate/archive, final metadata CI/merge and final issue close remain outstanding; this audit does not claim them complete.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `ea01ae1de1db` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `Read completed BOUNDARY acceptance records and actual source receipt; consume Pascal current-code audit and Main unchanged-product/boundary diff since verified delivery, preserving disclosed 2381 unresolved references.`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+Main read actual #2490 delivery receipt 5651937294: full recorded population8608,12exclusions,123reviewed unknown-kind paths;
+2381 unresolved references explicit; approved public/domain SDK distinction, named generic APIs and independent consumers;
+actual owner-local migrations and drift enforcement, six executed owner-local scenarios, exact-head CI receipts.
+git diff fa7984f59358682ab472b1adf96297767715ef4e..origin/develop confirms no subsequent product, artifact, boundary-scanner or registry change.
+No narrow scanner PASS is substituted for population classification; unresolved references remain a disclosed limitation.
+TC-05: all three archived child pairs exist; Pascal confirmed remote completed/done paths and issue OPEN.
+Main git merge-base --is-ancestor for INFRA1c52,ARTIFACT4f3c,BOUNDARYfa798,archiveca214 against current origin/develop all exited0.
+Main fetched and read actual source delivery comments: #2154/5649149867, #2653/5649149991, #2490/5651937294 and INFRA/#2655/5645983627.
+These are implementation receipts, not the older consolidation closures. Historical pending wording remains historical.
+Parent terminal gate/archive, final metadata CI/merge and final issue close remain outstanding; this audit does not claim them complete.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `7fae094425d8` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-13
+
+**Command:** `Run four successful git merge-base ancestry checks against current origin/develop; fetch actual source delivery comments and verify all three archived child pairs and current OPEN umbrella state.`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+Main read actual #2490 delivery receipt 5651937294: full recorded population8608,12exclusions,123reviewed unknown-kind paths;
+2381 unresolved references explicit; approved public/domain SDK distinction, named generic APIs and independent consumers;
+actual owner-local migrations and drift enforcement, six executed owner-local scenarios, exact-head CI receipts.
+git diff fa7984f59358682ab472b1adf96297767715ef4e..origin/develop confirms no subsequent product, artifact, boundary-scanner or registry change.
+No narrow scanner PASS is substituted for population classification; unresolved references remain a disclosed limitation.
+TC-05: all three archived child pairs exist; Pascal confirmed remote completed/done paths and issue OPEN.
+Main git merge-base --is-ancestor for INFRA1c52,ARTIFACT4f3c,BOUNDARYfa798,archiveca214 against current origin/develop all exited0.
+Main fetched and read actual source delivery comments: #2154/5649149867, #2653/5649149991, #2490/5651937294 and INFRA/#2655/5645983627.
+These are implementation receipts, not the older consolidation closures. Historical pending wording remains historical.
+Parent terminal gate/archive, final metadata CI/merge and final issue close remain outstanding; this audit does not claim them complete.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `921cf52d8894` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-13; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 8/8 tasks `[x]` in .agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8593c73b9919` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `8044e162cb8e` (modified)

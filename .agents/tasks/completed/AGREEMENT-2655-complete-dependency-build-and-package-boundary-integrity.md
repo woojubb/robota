@@ -1,7 +1,8 @@
 ---
 title: 'AGREEMENT-2655: Complete dependency build and package-boundary integrity'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
+completed: 2026-09-13
 created: 2026-09-12
 priority: high
 urgency: now
@@ -20,10 +21,10 @@ child implementation. Issue #2655 remains open until this parent is completed an
 
 The existing-parent planning route was repaired by PR #2722 at
 `27cf0f024701eeb6846bb5fd1e34fab46557e843`, independently merge-verified by Hume.
-This approved planning pair resumes on that integration base; the earlier failed gate remains
-historical evidence, and the parent's own remaining gates have not yet passed.
+The earlier failed gates remain historical evidence. The parent's current IMPLEMENT, VERIFY
+and COMPLETE gates have now passed; final metadata CI, landing and issue closure remain pending.
 
-Spec: `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`
+Spec: `.agents/spec-docs/done/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`
 
 ## Objective
 
@@ -68,6 +69,11 @@ Neither decomposition nor a source Issue's CLOSED state proves delivery.
 
 ## Progress
 
+2026-09-13 terminal reconciliation: IMPLEMENT passed 7/7, independent VERIFY passed all five
+criteria, and COMPLETE passed 9/9 with five per-TC records. The current child ancestry and source
+receipts were read back against the verified integration base. This Task/spec pair is complete
+locally; final metadata delivery and the umbrella issue close are still required.
+
 The restored approved pair is committed as a planning-only prelude on the repaired integration
 base. Main now enters the parent's completion coordination gate; no new product implementation
 is introduced, and the remaining terminal verification and issue writeback are still pending.
@@ -95,7 +101,7 @@ landing record was [posted and read back](https://github.com/woojubb/robota/pull
 actual owner `woojubb`, scans cache v2 and build framework-count/membership changes, other owning
 contexts unchanged, provenance RED. Main subsequently supplied Hume's final `MERGE VERIFIED: PASS`
 for the actual merge, content, CI and landing record. This is Hume's verdict, not this author's
-independent rerun. The [actual #2490 delivery comment](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
+independent rerun. The [actual issue #2490 delivery comment](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
 was posted and read back after that PASS; its prior consolidation closure is not delivery evidence.
 The [umbrella partial-delivery receipt](https://github.com/woojubb/robota/issues/2655#issuecomment-5651949683)
 was also posted and read back with Issue #2655 still OPEN. It explicitly retains the pending
