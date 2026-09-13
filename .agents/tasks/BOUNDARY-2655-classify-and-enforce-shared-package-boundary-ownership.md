@@ -1,7 +1,7 @@
 ---
 title: 'BOUNDARY-2655: Classify and enforce shared package boundary ownership'
 issue: https://github.com/woojubb/robota/issues/2655
-status: todo
+status: in-progress
 created: 2026-09-12
 priority: high
 urgency: now
@@ -33,6 +33,13 @@ Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490),
 Merge into origin/develop after verification and record the delivering commit in the source Issue.
 
 ## Progress
+
+2026-09-13: GATE-WRITE, independent proposal ENDORSE, DIRECT GATE-APPROVAL and
+DONE-GATE-STAGE-1 passed. The first implementation judge returned PASS with a spec-only dirty
+inventory, but the checkpoint consumer requires both Task and spec and rejected the commit.
+The uncommitted attempt is preserved as withdrawn evidence, not rewritten into a successful
+checkpoint. Restore the preceding approved planning state and rejudge the actual Task/spec
+changes together. No implementation has started and no TC is marked delivered.
 
 2026-09-13: resumed the remaining source Issue #2490 scope after PR #2717 landed. The canonical
 draft is `.agents/spec-docs/draft/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`.

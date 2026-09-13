@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [typescript]
 lane: L2
@@ -76,6 +76,8 @@ Recommendation: extend the existing Robota analysis with explicit ownership cons
 2. Introduce an independent shared-file scanner/graph and blanket root-to-package moves. Pro: isolated implementation. Con: duplicated resolution, missed data edges and false ownership from path naming; rejected.
 
 ### Decision
+
+**Delivery mode:** `single`
 
 Choose alternative 1 under the owner's three approved recommendations recorded below; independent adversarial validation remains pending. Keep measured references separate from semantic ownership decisions. Inventory the complete tracked source/config/data population within declared workspace roots and root tooling, explicitly accounting for generated/vendor exclusions and unresolved references. Do not use a helper filename regex as the whole population.
 
@@ -456,3 +458,155 @@ approval entry is preserved rather than presented as independent architectural e
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `2b0b28ef1e3d` · base `origin/develop@38e87a027c53` · document `.agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `96b76b0b48ed` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "모듀 승인함"
+**Given:** 2026-09-13, this conversation
+**Review fingerprint:** 8bf0996e09f9 (review d7d752b2, type/tags 74b52707)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-13, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (8bf0996e09f9) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5cfa1b18f91a` · base `origin/develop@38e87a027c53` · document `.agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `fec5f2fde428` (modified)
+
+### Withdrawn uncommitted GATE-IMPLEMENT attempt | 2026-09-13
+
+**Disposition:** Withdrawn before a successful checkpoint commit; not a valid GATE-IMPLEMENT PASS.
+**Original heading (quoted):** `### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-13`
+**Original status line (quoted):** `**Status upgrade:** approved → in-progress`
+**Observed judge output:** `gate GATE-IMPLEMENT (lane L2): 7 criteria judged — 7 PASS, 0 FAIL, 0 PENDING-GUARDIAN`; exit 0, with an Evidence Log entry appended.
+**Checkpoint commit rejection:** `gateImplementFirst.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`.
+
+The judge observed only the dirty spec; the paired Task was clean at that time. The subsequent
+advance activated the Task, so the generated first-checkpoint payload did not bind both required
+paths. This is a producer/consumer evidence mismatch, not successful checkpoint admission.
+The original criterion output, spec-only payload and judged identity below are preserved without
+adding the Task retrospectively. Main restored the uncommitted planning state to spec todo/approved
+and Task todo; no implementation is claimed. This withdrawal is neither legacy correction nor
+continuation and grants no implementation authority. Earlier committed entries remain unchanged.
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-13; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (6)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 554 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 6`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md",
+  "specPath": ".agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    }
+  ],
+  "plan": {
+    "outcome": "automatable",
+    "count": 6
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5cfa1b18f91a` · base `origin/develop@38e87a027c53` · document `.agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `64aabb9822a0` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-13; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (6)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 554 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 6`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md",
+  "specPath": ".agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    }
+  ],
+  "plan": {
+    "outcome": "automatable",
+    "count": 6
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md",
+    ".agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5cfa1b18f91a` · base `origin/develop@38e87a027c53` · document `.agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `b0e3fb0a03d7` (modified)
