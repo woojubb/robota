@@ -1,7 +1,7 @@
 ---
 title: 'DELEGATION-2655: Record standing develop provenance authority'
 issue: https://github.com/woojubb/robota/issues/2655
-status: todo
+status: in-progress
 created: 2026-09-13
 priority: medium
 urgency: now
@@ -21,8 +21,8 @@ Owner approval (verbatim): "병합완료. 다음부터는 너가 직접해. 나�
 
 ## Plan
 
-- [ ] Amend the existing Git rule and verifier routing without changing executable gates.
-- [ ] Mirror the exact instruction into existing repository permissions and recurrence records.
+- [x] Amend the existing Git rule and verifier routing without changing executable gates.
+- [x] Mirror the exact instruction into existing repository permissions and recurrence records.
 - [ ] Verify the bounded documentation changes and their delivery.
 
 ## Test Plan
@@ -46,3 +46,8 @@ The instruction follows the owner's actual PR #2718 merge at
 `fa7984f59358682ab472b1adf96297767715ef4e`. That completed merge remains attributed to the owner;
 future delegated decisions must identify the actual agent and this instruction, not fabricate
 fresh direct owner approval. The existing recurrence ledger L7 remains OPEN, not mechanized.
+
+Hume's bounded documentation review returned ACTIONABLE FINDINGS: 0 after the canonical N/A
+author verdict was corrected. The review verified refusal of other failed or unproven checks,
+ordinary delegation without the explicit exception, and out-of-scope main/release/protection changes.
+Formatting and the canonical scenario validator passed. Delivery remains pending.

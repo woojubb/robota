@@ -387,11 +387,15 @@ in the post-merge sequence, before any branch deletion.
   A non-empty provider projection remains authoritative. This evidence route applies only after
   merge state, ancestry, substance and drift have been independently verified; it does not change
   protection or grant pre-merge authority.
-- **The control-plane exception remains owner-only.** For a completed owner landing, apply
-  "Landing a control-plane change" below: verify the host's merged actor and all required records.
+- **The control-plane exception requires owner authority.** For a completed owner landing or a
+  delegated agent landing into `develop`, apply "Landing a control-plane change" below: verify
+  the host's merged actor, the actual deciding/executing agent when delegated, and all required
+  records including the explicit, unrevoked delegation covering this exception.
   Only the covered provenance failure may be excluded from the success requirement, whether the
   provider projection is populated or confirmed empty. Report it as an owner exception, never as
-  green. All other applicable checks retain the success requirement above.
+  green. Identify whether the owner acted directly or delegated; neither the host account name
+  nor an agent's decision is evidence of fresh direct owner approval. All other applicable checks
+  retain the success requirement above.
 - **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
   returns every run ever created for the commit, so a re-triggered workflow leaves superseded rows
   behind as `completed`/`cancelled` — rows that say "concluded" about a check that never ran on the
@@ -531,21 +535,38 @@ lands, written once so it is not re-decided from scratch each time.
    the job that reports it in the edited file and confirms what the edit does to that context's
    verdict — moved deliberately (say how) or untouched. Recorded as a review comment naming each
    context; an approval with no context named is not this confirmation.
-3. **The owner lands it.** A required context that is red by design cannot be satisfied, so the
-   landing is the owner's bypass merge over that one red context, taken only after steps 1 and 2
-   are on the pull request. Nobody else lands one, and no local hatch substitutes for it — the
-   override forms below excuse local hooks, not a branch ruleset.
+3. **The owner lands it, or explicitly delegates this exception for `develop`.** A required
+   context that is red by design cannot be satisfied. After steps 1 and 2 are on the pull request,
+   the owner may land over that one provenance failure. An explicit, unrevoked standing owner
+   delegation covering this control-plane exception also permits the owning agent to decide and
+   execute the `develop` merge without asking the owner to repeat the approval or perform it.
+   Ordinary merge delegation alone does not grant this exception. Check the current exact
+   head/base binding, full owning-job review, findings dispositions and answered/resolved threads;
+   every other applicable required context must actually succeed through its owning workflow,
+   including the repository-declared floor when live protection supplies no required projection.
+   Missing, pending, cancelled or skipped owner results are not success. Only the intentional
+   workflow-edit provenance failure is covered, not other provenance errors or any other red
+   check. This delegated route does not authorize `main`, release/promotion merges, publication,
+   deployment or protection changes. No local hatch grants this authority — the override forms
+   below excuse local hooks, not a branch ruleset.
 4. **Leave the record beside the red check.** One PR comment: control-plane change; approved by
    whom; contexts moved, or "none". A red required check with a bypass merge behind it and no such
-   comment is indistinguishable from a gate that was ignored.
+   comment is indistinguishable from a gate that was ignored. For delegated execution, the
+   head/base- and latest-verdict-bound merge decision must name the actual deciding/executing
+   agent, use `APPROVED-BY: agent:<name> (owner-delegated)`, and include the owner's verbatim
+   delegation and its provenance. Record the excepted check and all other CI/review evidence;
+   do not claim a new direct owner approval, an independent code review, or a green provenance
+   result. The standing instruction is recorded in
+   [current execution permissions](../memory/current-execution-permissions.md#delegated-control-plane-exception).
 
 The first such edit — the lint-warning ceiling step in the required `quality` job of `ci.yml` —
 landed on an owner decision taken in conversation, because none of the above was written; this
 section is that decision written down so the next one costs a read.
 
 Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
-path, and its finding points here. Whether steps 1–4 were performed is judged by the human reader
-of the pull request; no scan reads a PR's comments for them.
+path, and its finding points here. Steps 1–4 and delegation applicability remain operator-reviewed
+and are checked by the independent landing verifier; no scan validates these decision records.
+This routing amendment is recorded, not mechanized; the existing recurrence ledger L7 remains OPEN.
 
 ### One issue, one PR, one session (mandatory)
 
@@ -609,7 +630,9 @@ approval. Include the deciding agent and owner's delegation provenance, and use
 `APPROVED-BY: agent:<name> (owner-delegated)` for that decision; do not
 present it as a new direct owner approval or an independent code review. Re-evaluate changed
 evidence for each merge. Delegation does not waive the merge gate, expand push/rebase authority,
-authorize `main` or release merges, or permit protection changes or red-check bypasses.
+authorize `main` or release merges, or permit protection changes. Red-check bypasses require the
+separate, explicitly delegated `develop` control-plane exception above; ordinary merge delegation
+does not grant it, and no other red check is waived.
 A justified merge does not require a finding, red check or rebase; those named grounds restrict
 pushes, not the decision to land verified work.
 
