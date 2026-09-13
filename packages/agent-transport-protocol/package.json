@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport-protocol",
   "version": "3.0.0-beta.79",
-  "description": "Transport-neutral session bridge + wire protocol for the Robota SDK (shared by transport implementations)",
+  "description": "Transitional empty package retained until STRUCT-012 S5 removes the retired protocol identity",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -17,13 +17,6 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       }
-    },
-    "./client": {
-      "types": "./dist/browser/client.d.ts",
-      "source": "./src/client.ts",
-      "browser": "./dist/browser/client.js",
-      "import": "./dist/browser/client.js",
-      "default": "./dist/browser/client.js"
     }
   },
   "repository": {
@@ -56,14 +49,6 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
-  },
-  "dependencies": {
-    "@robota-sdk/agent-interface-analytics": "workspace:*",
-    "@robota-sdk/agent-interface-command": "workspace:*",
-    "@robota-sdk/agent-interface-execution": "workspace:*",
-    "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-interface-session-mobility": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.10",

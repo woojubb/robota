@@ -23,7 +23,7 @@ both answer the same question: what happens when a session is not confined to on
 | Concern                                  | Owner                                                                                 |
 | ---------------------------------------- | ------------------------------------------------------------------------------------- |
 | What a session IS                        | `agent-interface-session`                                                             |
-| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport-protocol`                                  |
+| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                           |
 | Deciding whether a handoff is authorized | the host application; this package declares the shape of the decision, not the policy |
 | Transport adapters, channels, admission  | `agent-interface-transport`                                                           |
 
@@ -116,7 +116,7 @@ discriminated by `isTerminalPeerDelivery`, and what follows is the caller's deci
 `src/__tests__/peer-message-contracts.test.ts` moved here with its declarations. The package otherwise
 declares types and four discriminators, so the remaining assertion is that it compiles.
 
-Its contracts are exercised by `agent-transport-webrtc` (browser peer), `agent-transport-protocol`
+Its contracts are exercised by `agent-transport-webrtc` (browser peer), `agent-transport`
 (the wire pair) and `agent-framework`.
 
 ## Class Contract Registry

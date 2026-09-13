@@ -1,7 +1,7 @@
 /**
  * CMD-004 Phase 2 (TC-03) — WS e2e: a remote `command` message must apply its host action HOST-SIDE.
  *
- * Pre-Stage-B, `ws-handler.ts` answers a remote command with `command_result` carrying only
+ * Pre-Stage-B, `session-message-handler.ts` answers a remote command with `command_result` carrying only
  * `message`/`success`/`data` and drops `result.effects` on the floor — a remote `/language ko`
  * replied "Language set" and wrote NOTHING. These tests were recorded FAILING against that state
  * (accidental-green rule; RED run kept in the spec's Evidence Log). Stage B executes host actions in
@@ -17,8 +17,8 @@ import {
   createLanguageCommandModule,
   createSettingsCommandModule,
 } from '@robota-sdk/agent-command';
-import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function createRuntimeSession(): Record<string, unknown> {
@@ -52,7 +52,7 @@ function setup(adapters: ICommandHostAdapters): {
     commandHostAdapters: adapters,
   });
   const sent: TServerMessage[] = [];
-  const { onMessage } = createWsHandler({
+  const { onMessage } = createSessionMessageHandler({
     session,
     deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
     driverId: 'device-e2e-1',

@@ -100,7 +100,7 @@ Minting throws rather than returning an open admission, so a transport that cann
 to construct instead of binding without a gate.
 
 The functions that produce the decision — `resolveAdmission`, `mintTransportToken`,
-`credentialMatches`, `bearerCredential` — live in `@robota-sdk/agent-transport-protocol`, not here.
+`credentialMatches`, `bearerCredential` — live in `@robota-sdk/agent-transport/node`, not here.
 This package is inert by rule (no runtime dependency edges), and they need `node:crypto`; putting
 them here would give every consumer of these types a runtime edge on a Node builtin.
 
@@ -241,7 +241,7 @@ in the returned `IDestroyResult` rather than thrown (CORE-013).
 
 The payload-agnostic carrier seam. A transport that implements `IPayloadChannelHost` can carry
 **consumer-declared channels** alongside its own protocol profile, so the text-agent protocol
-(`text_delta`/`submit`/… owned by `agent-transport-protocol`) becomes ONE profile on the transport
+(`text_delta`/`submit`/… owned by `agent-transport`) becomes ONE profile on the transport
 rather than being the transport itself — the CMD-004 precedent of contracts below, per-environment
 behavior above.
 

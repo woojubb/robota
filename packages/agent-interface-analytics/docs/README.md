@@ -13,7 +13,7 @@ import type {
   IRunTraceTurn,
 } from '@robota-sdk/agent-interface-analytics';
 // Contract declarations only. Reports are assembled by `agent-session-analytics` and carried across
-// the sidecar boundary by `agent-transport-protocol`.
+// the sidecar boundary by `agent-transport`.
 ```
 
 ## Documents

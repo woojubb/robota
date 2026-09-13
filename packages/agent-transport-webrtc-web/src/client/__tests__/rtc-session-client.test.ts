@@ -8,7 +8,7 @@ import { createRtcSessionClient, type TRtcConnectionStatus } from '../rtc-sessio
 
 import type { ISignalMessage, ISignalingClient } from '../rtc-signaling.js';
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
  * REMOTE-009 Step 2 — `createRtcSessionClient` answerer glue: receive the host offer → create + send an

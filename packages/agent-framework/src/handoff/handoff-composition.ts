@@ -3,12 +3,12 @@
  * fills in (HANDOFF-001, issue #1864).
  *
  * The manifest builder, the integrity seal, the chunker and the ownership transaction all live in
- * `@robota-sdk/agent-transport-protocol`, which is the wire SSOT. Orchestration lives here, with the
+ * `@robota-sdk/agent-transport`, which is the wire SSOT. Orchestration lives here, with the
  * session whose authority is being moved. Those are two packages, and the edge between them is the
  * decision this file records.
  *
  * `agent-framework` does NOT take a dependency on the wire package. Every consumer of
- * `agent-transport-protocol` today is either a transport package or the composition root, and the
+ * `agent-transport` today is either a transport package or the composition root, and the
  * repository's own recent direction is to REMOVE such edges from assembly packages rather than add
  * them — ARCH-021 deleted `agent-subagent-runner`'s `agent-builtin-providers` dependency for exactly
  * this reason and had the composition root supply `ISubagentWorkerComposition` instead. This is that

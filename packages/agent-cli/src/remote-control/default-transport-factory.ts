@@ -18,11 +18,11 @@ import type {
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
-import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import { SessionResumeBridge } from '@robota-sdk/agent-transport';
+import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 export type TUsageReporters = Pick<
-  IWsHandlerOptions,
+  ISessionMessageHandlerOptions,
   'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
 >;
 

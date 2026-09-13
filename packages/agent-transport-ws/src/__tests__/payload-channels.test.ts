@@ -2,7 +2,7 @@ import {
   decodeChannelFrame,
   encodeBinaryFrame,
   encodeChannelEventFrame,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport';
 import { describe, it, expect, vi } from 'vitest';
 
 import { PayloadChannelRegistry } from '../payload-channels.js';

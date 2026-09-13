@@ -5,7 +5,7 @@ import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { createWsTransport } from '../ws-transport.js';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 function createMockSession(): IInteractiveSession {
   return Object.assign(createTestInteractiveSession(), {

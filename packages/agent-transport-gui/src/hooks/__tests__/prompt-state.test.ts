@@ -7,7 +7,7 @@ import {
   type TPendingPrompt,
 } from '../prompt-state.js';
 
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
  * REMOTE-009 Step 4 / REMOTE-007 render+answer — the pure prompt-state list transitions + answer builders.

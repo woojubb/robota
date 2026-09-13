@@ -48,7 +48,7 @@
   "dependencies": {
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport-gui": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*"
+    "@robota-sdk/agent-transport": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"

@@ -797,6 +797,11 @@ missing/duplicate regions fail by name. Each evidence payload appears exactly on
 entry markers in one `json` fence. Payload keys occur exactly once in declared order; paths are
 normalized repository-relative strings, arrays preserve declared source order, and unknown keys fail.
 
+A sequenced Task paused with `status: blocked` resumes through its next continuation checkpoint. That
+checkpoint may change the paired Task only from `blocked` to `in-progress`; every other Task byte must
+remain identical, and the spec must append the normal bound continuation PASS. This is the only
+resume exception to the continuation rule that otherwise requires an unchanged Task.
+
 New GATE-IMPLEMENT writers emit v2; consumers dispatch by the payload marker/version and continue to
 replay historical v1. All three v2 forms carry `deliveryMode` and `sequencedArtifacts`: `single`
 requires an empty array, while `sequenced` binds the exact non-empty Decision array. The first form is

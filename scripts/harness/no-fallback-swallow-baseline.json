@@ -16,7 +16,7 @@
   "packages/agent-subagent-runner/src/child-process-subagent-runner.ts::discarded-rejection": 2,
   "packages/agent-subagent-runner/src/child-process-subagent-transport.ts::discarded-rejection": 1,
   "packages/agent-tools/src/builtins/atomic-file-write.ts::discarded-rejection": 1,
-  "packages/agent-transport-protocol/src/session-resume-bridge.ts::silent-catch": 1,
+  "packages/agent-transport/src/session-resume-bridge.ts::silent-catch": 1,
   "packages/agent-transport-tui/src/MessageList.tsx::silent-catch": 1,
   "packages/agent-transport-tui/src/tui-session-binding.ts::silent-catch": 1,
   "packages/agent-transport-tui/src/utils/tool-call-extractor.ts::silent-catch": 1,

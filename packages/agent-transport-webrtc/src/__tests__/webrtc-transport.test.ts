@@ -5,7 +5,7 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { RTCPeerConnection } from 'werift';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';

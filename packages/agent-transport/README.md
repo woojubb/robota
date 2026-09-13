@@ -1,8 +1,8 @@
 # Agent Transport
 
-Transport package boundary for the Robota SDK. During STRUCT-012 S2 its root is intentionally empty.
-Headless execution, programmatic driving and registry implementations are exported by `agent-framework`;
-terminal input/output helpers are local to `agent-cli`. Protocol package consolidation follows in S3.
+Browser-safe transport protocol and delivery substrate for the Robota SDK. The root exports shared
+wire messages, session bridging, channel codecs, and delivery helpers. Browser decoders are also
+available from `./client`; Node-only admission and handoff helpers are available from `./node`.
 
 ## Installation
 
@@ -12,8 +12,8 @@ npm install @robota-sdk/agent-transport
 
 ## Available Transports
 
-Headless is a sub-path of this package. HTTP, WebSocket, MCP, and WebRTC ship as
-standalone packages.
+Headless execution belongs to `agent-framework`. HTTP, WebSocket, MCP, and WebRTC ship as standalone
+transport packages.
 
 | Transport | Package / Sub-path                   | Description                                             |
 | --------- | ------------------------------------ | ------------------------------------------------------- |
@@ -23,8 +23,8 @@ standalone packages.
 | MCP       | `@robota-sdk/agent-transport-mcp`    | Model Context Protocol server adapter                   |
 | WebRTC    | `@robota-sdk/agent-transport-webrtc` | Peer-to-peer data-channel adapter                       |
 
-This package also exposes the `./programmatic` sub-path. Scripted-provider test fixtures live in
-`@robota-sdk/agent-core/testing` (the former `./testing` pass-through was removed, issue #2052).
+Scripted-provider test fixtures live in `@robota-sdk/agent-core/testing` (the former `./testing`
+pass-through was removed, issue #2052).
 
 All session-owning entry points treat `cwd` as provenance, not project trust. Pass a host-issued
 `TWorkspaceProjectAccess` decision through `projectAccess`; omitting it creates a Restricted session
@@ -84,14 +84,16 @@ Import only what you need to keep bundles small:
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 import { renderApp } from '@robota-sdk/agent-transport-tui';
 ```
 
 The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport
-parent root exports nothing in this interim stage; import protocol adapters from their own packages.
+root owns transport-neutral wire messages, session bridging, channel codecs, and delivery helpers;
+browser decoders are also available from `@robota-sdk/agent-transport/client`, while Node-only
+admission and handoff helpers live under `@robota-sdk/agent-transport/node`.
 
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
@@ -104,9 +106,11 @@ immediately, and returns a complete ordered aggregate whose pending runners beco
 
 ## Dependencies
 
+- `@robota-sdk/agent-interface-analytics`
 - `@robota-sdk/agent-interface-command`
 - `@robota-sdk/agent-interface-execution`
 - `@robota-sdk/agent-interface-session`
+- `@robota-sdk/agent-interface-session-mobility`
 - `@robota-sdk/agent-interface-transport`
 
 The heavier protocol dependencies (`ws`, `hono`, `@modelcontextprotocol/sdk`,

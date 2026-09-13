@@ -205,6 +205,11 @@ Fix: moved to `packages/agent-transport/src/headless/print-terminal.ts`. Exporte
 `@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` now imports from
 `@robota-sdk/agent-transport/headless`. Original file deleted.
 
+Correction (2026-09-14, STRUCT-012 S2): transport-host composition moved to
+`agent-framework/src/transport-host/`, while the CLI-only terminal adapters returned to
+`packages/agent-cli/src/terminal/`. `PrintTerminal` is now owned and imported locally by the CLI;
+`agent-transport` no longer exports `/headless`.
+
 ### CLI-AUDIT-019: `TransportRegistry` — settings-backed transport manager owned by CLI, belongs in agent-transport
 
 Status: resolved (class) — branch refactor/arch-002-slim-agent-cli (2026-05-17).
@@ -225,6 +230,10 @@ Correction (2026-06-19): `createDefaultTransportRegistry` is **not** exported fr
 to pre-register is an app-assembly decision the CLI composition root owns — pushing it into
 `agent-transport` would force the transport core to depend on the ws package. Only the generic
 `TransportRegistry` class is owned by `agent-transport`.
+
+Correction (2026-09-14, STRUCT-012 S2): the generic registry and settings-backed transport host now
+belong to `agent-framework/src/transport-host/`. The CLI continues to choose concrete transports at
+its composition root, and `agent-transport` is the browser-safe protocol/delivery substrate.
 
 ### CLI-AUDIT-020: `DEFAULT_PROVIDER_DEFINITIONS` — default provider set owned by CLI, belongs in agent-provider
 
@@ -253,6 +262,9 @@ which already moved to `agent-transport/headless`.
 Fix: moved to `packages/agent-transport/src/headless/cli-input.ts`. Exported `promptInput`
 from `@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` imports `promptInput`
 alongside `PrintTerminal` from `@robota-sdk/agent-transport/headless`. Original file deleted.
+
+Correction (2026-09-14, STRUCT-012 S2): `promptInput` is CLI-owned again at
+`packages/agent-cli/src/terminal/cli-input.ts`; `agent-transport` no longer exports `/headless`.
 
 ### CLI-AUDIT-022: `ChildProcessSubagentRunner` + worker — concrete runtime owned by agent-framework/agent-cli, belongs in dedicated package
 

@@ -3,14 +3,14 @@ import {
   createPendingStallClock,
   DEFAULT_MAX_PENDING_BYTES,
   isOverPendingBudget,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport';
 import { WebSocket } from 'ws';
 
 import type {
   IPendingStallClock,
   TOutboundDeliver,
   TServerMessage,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport';
 
 /**
  * Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures.
@@ -33,7 +33,7 @@ export class WsSessionDelivery {
 
   /**
    * The connection's outbound boundary. Built here, from this class's own sink and its own `close`
-   * policy, and passed DOWN into `createWsHandler` — the carrier owns both halves, so it builds the
+   * policy, and passed DOWN into `createSessionMessageHandler` — the carrier owns both halves, so it builds the
    * boundary rather than handing the protocol layer a raw sink to wrap.
    */
   readonly deliver: TOutboundDeliver;

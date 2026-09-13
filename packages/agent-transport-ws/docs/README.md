@@ -1,6 +1,7 @@
 # agent-transport-ws — Documentation
 
-`@robota-sdk/agent-transport-ws` is the WebSocket transport + protocol for the Robota SDK.
+`@robota-sdk/agent-transport-ws` is the WebSocket carrier for the Robota SDK. Transport-neutral wire
+messages and protocol handling are owned by `@robota-sdk/agent-transport`.
 
 ## Documents
 

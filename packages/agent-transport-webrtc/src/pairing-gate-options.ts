@@ -16,10 +16,10 @@ import type {
 } from '@robota-sdk/agent-remote-pairing';
 import type {
   IProtocolSession,
-  IWsHandlerOptions,
+  ISessionMessageHandlerOptions,
   SessionResumeBridge,
-  createWsHandler,
-} from '@robota-sdk/agent-transport-protocol';
+  createSessionMessageHandler,
+} from '@robota-sdk/agent-transport';
 
 import type { IHandoffGrantProof } from './handoff-grant-gate.js';
 import type { ILocalPeerProof } from './local-peer-proof.js';
@@ -69,17 +69,17 @@ export interface IPairingGateOptions {
   readonly reconnect?: IHostReconnectConfig;
   /**
    * REMOTE-013 E4: a session-scoped {@link SessionResumeBridge}. When set, the paired session flows through the
-   * bridge (seq-stamped + buffered) instead of a fresh `createWsHandler`, so the session survives a channel
+   * bridge (seq-stamped + buffered) instead of a fresh `createSessionMessageHandler`, so the session survives a channel
    * drop and can replay on reconnect. Accept ATTACHES the channel as the bridge's sink; cleanup DETACHES it
    * (never disposes — the bridge is owned by the transport across reconnects).
    */
   readonly resumeBridge?: SessionResumeBridge;
   /** Host-owned usage read models exposed only after this gate accepts. */
-  readonly personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
-  readonly usageReporter?: IWsHandlerOptions['usageReporter'];
-  readonly storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
+  readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Trusted carrier-owned surface; WebRTC assigns `remote`. */
-  readonly surface?: IWsHandlerOptions['surface'];
+  readonly surface?: ISessionMessageHandlerOptions['surface'];
   /**
    * Post-accept session-frame delivery failure; owning transport performs drop cleanup.
    *
@@ -101,5 +101,5 @@ export interface IPairingGateOptions {
   readonly handoffGrant?: IHandoffGrantProof;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
-  readonly createHandler?: typeof createWsHandler;
+  readonly createHandler?: typeof createSessionMessageHandler;
 }

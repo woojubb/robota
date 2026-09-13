@@ -7,7 +7,7 @@
  * has been waiting on, and the one a stub cannot show.
  *
  * What is deliberately NOT re-asserted: ordering, duplicates and ack issuance. Those belong to the
- * ledger in `agent-transport-protocol` and re-testing them here would create a second opinion about
+ * ledger in `agent-transport` and re-testing them here would create a second opinion about
  * rules that must have exactly one.
  */
 

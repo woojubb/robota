@@ -45,7 +45,7 @@ const BEFORE_ALL_MS = 30_000;
 const TC_B_TIMEOUT_MS = 25_000;
 const TC_C_TIMEOUT_MS = 12_000;
 
-/** The only server frames this black-box client inspects (subset of the agent-transport-protocol contract). */
+/** The only server frames this black-box client inspects (subset of the agent-transport contract). */
 interface IServerFrame {
   type: string;
   result?: { response: string };

@@ -23,9 +23,9 @@ renderer-side … proving the timeline actually reaches apps/agent-app over the 
 
 ## Evidence (adversarially verified 2026-08-13, CONFIRMED)
 
-- `packages/agent-transport-protocol/src/ws-protocol.ts:38,84` — declares
+- `packages/agent-transport-protocol/src/ws-protocol.ts:38,84` <!-- evidence-superseded: STRUCT-012 S3 moved and renamed this historical source to packages/agent-transport/src/wire-messages.ts; the finding describes the earlier revision. --> — declares
   `{ type: 'get-usage-report' }` and the `usage_report` server event.
-- `packages/agent-transport-protocol/src/ws-handler.ts:97-125` — `handleClientMessage` routes only
+- `packages/agent-transport-protocol/src/ws-handler.ts:97-125` <!-- evidence-superseded: STRUCT-012 S3 moved and renamed this historical source to packages/agent-transport/src/session-message-handler.ts; the finding describes the earlier revision. --> — `handleClientMessage` routes only
   control/query/background/prompt-response; `get-usage-report` falls to `protocol_error: Unknown
 message type` (`:123-124`). `session-resume-bridge.ts:110` delegates to the same router.
 - No producer of `usage_report`, no GUI request, no `IInteractiveSession` usage/trace accessor

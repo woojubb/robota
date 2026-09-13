@@ -4,7 +4,7 @@ status: in-progress
 created: 2026-08-17
 priority: high
 urgency: soon
-area: packages/agent-interface-transport, packages/agent-transport-protocol, packages/agent-framework, packages/agent-cli
+area: packages/agent-interface-transport, packages/agent-transport, packages/agent-framework, packages/agent-cli
 depends_on: ['SEC-011']
 ---
 
@@ -76,7 +76,8 @@ transferable half.
 
 ## Ownership boundaries (from the issue, restated only as a routing note)
 
-Semantic SSOT `agent-interface-transport`; wire SSOT `agent-transport-protocol`; orchestration
+Semantic SSOT `agent-interface-transport`; wire SSOT `agent-transport` (with Node-only manifest and
+admission helpers under `agent-transport/node`); orchestration
 `agent-framework`; carrier `agent-transport-webrtc` consuming SEC-011's result; `agent-cli` owns
 commands, consent UX and composition only.
 
@@ -87,9 +88,9 @@ The wire layer is complete; the orchestration is not. What has landed, and where
 | Piece                                                                | Package                     | Change  |
 | -------------------------------------------------------------------- | --------------------------- | ------- |
 | Phase contracts and `sourceRetainsAuthority`                         | `agent-interface-transport` | earlier |
-| The ownership transaction — every failure keeps the source in charge | `agent-transport-protocol`  | #1835   |
-| Manifest, inventory classification, integrity seal/verify            | `agent-transport-protocol`  | #1843   |
-| Chunking and reassembly                                              | `agent-transport-protocol`  | #1856   |
+| The ownership transaction — every failure keeps the source in charge | `agent-transport`           | #1835   |
+| Manifest, inventory classification, integrity seal/verify            | `agent-transport`           | #1843   |
+| Chunking and reassembly                                              | `agent-transport`           | #1856   |
 
 **TC-01, TC-05, TC-06, TC-08 and TC-09 were covered by the wire layer.** TC-02, TC-03, TC-04, TC-07
 and TC-10 are covered now, by the orchestration below — they are about what the source and
@@ -104,12 +105,12 @@ destination DO across a real transfer, not about the frames.
 ### The edge that was NOT added
 
 The orchestration composes the wire layer, and `agent-framework` does not depend on
-`agent-transport-protocol`. Every consumer of that package is a transport package or a composition
-root, and ARCH-021 is the precedent for keeping an assembly package clear of such an edge by having
-the root supply the collaborator — `agent-subagent-runner`'s `agent-builtin-providers` dependency was
-DELETED for exactly this reason. So `IHandoffComposition` names the five operations the orchestration
-needs, and `packages/agent-cli/src/handoff/handoff-composition-root.ts` is the only file in the tree
-where `@robota-sdk/agent-framework` and `@robota-sdk/agent-transport-protocol` appear together.
+`agent-transport`. Every consumer of that package is a transport package or a composition root, and
+ARCH-021 is the precedent for keeping an assembly package clear of such an edge by having the root
+supply the collaborator — `agent-subagent-runner`'s `agent-builtin-providers` dependency was DELETED
+for exactly this reason. So `IHandoffComposition` names the five operations the orchestration needs,
+and `packages/agent-cli/src/handoff/handoff-composition-root.ts` is the only file in the tree where
+`@robota-sdk/agent-framework` and `@robota-sdk/agent-transport` appear together.
 
 ### Found while wiring it: the seal is `JSON.stringify`, so a `Date` does not survive
 

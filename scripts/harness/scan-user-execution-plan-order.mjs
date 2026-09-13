@@ -43,7 +43,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { asList, asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import { documentationBatchReader } from './documentation-batch-reader.mjs';
 import {
@@ -636,6 +636,40 @@ function gateImplementCorrectionCount(spec, binding = null, ruleText = null, opt
 
 const exactPlanSignal = (task) => readPlanSignal(task, markdownSection);
 
+/**
+ * A paused sequenced Task has one legal way back into execution: its frontmatter status changes
+ * from `blocked` to `in-progress` in the same checkpoint that appends the continuation PASS. No
+ * other Task byte may change there; implementation evidence belongs after the checkpoint.
+ */
+function isBlockedTaskResume(parentTask, task) {
+  if (
+    typeof parentTask !== 'string' ||
+    typeof task !== 'string' ||
+    frontmatterStatus(parentTask) !== 'blocked' ||
+    frontmatterStatus(task) !== 'in-progress'
+  ) {
+    return false;
+  }
+  const parent = splitFrontmatter(parentTask);
+  const current = splitFrontmatter(task);
+  if (parent.entries === null || current.entries === null || parent.body !== current.body)
+    return false;
+
+  const withoutStatus = (entries) =>
+    JSON.stringify([...entries].filter(([key]) => key !== 'status'));
+  if (withoutStatus(parent.entries) !== withoutStatus(current.entries)) return false;
+
+  const parentLines = parentTask.split('\n');
+  const currentLines = task.split('\n');
+  if (parentLines.length !== currentLines.length) return false;
+  return (
+    parentLines.reduce(
+      (differences, line, index) => differences + Number(line !== currentLines[index]),
+      0,
+    ) === 1
+  );
+}
+
 function isCheckpointTransition({
   basename,
   parentTask,
@@ -662,8 +696,9 @@ function isCheckpointTransition({
       ? { expectedTaskItems: selectedTaskItems.items }
       : { taskItemsError: selectedTaskItems.error }),
   };
+  const resumedTask = isBlockedTaskResume(parentTask, task);
   const parentInProgress =
-    frontmatterStatus(parentTask) === 'in-progress' &&
+    (frontmatterStatus(parentTask) === 'in-progress' || resumedTask) &&
     frontmatterStatus(parentSpec) === 'in-progress';
   if (!parentInProgress) {
     // The first checkpoint of a pair: neither side was in-progress, and the spec gains its first
@@ -683,7 +718,7 @@ function isCheckpointTransition({
   // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
   // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
   const passDeltaIsOne =
-    task === parentTask &&
+    (task === parentTask || resumedTask) &&
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
     gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
@@ -698,7 +733,7 @@ function isCheckpointTransition({
     gateImplementCorrectionCount(parentSpec, binding, ruleText, checkpointOptions);
   return (
     (continuationDelta === 1 && correctionDelta === 0) ||
-    (continuationDelta === 0 && correctionDelta === 1)
+    (task === parentTask && continuationDelta === 0 && correctionDelta === 1)
   );
 }
 

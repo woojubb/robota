@@ -6,7 +6,7 @@
  * builds — the carrier is two in-process ends, so the transfer is real and the network is scripted.
  *
  * It lives in `agent-cli` rather than beside the orchestrations because the composition is the REAL
- * wire layer. `agent-framework` deliberately does not depend on `agent-transport-protocol` — that is
+ * wire layer. `agent-framework` deliberately does not depend on `agent-transport` — that is
  * the whole point of `IHandoffComposition` — so the only place the two halves can be put together is
  * the composition root, which is here. A hand-written double would let the orchestration agree with
  * a manifest builder that does not exist, and the one thing these cases have to prove is that the
@@ -14,7 +14,7 @@
  */
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import { buildHandoffManifest } from '@robota-sdk/agent-transport-protocol';
+import { buildHandoffManifest } from '@robota-sdk/agent-transport/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {

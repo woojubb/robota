@@ -34,7 +34,7 @@ import type {
   IPersonalUsageRequest,
   IUsageBySourceReport,
 } from '@robota-sdk/agent-session-analytics';
-import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
 
 /**
@@ -73,7 +73,7 @@ export function createDefaultTransportRegistry(
   registry: TransportRegistry;
   wsTransport: WsTransport;
   usageReporters: Pick<
-    IWsHandlerOptions,
+    ISessionMessageHandlerOptions,
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
   >;
 } {

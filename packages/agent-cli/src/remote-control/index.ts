@@ -10,10 +10,10 @@ import { createTrustedDeviceStore } from './trusted-device-store.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 type TUsageReporters = Pick<
-  IWsHandlerOptions,
+  ISessionMessageHandlerOptions,
   'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
 >;
 

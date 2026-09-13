@@ -25,7 +25,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 | Assembling a report from recorded usage       | `agent-session-analytics`                       |
 | Recording usage as a turn completes           | `agent-framework`                               |
 | Model pricing, and computing a turn's cost    | `agent-core`                                    |
-| Carrying a report across the sidecar boundary | `agent-transport-protocol`                      |
+| Carrying a report across the sidecar boundary | `agent-transport`                               |
 | Rendering a trace or cost view                | `agent-transport-tui`, `agent-transport-gui`    |
 | Session, turn and interaction contracts       | `agent-interface-transport` (until issue #2110) |
 
@@ -109,7 +109,7 @@ identity and the contributor session IDs carried by day/dimension aggregates for
 
 Beyond that the package declares types and exports no behavior, so the remaining assertion available
 is that it compiles, which `pnpm typecheck` makes on every run. The contracts are exercised by
-`agent-session-analytics` (which assembles the report) and `agent-transport-protocol` (which carries
+`agent-session-analytics` (which assembles the report) and `agent-transport` (which carries
 it).
 
 ## Class Contract Registry

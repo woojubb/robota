@@ -1,4 +1,4 @@
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 export type TServerMessageHandling =
   'reducer-state' | 'visible-notice' | 'intentionally-not-rendered' | 'transport-control';

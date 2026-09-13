@@ -4,7 +4,7 @@ import type { TUiIntentNotice } from './ui-intent-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type { IToolState, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 export type TPersonalUsageReport = Extract<
   TServerMessage,

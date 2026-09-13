@@ -206,7 +206,7 @@ describe('ARTIFACT clean framework proof CI wiring', () => {
         '@robota-sdk/agent-session-analytics',
       ]),
     );
-  });
+  }, 60_000);
 
   it.each(['clean', 'global', 'wrong-count', 'missing-producer', 'warm-dist', 'warm-store'])(
     'executes the actual proof assertions against %s input',

@@ -11,25 +11,25 @@
  */
 
 import {
-  createWsHandler,
-  type IWsHandlerOptions,
+  createSessionMessageHandler,
+  type ISessionMessageHandlerOptions,
   type SessionResumeBridge,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport';
 
 import { createChannelDelivery } from './channel-delivery.js';
 
 import type { IPairingChannel } from './pairing-gate.js';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 export interface IAttachSessionOptions {
   readonly channel: IPairingChannel;
   readonly session: IProtocolSession;
   readonly resumeBridge?: SessionResumeBridge;
-  readonly createHandler?: typeof createWsHandler;
-  readonly personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
-  readonly usageReporter?: IWsHandlerOptions['usageReporter'];
-  readonly storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
-  readonly surface?: IWsHandlerOptions['surface'];
+  readonly createHandler?: typeof createSessionMessageHandler;
+  readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
+  readonly surface?: ISessionMessageHandlerOptions['surface'];
 }
 
 export interface IAttachedSession {
@@ -70,7 +70,7 @@ export function attachSession(
     };
   }
 
-  const create = options.createHandler ?? createWsHandler;
+  const create = options.createHandler ?? createSessionMessageHandler;
   // ARCH-030: the gate is the carrier on this branch — its own channel sink, its own failure policy.
   const { onMessage, cleanup } = create({
     session: options.session,

@@ -14,7 +14,7 @@
 
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /** A visible, dismissible entry for a `ui_intent` this surface cannot render as a screen. */
 export interface IUiIntentNotice {

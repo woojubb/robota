@@ -36,6 +36,6 @@ The artifact adapter runs Vite with a fresh generation output directory (single 
 verifies exact compiler emissions, then publishes managed `dist`. CLI assembly copies the pinned,
 verified producer generation into its own staged `web/` directory before publishing its complete
 output. A web-only change selects CLI reassembly through the copied-artifact reverse edge; neither
-root nor affected assembly relies on recursive package build scripts. The GUI library imports the
-protocol package's published browser-safe `./client` entrypoint; this SPA carries no package alias or
-private source-path workaround for protocol decoding.
+root nor affected assembly relies on recursive package build scripts. The GUI library imports
+`@robota-sdk/agent-transport/client`, the parent's published browser-safe decoder entrypoint; this SPA
+carries no package alias or private source-path workaround for protocol decoding.

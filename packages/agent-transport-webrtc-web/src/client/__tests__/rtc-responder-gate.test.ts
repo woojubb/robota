@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ResponderGate, type IResponderGateOptions } from '../rtc-responder-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
  * REMOTE-009 Step 2 — the browser responder-side pairing gate's fail-closed routing switch, driven with a
