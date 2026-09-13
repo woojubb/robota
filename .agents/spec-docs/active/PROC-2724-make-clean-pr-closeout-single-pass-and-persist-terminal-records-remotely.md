@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [proc]
 lane: L2
@@ -490,3 +490,65 @@ remain unchanged.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `afb07ff35d5b` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/todo/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `2a8c0fb9d469` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-13; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (6)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 518 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md",
+  "specPath": ".agents/spec-docs/todo/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md",
+    ".agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `615aa22932da` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/todo/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `a3e688edaf0b` (tracked)

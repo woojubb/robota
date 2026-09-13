@@ -1,7 +1,7 @@
 ---
 title: 'PROC-2724: make clean PR closeout single-pass and persist terminal records remotely'
 issue: https://github.com/woojubb/robota/issues/2724
-status: todo
+status: in-progress
 created: 2026-09-13
 priority: medium
 urgency: soon
