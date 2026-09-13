@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: RULE
 tags: [harness, governance]
 lane: L1
@@ -55,7 +55,7 @@ Use the existing scanner and visibility helper to recognize actual explicit manu
 with fail-closed validation at the same entry boundary. Preserve canonical generated output and
 original returned attribution text. Do not normalize or repair historical logs. The integrating agent selected
 this bounded L1 scope after Hume's independent recommendation; this statement records that choice,
-not a gate judgment or a new approval request. Existing #2655 rule-repair authority is quoted in
+not a gate judgment or a new approval request. Existing Issue #2655 rule-repair authority is quoted in
 the paired Task. No source implementation is part of this draft-writing dispatch.
 
 ### Architecture Review Checklist
@@ -115,21 +115,21 @@ other source files. No archive-rule weakening or L2 path change is planned.
 
 ## Completion Criteria
 
-- [ ] TC-01: Both original BOUNDARY Nash entries and an alternate named guardian are recognized from visible, same-entry explicit declarations; returned attribution and entry text remain original, without a Nash-only special case or canonical rewrite.
-- [ ] TC-02: Existing canonical mechanism values and generated canonical output remain unchanged; baseline cutoff, done population, counts/reset and failure exits retain their contracts, with no baseline or recorder edits.
-- [ ] TC-03: Post-baseline missing/empty, quoted, fenced, commented, indented-code, inline-code, noisy mention, borrowed-other-entry/section, malformed, multiple-name, duplicate or conflicting attribution is rejected; hidden headings cannot lend attribution across entries.
-- [ ] TC-04: Scanner diagnostics and its explanatory comment accurately describe both accepted attribution forms and invalid/ambiguous failure, without claiming identity authentication or independent approval.
-- [ ] TC-05: A pure in-memory boundary integration in the dedicated test file passes both the unchanged completion predicate and attribution evaluation with the original two entries byte-identical; changed historical verdict/date/body/receipts/attribution and moved/deleted entries remain rejected by completion validation. Focused RED/GREEN evidence is recorded without Git fixtures or product execution.
+- [x] TC-01: Both original BOUNDARY Nash entries and an alternate named guardian are recognized from visible, same-entry explicit declarations; returned attribution and entry text remain original, without a Nash-only special case or canonical rewrite.
+- [x] TC-02: Existing canonical mechanism values and generated canonical output remain unchanged; baseline cutoff, done population, counts/reset and failure exits retain their contracts, with no baseline or recorder edits.
+- [x] TC-03: Post-baseline missing/empty, quoted, fenced, commented, indented-code, inline-code, noisy mention, borrowed-other-entry/section, malformed, multiple-name, duplicate or conflicting attribution is rejected; hidden headings cannot lend attribution across entries.
+- [x] TC-04: Scanner diagnostics and its explanatory comment accurately describe both accepted attribution forms and invalid/ambiguous failure, without claiming identity authentication or independent approval.
+- [x] TC-05: A pure in-memory boundary integration in the dedicated test file passes both the unchanged completion predicate and attribution evaluation with the original two entries byte-identical; changed historical verdict/date/body/receipts/attribution and moved/deleted entries remain rejected by completion validation. Focused RED/GREEN evidence is recorded without Git fixtures or product execution.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| --- | --- | --- | --- |
-| TC-01 | Unit | Vitest `evidenceEntries` / `evaluateEntries` with verbatim original entry fixtures and an alternate guardian | Original raw attribution and text equality; no historical edits |
-| TC-02 | Regression | Existing dedicated canonical, baseline and counter tests plus unchanged-recorder inspection | Keep generated canonical contract; no baseline refresh |
-| TC-03 | Negative unit | In-memory visibility, malformed/ambiguous identity and entry-boundary mutations using the existing parser | No fixture repository, HOME or PTY; no hidden-text first-match success |
-| TC-04 | Unit and source inspection | Dedicated diagnostic assertions and comparison of scanner comment to accepted forms | Error path stays nonzero; no authentication claim |
-| TC-05 | Boundary integration | In-memory maps passed to `isPostMergeCompletionBatch`, plus actual attribution parser/evaluator | Exact historical bytes, terminal append, mutation negatives; not Git ancestry proof |
+| TC-ID | Test Type                  | Tool / Approach                                                                                              | Notes Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`                                                                               |
+| ----- | -------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit                       | Vitest `evidenceEntries` / `evaluateEntries` with verbatim original entry fixtures and an alternate guardian | Original raw attribution and text equality; no historical edits Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`                     |
+| TC-02 | Regression                 | Existing dedicated canonical, baseline and counter tests plus unchanged-recorder inspection                  | Keep generated canonical contract; no baseline refresh Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`                              |
+| TC-03 | Negative unit              | In-memory visibility, malformed/ambiguous identity and entry-boundary mutations using the existing parser    | No fixture repository, HOME or PTY; no hidden-text first-match success Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`              |
+| TC-04 | Unit and source inspection | Dedicated diagnostic assertions and comparison of scanner comment to accepted forms                          | Error path stays nonzero; no authentication claim Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`                                   |
+| TC-05 | Boundary integration       | In-memory maps passed to `isPostMergeCompletionBatch`, plus actual attribution parser/evaluator              | Exact historical bytes, terminal append, mutation negatives; not Git ancestry proof Verified in `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` |
 
 Planned focused command:
 `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`.
@@ -146,7 +146,7 @@ attribution parser and preservation of existing historical documents only.
 
 ## Tasks
 
-- [ ] `.agents/tasks/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` — todo
+- [x] `.agents/tasks/completed/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` — TC-01 through TC-05 verified
 
 ## Evidence Log
 
@@ -327,3 +327,206 @@ for the later implementation/DONE phase, not results of this PLAN verdict.
 
 **Judged by:** Hume — independent `backlog-gate-guard`; document and recorded mechanical-evidence confirmation, not `gate.mjs` execution
 **Judged at:** HEAD `69d942cecb1fe096d12cb8e878ce56eb82a80fbe` · base `origin/develop@f8569d567e8efbec7ea7795f699a3035b5fd5ff4` · document `.agents/spec-docs/draft/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `9f36e17037a9f4c37ea6f2d70dd8ef0ac24ea57e` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+
+Original regression before any source edit: 1 failed, 4 passed, expected explicit Nash declaration
+but received null. Visibility, ambiguity, canonical-compatibility, diagnostics and subsection tests
+were also observed RED before their corresponding source correction, then GREEN.
+
+Command: node scripts/harness/scan-gate-verdict-attribution.mjs
+Exit: 0
+::examined:: 2847 GATE evidence entries
+gate verdict attribution: 385 attributed, 2462 missing, 2462 historical baseline
+gate-verdict-attribution scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `54e80899665e` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+
+Original regression before any source edit: 1 failed, 4 passed, expected explicit Nash declaration
+but received null. Visibility, ambiguity, canonical-compatibility, diagnostics and subsection tests
+were also observed RED before their corresponding source correction, then GREEN.
+
+Command: node scripts/harness/scan-gate-verdict-attribution.mjs
+Exit: 0
+::examined:: 2847 GATE evidence entries
+gate verdict attribution: 385 attributed, 2462 missing, 2462 historical baseline
+gate-verdict-attribution scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `908411ca3ce2` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+
+Original regression before any source edit: 1 failed, 4 passed, expected explicit Nash declaration
+but received null. Visibility, ambiguity, canonical-compatibility, diagnostics and subsection tests
+were also observed RED before their corresponding source correction, then GREEN.
+
+Command: node scripts/harness/scan-gate-verdict-attribution.mjs
+Exit: 0
+::examined:: 2847 GATE evidence entries
+gate verdict attribution: 385 attributed, 2462 missing, 2462 historical baseline
+gate-verdict-attribution scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `c0c51401bc6b` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+
+Original regression before any source edit: 1 failed, 4 passed, expected explicit Nash declaration
+but received null. Visibility, ambiguity, canonical-compatibility, diagnostics and subsection tests
+were also observed RED before their corresponding source correction, then GREEN.
+
+Command: node scripts/harness/scan-gate-verdict-attribution.mjs
+Exit: 0
+::examined:: 2847 GATE evidence entries
+gate verdict attribution: 385 attributed, 2462 missing, 2462 historical baseline
+gate-verdict-attribution scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `72a59bd4ffbb` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+
+Original regression before any source edit: 1 failed, 4 passed, expected explicit Nash declaration
+but received null. Visibility, ambiguity, canonical-compatibility, diagnostics and subsection tests
+were also observed RED before their corresponding source correction, then GREEN.
+
+Command: node scripts/harness/scan-gate-verdict-attribution.mjs
+Exit: 0
+::examined:: 2847 GATE evidence entries
+gate verdict attribution: 385 attributed, 2462 missing, 2462 historical baseline
+gate-verdict-attribution scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `52c80d743610` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-13
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 64 scans failed); `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` → exit 0 ( Duration 307ms (transform 78ms, setup 0ms, collect 118ms, tests 48ms, environment 0ms, prepare 26ms) ⏎ ⏎ 6:47:48 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 64 scans failed); `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` → exit 0 ( Duration 307ms (transform 78ms, setup 0ms, collect 118ms, tests 48ms, environment 0ms, prepare 26ms) ⏎ ⏎ 6:47:48 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `05384386a283` · base `origin/develop@f8569d567e8e` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `b412a742dce0` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → done
+
+Independent judgement of this one L1 DONE invocation. The earlier mechanical FAIL is preserved:
+its aggregate scan command really exited 1, not 0. This entry distinguishes the catalogue's
+Post-PASS archival outputs from implementation verification; it does not weaken any scanner or
+claim the final placement checks have already passed. Status, moves and Git remain the caller's.
+
+- GATE-DONE — Ordering: PASS; the recorded GATE-PLAN PASS has target approved, matching the
+  current approved document in todo/. The catalogue's recorded-pass rule applies to this L1
+  composite gate; no L2 continuation or fresh approval is asserted.
+- GATE-VERIFY — Every Plan item complete: PASS; the exact paired ATTRIBUTION-2655 Task has three
+  Plan items and all three are checked. The two pending mechanical wording bindings are settled
+  by reading those items, not by treating pending as a mechanical success.
+- GATE-VERIFY — No Plan item blocked or pending: PASS; all three implementation/test items have
+  corresponding source and recorded results. Archival and merge are not added to that Plan.
+- GATE-VERIFY — Affected build verification: PASS for this tooling-only scope, with explicit
+  post-PASS handoff below. No product package or emitted build output changed. The caller's final
+  affected scan reported 63/64 passing, exit 1, with only task-archival failing because this Task's
+  three boxes are complete while its spec is not yet done. The recorded mechanical FAIL confirms
+  that sole failing scan; reading check-task-archival's allChecked/hasUndoneSpecPointer branch
+  confirms the cause. This is the catalogue's post-PASS placement obligation, not a failed product
+  build; neither a full scan exit 0 nor a product rebuild is claimed.
+- GATE-VERIFY — Tests: PASS; the final mechanical invocation records the dedicated Vitest command
+  exiting 0. The existing focused verification record reports 12 tests passed in one file and
+  the original recognition RED (expected the Nash declaration, received null; 1 failed/4 passed).
+  This guardian read source/tests and recorded results, and did not rerun them. The aggregate
+  scan's separate exit 1 remains recorded above.
+- GATE-COMPLETE — Per-TC checkboxes: PASS; TC-01 through TC-05 are all checked.
+- GATE-COMPLETE — Per-TC verification entries: PASS; all five existing TC entries specify the
+  focused command and exit 0. Their truncated output excerpts omit the test total; the existing
+  focused verification record supplies 12/12, alongside the done-tree scan's exit 0: 2847 entries,
+  385 attributed, 2462 missing historical-baseline entries, zero post-baseline violations.
+  Missing historical attribution is not relabelled as resolved or authenticated.
+- GATE-COMPLETE — Test reference or skip per TC: PASS; the dedicated file named in each Test Plan
+  row is `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`. Exact test-name binding:
+  TC-01: "recognizes an explicit manual guardian without rewriting the entry" and "isolates real
+  entries and preserves canonical attribution and original text"; TC-02: "preserves existing
+  canonical entries with multiple recorded judging mechanisms", "counts every gate entry and
+  detects the canonical field", and "resets the exported examined counter on each collection";
+  TC-03: "does not obtain a guardian from hidden or quoted examples", "rejects missing, malformed,
+  duplicate or conflicting declarations", and "does not borrow a guardian from a later non-gate
+  subsection"; TC-04: "reports both supported attribution forms on the failing scanner path";
+  TC-05: "accepts the two original guardian entries without weakening archive immutability".
+- GATE-COMPLETE — No TC silently unaddressed: PASS; each of the five rows has the reference above;
+  no test skip is substituted for an unverified feature.
+- GATE-COMPLETE — All spec criteria checked: PASS; five of five.
+- GATE-COMPLETE — Updated Test Plan references: PASS; all five rows name the dedicated test file;
+  the exact function names are recorded above. Earlier planning-time non-execution prose is
+  superseded by these verification records, not evidence that tests were still unrun.
+- GATE-COMPLETE — Exact active Task pointer: PASS; Tasks names
+  `.agents/tasks/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md`, which exists.
+- GATE-COMPLETE — Active Task completion-ready: PASS; three checked Plan items, no blocked item,
+  and the existing not-applicable scenario outcome. Its nonterminal status and active location
+  are expected inputs here; terminal status/date and archival follow this PASS.
+
+TC-05 evidence limit: the test reads the two real original BOUNDARY Nash entries, retains their
+raw text in the synthetic before/after maps, accepts the unchanged completion predicate, and
+finds zero attribution violations. Its seven non-no-op historical mutations (verdict, date,
+guardian, body, fingerprint label, deletion and reordering) are each rejected by that predicate.
+The synthetic ledger is not actual merge ancestry, a valid terminal receipt, or BOUNDARY completion.
+The completion predicate, baseline, gate recorder and governing archive rule have no diff from
+the current checkpoint. Existing canonical multiple-mechanism handling remains unchanged; the
+new manual path enforces its own ambiguity/conflict checks.
+
+**Post-PASS handoff:** Main must perform the supported atomic L1 completion, update the Task
+status/date and pointers, move the pair, then run placement and task-archival checks on that final
+state. The earlier aggregate exit 1 is retained as pre-handoff evidence. This PASS does not claim
+the post-handoff scans, remote CI, independent source-review verdict, PR approval or merge. Nash's
+source review was still pending when this gate was dispatched and is not supplied by this entry.
+
+**Verification record read:** `/tmp/robota-2655-attribution-focused-verification.txt` (recorded actual
+command output, 2026-09-13 18:45 KST); final mechanical FAIL entry above records the later focused
+command exit 0 and the sole task-archival scan failure.
+**Source SHA256:** `6517f437bc13569e76794bc6e68e698777ae1a7a1358977c3f1f2aa384fbcb22`
+**Dedicated test SHA256:** `8e9ce3f52508a8d3a1d54fe13128d36a135800563a0c2fd70e03a2d595a05241`
+**Judged by:** Hume — independent `backlog-gate-guard`; scoped source/test inspection and evidence judgement, no test rerun
+**Judged at:** HEAD `05384386a283aea71d4e3ce9727e096dfad1474a` · base `origin/develop@f8569d567e8efbec7ea7795f699a3035b5fd5ff4` · document `.agents/spec-docs/todo/ATTRIBUTION-2655-recognize-explicit-same-entry-guardian-attribution.md` blob `1292449df872ff4b699e13c9774d4ed7d6f6e54f` (modified)

@@ -6,17 +6,58 @@
  * Issue #2269 measured 1578 gate entries with no attribution. Historical evidence is immutable, so
  * the migration baseline reports that debt and only rejects entries dated after the baseline.
  * Generated entries are kept honest by gate.mjs, which writes the same canonical field.
+ * Manual entries may instead disclose `Independent guardian: <name>.` at the start of a visible
+ * paragraph in that same entry. The single-token name must be explicit and unambiguous; examples,
+ * duplicate manual declarations and conflicts with canonical attribution are not evidence.
+ * Original text is returned, never rewritten. Recognition is disclosure, not identity authentication.
+ * Existing canonical entries can contain several judging mechanisms and keep their prior handling.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { visibleMarkdown } from './markdown-visibility.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
 const DONE = path.join(ROOT, '.agents/spec-docs/done');
 const BASELINE = path.join(import.meta.dirname, 'gate-verdict-attribution-baseline.json');
 let examinedEntries = 0;
+
+function entryAttribution(lines, rawLines, previousRawLines) {
+  const canonical = [];
+  const guardians = [];
+  let manualSection = true;
+  for (const [index, line] of lines.entries()) {
+    if (index > 0 && /^###\s/.test(line)) manualSection = false;
+    if (line.startsWith('**Judged by:**')) canonical.push({ line, raw: rawLines[index] });
+    if (manualSection && line.startsWith('Independent guardian:')) {
+      const name = /^Independent guardian: ([\p{L}][\p{L}\p{N}_-]*)\.(?:\s|$)/u.exec(line)?.[1];
+      if (
+        !name ||
+        /^(?:unknown|none|null|undefined|tbd|todo)$/i.test(name) ||
+        previousRawLines[index]?.trim() !== ''
+      )
+        return null;
+      guardians.push({ name, raw: rawLines[index] });
+    }
+  }
+  if (guardians.length > 1) return null;
+  if (canonical.length > 0) {
+    const value = canonical[0].line.slice('**Judged by:**'.length).trim();
+    if (
+      !value ||
+      (guardians.length === 1 &&
+        canonical.some(
+          ({ line }) =>
+            line.slice('**Judged by:**'.length).trim().replaceAll('`', '') !== guardians[0].name,
+        ))
+    )
+      return null;
+    return canonical[0].raw;
+  }
+  return guardians[0]?.raw ?? null;
+}
 
 function markdownFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -30,25 +71,33 @@ function markdownFiles(dir) {
 }
 
 export function evidenceEntries(text, file = '') {
-  const lines = String(text ?? '').split('\n');
+  const { lines, rawIndices, sourceLines } = visibleMarkdown(text, true);
   const start = lines.findIndex((line) => /^##\s+Evidence Log\s*$/i.test(line));
   if (start < 0) return [];
   const end = lines.findIndex((line, index) => index > start && /^##\s+/.test(line));
-  const section = lines.slice(start + 1, end < 0 ? lines.length : end);
-  const entries = [];
-  let current = null;
-  for (const line of section) {
-    if (/^###\s+\[GATE-[^\]]+\]/.test(line)) {
-      if (current) entries.push(current);
-      current = [line];
-    } else if (current) current.push(line);
-  }
-  if (current) entries.push(current);
-  return entries.map((linesInEntry) => {
+  const sectionEnd = end < 0 ? lines.length : end;
+  const starts = [];
+  for (let index = start + 1; index < sectionEnd; index += 1)
+    if (/^###\s+\[GATE-[^\]]+\]/.test(lines[index])) starts.push(index);
+  return starts.map((entryStart, index) => {
+    const entryEnd = starts[index + 1] ?? sectionEnd;
+    const linesInEntry = lines.slice(entryStart, entryEnd);
     const heading = linesInEntry[0];
     const date = /\|\s*(\d{4}-\d{2}-\d{2})/.exec(heading)?.[1] ?? null;
-    const judgedBy = linesInEntry.find((line) => /^\*\*Judged by:\*\*\s*\S/.test(line)) ?? null;
-    return { file, heading, date, judgedBy, text: linesInEntry.join('\n') };
+    const judgedBy = entryAttribution(
+      linesInEntry,
+      linesInEntry.map((_, offset) => sourceLines[rawIndices[entryStart + offset]]),
+      linesInEntry.map((_, offset) => sourceLines[rawIndices[entryStart + offset] - 1]),
+    );
+    return {
+      file,
+      heading,
+      date,
+      judgedBy,
+      text: sourceLines
+        .slice(rawIndices[entryStart], rawIndices[entryEnd] ?? sourceLines.length)
+        .join('\n'),
+    };
   });
 }
 
@@ -96,7 +145,7 @@ export function main(root = ROOT) {
   if (result.violations.length > 0) {
     for (const violation of result.violations.slice(0, 20)) {
       console.error(
-        `gate-verdict-attribution: ${violation.file}: ${violation.heading} has no **Judged by:** line`,
+        `gate-verdict-attribution: ${violation.file}: ${violation.heading} has missing or invalid attribution; expected visible **Judged by:** or an unambiguous same-entry Independent guardian: <name>. declaration`,
       );
     }
     if (result.violations.length > 20)
