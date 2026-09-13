@@ -28,7 +28,9 @@ import {
   parseLaneFloors,
   parseSpecTriggerSections,
 } from './scan-lane-declaration.mjs';
-import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { asScalar, frontmatterObject, parseFrontmatterEntryLine } from './frontmatter.mjs';
+import { checkboxItems, sectionBody } from './gate-document.mjs';
+import { classifyTaskLifecycle } from './task-lifecycle.mjs';
 
 export const TASK_PREFIX = '.agents/tasks/';
 export const SPEC_PREFIX = '.agents/spec-docs/';
@@ -285,6 +287,86 @@ export function isApprovedDocumentationBatch({
     signal.count === 0 &&
     l0GroundProblems(basename, textAfter, planSignal).length === 0
   );
+}
+
+/** Archive only the already-approved document Task; this is not executable planning ground. */
+export function isApprovedDocumentationArchive({
+  paths,
+  textBefore,
+  textAfter,
+  laneRuleText,
+  planSignal,
+  isPlainFile,
+  isPlainBeforeFile,
+}) {
+  if (
+    paths.length !== 2 ||
+    new Set(paths).size !== 2 ||
+    laneFloorAboveL0(paths, laneRuleText) !== null
+  )
+    return false;
+  const source = paths.find((file) => /^\.agents\/tasks\/[^/]+\.md$/.test(file));
+  const basename = source ? taskBasename(source) : null;
+  if (basename === null || subjectId(basename) === null) return false;
+  const destination = `${TASK_PREFIX}completed/${basename}`;
+  if (!paths.includes(destination) || !isPlainBeforeFile(source) || !isPlainFile(destination))
+    return false;
+  const before = textBefore(source);
+  const after = textAfter(destination);
+  if (
+    typeof before !== 'string' ||
+    typeof after !== 'string' ||
+    textAfter(source) !== null ||
+    textBefore(destination) !== null
+  )
+    return false;
+  const oldState = classifyTaskLifecycle(before);
+  const newState = classifyTaskLifecycle(after);
+  if (
+    !oldState.valid ||
+    !['todo', 'in-progress'].includes(oldState.status) ||
+    !newState.valid ||
+    newState.status !== 'done'
+  )
+    return false;
+  const fields = frontmatterObject(before);
+  const signal = planSignal(before);
+  if (
+    asScalar(fields.documentation_batch_approval) !== 'DIRECT' ||
+    !asScalar(fields.documentation_batch_instruction).trim() ||
+    signal?.outcome !== 'not-applicable' ||
+    signal.count !== 0
+  )
+    return false;
+  if (
+    SPEC_LIFECYCLE_FOLDERS.some((folder) => {
+      const file = `${SPEC_PREFIX}${folder}/${basename}`;
+      return textBefore(file) !== null || textAfter(file) !== null;
+    })
+  )
+    return false;
+  const plan = checkboxItems(sectionBody(before, /^Plan$/)?.body ?? []);
+  if (plan.length === 0 || plan.some((item) => !item.checked)) return false;
+  const withoutLifecycle = (text, expectedCompleted) => {
+    const lines = text.split('\n');
+    const end = lines.indexOf('---', 1);
+    if (lines[0] !== '---' || end === -1) return null;
+    const keys = lines.map((line) => parseFrontmatterEntryLine(line)?.key);
+    const metadata = keys.slice(1, end);
+    if (
+      metadata.filter((key) => key === 'status').length !== 1 ||
+      metadata.filter((key) => key === 'completed').length !== expectedCompleted
+    )
+      return null;
+    return lines
+      .filter(
+        (line, index) =>
+          !(index > 0 && index < end && ['status', 'completed'].includes(keys[index])),
+      )
+      .join('\n');
+  };
+  const unchanged = withoutLifecycle(before, 0);
+  return unchanged !== null && unchanged === withoutLifecycle(after, 1);
 }
 
 export function readPlanSignal(task, sectionReader) {
