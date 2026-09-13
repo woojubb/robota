@@ -5,7 +5,7 @@
 
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { WebSocketServer } from 'ws';
 
 import { PayloadChannelRegistry } from './payload-channels.js';
@@ -36,7 +36,7 @@ import type {
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { RawData, WebSocket } from 'ws';
 
 /**
@@ -49,7 +49,7 @@ const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
 
 /**
  * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
- * TEXT frames go to the text-agent protocol profile (`createWsHandler`), BINARY frames go to the
+ * TEXT frames go to the text-agent protocol profile (`createSessionMessageHandler`), BINARY frames go to the
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
 export class WsTransport
@@ -248,7 +248,7 @@ export class WsTransport
           }
 
           const delivery = new WsSessionDelivery(ws);
-          const handler = createWsHandler({
+          const handler = createSessionMessageHandler({
             session,
             deliver: delivery.deliver,
             ...this.handlerOptions,

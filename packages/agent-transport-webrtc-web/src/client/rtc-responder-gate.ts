@@ -28,9 +28,9 @@ import {
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
 
-import { decodeServerMessage } from '@robota-sdk/agent-transport-protocol';
+import { decodeServerMessage } from '@robota-sdk/agent-transport';
 
-import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
 
 /** The minimal data-channel surface the gate drives (a native `RTCDataChannel` satisfies it). */
 export interface IResponderChannel {

@@ -77,9 +77,6 @@
   "@robota-sdk/agent-transport-mcp": {
     "type": 2
   },
-  "@robota-sdk/agent-transport-protocol": {
-    "type": 16
-  },
   "@robota-sdk/agent-transport-tui": {
     "type": 6
   },

@@ -7,15 +7,38 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "source": "./src/index.ts",
+      "types": "./dist/node/index.d.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       },
+      "browser": {
+        "import": "./dist/browser/index.js"
+      },
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
+      }
+    },
+    "./client": {
+      "types": "./dist/browser/client.d.ts",
+      "source": "./src/client.ts",
+      "browser": "./dist/browser/client.js",
+      "import": "./dist/browser/client.js",
+      "default": "./dist/browser/client.js"
+    },
+    "./node": {
+      "types": "./dist/node/node.d.ts",
+      "source": "./src/node/index.ts",
+      "node": {
+        "import": "./dist/node/node.js",
+        "require": "./dist/node/node.cjs"
+      },
+      "browser": null,
+      "default": {
+        "import": "./dist/node/node.js",
+        "require": "./dist/node/node.cjs"
       }
     }
   },
@@ -51,14 +74,14 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-interface-analytics": "workspace:*",
     "@robota-sdk/agent-interface-command": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*",
+    "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/agent-command": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.1",

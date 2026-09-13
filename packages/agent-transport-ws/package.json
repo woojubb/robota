@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport-ws",
   "version": "3.0.0-beta.79",
-  "description": "WebSocket transport and protocol for the Robota SDK",
+  "description": "WebSocket carrier for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -57,7 +57,7 @@
     "@robota-sdk/agent-interface-analytics": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
     "ws": "^8.21.1"
   },
   "devDependencies": {

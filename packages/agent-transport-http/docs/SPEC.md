@@ -8,8 +8,8 @@ HTTP transport (Hono) for the Robota SDK. Split out of the consolidated `agent-t
 ## Boundaries
 
 - Owns the Hono-based HTTP transport adapter and agent route builder.
-- Depends on `agent-interface-transport` (transport contracts) and `agent-transport-protocol`
-  (SEC-008: the one seam that decides admission — `resolveAdmission`, `bearerCredential`,
+- Depends on `agent-interface-transport` (transport contracts) and `agent-transport/node`
+  (SEC-008: the one Node-only seam that decides admission — `resolveAdmission`, `bearerCredential`,
   `credentialMatches`; the decision is deliberately NOT re-made here). Contract-pure otherwise, per
   `project-structure.md`: the one side concern (where a stream-failure detail goes) is INJECTED
   (`IAgentRoutesOptions.onStreamFailure`), not imported; see § Error Taxonomy.
@@ -107,5 +107,5 @@ Route + transport unit tests under `src/__tests__`.
 ## Dependencies
 
 - `@robota-sdk/agent-interface-transport`.
-- `@robota-sdk/agent-transport-protocol` (SEC-008 admission seam).
+- `@robota-sdk/agent-transport` (SEC-008 admission seam).
 - External: `hono`.

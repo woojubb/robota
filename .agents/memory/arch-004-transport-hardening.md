@@ -22,6 +22,7 @@ surfaces:
 
 Prior-art-anchored (RFC 6455 close→terminate, `ws` close/terminate, Hono `streamSSE.onAbort`, K8s
 drain-then-force). proposal-reviewer REVISE resolved; pr-review-reviewer 0 real code defects (the SHOULD was an
-accidental-green RUNTIME-14 test → replaced with a real `reader.cancel()` disconnect-path test). Follow-up:
-**STRUCT-08** — the same-class load-bearing `agent-transport/src/testing` pass-through
-(`.agents/tasks/STRUCT-008-agent-transport-testing-passthrough.md`).
+accidental-green RUNTIME-14 test → replaced with a real `reader.cancel()` disconnect-path test).
+Former follow-up **STRUCT-08** was superseded when STRUCT-012 S2 removed the
+`agent-transport/src/testing` surface and rewired its consumers
+(`.agents/tasks/completed/STRUCT-008-agent-transport-testing-passthrough.md`).

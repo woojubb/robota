@@ -7,7 +7,7 @@
 // rather than assumed:
 //
 //   - its consumers are FOUR files across TWO packages — `agent-transport-gui` (three) and
-//     `agent-transport-protocol` (one) — and neither package's documented dependency set
+//     `agent-transport` (one) — and neither package's documented dependency set
 //     (`.agents/project-structure.md`) admits `agent-core`. An earlier revision said "the one
 //     consumer is `agent-transport-gui`": a line-based count cannot see a multi-line import;
 //   - `agent-core` has NO internal dependencies — it is the bottom layer — so the type cannot move
@@ -75,5 +75,5 @@ export type {
 // now live under `testing/` per `contracts→agent-interface-*, doubles→owner /testing`.
 
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
-// @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
+// @robota-sdk/agent-transport — an interface package carries no runtime dependency edge.
 export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';

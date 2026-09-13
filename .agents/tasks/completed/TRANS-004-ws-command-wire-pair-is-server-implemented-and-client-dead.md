@@ -23,7 +23,7 @@ typing `/help` sends it to the model as prose.
 
 ## Evidence (round-2 cross-cluster critic, 2026-08-13)
 
-- `packages/agent-transport-protocol/src/ws-protocol.ts:32` — declares `{ type: 'command'; name;
+- `packages/agent-transport-protocol/src/ws-protocol.ts:32` <!-- evidence-superseded: STRUCT-012 S3 moved and renamed this historical source to packages/agent-transport/src/wire-messages.ts; the finding describes the earlier revision. --> — declares `{ type: 'command'; name;
 args? }`; `ws-handler.ts:225-240` fully implements it (`session.executeCommand(..., 'remote',
 driverId)` → `command_result`). `agent-cli/src/modes/serve-mode.ts:181-184` defers teardown 500ms
   "so the in-flight `command_result` reaches the requesting surface" under the REMOTE-006 charter

@@ -7,7 +7,7 @@ import type {
   TStoredSessionUsageReport,
 } from './session-client-types.js';
 import type { TClientMessage } from '../client/ws-session-client.js';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 type TPersonalUsageState = Pick<
   IWsSessionState,

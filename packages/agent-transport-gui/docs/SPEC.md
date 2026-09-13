@@ -63,7 +63,7 @@ not own session lifecycle, conversation history, or agent runtime state.
 ## Boundaries
 
 - Does NOT own the WS/RTC wire protocol framing — `TServerMessage` / `TClientMessage` are owned by
-  `@robota-sdk/agent-transport-protocol`.
+  `@robota-sdk/agent-transport`.
 - Does NOT own the transport-facing contract types (interaction/event/workspace) — those live in
   `@robota-sdk/agent-interface-transport`.
 - Does NOT own `InteractiveSession`, session/runtime contracts, or `agent-core` types — no dependency on
@@ -99,7 +99,7 @@ apps/agent-app (Electron renderer)          agent-transport-webrtc-web (browser 
         │                                            │
         │ createWsSessionClient (localhost)          │ createRtcSessionClient (agent-transport-webrtc-web)
         ▼                                            ▼
-  agent-transport-protocol  (TServerMessage / TClientMessage)
+  agent-transport  (TServerMessage / TClientMessage)
 ```
 
 `useSessionClient` is generic over `TStatus extends string = TConnectionStatus`: the WS path uses
@@ -122,7 +122,7 @@ logic — it forwards user intent through the reducer's `send` / `answerPermissi
 | `IConversationMessage`, `IActiveTool`                                      | this package                                           |
 | `TConnectionStatus`                                                        | this package (`createWsSessionClient`)                 |
 | `TPendingPrompt`                                                           | this package (`prompt-state`)                          |
-| `TServerMessage`, `TClientMessage`                                         | `@robota-sdk/agent-transport-protocol`                 |
+| `TServerMessage`, `TClientMessage`                                         | `@robota-sdk/agent-transport`                          |
 | `IExecutionWorkspaceSnapshot`, `TActionResponse`, `TPermissionResultValue` | `@robota-sdk/agent-interface-transport`                |
 | `TRtcConnectionStatus`, `TSessionStatus`                                   | `@robota-sdk/agent-transport-webrtc-web` (RTC surface) |
 

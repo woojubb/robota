@@ -48,7 +48,7 @@ describe('a transport with no admission answer', () => {
 
   it('is cleared by referencing the seam', () => {
     makeTransport('agent-transport-newthing', {
-      source: "import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';\n",
+      source: "import { resolveAdmission } from '@robota-sdk/agent-transport/node';\n",
     });
 
     expect(findAdmissionFindings(root)).toEqual([]);

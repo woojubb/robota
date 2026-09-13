@@ -636,6 +636,32 @@ function gateImplementCorrectionCount(spec, binding = null, ruleText = null, opt
 
 const exactPlanSignal = (task) => readPlanSignal(task, markdownSection);
 
+/**
+ * A paused sequenced Task has one legal way back into execution: its frontmatter status changes
+ * from `blocked` to `in-progress` in the same checkpoint that appends the continuation PASS. No
+ * other Task byte may change there; implementation evidence belongs after the checkpoint.
+ */
+function isBlockedTaskResume(parentTask, task) {
+  if (
+    typeof parentTask !== 'string' ||
+    typeof task !== 'string' ||
+    frontmatterStatus(parentTask) !== 'blocked' ||
+    frontmatterStatus(task) !== 'in-progress'
+  ) {
+    return false;
+  }
+  const normalize = (text) => {
+    const end = text.indexOf('\n---', 3);
+    if (end === -1) return null;
+    const frontmatter = text.slice(0, end);
+    const statusLines = [...frontmatter.matchAll(/^status:\s*[^\n]+$/gm)];
+    if (statusLines.length !== 1) return null;
+    return `${frontmatter.replace(/^status:\s*[^\n]+$/m, 'status: <open>')}${text.slice(end)}`;
+  };
+  const before = normalize(parentTask);
+  return before !== null && before === normalize(task);
+}
+
 function isCheckpointTransition({
   basename,
   parentTask,
@@ -662,8 +688,9 @@ function isCheckpointTransition({
       ? { expectedTaskItems: selectedTaskItems.items }
       : { taskItemsError: selectedTaskItems.error }),
   };
+  const resumedTask = isBlockedTaskResume(parentTask, task);
   const parentInProgress =
-    frontmatterStatus(parentTask) === 'in-progress' &&
+    (frontmatterStatus(parentTask) === 'in-progress' || resumedTask) &&
     frontmatterStatus(parentSpec) === 'in-progress';
   if (!parentInProgress) {
     // The first checkpoint of a pair: neither side was in-progress, and the spec gains its first
@@ -683,7 +710,7 @@ function isCheckpointTransition({
   // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
   // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
   const passDeltaIsOne =
-    task === parentTask &&
+    (task === parentTask || resumedTask) &&
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
     gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&
@@ -698,7 +725,7 @@ function isCheckpointTransition({
     gateImplementCorrectionCount(parentSpec, binding, ruleText, checkpointOptions);
   return (
     (continuationDelta === 1 && correctionDelta === 0) ||
-    (continuationDelta === 0 && correctionDelta === 1)
+    (task === parentTask && continuationDelta === 0 && correctionDelta === 1)
   );
 }
 

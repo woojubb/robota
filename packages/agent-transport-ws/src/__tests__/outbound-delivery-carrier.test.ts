@@ -7,15 +7,12 @@
  */
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { WsSessionDelivery } from '../ws-session-delivery.js';
-import {
-  DEFAULT_MAX_PENDING_BYTES,
-  DEFAULT_MAX_PENDING_MS,
-} from '@robota-sdk/agent-transport-protocol';
+import { DEFAULT_MAX_PENDING_BYTES, DEFAULT_MAX_PENDING_MS } from '@robota-sdk/agent-transport';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
@@ -89,7 +86,7 @@ describe('WsSessionDelivery + the outbound boundary (ARCH-030)', () => {
         }),
     } as Partial<IInteractiveSession>);
 
-    const handler = createWsHandler({ session, deliver: delivery.deliver });
+    const handler = createSessionMessageHandler({ session, deliver: delivery.deliver });
     delivery.bindProtocolCleanup(handler.cleanup);
 
     const rejections = await withUnhandledRejectionCapture(async () => {

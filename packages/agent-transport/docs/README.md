@@ -1,14 +1,21 @@
 # @robota-sdk/agent-transport
 
-Consolidated transport package for the Robota SDK. Protocol adapters are available via
-sub-path exports. TUI (Ink/React) rendering ships as the standalone
+Browser-safe transport protocol and delivery substrate for the Robota SDK. Node-only admission and
+handoff integrity helpers are available through `./node`; browser decoders are available through
+`./client`. TUI (Ink/React) rendering ships as the standalone
 `@robota-sdk/agent-transport-tui` package, keeping this core React-free.
 
 ## Usage
 
 ```typescript
-// Headless (non-interactive) transport
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+// Shared session-message handling
+import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
+
+// Browser-side runtime decoding
+import { decodeServerMessage } from '@robota-sdk/agent-transport/client';
+
+// Node-only admission helpers
+import { resolveAdmission } from '@robota-sdk/agent-transport/node';
 
 // TUI presentation host (session-owning, not ITransportAdapter)
 import { renderApp } from '@robota-sdk/agent-transport-tui';

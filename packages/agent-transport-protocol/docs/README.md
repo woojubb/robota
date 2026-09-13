@@ -1,3 +1,3 @@
-# agent-transport-protocol Docs Index
+# agent-transport-protocol Transitional Docs Index
 
-- `SPEC.md`: the transport-neutral session bridge (`createWsHandler`) + wire protocol (`TClientMessage`/`TServerMessage`) shared by transport implementations.
+- `SPEC.md`: the empty, non-forwarding tombstone retained until STRUCT-012 S5 removes this retired package identity. Active transport-neutral contracts live in `@robota-sdk/agent-transport`.

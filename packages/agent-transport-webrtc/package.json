@@ -55,7 +55,7 @@
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
     "ws": "^8.21.1"
   },
   "peerDependencies": {

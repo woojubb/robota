@@ -7,18 +7,18 @@
  * that only wants to detach disconnects; `/exit` ends the session for everyone.
  *
  * Placement: this e2e needs a REAL `InteractiveSession` (agent-framework, a runtime dependency of
- * this package) under real `createWsHandler` surfaces (agent-transport-protocol, a devDependency) —
+ * this package) under real `createSessionMessageHandler` surfaces (`agent-transport`) —
  * agent-transport is the Stage-D-owned package that legitimately sees both sides.
  */
 
 import { createExitCommandModule, createLanguageCommandModule } from '@robota-sdk/agent-command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -59,7 +59,7 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
   });
   const attach = (driverId: string): ISurface => {
     const sent: TServerMessage[] = [];
-    const { onMessage } = createWsHandler({
+    const { onMessage } = createSessionMessageHandler({
       session,
       deliver: createOutboundDelivery((msg) => sent.push(msg), vi.fn()),
       driverId,

@@ -35,7 +35,7 @@ browser-only. It reuses the isomorphic zero-dep `@robota-sdk/agent-remote-pairin
 
 - Does NOT own the session reducer, the view components, or the localhost WS client — those are the shared GUI
   core `@robota-sdk/agent-transport-gui`, imported directly (NOT re-exported — no pass-through).
-- Does NOT own the WS/RTC wire protocol framing — that is `@robota-sdk/agent-transport-protocol`.
+- Does NOT own the WS/RTC wire protocol framing — that is `@robota-sdk/agent-transport`.
 - Does NOT own the pairing CRYPTO — the directional-HMAC handshake + DTLS-fingerprint channel binding is the
   isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf.
 - Does NOT own the node host transport (offerer, werift) — that is `@robota-sdk/agent-transport-webrtc`.
@@ -55,7 +55,7 @@ remote.html (paired peer)
                     ├── createRtcSignalingClient (native WebSocket ISignalingClient)
                     ├── agent-remote-pairing (directional-HMAC + DTLS channel binding)
                     └── useSessionClient<TSessionStatus>  (agent-transport-gui reducer)
-                          └── agent-transport-protocol (TServerMessage / TClientMessage)
+                          └── agent-transport (TServerMessage / TClientMessage)
 ```
 
 `useRtcSession` instantiates the shared `useSessionClient<TSessionStatus>` generic — keeping the RTC-only status
@@ -68,7 +68,7 @@ states out of the core (the core does not depend on this package; no cycle).
 | `TRtcConnectionStatus`                                                                             | this package (`rtc-session-client.ts`) |
 | `TSessionStatus`                                                                                   | this package (`useRtcSession.ts`)      |
 | `IWsSessionState`, `TConnectionStatus`, `useSessionClient`, `ConversationView`, `PermissionPrompt` | `@robota-sdk/agent-transport-gui`      |
-| `TServerMessage`, `TClientMessage`                                                                 | `@robota-sdk/agent-transport-protocol` |
+| `TServerMessage`, `TClientMessage`                                                                 | `@robota-sdk/agent-transport`          |
 | pairing handshake / channel binding                                                                | `@robota-sdk/agent-remote-pairing`     |
 
 ## Public API Surface

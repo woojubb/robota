@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { useSessionClient } from '../useSessionClient.js';
 
 import type { TMakeSessionClient } from '../useSessionClient.js';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 function setup(): {
   result: { current: ReturnType<typeof useSessionClient> };
@@ -77,7 +77,7 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
 
   it('ARCH-2164: requests and receives the existing current-session usage report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
-    const wire: import('@robota-sdk/agent-transport-protocol').TClientMessage[] = [];
+    const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];
     const makeClient: TMakeSessionClient = (callbacks) => {
       onMessage = callbacks.onMessage;
       return {
@@ -114,7 +114,7 @@ describe('SCREEN-2577 — personal usage request correlation', () => {
   it('keeps the latest request when replies arrive out of order', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const sent: Parameters<TMakeSessionClient>[0][] = [];
-    const wire: import('@robota-sdk/agent-transport-protocol').TClientMessage[] = [];
+    const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];
     const makeClient: TMakeSessionClient = (callbacks) => {
       onMessage = callbacks.onMessage;
       sent.push(callbacks);
@@ -193,7 +193,7 @@ describe('SCREEN-2577 — personal usage request correlation', () => {
 
   it('correlates a stored-session drill-down and exposes the existing trace report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
-    const wire: import('@robota-sdk/agent-transport-protocol').TClientMessage[] = [];
+    const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];
     const makeClient: TMakeSessionClient = (callbacks) => {
       onMessage = callbacks.onMessage;
       return {

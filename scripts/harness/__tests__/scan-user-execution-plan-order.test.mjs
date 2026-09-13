@@ -1883,6 +1883,68 @@ describe('user-execution PLAN order — branch history', () => {
     expect(readExaminedPlanOrderCount(root, base)).toBe(2);
   });
 
+  it('accepts only a blocked-to-in-progress Task status change in a continuation checkpoint (#2729)', () => {
+    const resumed = sequencedRepository();
+    write(
+      resumed.root,
+      TASK_PATH,
+      readOptional(resumed.root, TASK_PATH).replace('status: in-progress', 'status: blocked'),
+    );
+    const resumedBase = commit(resumed.root, 'owner pauses the sequenced task');
+    git(resumed.root, ['update-ref', 'refs/remotes/origin/develop', resumedBase]);
+
+    write(
+      resumed.root,
+      TASK_PATH,
+      readOptional(resumed.root, TASK_PATH).replace('status: blocked', 'status: in-progress'),
+    );
+    write(resumed.root, SPEC_PATH, continuationSpecText());
+    git(resumed.root, ['add', '-A']);
+    expect(findStagedFindings(resumed.root, resumedBase)).toEqual([]);
+    commit(resumed.root, 'resume continuation checkpoint');
+    write(resumed.root, 'scripts/harness/change.mjs', 'implementation\n');
+    commit(resumed.root, 'implementation after resume');
+    expect(findHistoryFindings(resumed.root, resumedBase)).toEqual([]);
+
+    const widened = sequencedRepository();
+    write(
+      widened.root,
+      TASK_PATH,
+      readOptional(widened.root, TASK_PATH).replace('status: in-progress', 'status: blocked'),
+    );
+    const widenedBase = commit(widened.root, 'owner pauses another sequenced task');
+    git(widened.root, ['update-ref', 'refs/remotes/origin/develop', widenedBase]);
+    write(
+      widened.root,
+      TASK_PATH,
+      `${readOptional(widened.root, TASK_PATH).replace('status: blocked', 'status: in-progress')}\nimplementation evidence added too early\n`,
+    );
+    write(widened.root, SPEC_PATH, continuationSpecText());
+    git(widened.root, ['add', '-A']);
+    expect(messages(findStagedFindings(widened.root, widenedBase))).toMatch(
+      /checkpoint is neither|checkpoint binding failed/,
+    );
+
+    const correction = sequencedRepository();
+    write(
+      correction.root,
+      TASK_PATH,
+      readOptional(correction.root, TASK_PATH).replace('status: in-progress', 'status: blocked'),
+    );
+    const correctionBase = commit(correction.root, 'owner pauses before a correction');
+    git(correction.root, ['update-ref', 'refs/remotes/origin/develop', correctionBase]);
+    write(
+      correction.root,
+      TASK_PATH,
+      readOptional(correction.root, TASK_PATH).replace('status: blocked', 'status: in-progress'),
+    );
+    write(correction.root, SPEC_PATH, continuationSpecText({ statusLine: CORRECTION_STATUS_LINE }));
+    git(correction.root, ['add', '-A']);
+    expect(messages(findStagedFindings(correction.root, correctionBase))).toMatch(
+      /checkpoint is neither|checkpoint binding failed/,
+    );
+  });
+
   it('keeps refusing around a continuation: implementation before it, two of them, and a first-form entry (HARNESS-131)', () => {
     const early = sequencedRepository();
     write(early.root, 'scripts/harness/change.mjs', 'implementation\n');

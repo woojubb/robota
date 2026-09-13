@@ -2,7 +2,7 @@
  * Session hand-off orchestration (HANDOFF-001, issue #1864).
  *
  * The two ends and the contract the composition root fills in. The wire operations themselves live
- * in `@robota-sdk/agent-transport-protocol`; see `handoff-composition.ts` for why the edge runs
+ * in `@robota-sdk/agent-transport`; see `handoff-composition.ts` for why the edge runs
  * through a port rather than a dependency.
  */
 

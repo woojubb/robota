@@ -1,24 +1,39 @@
 import { defineConfig } from 'tsdown';
 
-const outExtensions = ({ format }: { format: string }) => ({
-  js: format === 'cjs' ? '.cjs' : '.js',
-  dts: '.d.ts',
-});
-
-export default defineConfig({
+const shared = {
   sourcemap: false,
   treeshake: true,
   minify: true,
   dts: true,
-  outExtensions,
+  outExtensions: ({ format }: { format: string }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: '.d.ts',
+  }),
   deps: {
     neverBundle: [/^@robota-sdk\/.*/],
   },
-  entry: {
-    index: 'src/index.ts',
+};
+
+export default defineConfig([
+  {
+    ...shared,
+    entry: {
+      index: 'src/index.ts',
+      node: 'src/node/index.ts',
+    },
+    format: { esm: {}, cjs: { dts: false } },
+    outDir: 'dist/node',
+    platform: 'node',
+    clean: true,
   },
-  format: { esm: {}, cjs: { dts: false } },
-  outDir: 'dist/node',
-  platform: 'node',
-  clean: true,
-});
+  {
+    ...shared,
+    entry: {
+      index: 'src/index.ts',
+      client: 'src/client.ts',
+    },
+    format: ['esm'],
+    outDir: 'dist/browser',
+    platform: 'browser',
+  },
+]);

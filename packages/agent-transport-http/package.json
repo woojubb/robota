@@ -53,7 +53,7 @@
   "dependencies": {
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
     "hono": "^4.12.32"
   },
   "devDependencies": {

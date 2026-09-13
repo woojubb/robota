@@ -141,16 +141,21 @@ Recorded, not absorbed:
   - ST-3: re-freeze `check-sdk-public-surface` count for `agent-transport`; move the three `no-fallback-swallow-baseline.json` keys and the `file-size-baseline.json` entry to the new paths; delete the two barrels `scan-public-project-authority` names
   - ST-5: the seven relative-import tests under `packages/agent-transport/src/__tests__/` move with the code
   - ST-8: docs that cite `agent-transport/headless` or `ProgrammaticInteractionChannel (in agent-transport)` are rewritten (`project-structure.md`, `content/guide/*`, `agent-cli`/`agent-interface-transport` SPECs, `agent-transport/README.md`, `deployment-matrix.md`); `check-doc-examples.mjs` mapping covers `./node`
-- [ ] S3 — one unit, no shim (`checkPassthroughReexports` refuses an `export *` of a workspace
-      package): move the 16 `agent-transport-protocol` modules into `agent-transport`
+- [x] S3 — one unit, no shim (`checkPassthroughReexports` refuses an `export *` of a workspace
+      package): move the current 18 implementation modules from `agent-transport-protocol` into
+      `agent-transport`
       (`admission.ts`, `handoff-manifest.ts` under `src/node/` behind a `./node` export declared
-      `"browser": null`), rename the four `ws-` modules to `wire-messages`,
-      `session-message-handler`, `session-events`, `background-messages`, rewire `-ws`, `-http`,
+      `"browser": null`), rename all seven transport-neutral `ws-` modules to `wire-messages`,
+      `session-message-handler`, `session-events`, `background-messages`, `message-parser`,
+      `session-query-messages`, and `usage-messages`; preserve the post-approval browser decoder
+      subset as the parent's `./client` entry; rewire `-ws`, `-http`,
       `-webrtc`, `-gui`, `-webrtc-web`, `agent-cli` to `@robota-sdk/agent-transport` (`/node` where
       admission or the manifest is used), use public package imports for the CLI-owned test and delete its
       `-protocol` devDependency (else `checkFullGraphCycles` reports the pair), rewire the already CLI-owned
       `ws-multi-surface-exit-policy.test.ts` through public parent exports, fix the S3 rows of the spec's
-      scans table, and remove the five `-protocol` baseline entries — about 104 live files.
+      scans table, explicitly rename the two `ws-handler*.test.ts` files with the production module,
+      leave the retired protocol package as an empty buildable non-forwarding tombstone until S5,
+      and remove the five `-protocol` baseline entries — about 104 live files.
   - ST-6: dead devDependencies `agent-transport-tui → agent-transport` and `agent-transport → agent-command` dropped with the `-protocol` one
   - ST-7: the undeclared-import check parses import declarations only (`^import` anchor), never JSDoc or template strings
 - [ ] S4 — `git mv` `agent-transport-gui` → `agent-ui-web` and `agent-transport-tui` →
@@ -276,6 +281,38 @@ The final merge also inherits the independently verified INFRA-166 harness repai
 is unchanged. Publication remains subject to the final merged-head gate and remote landing check.
 S3–S5 and the overall issue are not complete. The owner requested stopping after this S2 delivery;
 do not start another unit until the owner resumes work.
+
+## S3 resume evidence
+
+The owner resumed Issue #2670 on 2026-09-14. Current-tree reconciliation at
+`origin/develop@eea2edba147164d6ef840fe1449c4970a488bcfd` found 18 implementation modules plus
+three entry barrels under `agent-transport-protocol`, rather than the approval-time count of 16.
+The added modules are transport-neutral message parsing/query helpers and a browser decoder subset;
+the S3 checklist applies the already-approved dependency-based naming and parent-absorption decision
+to them. S4 package renames and S5 deletion remain separate.
+
+## S3 implementation and verification evidence
+
+All 18 protocol implementation modules and their 18 tests now belong to `agent-transport`.
+Node-only admission and handoff-manifest code is exposed only through `./node`, the browser decoder
+subset is exposed through `./client`, and the seven `ws-*` implementation names were replaced by
+transport-neutral names. Every live consumer now imports the parent package; the protocol package is
+an empty, buildable, non-forwarding tombstone pending S5. The five resolved protocol sibling edges
+were removed from the family baseline, and the admission/deployment scans now follow the parent.
+
+Verification on 2026-09-14:
+
+- `pnpm harness:scan` passed: 157 scans passed, 5 skipped, 162 declared.
+- Focused parent/consumer verification passed: `agent-transport` 237 tests; CLI 515 passed and 18
+  skipped; TUI 807; WebRTC 99; WS 52; HTTP 61; GUI 26; WebRTC-web 48; all affected typechecks and
+  the protocol tombstone build/typecheck/test passed.
+- `pnpm harness:verify-like-ci` first passed format, build, build-contract scans and all tests and
+  typechecks, then identified only the repository ESLint warning ceiling (2362/2356). Sorting the
+  11 moved-file imports removed the newly counted warnings without behavior changes.
+- The failed batch and its blocked successors were rerun with
+  `--only package-quality --only binary-e2e --only examples-typecheck --only tui-e2e`; all four
+  passed. Together the two runs cover and pass all eight selected local diagnostic stages without
+  repeating the already-passing full build.
 
 ## Test Plan
 

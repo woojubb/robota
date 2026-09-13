@@ -5,7 +5,7 @@
 This transport got the default right — auto-mint unless told to stay open — and its sibling got it
 wrong, which was the whole problem: one question, two answers, because each transport owned its own
 copy of the decision. The behaviour is unchanged; it now comes from `resolveAdmission` in
-`@robota-sdk/agent-transport-protocol`, so there is one place to read and one place to change.
+`@robota-sdk/agent-transport`, so there is one place to read and one place to change.
 
 `open` additionally requires a written reason. "No credential" and "nobody thought about it" were
 indistinguishable in the code this replaces, and only one of them is a decision. A caller that opted
@@ -14,19 +14,19 @@ tell an inherited opt-out from a considered one.
 
 ## Scope
 
-WebSocket transport and wire protocol for the Robota SDK. Split out of the consolidated
-`agent-transport` package (DQ-AUDIT-005) so the `ws` dependency and the WS message types are an
-isolated unit — browser/monitor consumers (e.g. `agent-transport-gui`) depend on this package's types
-without pulling React, Ink, or Hono.
+WebSocket carrier for the Robota SDK. The `ws` dependency and carrier lifecycle remain isolated in
+this package, while transport-neutral wire messages and session handling belong to
+`@robota-sdk/agent-transport`. Browser and monitor consumers import those shared contracts from the
+parent without pulling `ws`, React, Ink, or Hono.
 
 ## Boundaries
 
 - Owns the `ws`-based transport adapter (`WsTransport`, `createWsTransport`). The transport-neutral session
-  bridge (`createWsHandler`) + wire protocol (`TClientMessage`/`TServerMessage`) were **extracted to
-  `@robota-sdk/agent-transport-protocol`** (REMOTE-002) so a non-WS transport can reuse them; this package
+  bridge (`createSessionMessageHandler`) + wire protocol (`TClientMessage`/`TServerMessage`) were **extracted to
+  `@robota-sdk/agent-transport`** (REMOTE-002) so a non-WS transport can reuse them; this package
   imports them from there.
-- Depends on `agent-interface-transport`, `agent-core`, and `agent-transport-protocol` (INFRA-025: the framework
-  edge was deleted — every consumed type is an interface-transport / protocol contract).
+- Depends on `agent-interface-transport`, `agent-core`, and `agent-transport` (INFRA-025: the framework
+  edge was deleted — every consumed type is an interface-transport / transport-neutral contract).
 - No other transport package depends on this one. The default transport-registry wiring that
   pre-registers `WsTransport` lives in the composition root (the CLI), not in the transport core.
 
@@ -37,8 +37,8 @@ agent-transport-ws
   ├── WsTransport             ← IConfigurableTransport + IPayloadChannelHost (settings-backed)
   ├── PayloadChannelRegistry  ← TRANS-001 channel multiplexing (declare / route / fan out)
   └── createWsTransport       ← functional transport factory
-  (reuses createWsHandler + TClientMessage/TServerMessage + the channel frame codec
-   from @robota-sdk/agent-transport-protocol)
+  (reuses createSessionMessageHandler + TClientMessage/TServerMessage + the channel frame codec
+   from @robota-sdk/agent-transport)
 ```
 
 ### Lifecycle conformance (ARCH-011)
@@ -61,10 +61,10 @@ surface instead of accepting a client-claimed identity.
 `WsTransport` is a **payload-agnostic carrier**. It routes by WebSocket frame opcode, so the
 text-agent protocol is one profile ON the transport rather than being the transport:
 
-| Inbound WS frame | Routed to                                        | Owner                      |
-| ---------------- | ------------------------------------------------ | -------------------------- |
-| TEXT             | `createWsHandler` (`TClientMessage` JSON)        | `agent-transport-protocol` |
-| BINARY           | `PayloadChannelRegistry.receive` (channel frame) | this package               |
+| Inbound WS frame | Routed to                                             | Owner             |
+| ---------------- | ----------------------------------------------------- | ----------------- |
+| TEXT             | `createSessionMessageHandler` (`TClientMessage` JSON) | `agent-transport` |
+| BINARY           | `PayloadChannelRegistry.receive` (channel frame)      | this package      |
 
 Outbound, a registered channel's frames are encoded by the shared codec and sent as BINARY frames to
 every attached connection; the agent protocol keeps sending TEXT frames. The two never constrain
@@ -79,8 +79,8 @@ unauthenticated socket receives no channel traffic.
 ## Type Ownership
 
 Owns `IWsTransportOptions`, `IWsTransportConfig`, and `TChannelSink`. The session bridge
-(`createWsHandler`/`IWsHandlerOptions`), the wire protocol (`TClientMessage`/`TServerMessage`), and the
-TRANS-001 channel frame codec are owned by `@robota-sdk/agent-transport-protocol` and imported from
+(`createSessionMessageHandler`/`ISessionMessageHandlerOptions`), the wire protocol (`TClientMessage`/`TServerMessage`), and the
+TRANS-001 channel frame codec are owned by `@robota-sdk/agent-transport` and imported from
 there. Both WS adapters accept the protocol-owned `IProtocolSession` role aggregate through a narrow
 attach overload while preserving their legacy `ITransportAdapter<IInteractiveSession>` /
 `IConfigurableTransport<IInteractiveSession>` declarations. The channel CONTRACTS (`IPayloadChannel`,
@@ -148,20 +148,25 @@ ARCH-030 that covers EVERY outbound frame, replies included, not only the sessio
 `WsSessionDelivery` owns the connection's boundary: its raw sink is PRIVATE and `deliver` is the only
 public way onto the socket, so nothing can bypass the guard. It treats a non-open socket as a failed send,
 routes synchronous and asynchronous `ws.send` errors through one idempotent cleanup/close path, and passes
-the boundary DOWN into `createWsHandler`. `WsTransport` applies the same rule to its single attached socket
+the boundary DOWN into `createSessionMessageHandler`. `WsTransport` applies the same rule to its single attached socket
 and exposes an optional observer callback after internal cleanup. The boundary latches, so a burst of
 frames after the socket closes runs that cleanup once.
 
 ## Test Strategy
 
-Protocol + handler unit tests under `src/__tests__`. TRANS-001 adds `payload-channels.test.ts`
-(registry declare/route/reject) and `ws-payload-channel.e2e.test.ts` — an end-to-end run over a real
-WebSocket server proving interleaved text deltas, opaque binary frames, and a custom event share one
-connection, with byte-identical ordered reassembly in both directions. Carrier tests additionally prove
-that closed-socket and asynchronous send failures trigger the same idempotent cleanup lifecycle rather
-than escaping into the session event emitter.
+Carrier unit tests live under `src/__tests__`; shared protocol and handler tests live in
+`@robota-sdk/agent-transport`. TRANS-001 adds `payload-channels.test.ts` (registry
+declare/route/reject) and `ws-payload-channel.e2e.test.ts` — an end-to-end run over a real WebSocket
+server proving interleaved text deltas, opaque binary frames, and a custom event share one connection,
+with byte-identical ordered reassembly in both directions. Carrier tests additionally prove that
+closed-socket and asynchronous send failures trigger the same idempotent cleanup lifecycle rather than
+escaping into the session event emitter.
 
 ## Dependencies
 
-- `@robota-sdk/agent-interface-transport`, `@robota-sdk/agent-core`.
+- `@robota-sdk/agent-core`.
+- `@robota-sdk/agent-interface-analytics`.
+- `@robota-sdk/agent-interface-session`.
+- `@robota-sdk/agent-interface-transport`.
+- `@robota-sdk/agent-transport`.
 - External: `ws`.

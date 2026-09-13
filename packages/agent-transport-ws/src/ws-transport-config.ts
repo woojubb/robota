@@ -10,7 +10,7 @@
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
-import type { IWsHandlerOptions } from '@robota-sdk/agent-transport-protocol';
+import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 export const DEFAULT_PORT = 7070;
 export const DEFAULT_MAX_RETRIES = 20;
@@ -21,11 +21,11 @@ export interface IWsTransportConfig {
   /** Trusted product surface, independent from the connection's driver identity. */
   surface?: TUsageSurface;
   /** Host-owned cross-session usage read model, forwarded unchanged to the protocol handler. */
-  personalUsageReporter?: IWsHandlerOptions['personalUsageReporter'];
+  personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
   /** Host-owned current-session trace/cost producer, forwarded unchanged to the protocol handler. */
-  usageReporter?: IWsHandlerOptions['usageReporter'];
+  usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
   /** Host-owned stored-session trace/cost producer for personal-usage drill-down. */
-  storedSessionUsageReporter?: IWsHandlerOptions['storedSessionUsageReporter'];
+  storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   port?: number;
   maxRetries?: number;
   /**
@@ -65,7 +65,7 @@ export interface IWsTransportConfig {
 }
 
 type TUsageReporters = Pick<
-  IWsHandlerOptions,
+  ISessionMessageHandlerOptions,
   'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
 >;
 
@@ -83,7 +83,7 @@ function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
 }
 
 type TConfiguredHandlerOptions = Pick<
-  IWsHandlerOptions,
+  ISessionMessageHandlerOptions,
   'driverId' | 'surface' | 'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
 >;
 

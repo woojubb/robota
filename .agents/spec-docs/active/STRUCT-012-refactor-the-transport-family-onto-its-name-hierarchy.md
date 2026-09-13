@@ -957,6 +957,28 @@ CLI examples typechecked, the historical archive hash unchanged, and the new CLI
 record verified as above. These checks supplement, not replace, ST-1/2/3/5/8 and TC-10's normal
 stage-end verification. All original failure/gate evidence remains historical.
 
+## Prospective S3 current-tree clarification
+
+This clarification preserves the approved S3 owner, dependency direction, and no-shim outcome while
+reconciling files added after the 2026-09-05 approval. At
+`origin/develop@eea2edba147164d6ef840fe1449c4970a488bcfd`, the source package contains 18
+implementation modules plus `index.ts`, `browser.ts`, and `client.ts`. The three newer `ws-*`
+implementation modules contain no WebSocket carrier code: they parse validated messages, answer
+session queries, and answer usage queries. The dependency-based ruling therefore names them
+`message-parser.ts`, `session-query-messages.ts`, and `usage-messages.ts`. The newer `client.ts`
+exports only wire unions and runtime decoders, so it becomes `@robota-sdk/agent-transport/client`;
+the root remains browser-safe and `browser.ts` is still deleted.
+
+S3 moves all implementation and test ownership in one unit, renames the two handler test filenames,
+and leaves `agent-transport-protocol` with only an empty `export {}` root and build metadata until S5.
+That intermediate package forwards nothing and has no consumers, so it satisfies both the no-shim
+decision and the requirement that every S1–S5 unit finish green. S4 remains the two UI package
+renames; S5 remains deletion of the empty protocol package and its publication/routing metadata.
+
+Verification extends TC-06/TC-09/TC-10 with `@robota-sdk/agent-transport/client` browser build
+coverage, an exact zero live consumer count for `@robota-sdk/agent-transport-protocol`, and an exact
+seven-name retired `ws-*` scan under the new parent before S3 completes.
+
 ## Affected Files
 
 | File                                                                                                                                                                                                                                        | Change                                                                                                                                         |
@@ -1326,6 +1348,7 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -1356,6 +1379,7 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

@@ -9,11 +9,11 @@ import {
   createNodeHostSessionStore,
   createWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
-import { createOutboundDelivery, createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';
 
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 // Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   });
   const transcript: TServerMessage[] = [];
   const deliveryErrors: Array<{ message: string; event: string }> = [];
-  const primary = createWsHandler({
+  const primary = createSessionMessageHandler({
     session,
     deliver: createOutboundDelivery(
       (message) => transcript.push(message),
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
     assertCondition(first !== undefined && second !== undefined, 'expected two checkpoints');
 
     const forcedFailures: Array<{ message: string; event: string }> = [];
-    const failureCarrier = createWsHandler({
+    const failureCarrier = createSessionMessageHandler({
       session,
       deliver: createOutboundDelivery(
         (message) => {

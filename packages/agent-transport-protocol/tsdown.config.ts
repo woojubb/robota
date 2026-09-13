@@ -12,20 +12,11 @@ const shared = {
   deps: { neverBundle: [/^@robota-sdk\/.*/, /^ws$/] },
 };
 
-export default defineConfig([
-  {
-    ...shared,
-    entry: ['src/index.ts'],
-    format: { esm: {}, cjs: { dts: false } },
-    outDir: 'dist/node',
-    platform: 'node',
-    clean: true,
-  },
-  {
-    ...shared,
-    entry: { client: 'src/client.ts' },
-    format: ['esm'],
-    outDir: 'dist/browser',
-    platform: 'browser',
-  },
-]);
+export default defineConfig({
+  ...shared,
+  entry: ['src/index.ts'],
+  format: { esm: {}, cjs: { dts: false } },
+  outDir: 'dist/node',
+  platform: 'node',
+  clean: true,
+});

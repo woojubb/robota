@@ -26,7 +26,7 @@ import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling
 
 import type { IDeviceCredentialStore } from './device-credential-store.js';
 import type { startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
-import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
 
 /** Connection lifecycle for the RTC client (superset of the WS client's statuses: adds pairing/failed). */
 export type TRtcConnectionStatus =

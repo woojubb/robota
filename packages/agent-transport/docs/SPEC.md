@@ -2,50 +2,143 @@
 
 ## Transport Admission (SEC-008)
 
-transport-admission: none — the S2 parent has no peer-admitting implementation.
+transport-admission: none — this package defines and evaluates admission data but binds no listener.
 
 ## 1. Scope
 
-The transport-family substrate package. During STRUCT-012 S2 its root is deliberately empty:
-runtime-host behavior has moved to `@robota-sdk/agent-framework`, and terminal I/O belongs
-to `agent-cli`. Protocol absorption is the subsequent S3 unit, not an implemented feature here.
+The pure transport-family substrate. It owns carrier-neutral wire messages, runtime decoders,
+session-message dispatch, resumable delivery, peer-message and handoff state, channel framing, and
+Node-only admission/integrity helpers shared by transport implementations.
 
 ## 2. Boundaries
 
-No framework/core dependency in any manifest section and no Node builtin in the root graph.
-No compatibility forwarding exports. Host execution, programmatic driving, registry lifecycle and
-settings repositories are governed by the framework SPEC; CLI owns terminal input/output.
-Family placement is governed by the architecture map, not a duplicate layer table here.
+The root and `./client` graphs are browser-safe and depend only on interface packages. Node
+cryptography is reachable only through `./node`, whose package export declares `"browser": null`.
+The package owns no socket, HTTP, WebRTC, terminal, framework-host, registry, or settings lifecycle.
+It does not forward another workspace package.
 
 ## 3. Architecture Overview
 
-`src/index.ts` is a valid empty module. No headless/programmatic build entries or subpath remain.
+- `.` is the complete browser-safe substrate: `wire-messages`, message decoders, the
+  `createSessionMessageHandler` bridge, session events, outbound delivery, resume support, channel
+  frames, peer-message state, and handoff state/chunking.
+- `./client` is the intentionally narrow browser decoder and wire-type surface used by renderers.
+- `./node` owns token admission and handoff manifest hashing.
+- Internal message dispatch is split by responsibility into `message-parser`,
+  `session-query-messages`, `usage-messages`, `session-events`, and
+  `background-messages`; none is WebSocket-specific.
 
 ## 4. Type Ownership
 
-None during the S2 transition. Shared adapter contracts remain in their interface owners.
+| Type/Symbol                                             | Location                         | Purpose                                              |
+| ------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `TClientMessage`, `TServerMessage`, `TSeqServerMessage` | `src/wire-messages.ts`           | Carrier-neutral session wire union                   |
+| `IProtocolSession`                                      | `src/protocol-session.ts`        | Capability aggregate consumed by the message handler |
+| `ISessionMessageHandlerOptions`                         | `src/session-message-handler.ts` | Session-message bridge construction contract         |
+| `TOutboundDeliver`                                      | `src/outbound-delivery.ts`       | Branded connection-scoped outbound boundary          |
+| `TMessageDecodeResult`                                  | `src/message-decoders.ts`        | Total runtime decode result                          |
+| `TProtocolSessionEventClassification`                   | `src/session-events.ts`          | Exhaustive event-delivery classification             |
 
 ## 5. Public API Surface
 
-No runtime or type exports during S2. Import the moved host symbols from the framework root.
+The table lists each identifier separately because the public-surface guard treats the first
+identifier in each row as the documented export.
+
+| Export                                  | Kind      | Entry            |
+| --------------------------------------- | --------- | ---------------- |
+| `createSessionMessageHandler`           | function  | `.`              |
+| `ISessionMessageHandlerOptions`         | interface | `.`              |
+| `createOutboundDelivery`                | function  | `.`              |
+| `createPendingStallClock`               | function  | `.`              |
+| `isOverPendingBudget`                   | function  | `.`              |
+| `DEFAULT_MAX_PENDING_BYTES`             | constant  | `.`              |
+| `DEFAULT_MAX_PENDING_MS`                | constant  | `.`              |
+| `IPendingStallClock`                    | interface | `.`              |
+| `TDeliveryErrorHandler`                 | type      | `.`              |
+| `TOutboundDeliver`                      | type      | `.`              |
+| `PROTOCOL_SESSION_EVENT_CLASSIFICATION` | constant  | `.`              |
+| `TProtocolSessionEventClassification`   | type      | `.`              |
+| `IProtocolSession`                      | interface | `.`              |
+| `TClientMessage`                        | type      | `.` / `./client` |
+| `TServerMessage`                        | type      | `.` / `./client` |
+| `TSeqServerMessage`                     | type      | `.` / `./client` |
+| `MAX_INBOUND_FRAME_BYTES`               | constant  | `.` / `./client` |
+| `decodeClientMessage`                   | function  | `.` / `./client` |
+| `decodeFrame`                           | function  | `.` / `./client` |
+| `decodeServerMessage`                   | function  | `.` / `./client` |
+| `TMessageDecodeResult`                  | type      | `.` / `./client` |
+| `ResumeBuffer`                          | class     | `.`              |
+| `IResumeBufferOptions`                  | interface | `.`              |
+| `IBufferedFrame`                        | interface | `.`              |
+| `TResumeTail`                           | type      | `.`              |
+| `SessionResumeBridge`                   | class     | `.`              |
+| `ISessionResumeBridgeOptions`           | interface | `.`              |
+| `TResumeSink`                           | type      | `.`              |
+| `IAttachOptions`                        | interface | `.`              |
+| `CHANNEL_FRAME_MAGIC`                   | constant  | `.`              |
+| `CHANNEL_FRAME_VERSION`                 | constant  | `.`              |
+| `decodeChannelFrame`                    | function  | `.`              |
+| `encodeBinaryFrame`                     | function  | `.`              |
+| `encodeChannelEventFrame`               | function  | `.`              |
+| `isChannelFrame`                        | function  | `.`              |
+| `acknowledgePeerMessage`                | function  | `.`              |
+| `admitPeerMessage`                      | function  | `.`              |
+| `createPeerMessageLedger`               | function  | `.`              |
+| `forgetPeerOrigin`                      | function  | `.`              |
+| `IPeerMessageLedger`                    | interface | `.`              |
+| `IPeerMessageRejection`                 | interface | `.`              |
+| `IPeerMessageVerdict`                   | interface | `.`              |
+| `advanceHandoff`                        | function  | `.`              |
+| `beginHandoff`                          | function  | `.`              |
+| `commitHandoff`                         | function  | `.`              |
+| `handoffOutcome`                        | function  | `.`              |
+| `sourceStillOwns`                       | function  | `.`              |
+| `ICommitResult`                         | interface | `.`              |
+| `IHandoffTransaction`                   | interface | `.`              |
+| `ITransitionResult`                     | interface | `.`              |
+| `chunkCountFor`                         | function  | `.`              |
+| `chunkHandoffPayload`                   | function  | `.`              |
+| `DEFAULT_MAX_CHUNK_BYTES`               | constant  | `.`              |
+| `HandoffChunkAssembler`                 | class     | `.`              |
+| `IChunkResult`                          | interface | `.`              |
+| `IHandoffChunk`                         | interface | `.`              |
+| `TChunkOutcome`                         | type      | `.`              |
+| `TChunkRejection`                       | type      | `.`              |
+| `bearerCredential`                      | function  | `./node`         |
+| `credentialMatches`                     | function  | `./node`         |
+| `mintTransportToken`                    | function  | `./node`         |
+| `resolveAdmission`                      | function  | `./node`         |
+| `buildHandoffManifest`                  | function  | `./node`         |
+| `sealHandoffRecord`                     | function  | `./node`         |
+| `verifyHandoffPayload`                  | function  | `./node`         |
+| `IBuildManifestInput`                   | interface | `./node`         |
+| `IIntegrityVerdict`                     | interface | `./node`         |
+| `ISourceRuntimeState`                   | interface | `./node`         |
+| `TIntegrityFailure`                     | type      | `./node`         |
+| `TManifestResult`                       | type      | `./node`         |
 
 ## 6. Extension Points
 
-None during S2; host transport registration is owned by the framework.
+Carriers supply `TOutboundDeliver` and an `IProtocolSession`; no carrier implementation is
+registered inside this package.
 
 ## 7. Error Taxonomy
 
-No implementation errors originate here during S2. Existing host errors retain their contracts
-at the new framework owner.
+Runtime message and frame decoders return explicit result unions. Admission and handoff helpers
+return their declared refusal/result contracts; outbound delivery isolates carrier failures through
+the supplied error handler. No fallback transport is selected.
 
 ## 8. Test Strategy
 
-Host tests moved with their implementation to framework `src/transport-host/`; real-command
-composition and terminal I/O tests moved to CLI. The session-event-delivery example is CLI-owned;
-its former Linux recording is preserved byte-identically in
-`.agents/archive/struct012-s2/agent-transport-session-event-delivery.record.json`.
-Package build/typecheck and the dependency/public-surface scans protect this interim empty entry.
+The package owns the moved protocol unit tests, including session dispatch, runtime decoding,
+session-event exhaustiveness, delivery backpressure, resume, channel frames, peer ledgers, handoff,
+admission, and Node-only manifest integrity. Package build/typecheck/test plus browser-subpath,
+transport-admission, dependency-direction, and public-surface scans verify the S3 boundary.
 
 ## 9. Class Contract Registry
 
-None during S2. The framework SPEC owns the moved runtime-host class relationships.
+| Class                   | Contract                                                        |
+| ----------------------- | --------------------------------------------------------------- |
+| `ResumeBuffer`          | Buffers sequence-stamped server frames under byte/count limits  |
+| `SessionResumeBridge`   | Owns attach/detach/replay over a replaceable carrier sink       |
+| `HandoffChunkAssembler` | Reassembles one bounded handoff payload with explicit rejection |

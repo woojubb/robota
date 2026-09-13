@@ -16,7 +16,7 @@ import {
   decodeChannelFrame,
   encodeBinaryFrame,
   encodeChannelEventFrame,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport';
 
 import type {
   IBinaryFrame,

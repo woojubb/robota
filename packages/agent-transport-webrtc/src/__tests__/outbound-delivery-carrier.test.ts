@@ -3,7 +3,7 @@
  *
  * The item named WebRTC as affected, and its stated reason was wrong in a way worth recording: the
  * PAIRED-with-resume-bridge path was already guarded (the bridge routed replies through its own
- * try/catch). The genuinely unguarded WebRTC exposure was the BARE `createWsHandler` — `PairingGate`'s
+ * try/catch). The genuinely unguarded WebRTC exposure was the BARE `createSessionMessageHandler` — `PairingGate`'s
  * no-`resumeBridge` branch, taken after the handshake accepts, and `WebRtcTransport`'s no-secret
  * branch, which is the same construction. This suite drives the gate's branch with a stubbed
  * handshake, the way `pairing-gate.test.ts` does, because that is the one that ships by default.

@@ -1,16 +1,16 @@
 /**
  * The data channel's outbound delivery boundary (ARCH-030).
  *
- * Both places that build a bare `createWsHandler` in this package — `PairingGate`'s no-`resumeBridge`
+ * Both places that build a bare `createSessionMessageHandler` in this package — `PairingGate`'s no-`resumeBridge`
  * branch and `WebRtcTransport`'s no-secret branch — need exactly the same thing: serialize a
  * `TServerMessage` onto an `RTCDataChannel` and route a send failure into that carrier's own failure
  * policy. Written inline at both sites it was two copies of one decision, and it pushed both files past
  * their size ceilings. One owner, named after what it is.
  */
 
-import { createOutboundDelivery } from '@robota-sdk/agent-transport-protocol';
+import { createOutboundDelivery } from '@robota-sdk/agent-transport';
 
-import type { TOutboundDeliver } from '@robota-sdk/agent-transport-protocol';
+import type { TOutboundDeliver } from '@robota-sdk/agent-transport';
 
 /**
  * The slice of `RTCDataChannel` an outbound boundary needs.

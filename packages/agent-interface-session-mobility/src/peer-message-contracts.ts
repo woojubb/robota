@@ -25,7 +25,7 @@
  * ## What lives here and what does not
  *
  * Types only. This package is inert by rule — no classes, no runtime dependency edges — so the wire
- * frames, sequencing and retry machinery live in `@robota-sdk/agent-transport-protocol`, and the
+ * frames, sequencing and retry machinery live in `@robota-sdk/agent-transport`, and the
  * session ingress in `@robota-sdk/agent-framework`. What is declared here is the shape those agree
  * on.
  */

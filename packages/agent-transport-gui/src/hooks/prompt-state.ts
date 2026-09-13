@@ -14,7 +14,7 @@ import type {
   IPermissionRequestEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
-import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 
 /** A prompt awaiting the owner's answer, rendered by the UI (built from the server event payloads). */
 export type TPendingPrompt =

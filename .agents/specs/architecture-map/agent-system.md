@@ -148,7 +148,7 @@ Sidecar mode spans these packages:
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- | ------ |
 | `agent-framework`            | `buildRuntimeSession` construction seam + `startRuntimeHost` (build session + start WS transport lifecycle) | landed |
 | `agent-cli`                  | `robota --serve` (`serve-mode.ts`) runs `startRuntimeHost` headless (no ink); alive until SIGTERM/SIGINT    | landed |
-| `agent-transport-protocol`   | `createWsHandler({ session, send })` + `TServerMessage` — transport-neutral relay contract                  | landed |
+| `agent-transport`            | `createSessionMessageHandler({ session, send })` + `TServerMessage` — transport-neutral relay contract      | landed |
 | `agent-transport-ws`         | `WsTransport` — WebSocket adapter serving the relay over the loopback socket                                | landed |
 | `agent-transport-gui`        | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components                      | landed |
 | `agent-transport-webrtc-web` | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) over the GUI core                                     | landed |

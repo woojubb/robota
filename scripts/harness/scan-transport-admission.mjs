@@ -59,7 +59,7 @@ const SEAM = 'resolveAdmission';
  * reads exactly like a clean pass.
  */
 function seamPackage() {
-  return `${loadHarnessConfig().npmScopePrefix}agent-transport-protocol`;
+  return `${loadHarnessConfig().npmScopePrefix}agent-transport/node`;
 }
 /** How a package with no remote peer declares it. */
 const DECLARATION = /transport-admission:\s*none\s*[—-]\s*\S/;

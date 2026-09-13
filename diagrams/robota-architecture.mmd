@@ -22,8 +22,7 @@ graph TD
   end
 
   subgraph Transports["Transport implementations"]
-    TPROTO[agent-transport-protocol<br/>createWsHandler · wire protocol]
-    TCORE[agent-transport core<br/>HeadlessInteractionChannel]
+    TCORE[agent-transport<br/>wire protocol · session delivery]
     TTUI[agent-transport-tui React/Ink]
     TGUI[agent-transport-gui<br/>GUI presentation core]
     TWS[agent-transport-ws]
@@ -53,8 +52,8 @@ graph TD
   EXEC & SESS --> FW
   FW --> CMD & PRESET
   PROV -. injected via DIP .-> FW
-  IF --> TPROTO & TCORE & TTUI & TGUI & TWS & THTTP & TWEBRTC
-  TPROTO --> TWS & THTTP & TWEBRTC & TGUI
+  IF --> TCORE & TTUI & TGUI & TWS & THTTP & TWEBRTC
+  TCORE --> TWS & THTTP & TWEBRTC & TGUI
   PAIR --> TWEBRTC
   TGUI --> TWEBRTC
   FW --> CLI

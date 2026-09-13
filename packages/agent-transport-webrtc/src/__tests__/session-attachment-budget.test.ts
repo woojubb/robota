@@ -10,10 +10,7 @@
  * `bridge.attach` would have passed on the day the defect existed, because the option was reaching
  * nothing on the way in. What can fail is a peer over budget going unclosed.
  */
-import {
-  DEFAULT_MAX_PENDING_BYTES,
-  SessionResumeBridge,
-} from '@robota-sdk/agent-transport-protocol';
+import { DEFAULT_MAX_PENDING_BYTES, SessionResumeBridge } from '@robota-sdk/agent-transport';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, vi } from 'vitest';
 

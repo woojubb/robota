@@ -281,7 +281,6 @@
   "docs/superpowers/research/2026-03-22-terminal-app-korean-ime-crash-deep-research.md": 5,
   "packages/agent-cli/docs/SPEC.md": 1,
   "packages/agent-remote-pairing/docs/SPEC.md": 2,
-  "packages/agent-transport-protocol/docs/SPEC.md": 2,
   "packages/agent-transport-webrtc/docs/SPEC.md": 1,
   "packages/dag-nodes/llm-text/docs/SPEC.md": 1
 }
