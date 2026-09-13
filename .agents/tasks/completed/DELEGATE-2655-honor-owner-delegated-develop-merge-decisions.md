@@ -1,7 +1,8 @@
 ---
 title: 'DELEGATE-2655: Honor owner-delegated develop merge decisions'
 issue: https://github.com/woojubb/robota/issues/2655
-status: todo
+status: done
+completed: 2026-09-13
 created: 2026-09-13
 priority: medium
 urgency: now

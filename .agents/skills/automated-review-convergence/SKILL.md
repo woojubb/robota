@@ -129,7 +129,7 @@ observed the round-2 push and returned nothing.
 
 **Latest-verdict action gate.** Before each edit, push, rebase, or merge, read the latest
 `ACTIONABLE FINDINGS: N` verdict and publish the head- and verdict-bound
-`POST_FINDINGS_ACTION_REQUEST` comment from `git-branch.md`, with maintainer approval. A zero or
+`POST_FINDINGS_ACTION_REQUEST` comment with the applicable approval route owned by `git-branch.md`. A zero or
 non-zero count, a local review record, or an internal judgement never substitutes for that current
 decision record; a new verdict or head requires a new comment.
 

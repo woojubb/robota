@@ -128,7 +128,7 @@ Imports, comments and checks left behind by the change that removed their subjec
 
 ## L7 — Fragmenting one approved outcome into repeated process gates
 
-**Count: 3** · First seen 2026-09-05 · Last seen 2026-09-12 · Mechanism: open — next consolidated
+**Count: 4** · First seen 2026-09-05 · Last seen 2026-09-13 · Mechanism: open — next consolidated
 harness cycle, tracked by this open entry after the PROC-034 cadence amendment · Rule: `execution-cadence.md`
 
 - 2026-09-05 — a second continuation checkpoint was added to the same S2 branch after a local
@@ -147,6 +147,12 @@ harness cycle, tracked by this open entry after the PROC-034 cadence amendment �
   A second avoidable retry came from the catalogue's PASS example omitting the per-criterion gate
   prefix already required by `gate.mjs advance`; the example now matches that existing parser
   contract. This is a documentation repair, not a new guard or a complete fix for this class.
+
+- 2026-09-13 — repeated approval friction during issue #2655 led the owner to explicitly delegate
+  future justified develop merges. DELEGATE-2655 reconciles the Git rule and two review skills
+  with that delegation while retaining exact-head decisions and CI/review gates. Count this as
+  one owner correction, not three incidents for three duplicated statements. No new permission
+  parser or gate is introduced; semantic decision enforcement remains open for this cycle.
 
 ## Retired
 
