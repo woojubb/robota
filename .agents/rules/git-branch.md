@@ -466,8 +466,9 @@ After a branch is merged, the next feature branch must start from a correct base
 - **The new branch's base is the freshly-pulled integration head — and that must be verified, not
   assumed:** `git merge-base --is-ancestor origin/develop HEAD` must succeed.
 
-**Ordering and per-failure routing for the whole post-merge sequence** — verify the landing, then delete the
-branch, then re-base — are owned by [`post-merge-cycle`](../skills/post-merge-cycle/SKILL.md).
+**Ordering and per-failure routing for the whole post-merge sequence** — verify the landing, decide the
+issue disposition, delete or retain the branch, re-base or skip, then write one completion receipt and
+apply the issue state — are owned by [`post-merge-cycle`](../skills/post-merge-cycle/SKILL.md).
 
 **Stash hygiene.** Never use a bare `git stash` / blind `git stash pop` for known auto-generated churn —
 stashes accumulate across sessions and `pop` restores the wrong entry. Discard churn with
@@ -636,11 +637,36 @@ does not grant it, and no other red check is waived.
 A justified merge does not require a finding, red check or rebase; those named grounds restrict
 pushes, not the decision to land verified work.
 
+When the configured automated reviewer has produced no feedback at all, do not synthesize a second
+empty `ACTIONABLE FINDINGS` verdict and do not skip review verification. Publish exactly one trusted,
+unedited merge decision with this form; the merge gate binds it to the live base branch tip and current
+PR head:
+
+```
+PR_MERGE_DECISION
+PR: <number>
+HEAD: <40-hex>
+BASE: <branch>
+BASE-OID: <40-hex live branch tip>
+VERDICT: 0
+CI-OBSERVER: ci-gate-watch
+CI-RESULT: GREEN
+REMOTE-FEEDBACK: empty | resolved
+SCOPE: <delivered Task or bounded scope>
+AUTHORITY: direct | owner-delegated
+AUTHORITY-EVIDENCE: <inspectable URL>
+APPROVED: yes
+APPROVED-BY: @<maintainer> | agent:<name> (owner-delegated)
+```
+
+This one comment is the merge decision, the clean Round B terminal record, and the CI observation
+receipt. Do not create parallel comments for those same facts.
+
 The next-action guard checks push/rebase requests: marker, latest verdict count, exact head,
 action, explicit ground, evidence, scope, and maintainer approval. Its parser does not accept
-merge actions or delegated-agent approver values. Merge decisions remain an operator gate;
-do not claim that this parser verifies a delegated merge decision. A local review record,
-private judgement, advice attached to a passing
+merge actions or delegated-agent approver values. The separate merge-decision selector validates
+the exact immutable receipt and current head/base binding; the operator still owns whether the cited
+authority evidence actually covers that merge. A local review record, private judgement, advice attached to a passing
 verdict, or an override token is not approval. After an approved action, a new head or verdict requires
 a new decision comment.
 
@@ -822,6 +848,15 @@ collapse into one state.
 **The closing comment names the delivering commit on `develop`.** An issue closed without that is closed
 on someone's memory — the next reader cannot tell which change is supposed to have resolved it, and
 cannot check.
+
+The closing/partial/no-issue outcome is recorded once, after landing and cleanup, as
+`DELIVERY_COMPLETION_RECORD`. It binds the issue (or `none`), PR/head/merge/base, independently verified
+landing, branch disposition, base reset/skip, criteria result, and action. The same record supports
+`closed`, `open-partial`, and `no-issue`; do not add a separate landing comment or final closeout
+receipt. `post-findings-authorization.mjs --audit-closeout` reads back the exact immutable comments and
+live PR/issue projection, and binds the pre-merge `BASE-OID` to the delivered merge commit's first
+parent rather than to the base branch after that branch has advanced. A new
+`.agents/loop-runs/post-merge-cycle.jsonl` row is not part of closeout.
 
 Enforced by: nothing — whether a merged change satisfies an issue is not decidable from the tree. When
 this was measured, 57 open issues were named by a merged `develop` pull request and almost every one of

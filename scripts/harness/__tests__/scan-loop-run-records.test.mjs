@@ -7,7 +7,7 @@
  * the suite happens to run.
  */
 
-import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -25,16 +25,18 @@ const NOW = Date.parse('2026-08-19T01:00:00.000Z');
 const FINDING_SET = 'over=finding-set; escape=no-progress';
 const ATTEMPT = 'over=attempt; bound=3 attempts';
 
-function workspace(skills, { wireRecorder = true } = {}) {
+function workspace(skills, { wireRecorder = true, remoteRecord = null } = {}) {
   const root = makeTemp('loop-records-');
   for (const [name, declaration] of Object.entries(skills)) {
     mkdirSync(path.join(root, '.agents/skills', name), { recursive: true });
-    const recorder = wireRecorder
-      ? `\n\nRecord the run: \`node scripts/harness/loop-run.mjs open --loop ${name}\`.\n`
-      : '\n';
+    const recorder = remoteRecord
+      ? `\n\nPost \`${remoteRecord}\` and read it back from the remote owner.\n`
+      : wireRecorder
+        ? `\n\nRecord the run: \`node scripts/harness/loop-run.mjs open --loop ${name}\`.\n`
+        : '\n';
     writeFileSync(
       path.join(root, '.agents/skills', name, 'SKILL.md'),
-      `---\nname: ${name}\ndescription: fixture\nloop: ${declaration}\n---\n\n# ${name}\n\nRe-drive until nothing changes.${recorder}`,
+      `---\nname: ${name}\ndescription: fixture\nloop: ${declaration}\n${remoteRecord ? `remote-record: ${remoteRecord}\n` : ''}---\n\n# ${name}\n\nRe-drive until nothing changes.${recorder}`,
       'utf8',
     );
   }
@@ -212,6 +214,31 @@ describe('the recording instruction lives in the skill that is read', () => {
   it('passes the same skill once its body names the recorder', () => {
     const root = workspace({ looper: FINDING_SET });
     expect(findLoopRunRecordFindings(root, NOW)).toEqual([]);
+  });
+
+  it('accepts an explicit remote marker whose procedure includes bounded readback', () => {
+    const root = workspace(
+      { looper: FINDING_SET },
+      { wireRecorder: false, remoteRecord: 'PR_MERGE_DECISION' },
+    );
+    expect(findLoopRunRecordFindings(root, NOW)).toEqual([]);
+  });
+
+  it('refuses a remote marker that is not reachable from the procedure', () => {
+    const root = workspace(
+      { looper: FINDING_SET },
+      { wireRecorder: false, remoteRecord: 'PR_MERGE_DECISION' },
+    );
+    const file = path.join(root, '.agents/skills/looper/SKILL.md');
+    writeFileSync(
+      file,
+      readFileSync(file, 'utf8').replace(
+        'Post `PR_MERGE_DECISION` and read it back from the remote owner.',
+        'The remote owner retains the outcome.',
+      ),
+      'utf8',
+    );
+    expect(findLoopRunRecordFindings(root, NOW)[0].detail).toMatch(/remote persistence/i);
   });
 
   it('exempts an `over=delegated` skill, which refers to a loop it does not drive', () => {

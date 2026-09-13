@@ -114,9 +114,9 @@ A declaration says what a loop's escape IS. It cannot say whether the escape eve
 as nothing recorded a run, `escape=no-progress` was a claim no check could reach — the scan that requires
 it reads only the tree, and a run is not in the tree.
 
-**Every run of a loop-driving skill is recorded**, through
-`node scripts/harness/loop-run.mjs`, into the skill's ledger under `.agents/loop-runs/` — one entry per
-run, appended when it opens and sealed when it closes:
+**Every run of a loop-driving skill has one durable evidence owner.** Runs whose terminal facts exist
+before the PR diff freezes are recorded through `node scripts/harness/loop-run.mjs` under
+`.agents/loop-runs/` — one entry per run, appended when it opens and sealed when it closes:
 
 ```bash
 node scripts/harness/loop-run.mjs open  --loop <skill>
@@ -142,6 +142,14 @@ Three properties, and each exists because its absence collapses two states into 
 The ceiling, stated rather than implied: a run that is never opened leaves no line, and nothing that reads
 this tree can see it. This rule makes a run recordable and its record coherent; it does not prove that
 every run was recorded.
+
+Remote-terminal runs are the deliberate second form. When a fact becomes true only after a PR exists
+or after it merges, the canonical structured GitHub receipt named by the owning skill is the durable
+record; do not append a tracked ledger row that cannot be part of the frozen or already-merged diff.
+`pr-finding-resolution-loop` owns `PR_MERGE_DECISION` and `post-merge-cycle` owns
+`DELIVERY_COMPLETION_RECORD`. Their parser/readback rejects silence, ambiguity, stale identities,
+untrusted or edited comments, and live-state mismatch. Historical tracked remote-terminal rows remain
+readable evidence; they do not authorize new rows.
 
 Enforced by: `scripts/harness/scan-loop-run-records.mjs`, registered as `loop-run-records`. It refuses a
 ledger naming no loop-declaring skill, a line that does not parse, a terminal reason the declaration

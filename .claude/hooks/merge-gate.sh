@@ -201,15 +201,11 @@ fi
 # `gh pr merge` refuses forever regardless of CI or content, and `MERGE_GATE_ACK=1` becomes the
 # routine override — the exact erosion this hook's own header warns about.
 #
-# So: if NO comment or review anywhere on the PR is from this identity — not "delivered no
-# verdict", not "wrong login present", but genuinely never spoke — review verification is skipped
-# outright, visibly, printed with the reason. This is a direct, deliberate scope narrowing (owner
-# instruction, 2026-09-06: no reviewer is configured "당분간" / for now; make merging possible
-# without one), not a guess. It self-repairs without another edit here: the moment a comment FROM
-# THIS LOGIN reappears — the automation restored, or a replacement adopts the same identity — every
-# check below re-engages exactly as it already does, unchanged. What does NOT skip: CI (checked
-# above). When a replacement reviewer is chosen, point REVIEWER_RE at its identity and remove this
-# early exit; see PROCESS-OVERHEAD-REPORT.md and MERGE-GATE-REVIEWER-BOT-RETIRED-ISSUE.md.
+# So: if NO comment or review anywhere on the PR is from this identity, the gate takes the canonical
+# clean-PR receipt path after resolving the live base/head pair below. It never skips review evidence:
+# the receipt binds the one local Round A zero, the empty remote-feedback observation, CI ownership,
+# and explicit merge authority to that exact pair. The moment the reviewer identity speaks again,
+# the existing automated-review path re-engages unchanged.
 REVIEWER_RE='^github-actions(\\[bot\\])?$'
 REVIEWER_RE_GREP="${REVIEWER_RE//\\\\/\\}"
 ALL_AUTHORS=$(bounded_gh pr view "$PR" --json comments,reviews --jq '([.comments[].author.login] + [.reviews[].author.login]) | unique | join(", ")' || echo "")
@@ -221,15 +217,6 @@ if [[ -n "$ALL_AUTHORS" ]]; then
     printf '%s' "$_AUTHOR" | grep -qE "$REVIEWER_RE_GREP" && REVIEWER_EVER_SPOKE=true
   done <<< "${ALL_AUTHORS//,/$'\n'}"
 fi
-if [[ "$REVIEWER_EVER_SPOKE" == "false" ]]; then
-  echo "[merge-gate] PR #$PR: CI CLEAN. Review verification SKIPPED — no comment or review on this" >&2
-  echo "[merge-gate] PR is from the reviewer this gate looks for ($REVIEWER_RE), and that identity's" >&2
-  echo "[merge-gate] workflow was retired 2026-09-06 (INFRA-2631) and posts nothing on any PR now." >&2
-  echo "[merge-gate] No replacement reviewer is configured. See PROCESS-OVERHEAD-REPORT.md and" >&2
-  echo "[merge-gate] MERGE-GATE-REVIEWER-BOT-RETIRED-ISSUE.md." >&2
-  exit 0
-fi
-
 # The review identity is the ordered current base/head pair. A timestamp can say when somebody
 # wrote a comment; it cannot say which base comparison they reviewed.
 OID_PAIR=$(bounded_gh pr view "$PR" --json baseRefOid,headRefOid,baseRefName --jq '"\(.baseRefOid) \(.headRefOid) \(.baseRefName)"' || echo "")
@@ -276,6 +263,25 @@ if [[ "$LIVE_BASE_OID" != "$CURRENT_BASE_OID" ]]; then
   echo "[merge-gate] Note: GitHub's baseRefOid for #$PR is $CURRENT_BASE_OID; origin/$BASE_REF_NAME is at $LIVE_BASE_OID." >&2
   echo "[merge-gate] The branch is what this PR lands on, so the branch is what the review is judged against." >&2
   CURRENT_BASE_OID="$LIVE_BASE_OID"
+fi
+
+if [[ "$REVIEWER_EVER_SPOKE" == "false" ]]; then
+  DECISION_COMMENTS=$(bounded_gh pr view "$PR" --json comments --jq '.comments' || echo "")
+  DECISION_RESULT=""
+  if [[ -n "$DECISION_COMMENTS" ]] && command -v node >/dev/null 2>&1; then
+    DECISION_RESULT=$(printf '%s' "$DECISION_COMMENTS" |
+      node "$REPO_DIR/scripts/harness/post-findings-authorization.mjs" \
+        --select-merge-decision --pr "$PR" --head "$CURRENT_HEAD_OID" \
+        --base "$BASE_REF_NAME" --base-oid "$CURRENT_BASE_OID" 2>/dev/null || true)
+  fi
+  if [[ "$(printf '%s' "$DECISION_RESULT" | jq -r '.ok // false' 2>/dev/null)" != "true" ]]; then
+    DECISION_REASON=$(printf '%s' "$DECISION_RESULT" | jq -r '.reason // "unreadable-merge-decision"' 2>/dev/null || echo "unreadable-merge-decision")
+    echo "[merge-gate] Blocked: retired reviewer is silent and no unique trusted PR_MERGE_DECISION" >&2
+    echo "[merge-gate] binds PR #$PR to exact base/head $CURRENT_BASE_OID/$CURRENT_HEAD_OID ($DECISION_REASON)." >&2
+    exit 2
+  fi
+  echo "[merge-gate] PR #$PR: CI CLEAN, exact base/head PR_MERGE_DECISION, remote feedback empty, authority recorded." >&2
+  exit 0
 fi
 
 # The newest comment BY THE REVIEWER, not the newest comment. Reading `comments[-1]` unconditionally

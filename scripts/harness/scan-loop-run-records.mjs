@@ -53,6 +53,7 @@ const SKILLS_DIR = '.agents/skills';
 
 /** The entry point a loop-driving skill's body must name, so the instruction lives where it is read. */
 const RECORDER = 'loop-run.mjs';
+const REMOTE_RECORD_DECLARATION = /^remote-record:\s*([A-Z][A-Z0-9_]+)\s*$/m;
 
 /** How long an entry may stay OPEN before its silence is itself the finding. */
 export const STALE_OPEN_DAYS = 7;
@@ -98,10 +99,20 @@ export function findLoopRunRecordFindings(
       const text = readFileSync(file, 'utf8');
       const declaration = parseDeclaration(text);
       if (declaration === undefined || declaration.over === 'delegated') continue;
-      if (!text.includes(RECORDER)) {
+      const remoteRecord = REMOTE_RECORD_DECLARATION.exec(text)?.[1] ?? null;
+      if (!text.includes(RECORDER) && remoteRecord === null) {
         at(
           path.join(SKILLS_DIR, name, 'SKILL.md'),
-          `declares a loop and never names \`${RECORDER}\` — the recording instruction has to be in the document that is read, not only in the rule`,
+          `declares a loop and names neither \`${RECORDER}\` nor a \`remote-record: <MARKER>\` — the recording instruction has to be in the document that is read, not only in the rule`,
+        );
+      } else if (
+        remoteRecord !== null &&
+        (text.split(remoteRecord).length < 3 ||
+          !/\bread(?:s|ing)?(?:\s+it)?\s+back\b|\breadback\b/i.test(text))
+      ) {
+        at(
+          path.join(SKILLS_DIR, name, 'SKILL.md'),
+          `declares remote record \`${remoteRecord}\` without naming that exact marker in its procedure and a readback — remote persistence must be reachable, not asserted`,
         );
       }
     }

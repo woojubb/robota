@@ -2,6 +2,7 @@
 name: automated-review-convergence
 description: Resolve findings from an already-open PR's automated reviewer until no actionable findings remain.
 loop: over=finding-set; escape=no-progress
+remote-record: PR_MERGE_DECISION
 ---
 
 # Automated Review Convergence
@@ -147,14 +148,8 @@ If you find yourself restating a rule here, stop — link the rule instead.
 
 ## Record the run
 
-Open a ledger entry before the first round, record each round's finding count, and close it with the
-terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
-`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
-run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
-what each terminal reason means).
-
-```bash
-node scripts/harness/loop-run.mjs open  --loop automated-review-convergence
-node scripts/harness/loop-run.mjs round --loop automated-review-convergence --run <id> --findings <n>
-node scripts/harness/loop-run.mjs close --loop automated-review-convergence --run <id> --terminal <reason>
-```
+The PR owns this remote loop: published findings, per-thread replies/dispositions, and the final
+`PR_MERGE_DECISION` are its durable evidence. Do not append a tracked loop row after the diff freezes.
+When no automated feedback exists, the clean no-feedback path records that observation once in the
+merge decision rather than manufacturing an empty finding round. The merge gate reads it back and
+binds it to the live base/head pair.

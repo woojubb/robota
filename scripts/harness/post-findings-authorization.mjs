@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import {
@@ -5,7 +6,14 @@ import {
   fetchVerifiedGitHubAuthorizationComments,
 } from './post-findings-github-comment-verification.mjs';
 import { isPostFindingsMaintainer } from './post-findings-approver-policy.mjs';
-import { createVerificationRuntime } from './verification-budget-runtime.mjs';
+import {
+  createVerificationRuntime,
+  takeVerificationQuery,
+} from './verification-budget-runtime.mjs';
+
+// Closeout CLI:
+//   --select-merge-decision --pr N --head SHA --base BRANCH --base-oid SHA  (comments JSON on stdin)
+//   --audit-closeout --repo OWNER/REPO --pr N --issue N|none --merge-comment N --completion-comment N
 
 const REQUIRED = Object.freeze([
   'PR',
@@ -190,12 +198,454 @@ export function selectPostFindingsAuthorization({
   };
 }
 
+function parseStrictRecord(body, marker, required) {
+  const lines = String(body ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines[0] !== marker || lines.filter((line) => line === marker).length !== 1) return null;
+  const allowed = new Set(required);
+  const fields = new Map();
+  for (const line of lines.slice(1)) {
+    const match = /^([A-Z][A-Z-]*):\s*(.+?)\s*$/.exec(line);
+    if (!match || !allowed.has(match[1]) || fields.has(match[1])) return null;
+    fields.set(match[1], match[2]);
+  }
+  return fields.size === required.length && required.every((field) => fields.has(field))
+    ? fields
+    : null;
+}
+
+const MERGE_DECISION_FIELDS = Object.freeze([
+  'PR',
+  'HEAD',
+  'BASE',
+  'BASE-OID',
+  'VERDICT',
+  'CI-OBSERVER',
+  'CI-RESULT',
+  'REMOTE-FEEDBACK',
+  'SCOPE',
+  'AUTHORITY',
+  'AUTHORITY-EVIDENCE',
+  'APPROVED',
+  'APPROVED-BY',
+]);
+
+export function parseMergeDecisionReceipt(body) {
+  const fields = parseStrictRecord(body, 'PR_MERGE_DECISION', MERGE_DECISION_FIELDS);
+  if (!fields) return null;
+  const prNumber = Number(fields.get('PR'));
+  const verdict = Number(fields.get('VERDICT'));
+  const authority = fields.get('AUTHORITY').toLowerCase();
+  const approvedBy = fields.get('APPROVED-BY');
+  const validApprover =
+    (authority === 'direct' && /^@[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(approvedBy)) ||
+    (authority === 'owner-delegated' &&
+      /^agent:[A-Za-z0-9._-]+ \(owner-delegated\)$/.test(approvedBy));
+  if (
+    !Number.isSafeInteger(prNumber) ||
+    prNumber < 1 ||
+    verdict !== 0 ||
+    !/^[0-9a-f]{40}$/i.test(fields.get('HEAD')) ||
+    !/^[0-9a-f]{40}$/i.test(fields.get('BASE-OID')) ||
+    !/^(?!.*\.\.)[A-Za-z0-9._/-]+$/.test(fields.get('BASE')) ||
+    fields.get('CI-OBSERVER') !== 'ci-gate-watch' ||
+    fields.get('CI-RESULT') !== 'GREEN' ||
+    !['empty', 'resolved'].includes(fields.get('REMOTE-FEEDBACK')) ||
+    !validHttpUrl(fields.get('AUTHORITY-EVIDENCE')) ||
+    fields.get('APPROVED').toLowerCase() !== 'yes' ||
+    !validApprover
+  ) {
+    return null;
+  }
+  return {
+    prNumber,
+    head: fields.get('HEAD').toLowerCase(),
+    base: fields.get('BASE'),
+    baseOid: fields.get('BASE-OID').toLowerCase(),
+    verdict,
+    ciObserver: fields.get('CI-OBSERVER'),
+    ciResult: fields.get('CI-RESULT'),
+    remoteFeedback: fields.get('REMOTE-FEEDBACK'),
+    scope: fields.get('SCOPE'),
+    authority,
+    authorityEvidence: fields.get('AUTHORITY-EVIDENCE'),
+    approvedBy,
+  };
+}
+
+const DELIVERY_COMPLETION_FIELDS = Object.freeze([
+  'OUTCOME',
+  'ISSUE',
+  'PR',
+  'HEAD',
+  'MERGE',
+  'BASE',
+  'LANDING',
+  'BRANCH',
+  'BRANCH-DETAIL',
+  'BASE-RESET',
+  'CRITERIA',
+  'ACTION',
+]);
+
+export function parseDeliveryCompletionReceipt(body) {
+  const fields = parseStrictRecord(body, 'DELIVERY_COMPLETION_RECORD', DELIVERY_COMPLETION_FIELDS);
+  if (!fields) return null;
+  const outcome = fields.get('OUTCOME');
+  const issueNumber = fields.get('ISSUE') === 'none' ? null : Number(fields.get('ISSUE'));
+  const prNumber = Number(fields.get('PR'));
+  const criteria = fields.get('CRITERIA');
+  const action = fields.get('ACTION');
+  const validOutcome =
+    (outcome === 'closed' &&
+      issueNumber !== null &&
+      criteria === 'delivered' &&
+      action === 'close') ||
+    (outcome === 'open-partial' &&
+      issueNumber !== null &&
+      criteria.startsWith('remaining:') &&
+      criteria.length > 'remaining:'.length &&
+      action === 'leave-open') ||
+    (outcome === 'no-issue' && issueNumber === null && criteria === 'none' && action === 'none');
+  if (
+    !validOutcome ||
+    (issueNumber !== null && (!Number.isSafeInteger(issueNumber) || issueNumber < 1)) ||
+    !Number.isSafeInteger(prNumber) ||
+    prNumber < 1 ||
+    !/^[0-9a-f]{40}$/i.test(fields.get('HEAD')) ||
+    !/^[0-9a-f]{40}$/i.test(fields.get('MERGE')) ||
+    !/^(?!.*\.\.)[A-Za-z0-9._/-]+$/.test(fields.get('BASE')) ||
+    fields.get('LANDING') !== 'verified' ||
+    !['deleted', 'retained'].includes(fields.get('BRANCH')) ||
+    fields.get('BRANCH-DETAIL').length === 0 ||
+    !/^(?:skipped|[A-Za-z0-9._/-]+@[0-9a-f]{40})$/i.test(fields.get('BASE-RESET'))
+  ) {
+    return null;
+  }
+  return {
+    outcome,
+    issueNumber,
+    prNumber,
+    head: fields.get('HEAD').toLowerCase(),
+    mergeCommit: fields.get('MERGE').toLowerCase(),
+    base: fields.get('BASE'),
+    landing: fields.get('LANDING'),
+    branch: fields.get('BRANCH'),
+    branchDetail: fields.get('BRANCH-DETAIL'),
+    baseReset: fields.get('BASE-RESET'),
+    criteria,
+    action,
+  };
+}
+
+function trustedCloseoutEnvelope(envelope, parse) {
+  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) return null;
+  if (
+    !Number.isSafeInteger(envelope.id) ||
+    envelope.id < 1 ||
+    !validHttpUrl(envelope.url) ||
+    !isPostFindingsMaintainer(envelope.author) ||
+    typeof envelope.body !== 'string' ||
+    !Number.isFinite(Date.parse(envelope.createdAt)) ||
+    envelope.updatedAt !== envelope.createdAt ||
+    envelope.lastEditedAt !== null
+  ) {
+    return null;
+  }
+  const receipt = parse(envelope.body);
+  if (!receipt) return null;
+  if (
+    receipt.authority === 'direct' &&
+    receipt.approvedBy.toLowerCase() !== `@${envelope.author.login}`.toLowerCase()
+  ) {
+    return null;
+  }
+  const url = new URL(envelope.url);
+  const identity = /^\/(?:[^/]+\/){2}(?:issues|pull)\/(\d+)$/.exec(url.pathname);
+  const commentId = /^#issuecomment-(\d+)$/.exec(url.hash);
+  if (!identity || !commentId || Number(commentId[1]) !== envelope.id) return null;
+  return {
+    ...receipt,
+    commentId: envelope.id,
+    commentUrl: envelope.url,
+    commentNumber: Number(identity[1]),
+    commentAuthor: envelope.author.login,
+    createdAt: envelope.createdAt,
+  };
+}
+
+function uniqueReceipt(comments, parse, missing, ambiguous) {
+  const matches = comments
+    .map((comment) => trustedCloseoutEnvelope(comment, parse))
+    .filter(Boolean);
+  if (matches.length === 0) return { ok: false, reason: missing };
+  if (matches.length !== 1) return { ok: false, reason: ambiguous };
+  return { ok: true, receipt: matches[0] };
+}
+
+export function auditMergeDecisionReceipts({ pr, comments }) {
+  if (!pr || !Array.isArray(comments)) return { ok: false, reason: 'invalid-merge-projection' };
+  const selected = uniqueReceipt(
+    comments,
+    parseMergeDecisionReceipt,
+    'missing-merge-decision',
+    'ambiguous-merge-decision',
+  );
+  if (!selected.ok) return selected;
+  const mergeDecision = selected.receipt;
+  if (
+    mergeDecision.commentNumber !== pr.number ||
+    mergeDecision.prNumber !== pr.number ||
+    mergeDecision.head !== String(pr.headRefOid ?? '').toLowerCase() ||
+    mergeDecision.base !== pr.baseRefName ||
+    mergeDecision.baseOid !== String(pr.baseRefOid ?? '').toLowerCase()
+  ) {
+    return { ok: false, reason: 'merge-decision-state-mismatch' };
+  }
+  return { ok: true, mergeDecision };
+}
+
+export function auditCloseoutReceipts({
+  repository,
+  pr,
+  issue,
+  mergeParentOid,
+  mergeComments,
+  completionComments,
+}) {
+  if (!/^[^/\s]+\/[^/\s]+$/.test(repository ?? '') || !pr || !Array.isArray(mergeComments)) {
+    return { ok: false, reason: 'invalid-closeout-projection' };
+  }
+  const selectedMerge = uniqueReceipt(
+    mergeComments,
+    parseMergeDecisionReceipt,
+    'missing-merge-decision',
+    'ambiguous-merge-decision',
+  );
+  if (!selectedMerge.ok) return selectedMerge;
+  const mergeDecision = selectedMerge.receipt;
+  const selectedCompletion = uniqueReceipt(
+    completionComments ?? [],
+    parseDeliveryCompletionReceipt,
+    'missing-completion',
+    'ambiguous-completion',
+  );
+  if (!selectedCompletion.ok) return selectedCompletion;
+  const completion = selectedCompletion.receipt;
+  const mergedAt = Date.parse(pr.mergedAt);
+  const expectedCommentNumber = completion.issueNumber ?? pr.number;
+  const expectedIssueState = completion.outcome === 'closed' ? 'CLOSED' : 'OPEN';
+  if (
+    !Number.isFinite(mergedAt) ||
+    mergeDecision.commentNumber !== pr.number ||
+    mergeDecision.prNumber !== pr.number ||
+    mergeDecision.head !== String(pr.headRefOid ?? '').toLowerCase() ||
+    mergeDecision.base !== pr.baseRefName ||
+    mergeDecision.baseOid !== String(mergeParentOid ?? '').toLowerCase() ||
+    Date.parse(mergeDecision.createdAt) > mergedAt
+  ) {
+    return { ok: false, reason: 'merge-decision-state-mismatch' };
+  }
+  if (
+    pr.state !== 'MERGED' ||
+    Date.parse(completion.createdAt) < mergedAt ||
+    Date.parse(completion.createdAt) < Date.parse(mergeDecision.createdAt) ||
+    completion.commentNumber !== expectedCommentNumber ||
+    completion.prNumber !== pr.number ||
+    completion.head !== String(pr.headRefOid ?? '').toLowerCase() ||
+    completion.mergeCommit !== String(pr.mergeCommit?.oid ?? '').toLowerCase() ||
+    completion.base !== pr.baseRefName ||
+    (completion.issueNumber === null
+      ? issue !== null && issue !== undefined
+      : !issue || issue.number !== completion.issueNumber || issue.state !== expectedIssueState)
+  ) {
+    return { ok: false, reason: 'completion-state-mismatch' };
+  }
+  return { ok: true, mergeDecision, completion };
+}
+
+function defaultRunGh(args, options) {
+  return spawnSync('gh', args, { encoding: 'utf8', ...options });
+}
+
+function boundedGhJson(args, runGh, runtime) {
+  const timeout = takeVerificationQuery(runtime);
+  const result = runGh(args, { timeout, maxBuffer: 256 * 1024 });
+  if (result?.error || result?.status !== 0) {
+    throw new Error(
+      `GitHub closeout readback failed: ${result?.error?.message ?? result?.stderr ?? 'unknown error'}`,
+    );
+  }
+  try {
+    return JSON.parse(String(result.stdout ?? ''));
+  } catch {
+    throw new Error('GitHub closeout readback returned invalid JSON');
+  }
+}
+
+function closeoutEnvelopeFromView(comment) {
+  return {
+    id: Number(/#issuecomment-(\d+)$/.exec(comment?.url ?? '')?.[1]),
+    url: comment?.url,
+    author: {
+      login: comment?.author?.login,
+      association: comment?.authorAssociation,
+    },
+    body: comment?.body,
+    createdAt: comment?.createdAt,
+    updatedAt: comment?.createdAt,
+    lastEditedAt: comment?.includesCreatedEdit ? comment.createdAt : null,
+  };
+}
+
+function closeoutEnvelopeFromApi(comment) {
+  return {
+    id: comment?.id,
+    url: comment?.html_url,
+    author: {
+      login: comment?.user?.login,
+      association: comment?.author_association,
+    },
+    body: comment?.body,
+    createdAt: comment?.created_at,
+    updatedAt: comment?.updated_at,
+    lastEditedAt: comment?.created_at === comment?.updated_at ? null : comment?.updated_at,
+  };
+}
+
+function fetchCloseoutCommentEnvelopes(repository, number, runGh, runtime) {
+  const pages = boundedGhJson(
+    ['api', `repos/${repository}/issues/${number}/comments?per_page=100`, '--paginate', '--slurp'],
+    runGh,
+    runtime,
+  );
+  if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page))) {
+    throw new Error('GitHub closeout comment projection is invalid');
+  }
+  return pages.flat().map(closeoutEnvelopeFromApi);
+}
+
+export function fetchCloseoutAudit({
+  repository,
+  prNumber,
+  issueNumber = null,
+  mergeCommentId,
+  completionCommentId,
+  runGh = defaultRunGh,
+  runtime = createVerificationRuntime(),
+}) {
+  if (
+    !/^[^/\s]+\/[^/\s]+$/.test(repository ?? '') ||
+    !Number.isSafeInteger(prNumber) ||
+    prNumber < 1 ||
+    (issueNumber !== null && (!Number.isSafeInteger(issueNumber) || issueNumber < 1))
+  ) {
+    throw new Error(
+      'GitHub closeout readback requires a repository, PR, and optional positive issue',
+    );
+  }
+  const mergeComment = fetchVerifiedGitHubAuthorizationComment({
+    repository,
+    commentId: mergeCommentId,
+    authorizedAt: null,
+    runGh,
+    runtime,
+  });
+  const completionComment = fetchVerifiedGitHubAuthorizationComment({
+    repository,
+    commentId: completionCommentId,
+    authorizedAt: null,
+    runGh,
+    runtime,
+  });
+  const mergeComments = fetchCloseoutCommentEnvelopes(repository, prNumber, runGh, runtime);
+  const pr = boundedGhJson(
+    [
+      'pr',
+      'view',
+      String(prNumber),
+      '--repo',
+      repository,
+      '--json',
+      'number,state,headRefOid,baseRefName,baseRefOid,mergeCommit,mergedAt',
+    ],
+    runGh,
+    runtime,
+  );
+  const mergeCommitOid = String(pr.mergeCommit?.oid ?? '').toLowerCase();
+  const mergeGitCommit = /^[0-9a-f]{40}$/.test(mergeCommitOid)
+    ? boundedGhJson(['api', `repos/${repository}/git/commits/${mergeCommitOid}`], runGh, runtime)
+    : null;
+  const mergeParentOid = mergeGitCommit?.parents?.[0]?.sha ?? null;
+  const completionComments =
+    issueNumber === null
+      ? mergeComments
+      : fetchCloseoutCommentEnvelopes(repository, issueNumber, runGh, runtime);
+  const issue =
+    issueNumber === null
+      ? null
+      : boundedGhJson(
+          ['issue', 'view', String(issueNumber), '--repo', repository, '--json', 'number,state'],
+          runGh,
+          runtime,
+        );
+  const audit = auditCloseoutReceipts({
+    repository,
+    pr,
+    issue,
+    mergeParentOid,
+    mergeComments,
+    completionComments,
+  });
+  if (
+    audit.ok &&
+    (audit.mergeDecision.commentId !== mergeComment.id ||
+      audit.completion.commentId !== completionComment.id)
+  ) {
+    return { ok: false, reason: 'closeout-comment-identity-mismatch' };
+  }
+  return audit;
+}
+
 function option(argv, name) {
   const at = argv.indexOf(name);
   return at === -1 ? null : (argv[at + 1] ?? null);
 }
 
 export async function main(argv = process.argv.slice(2)) {
+  if (argv.includes('--select-merge-decision')) {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    const comments = JSON.parse(chunks.join(''));
+    const envelopes = comments.map(closeoutEnvelopeFromView);
+    const result = auditMergeDecisionReceipts({
+      pr: {
+        number: Number(option(argv, '--pr')),
+        headRefOid: option(argv, '--head'),
+        baseRefName: option(argv, '--base'),
+        baseRefOid: option(argv, '--base-oid'),
+      },
+      comments: envelopes,
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    if (!result.ok) process.exitCode = 1;
+    return;
+  }
+  if (argv.includes('--audit-closeout')) {
+    const issue = option(argv, '--issue');
+    const result = fetchCloseoutAudit({
+      repository: option(argv, '--repo'),
+      prNumber: Number(option(argv, '--pr')),
+      issueNumber: issue === null || issue === 'none' ? null : Number(issue),
+      mergeCommentId: Number(option(argv, '--merge-comment')),
+      completionCommentId: Number(option(argv, '--completion-comment')),
+    });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    if (!result.ok) process.exitCode = 1;
+    return;
+  }
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
   const comments = JSON.parse(chunks.join(''));

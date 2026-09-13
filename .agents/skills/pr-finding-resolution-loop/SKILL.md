@@ -137,6 +137,12 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    which findings a previous round already answered. A local reviewer belongs in Round A, BEFORE the
    push, where its whole purpose is to spend a minute instead of a CI cycle.
 
+   **Clean no-feedback fast path.** If Round A recorded zero for the exact current head/base, the one
+   CI watcher returned `GREEN`, and every remote feedback surface is complete and empty, publish one
+   `PR_MERGE_DECISION` with `REMOTE-FEEDBACK: empty` and proceed to the merge path. Empty remote
+   feedback is an observation, not a second review verdict: do not dispatch a reviewer, append a
+   Round B ledger row, or post another zero-finding comment.
+
 2. **Collect the current comments and judge them in one batch before replying.** Dispatch
    `finding-depth-triager` once with the finding set; it returns a distinct verdict per finding
    because the set can mix depths. Hand the decided batch to `pr-review-writer` once, preserving
@@ -261,3 +267,7 @@ node scripts/harness/loop-run.mjs open  --loop pr-finding-resolution-loop
 node scripts/harness/loop-run.mjs round --loop pr-finding-resolution-loop --run <id> --findings <n>
 node scripts/harness/loop-run.mjs close --loop pr-finding-resolution-loop --run <id> --terminal <reason>
 ```
+
+The tracked record covers Round A and closes before the first push. After the PR exists, findings and
+their replies live on the PR; the unique `PR_MERGE_DECISION` is the remote terminal record. Do not
+reopen or extend the tracked run after the diff freezes.

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -18,6 +19,7 @@ const parent = '.agents/spec-docs/draft/AGREEMENT-2655-parent.md';
 const backlog = '.agents/loop-runs/backlog-execution-orchestrator.jsonl';
 const review = '.agents/loop-runs/pr-finding-resolution-loop.jsonl';
 const learn = '.agents/learn.md';
+const root = path.resolve(import.meta.dirname, '../../..');
 const openRun = {
   runId: 'r20260912112843',
   opened: '2026-09-12T11:28:43.299Z',
@@ -205,8 +207,28 @@ describe('verified post-merge delivery records', () => {
 
   it('keeps merge provenance mandatory using read-only current repository objects', () => {
     // No repository or worktree fixture: identical revisions cannot append a verified merge record.
-    const root = path.resolve(import.meta.dirname, '../../..');
     const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
     expect(validatePostMergePrelude(root, head, head, [postMerge], head)).toBe(false);
+  });
+
+  it('keeps historical ledger batches readable while new closeout uses one remote receipt', () => {
+    expect(isPostMergeDeliveryBatch(deliveryFixture().options)).toBe(true);
+    const skill = readFileSync(path.join(root, '.agents/skills/post-merge-cycle/SKILL.md'), 'utf8');
+    expect(skill).toContain('DELIVERY_COMPLETION_RECORD');
+    expect(skill).toContain('do not append a tracked post-merge ledger row');
+    expect(skill).toContain('never create a new one');
+  });
+
+  it('pins one CI owner and the clean no-feedback fast path', () => {
+    const ci = readFileSync(path.join(root, '.agents/skills/ci-gate-watch/SKILL.md'), 'utf8');
+    const review = readFileSync(
+      path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md'),
+      'utf8',
+    );
+    expect(ci).toContain('One watcher owns one gate/SHA tuple');
+    expect(ci).toContain('informational warning is not a finding');
+    expect(review).toContain('Clean no-feedback fast path');
+    expect(review).toContain('do not dispatch a reviewer');
+    expect(review).toContain('PR_MERGE_DECISION');
   });
 });
