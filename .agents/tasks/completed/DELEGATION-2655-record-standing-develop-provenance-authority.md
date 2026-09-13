@@ -1,7 +1,8 @@
 ---
 title: 'DELEGATION-2655: Record standing develop provenance authority'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
+completed: 2026-09-13
 created: 2026-09-13
 priority: medium
 urgency: now
@@ -23,7 +24,7 @@ Owner approval (verbatim): "병합완료. 다음부터는 너가 직접해. 나�
 
 - [x] Amend the existing Git rule and verifier routing without changing executable gates.
 - [x] Mirror the exact instruction into existing repository permissions and recurrence records.
-- [ ] Verify the bounded documentation changes and their delivery.
+- [x] Verify the bounded documentation changes. Hume's review and the canonical scenario validator passed; formatting and the commit checks passed.
 
 ## Test Plan
 
@@ -50,4 +51,9 @@ fresh direct owner approval. The existing recurrence ledger L7 remains OPEN, not
 Hume's bounded documentation review returned ACTIONABLE FINDINGS: 0 after the canonical N/A
 author verdict was corrected. The review verified refusal of other failed or unproven checks,
 ordinary delegation without the explicit exception, and out-of-scope main/release/protection changes.
-Formatting and the canonical scenario validator passed. Delivery remains pending.
+Formatting and the canonical scenario validator passed. Implementation commit: `58740713f46e`.
+
+## Delivery
+
+The completed documentation change is included in the closeout PR. Verify its eventual develop
+landing independently; local Task completion does not claim that this PR has already merged.
