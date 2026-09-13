@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [cli]
 lane: L2
@@ -17,6 +17,10 @@ The existing-parent planning route was repaired by PR #2722 at
 `27cf0f024701eeb6846bb5fd1e34fab46557e843`, independently merge-verified by Hume.
 This approved planning pair resumes on that integration base; the earlier failed gate remains
 historical evidence, and the parent's own remaining gates have not yet passed.
+
+The restored approved pair is now committed as a planning-only prelude. Main enters the parent's
+completion coordination gate with only this exact Task/spec pair changed; no new product
+implementation is introduced or authorized retroactively.
 
 ## Problem
 
@@ -46,6 +50,12 @@ security workflows and their tests. No new package or application is planned.
    Pro: preserves scope and bounds each review. Con: coordination requires explicit parent projections.
 
 ### Decision
+
+**Delivery mode:** `single`
+
+This parent delivers its final coordination and completion records in one PR. The three separately
+delivered children retain their own execution histories; this declaration neither combines their
+implementation retrospectively nor creates a new sequenced parent implementation.
 
 Choose alternative 3. Retain the entire umbrella objective until every child is delivered.
 ARTIFACT-2655 retains transactional output, exact manifest and fault-injection requirements.
@@ -410,3 +420,140 @@ were not changed, and no tests or live product operations were run.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `87383a665ad0` · base `origin/develop@ca214393cac3` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `babebbe86b1b` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "이 깃헙 이슈를 이번에 닫는걸 목표로 하고 #2655 안에 모든 이슈를 처리해야 합니다."
+**Given:** 2026-09-13, this conversation
+**Review fingerprint:** bb484da76935 (review 70f9188c, type/tags c3aab08c)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-13, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (bb484da76935) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `c77db915462e` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `fdd52cdcb2c2` (modified)
+
+### [GATE-APPROVAL] — ❌ FAIL | 2026-09-13
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-APPROVAL — ordering: prior gate GATE-WRITE PASS and status `review-ready`: status is `approved`, `review-ready` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `c77db915462e` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `62bf5dfcb53d` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-13
+
+**Status remains:** approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "이 깃헙 이슈를 이번에 닫는걸 목표로 하고 #2655 안에 모든 이슈를 처리해야 합니다."
+**Given:** 2026-09-13, this conversation, as recorded by the original independent approval; no new user utterance or GitHub approval is claimed.
+**Review fingerprint:** bb484da76935 (review 70f9188c, type/tags c3aab08c)
+
+This is the explicitly requested bounded reaffirmation of an already-approved parent, not a new
+initial GATE-APPROVAL transition. The original independent GATE-WRITE and GATE-APPROVAL PASS
+records establish the historical review-ready to approved transition. The preceding mechanical
+re-run really failed its initial-entry ordering check because the document was already approved;
+that FAIL is preserved and is not relabelled as a mechanical PASS. No review-ready rewind,
+pipeline restart, general ordering exception or retrospective implementation authority is asserted.
+
+- GATE-APPROVAL — Ordering context: the historical WRITE/APPROVAL sequence remains intact.
+  Current status stays approved in todo/. The initial-entry review-ready precondition is not
+  claimed satisfied by this reaffirmation; the previously completed transition is reused.
+- GATE-APPROVAL — Explicit user authority: PASS; the exact instruction above occurs in the
+  actual conversation and is the same DIRECT authority independently confirmed in the original
+  approval. It is not an agent relay standing in for a new owner instruction.
+- GATE-APPROVAL — Direct connection to this document: PASS; the parent still retains all four
+  inherited outcomes of issue #2655 and coordinates their delivery evidence and its own remaining
+  lifecycle. `Delivery mode: single` applies only to this parent's final coordination/completion
+  records in one PR. It neither combines the three children's historical implementations nor
+  introduces a new product design, exception, sequenced implementation or reduced acceptance scope.
+- GATE-APPROVAL — Named class and prior registration: N/A; route DIRECT, not CLASS.
+- GATE-APPROVAL — Class instruction/date/session: N/A as a CLASS criterion; the DIRECT
+  instruction's original date and conversation provenance are retained above.
+- GATE-APPROVAL — Class measurement: N/A; no delegated class is invoked.
+- GATE-APPROVAL — Class boundary: N/A; the explicit issue scope supplies the DIRECT connection.
+- GATE-APPROVAL — Current Architecture Review/type/tags binding: PASS; the preceding fresh
+  approval and this independent readback both bind `bb484da76935`, review `70f9188c`, type/tags
+  `c3aab08c`. The delivery declaration changes the review hash, not the retained type/tags or
+  source acceptance. The old fingerprint remains historical rather than being rewritten.
+- GATE-APPROVAL — Independent new-surface placement validation: N/A; this parent declaration
+  creates no package, application, public surface or layer/product-family reclassification.
+  Existing child approvals and placement evidence are not replaced by this record.
+
+Main's reported mechanical result remains 5 PASS, 1 ordering FAIL and 3 PENDING. This entry
+independently settles the direct-scope semantic question and the two conditional N/A criteria,
+and reaffirms the existing approval at the new binding; it does not report a successful mechanical
+re-run. The normal first GATE-IMPLEMENT and its actual checkpoint requirements remain mandatory.
+The earlier IMPLEMENT FAIL and all preceding history are preserved. No implementation gate,
+completion, issue closure or merge verdict is supplied here.
+
+**Judged by:** Hume — independent `backlog-gate-guard`; bounded parent DIRECT reapproval confirmation, original full parent approval inspection reused
+**Judged at:** HEAD `c77db915462e2d9c9916f1ef4a0242f4ec0180bb` · base `27cf0f024701eeb6846bb5fd1e34fab46557e843` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `0c5825056a58ce1b01156a6bc424577bcb9eedef` (modified, before this append)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-13; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 173 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md",
+    ".agents/tasks/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `c77db915462e` · base `origin/develop@27cf0f024701` · document `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md` blob `34cde8e62fe7` (modified)

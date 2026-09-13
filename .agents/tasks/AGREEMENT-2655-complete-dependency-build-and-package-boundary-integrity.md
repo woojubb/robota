@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2655: Complete dependency build and package-boundary integrity'
 issue: https://github.com/woojubb/robota/issues/2655
-status: todo
+status: in-progress
 created: 2026-09-12
 priority: high
 urgency: now
@@ -23,7 +23,7 @@ The existing-parent planning route was repaired by PR #2722 at
 This approved planning pair resumes on that integration base; the earlier failed gate remains
 historical evidence, and the parent's own remaining gates have not yet passed.
 
-Spec: `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`
+Spec: `.agents/spec-docs/active/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`
 
 ## Objective
 
@@ -67,6 +67,10 @@ Inspect child regressions, actual build/scan execution, merged commits and origi
 Neither decomposition nor a source Issue's CLOSED state proves delivery.
 
 ## Progress
+
+The restored approved pair is committed as a planning-only prelude on the repaired integration
+base. Main now enters the parent's completion coordination gate; no new product implementation
+is introduced, and the remaining terminal verification and issue writeback are still pending.
 
 2026-09-13 final child/acceptance audit: all three children now have actual completed Task and
 done spec paths. BOUNDARY's terminal GATE-COMPLETE records 9/9 PASS after GATE-VERIFY 5/5 and
