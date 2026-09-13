@@ -1,7 +1,8 @@
 ---
 title: 'BOUNDARY-2655: Classify and enforce shared package boundary ownership'
 issue: https://github.com/woojubb/robota/issues/2655
-status: in-progress
+status: done
+completed: 2026-09-13
 created: 2026-09-12
 priority: high
 urgency: now
@@ -17,7 +18,7 @@ Inventory shared code across the repository and verify API ownership, domain neu
 
 Parent: AGREEMENT-2655; canonical umbrella: https://github.com/woojubb/robota/issues/2655.
 
-Spec: `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+Spec: `.agents/spec-docs/done/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490), transferred to the umbrella by its [recorded disposition](https://github.com/woojubb/robota/issues/2490#issuecomment-5642818355). Full-population classification and actual migrations remain binding.
 
@@ -25,10 +26,14 @@ Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490),
 
 - [x] TC-01: Reconcile the complete tracked population, reference coverage, exclusions and reviewed ownership dispositions. Evidence: final population reconciliation and bounded supplement in Test Plan, including both repaired ownership/path findings.
 - [x] TC-02: Validate retained generic shared material against independent consumer evidence and preserve domain-owned public contracts. Evidence: final local integration and the paired spec's local acceptance reconciliation.
-- [ ] TC-03: Migrate all classified owner-local material, including recording, hook, session migration and private PTY tooling, preserving behavior.
+- [x] TC-03: Migrate all classified owner-local material, including recording, hook, session migration and private PTY tooling, preserving behavior.
 - [x] TC-04: Extend the existing reference analysis and reject ownership drift with positive/negative regressions. Evidence: final local integration, 24 scanner regressions and independent wiring PASS.
 - [x] TC-05: Integrate justified operation/cache inputs and truthful selected/executed/skipped/global-promotion reporting. Evidence: final local integration and typed registry/cache/execution regressions; uncertainty remains conservative.
-- [ ] TC-06: Verify focused and affected scope plus final remote CI and prepare per-criterion source/parent delivery evidence.
+- [x] TC-06: Verify focused and affected scope plus final remote CI and prepare per-criterion source/parent delivery evidence.
+
+## Independent completion criteria
+
+- [x] All six approved spec criteria have canonical command/output records and final GATE-COMPLETE PASS; the exact tested tree landed on develop with independent MERGE VERIFIED PASS and source-issue delivery evidence.
 
 ## Delivery
 
@@ -38,6 +43,87 @@ documented post-merge completion closeout keeps this Task and its spec in-progre
 PR; remote CI, verified landing and terminal completion evidence are not waived.
 
 ## Progress
+
+2026-09-13 author-only continuation preparation: restored this Task and its paired spec to their
+active `in-progress` locations on `docs/2655-completion-records`, based on `f8569` with the
+planning-free PR #2719 witness commit `69d942cec`. The Plan wording matches that base exactly,
+apart from completed checkbox states. Existing runtime, review, merge and completion-gate
+results below remain historical evidence; restoration does not undo delivered behavior or
+claim a new gate PASS. Main owns the clean-pair inventory and checkpoint commit; Hume owns
+the continuation judgment before any later archival. No sealed predecessor was rewritten.
+
+### Final-head closeout evidence — 2026-09-13
+
+This entry supersedes the pending-runtime/CI statements in the historical entries below; it
+does not rewrite their earlier results. [PR #2718](https://github.com/woojubb/robota/pull/2718)
+was merged by `woojubb` at `2026-09-13T07:18:14Z`: delivering head
+`c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`, merge
+`fa7984f59358682ab472b1adf96297767715ef4e`. The PR API readback confirms these fields.
+Hume's independent ancestry/tree/drift/CI checks passed, but his current overall merge-verifier
+verdict is FAIL solely because the required owner-landing comment was missing. Carson is
+publishing that record; Hume must revalidate the actual comment. This is not yet a terminal
+merge-verification PASS, GATE-VERIFY, GATE-COMPLETE, status transition or source/parent closure.
+
+Read-only final-head CI evidence, not new local test execution:
+
+- [CI run 34742172142](https://github.com/woojubb/robota/actions/runs/34742172142): all 13
+  non-skipped jobs succeeded at the delivering head, including Windows, examples, quality and
+  the enforcing regression proof. Skipped jobs are not counted as passes. The separately owned
+  workflow-provenance run remains RED; neither this CI result nor the owner merge changes that
+  historical result into GREEN. The owner-landing route still needs the independent readback above.
+- [Build job 103683620725](https://github.com/woojubb/robota/actions/runs/34742172142/job/103683620725):
+  clean framework proof logged `packages=16, globalFallback=false`; the three explicit
+  `--no-cache` regressions passed 12 tests, followed by the affected operation's 1795 tests.
+  The full workspace build reported `artifact workspace build: PASS tasks=81`; full package
+  quality and output-contract scan succeeded. `pnpm exec vitest run scripts/artifacts/__tests__`
+  reported 104 passed / 1 skipped. The relocated PTY helper self-tests passed 6/6 and the
+  command/terminal handoff consumers passed 2/2 and 1/1 respectively. These are remote executions,
+  not local HOME/PTY runs.
+- [TUI job 103685321549](https://github.com/woojubb/robota/actions/runs/34742172142/job/103685321549):
+  `pnpm --filter @robota-sdk/agent-transport-tui test:pty` passed 32 tests in 15 files.
+  Together with the previously recorded owner-local moves, offline recording/replay and six
+  direct scenarios, these final-head results discharge TC-03's outstanding runtime evidence.
+- [Scans job 103683620639](https://github.com/woojubb/robota/actions/runs/34742172142/job/103683620639):
+  the boundary scan passed; contracts reported `control-plane input changed: .agents/harness.config.json;
+272/272 selected`, 0 cache hits / 272 misses, 34 successful misses recorded, 272 submitted,
+  0 not invoked and 0 failed shards. Hermetic tests passed 1218/1218. Submission and successful
+  cache markers are not relabelled as individual test-case counts. Nested negative-fixture
+  diagnostics are not top-level failures. This broad run does not prove a performance reduction.
+- [Round B disposition 5651707829](https://github.com/woojubb/robota/pull/2718#issuecomment-5651707829):
+  zero unresolved findings after three refutations and seven deferrals to existing Issue #2680.
+  This carries accumulated bounded review/repair coverage, not a new full-PR review or a claim
+  that the seven deferred findings were fixed. No new review judgment is made in this closeout.
+
+The paired spec now supplies exact test-file/test-name references and a per-TC evidence handoff.
+TC-01/02/04/05 retain their recorded semantic and engineering evidence; scanner counts alone do
+not establish semantic ownership. TC-06 remains unchecked pending the actual owner-landing
+record and Hume's revalidated verdict. Main owns the subsequent named gates, execution-loop
+closure, archival and parent/source reconciliation. No product checks were rerun for this entry.
+
+Closeout addendum: Hume subsequently returned **MERGE VERIFIED PASS** after reading
+[owner-landing record 5651926138](https://github.com/woojubb/robota/pull/2718#issuecomment-5651926138).
+His verified remote develop remains `fa7984f59358682ab472b1adf96297767715ef4e`; merge tree
+`0b274f7b8a014beaaa2b2d21787a9eadde750133` equals the delivering `c8e814c62` head tree.
+The independent ancestry/tree/drift/CI checks and now the owner record pass. Nash separately
+read back the actual comment body; it records the actual owner merge, not retroactive
+head-specific preapproval, and preserves the single workflow-provenance RED. The prior FAIL
+above remains the truthful first-attempt history. TC-06 is now evidence-ready. Main exclusively
+owns post-merge ledger `r20260913071957` and the parent/source reconciliation; this worker did
+not write that ledger or claim those downstream actions already completed.
+
+Final delivery addendum: [Issue #2490 delivery comment 5651937294](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
+was published and read back. Main reports post-merge cycle `r20260913071957` CLOSED, converged
+`[1,0]`, bound to the exact merge and owner record; source branch cleanup and fresh-base setup
+are complete. This worker did not edit that ledger. The source delivery comment explicitly
+leaves umbrella completion to its own acceptance/gate reconciliation.
+
+The mechanical GATE-VERIFY dry run returned **3 PASS, 0 FAIL, 2 PENDING-GUARDIAN** (exit 2):
+ordering and actual remote build/test evidence passed; the catalogue's two Plan criteria have
+no mechanical wording binding. All six Plan items above are checked. An independent guardian
+must decide those two criteria; the author does not self-certify the authored Task. No terminal
+gate entry, status transition or archival has been performed in this handoff.
+
+### Historical implementation and repair evidence
 
 2026-09-13 Git-free artifact compatibility repair: the completed run 34740793748 passed the
 full package-quality step, then failed 22 artifact regressions before their intended assertions

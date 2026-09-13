@@ -33,7 +33,7 @@ Verify all deliveries on origin/develop and close Issue #2655 only after every s
 
 - [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
 - [x] ARTIFACT-2655 — done — `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
-- [ ] BOUNDARY-2655 — in-progress — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+- [x] BOUNDARY-2655 — done — `.agents/tasks/completed/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 ## Test Plan
 

@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-09-13
 type: INFRA
 tags: [typescript]
 lane: L2
@@ -272,26 +273,41 @@ Task's final local integration evidence. The earlier `extractDtlsFingerprint` ca
 as a domain-owned public pairing/channel-binding API: its owner SPEC declares it, the public
 barrel exports it, and the Node WebRTC transport and browser RTC client consume it. It is not a
 generic shared API or an alias exception, so no artificial fourth alias registry row is required.
-Remote PTY/HOME execution and final CI/landing remain outstanding; local scanner zero does not
-discharge those requirements or establish semantic classification of unknown file kinds.
+Final-head remote PTY/HOME and CI results are now recorded in the paired Task's closeout evidence
+and the per-TC handoff below. Local scanner zero alone does not establish semantic classification
+of unknown file kinds. Hume's initial missing-owner-record FAIL is preserved in the paired Task;
+his subsequent MERGE VERIFIED PASS and the read-back owner comment now supply verified landing.
 
 - [x] TC-01: Full tracked population is reconciled to declared workspace roots and repository tooling; every excluded class has an explicit reason, every unresolved reference is visible, and every shared candidate has a reviewed disposition. Evidence: paired Task final population reconciliation and bounded supplement, with exact original unknown-path fingerprint and the additional owned SDP sample.
 - [x] TC-02: Retained shared files have an owned, domain-neutral API and at least two independently justified package consumers; same-scenario recording/replay or several files in one package do not inflate this evidence. Public contract dispositions are validated rather than guessed from internal counts. Evidence: local acceptance reconciliation above and paired Task final local integration.
-- [ ] TC-03: All classified package-specific helpers, fixtures, constants and data are moved to their owners, with old cross-owner internal references removed and runtime/record-replay behavior preserved. Includes the known framework goal recording tool, not only a registry entry.
+- [x] TC-03: All classified package-specific helpers, fixtures, constants and data are moved to their owners, with old cross-owner internal references removed and runtime/record-replay behavior preserved. Includes the known framework goal recording tool, not only a registry entry. Evidence: paired Task owner-local migration/scenario results and final-head build/TUI runtime evidence below.
 - [x] TC-04: Existing reference analysis and drift gate reject missing owners, stale/missing consumer evidence, invalid shared retention and newly introduced ownership leaks; aliases, relative imports, config/data refs and unresolved dynamic cases have positive/negative regressions. Evidence: paired Task final local integration and independently accepted scanner/wiring regressions.
 - [x] TC-05: Existing affected selection and cache inputs consume consistent justified references; output distinguishes selected versus executed coverage and states every global promotion reason, without a parallel graph or unjustified broad fanout. Evidence: paired Task final local integration, typed registry validation and cache/projection/execution reporting regressions.
-- [ ] TC-06: Focused regressions, affected package checks and current remote CI verify the complete changed scope. Parent/source issue completion is reconciled only after all criteria land on origin/develop.
+- [x] TC-06: Focused regressions, affected package checks and current remote CI verify the complete changed scope. Parent/source issue completion is reconciled only after all criteria land on origin/develop. Evidence: exact-head CI and Hume's revalidated MERGE VERIFIED PASS below; Main owns the subsequent parent/source projection.
 
 ## Test Plan
 
-| TC-ID | Test Type                       | Tool / Approach                                                                                            | Notes                                                                                                                                               |
-| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Integration and semantic review | Inventory over the actual tracked checkout plus independent review of complete dispositions                | A parser count alone cannot establish neutrality or independence; the paired Task records the population reconciliation.                            |
-| TC-02 | Unit and semantic review        | Positive/negative retained-shared cases and API/consumer evidence review                                   | Public external consumers must not be inferred absent from a local search.                                                                          |
-| TC-03 | Integration                     | Framework goal cassette replay and scripted session tests; offline recording provider-injection regression | No live key or cassette regeneration for a move-only check. Local composition/replay evidence is recorded; remote PTY verification remains pending. |
-| TC-04 | Unit/integration                | Extend existing workspace affected/reference test owner with ordinary-file/in-memory fixtures              | No local worktrees, clones or Git fixture repositories.                                                                                             |
-| TC-05 | Integration                     | Existing affected planner/executor/cache reporting tests with selected, skipped, failed and global cases   | The three observed CLI plans above are baseline evidence, not final verification.                                                                   |
-| TC-06 | CI smoke                        | Actual affected checks and remote CI on final head, then per-criterion merge audit                         | No reuse of unrelated green jobs as whole-scope proof.                                                                                              |
+| TC-ID | Test Type                              | Test written: exact file and test/describe                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Evidence boundary                                                                                                                                                                                                                      |
+| ----- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration and semantic review        | `scripts/harness/__tests__/workspace-source-inventory.test.mjs` > `accounts for every tracked path without reading symlinks or pending deletions`; `reports nonignored untracked additions separately while resolving both populations`; `links ownership to present declarations without inventing contracts or shared validity`                                                                                                                                                                                                                                                                                                                                       | The paired Task's complete population reconciliation and independently reviewed dispositions are additional semantic evidence, not inferred from parser counts.                                                                        |
+| TC-02 | Unit and semantic review               | `scripts/harness/__tests__/scan-package-boundary-ownership.test.mjs` > `package boundary ownership` > `requires actual references from two different package owners, not two files`; `accepts public source aliases and protects domain APIs without applying the neutral-consumer threshold`                                                                                                                                                                                                                                                                                                                                                                           | Two process APIs, exact tooling/config dispositions and protected public APIs have distinct acceptance rules. Local caller counts do not disprove external public consumers.                                                           |
+| TC-03 | Owner-local integration and remote PTY | `packages/agent-core/src/__tests__/owned-hook-examples.test.ts` > `owner-local hook commands`; `packages/agent-session/src/__tests__/migrate-session-history.test.ts` > `migrate-session-history`; `packages/agent-framework/scripts/__tests__/record-goal-cassette.test.ts` > `records an injected offline provider through the real goal loop and replays its cassette`; `packages/agent-framework/scripts/__tests__/goal-cassette-replay-example.test.ts` > `runs the public SDK replay example without changing the committed cassette`; `packages/agent-transport-tui/src/__tests__/pty/spawn-pty.test.ts` > `spawnPty harness self-test` and `PTY HOME isolation` | Additional migrated contract/data cases are listed below. Offline recording/replay did not use live keys. Final-head remote helper 6/6, handoff 2/2 + 1/1 and TUI 32/32 close the former local PTY execution boundary.                 |
+| TC-04 | Unit/integration                       | `scripts/harness/__tests__/workspace-source-dependencies.test.mjs` > `workspace source reference evidence`; `scripts/harness/__tests__/scan-package-boundary-ownership.test.mjs` > `package boundary ownership`; `scripts/harness/__tests__/package-boundary-ownership-wiring.test.mjs` > `discovers the actual non-advisory boundary command without adding a legacy runner duplicate`                                                                                                                                                                                                                                                                                 | Existing extraction/graph/scan owners are reused; positive/negative ordinary-file/in-memory regressions do not require local Git fixtures.                                                                                             |
+| TC-05 | Selection/cache/reporting integration  | `scripts/harness/__tests__/contract-projected-selection.test.mjs` > `selects an explicitly resolved content consumer across owner boundaries`; `scripts/harness/__tests__/contract-test-cache.test.mjs` > `content-addressed contract-test cache`; `scripts/harness/__tests__/contract-execution-reporting.test.mjs` > `returns truthful coverage from the actual tier orchestration path`; `scripts/harness/__tests__/contract-execution-coverage.test.mjs` > `distinguishes cache reuse, invoked shards and tests never invoked after failure`                                                                                                                        | Typed content/name-set/execution semantics and entry-local noncacheability are tested. Final CI explicitly promoted for a control-plane input, not an asserted efficiency gain.                                                        |
+| TC-06 | Actual CI and delivery audit           | `scripts/harness/__tests__/artifact-ci-framework-proof.test.mjs` > `ARTIFACT clean framework proof CI wiring` > `the current source graph really selects 16 including recorder, replay and analytics producers, without global fallback`; actual CI commands and remote identities below                                                                                                                                                                                                                                                                                                                                                                                | The automated wiring test does not replace actual clean build/affected tests or independent landing verification. No new automated test for the external owner-landing comment: Hume's API-backed revalidation PASS is recorded below. |
+
+Additional TC-03 owner-local regressions: `packages/agent-builtin-providers/src/deepseek-provider-demo.test.ts`
+
+> `verifies real offline definitions/composition and reports a catalog mismatch as failure`;
+> `packages/agent-core/src/__tests__/role-model-contract.test.ts`
+> `SELFHOST-006 TC-05 — neutral role-model contract`;
+> `packages/agent-remote-pairing/src/__tests__/fingerprint-parity.test.ts`
+> `DTLS fingerprint extraction parity (REMOTE-009 D6)` (four preserved assertions);
+> `packages/dag-cli/src/__tests__/doctor-version.test.ts` > `doctor owner-local version`.
+> Remote consumer coverage includes `packages/agent-transport-tui/src/__tests__/command-handoff-pty-e2e.test.ts`
+> `command handoff PTY E2E` and `packages/agent-transport-tui/src/__tests__/terminal-handoff-pty-e2e.test.ts`
+> `terminal handoff PTY E2E`. The original browser-native fixture remains with its RTC consumer;
+> the pairing-owned dialect sample introduces no generic shared fixture API.
 
 ## User Execution Test Scenarios
 
@@ -390,7 +406,7 @@ this format repair does not record a new scenario run or gate verdict.
 
 ## Tasks
 
-- [ ] `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` — in-progress
+- [x] `.agents/tasks/completed/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` — done
 
 ## Validation Findings Before Approval
 
@@ -452,6 +468,15 @@ the pre-approval investigation, not an additional approval requirement.
 This approval does not claim proposal-reviewer ENDORSE, a gate PASS, implementation, verification,
 or issue completion. Worktrees remain prohibited. Runtime provider injection, cassette bytes,
 PTY isolation and the complete six-criterion delivery scope remain binding.
+
+## Historical completion preparation
+
+Author-only restoration, 2026-09-13: this pair is active again for the requested later-PR
+continuation checkpoint preparation. Prior completion and verification entries retain their
+actual dates, verdicts and observed results as historical evidence; they are not a new
+continuation judgment or permission to archive on this branch. Hume owns the next named gate,
+and Main owns the clean-pair checkpoint inventory and commit. The original v2 `single`
+GATE-IMPLEMENT payload and Decision are unchanged; no sequenced predecessor is fabricated.
 
 ## Evidence Log
 
@@ -733,3 +758,240 @@ continuation and grants no implementation authority. Earlier committed entries r
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `5cfa1b18f91a` · base `origin/develop@38e87a027c53` · document `.agents/spec-docs/todo/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `b0e3fb0a03d7` (modified)
+
+### Final per-criterion evidence handoff — 2026-09-13
+
+These are author-prepared verification inputs, not new independent gate verdicts or canonical
+`GATE-COMPLETE` PASS entries. The initial landing hold in this preparation table is resolved by
+the subsequent Hume addendum below; named gate judgment remains separate. No verification command below was rerun locally for this
+closeout; remote logs were read with `gh api repos/woojubb/robota/actions/jobs/<job-id>/logs`
+(readback commands exited 0), and historical local results retain their original scope.
+All final CI results below bind head `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`.
+
+| Criterion | Exact verification action / executed command                                                                                                                                                                                                                                                 | Observed result and limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01     | Read the paired Task's final population reconciliation, original 122-path semantic review fingerprint and bounded SDP/CSS supplement; read final scans job `103683620639` for `package-boundary-ownership`.                                                                                  | Historical inventory reconciles 8608 tracked / 0 untracked / 12 symlink exclusions after the owned SDP supplement; the 122 reviewed unknown paths plus the new sample are explicitly accounted for. Historical source analysis reports 4210 sources, 20261 references, 197 config references and 2381 unresolved references. Final remote boundary scan passed. These dated counts are not a fresh inventory of subsequent closeout documents, nor evidence that every runtime expression is resolved. Semantic review is an action with no process exit code; remote scan step succeeded. |
+| TC-02     | Read `.agents/package-boundaries.json` decisions against the paired Task's independent source/SPEC review; final remote contract and boundary scan execution in job `103683620639`.                                                                                                          | Two process APIs meet neutral owned API and independent package consumer criteria; three public-alias bindings and 208 exact tooling/config references are separately justified. Public pairing `extractDtlsFingerprint` remains domain-owned under its SPEC/public barrel and Node/browser consumers, not omitted or made a fourth alias exception. No in-repo caller threshold is imposed on approved public domain contracts. Remote step succeeded; semantic disposition is not a new gate judgment.                                                                                   |
+| TC-03     | Historical owner-local migration tests and six actual SDK/example scenarios in the Task; final build job `103683620725` full `pnpm test`; TUI job `103685321549`: `pnpm --filter @robota-sdk/agent-transport-tui test:pty`.                                                                  | Hook/session/recorder/provider composition, role contract, pairing fixture and sealed doctor evidence is preserved in the Task and exact test references above. Final helper self-tests 6/6, command handoff 2/2, terminal handoff 1/1; real TUI command 32 tests / 15 files passed. CI steps succeeded (exit 0); no local HOME/PTY run or paid recording is claimed.                                                                                                                                                                                                                      |
+| TC-04     | Historical positive/negative scanner/reference/wiring regressions in the Task; final scans execute `pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD` and `pnpm harness:test:hermetic`.                                                              | Boundary scan passed, contract runners submitted all 272 selected entries with zero failed shards, hermetic 1218/1218 passed; successful steps, exit 0. The Git-free repair retains default Git error propagation, explicit full filesystem analysis and explicitly not-performed metadata projections; historical Pascal 71 and artifact 35 focused passes are corroborating bounded evidence, not substituted for CI.                                                                                                                                                                    |
+| TC-05     | Same final contract command; read the top-level contract summary in job `103683620639`, together with the existing typed-input/cache/projection/reporting test results in the Task.                                                                                                          | `control-plane input changed: .agents/harness.config.json; 272/272 selected`; 0 hits / 272 misses; 34 successful misses recorded; 272 submitted / 0 not invoked / 0 failed shards. Exit 0. Markers and submitted entries are not individual test-case totals. Historical registry 238 uncertain/always-run and 34 cacheable entries makes uncertainty visible; neither broad final selection nor marker writes prove reduced fanout.                                                                                                                                                       |
+| TC-06     | Build job `103683620725`: clean command sequence below, full `pnpm build`, full package-quality checks, `pnpm harness:scan:build-contracts`, `pnpm exec vitest run scripts/artifacts/__tests__`; read run/jobs API and PR API; consume independent Hume landing verification when available. | Clean plan 16 packages / `globalFallback=false`, explicit regressions 12 passed, affected operation 1795 passed, full build 81 tasks passed, full quality/output scan succeeded, artifact tests 104 passed / 1 skipped; steps exited 0. CI run has 13 non-skipped successful jobs. PR API records owner merge, but Hume's current overall FAIL is solely missing owner-landing comment; revalidation is pending. TC-06 remains unchecked and no terminal completion or all-required-checks GREEN claim is made.                                                                            |
+
+Exact clean-framework command sequence executed in the build job before the full workspace build:
+
+```sh
+node scripts/harness/workspace-affected-run.mjs --operation build --changed-file packages/agent-framework/src/index.ts
+pnpm --filter @robota-sdk/agent-framework exec vitest run --no-cache \
+  src/interactive/__tests__/interactive-session-background-tasks.test.ts \
+  src/testing/__tests__/session-log-external-payload-replay-functional.test.ts \
+  src/testing/__tests__/usage-assertion-functional.test.ts
+node scripts/harness/workspace-affected-run.mjs --operation test --changed-file packages/agent-framework/src/index.ts
+```
+
+Authoritative remote evidence:
+[final CI](https://github.com/woojubb/robota/actions/runs/34742172142),
+[build](https://github.com/woojubb/robota/actions/runs/34742172142/job/103683620725),
+[scans](https://github.com/woojubb/robota/actions/runs/34742172142/job/103683620639),
+[TUI](https://github.com/woojubb/robota/actions/runs/34742172142/job/103685321549),
+[merged PR](https://github.com/woojubb/robota/pull/2718), and
+[Round B disposition](https://github.com/woojubb/robota/pull/2718#issuecomment-5651707829).
+Round B records zero unresolved after three refutations and seven deferrals to existing Issue #2680;
+it is not a new full-head review or a claim that deferred findings were implemented.
+PR API readback records `woojubb` merging at `2026-09-13T07:18:14Z`, merge
+`fa7984f59358682ab472b1adf96297767715ef4e`. The separate workflow-provenance run
+`34742171400` remains RED, not retroactively GREEN. The required owner-landing record and Hume's
+actual revalidation are still needed before the final gate/archival. Status, Task projection and
+historical gate entries below are unchanged; no execution-loop closure is fabricated.
+
+Subsequent landing evidence: Hume revalidated
+[owner-landing record 5651926138](https://github.com/woojubb/robota/pull/2718#issuecomment-5651926138)
+and returned **MERGE VERIFIED PASS**. Remote develop remains
+`fa7984f59358682ab472b1adf96297767715ef4e`; its tree
+`0b274f7b8a014beaaa2b2d21787a9eadde750133` equals the delivering head tree. This resolves the
+specific missing-record blocker in the preparation table above without rewriting its historical
+FAIL or the provenance RED. Nash read back the actual owner comment. TC-06 is now ready for the
+named gate; Main alone owns post-merge ledger `r20260913071957` and parent/source projection.
+
+Final source delivery: [Issue #2490 comment 5651937294](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
+was published and read back. Main reports `r20260913071957` CLOSED/converged `[1,0]` with exact
+merge/owner/Hume witnesses, source-branch cleanup complete and current base fresh. That ledger
+was not edited by this worker. Parent umbrella acceptance remains separately owned.
+
+Mechanical verification handoff: `gate.mjs judge --gate GATE-VERIFY` on this exact active spec
+with `--dry-run` returned exit 2: **3 PASS, 0 FAIL, 2 PENDING-GUARDIAN**. The `--verify-cmd`
+was a read-only Node assertion fetching `gh api repos/woojubb/robota/actions/jobs/103683620725`,
+requiring exact head `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9` and successful job/steps:
+`Clean framework-only build and regression proof`, `Build full or affected workspace`,
+`Verify full or affected package quality concurrently`, `Build-output contracts scan (dist-dependent)`
+and `Verify artifact generation, exact pack and release-path regressions`. It exited 0 and printed
+`Verified remote build/test steps SUCCESS at exact c8e814c62 head; no local build/test executed.
+CI34742172142 job103683620725.` The prior-gate/order criterion passed. The only pending criteria
+are every Plan item complete and no Plan item blocked/pending; both are tagged mechanical but
+have no current wording binding. The paired Task has six checked Plan items. No gate entry was
+written. An independent guardian must judge those two criteria; this author does not judge the
+content they wrote. Final GATE-COMPLETE, status transition and archival remain unperformed.
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-13
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `4fd53188be3c` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS. The last GATE-IMPLEMENT entry is PASS; this exact spec is in-progress, lane L2, in active/.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): PASS. The exact BOUNDARY-2655 Task has six checked items, TC-01 through TC-06, each bound to its recorded population, ownership, migration, enforcement, reporting or delivery evidence.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS. Final remote PTY/CI evidence, Hume's subsequent MERGE VERIFIED PASS, owner comment 5651926138 and source delivery 5651937294 resolve the earlier documented holds. Those historical failures remain preserved. Parent terminal projections are separate delivery actions, not unresolved child implementation.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS. The read-only assertion below exited 0 for exact head c8e814c62cc1f5263f95ced9360f3e1104b1f5a9 and successful clean-framework, full-workspace, quality, output-contract and artifact-regression steps in job 103683620725. Actual root build: 81 tasks; clean affected build: 16 packages, globalFallback=false.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS. The same actual job/step readback verifies package quality and artifact regressions. Recorded remote results remain 12 focused framework tests, 1795 affected tests and 104 artifact PASS / 1 SKIP; final scans and TUI jobs succeeded. No local product tests or CI reruns were performed.
+
+**Verification command:**
+
+```sh
+node --input-type=module -e 'import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; const j=JSON.parse(execFileSync("gh",["api","repos/woojubb/robota/actions/jobs/103683620725"],{encoding:"utf8"})); assert.equal(j.head_sha,"c8e814c62cc1f5263f95ced9360f3e1104b1f5a9"); assert.equal(j.conclusion,"success"); for(const name of ["Clean framework-only build and regression proof","Build full or affected workspace","Verify full or affected package quality concurrently","Build-output contracts scan (dist-dependent)","Verify artifact generation, exact pack and release-path regressions"]) { const s=j.steps.find(s=>s.name===name); assert.ok(s,name); assert.equal(s.conclusion,"success",name); } console.log("Verified remote build/test steps SUCCESS at exact c8e814c62 head; no local build/test executed. CI34742172142 job103683620725.");'
+```
+
+**Observed output (exit 0):** Verified remote build/test steps SUCCESS at exact c8e814c62 head; no local build/test executed. CI34742172142 job103683620725.
+
+The preceding mechanical FAIL records an invocation without --verify-cmd, not a product failure. The corrected invocation returned 3 PASS, 0 FAIL and 2 PENDING-GUARDIAN; this independent judgment resolves those two Plan wording bindings. Final result including ordering: 5 PASS, 0 FAIL, 0 pending. Workflow provenance remains owner-landed RED, not GREEN.
+
+**Judged by:** Carson, independent backlog-gate-guard; not the child implementation/completion author.
+**Subject:** .agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md and its exact paired Task; CI head c8e814c62cc1f5263f95ced9360f3e1104b1f5a9; Hume-verified merge fa7984f59358682ab472b1adf96297767715ef4e.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `Read paired Task final population reconciliation (122-path fingerprint plus owned SDP supplement), named inventory tests and current six checked criteria; read gh api repos/woojubb/robota/actions/jobs/103683620639/logs for actual boundary scan. Historical population counts are not a new recount.`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+2026-09-13T06:12:53.0689125Z  * [new branch]          fix/2655-package-boundary-ownership -> origin/fix/2655-package-boundary-ownership
+2026-09-13T06:18:47.2875981Z [contract-tests] complete: control-plane input changed: .agents/harness.config.json; 272/272 selected
+2026-09-13T06:18:47.3278774Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3280495Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3342791Z [contract-tests] coverage: 0 cache-reused; 272 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3375596Z ✓ package-boundary-ownership
+2026-09-13T06:18:47.3474625Z       Tests  1218 passed (1218)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `b1a980bc54bc` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `Read named shared API consumers and public/domain dispositions in .agents/package-boundaries.json against the Task independent review and exact positive/negative test names; read gh api repos/woojubb/robota/actions/jobs/103683620639/logs for actual boundary scan. Low internal counts are not public API removal grounds.`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+2026-09-13T06:12:53.0689125Z  * [new branch]          fix/2655-package-boundary-ownership -> origin/fix/2655-package-boundary-ownership
+2026-09-13T06:18:47.2875981Z [contract-tests] complete: control-plane input changed: .agents/harness.config.json; 272/272 selected
+2026-09-13T06:18:47.3278774Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3280495Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3342791Z [contract-tests] coverage: 0 cache-reused; 272 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3375596Z ✓ package-boundary-ownership
+2026-09-13T06:18:47.3474625Z       Tests  1218 passed (1218)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `1580e42f32f3` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `Read Task owner-local migration and six executed scenario evidence; verify named migration/recorder/PTY test references; read gh api repos/woojubb/robota/actions/jobs/103685321549/logs for the real test:pty result. No local HOME/PTY tests executed.`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+2026-09-13T06:29:23.4093492Z ##[group]Run pnpm --filter @robota-sdk/agent-transport-tui test:pty
+2026-09-13T06:29:23.4093968Z pnpm --filter @robota-sdk/agent-transport-tui test:pty
+2026-09-13T06:29:23.8103761Z > @robota-sdk/agent-transport-tui@3.0.0-beta.79 test:pty /home/runner/work/robota/robota/packages/agent-transport-tui
+2026-09-13T06:30:15.8648292Z  Test Files  15 passed (15)
+2026-09-13T06:30:15.8649331Z       Tests  32 passed (32)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `5bf0d2542618` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `Read Task scanner/reference/wiring positive-negative evidence and named test references; read gh api repos/woojubb/robota/actions/jobs/103683620639/logs for boundary, actual contract coverage and hermetic results. No local Git fixtures executed.`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+2026-09-13T06:12:53.0689125Z  * [new branch]          fix/2655-package-boundary-ownership -> origin/fix/2655-package-boundary-ownership
+2026-09-13T06:18:47.2875981Z [contract-tests] complete: control-plane input changed: .agents/harness.config.json; 272/272 selected
+2026-09-13T06:18:47.3278774Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3280495Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3342791Z [contract-tests] coverage: 0 cache-reused; 272 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3375596Z ✓ package-boundary-ownership
+2026-09-13T06:18:47.3474625Z       Tests  1218 passed (1218)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `37b2aba1fca1` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-13
+
+**Command:** `Read typed input/cache/projection/reporting evidence and named test references; read gh api repos/woojubb/robota/actions/jobs/103683620639/logs for actual promotion reason and submitted/not-invoked/failed coverage. Submitted entries are not individual test totals.`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+2026-09-13T06:12:53.0689125Z  * [new branch]          fix/2655-package-boundary-ownership -> origin/fix/2655-package-boundary-ownership
+2026-09-13T06:18:47.2875981Z [contract-tests] complete: control-plane input changed: .agents/harness.config.json; 272/272 selected
+2026-09-13T06:18:47.3278774Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3280495Z [contract-tests] coverage: 0 cache-reused; 0 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3342791Z [contract-tests] coverage: 0 cache-reused; 272 submitted to runners; 0 not invoked; 0 failed shard(s)
+2026-09-13T06:18:47.3375596Z ✓ package-boundary-ownership
+2026-09-13T06:18:47.3474625Z       Tests  1218 passed (1218)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `e938784a4503` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-13
+
+**Command:** `Read gh api repos/woojubb/robota/actions/jobs/103683620725 and assert exact c8e814c62cc1f5263f95ced9360f3e1104b1f5a9 plus successful build/test steps; read PR merge metadata and actual comments 5651926138/5651937294; consume supplied independent Hume MERGE VERIFIED PASS for fa7984f59358682ab472b1adf96297767715ef4e. Provenance stays owner-landed RED.`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+Read-only GitHub evidence readback; no local product tests or CI reruns. ANSI display codes removed only.
+{"conclusion":"success","head_sha":"c8e814c62cc1f5263f95ced9360f3e1104b1f5a9","html_url":"https://github.com/woojubb/robota/actions/runs/34742172142/job/103683620725","steps":[{"conclusion":"success","name":"Clean framework-only build and regression proof"},{"conclusion":"success","name":"Build full or affected workspace"},{"conclusion":"success","name":"Verify full or affected package quality concurrently"},{"conclusion":"success","name":"Build-output contracts scan (dist-dependent)"},{"conclusion":"success","name":"Verify artifact generation, exact pack and release-path regressions"}]}
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `6038bc2c71dd` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-13; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 6/6 tasks `[x]` in .agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `58740713f46e` · base `origin/develop@fa7984f59358` · document `.agents/spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` blob `6310c1362409` (modified)
