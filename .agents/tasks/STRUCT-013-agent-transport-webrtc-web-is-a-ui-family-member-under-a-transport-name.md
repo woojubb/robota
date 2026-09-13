@@ -26,7 +26,7 @@ After STRUCT-012's unit S4 renames `agent-ui-web` → `@robota-sdk/agent-ui-web`
 and dependencies contradict each other. Measured on `develop` at `4b03d3248` (2026-09-05):
 
 - `packages/agent-transport-webrtc-web/package.json`: `private: true`; `dependencies` =
-  `agent-remote-pairing`, `agent-ui-web`, `agent-transport-protocol`. **No edge to
+  `agent-remote-pairing`, `agent-ui-web`, `agent-transport`. **No edge to
   `agent-transport-webrtc`** — the Node WebRTC transport it is described as the browser mirror of
   (`.agents/project-structure.md:29`).
 - `src/` is `client/`, `components/`, `hooks/`, `index.ts` — React components and hooks over the GUI

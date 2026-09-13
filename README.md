@@ -90,7 +90,8 @@ the reference CLI are opinionated assemblies OF the libraries.
 
 ```
 agent-cli                       ← Reference product: terminal AI coding assistant
-agent-transport-{tui,http,ws,mcp,webrtc,…} ← Standalone transports; agent-transport = lean core
+agent-transport-{http,ws,mcp,webrtc,…} ← Standalone adapters; agent-transport = lean core
+agent-ui-{terminal,web}            ← Presentation packages
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
@@ -142,7 +143,6 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport                                                                                                                                                                                                                                            |
 | `@robota-sdk/agent-transport-webrtc` _(not yet published)_                                                     | P2P remote-control transport                                                                                                                                                                                                                             |
-| [`@robota-sdk/agent-transport-protocol`](https://www.npmjs.com/package/@robota-sdk/agent-transport-protocol)   | Transitional empty package; implementation moved to `@robota-sdk/agent-transport` and removal follows in STRUCT-012 S5                                                                                                                                   |
 
 These tables are a **curated index**, not the full workspace: they name the packages you are most
 likely to want. They omit most workspace-private packages and several published ones that are not

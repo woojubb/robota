@@ -1,4 +1,4 @@
-# @robota-sdk/agent-transport-tui
+# @robota-sdk/agent-ui-terminal
 
 ## 3.0.0-beta.79
 

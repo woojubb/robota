@@ -31,7 +31,6 @@
 '@robota-sdk/agent-transport': patch
 '@robota-sdk/agent-transport-http': patch
 '@robota-sdk/agent-transport-mcp': patch
-'@robota-sdk/agent-transport-protocol': patch
 '@robota-sdk/agent-ui-terminal': patch
 '@robota-sdk/agent-transport-webrtc': patch
 '@robota-sdk/agent-transport-ws': patch

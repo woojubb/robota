@@ -1,6 +1,5 @@
 ---
 '@robota-sdk/agent-interface-transport': minor
-'@robota-sdk/agent-transport-protocol': minor
 '@robota-sdk/agent-transport-ws': minor
 ---
 

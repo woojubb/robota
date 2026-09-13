@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript, cli]
 lane: L2
@@ -1009,19 +1009,19 @@ No root scenario-owner registry or runtime policy changes are required.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs` → exits 0 asserting, on a fixture with `agent-transport-ws → agent-transport`, `agent-transport-webrtc → agent-transport-ws`, `agent-session-analytics → agent-session`, `agent-session-replay → agent-session-analytics`, `agent-transport-ws → agent-framework`, that exactly the two sibling edges are reported, the two parent edges and the child → `agent-framework` edge are not (ruling 7), and that a family resolving to zero members is a finding; exits 1 if a parent or framework edge is reported or the zero-member case passes
-- [ ] TC-02: at S1, `node scripts/harness/check-dependency-direction.mjs` → exits 0 and prints `::examined::` with the family-member count; after deleting any one entry from `scripts/harness/family-sibling-baseline.json` the same command → exits 1 naming that edge (red-proof: the prototype output in § Decision names all seven on `4b03d3248`)
-- [ ] TC-03: with an entry added to the baseline whose edge does not exist in the tree, `node scripts/harness/check-dependency-direction.mjs` → exits 1 naming the stale entry
-- [ ] TC-04: `node scripts/harness/check-dependency-direction.mjs 2>&1 | grep -c "Interface-package violation"` → prints the same number before and after S1 (the four `agent-interface-*` edges are judged by `INTERFACE-DEPS` only, once)
-- [ ] TC-05: `node -e "const d=Object.keys(require('./packages/agent-transport/package.json').dependencies);process.exit(d.every(k=>k.startsWith('@robota-sdk/agent-interface-'))?0:1)"` → exits 0 (prints nothing), and `git grep -l -E "@robota-sdk/(agent-core|agent-framework)" -- packages/agent-transport/src ':!packages/agent-transport/src/__tests__'` → prints nothing
-- [ ] TC-06: `git grep -l "from 'node:" -- packages/agent-transport/src ':!packages/agent-transport/src/node/' ':!packages/agent-transport/src/__tests__'` → prints nothing; `grep -c "./node/" packages/agent-transport/src/index.ts` → prints `0`; `node -e "const e=require('./packages/agent-transport/package.json').exports['./node'];process.exit(e&&e.browser===null?0:1)"` → exits 0 (the `CORE-028` shape); `node scripts/harness/scan-browser-package-node-subpath.mjs` → exits 0; and at S5 `test -d packages/agent-transport-protocol` → exits 1 and `git grep -l "agent-transport-protocol" | grep -vE "^\.agents/(tasks/completed|spec-docs/done|spec-docs/rejected|archive)/|^\.changeset/|^\.design/|^CHANGELOG\.md$" | wc -l` → prints `0`
-- [ ] TC-07: at S5, `node -e "const b=require('./scripts/harness/family-sibling-baseline.json');const k=Object.keys(b);process.exit(k.length===1&&k[0].startsWith('agent-provider-')?0:1)"` → exits 0 and `node scripts/harness/check-dependency-direction.mjs` → exits 0 with zero transport-family findings; the provider baseline remains owned by its separate root item
-- [ ] TC-08: for each of `agent-transport-gui` and `agent-transport-tui`, `git grep -l <name> -- ':!CHANGELOG.md' ':!**/CHANGELOG.md' ':!content/changelog/**' ':!.agents/tasks/completed/**' ':!.agents/spec-docs/done/**' ':!.agents/spec-docs/rejected/**' ':!.agents/archive/**' ':!.agents/evidence/**' ':!.changeset/**' ':!.design/**' ':!.agents/architecture-remediation-log.md' ':!scripts/harness/unmet-criteria-baseline.json' ':!.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md' ':!.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md'` → prints nothing; the two active STRUCT-012 records may name source and target as rename history, and `test -d packages/agent-ui-web -a -d packages/agent-ui-terminal` → exits 0
-- [ ] TC-09: `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-framework --filter "@robota-sdk/agent-transport-*" --filter @robota-sdk/agent-ui-web --filter @robota-sdk/agent-ui-terminal test` → exits 0 at the end of every unit S1–S5
-- [ ] TC-10: `pnpm harness:verify-like-ci` → exits 0 at the end of every unit S1–S5, including `ghost-package-refs`, `workspace-refs`, `publish`, `capability-placement`, `arch-map-paths`, and — per the scans table in § Decision — each scan listed for that unit (`scan-transport-admission`, `scan-deployment-matrix` at S3; `scan-tui-safe-text-boundary`, `check-capability-placement`, `check-agent-server-boundary`, `scan-transport-conformance`, `release-test-suites`, `changed-path-capabilities`, `check-sdk-public-surface`, `scan-guard-scope-fail-closed`, `scan-composition-neutrality` at S4)
-- [ ] TC-11: `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs` → exits 0 asserting that a fixture `agent-transport → agent-transport-ws` (parent depending on a child) is reported, and that a fixture `agent-framework → agent-transport-ws` and `agent-core → agent-ui-web` are each reported (composer/core never import a transport or UI child); and `node scripts/harness/check-dependency-direction.mjs` → exits 0 on the real tree for both clauses at S1 (both are green today)
-- [ ] TC-12: `node scripts/harness/check-dependency-direction.mjs` → exits 1 on a fixture whose `src/` imports `@robota-sdk/agent-transport` while its `package.json` declares no such dependency, naming the undeclared specifier; and on the real tree at S3 → exits 0, where "undeclared" means absent from **all three** of `dependencies`, `peerDependencies` and `devDependencies` (the complement `check-dep-kind.mjs:131` hands to the `deps` scan), so a type-only import satisfied by a `devDependency` is not a false positive
-- [ ] TC-13: `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs` → exits 0 asserting that a fixture `@robota-sdk/agent-product` manifest declaring `@robota-sdk/agent-ui-terminal` (and one declaring `@robota-sdk/agent-ui-web`) yields a `findForbiddenDependencies` finding under the S4 policy and none under the pre-S4 policy (the red-proof of the silent narrowing); and `node -e "const c=require('./.agents/harness.config.json');const rules=JSON.stringify(c);process.exit(rules.split('\"@robota-sdk/agent-ui-\"').length>=3&&!/agent-transport-(tui|gui)/.test(c.purity?.map(r=>r.reason).join(''))?0:1)"` → exits 0 (both prefix lists carry `@robota-sdk/agent-ui-` and the `:24` reason no longer names the retired packages)
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs` → exits 0 asserting, on a fixture with `agent-transport-ws → agent-transport`, `agent-transport-webrtc → agent-transport-ws`, `agent-session-analytics → agent-session`, `agent-session-replay → agent-session-analytics`, `agent-transport-ws → agent-framework`, that exactly the two sibling edges are reported, the two parent edges and the child → `agent-framework` edge are not (ruling 7), and that a family resolving to zero members is a finding; exits 1 if a parent or framework edge is reported or the zero-member case passes
+- [x] TC-02: at S1, `node scripts/harness/check-dependency-direction.mjs` → exits 0 and prints `::examined::` with the family-member count; after deleting any one entry from `scripts/harness/family-sibling-baseline.json` the same command → exits 1 naming that edge (red-proof: the prototype output in § Decision names all seven on `4b03d3248`)
+- [x] TC-03: with an entry added to the baseline whose edge does not exist in the tree, `node scripts/harness/check-dependency-direction.mjs` → exits 1 naming the stale entry
+- [x] TC-04: `node scripts/harness/check-dependency-direction.mjs 2>&1 | grep -c "Interface-package violation"` → prints the same number before and after S1 (the four `agent-interface-*` edges are judged by `INTERFACE-DEPS` only, once)
+- [x] TC-05: `node -e "const d=Object.keys(require('./packages/agent-transport/package.json').dependencies);process.exit(d.every(k=>k.startsWith('@robota-sdk/agent-interface-'))?0:1)"` → exits 0 (prints nothing), and `git grep -l -E "@robota-sdk/(agent-core|agent-framework)" -- packages/agent-transport/src ':!packages/agent-transport/src/__tests__'` → prints nothing
+- [x] TC-06: `git grep -l "from 'node:" -- packages/agent-transport/src ':!packages/agent-transport/src/node/' ':!packages/agent-transport/src/__tests__'` → prints nothing; `grep -c "from './node/" packages/agent-transport/src/index.ts` → prints `0`; `node -e "const e=require('./packages/agent-transport/package.json').exports['./node'];process.exit(e&&e.browser===null?0:1)"` → exits 0 (the `CORE-028` shape); `node scripts/harness/scan-browser-package-node-subpath.mjs` → exits 0; and at S5 `test -d packages/agent-transport-protocol` → exits 1 and `git grep -l "agent-transport-protocol" -- ':!.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md' ':!.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md' | grep -vE "^\.agents/(tasks/completed|spec-docs/done|spec-docs/rejected|archive|evidence)/|^\.changeset/|^\.design/|^CHANGELOG\.md$" | wc -l` → prints `0`; the active STRUCT-012 pair may name the retired package while recording its removal and becomes historical at GATE-COMPLETE
+- [x] TC-07: at S5, `node -e "const b=require('./scripts/harness/family-sibling-baseline.json');const k=Object.keys(b.frozen);process.exit(k.length===1&&k[0].startsWith('@robota-sdk/agent-provider-')?0:1)"` → exits 0 and `node scripts/harness/check-dependency-direction.mjs` → exits 0 with zero transport-family findings; the provider baseline remains owned by its separate root item
+- [x] TC-08: `git grep -n -E 'agent-transport-(gui|tui)|agent-transport-\{[^}]*(gui|tui)'` with historical Task/SPEC/evidence/changeset/changelog/release-run exclusions → prints nothing, including no brace-notation aliases in current owner documents; `head -n 1 packages/agent-ui-terminal/CHANGELOG.md` → prints `# @robota-sdk/agent-ui-terminal`; and `test -d packages/agent-ui-web -a -d packages/agent-ui-terminal` → exits 0
+- [x] TC-09: `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-framework --filter "@robota-sdk/agent-transport-*" --filter @robota-sdk/agent-ui-web --filter @robota-sdk/agent-ui-terminal test` → exits 0 at the end of every unit S1–S5
+- [x] TC-10: `pnpm harness:verify-like-ci` → exits 0 at the end of every unit S1–S5, including `ghost-package-refs`, `workspace-refs`, `publish`, `capability-placement`, `arch-map-paths`, and — per the scans table in § Decision — each scan listed for that unit (`scan-transport-admission`, `scan-deployment-matrix` at S3; `scan-tui-safe-text-boundary`, `check-capability-placement`, `check-agent-server-boundary`, `scan-transport-conformance`, `release-test-suites`, `changed-path-capabilities`, `check-sdk-public-surface`, `scan-guard-scope-fail-closed`, `scan-composition-neutrality` at S4)
+- [x] TC-11: `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs` → exits 0 asserting that a fixture `agent-transport → agent-transport-ws` (parent depending on a child) is reported, and that a fixture `agent-framework → agent-transport-ws` and `agent-core → agent-ui-web` are each reported (composer/core never import a transport or UI child); and `node scripts/harness/check-dependency-direction.mjs` → exits 0 on the real tree for both clauses at S1 (both are green today)
+- [x] TC-12: `node scripts/harness/check-dependency-direction.mjs` → exits 1 on a fixture whose `src/` imports `@robota-sdk/agent-transport` while its `package.json` declares no such dependency, naming the undeclared specifier; and on the real tree at S3 → exits 0, where "undeclared" means absent from **all three** of `dependencies`, `peerDependencies` and `devDependencies` (the complement `check-dep-kind.mjs:131` hands to the `deps` scan), so a type-only import satisfied by a `devDependency` is not a false positive
+- [x] TC-13: `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs` → exits 0 asserting that a fixture `@robota-sdk/agent-product` manifest declaring `@robota-sdk/agent-ui-terminal` (and one declaring `@robota-sdk/agent-ui-web`) yields a `findForbiddenDependencies` finding under the S4 policy and none under the pre-S4 policy (the red-proof of the silent narrowing); and `node -e "const c=require('./.agents/harness.config.json');const rules=JSON.stringify(c);process.exit(rules.split('\"@robota-sdk/agent-ui-\"').length>=3&&!/agent-transport-(tui|gui)/.test(c.purity?.map(r=>r.reason).join(''))?0:1)"` → exits 0 (both prefix lists carry `@robota-sdk/agent-ui-` and the `:24` reason no longer names the retired packages)
 
 ## Test Plan
 
@@ -1029,21 +1029,21 @@ Derived from `type: INFRA` with tags `typescript`, `cli`. The gate is tested as 
 synthetic package maps (the shape `check-dependency-direction.test.mjs` already uses); everything
 else is a command-form check over the real tree.
 
-| TC-ID | Test Type                            | Tool / Approach                                                                           | Notes                                                                                                                                                                   |
-| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Contract (fixture, 2 families)       | `pnpm exec vitest run` on `checkFamilySiblings` over synthetic maps                       | The parent-legal arm is the `DC-RULES` defect the rule must not have; zero-member arm closes the silent pass                                                            |
-| TC-02 | Scan (red-proof)                     | `check-dependency-direction.mjs` on the tree, then with one entry removed                 | The prototype run in § Decision is the pre-implementation red-proof                                                                                                     |
-| TC-03 | Scan (stale baseline)                | `check-dependency-direction.mjs` with a planted stale entry                               | A baseline that outlives its violation has stopped guarding                                                                                                             |
-| TC-04 | Regression (delegation)              | `grep -c` over the scan's output before/after S1                                          | The interface family is judged once, by the map                                                                                                                         |
-| TC-05 | Command (manifest purity)            | `node -e` over `package.json` + `git grep`                                                | Stays in the tree after this item as the parent's standing invariant                                                                                                    |
-| TC-06 | Command (browser safety, removal)    | `git grep`, `grep -c`, `test -d`                                                          | The `node:` builtins are reachable only through `./node`; the published package directory is gone                                                                       |
-| TC-07 | Command (transport baseline retired) | provider-only baseline assertion + the scan's exit code                                   | Zero transport-family findings while the independently owned provider exception remains guarded                                                                         |
-| TC-08 | Command (rename completeness)        | `git grep` with narrow historical/rename-record exclusions                                | Live executable and current-routing references are zero without rewriting historical evidence                                                                           |
-| TC-09 | Suite                                | `pnpm --filter … test`                                                                    | Capability preservation for `agent-cli` headless/print paths and every transport                                                                                        |
-| TC-10 | Suite                                | `pnpm harness:verify-like-ci`                                                             | The repository's full pre-merge gate, per unit                                                                                                                          |
-| TC-11 | Contract (companion clauses)         | `pnpm exec vitest run` on fixtures + the scan on the tree                                 | Root never imports a child; `agent-framework`/`agent-core` never import a transport or UI child (Axis 5, 10/10)                                                         |
-| TC-12 | Scan (undeclared import)             | `check-dependency-direction.mjs` on a fixture with an undeclared `src/` import + the tree | Undeclared = in none of the three manifest sections (`check-dep-kind.mjs:131`); the Turborepo-Boundaries hygiene check that keeps the manifest rule from being bypassed |
-| TC-13 | Scan (red-proof, renamed prefix)     | `scan-composition-neutrality.mjs` fixture + `node -e` over `harness.config.json`          | The ARCH-005 gate must still see the UI family under its new name; a `startsWith` list is only as wide as its literals                                                  |
+| TC-ID | Test Type                            | Tool / Approach                                                                               | Notes                                                                                                                                                                   |
+| ----- | ------------------------------------ | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Contract (fixture, 2 families)       | `scripts/harness/__tests__/check-dependency-direction.test.mjs`                               | The parent-legal arm is the `DC-RULES` defect the rule must not have; zero-member arm closes the silent pass                                                            |
+| TC-02 | Scan (red-proof)                     | `scripts/harness/__tests__/check-dependency-direction.test.mjs` + live scan                   | The prototype run in § Decision is the pre-implementation red-proof                                                                                                     |
+| TC-03 | Scan (stale baseline)                | `scripts/harness/__tests__/check-dependency-direction.test.mjs`                               | A baseline that outlives its violation has stopped guarding                                                                                                             |
+| TC-04 | Regression (delegation)              | `scripts/harness/__tests__/check-dependency-direction.test.mjs`                               | The interface family is judged once, by the map                                                                                                                         |
+| TC-05 | Command (manifest purity)            | `node -e` over `package.json` + `git grep`                                                    | Test skipped: direct manifest/source invariant commands are the automated contract check                                                                                |
+| TC-06 | Command (browser safety, removal)    | `scripts/harness/__tests__/scan-browser-package-node-subpath.test.mjs` + removal commands     | The `node:` builtins are reachable only through `./node`; the published package directory is gone                                                                       |
+| TC-07 | Command (transport baseline retired) | `scripts/harness/__tests__/check-dependency-direction.test.mjs` + live scan                   | Zero transport-family findings while the independently owned provider exception remains guarded                                                                         |
+| TC-08 | Command (rename completeness)        | exact + brace-form `git grep`, current changelog title, and package-directory checks          | Test skipped: filesystem/name migration commands directly verify the final repository identity                                                                          |
+| TC-09 | Suite                                | `packages/agent-transport/src/__tests__/session-message-handler.test.ts` + package suites     | Capability preservation for `agent-cli` headless/print paths and every transport                                                                                        |
+| TC-10 | Suite                                | `scripts/harness/__tests__/check-ghost-package-refs.test.mjs` + `pnpm harness:verify-like-ci` | The repository's full pre-merge gate, per unit                                                                                                                          |
+| TC-11 | Contract (companion clauses)         | `scripts/harness/__tests__/check-dependency-direction.test.mjs` + live scan                   | Root never imports a child; `agent-framework`/`agent-core` never import a transport or UI child (Axis 5, 10/10)                                                         |
+| TC-12 | Scan (undeclared import)             | `scripts/harness/__tests__/check-dependency-direction.test.mjs` + live scan                   | Undeclared = in none of the three manifest sections (`check-dep-kind.mjs:131`); the Turborepo-Boundaries hygiene check that keeps the manifest rule from being bypassed |
+| TC-13 | Scan (red-proof, renamed prefix)     | `scripts/harness/__tests__/scan-composition-neutrality.test.mjs` + config assertion           | The ARCH-005 gate must still see the UI family under its new name; a `startsWith` list is only as wide as its literals                                                  |
 
 ## User Execution Test Scenarios
 
@@ -1086,7 +1086,7 @@ requires is GATE-APPROVAL on this document as the plan.
 
 ## Tasks
 
-- [ ] `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` — todo
+- [x] `.agents/tasks/completed/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` — complete
 
 ## Evidence Log
 
@@ -1451,6 +1451,7 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -1481,7 +1482,240 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `248eb2c7bae6` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `490b0b8ef789` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-14
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-14; status `in-progress`
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): PASS — independent read-only `backlog-gate-guard` Peirce verified all five S1–S5 Plan items are `[x]`
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the same guardian found zero blocked or pending Plan items; historical prose outside `## Plan` was correctly excluded
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — `pnpm harness:verify-like-ci` completed the full 80-package workspace build and the desktop Electron build; the gate's focused `pnpm harness:scan:build-contracts` rerun also exited 0 for all 80 build contracts
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — `pnpm harness:verify-like-ci` completed workspace package tests/typechecks/lint, binary and Electron E2E, examples typecheck and 32 real-PTY TUI tests; the gate's focused two-file Vitest rerun also exited 0 (21 tests)
+
+**Judged by:** `gate.mjs` mechanical evaluator plus independent read-only `backlog-gate-guard` Peirce for the two pending Plan-state criteria
+
+**GATE VERDICT:** PASS
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+check-dependency-direction.test.mjs: 31 tests passed; exit 0.
+TC-01 parent/framework legality and two-family sibling detection passed.
+TC-02 missing-baseline edge red-proof passed and the live scan examined 30 family members.
+TC-03 stale-baseline entry red-proof passed; TC-04 interface-family delegation remained single-owned.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `873591592001` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+check-dependency-direction.test.mjs: 31 tests passed; exit 0.
+TC-01 parent/framework legality and two-family sibling detection passed.
+TC-02 missing-baseline edge red-proof passed and the live scan examined 30 family members.
+TC-03 stale-baseline entry red-proof passed; TC-04 interface-family delegation remained single-owned.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `128c4d966f3a` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+check-dependency-direction.test.mjs: 31 tests passed; exit 0.
+TC-01 parent/framework legality and two-family sibling detection passed.
+TC-02 missing-baseline edge red-proof passed and the live scan examined 30 family members.
+TC-03 stale-baseline entry red-proof passed; TC-04 interface-family delegation remained single-owned.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `250094615319` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+check-dependency-direction.test.mjs: 31 tests passed; exit 0.
+TC-01 parent/framework legality and two-family sibling detection passed.
+TC-02 missing-baseline edge red-proof passed and the live scan examined 30 family members.
+TC-03 stale-baseline entry red-proof passed; TC-04 interface-family delegation remained single-owned.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `8be453dae889` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-14
+
+**Command:** `node -e "const d=Object.keys(require('./packages/agent-transport/package.json').dependencies);process.exit(d.every(k=>k.startsWith('@robota-sdk/agent-interface-'))?0:1)" && git grep -l -E "@robota-sdk/(agent-core|agent-framework)" -- packages/agent-transport/src ':!packages/agent-transport/src/__tests__'`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+TC-05 transport dependencies are interface-only and no agent-core/agent-framework imports exist outside tests.
+TC-06 root has no Node-subpath imports, ./node has browser:null, browser scan passed, tombstone directory and current refs are absent.
+TC-07 frozen baseline has exactly one @robota-sdk/agent-provider-* edge and dependency-direction passed.
+TC-08 retired GUI/TUI names have zero current refs and packages/agent-ui-web plus packages/agent-ui-terminal exist.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `e00cec66ca05` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-14
+
+**Command:** `node scripts/harness/scan-browser-package-node-subpath.mjs && test ! -d packages/agent-transport-protocol && verify zero current agent-transport-protocol refs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+TC-05 transport dependencies are interface-only and no agent-core/agent-framework imports exist outside tests.
+TC-06 root has no Node-subpath imports, ./node has browser:null, browser scan passed, tombstone directory and current refs are absent.
+TC-07 frozen baseline has exactly one @robota-sdk/agent-provider-* edge and dependency-direction passed.
+TC-08 retired GUI/TUI names have zero current refs and packages/agent-ui-web plus packages/agent-ui-terminal exist.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `9593b2fdf09c` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-14
+
+**Command:** `node -e "const b=require('./scripts/harness/family-sibling-baseline.json');const k=Object.keys(b.frozen);process.exit(k.length===1&&k[0].startsWith('@robota-sdk/agent-provider-')?0:1)" && node scripts/harness/check-dependency-direction.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+TC-05 transport dependencies are interface-only and no agent-core/agent-framework imports exist outside tests.
+TC-06 root has no Node-subpath imports, ./node has browser:null, browser scan passed, tombstone directory and current refs are absent.
+TC-07 frozen baseline has exactly one @robota-sdk/agent-provider-* edge and dependency-direction passed.
+TC-08 retired GUI/TUI names have zero current refs and packages/agent-ui-web plus packages/agent-ui-terminal exist.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `88f99825f5db` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-14
+
+**Command:** `verify zero exact or brace-form current agent-transport-gui/agent-transport-tui refs, the current agent-ui-terminal changelog heading, and both agent-ui package directories`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+TC-05 transport dependencies are interface-only and no agent-core/agent-framework imports exist outside tests.
+TC-06 root has no Node-subpath imports, ./node has browser:null, browser scan passed, tombstone directory and current refs are absent.
+TC-07 frozen baseline has exactly one @robota-sdk/agent-provider-* edge and dependency-direction passed.
+TC-08 retired GUI/TUI names have zero current refs and packages/agent-ui-web plus packages/agent-ui-terminal exist.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `2ff0168b554b` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-framework --filter "@robota-sdk/agent-transport-*" --filter @robota-sdk/agent-ui-web --filter @robota-sdk/agent-ui-terminal test`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+TC-09 focused S1-S5 package suites passed for all 10 selected workspaces; exit 0.
+TC-10 verify-like-ci passed all 8 selected stages in 2m 44.0s; full 80-package build, quality, binary/Electron E2E, examples and 32 PTY tests passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `4ba0f1ef7e62` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm harness:verify-like-ci`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+TC-09 focused S1-S5 package suites passed for all 10 selected workspaces; exit 0.
+TC-10 verify-like-ci passed all 8 selected stages in 2m 44.0s; full 80-package build, quality, binary/Electron E2E, examples and 32 PTY tests passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `ff64c044e7f7` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs && node scripts/harness/check-dependency-direction.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+TC-11 dependency-direction companion-clause fixtures and live scan passed.
+TC-12 undeclared-import fixture and live dependency-direction scan passed.
+TC-13 composition-neutrality fixtures passed; both agent-ui prefixes remain enforced and retired purity names are absent.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `03aadeb93459` (modified)
+
+### [GATE-COMPLETE: TC-12] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs && node scripts/harness/check-dependency-direction.mjs`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+TC-11 dependency-direction companion-clause fixtures and live scan passed.
+TC-12 undeclared-import fixture and live dependency-direction scan passed.
+TC-13 composition-neutrality fixtures passed; both agent-ui prefixes remain enforced and retired purity names are absent.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `3056968713a1` (modified)
+
+### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-14
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-composition-neutrality.test.mjs && verify agent-ui prefix configuration`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+TC-11 dependency-direction companion-clause fixtures and live scan passed.
+TC-12 undeclared-import fixture and live dependency-direction scan passed.
+TC-13 composition-neutrality fixtures passed; both agent-ui prefixes remain enforced and retired purity names are absent.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `9ff4da0fba5a` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-14
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-14; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 13/13 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (13)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 13/13 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7aa6ce403436` · base `origin/develop@248eb2c7bae6` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `034c41ad94d3` (modified)

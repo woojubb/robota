@@ -3,7 +3,6 @@
 '@robota-sdk/agent-transport': minor
 '@robota-sdk/agent-transport-http': minor
 '@robota-sdk/agent-transport-mcp': minor
-'@robota-sdk/agent-transport-protocol': minor
 '@robota-sdk/agent-transport-ws': minor
 '@robota-sdk/agent-transport-webrtc': minor
 ---

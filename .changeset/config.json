@@ -36,7 +36,6 @@
       "@robota-sdk/agent-transport",
       "@robota-sdk/agent-transport-http",
       "@robota-sdk/agent-transport-mcp",
-      "@robota-sdk/agent-transport-protocol",
       "@robota-sdk/agent-ui-terminal",
       "@robota-sdk/agent-transport-webrtc",
       "@robota-sdk/agent-transport-ws",
