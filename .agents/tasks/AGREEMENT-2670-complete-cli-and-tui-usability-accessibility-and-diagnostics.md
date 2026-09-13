@@ -4,7 +4,7 @@ issue: https://github.com/woojubb/robota/issues/2670
 status: todo
 created: 2026-09-14
 priority: high
-urgency: now
+urgency: soon
 area: CLI and terminal UI product surfaces
 children:
   [
