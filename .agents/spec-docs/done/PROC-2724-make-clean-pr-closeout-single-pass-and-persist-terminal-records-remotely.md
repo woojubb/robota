@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [proc]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # PROC-2724: make clean PR closeout single-pass and persist terminal records remotely
 
-Paired with `.agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`. Arising from [issue #2724](https://github.com/woojubb/robota/issues/2724).
+Paired with `.agents/tasks/completed/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`. Arising from [GitHub Issue #2724](https://github.com/woojubb/robota/issues/2724).
 
 ## Problem
 
@@ -47,7 +47,7 @@ and PR #2723 rather than an external product behaviour.
    - Con: Auditing spans two persistence surfaces and requires a strict receipt parser/readback tool.
 3. Stop recording terminal closeout evidence.
    - Pro: Removes all bookkeeping overhead.
-   - Con: Collapses “completed” and “silently skipped”, weakening the safety properties #2724 must retain.
+   - Con: Collapses “completed” and “silently skipped”, weakening the safety properties GitHub Issue #2724 must retain.
 
 ### Decision
 
@@ -105,13 +105,17 @@ None
    separate depth cycle for informational warnings on successful jobs.
 6. Amend `.agents/skills/post-merge-cycle/SKILL.md` to order closeout as landing verification → issue
    disposition → branch cleanup → base reset/skip → one completion receipt and issue state change.
-7. Retire the new-row requirement in `scripts/harness/scan-user-execution-plan-order.mjs` while
-   preserving its historical ledger validation and update the focused scan/hook contract tests.
+7. Leave the plan-order scanner's historical ledger readers intact for compatibility; the new rules,
+   skills, and closeout command no longer route new runs through that legacy storage path.
+8. Extend the loop-record wiring scan with an explicit `remote-record: <MARKER>` declaration so a
+   loop can select a canonical remote receipt with readback instead of pretending it writes a Git ledger.
 
 ## Affected Files
 
 - `scripts/harness/post-findings-authorization.mjs`
+- `scripts/harness/scan-loop-run-records.mjs`
 - `scripts/harness/__tests__/post-findings-authorization.test.mjs`
+- `scripts/harness/__tests__/scan-loop-run-records.test.mjs`
 - `.agents/rules/enforcement-architecture.md`
 - `.agents/rules/git-branch.md`
 - `.agents/rules/backlog-execution.md`
@@ -120,41 +124,41 @@ None
 - `.agents/skills/ci-gate-watch/SKILL.md`
 - `.agents/skills/post-merge-cycle/SKILL.md`
 - `.claude/hooks/merge-gate.sh`
-- `scripts/harness/scan-user-execution-plan-order.mjs`
 - `scripts/harness/__tests__/merge-gate-decision.test.mjs`
 - `scripts/harness/__tests__/post-merge-delivery-records.test.mjs`
-- `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/post-findings-authorization.test.mjs` accepts one
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/post-findings-authorization.test.mjs` accepts one
       exact merge/completion pair and rejects missing, duplicate, stale, malformed, and mismatched receipts.
-- [ ] TC-02: The same test proves the audit refuses a green-looking receipt when the live PR/issue
+- [x] TC-02: The same test proves the audit refuses a green-looking receipt when the live PR/issue
       projection disagrees about trusted author, edit history, creation order, head, base, merge
-      commit, state, or issue closure.
-- [ ] TC-03: Skill/rule contract tests prove a clean exact-head/base Round A zero plus complete empty
+      commit or its first parent, state, or issue closure.
+- [x] TC-03: Skill/rule contract tests prove a clean exact-head/base Round A zero plus complete empty
       remote surfaces terminates in one merge-decision receipt without a second review verdict or
       ledger row, and `merge-gate.sh` validates that receipt instead of skipping review verification.
-- [ ] TC-04: Skill/rule contract tests prove one named CI observer owns a PR/SHA gate and informational
+- [x] TC-04: Skill/rule contract tests prove one named CI observer owns a PR/SHA gate and informational
       warnings on successful jobs do not trigger separate finding-depth work.
-- [ ] TC-05: Skill/rule contract tests prove new post-merge runs use one completion receipt and require
+- [x] TC-05: Skill/rule contract tests prove new post-merge runs use one completion receipt and require
       no append to `.agents/loop-runs/post-merge-cycle.jsonl`, while historical ledgers remain readable;
       the receipt covers closed, open-partial, and no-issue outcomes after branch/base cleanup.
-- [ ] TC-06: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-06: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit | `post-findings-authorization.test.mjs` | Receipt grammar, uniqueness, and identity binding |
-| TC-02 | Unit | `post-findings-authorization.test.mjs` | Live projection consistency and fail-closed paths |
-| TC-03 | Contract | focused skill/rule contract tests | Clean no-feedback fast path and no redundant Round B |
-| TC-04 | Contract | focused skill/rule contract tests | Single CI owner and informational-warning boundary |
-| TC-05 | Regression | focused post-merge/loop tests | Remote receipt for new runs; historical read compatibility |
-| TC-06 | Suite | `run-all-scans.mjs --affected --context pr` | Affected harness regression |
+| TC-ID | Test Type  | Tool / Approach                             | Notes                                                                                                                    |
+| ----- | ---------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit       | `post-findings-authorization.test.mjs`      | Test written: `scripts/harness/__tests__/post-findings-authorization.test.mjs` > single-pass remote closeout receipts    |
+| TC-02 | Unit       | `post-findings-authorization.test.mjs`      | Test written: `scripts/harness/__tests__/post-findings-authorization.test.mjs` > refusal matrix                          |
+| TC-03 | Contract   | focused skill/rule contract tests           | Test written: `scripts/harness/__tests__/merge-gate-decision.test.mjs` > retired reviewer receipt path                   |
+| TC-04 | Contract   | focused skill/rule contract tests           | Test written: `scripts/harness/__tests__/post-merge-delivery-records.test.mjs` > CI ownership contract                   |
+| TC-05 | Regression | focused post-merge/loop tests               | Test written: `scripts/harness/__tests__/post-merge-delivery-records.test.mjs` > remote receipt and legacy compatibility |
+| TC-06 | Suite      | `run-all-scans.mjs --affected --context pr` | Test written: `scripts/harness/run-all-scans.mjs` > affected PR scan suite                                               |
 
 ## User Execution Test Scenarios
+
+Not applicable.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
@@ -164,7 +168,7 @@ that a product user can execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` — todo
+- [x] `.agents/tasks/completed/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` — completion-ready
 
 ## Evidence Log
 
@@ -191,6 +195,7 @@ that a product user can execute.
 **Correction:** Classified the module beside `post-findings-authorization.mjs` as an internal harness
 evidence contract and removed the unnecessary package-script/public command registration entirely.
 
+**Judged by:** `backlog-gate-guard` semantic evaluator
 **Judged at:** HEAD/base `afb07ff35d5be62f626c70e10c21432130515ee3`; document blob
 `f087b711b04ae800bdc08b270f345ec0b27918b2` (untracked).
 
@@ -440,6 +445,7 @@ remain unchanged.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -486,6 +492,7 @@ remain unchanged.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -504,6 +511,7 @@ remain unchanged.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -548,7 +556,175 @@ remain unchanged.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `615aa22932da` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/todo/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `a3e688edaf0b` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS — the prior GATE-IMPLEMENT entry is PASS and the document entered this
+  judgement with status `in-progress` in `.agents/spec-docs/active/`.
+- GATE-VERIFY — Every item in the Task `## Plan` is marked complete (`[x]`): PASS — 5/5 Plan items are
+  checked and collectively name TC-01 through TC-06.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the Plan contains no unchecked item and no
+  blocked or pending marker.
+- GATE-VERIFY — Build passes for all affected packages: PASS — the immediately preceding `gate.mjs`
+  mechanical evaluation reported its supplied build-shaped verification command exited 0.
+- GATE-VERIFY — Tests pass for all affected packages: PASS — the immediately preceding `gate.mjs`
+  mechanical evaluation reported its supplied test-shaped verification command exited 0.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** pre-entry document blob `fa1cdda1d98498c742478c83f9f354e33f849924`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/post-findings-authorization.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+11:38:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/post-findings-authorization.test.mjs (32 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
+   Start at  23:38:36
+   Duration  393ms (transform 64ms, setup 0ms, collect 84ms, tests 9ms, environment 0ms, prepare 69ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `11ff5b32a35f` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/post-findings-authorization.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+11:38:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/post-findings-authorization.test.mjs (32 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
+   Start at  23:38:36
+   Duration  393ms (transform 64ms, setup 0ms, collect 84ms, tests 9ms, environment 0ms, prepare 69ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `6956fbae140b` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/merge-gate-decision.test.mjs -t 'the merge gate decides on CI and on a current review'`
+**Exit:** 0
+**Output:** (last 10 of 39 line(s))
+
+```
+   ✓ the merge gate decides on CI and on a current review > reports corroborated zero findings when multiple verdicts exist  822ms
+   ✓ the merge gate decides on CI and on a current review > does not depend on the head commit date when the exact OIDs are readable  825ms
+   ✓ the merge gate decides on CI and on a current review > requires a receipt on a reviewer mismatch, PR #2649 reproduction  770ms
+   ✓ the merge gate decides on CI and on a current review > accepts the reviewer under either spelling of the bot login  1653ms
+   ✓ the merge gate decides on CI and on a current review > ignores an override attached to some other statement  395ms
+
+ Test Files  1 passed (1)
+      Tests  32 passed | 37 skipped (69)
+   Start at  23:38:36
+   Duration  23.90s (transform 60ms, setup 0ms, collect 190ms, tests 23.46s, environment 0ms, prepare 37ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `69e268af23a3` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/post-merge-delivery-records.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/post-merge-delivery-records.test.mjs (27 tests) 58ms
+ ✓ scripts/harness/__tests__/scan-loop-run-records.test.mjs (19 tests) 366ms
+
+ Test Files  2 passed (2)
+      Tests  46 passed (46)
+   Start at  23:38:36
+   Duration  1.12s (transform 555ms, setup 0ms, collect 901ms, tests 424ms, environment 0ms, prepare 175ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `e84ae97173f5` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-13
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/post-merge-delivery-records.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/post-merge-delivery-records.test.mjs (27 tests) 58ms
+ ✓ scripts/harness/__tests__/scan-loop-run-records.test.mjs (19 tests) 366ms
+
+ Test Files  2 passed (2)
+      Tests  46 passed (46)
+   Start at  23:38:36
+   Duration  1.12s (transform 555ms, setup 0ms, collect 901ms, tests 424ms, environment 0ms, prepare 175ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `d93b87c4b65a` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-13
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 131 line(s))
+
+```
+✓ doc-folder-status
+✓ package-boundary-ownership
+
+⚑ 3 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2285/3187 lines (71.7%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 354/829 lines (42.7%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-transport-tui/docs/SPEC.md: 326/445 lines (73.3%) outside the standard sections — consider extracting to docs/design/
+
+77 scans passed, 1 skipped (78 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/rules/backlog-execution.md,  M .agents/rules/enforcement-architecture.md,  M .agents/rules/git-branch.md,  M .agents/skills/automated-review-convergence/SKILL.md,  M .agents/skills/ci-gate-watch/SKILL.md,  M .agents/skills/post-merge-cycle/SKILL.md,  M .agents/skills/pr-finding-resolution-loop/SKILL.md,  M .agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md,  M .agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md,  M .claude/hooks/merge-gate.sh,  M scripts/harness/__tests__/merge-gate-decision.test.mjs,  M scripts/harness/__tests__/post-findings-authorization.test.mjs,  M scripts/harness/__tests__/post-merge-delivery-records.test.mjs,  M scripts/harness/__tests__/scan-loop-run-records.test.mjs,  M scripts/harness/post-findings-authorization.mjs,  M scripts/harness/scan-loop-run-records.mjs
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `181f42868aab` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-13
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-13; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e9b1c1be5892` · base `origin/develop@afb07ff35d5b` · document `.agents/spec-docs/active/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md` blob `67eb088f2f41` (modified)

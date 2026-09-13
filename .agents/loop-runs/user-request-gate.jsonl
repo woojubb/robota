@@ -53,4 +53,4 @@
 {"runId":"r20260912140756","opened":"2026-09-12T14:07:56.395Z","closed":"2026-09-12T14:14:15.973Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"ARTIFACT-2655"}
 {"runId":"r20260913093203","opened":"2026-09-13T09:32:03.166Z","closed":"2026-09-13T09:37:28.414Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260913105227","opened":"2026-09-13T10:52:27.374Z","closed":"2026-09-13T10:56:17.475Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"PRELUDE-2655"}
-{"runId":"r20260913134156","opened":"2026-09-13T13:41:56.048Z","closed":null,"roundFindings":[],"extensions":{},"terminal":null,"ref":"Issue 2724 clean PR closeout protocol"}
+{"runId":"r20260913134156","opened":"2026-09-13T13:41:56.048Z","closed":"2026-09-13T14:42:05.468Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"PROC-2724 GATE-COMPLETE PASS"}

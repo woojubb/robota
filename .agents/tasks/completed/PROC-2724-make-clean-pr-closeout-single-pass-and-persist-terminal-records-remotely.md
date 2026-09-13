@@ -1,12 +1,13 @@
 ---
 title: 'PROC-2724: make clean PR closeout single-pass and persist terminal records remotely'
 issue: https://github.com/woojubb/robota/issues/2724
-status: in-progress
+status: done
 created: 2026-09-13
 priority: medium
 urgency: soon
 area: harness governance and pull-request delivery
 depends_on: []
+completed: 2026-09-13
 ---
 
 # PROC-2724: make clean PR closeout single-pass and persist terminal records remotely
@@ -18,7 +19,7 @@ exist only after the PR diff is frozen or merged are required to be appended to 
 ledger. Preserve the actual merge safety gates while making GitHub the durable, auditable owner of
 remote terminal evidence.
 
-**Source:** GitHub issue [#2724](https://github.com/woojubb/robota/issues/2724).
+**Source:** [GitHub Issue #2724](https://github.com/woojubb/robota/issues/2724).
 
 **Reproduction:** A metadata-only PR reaches a zero-finding local review, passes CI, and merges. The
 current procedure observes CI more than once, repeats an empty Round B, separately judges successful
@@ -35,17 +36,19 @@ Combined lifecycle eligibility: eligible; work-kind=enhancement; priority=P1; is
 
 Conversion evidence: issue=https://github.com/woojubb/robota/issues/2724; task=PROC-2724; marker=https://github.com/woojubb/robota/issues/2724#issuecomment-5653672140; marker-readback=2026-09-13T13:48:33Z; priority-removed=2026-09-13T13:48:33Z; base=develop; base-oid=afb07ff35d5be62f626c70e10c21432130515ee3
 
+Spec: `.agents/spec-docs/done/PROC-2724-make-clean-pr-closeout-single-pass-and-persist-terminal-records-remotely.md`
+
 ## Plan
 
-- [ ] TC-01, TC-02: Specify and implement canonical merge-decision and delivery-completion receipt
+- [x] TC-01, TC-02: Specify and implement canonical merge-decision and delivery-completion receipt
       parsers, selectors, trusted-comment checks, and bounded GitHub readback.
-- [ ] TC-03: Route clean PRs through one remote no-feedback terminal decision and make the merge hook
+- [x] TC-03: Route clean PRs through one remote no-feedback terminal decision and make the merge hook
       consume it without a redundant Round B verdict or ledger entry.
-- [ ] TC-04: Make one CI observer own each PR/SHA gate and exclude successful-job informational
+- [x] TC-04: Make one CI observer own each PR/SHA gate and exclude successful-job informational
       warnings from separate finding-depth work.
-- [ ] TC-05: Replace new post-merge Git ledger writes with one neutral completion receipt after
+- [x] TC-05: Replace new post-merge Git ledger writes with one neutral completion receipt after
       cleanup while preserving read compatibility for historical ledgers.
-- [ ] TC-06: Run the focused tests and affected harness verification.
+- [x] TC-06: Run the focused tests and affected harness verification.
 
 ## Test Plan
 
@@ -68,3 +71,9 @@ Conversion evidence: issue=https://github.com/woojubb/robota/issues/2724; task=P
 **Reason:** This change only governs repository-maintainer PR review, CI observation, merge, and issue
 closeout evidence; it does not change a Robota runtime, CLI, provider, API, or other end-user surface
 that a product user can execute.
+
+## Result
+
+Implemented canonical merge-decision and delivery-completion receipts with bounded immutable GitHub
+readback, one CI observer, a clean no-feedback fast path, and legacy-ledger read compatibility. Focused
+tests and the affected PR-context harness scan pass.
