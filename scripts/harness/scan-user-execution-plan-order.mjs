@@ -1386,17 +1386,31 @@ function agreementPrelude(paths, textForPath, parentTextForPath) {
     const folder = file.slice(SPEC_PREFIX.length).split('/', 1)[0];
     return PRE_CHECKPOINT_SPEC_STATUS.has(folder);
   });
-  const parentTasks = taskPaths.filter((file) => {
+  const isAgreementTask = (file, text) => {
     const id = subjectId(taskBasename(file) ?? '');
     return (
-      id?.startsWith('AGREEMENT-') &&
-      asList(frontmatterObject(textForPath(file) ?? '').children).length > 0
+      id?.startsWith('AGREEMENT-') && asList(frontmatterObject(text ?? '').children).length > 0
     );
-  });
+  };
+  const parentTasks = taskPaths.filter((file) => isAgreementTask(file, textForPath(file)));
   const agreementSpecs = specPaths.filter(
     (file) => asScalar(frontmatterObject(textForPath(file) ?? '').type).trim() === 'AGREEMENT',
   );
   if (parentTasks.length === 0 && agreementSpecs.length === 0) return null;
+
+  // Existing Agreements use the ordinary planning validators, including spec-only edits/moves.
+  // Existence alone is insufficient: reclassifying an ordinary Task must still prove atomicity.
+  const parentBasenames = new Set([
+    ...parentTasks.map(taskBasename),
+    ...agreementSpecs.map(specBasename),
+  ]);
+  if (
+    [...parentBasenames].every((basename) => {
+      const file = `${TASK_PREFIX}${basename}`;
+      return isAgreementTask(file, parentTextForPath(file));
+    })
+  )
+    return null;
 
   const problems = [];
   if (parentTasks.length !== 1 || agreementSpecs.length !== 1) {
