@@ -12,6 +12,19 @@ depends_on: []
 
 # AGREEMENT-2655: Complete dependency build and package-boundary integrity
 
+Current completion reconciliation: PR #2721 archived BOUNDARY on develop at
+`ca214393cac3aa0baf94a811ecc5773837bd5a04` (2026-09-13T10:40:41Z). Hume independently
+verified the remote landing and identical reviewed/merged tree; all applicable CI contexts passed.
+This parent lifecycle records current completion coordination, not retroactive authorization of
+child implementation. Issue #2655 remains open until this parent is completed and landed.
+
+The existing-parent planning route was repaired by PR #2722 at
+`27cf0f024701eeb6846bb5fd1e34fab46557e843`, independently merge-verified by Hume.
+This approved planning pair resumes on that integration base; the earlier failed gate remains
+historical evidence, and the parent's own remaining gates have not yet passed.
+
+Spec: `.agents/spec-docs/todo/AGREEMENT-2655-complete-dependency-build-and-package-boundary-integrity.md`
+
 ## Objective
 
 Resolve the full four-source register of Issue #2655, including Issue #2154, Issue #2490 and Issue #2653.
@@ -19,15 +32,28 @@ Completion requires item-by-item delivery evidence, not just a passing mapping a
 
 ## Plan
 
-- [ ] Verify Issue #2653's exact clean, framework-only affected build/test acceptance using the already-landed fix; do not substitute a global build or planner-only result.
-- [ ] Complete integrated dependency scans and advisory reconciliation (INFRA-2655).
-- [ ] Deliver complete transactional workspace artifacts (ARTIFACT-2655).
-- [ ] Classify shared files across the repository and migrate package-specific content (BOUNDARY-2655).
-- [ ] Prepare item-by-item acceptance evidence covering every source outcome.
+- [x] Verify Issue #2653's exact clean, framework-only affected build/test acceptance using the already-landed fix; do not substitute a global build or planner-only result. Evidence: paired spec TC-01 delivery reconciliation, actual job 103683620725 on `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`.
+- [x] Complete integrated dependency scans and advisory reconciliation (INFRA-2655). Evidence: completed child and paired spec TC-02, including the exact delivering-push scan and all nine advisory dispositions.
+- [x] Deliver complete transactional workspace artifacts (ARTIFACT-2655). Evidence: completed child and paired spec TC-03, preserving both previously approved atomicity exceptions.
+- [x] Classify shared files across the repository and migrate package-specific content (BOUNDARY-2655). Evidence: completed child Task/spec, six canonical TC records and terminal GATE-COMPLETE PASS; Hume-verified merge `fa7984f59358682ab472b1adf96297767715ef4e` and source delivery comment 5651937294.
+- [x] Prepare item-by-item acceptance evidence covering every source outcome. Evidence: paired spec's five delivery reconciliations, verified ancestor identities and actual source/umbrella receipts. Parent terminal gate/lifecycle is a separate completion action.
 
 ## Delivery
 
 Verify all deliveries on origin/develop and close Issue #2655 only after every source outcome holds.
+
+The paired spec's Delivery Reconciliation below the Test Plan owns the current TC-by-TC evidence
+and remaining acceptance gaps. Hume owns PR #2718 merge verification, Nash owns BOUNDARY-2655
+completion, and Main owns Git and final Issue writeback. Do not treat the reported merge, a comment
+draft or child implementation as a completed child, a guardian PASS or an already-posted source
+delivery record. Both parent/child projections must be updated together when the child is actually
+archived; the parent remains open until its own criteria and applicable gates hold.
+
+The existing child Owner Approval (`모듀 승인함`, 2026-09-13) governs TC-04: retain domain-owned,
+forward-provisioned public SDK contracts under their owner and dependency-direction rules; apply
+the neutral-API/two-independent-package test to retained generic shared material. Public contracts
+still belong to the inventory and are not removed solely for a low internal caller count. This
+records the already-approved classification decision, not a new exception or smaller population.
 
 ## Children
 
@@ -41,6 +67,40 @@ Inspect child regressions, actual build/scan execution, merged commits and origi
 Neither decomposition nor a source Issue's CLOSED state proves delivery.
 
 ## Progress
+
+2026-09-13 final child/acceptance audit: all three children now have actual completed Task and
+done spec paths. BOUNDARY's terminal GATE-COMPLETE records 9/9 PASS after GATE-VERIFY 5/5 and
+six canonical TC records; the child was manually archived with its exact completed Task pointer.
+GitHub compare confirms INFRA commit `1c52df898f7a6df9adf715821bc9c8638a3dd967` and ARTIFACT
+commit `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc` are ancestors of Hume-verified BOUNDARY
+merge `fa7984f59358682ab472b1adf96297767715ef4e` (each merge-base equals the child commit,
+behind_by=0). All five parent acceptance criteria now have real evidence, including the source
+and umbrella receipts below. This updates both declaring parent projections without rewriting
+historical gate evidence. Parent terminal gate/lifecycle is not yet recorded; Issue #2655 remains
+OPEN until that last completion requirement is truthfully resolved.
+
+2026-09-13 delivery preparation after the API-confirmed PR #2718 owner merge:
+`fa7984f59358682ab472b1adf96297767715ef4e` at `2026-09-13T07:18:14Z`.
+The reviewed/tested head remains `c8e814c62cc1f5263f95ced9360f3e1104b1f5a9`;
+the merge identity is not substituted for that CI binding. Actual run 34742172142 completed
+successfully with all 13 non-skipped jobs passing. The paired spec now records the current
+clean-partial proof, 104-pass/1-skip artifact corpus and BOUNDARY evidence, alongside existing
+INFRA delivery. Nash's terminal child record, parent completion audit/gates and final umbrella
+writeback are still required. The missing control-plane
+landing record was [posted and read back](https://github.com/woojubb/robota/pull/2718#issuecomment-5651926138):
+actual owner `woojubb`, scans cache v2 and build framework-count/membership changes, other owning
+contexts unchanged, provenance RED. Main subsequently supplied Hume's final `MERGE VERIFIED: PASS`
+for the actual merge, content, CI and landing record. This is Hume's verdict, not this author's
+independent rerun. The [actual #2490 delivery comment](https://github.com/woojubb/robota/issues/2490#issuecomment-5651937294)
+was posted and read back after that PASS; its prior consolidation closure is not delivery evidence.
+The [umbrella partial-delivery receipt](https://github.com/woojubb/robota/issues/2655#issuecomment-5651949683)
+was also posted and read back with Issue #2655 still OPEN. It explicitly retains the pending
+child/parent completion metadata and audit; it is not a terminal parent verdict.
+TC-05 still requires the complete child/ancestry and parent writeback audit. No Issue is closed by
+this edit.
+The dated progress and baseline paragraphs below remain historical evidence, including the former
+15-package closure and earlier incomplete-child descriptions; they are not current population or
+verification claims.
 
 2026-09-13 current child projection: BOUNDARY-2655 is in-progress, with its implementation proposed
 in PR #2718. Its Task records completed local population reconciliation, owner migrations and six
@@ -119,6 +179,6 @@ The three child Tasks all cite the open umbrella because the recorded consolidat
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This Agreement coordinates repository build, dependency auditing and package ownership;
-it adds no independently runnable Robota SDK or application feature. Artifact correctness remains a
-child engineering integration requirement.
+**Reason:** This Agreement reconciles the ownership and delivery records of existing capabilities;
+it adds no independently callable SDK function, interactive session behavior, command, or application
+interface for an end user.
