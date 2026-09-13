@@ -141,9 +141,7 @@ PASS — DeepSeek provider SDK package and CLI integration are correctly impleme
 
 **Command executed:**
 
-```
-node scripts/examples/deepseek-provider-demo.mjs
-```
+`node scripts/examples/deepseek-provider-demo.mjs` <!-- evidence-superseded: BOUNDARY-2655 moved this example to packages/agent-builtin-providers/examples/deepseek-provider-demo.mjs; the recorded command and output remain historical. -->
 
 **Actual output:**
 
@@ -192,3 +190,13 @@ PASS — DeepSeek provider SDK package and CLI integration are correctly impleme
 - `pnpm --filter @robota-sdk/agent-cli test -- provider`
 - `pnpm docs:build`
 - `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`
+
+## Artifact relocation note — 2026-09-13
+
+BOUNDARY-2655 relocated the composition example to
+`packages/agent-builtin-providers/examples/deepseek-provider-demo.mjs`; the current owner-local
+invocation is `node examples/deepseek-provider-demo.mjs` from `packages/agent-builtin-providers`.
+The historical provider-package/CLI transcript above is retained, not re-labelled as execution of
+the new path. The current example checks the public builtin provider composition, not a new live
+API call or the retired package layout. Its durable engineering regression is
+`packages/agent-builtin-providers/src/deepseek-provider-demo.test.ts`.

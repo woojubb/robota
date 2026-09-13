@@ -194,12 +194,14 @@ describe('ARTIFACT clean framework proof CI wiring', () => {
     expect(classifyFiles(['scripts/artifacts/generation.mjs']).full).toBe(false);
   });
 
-  it('the current source graph really selects 15 including replay and analytics, without global fallback', () => {
+  it('the current source graph really selects 16 including recorder, replay and analytics producers, without global fallback', () => {
     const plan = planWorkspaceAffected({ operation: 'build', changedFiles: [changedFile] });
     expect(plan).toMatchObject({ mode: 'packages', globalFallback: false });
-    expect(plan.packages).toHaveLength(15);
+    expect(plan.packages).toHaveLength(16);
     expect(plan.packages.map((pkg) => pkg.name)).toEqual(
       expect.arrayContaining([
+        '@robota-sdk/agent-framework',
+        '@robota-sdk/agent-provider-openai-compatible',
         '@robota-sdk/agent-provider-replay',
         '@robota-sdk/agent-session-analytics',
       ]),
@@ -213,6 +215,7 @@ describe('ARTIFACT clean framework proof CI wiring', () => {
         'agent-framework',
         'agent-provider-replay',
         'agent-session-analytics',
+        'agent-provider-openai-compatible',
         ...Array.from({ length: 12 }, (_, index) => `fixture-${index}`),
       ].map((name) => ({ name: `@robota-sdk/${name}`, directory: `packages/${name}` }));
       const plan = { mode: 'packages', globalFallback: false, packages };

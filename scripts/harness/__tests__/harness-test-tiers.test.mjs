@@ -12,6 +12,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
+import { createContractTestRegistry } from '../contract-test-inputs.mjs';
 import * as tierOwner from '../harness-test-tiers.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -319,14 +320,21 @@ describe('harness test tiers', () => {
     expect(scripts['harness:test:tiers:guard']).toContain('--verify-hermetic-stripped');
   });
 
-  it('reports a clear reason for --distributed-shard instead of the empty-diff message', async () => {
+  it('preserves the real registry error for an empty --distributed-shard fixture', async () => {
     const { runAffectedContractTier } = tierOwner;
+    expect(() => createContractTestRegistry(REPO_ROOT, [])).toThrow(
+      'contract registry requires at least one contract test',
+    );
     const result = await runAffectedContractTier(['--distributed-shard'], REPO_ROOT, {
       contract: [],
       isolatedContract: [],
     });
     expect(result.mode).toBe('complete');
-    expect(result.reason).toBe('distributed shard: running its pre-filtered affected subset');
+    expect(result.reason).toBe(
+      'distributed shard: running its pre-filtered affected subset; registry construction failed: contract registry requires at least one contract test',
+    );
+    expect(result.coverage.invoked).toEqual([]);
+    expect(result.reason).not.toContain('changed-file resolution failed closed');
     expect(result.status).toBe(0);
   });
 

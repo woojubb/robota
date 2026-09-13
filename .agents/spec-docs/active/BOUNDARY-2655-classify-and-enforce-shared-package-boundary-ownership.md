@@ -272,37 +272,113 @@ discharge those requirements or establish semantic classification of unknown fil
 
 ## Test Plan
 
-| TC-ID | Test Type                       | Tool / Approach                                                                                            | Notes                                                                                                          |
-| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Integration and semantic review | Inventory over the actual tracked checkout plus independent review of complete dispositions                | A parser count alone cannot establish neutrality or independence; no full-population result is claimed yet.    |
-| TC-02 | Unit and semantic review        | Positive/negative retained-shared cases and API/consumer evidence review                                   | Public external consumers must not be inferred absent from a local search.                                     |
-| TC-03 | Integration                     | Framework goal cassette replay and scripted session tests; offline recording provider-injection regression | No live key or cassette regeneration for a move-only check. Test paths/manifest composition still to validate. |
-| TC-04 | Unit/integration                | Extend existing workspace affected/reference test owner with ordinary-file/in-memory fixtures              | No local worktrees, clones or Git fixture repositories.                                                        |
-| TC-05 | Integration                     | Existing affected planner/executor/cache reporting tests with selected, skipped, failed and global cases   | The three observed CLI plans above are baseline evidence, not final verification.                              |
-| TC-06 | CI smoke                        | Actual affected checks and remote CI on final head, then per-criterion merge audit                         | No reuse of unrelated green jobs as whole-scope proof.                                                         |
+| TC-ID | Test Type                       | Tool / Approach                                                                                            | Notes                                                                                                                                               |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration and semantic review | Inventory over the actual tracked checkout plus independent review of complete dispositions                | A parser count alone cannot establish neutrality or independence; the paired Task records the population reconciliation.                            |
+| TC-02 | Unit and semantic review        | Positive/negative retained-shared cases and API/consumer evidence review                                   | Public external consumers must not be inferred absent from a local search.                                                                          |
+| TC-03 | Integration                     | Framework goal cassette replay and scripted session tests; offline recording provider-injection regression | No live key or cassette regeneration for a move-only check. Local composition/replay evidence is recorded; remote PTY verification remains pending. |
+| TC-04 | Unit/integration                | Extend existing workspace affected/reference test owner with ordinary-file/in-memory fixtures              | No local worktrees, clones or Git fixture repositories.                                                                                             |
+| TC-05 | Integration                     | Existing affected planner/executor/cache reporting tests with selected, skipped, failed and global cases   | The three observed CLI plans above are baseline evidence, not final verification.                                                                   |
+| TC-06 | CI smoke                        | Actual affected checks and remote CI on final head, then per-criterion merge audit                         | No reuse of unrelated green jobs as whole-scope proof.                                                                                              |
 
 ## User Execution Test Scenarios
 
 The paired Task owns six authored, automatable scenarios and their exact prerequisites, commands,
-observables, cleanup and empty execution-evidence fields. The author probed the four existing hook
-commands successfully; that is not evidence that the new paths work. Scenario preparation includes
+observables, cleanup and recorded direct execution evidence. Main executed all six owner-local
+examples with exit 0 and matching observables; the Task retains Hume's independent
+DONE-GATE-STAGE-2 PASS dated 2026-09-13. The earlier author probes remain historical preparation,
+not substitutes for the new-path executions. The implementation includes
 two bounded owner-local examples: `packages/agent-session/examples/verify-session-history-migration.mjs`
 and `packages/agent-framework/examples/verify-goal-cassette-replay.mts`. They invoke the real command
 or existing public SDK and report actual results; they do not duplicate product algorithms.
 
-From `packages/agent-core`, run the four moved `node examples/hook-*-demo.mjs` commands individually
-and observe blocking reason, JSON denial/system message, permission-mode stdin values, and explicit
-timeout diagnostics. From `packages/agent-session`, run `node examples/verify-session-history-migration.mjs`:
-the first invocation on its disposable sample storage reports `Migrated: 1, Skipped: 3, Total: 4`,
-the second `Migrated: 0, Skipped: 4, Total: 4`, with preserved skipped files and stable migrated bytes.
-From `packages/agent-framework`, run `pnpm exec tsx examples/verify-goal-cassette-replay.mts`:
-observe satisfied status/stop reason, `GOAL.txt` containing `done`, and the actual Bash/report_goal_status
-tool calls. No scenario accesses real user session storage, changes HOME or rewrites the cassette.
-The replay scenario does not claim successful live recording; that path is not run with paid credentials.
+The canonical entries below project the existing Task scenarios without changing their commands,
+expectations or recorded results. The Task remains the authoring and execution-evidence owner;
+this format repair does not record a new scenario run or gate verdict.
+
+**Author verdict:** `SCENARIO DRAFTED: automatable | 6`
+
+### Scenario 1: Relocated hook blocking example
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-core`. Relocate `hook-block-demo.mjs` to this package's `examples/` and point its import at the owning package output. The current agent-core artifact and a POSIX shell must be available. The destructive-looking `tool_input.command` is inert input data; execute only the example's harmless configured hook that prints a reason and exits 2, never that tool-input string.
+- command: `node examples/hook-block-demo.mjs`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=runHooks returns blocked=true and reason="Bash tool blocked: dangerous command detected" Comparison: Capture the actual `runHooks result` JSON and exit 0. The example's later manually assembled `IToolResult` and its PASS prose do not prove PermissionEnforcer or AI delivery behavior.
+- cleanup: No scenario files are created; allow the short hook child to exit.
+- evidence: 2026-09-13 direct owner-local command exited 0; actual runHooks result was blocked=true with reason="Bash tool blocked: dangerous command detected" and empty stdout. Illustrative tool-result prose was not substituted for the SDK return.
+
+### Scenario 2: Relocated JSON hook responses
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-core`. Relocate `hook-json-response-demo.mjs`, correct the owning output import, and use the same current agent-core artifact and local shell. Its three hook commands only print JSON.
+- command: `node examples/hook-json-response-demo.mjs`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=stopReason blocks with Security policy violation; PreToolUse returns permissionDecision=deny; systemMessage returns blocked=false and stdout="User has elevated permissions today." Comparison: Compare all three actual returned objects printed by the example and require exit 0; do not substitute its summary string for the returned values.
+- cleanup: No persistent files or services; hook children exit normally.
+- evidence: 2026-09-13 direct owner-local command exited 0; actual results were blocked=true/reason="Security policy violation", blocked=true/permissionDecision="deny", then blocked=false/stdout="User has elevated permissions today.".
+
+### Scenario 3: Relocated permission-mode stdin forwarding
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-core`. Relocate `hook-permission-mode-demo.mjs`, correct the owner import, and make Node available on PATH for the child that reads hook JSON from stdin. No user settings are seeded.
+- command: `node examples/hook-permission-mode-demo.mjs`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=hook stdout is "default" then "bypassPermissions", with blocked=false for both invocations Comparison: Capture both child stdout values and exit 0. These strings verify forwarding only; the scenario does not change the verifier's own permission posture.
+- cleanup: No scenario files; both stdin-reading children exit.
+- evidence: 2026-09-13 direct owner-local command exited 0; child stdout was "default" then "bypassPermissions", and blocked=false for both results. No verifier permission setting was changed.
+
+### Scenario 4: Relocated timeout example with explicit runtime outcomes
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-core`. Relocate `hook-timeout-demo.mjs`, correct both its owning output import and command-executor source lookup. Use a POSIX shell with `sleep`; no long wait is required.
+- command: `node examples/hook-timeout-demo.mjs`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=timeout:1 returns blocked=false with errors containing kind=timeout; timeout:5 returns blocked=false with stdout containing "hook completed" Comparison: Capture both actual result objects, exit 0 and the existing elapsed-time checks (first below 1800ms; second at least 1800ms and below 4000ms). A slow host failure must be reported, not silently retried into a PASS. Reading DEFAULT_TIMEOUT_SECONDS=600 is source inspection, not evidence that a default-duration command executed; the old "exit code 1" description is not the current timeout outcome contract. Preserve and observe the explicit timeout diagnostic.
+- cleanup: Let the short sleep children finish; no persistent data is created.
+- evidence: 2026-09-13 direct owner-local command exited 0; timeout:1 returned blocked=false with errors[0].kind="timeout" at 1007ms; timeout:5 returned blocked=false/stdout="hook completed" at 2019ms. Both elapsed bounds matched; the inspected default constant was not runtime evidence.
+
+### Scenario 5: Session migration on explicitly injected disposable data
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-session`. Move the real command to `scripts/migrate-session-history.mjs` and implement `--sessions-dir <absolute-directory>` before running this example. The example creates one ordinary `mkdtemp` directory under the OS temporary directory, obtains its absolute path and seeds four JSON files: legacy messages (user "hello", assistant "world", fixed valid updatedAt `2026-01-01T00:00:00Z`), existing nonempty history, empty messages, and malformed JSON. Add one non-JSON sentinel. Keep original bytes for comparison. No fixture contains credentials or uses the real sessions directory; no HOME, USERPROFILE or other global-home override is permitted.
+- command: `node examples/verify-session-history-migration.mjs`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=first migration reports Migrated: 1, Skipped: 3, Total: 4; legacy history has two chat entries; second migration reports Migrated: 0, Skipped: 4, Total: 4 with unchanged bytes Comparison: The example invokes the real owner command with `execFileSync(process.execPath, [absoluteScriptPath, '--sessions-dir', absoluteFixtureDirectory])`, without a shell or environment override. Report captured command stdout plus the parsed migrated JSON: original messages remain, history types/data preserve user "hello" and assistant "world", each entry has a UUID and the fixed updatedAt timestamp. Existing history, empty-message JSON, malformed JSON and the non-JSON sentinel must remain byte-identical. Compare all bytes again after the second invocation. Also invoke the same command with an explicit missing child directory below the fixture root: observe `No sessions directory found.` and no directory creation. Do not execute the default path, even with `--help`: the old command ignores arguments and would discover the actual home directory. Emit a compact result containing the actual counts and entry values; assertion failure exits nonzero, but exit status alone is not the user evidence.
+- cleanup: In `finally`, remove only the exact ordinary temporary directory created by this example; never derive a cleanup target from HOME, a workspace root or an unvalidated command argument.
+- evidence: 2026-09-13 direct example exited 0; real command reported 1/3/4 then 0/4/4 migrated/skipped/total. Printed history retained user hello and assistant world with distinct UUIDs and timestamp 2026-01-01T00:00:00.000Z. Skipped/sentinel bytes and all repeat-run bytes matched; missing storage remained absent. Only the owned ordinary temporary fixture was removed.
+
+### Scenario 6: Existing framework goal cassette replay, without recording
+
+- executability: agent-executable
+- product surface: public-sdk-example
+- surface rationale: shipped-interface=public-sdk-example
+- prerequisites: Working directory: `packages/agent-framework`. The new owner-local example uses the existing public `@robota-sdk/agent-framework/testing` scriptedSession API and the existing framework-owned `src/testing/__fixtures__/goal-cassette-fixture.ts` constants/objective. Dependencies and the current public package outputs must resolve. Read the existing cassette without modification; use `scriptedSession({ cassette: GOAL_CASSETTE_PATH, bare: true })`, which owns its ordinary temporary workspace and session-log directory. Do not import Vitest configuration, rebind HOME, load a concrete live provider, read keys or use record/toCassette mode.
+- command: `pnpm exec tsx examples/verify-goal-cassette-replay.mts`
+- observable type: sdk-result
+- observable rationale: source=public-sdk-return
+- expected observable: result=goal.status=satisfied; goal.stopReason=satisfied; GOAL.txt contains "done"; tool calls include Bash and report_goal_status Comparison: Execute `runGoal(buildGoalObjective(harness.cwd), { maxIterations: GOAL_MAX_ITERATIONS })` and print the actual status, stopReason, GOAL.txt content and tool names before disposal. Assert the committed cassette bytes are unchanged. The recorder moves to `packages/agent-framework/scripts/record-goal-cassette.mts`, but this offline run proves preserved replay behavior, not successful live recording or the new concrete provider composition. Keep recorder import/dependency wiring verification in engineering evidence; no paid recording or committed cassette regeneration is authorized. The existing replay test remains in framework.
+- cleanup: Always `await harness.dispose()` in `finally`; it removes only its owned temporary workspace after shutdown. Do not write to user settings or delete the committed cassette.
+- evidence: 2026-09-13 direct pnpm exec tsx example exited 0 and printed status=satisfied, stopReason=satisfied, GOAL.txt=done, tool calls=Bash, report_goal_status. Disposal completed and the example's cassette-byte assertion passed; no live recording, credentials or HOME override was used.
 
 ## Tasks
 
-- [ ] `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` — todo
+- [ ] `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md` — in-progress
 
 ## Validation Findings Before Approval
 

@@ -17,6 +17,8 @@ Inventory shared code across the repository and verify API ownership, domain neu
 
 Parent: AGREEMENT-2655; canonical umbrella: https://github.com/woojubb/robota/issues/2655.
 
+Spec: `spec-docs/active/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+
 Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490), transferred to the umbrella by its [recorded disposition](https://github.com/woojubb/robota/issues/2490#issuecomment-5642818355). Full-population classification and actual migrations remain binding.
 
 ## Plan
@@ -26,13 +28,42 @@ Source acceptance: [Issue #2490](https://github.com/woojubb/robota/issues/2490),
 - [ ] TC-03: Migrate all classified owner-local material, including recording, hook, session migration and private PTY tooling, preserving behavior.
 - [x] TC-04: Extend the existing reference analysis and reject ownership drift with positive/negative regressions. Evidence: final local integration, 24 scanner regressions and independent wiring PASS.
 - [x] TC-05: Integrate justified operation/cache inputs and truthful selected/executed/skipped/global-promotion reporting. Evidence: final local integration and typed registry/cache/execution regressions; uncertainty remains conservative.
-- [ ] TC-06: Verify focused and affected scope plus final remote CI, land on origin/develop and reconcile source/parent completion.
+- [ ] TC-06: Verify focused and affected scope plus final remote CI and prepare per-criterion source/parent delivery evidence.
 
 ## Delivery
 
 Merge into origin/develop after verification and record the delivering commit in the source Issue.
+Reconcile source/parent completion only after the spec's TC-06 landing requirements hold. The
+documented post-merge completion closeout keeps this Task and its spec in-progress in the delivery
+PR; remote CI, verified landing and terminal completion evidence are not waived.
 
 ## Progress
+
+2026-09-13 CI repair batch: run 34737185726 attempt 2 acquired runners. TUI E2E, Windows
+and examples-typecheck passed at `189e01c8b61c80448350c812cc65395f85e59881`; build and scans
+failed, with quality and advisory coverage failing downstream. The published red-check action
+record is PR #2718 comment 5651376811. Local repairs synchronize the 16-package framework
+proof, 81-package declaration graph, cache namespace expectations, conservative uncertain-input
+tests, diagnostic registration, owner scenario registration and moved-document references.
+Focused verification: Nash 85 passed / 2 HOME-sensitive tests unselected; Pascal 13 passed /
+14 unselected at 512 MB, after replacing oversized assertion formatting (the initial run OOM
+is not a pass). Main recorded and freshly replayed the offline builtin-provider example with
+zero artifact differences and zero owning consistency findings. Spec-user-execution (436 specs),
+routing-size (3 documents), ghost-package references, task-plan-items (298 Plans), done-evidence
+and task-archival (163 active Tasks) passed. Six canonical spec scenarios match the unchanged
+Task execution evidence. Nash confirmed the workflow's two-line count/membership repair at
+blob `156f2c7c6ef16d7d39e04848088199182cfd443a`, preserving all other job definitions.
+Final-head remote CI, provenance-owner landing and completion closeout remain outstanding.
+
+Current status (2026-09-13): the committed GATE-IMPLEMENT checkpoint at
+`36f4ff11e8dbe5ea525978c8648ceca9720ee329` authorized the implementation now proposed in PR #2718.
+The active spec linked above is canonical. The six owner-local examples have direct execution
+evidence and the independent DONE-GATE-STAGE-2 PASS retained below. TC-03 and TC-06 remain open
+for outstanding remote runtime/CI and delivery evidence; no merge or completion is claimed.
+
+Historical planning entries below are retained as records of their respective pre-implementation
+states, including the withdrawn attempt. Their former draft paths and pending decisions do not
+describe the current state.
 
 2026-09-13: GATE-WRITE, independent proposal ENDORSE, DIRECT GATE-APPROVAL and
 DONE-GATE-STAGE-1 passed. The first implementation judge returned PASS with a spec-only dirty

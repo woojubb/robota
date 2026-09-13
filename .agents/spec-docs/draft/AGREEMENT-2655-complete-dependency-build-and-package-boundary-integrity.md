@@ -100,6 +100,12 @@ conversation, command or application interface for an end user to operate.
 
 - [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
 - [x] ARTIFACT-2655 — done — `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
-- [ ] BOUNDARY-2655 — todo — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+- [ ] BOUNDARY-2655 — in-progress — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 ## Evidence Log
+
+2026-09-13 child projection reconciliation: BOUNDARY-2655's active Task/spec and proposed PR #2718
+now record the implementation and local scenario verification. Earlier read-only planning is not
+its current state. The child retains incomplete TC-03 and TC-06 pending remote runtime/CI and
+verified landing. This updates the child projection only; Agreement criteria, lifecycle and the
+other children's existing delivery evidence remain unchanged.

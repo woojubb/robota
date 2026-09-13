@@ -104,6 +104,7 @@ describe('createBuildTypeTiers', () => {
     // package — and is kept anyway, because it catches a package nobody meant to add. 76 before
     // ARCH-103, then 77, 78, 79, 80, and 81 after ARCH-107. ARTIFACT-2655 includes the
     // private Vite web producer: build:types is now a complete-build alias, not DTS-only.
+    // BOUNDARY-2655 moves private agent-testing helpers into their TUI owner, leaving 81 producers.
     //
     // The ORDER mirrors the declared layers. agent-interface-transport sat at tier 3 rather than the 0
     // its four CONTRACT modules would allow, because its /testing subpath imported a session type:
@@ -115,7 +116,9 @@ describe('createBuildTypeTiers', () => {
     // the build graph, not the interface-layer graph, and the two number different things. What makes
     // it corroboration is the DIRECTION and the cause: both fell to their floor from the same edge
     // removal, measured by tools that share no code. Had only one moved, that would be the finding.
-    expect(packages).toHaveLength(82);
+    expect(packages).toHaveLength(81);
+    expect(tierByName.has('@robota-sdk/agent-testing')).toBe(false);
+    expect(tierByName.has('@robota-sdk/agent-transport-tui')).toBe(true);
     expect(tiers).toHaveLength(11);
     expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);

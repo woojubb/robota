@@ -55,6 +55,10 @@ have been built. The example checks definition defaults, active/deprecated catal
 and DeepSeek's presence and position in the default list. It never creates a provider, resolves
 an API-key environment reference, or sends a request. A failed assertion exits nonzero.
 
+`pnpm scenario:verify` runs this offline example. `pnpm scenario:record` uses the existing
+repository scenario recorder to capture a successful verification in
+`examples/scenarios/offline-verify.record.json`; it does not contact a live provider.
+
 `src/deepseek-provider-demo.test.ts` runs the real example and checks failure reporting with an
 in-memory catalog mutation in a separate process. These are offline composition checks, not
 proof of CLI integration. The CLI owns that proof in

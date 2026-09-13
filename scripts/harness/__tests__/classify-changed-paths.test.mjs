@@ -601,9 +601,9 @@ describe('CI capability wiring', () => {
 
     expect(workflow).toContain('name: Restore cross-head contract-test content cache');
     expect(workflow).toContain(
-      'key: robota-contract-tests-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}',
+      'key: robota-contract-tests-v2-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}',
     );
-    expect(workflow).toContain('robota-contract-tests-v1-${{ runner.os }}-node22-\n');
+    expect(workflow).toContain('robota-contract-tests-v2-${{ runner.os }}-node22-\n');
     expect(workflow).toContain('name: Restore cross-head ESLint content cache');
     expect(executionPlan).toContain("'--cache-strategy',\n        'content'");
     expect(workflow).toContain('start_check lint pnpm lint:affected');

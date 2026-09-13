@@ -27,8 +27,7 @@ packages that are `private: true`.
 - `packages/agent-playground/package.json` — `"description": "Deployable Playground UI package…"` +
   `publishConfig: { access: 'public' }` + `prepublishOnly` publish check, contradicting `private:
 true` and the registry's Private entry.
-- `packages/agent-testing/package.json` — `private: true` but carries a stray `publishConfig: {
-access: 'public' }` (its SPEC also wrongly claims it is published — that half is DOCS-024).
+- `packages/agent-testing/package.json` — `private: true` but carries a stray `publishConfig: { access: 'public' }` (its SPEC also wrongly claims it is published — that half is DOCS-024). <!-- evidence-superseded: BOUNDARY-2655 removes this private package after owner-local PTY relocation; see the dated partial-resolution note below. -->
 - `packages/agent-provider-openai/src/openai/loggers/console.ts` and `file.ts` — 9-line pass-through
   re-export shims with zero importers (`project-structure.md:232-233` bans pass-through re-exports).
 

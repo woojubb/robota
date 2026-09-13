@@ -137,9 +137,7 @@ PASS — HOOK-006 JSON response parsing is correctly implemented.
 
 **Command executed:**
 
-```
-node scripts/examples/hook-json-response-demo.mjs
-```
+`node scripts/examples/hook-json-response-demo.mjs` <!-- evidence-superseded: BOUNDARY-2655 moved this example to packages/agent-core/examples/hook-json-response-demo.mjs; the recorded command and output remain historical. -->
 
 **Actual output:**
 
@@ -180,3 +178,11 @@ PASS — HOOK-006 JSON response parsing is correctly implemented.
 **Exit code:** 0
 
 **Observed result matches expected:** YES
+
+## Artifact relocation note — 2026-09-13
+
+BOUNDARY-2655 relocated the example to `packages/agent-core/examples/hook-json-response-demo.mjs`;
+the current owner-local invocation is `node examples/hook-json-response-demo.mjs` from
+`packages/agent-core`. The historical transcript above is unchanged. The new owner-local command's
+actual return values are recorded separately in BOUNDARY-2655. The durable engineering regression
+is `packages/agent-core/src/__tests__/owned-hook-examples.test.ts`.

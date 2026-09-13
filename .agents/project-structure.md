@@ -134,34 +134,8 @@ agent-cli         ← product/UI layer: consumes agent-framework and selected co
 
 ### Shared Material Ownership
 
-Public SDK contracts and generic internal shared material are different classifications. A
-domain-owned or forward-provisioned public contract is retained under its owning SPEC and manifest
-exports; local consumer counts alone do not authorize deleting it. A generic shared implementation
-or test utility requires an owned, domain-neutral API and at least two independently justified
-consumer packages. Multiple files in one package and the recording/replay halves of one scenario
-are not independent consumers. Owner-local implementation, fixtures and data stay with that owner.
-
-Repository build and verification infrastructure is separately owned. Root placement is not an
-exemption: any cross-owner internal reference must have a concrete source/target/kind disposition
-and a contract explaining why that reference is needed. New or stale internal boundary accesses and
-missing shared-consumer evidence fail the package-boundary gate. Public-entry aliases are checked
-against the target's real exported entry instead of being mistaken for private implementation use.
-
-`.agents/package-boundaries.json` records the reviewed dispositions. Named shared API candidates
-must retain matching static imported-name evidence, not merely an import of the same barrel.
-Root `tsconfig.base.json` owns shared strict compiler defaults; `tsconfig.eslint.json` owns lint
-compiler inputs, and `tsconfig.json` owns repository compiler defaults. Their configuration
-consumers are recorded as exact `extends` edges, not a wildcard permission to read root files.
-Reviewed source-to-public-export correspondences bind the export map and owner build configuration;
-changing those inputs invalidates the prior correspondence without invalidating unrelated version
-metadata changes.
-
-The gate reuses the workspace graph and source-reference analysis. Its inventory accounts for
-tracked paths, non-ignored untracked additions, symlinks, declared generated outputs and unsupported
-inputs without reading through symlinks. Unresolved runtime inputs remain visible; they cannot prove
-consumer absence or justify shared retention. Runtime input uncertainty and a file's owner are
-separate judgments. Verification executes uncertain entries conservatively without cache reuse,
-while malformed global inputs retain explicit complete promotion.
+The [shared material ownership rule](rules/shared-material-ownership.md) owns public-versus-generic
+classification, consumer evidence, reviewed boundary dispositions and conservative input handling.
 
 ### Implementation Owner Boundaries
 
@@ -186,10 +160,7 @@ The fourth bullet of that section governed **skills**, not packages, and moved t
 
 ### Testing Layers — which package is which
 
-[`rules/testing-layering.md`](rules/testing-layering.md) states the rule: feature behaviour is proven
-at the layer that OWNS it, never at the surface that exposes it. That rule binds any repository. This
-is the map for THIS one, and it lives here for the same reason the boundaries above do — the rule
-tree states invariants, and package names are this document's subject.
+Repository testing-layer map; the owner-layer verification rule lives in [testing-layering.md](rules/testing-layering.md).
 
 | Role in the rule           | Package here                                                                           |
 | -------------------------- | -------------------------------------------------------------------------------------- |
@@ -198,8 +169,7 @@ tree states invariants, and package names are this document's subject.
 | the functional harness     | `@robota-sdk/agent-framework/testing` — `scriptedSession()` / `ScriptedSessionHarness` |
 | the deterministic provider | `@robota-sdk/agent-core/testing`                                                       |
 
-The harness drives a real `InteractiveSession` — real loop, builtin tools, persistence, events —
-without a CLI, a network or a live model.
+The harness drives a real `InteractiveSession` — loop, builtin tools, persistence, events — without a CLI, network or live model.
 
 ### Dependency direction — the foundation depends on nothing above it
 

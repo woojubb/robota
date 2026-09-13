@@ -33,7 +33,7 @@ Verify all deliveries on origin/develop and close Issue #2655 only after every s
 
 - [x] INFRA-2655 — done — `.agents/tasks/completed/INFRA-2655-scan-integrated-dependencies-without-manifest-changes.md`
 - [x] ARTIFACT-2655 — done — `.agents/tasks/completed/ARTIFACT-2655-assemble-complete-transactional-workspace-artifacts.md`
-- [ ] BOUNDARY-2655 — todo — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
+- [ ] BOUNDARY-2655 — in-progress — `.agents/tasks/BOUNDARY-2655-classify-and-enforce-shared-package-boundary-ownership.md`
 
 ## Test Plan
 
@@ -41,6 +41,13 @@ Inspect child regressions, actual build/scan execution, merged commits and origi
 Neither decomposition nor a source Issue's CLOSED state proves delivery.
 
 ## Progress
+
+2026-09-13 current child projection: BOUNDARY-2655 is in-progress, with its implementation proposed
+in PR #2718. Its Task records completed local population reconciliation, owner migrations and six
+direct example executions with independent DONE-GATE-STAGE-2 PASS. Its TC-03 and TC-06 remain
+unchecked for outstanding remote runtime/CI and landing evidence. The earlier read-only inventory
+description below is historical, not the current implementation state. This projection does not
+complete the Agreement, change its acceptance criteria or authorize closing Issue #2655.
 
 2026-09-13: PR #2715 delivered artifacts and the current clean framework-only acceptance to
 `origin/develop` at `4f3c0755dd70d3830127ffecdbdc8cb7a9704abc`. Final CI run 34706938357
