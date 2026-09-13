@@ -13,9 +13,10 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createPtyEnv, spawnPtyFixture } from '@robota-sdk/agent-testing';
+import { createPtyEnv } from './pty/isolated-home.js';
+import { spawnPtyFixture } from './pty/spawn-pty.js';
 
-import type { IPtyRunSession } from '@robota-sdk/agent-testing';
+import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/command-handoff-driver.tsx', import.meta.url));
 const FAKE_EDITOR = fileURLToPath(new URL('./fixtures/fake-editor.sh', import.meta.url));

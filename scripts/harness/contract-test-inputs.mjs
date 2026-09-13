@@ -1,5 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+
+import { collectFiles } from './enumerate-files.mjs';
+import { extractSourceReferences } from './workspace-source-dependencies.mjs';
+import { resolveSourceReference } from './workspace-source-reference-resolution.mjs';
+import { isRepositoryPath } from './workspace-source-config-resolution.mjs';
 
 import {
   contractInputDomains,
@@ -24,6 +29,11 @@ export const CONTRACT_CONTROL_PLANE_INPUTS = Object.freeze([
   'scripts/harness/contract-test-cache.mjs',
   'scripts/harness/contract-test-inputs.mjs',
   'scripts/harness/contract-test-owners.mjs',
+  'scripts/harness/workspace-source-dependencies.mjs',
+  'scripts/harness/workspace-source-reference-extraction.mjs',
+  'scripts/harness/workspace-source-reference-resolution.mjs',
+  'scripts/harness/workspace-source-config-resolution.mjs',
+  'scripts/harness/lib/ts-ast.mjs',
   'scripts/harness/harness-test-tiers.mjs',
   'scripts/harness/shared.mjs',
 ]);
@@ -40,22 +50,6 @@ export const CONTRACT_SAFETY_FLOOR = Object.freeze([
   }),
 ]);
 
-const ROOT_INPUTS = new Set(CONTRACT_CONTROL_PLANE_INPUTS.filter((input) => !input.includes('*')));
-
-const REPOSITORY_PREFIXES = [
-  '.agents/',
-  '.claude/agents/',
-  '.claude/hooks/',
-  '.github/',
-  '.husky/',
-  'apps/',
-  'content/',
-  'docs/',
-  'examples/',
-  'packages/',
-  'scripts/',
-];
-
 const normalize = (value) =>
   String(value ?? '')
     .trim()
@@ -63,109 +57,203 @@ const normalize = (value) =>
     .replace(/^\.\//u, '')
     .replace(/^\//u, '');
 
-function literalModuleSpecifiers(source) {
-  const imports = [];
-  const declaration = /^\s*(?:import|export)\s+(?:[^;]*?\s+from\s+)?['"]([^'"]+)['"]\s*;?/gmu;
-  for (const match of source.matchAll(declaration)) {
-    if (match[1].startsWith('.')) imports.push(match[1]);
+function regularInput(root, file) {
+  if (!isRepositoryPath(file)) return false;
+  const parts = file.split('/');
+  for (let index = 1; index <= parts.length; index += 1) {
+    const stat = lstatSync(path.join(root, ...parts.slice(0, index)), { throwIfNoEntry: false });
+    if (!stat || stat.isSymbolicLink()) return false;
+    if (index === parts.length && !stat.isFile()) return false;
   }
-  for (const match of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/gu)) {
-    if (match[1].startsWith('.')) imports.push(match[1]);
-  }
-  return imports;
+  return true;
 }
 
-function resolveRelativeModule(root, owner, specifier) {
-  const unresolved = path.resolve(root, path.dirname(owner), specifier);
-  const candidates = [
-    unresolved,
-    `${unresolved}.mjs`,
-    `${unresolved}.js`,
-    `${unresolved}.cjs`,
-    path.join(unresolved, 'index.mjs'),
-    path.join(unresolved, 'index.js'),
-  ];
-  if (unresolved.endsWith('.js')) candidates.push(`${unresolved.slice(0, -3)}.mjs`);
-  const absolute = candidates.find((candidate) => existsSync(candidate));
-  if (!absolute) return null;
-  const relative = normalize(path.relative(root, absolute));
-  return relative.startsWith('../') ? null : relative;
+function referenceContext(root, options) {
+  // Integration may supply the existing graph's packages and regular-file inventory. The
+  // compatibility entry point delegates tracked + untracked names to their existing owner.
+  const names = options.files ?? collectFiles([], { cwd: root, includeUntracked: true });
+  const files = new Set([...names].filter((file) => regularInput(root, file)));
+  const readFile = (file) => {
+    if (!files.has(file) || !regularInput(root, file))
+      throw new Error(`not a regular contract input: ${file}`);
+    return options.readFile ? options.readFile(file) : readFileSync(path.join(root, file), 'utf8');
+  };
+  return { ...options, files, readFile };
 }
 
-function literalExecutableDependencies(root, owner, source) {
-  const dependencies = new Set();
-  for (const match of source.matchAll(/['"]([^'"\n]+\.(?:[cm]?[jt]s))['"]/gu)) {
-    const specifier = match[1];
-    let dependency = specifier.startsWith('.')
-      ? resolveRelativeModule(root, owner, specifier)
-      : null;
-    if (!dependency) {
-      const candidate = normalize(
-        specifier.startsWith('scripts/') ? specifier : `scripts/harness/${specifier}`,
-      );
-      if (existsSync(path.join(root, candidate))) dependency = candidate;
-    }
-    if (dependency) dependencies.add(dependency);
-  }
-  return dependencies;
-}
-
-/** Return a test's complete relative static-import closure, including the test itself. */
-export function relativeImportClosure(root, testFile) {
+function collectContractInputs(testFile, context) {
   const pending = [normalize(testFile)];
   const visited = new Set();
+  const references = [];
   while (pending.length > 0) {
     const current = pending.pop();
     if (!current || visited.has(current)) continue;
-    const absolute = path.join(root, current);
-    if (!existsSync(absolute))
+    if (!context.files.has(current))
       throw new Error(`contract registry input does not exist: ${current}`);
     visited.add(current);
-    const source = readFileSync(absolute, 'utf8');
-    for (const specifier of literalModuleSpecifiers(source)) {
-      const dependency = resolveRelativeModule(root, current, specifier);
-      if (dependency && !visited.has(dependency)) pending.push(dependency);
-    }
-    for (const dependency of literalExecutableDependencies(root, current, source)) {
-      if (!visited.has(dependency)) pending.push(dependency);
+    for (const extracted of extractSourceReferences(context.readFile(current), current)) {
+      const resolved = resolveSourceReference(extracted, context);
+      const reference = {
+        ...resolved,
+        id: `${current}:${extracted.span.start}:${extracted.span.end}:${extracted.kind}`,
+      };
+      references.push(reference);
+      if (reference.kind === 'module' || reference.kind === 'execute') {
+        pending.push(...(reference.resolution.targets ?? []));
+      }
     }
   }
-  return [...visited].sort();
+  return { implementationInputs: [...visited].sort(), references };
 }
 
-function looksLikeRepositoryInput(value) {
-  const normalized = normalize(value);
-  return (
-    ROOT_INPUTS.has(normalized) ||
-    normalized === '.claude/agents' ||
-    REPOSITORY_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+/** Compatibility view of the shared-reference module/execution closure, including the test. */
+export function relativeImportClosure(root, testFile, options = {}) {
+  const result = collectContractInputs(testFile, referenceContext(root, options));
+  const uncertainInputs = validateContractReferenceEvidence(result.references);
+  // This legacy array cannot carry uncertainty; never present a partial closure as complete.
+  if (uncertainInputs.length > 0) throw new Error(uncertaintyReason(uncertainInputs));
+  return result.implementationInputs;
+}
+
+function uncertaintyReason(uncertainInputs) {
+  return uncertainInputs
+    .map(
+      ({ source, span, kind, expression, reason }) =>
+        `unresolved contract input ${source}:${span.start} (${kind} ${expression}): ${reason}`,
+    )
+    .join('; ');
+}
+
+export function validateContractReferenceEvidence(references) {
+  if (!Array.isArray(references)) throw new Error('invalid contract reference evidence');
+  const uncertainInputs = [];
+  for (const reference of references) {
+    if (
+      !reference ||
+      !['module', 'execute', 'read-content', 'list-names', 'config'].includes(reference.kind) ||
+      !isRepositoryPath(reference.source) ||
+      !Number.isInteger(reference.span?.start) ||
+      !Number.isInteger(reference.span?.end) ||
+      reference.span.start < 0 ||
+      reference.span.end < reference.span.start ||
+      !['resolved', 'unresolved', 'external', 'builtin'].includes(reference.resolution?.status) ||
+      (reference.resolution.status === 'unresolved' &&
+        (typeof reference.id !== 'string' ||
+          reference.id.trim() === '' ||
+          typeof reference.expression !== 'string' ||
+          reference.expression.trim() === '' ||
+          typeof reference.resolution.reason !== 'string' ||
+          reference.resolution.reason.trim() === '' ||
+          (reference.resolution.targets !== undefined &&
+            (!Array.isArray(reference.resolution.targets) ||
+              reference.resolution.targets.length > 0)))) ||
+      (reference.resolution.status === 'resolved' &&
+        (!Array.isArray(reference.resolution.targets) ||
+          reference.resolution.targets.length === 0 ||
+          reference.resolution.targets.some((file) => !isRepositoryPath(file)))) ||
+      (reference.resolution.evidenceInputs !== undefined &&
+        (!Array.isArray(reference.resolution.evidenceInputs) ||
+          reference.resolution.evidenceInputs.some((file) => !isRepositoryPath(file))))
+    ) {
+      throw new Error('invalid contract reference evidence');
+    }
+    if (reference.resolution.status === 'unresolved') {
+      uncertainInputs.push({
+        referenceId: reference.id,
+        source: reference.source,
+        span: reference.span,
+        kind: reference.kind,
+        expression: reference.expression,
+        reason: reference.resolution.reason,
+      });
+    }
+  }
+  return uncertainInputs;
+}
+
+/** Shared entry-level check for selector/cache; no registry enumeration or owner discovery. */
+export function validateContractInputProjection(entry) {
+  if (entry.references === undefined) {
+    if (entry.projectedInputs !== undefined)
+      throw new Error(`contract input projection lacks reference evidence: ${entry.test}`);
+    return [];
+  }
+  const uncertainInputs = validateContractReferenceEvidence(entry.references);
+  const floorReason = CONTRACT_SAFETY_FLOOR.find(({ test }) => test === entry.test)?.reason;
+  if (
+    (uncertainInputs.length > 0 &&
+      (entry.always !== true ||
+        entry.cacheable !== false ||
+        entry.alwaysReason !== (floorReason ?? uncertaintyReason(uncertainInputs)))) ||
+    ((uncertainInputs.length > 0 || entry.uncertainInputs !== undefined) &&
+      JSON.stringify(entry.uncertainInputs) !== JSON.stringify(uncertainInputs))
+  ) {
+    throw new Error(`invalid contract input uncertainty policy: ${entry.test}`);
+  }
+  const expected = projectReferences(entry.test, entry.references);
+  if (
+    JSON.stringify(entry.projectedInputs) !== JSON.stringify(expected) ||
+    JSON.stringify(entry.implementationInputs) !== JSON.stringify(projectedPaths(expected, true)) ||
+    JSON.stringify(entry.repositoryInputs) !== JSON.stringify(projectedPaths(expected, false))
+  ) {
+    throw new Error(`invalid contract input projection: ${entry.test}`);
+  }
+  return uncertainInputs;
+}
+
+function projectReferences(test, references) {
+  const inputs = new Map();
+  const add = (targetOrPattern, sensitivity, referenceId) => {
+    if (!isRepositoryPath(targetOrPattern))
+      throw new Error(`invalid projected contract input: ${targetOrPattern}`);
+    targetOrPattern = normalize(targetOrPattern);
+    const key = `${sensitivity}:${targetOrPattern}`;
+    const input = inputs.get(key) ?? { targetOrPattern, sensitivity, referenceIds: [] };
+    if (referenceId !== undefined && !input.referenceIds.includes(referenceId))
+      input.referenceIds.push(referenceId);
+    inputs.set(key, input);
+  };
+  add(test, 'execution');
+  for (const reference of references) {
+    const sensitivity = ['module', 'execute'].includes(reference.kind)
+      ? 'execution'
+      : reference.kind === 'list-names'
+        ? 'name-set'
+        : 'content';
+    for (const file of reference.resolution.evidenceInputs ?? [])
+      add(file, 'content', reference.id);
+    for (const target of reference.resolution.targets ?? []) {
+      add(
+        reference.kind === 'list-names' ? `${target.replace(/\/$/u, '')}/*` : target,
+        sensitivity,
+        reference.id,
+      );
+    }
+  }
+  return [...inputs.values()].sort(
+    (a, b) =>
+      a.targetOrPattern.localeCompare(b.targetOrPattern) ||
+      a.sensitivity.localeCompare(b.sensitivity),
   );
 }
 
-function repositoryInputsFromSources(root, implementationInputs) {
-  const inputs = new Set();
-  for (const file of implementationInputs) {
-    const source = readFileSync(path.join(root, file), 'utf8');
-    for (const match of source.matchAll(/['"`]([^'"`\n]+)['"`]/gu)) {
-      const candidate = normalize(match[1]);
-      if (!looksLikeRepositoryInput(candidate) || candidate.includes('${')) continue;
-      // Directory consumers read every definition, including newly added agent files.
-      if (candidate === '.claude/agents') {
-        inputs.add(`${candidate}/**`);
-        continue;
-      }
-      inputs.add(candidate.endsWith('/') ? `${candidate}**` : candidate);
-    }
-  }
-  return [...inputs].sort();
+function projectedPaths(inputs, execution) {
+  return [
+    ...new Set(
+      inputs
+        .filter((input) => (input.sensitivity === 'execution') === execution)
+        .map((input) => input.targetOrPattern),
+    ),
+  ].sort();
 }
-
 /**
- * Generate complete metadata from the classified contract tier. Explicit repository paths are
- * harvested from each test's static implementation closure; an empty list is represented, not
- * omitted, so newly added tests cannot silently fall outside registry validation.
+ * Derive registry inputs from the shared reference evidence, not quoted path literals.
+ * options supplies the existing graph's packages, regular files, readFile and (when known) cwd.
+ * Well-formed unresolved evidence makes only its entry always-run and noncacheable.
+ * projectedInputs is shared with selection/cache integration:
+ * execution traverses the closure, content hashes bytes, name-set hashes matching names only.
  */
-export function createContractTestRegistry(root, contractTests) {
+export function createContractTestRegistry(root, contractTests, options = {}) {
   const tests = [...contractTests].map(normalize).sort();
   if (tests.length === 0) throw new Error('contract registry requires at least one contract test');
   if (new Set(tests).size !== tests.length) {
@@ -177,18 +265,26 @@ export function createContractTestRegistry(root, contractTests) {
       reason,
     ]),
   );
+  const context = referenceContext(root, options);
   return tests.map((test) => {
     if (!test.startsWith(TEST_ROOT) || !test.endsWith('.test.mjs')) {
       throw new Error(`invalid contract test path: ${test}`);
     }
-    const implementationInputs = relativeImportClosure(root, test);
-    const repositoryInputs = repositoryInputsFromSources(root, implementationInputs);
+    const { implementationInputs, references } = collectContractInputs(test, context);
+    const uncertainInputs = validateContractReferenceEvidence(references);
+    const always = safetyFloor.has(test) || uncertainInputs.length > 0;
+    const projectedInputs = projectReferences(test, references);
+    const repositoryInputs = projectedPaths(projectedInputs, false);
     return Object.freeze({
       test,
-      always: safetyFloor.has(test),
-      alwaysReason: safetyFloor.get(test) ?? null,
+      always,
+      alwaysReason: safetyFloor.get(test) ?? (always ? uncertaintyReason(uncertainInputs) : null),
+      cacheable: !always,
+      uncertainInputs: Object.freeze(uncertainInputs),
       implementationInputs: Object.freeze(implementationInputs),
       repositoryInputs: Object.freeze(repositoryInputs),
+      references: Object.freeze(references),
+      projectedInputs: Object.freeze(projectedInputs),
       // Deliberately empty unless a contract is manually audited as owning every source file in
       // a domain. Autogenerated `packages/**`-style literals describe structure, not source.
       broadSourceDomains: Object.freeze([]),
@@ -217,6 +313,7 @@ export function validateContractTestRegistry(root, contractTests, registry) {
     );
   }
   for (const entry of registry) {
+    validateContractInputProjection(entry);
     if (
       typeof entry.always !== 'boolean' ||
       !Array.isArray(entry.implementationInputs) ||

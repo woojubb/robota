@@ -9,6 +9,7 @@ import {
   matchesContractRepositoryInput,
   matchesInput,
   normalizeContractPath,
+  projectContractInputPath,
 } from './contract-input-matching.mjs';
 import {
   groupContractTestsByOwner,
@@ -128,7 +129,11 @@ export function createAffectedContractPlan({
       const globalInputMatch =
         (entry.primaryOwner === 'harness' || entry.primaryOwner.startsWith('workspace:')) &&
         entry.repositoryInputs.some((input) => matchesContractRepositoryInput(entry, file, input));
-      if (implementationMatch || sameSpecificOwner || globalInputMatch) {
+      const projectedMatch =
+        entry.projectedInputs?.some(
+          (input) => projectContractInputPath(file, input) !== undefined,
+        ) === true;
+      if (implementationMatch || sameSpecificOwner || globalInputMatch || projectedMatch) {
         selected.add(entry.test);
         recognized.add(file);
         dependencyMatched = true;

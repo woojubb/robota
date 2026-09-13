@@ -76,6 +76,14 @@ These scripts are the executable layer of the Robota harness.
 - checks whether each workspace docs index points to `SPEC.md`
 - reports current coverage and missing scopes
 
+### `scan-package-boundary-ownership.mjs`
+
+- is discovered by `harness:scan` as `package-boundary-ownership` through its own `scanDefinition`; no duplicate legacy runner entry is required
+- declares `always: true` because ownership candidates include repository tooling and tracked data outside package source directories
+- consumes `.agents/package-boundaries.json` with the existing workspace graph, reference resolver and source inventory; it does not own a second package graph
+- checks shared candidate ownership/contracts and independent consumers, stale reference declarations and unclassified cross-owner references; unresolved evidence remains visible
+- participates in the examined-size adoption, measurement-provenance and mandatory-root guard registries
+
 ### `plan-change.mjs`
 
 - resolves workspace scopes from explicit `--changed-file` fixtures or changed files from Git

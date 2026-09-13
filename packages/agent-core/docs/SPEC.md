@@ -1033,6 +1033,17 @@ Two independent checks keep the two fields honest: `assertPolicyCoherent` reject
 
 ### Hook Events
 
+Owner-local development examples in `packages/agent-core/examples/` invoke the built Node
+`runHooks` API. From this package, run `node examples/hook-block-demo.mjs`,
+`node examples/hook-json-response-demo.mjs`, `node examples/hook-permission-mode-demo.mjs`, or
+`node examples/hook-timeout-demo.mjs`. They preserve exit-2 blocking/reason, JSON denial and
+system-message handling, permission-mode stdin propagation, and explicit timeout/success
+observations. The block example's formatted tool result is illustrative, not an executed AI or
+permission-enforcer round trip; its tool-input command is data, not executed. The timeout example
+resolves both its built runtime and its source-constant inspection relative to its own location,
+independent of caller cwd. Reading the default-timeout constant is source inspection, not a
+600-second runtime test. These tools are not new public SDK exports.
+
 | Event              | Timing                    | Purpose                                          |
 | ------------------ | ------------------------- | ------------------------------------------------ |
 | `PreToolUse`       | Before tool execution     | Validation, blocking, transformation             |
@@ -1805,6 +1816,14 @@ NOTE: The single `FunctionTool` class (agent-core's `tool-registry`, DATA-005 SS
 | `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy
+
+`src/__tests__/role-model-contract.test.ts` reads this package's `src/interfaces/role-model.ts`
+through an owner-local relative path and verifies that `TRoleModelMap` remains an opaque
+`Record<string, IModelRef[]>`, without an enum, fixed role union, or concrete role literals.
+
+`src/__tests__/owned-hook-examples.test.ts` executes the owner-local hook commands against built Node
+artifacts and checks their reported hook outcomes, including timeout source resolution from a
+different cwd. The commands require a shell with `sleep`; they do not call a live model.
 
 ### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003 / TEST-005)
 

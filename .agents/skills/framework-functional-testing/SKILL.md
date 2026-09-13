@@ -55,7 +55,7 @@ loop deterministically, so functional verification is automatable and mandatory 
   actually drives the feature. Reference: `goal-cassette-functional.test.ts` (a real Qwen goal run).
 - **Record** (`record: { provider, toCassette }`) — drive the session with a REAL provider and
   capture the run to a cassette. One-off, needs a key; see
-  `packages/agent-cli/scripts/record-goal-cassette.mts`. Build the objective/prompt via a SHARED
+  `packages/agent-framework/scripts/record-goal-cassette.mts`. Build the objective/prompt via a SHARED
   fixture so record and replay hash-match.
 
 ## Multi-session (resume / fork)

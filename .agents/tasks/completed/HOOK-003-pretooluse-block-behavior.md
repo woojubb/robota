@@ -109,9 +109,7 @@ PASS — HOOK-003 implementation is correct.
 
 **Command executed:**
 
-```
-node scripts/examples/hook-block-demo.mjs
-```
+`node scripts/examples/hook-block-demo.mjs` <!-- evidence-superseded: BOUNDARY-2655 moved this example to packages/agent-core/examples/hook-block-demo.mjs; the recorded command and output remain historical. -->
 
 **Actual output:**
 
@@ -158,3 +156,12 @@ PASS — HOOK-003 implementation is correct.
 **Note on unit tests (Test Plan):** `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`
 (10 tests) was also added as engineering verification. Unit tests belong in Test Plan, not User
 Execution Test Scenarios — recorded here for completeness only.
+
+## Artifact relocation note — 2026-09-13
+
+BOUNDARY-2655 relocated the example to `packages/agent-core/examples/hook-block-demo.mjs`;
+the current owner-local invocation is `node examples/hook-block-demo.mjs` from `packages/agent-core`.
+The historical transcript above is unchanged. Its manually assembled tool-result object does not
+prove AI delivery or PermissionEnforcer behavior; the new owner-local execution in BOUNDARY-2655
+observes the actual runHooks blocking result only. The durable engineering regression is
+`packages/agent-core/src/__tests__/owned-hook-examples.test.ts`, not a replacement for execution evidence.

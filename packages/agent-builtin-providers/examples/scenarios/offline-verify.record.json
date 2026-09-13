@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-builtin-providers",
+  "packageName": "@robota-sdk/agent-builtin-providers",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-builtin-providers@3.0.0-beta.79 scenario:verify /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-builtin-providers\n> node examples/deepseek-provider-demo.mjs\n\n\n=== Scenario 1: createDeepSeekProviderDefinition() returns correct definition ===\n\n  type: deepseek\n  displayName: DeepSeek\n  defaults.model: deepseek-v4-flash\n  defaults.apiKey: $ENV:DEEPSEEK_API_KEY\n  defaults.baseURL: https://api.deepseek.com\n  requiresApiKey: true\n  modelCatalog.entries: deepseek-v4-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner\n  type === \"deepseek\": YES ✓\n  displayName === \"DeepSeek\": YES ✓\n  defaults.model === \"deepseek-v4-flash\": YES ✓\n  defaults.apiKey references DEEPSEEK_API_KEY: YES ✓\n  defaults.baseURL === \"https://api.deepseek.com\": YES ✓\n  requiresApiKey === true: YES ✓\n  model catalog has active deepseek-v4-flash: YES ✓\n  model catalog has active deepseek-v4-pro: YES ✓\n  deprecated alias deepseek-chat present: YES ✓\n  deprecated alias deepseek-reasoner present: YES ✓\n\n=== Scenario 2: DeepSeek is in the built-in default definitions ===\n\n  provider types in built-in defaults: anthropic, openai, gemini, gemma, qwen, deepseek\n  default definitions is an array: YES ✓\n  deepseek entry present in default definitions: YES ✓\n  deepseek is last in the default list: YES ✓\n  deepseek displayName === \"DeepSeek\": YES ✓\n\nPASS — DeepSeek definition and built-in default composition verified offline.\n",
+    "normalized": "=== Scenario 1: createDeepSeekProviderDefinition() returns correct definition ===\n\n  type: deepseek\n  displayName: DeepSeek\n  defaults.model: deepseek-v4-flash\n  defaults.apiKey: $ENV:DEEPSEEK_API_KEY\n  defaults.baseURL: https://api.deepseek.com\n  requiresApiKey: true\n  modelCatalog.entries: deepseek-v4-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner\n  type === \"deepseek\": YES ✓\n  displayName === \"DeepSeek\": YES ✓\n  defaults.model === \"deepseek-v4-flash\": YES ✓\n  defaults.apiKey references DEEPSEEK_API_KEY: YES ✓\n  defaults.baseURL === \"https://api.deepseek.com\": YES ✓\n  requiresApiKey === true: YES ✓\n  model catalog has active deepseek-v4-flash: YES ✓\n  model catalog has active deepseek-v4-pro: YES ✓\n  deprecated alias deepseek-chat present: YES ✓\n  deprecated alias deepseek-reasoner present: YES ✓\n\n=== Scenario 2: DeepSeek is in the built-in default definitions ===\n\n  provider types in built-in defaults: anthropic, openai, gemini, gemma, qwen, deepseek\n  default definitions is an array: YES ✓\n  deepseek entry present in default definitions: YES ✓\n  deepseek is last in the default list: YES ✓\n  deepseek displayName === \"DeepSeek\": YES ✓\n\nPASS — DeepSeek definition and built-in default composition verified offline.",
+    "sha256": "c0d4b0b319cf62555ed642da02c7319f3b88bdca488306f44dd95115e194c9ee"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

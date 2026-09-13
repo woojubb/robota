@@ -190,6 +190,12 @@ confirmation mismatch (`channel-confirmation mismatch (possible MITM relay)`) or
 
 ## Test Strategy
 
+`src/__tests__/fingerprint-parity.test.ts` owns the SDP-dialect normalization contract: werift
+uppercase/media-level extraction, native-browser lowercase/media-level normalization, equality
+between both dialects, and rejection of a missing fingerprint. It reads only the owner-local
+`fixtures/werift-offer.sdp` and `fixtures/native-browser-answer.sdp` samples. The latter is a bounded
+contract sample, not a shared fixture API; browser session-client tests retain their own sample.
+
 `src/__tests__/pairing.test.ts`: secret entropy, fragment-only URL round-trip, fingerprint extraction (werift SDP
 fixture), no-MITM accept, fingerprint-substitution MITM reject, **reflection-adversary reject**, wrong-secret
 reject, replay reject, session-key domain separation. `src/__tests__/handshake.test.ts`: full handshake accept +

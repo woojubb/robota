@@ -2565,6 +2565,22 @@
       "owner": "repository-harness",
       "subject": {
         "kind": "scan",
+        "value": "package-boundary-ownership"
+      },
+      "diagnosticId": "hook.migration.scan.package-boundary-ownership",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
         "value": "ssot-five-axis"
       },
       "diagnosticId": "hook.migration.scan.ssot-five-axis",

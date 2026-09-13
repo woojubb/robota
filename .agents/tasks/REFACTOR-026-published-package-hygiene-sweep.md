@@ -4,7 +4,7 @@ status: todo
 created: 2026-08-13
 priority: low
 urgency: later
-area: packages/agent-framework, apps/agent-web, packages/agent-playground, packages/agent-testing, packages/agent-provider-openai
+area: packages/agent-framework, apps/agent-web, packages/agent-playground, packages/agent-provider-openai
 depends_on: []
 ---
 
@@ -27,8 +27,7 @@ packages that are `private: true`.
 - `packages/agent-playground/package.json` — `"description": "Deployable Playground UI package…"` +
   `publishConfig: { access: 'public' }` + `prepublishOnly` publish check, contradicting `private:
 true` and the registry's Private entry.
-- `packages/agent-testing/package.json` — `private: true` but carries a stray `publishConfig: {
-access: 'public' }` (its SPEC also wrongly claims it is published — that half is DOCS-024).
+- `packages/agent-testing/package.json` — `private: true` but carries a stray `publishConfig: { access: 'public' }` (its SPEC also wrongly claims it is published — that half is DOCS-024). <!-- evidence-superseded: BOUNDARY-2655 removes this private package after owner-local PTY relocation; see the dated partial-resolution note below. -->
 - `packages/agent-provider-openai/src/openai/loggers/console.ts` and `file.ts` — 9-line pass-through
   re-export shims with zero importers (`project-structure.md:232-233` bans pass-through re-exports).
 
@@ -72,3 +71,13 @@ short that check turns out to be.
 
 Not applicable — manifest/file hygiene with no runnable user-facing behavior. Verification is the
 build/scan checks in the Test Plan.
+
+## Partial resolution observed 2026-09-13 (BOUNDARY-2655)
+
+The current checkout removes the private `agent-testing` package after relocating its PTY
+helpers and six characterization tests into `packages/agent-transport-tui/src/__tests__/pty/`.
+The stray `publishConfig` item above therefore has no remaining manifest to repair in this
+checkout. The superseded published-intent charter is reconciled in
+[`agent-transport-tui/docs/SPEC.md`](../../packages/agent-transport-tui/docs/SPEC.md#boundaries).
+This is a partial implementation observation, not evidence of landing or passing remote CI.
+The original findings are retained; no other item in this Task is completed by this note.

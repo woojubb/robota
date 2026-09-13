@@ -13,6 +13,12 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ## Boundaries
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, and the default TUI CLI adapter.
+- Owns its PTY test support under `src/__tests__/pty/`; all consumers are internal relative
+  imports, not a public test-support barrel. The owner-approved BOUNDARY-2655 disposition
+  relocates and removes the private, recorded-never-published `agent-testing` package,
+  superseding that package's historical published-intent charter. The PTY driver and isolated
+  HOME helpers retain their existing lifecycle and environment behavior; `node-pty` and `tsx`
+  are explicit development dependencies, not additions to the TUI public API.
 - Depends on `agent-interface-tui` for interaction contracts and `agent-framework` for the
   interactive-session runtime; does **not** depend on the other transport implementation packages.
 - No other transport package depends on this one (verified: zero cross-transport runtime imports).
@@ -411,6 +417,13 @@ turn-error state and never escapes back into the already-committed domain operat
 no new error classes.
 
 ## Test Strategy
+
+`src/__tests__/pty/spawn-pty.test.ts` retains the six PTY harness/HOME-isolation self-tests:
+marker/exit-code observation, paced input, default isolated HOME, explicit isolated HOME,
+empty HOME contents and environment overrides. The default `*.test.ts` project discovers this
+file and the two handoff suites; the dedicated PTY project continues to use the local
+`pty-driver.ts`. The relocation preserves these characterization tests; runtime verification
+belongs to owning CI when local PTY/HOME execution is prohibited.
 
 Component/flow unit tests (ink-testing-library) under `src/__tests__`; a real-terminal PTY suite
 (`*.ptytest.ts`, `vitest.pty.config.ts`) runs against the built CLI via `pnpm test:pty`. The IME

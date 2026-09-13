@@ -68,7 +68,12 @@ This package does NOT own: provider implementations, generic session run loop, t
 
 ### Forbidden imports
 
-`agent-framework` must not import from `agent-provider-*` packages. The provider is always injected by the consumer.
+Runtime and exported testing APIs must not compose concrete live providers; the provider is
+injected by the consumer. The owner-approved exception is the non-published development entry
+`scripts/record-goal-cassette.mts`, which composes the public `createQwenProviderDefinition`
+factory from `@robota-sdk/agent-provider-openai-compatible` through a development-only dependency.
+Its provider-injected recording operation remains under `scripts/`, not a public testing export.
+Neither file is a build entry or reachable from package exports; package contents remain `dist` only.
 
 ## Architecture Overview
 
@@ -860,7 +865,7 @@ forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds
   `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
   deterministically — TEST-005; a committed real Qwen goal run is at
   `__fixtures__/goal-satisfied.cassette.json`, recorded by
-  `packages/agent-cli/scripts/record-goal-cassette.mts`), or **record**
+  `packages/agent-framework/scripts/record-goal-cassette.mts`), or **record**
   (`record: { provider, toCassette }`, capture a real provider run). Multi-session: `cwd` +
   `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
   resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
@@ -883,6 +888,14 @@ forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds
 - Functional/feature tests use the `./testing` harness above against a real session (no CLI)
 - Integration tests (`cross-package-hooks.test.ts`, `cross-package-skills.test.ts`) use real `createSession()` with mock providers to verify hook wiring and skill routing
 - Public API surface test (`public-api.test.ts`) acts as a regression guard: it asserts that lower-package symbols are not accidentally re-exported
+- The owner-local recorder preserves `TEST_QWEN_KEY`, the Qwen factory's default model/base URL,
+  20 turns per submit and the fixture's six-iteration goal budget. Its injected operation disposes
+  the harness in `finally`, including failed recording. Offline recording regressions under
+  `scripts/__tests__/` use temporary cassette output and never rewrite the committed fixture.
+- `examples/verify-goal-cassette-replay.mts` invokes the public testing SDK with `bare: true`,
+  prints and asserts the actual goal status/stop reason, file content and tool calls, checks unchanged
+  cassette bytes, and always disposes. It uses no live provider or credentials. Development
+  typechecking includes `scripts/**/*.mts` and their tests without adding build entries.
 
 ### Gaps
 

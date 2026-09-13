@@ -26,7 +26,7 @@ export function createWorkspaceBuildExecution(graph) {
 
 export async function runWorkspaceBuild({
   root = process.cwd(),
-  graph = readWorkspaceGraph(root),
+  graph = readWorkspaceGraph(root, { sourceInventoryMode: 'filesystem' }),
   concurrency = 4,
   runTask,
 } = {}) {

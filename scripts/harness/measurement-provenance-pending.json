@@ -35,6 +35,7 @@
     "scripts/harness/scan-memory-mirror.mjs",
     "scripts/harness/scan-no-fake-in-src.mjs",
     "scripts/harness/scan-node-version-single-valued.mjs",
+    "scripts/harness/scan-package-boundary-ownership.mjs",
     "scripts/harness/scan-preset-projection.mjs",
     "scripts/harness/scan-product-identity.mjs",
     "scripts/harness/scan-promotion-closes.mjs",

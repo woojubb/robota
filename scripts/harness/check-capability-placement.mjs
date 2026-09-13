@@ -75,7 +75,8 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-provider-[^/]+$/, textPattern: /agent-provider-\*/ },
   { pathPattern: /^packages\/agent-transport$/, textPattern: /agent-transport\// },
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
-  { pathPattern: /^packages\/agent-testing$/, textPattern: /agent-testing/ },
+  // PTY support is local to this owner's src/__tests__/pty/, not a testing workspace.
+  { pathPattern: /^packages\/agent-transport-tui$/, textPattern: /agent-transport-tui\// },
   { pathPattern: /^packages\/agent-plugin$/, textPattern: /agent-plugin\// },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
   { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },

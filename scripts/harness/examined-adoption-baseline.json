@@ -92,6 +92,7 @@
     "orchestration-map",
     "orchestration-neutrality",
     "orphan-exports",
+    "package-boundary-ownership",
     "preset-projection",
     "product-identity",
     "progress-report-quantification",

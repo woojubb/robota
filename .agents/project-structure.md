@@ -27,7 +27,6 @@ packages/
 ├── agent-transport/             # Interim empty transport root; runtime hosts moved to agent-framework (STRUCT-012 S2)
 ├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
 ├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell + SessionMonitor web shell; the GUI analog of -tui, consumed by apps/agent-app, packages/agent-cli-web (CLI-served monitor), and agent-transport-webrtc-web; deps: interface-transport + transport-protocol only, GUI-005/006), agent-transport-webrtc-web (BROWSER WebRTC peer — native RTCPeerConnection answerer + RemoteClient + useRtcSession over the GUI core; browser mirror of node -webrtc; deps: agent-transport-gui + agent-remote-pairing + transport-protocol, GUI-006), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
-├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 ├── pack-*/                      # Capability packs (`@robota-sdk/pack-*`): additive ICapabilityPack bundles composed by agent-product's assembleProduct. e.g. pack-coding — robota's coding capability (built-in tools + /shell + /editor command modules + coding subagents); imports agent-tools/agent-command/agent-framework, re-implements nothing (ARCH-005)
@@ -133,6 +132,11 @@ agent-cli         ← product/UI layer: consumes agent-framework and selected co
 - **Legacy SDK-embedded commands are not precedent.** Existing SDK-embedded command behavior is migration debt unless it is only generic command infrastructure. New internal commands must be implemented as command modules first; expanding SDK command implementation files requires a SPEC-backed migration plan and a mechanical check exception.
 - **Per-product assembly ownership — no shared product factory.** Each deployable product (the CLI, a second CLI, an embedded host, an app) owns its own composition/wiring of provider, preset, and command modules. The reusable, product-agnostic capability lives in the framework/transport layers (e.g., the interaction runtime and the in-process/built-binary driver adapters over a shared interaction contract). Do NOT extract a shared cross-product assembly factory (e.g., a `createCliAgent`): a product shell is one assembler among many, not a shared utility. Reuse is achieved by sharing lower-layer materials, not by sharing the product's assembly. **Carve-out (ARCH-005, coupled to mechanical guards):** a **pure, IO-free, data-driven assembler that hard-codes no product's choices** IS a lower-layer material (a composition mechanism), not a shared product factory, and MAY be published and shared — this carve-out covers `@robota-sdk/agent-product`'s `assembleProduct` and is deliberately narrow: it does **NOT** bless "profile-driven assemblers" in general (a profile-driven function could still accrete `if (profile.id === '…')` branches and become a de-facto shared product factory). The relaxation holds ONLY while the assembler stays pure — it is coupled to the composition-neutrality guards (`scripts/harness/scan-composition-neutrality.mjs`: (a) no concrete transport/TUI/CLI dependency, (b) no fs/env/settings read, (c) no product-identity conditional). A shared factory that bakes in any product's provider/preset/command/transport choices remains forbidden. See `feedback_no_shared_cli_factory`.
 
+### Shared Material Ownership
+
+The [shared material ownership rule](rules/shared-material-ownership.md) owns public-versus-generic
+classification, consumer evidence, reviewed boundary dispositions and conservative input handling.
+
 ### Implementation Owner Boundaries
 
 Which tier owns which kind of behaviour. The layer diagram above says what may depend on what; this
@@ -156,10 +160,7 @@ The fourth bullet of that section governed **skills**, not packages, and moved t
 
 ### Testing Layers — which package is which
 
-[`rules/testing-layering.md`](rules/testing-layering.md) states the rule: feature behaviour is proven
-at the layer that OWNS it, never at the surface that exposes it. That rule binds any repository. This
-is the map for THIS one, and it lives here for the same reason the boundaries above do — the rule
-tree states invariants, and package names are this document's subject.
+Repository testing-layer map; the owner-layer verification rule lives in [testing-layering.md](rules/testing-layering.md).
 
 | Role in the rule           | Package here                                                                           |
 | -------------------------- | -------------------------------------------------------------------------------------- |
@@ -168,8 +169,7 @@ tree states invariants, and package names are this document's subject.
 | the functional harness     | `@robota-sdk/agent-framework/testing` — `scriptedSession()` / `ScriptedSessionHarness` |
 | the deterministic provider | `@robota-sdk/agent-core/testing`                                                       |
 
-The harness drives a real `InteractiveSession` — real loop, builtin tools, persistence, events —
-without a CLI, a network or a live model.
+The harness drives a real `InteractiveSession` — loop, builtin tools, persistence, events — without a CLI, network or live model.
 
 ### Dependency direction — the foundation depends on nothing above it
 

@@ -84,6 +84,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "rimraf": "^5.0.10",

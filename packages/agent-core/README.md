@@ -222,6 +222,14 @@ agent-cli         ← Terminal UI
 | `MCPTool`, `RelayMcpTool`                     | `@robota-sdk/agent-tool-mcp` |
 | 8 plugins (logging, usage, performance, etc.) | `@robota-sdk/agent-plugin`   |
 
+## Repository Examples
+
+Repository contributors can run the owner-local hook examples after building this package:
+`node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
+`node examples/hook-permission-mode-demo.mjs`, and `node examples/hook-timeout-demo.mjs`,
+from `packages/agent-core`. They exercise hooks without a live model; see the
+[hook contract](./docs/SPEC.md#hook-events) for each example's verification limits.
+
 ## License
 
 Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

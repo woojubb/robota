@@ -122,6 +122,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the workspace packages are the population whose imports are checked; over a root without them there is no import to resolve, and an empty pass would certify every import as satisfiable',
   },
   {
+    file: 'scan-package-boundary-ownership.mjs',
+    finder: 'findPackageBoundaryOwnershipFindings',
+    tree: '.agents/package-boundaries.json',
+    why: 'the boundary policy declares shared candidates and tooling dispositions; without it the finder cannot distinguish an owned boundary from an unclassified one and must not report an empty pass',
+  },
+  {
     // RULE-012. Measured as `findEvidenceFindings(bare)` over a root carrying the rule but no
     // spec-doc tree: throws `.agents/spec-docs/done missing from <root>` before a single approval is
     // read. Without that, "no findings" would claim every approval names a valid route when none was

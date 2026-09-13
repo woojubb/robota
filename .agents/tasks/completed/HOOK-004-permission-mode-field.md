@@ -76,9 +76,7 @@ PASS — HOOK-004 permission_mode field is correctly delivered to hook scripts.
 
 **Command executed:**
 
-```
-node scripts/examples/hook-permission-mode-demo.mjs
-```
+`node scripts/examples/hook-permission-mode-demo.mjs` <!-- evidence-superseded: BOUNDARY-2655 moved this example to packages/agent-core/examples/hook-permission-mode-demo.mjs; the recorded command and output remain historical. -->
 
 **Actual output:**
 
@@ -101,3 +99,11 @@ PASS — HOOK-004 permission_mode field is correctly delivered to hook scripts.
 **Exit code:** 0
 
 **Observed result matches expected:** YES
+
+## Artifact relocation note — 2026-09-13
+
+BOUNDARY-2655 relocated the example to `packages/agent-core/examples/hook-permission-mode-demo.mjs`;
+the current owner-local invocation is `node examples/hook-permission-mode-demo.mjs` from
+`packages/agent-core`. The historical transcript above is unchanged. Current execution evidence
+lives in BOUNDARY-2655 and demonstrates stdin forwarding, not a verifier permission change.
+The durable engineering regression is `packages/agent-core/src/__tests__/owned-hook-examples.test.ts`.

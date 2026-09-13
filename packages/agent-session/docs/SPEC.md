@@ -322,7 +322,26 @@ records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 
-The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
+The owner-local `packages/agent-session/scripts/migrate-session-history.mjs` backfills the
+`history` field for legacy sessions. From this package, run
+`node scripts/migrate-session-history.mjs --sessions-dir <absolute-directory>`; without arguments,
+the production command retains its `homedir()/.robota/sessions` default. Unknown, repeated,
+missing-value or non-absolute directory arguments fail before storage is inspected. Importing
+the tool does not access storage: its callable `migrateSessionHistory(sessionsDir)` requires an
+explicit absolute directory. This development tool is not a package-root SDK export.
+
+Migration considers only `.json` files. Malformed JSON, nonempty `history`, and missing/empty
+`messages` are skipped unchanged. Eligible truthy-role/content messages become chat history
+entries with fresh IDs and the record's `updatedAt` timestamp (current time when absent), while
+the original messages remain. A missing directory reports `No sessions directory found.` without
+creating it. Counts report migrated, skipped and total JSON files; repeat migration skips the
+now-populated history and preserves bytes.
+
+`src/__tests__/migrate-session-history.test.ts` exercises the real owner command using explicit
+ordinary temporary storage, never HOME overrides. The runnable
+`node examples/verify-session-history-migration.mjs` demonstrates migration counts, entry content,
+unchanged skipped files, byte-stable repetition and the missing-directory outcome, then removes
+only its disposable fixture. Local verification never invokes the production default.
 
 ### Key NodeSessionStore Methods
 
@@ -778,6 +797,11 @@ standalone.
 ## Test Strategy
 
 ### Current Test Coverage
+
+- **Legacy history migration** -- `src/__tests__/migrate-session-history.test.ts` preserves the
+  five migration/skip/idempotence cases and covers explicit CLI storage, invalid arguments,
+  missing storage, the callable entry and the observable disposable-fixture example described
+  in Session Data Migration.
 
 - **Session system prompt delivery** -- tests verifying the system prompt is passed to Robota as the single-source top-level `config.systemMessage`, and that `updateSystemMessage` propagates a live change to the next provider request via `Robota.updateSystemPrompt`.
 - **Session provider callback isolation** -- 1 regression test verifying two sessions sharing one provider keep `onTextDelta` output isolated per run.
