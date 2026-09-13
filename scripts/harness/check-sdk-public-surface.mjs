@@ -35,10 +35,10 @@ const SDK_SRC_DIR = 'packages/agent-framework/src';
  *
  * But deleting the block turned `pnpm typecheck` RED, and that is the real reason. Measured, not
  * counted by eye: `IBackgroundTaskRunner` is imported from this barrel by SIX files across FOUR
- * packages — `agent-cli`, `agent-product`, `agent-transport` and `agent-transport-tui`. Of those,
+ * packages — `agent-cli`, `agent-product`, `agent-transport` and `agent-ui-terminal`. Of those,
  * `agent-product`'s permitted dependency set is "agent-framework + agent-preset +
  * agent-capability-pack + type-only agent-interface-transport + agent-core types"
- * (`.agents/project-structure.md`), and neither `agent-transport-tui` nor `agent-transport` declares
+ * (`.agents/project-structure.md`), and neither `agent-ui-terminal` nor `agent-transport` declares
  * `agent-executor` either, so for all three this barrel is the ONLY permitted path to the type.
  * (`agent-cli` does depend on `agent-executor` and imports the runner from it directly elsewhere, so
  * for that consumer alone the entry blesses a path it does not need.)
@@ -60,7 +60,7 @@ const SDK_UNREACHABLE_ELSEWHERE_SYMBOLS = {
   // legal import path to it — while the grant covered whole files, so nine names rode along on the
   // one that earned it. Measured across the workspace: of the ten names this file re-exported,
   // exactly `IBackgroundTaskRunner` had an external importer (6 files across agent-cli,
-  // agent-product, agent-transport and agent-transport-tui), and of those only agent-cli can reach
+  // agent-product, agent-transport and agent-ui-terminal), and of those only agent-cli can reach
   // `agent-executor` directly.
   //
   // Listing the symbol rather than the file is what stops a new name joining silently: adding one to
@@ -402,7 +402,7 @@ const FROZEN_FINDING_COUNTS = {
   // STRUCT-012 S2: the two host barrels moved to framework with explicit named exports.
   // The interim empty transport root earns zero; do not permit the removed stars to return.
   'agent-transport': 0,
-  'agent-transport-tui': 1,
+  'agent-ui-terminal': 1,
 };
 
 export async function findSdkPublicSurfaceFindings(root = WORKSPACE_ROOT) {

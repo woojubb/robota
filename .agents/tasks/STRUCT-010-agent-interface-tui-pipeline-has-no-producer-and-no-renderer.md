@@ -4,7 +4,7 @@ status: todo
 created: 2026-08-13
 priority: medium
 urgency: soon
-area: packages/agent-interface-tui, packages/agent-transport-tui, packages/agent-cli
+area: packages/agent-interface-tui, packages/agent-ui-terminal, packages/agent-cli
 depends_on: []
 ---
 
@@ -21,13 +21,13 @@ a PRODUCT decision — so this task proposes the options rather than deleting an
 ## Evidence
 
 - `packages/agent-interface-tui/docs/SPEC.md:8-9,27-31` — "defines the interaction protocol between
-  command handlers … and TUI renderers"; diagram: `agent-transport-tui/useSideEffects` renders the
+  command handlers … and TUI renderers"; diagram: `agent-ui-terminal/useSideEffects` renders the
   interactions; `agent-command/*` descriptors "annotate onMissingArgs to trigger interaction".
 - Reality: `rg onMissingArgs` outside the package → **zero hits** (no agent-command descriptor
-  carries it); `agent-transport-tui/src/hooks/useSideEffects.ts:1-17` renders CMD-004
+  carries it); `agent-ui-terminal/src/hooks/useSideEffects.ts:1-17` renders CMD-004
   `ui_intent`/`session_renamed` and imports nothing from agent-interface-tui; the former real
   renderers (`CommandPicker.tsx`/`CommandConfirm.tsx`, ARCH-003-p9) no longer exist.
-- The sole consumer is `agent-transport-tui/src/command-interaction.ts:1-8` — a verbatim re-export of
+- The sole consumer is `agent-ui-terminal/src/command-interaction.ts:1-8` — a verbatim re-export of
   all six types with zero internal consumption, republished at `src/index.ts:8-14`: a pass-through
   re-export of another package's ownership, which `.agents/project-structure.md:232-233` bans.
 - Contradicting live design: `agent-interface-transport/src/interaction-contracts.ts:38-40` claims
@@ -45,7 +45,7 @@ a PRODUCT decision — so this task proposes the options rather than deleting an
 User decision between:
 
 - **(a) Retire.** Deprecate and remove the package (publish/semver gate applies), delete the
-  pass-through re-export in agent-transport-tui, rewrite the agent-cli SPEC § Command Interactions
+  pass-through re-export in agent-ui-terminal, rewrite the agent-cli SPEC § Command Interactions
   and the interface-tui rows in project-structure.md/publish-registry around the CMD-004 reality
   (`ui_intent`, prompt events, unified ask). Rationale: the ask seam superseded the picker-on-missing-
   args design; keeping two contract owners for one interaction invites the next drift.
@@ -61,7 +61,7 @@ are corrected.
 
 - (a): changeset + publish-registry update; `rg` proves zero imports remain; build/test green.
 - (b): SPEC rewrite; `rg onMissingArgs` documented as intentionally zero; pass-through file deleted
-  and `agent-transport-tui` build green.
+  and `agent-ui-terminal` build green.
 - `pnpm harness:scan` green in both options.
 
 ## User Execution Test Scenarios

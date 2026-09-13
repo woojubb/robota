@@ -87,7 +87,7 @@ export const STAGE_RUNNERS = {
   'examples-typecheck': (options, context) =>
     runProductStage('examples-typecheck', options, context),
   'tui-e2e': async () => ({
-    code: await run('pnpm', ['--filter', '@robota-sdk/agent-transport-tui', 'test:pty']),
+    code: await run('pnpm', ['--filter', '@robota-sdk/agent-ui-terminal', 'test:pty']),
   }),
 };
 

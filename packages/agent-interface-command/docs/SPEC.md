@@ -24,7 +24,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 | ------------------------------------------------------ | ----------------------------------------------- |
 | Command _implementations_ and their modules            | `agent-command`, command-module owners          |
 | Command infrastructure and reusable host APIs          | `agent-framework`                               |
-| Rendering a command's result                           | `agent-transport-tui`, `agent-transport-gui`    |
+| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`             |
 | Session, interaction, event, turn and driver contracts | `agent-interface-transport` (until issue #2110) |
 | Background task, workspace and subagent contracts      | `agent-interface-execution`                     |
 

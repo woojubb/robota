@@ -23,7 +23,7 @@ export {
 // runtime facade. Measured, after an attempt to delete them failed:
 //
 //   - `IBackgroundTaskRunner` is reached through this barrel by FOUR packages — `agent-product`,
-//     `agent-transport-tui`, `agent-transport` and `agent-cli`. None of the first three can even
+//     `agent-ui-terminal`, `agent-transport` and `agent-cli`. None of the first three can even
 //     resolve `@robota-sdk/agent-executor` under pnpm's strict layout; `agent-product`'s permitted
 //     set is "agent-framework + agent-preset + agent-capability-pack + type-only
 //     agent-interface-transport + agent-core types" (`.agents/project-structure.md`).
@@ -36,14 +36,14 @@ export {
 // not per file, so the nine names that rode along on `IBackgroundTaskRunner` are gone — measured,
 // none of them had an external importer at all. `agent-cli` still imports the runner straight from
 // `agent-executor` as well, so for that one consumer this path is redundant; the three that cannot
-// (`agent-product`, `agent-transport`, `agent-transport-tui`) are why it stays.
+// (`agent-product`, `agent-transport`, `agent-ui-terminal`) are why it stays.
 //
 // INSIDE `agent-framework` the story is different and the redirect stands: this package does depend
 // on `agent-executor`, so its own files import these from the SSOT directly.
 // ARCH-039 narrowed this block from ten names to the ONE that earns it. The exemption is now granted
 // per SYMBOL rather than per file, so the other nine — which had no external importer at all — are
 // gone rather than riding along. `IBackgroundTaskRunner` stays because `agent-product`,
-// `agent-transport` and `agent-transport-tui` name it and none of them may depend on
+// `agent-transport` and `agent-ui-terminal` name it and none of them may depend on
 // `agent-executor`; the remaining nine are imported from the SSOT by anyone who needs them.
 export type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 export type {

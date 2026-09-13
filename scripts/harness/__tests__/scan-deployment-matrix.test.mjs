@@ -18,7 +18,7 @@ describe('findMatrixNames — parses the Transport-`name` column, skipping heade
     '| Surface | Runtime | Transport `name` | Client / presentation | Prior art |',
     '| ------- | ------- | ---------------- | --------------------- | --------- |',
     '| CLI | local | `tui` | `agent-transport` print | — |',
-    '| Desktop | serve | `ws` (nonce auth) | `agent-transport-gui` | GUI-002 |',
+    '| Desktop | serve | `ws` (nonce auth) | `agent-ui-web` | GUI-002 |',
     '| HTTP | serve | `http` / `ws` | — | RUNTIME-001 |',
     '| MCP | any | `mcp` | — | — |',
   ].join('\n');

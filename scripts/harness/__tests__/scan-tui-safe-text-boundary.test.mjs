@@ -16,7 +16,7 @@ import {
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-tui-safe-text-boundary.mjs', import.meta.url));
 const WORKSPACE_ROOT = path.resolve(path.dirname(SCAN_SCRIPT), '../..');
-const PACKAGE_SRC = 'packages/agent-transport-tui/src';
+const PACKAGE_SRC = 'packages/agent-ui-terminal/src';
 
 /** A tracked scratch checkout: the finder reads `git ls-files`, so the fixture must be committed. */
 function trackedFixture(files) {
@@ -86,7 +86,7 @@ describe('findBoundaryViolations (#2222)', () => {
       cwd: WORKSPACE_ROOT,
       encoding: 'utf8',
     });
-    expect(output).toMatch(/::examined:: [1-9]\d* agent-transport-tui production module\(s\)/);
+    expect(output).toMatch(/::examined:: [1-9]\d* agent-ui-terminal production module\(s\)/);
     expect(output).toContain('tui-safe-text-boundary: only SafeText.tsx imports Text from ink');
     expect(output).toContain(
       'tui-safe-text-boundary: no renderMarkdown output is sanitized a second time',

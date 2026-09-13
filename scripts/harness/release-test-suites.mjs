@@ -86,7 +86,7 @@ export const EXCLUSIONS = [
     why: '`jest --ci --coverage --watchAll=false` over the same suite `test` (`jest`) runs, which the recursive sweep already executes. Its CI-reporter form is used by deploy.yml.',
   },
   {
-    workspace: 'packages/agent-transport-tui',
+    workspace: 'packages/agent-ui-terminal',
     script: 'test:pty',
     kind: 'covered-elsewhere',
     workflow: '.github/workflows/ci.yml',

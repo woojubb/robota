@@ -22,7 +22,7 @@
     "build:types": "pnpm run build"
   },
   "dependencies": {
-    "@robota-sdk/agent-transport-gui": "workspace:*",
+    "@robota-sdk/agent-ui-web": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

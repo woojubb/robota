@@ -112,7 +112,7 @@ export const MANDATORY_TREE_GUARDS = [
   {
     file: 'scan-tui-safe-text-boundary.mjs',
     finder: 'findBoundaryViolations',
-    tree: 'packages/agent-transport-tui/src',
+    tree: 'packages/agent-ui-terminal/src',
     why: 'the TUI package source is the whole subject; a root without it lists no render site, and "only SafeText imports Text" over zero modules is a pass over nothing',
   },
   {

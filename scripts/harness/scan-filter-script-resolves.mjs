@@ -5,15 +5,15 @@
  *
  * ## The defect, measured
  *
- * Issue #2660. `packages/agent-transport-tui/vitest.pty.config.ts` told its reader to run the PTY
+ * Issue #2660. `packages/agent-ui-terminal/vitest.pty.config.ts` told its reader to run the PTY
  * suite with a filter naming `@robota-sdk/agent-transport` — a real workspace package that declares
  * no `test:pty` script. The package owning both that script and the 14 `*.ptytest.ts` files is
- * `@robota-sdk/agent-transport-tui`. Following the comment selected one real package, found nothing
+ * `@robota-sdk/agent-ui-terminal`. Following the comment selected one real package, found nothing
  * to run, and the empty outcome read as a pass: `enforcement-architecture.md`'s "silence is not
  * success", reached through a command that looks entirely well-formed.
  *
  * The comment was correct when written. The config file was created under `packages/agent-transport/`
- * (CLI-074, `749a853517`) and MOVED to `packages/agent-transport-tui/` by the per-concern split
+ * (CLI-074, `749a853517`) and MOVED to `packages/agent-ui-terminal/` by the per-concern split
  * (`7a4fbcc2f4`) two days later. The split moved the file and left the filter naming the package it
  * came from. That is the class this guard covers — a package boundary moving out from under a
  * command someone wrote down — not an author's typo, which is why fixing the one line does not close

@@ -51,7 +51,7 @@ Last audited: 2026-08-03 (INFRA-086 — reconciled against the manifests and giv
 | `@robota-sdk/agent-transport-http`             | beta    | HTTP (Hono) transport for the Robota SDK                                                                                                                           |
 | `@robota-sdk/agent-transport-mcp`              | beta    | Model Context Protocol (MCP) server transport for the Robota SDK                                                                                                   |
 | `@robota-sdk/agent-transport-protocol`         | beta    | Transitional empty package retained until STRUCT-012 S5 removes the retired package identity                                                                       |
-| `@robota-sdk/agent-transport-tui`              | beta    | Terminal UI (React + Ink) transport for the Robota SDK                                                                                                             |
+| `@robota-sdk/agent-ui-terminal`                | beta    | Terminal UI package (React + Ink) for the Robota SDK                                                                                                               |
 | `@robota-sdk/agent-transport-webrtc`           | beta    | WebRTC P2P transport for the Robota SDK (data-channel session bridge; REMOTE-001)                                                                                  |
 | `@robota-sdk/agent-transport-ws`               | beta    | WebSocket transport and protocol for the Robota SDK                                                                                                                |
 | `@robota-sdk/pack-coding`                      | beta    | Robota's coding capability pack — an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents                              |
@@ -64,7 +64,7 @@ someone might otherwise reverse by accident.
 
 | Package                                  | Reason                                         |
 | ---------------------------------------- | ---------------------------------------------- |
-| `@robota-sdk/agent-transport-gui`        | Internal GUI presentation core, not standalone |
+| `@robota-sdk/agent-ui-web`               | Internal GUI presentation core, not standalone |
 | `@robota-sdk/agent-transport-webrtc-web` | Internal browser WebRTC peer, not standalone   |
 | `@robota-sdk/agent-playground`           | Development playground app                     |
 | `@robota-sdk/agent-remote-client`        | Internal remote client                         |

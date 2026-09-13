@@ -518,7 +518,7 @@ export type {
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
 //
 // It is agent-framework's OWN type, and four packages read indexed-access types off it as the option
-// SSOT: agent-preset, agent-cli, agent-transport, agent-transport-tui. Exporting a type this package
+// SSOT: agent-preset, agent-cli, agent-transport, agent-ui-terminal. Exporting a type this package
 // owns is ownership, not pass-through.
 //
 // The tempting alternative — re-export `agent-core`'s `TPermissionMode` / `TModelEffort` from here so

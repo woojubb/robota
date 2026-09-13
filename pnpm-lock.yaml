@@ -162,9 +162,9 @@ importers:
 
   apps/agent-app:
     dependencies:
-      '@robota-sdk/agent-transport-gui':
+      '@robota-sdk/agent-ui-web':
         specifier: workspace:*
-        version: link:../../packages/agent-transport-gui
+        version: link:../../packages/agent-ui-web
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -329,12 +329,12 @@ importers:
       '@robota-sdk/agent-playground':
         specifier: workspace:^
         version: link:../../packages/agent-playground
-      '@robota-sdk/agent-transport-gui':
-        specifier: workspace:^
-        version: link:../../packages/agent-transport-gui
       '@robota-sdk/agent-transport-webrtc-web':
         specifier: workspace:*
         version: link:../../packages/agent-transport-webrtc-web
+      '@robota-sdk/agent-ui-web':
+        specifier: workspace:^
+        version: link:../../packages/agent-ui-web
       next:
         specifier: ^15.5.15
         version: 15.5.19(@babel/core@7.29.7)(react-dom@19.2.8)(react@19.2.8)
@@ -1240,15 +1240,15 @@ importers:
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
-      '@robota-sdk/agent-transport-tui':
-        specifier: workspace:*
-        version: link:../agent-transport-tui
       '@robota-sdk/agent-transport-webrtc':
         specifier: workspace:*
         version: link:../agent-transport-webrtc
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
         version: link:../agent-transport-ws
+      '@robota-sdk/agent-ui-terminal':
+        specifier: workspace:*
+        version: link:../agent-ui-terminal
       '@robota-sdk/pack-coding':
         specifier: workspace:*
         version: link:../pack-coding
@@ -1291,9 +1291,9 @@ importers:
 
   packages/agent-cli-web:
     dependencies:
-      '@robota-sdk/agent-transport-gui':
+      '@robota-sdk/agent-ui-web':
         specifier: workspace:*
-        version: link:../agent-transport-gui
+        version: link:../agent-ui-web
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -2280,61 +2280,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-transport-gui:
-    dependencies:
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/agent-interface-execution':
-        specifier: workspace:*
-        version: link:../agent-interface-execution
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      react-markdown:
-        specifier: ^10.1.0
-        version: 10.1.0(@types/react@19.2.17)(react@19.2.8)
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.8)(react@19.2.8)
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.17)
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
-      rimraf:
-        specifier: ^5.0.0
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/agent-transport-http:
     dependencies:
       '@robota-sdk/agent-interface-session':
@@ -2403,7 +2348,124 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-transport-tui:
+  packages/agent-transport-webrtc:
+    dependencies:
+      '@robota-sdk/agent-interface-session':
+        specifier: workspace:*
+        version: link:../agent-interface-session
+      '@robota-sdk/agent-interface-session-mobility':
+        specifier: workspace:*
+        version: link:../agent-interface-session-mobility
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+      '@robota-sdk/agent-remote-pairing':
+        specifier: workspace:*
+        version: link:../agent-remote-pairing
+      '@robota-sdk/agent-transport':
+        specifier: workspace:*
+        version: link:../agent-transport
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      werift:
+        specifier: ^0.24.0
+        version: 0.24.0
+
+  packages/agent-transport-webrtc-web:
+    dependencies:
+      '@robota-sdk/agent-remote-pairing':
+        specifier: workspace:*
+        version: link:../agent-remote-pairing
+      '@robota-sdk/agent-transport':
+        specifier: workspace:*
+        version: link:../agent-transport
+      '@robota-sdk/agent-ui-web':
+        specifier: workspace:*
+        version: link:../agent-ui-web
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+
+  packages/agent-transport-ws:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-interface-analytics':
+        specifier: workspace:*
+        version: link:../agent-interface-analytics
+      '@robota-sdk/agent-interface-session':
+        specifier: workspace:*
+        version: link:../agent-interface-session
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+      '@robota-sdk/agent-transport':
+        specifier: workspace:*
+        version: link:../agent-transport
+      ws:
+        specifier: ^8.21.1
+        version: 8.21.1
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+
+  packages/agent-ui-terminal:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
@@ -2476,64 +2538,42 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/agent-transport-webrtc:
+  packages/agent-ui-web:
     dependencies:
+      '@robota-sdk/agent-interface-command':
+        specifier: workspace:*
+        version: link:../agent-interface-command
+      '@robota-sdk/agent-interface-execution':
+        specifier: workspace:*
+        version: link:../agent-interface-execution
       '@robota-sdk/agent-interface-session':
         specifier: workspace:*
         version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-session-mobility':
-        specifier: workspace:*
-        version: link:../agent-interface-session-mobility
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
-        version: link:../agent-remote-pairing
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.17)(react@19.2.8)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
     devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-      werift:
-        specifier: ^0.24.0
-        version: 0.24.0
-
-  packages/agent-transport-webrtc-web:
-    dependencies:
-      '@robota-sdk/agent-remote-pairing':
-        specifier: workspace:*
-        version: link:../agent-remote-pairing
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      '@robota-sdk/agent-transport-gui':
-        specifier: workspace:*
-        version: link:../agent-transport-gui
-    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.8)(react@19.2.8)
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.17)
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -2541,51 +2581,11 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
       rimraf:
-        specifier: ^5.0.10
+        specifier: ^5.0.0
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-transport-ws:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-analytics':
-        specifier: workspace:*
-        version: link:../agent-interface-analytics
-      '@robota-sdk/agent-interface-session':
-        specifier: workspace:*
-        version: link:../agent-interface-session
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport':
-        specifier: workspace:*
-        version: link:../agent-transport
-      ws:
-        specifier: ^8.21.1
-        version: 8.21.1
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      tsx:
-        specifier: ^4.23.1
-        version: 4.23.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

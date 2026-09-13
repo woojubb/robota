@@ -20,10 +20,10 @@ async function createFixture(files) {
 describe('findHarnessConfigPathFindings', () => {
   it('TC-01: a hardcoded path that exists passes', async () => {
     const root = await createFixture({
-      'packages/agent-transport-tui/src/channel.ts': '// real\n',
+      'packages/agent-ui-terminal/src/channel.ts': '// real\n',
       'scripts/harness/check-thing.mjs': [
         'const cfg = [',
-        "  { file: 'packages/agent-transport-tui/src/channel.ts' },",
+        "  { file: 'packages/agent-ui-terminal/src/channel.ts' },",
         '];',
       ].join('\n'),
     });
@@ -35,7 +35,7 @@ describe('findHarnessConfigPathFindings', () => {
     const root = await createFixture({
       'scripts/harness/check-thing.mjs': [
         'const cfg = [',
-        "  { file: 'packages/agent-transport-tui/src/moved-away.ts' },",
+        "  { file: 'packages/agent-ui-terminal/src/moved-away.ts' },",
         '];',
       ].join('\n'),
     });
@@ -44,7 +44,7 @@ describe('findHarnessConfigPathFindings', () => {
       {
         file: 'scripts/harness/check-thing.mjs',
         line: 2,
-        token: 'packages/agent-transport-tui/src/moved-away.ts',
+        token: 'packages/agent-ui-terminal/src/moved-away.ts',
       },
     ]);
   });

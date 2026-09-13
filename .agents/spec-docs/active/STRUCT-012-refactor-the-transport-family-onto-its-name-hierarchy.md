@@ -70,7 +70,7 @@ Owner rulings, in the order given (2026-09-05). These are the premises of every 
    `background-messages`. § Decision fixes S3 in that form; there is no D1 left to decide.
 9. The presentation packages (issue #2197), decided 2026-09-05: **"agent-ui-web / agent-ui-terminal,
    둘 다 지금"**. A new family `agent-ui-*` is created: `agent-transport-gui` →
-   `@robota-sdk/agent-ui-web`, `agent-transport-tui` → `@robota-sdk/agent-ui-terminal`, both in S5,
+   `@robota-sdk/agent-ui-web`, `agent-transport-tui` → `@robota-sdk/agent-ui-terminal`, both in S4,
    the published `-tui` with its registry deprecation step. Not optional.
 10. The shape inside `agent-framework` and the registry, decided 2026-09-05 as recommended: the
     runtime-host modules land under `agent-framework/src/transport-host/` exported from the root
@@ -435,7 +435,8 @@ page came via search snippets, not a direct fetch.
 
 - `scripts/harness/check-dependency-direction.mjs` — generalise the `dag-node-*` sibling rule
   (`:303-330`) into a name-derived `agent-<family>-*` family rule; `scripts/harness/__tests__/check-dependency-direction.test.mjs`
-- `scripts/harness/family-sibling-baseline.json` — new, frozen, shrink-only; deleted at the end
+- `scripts/harness/family-sibling-baseline.json` — new, frozen, shrink-only; after S5 it retains only
+  the independently tracked provider-family edge until that root item lands
 - `packages/agent-transport/**` — purified to `agent-interface-*` + pure TS; absorbs the substrate
 - `packages/agent-framework/**` — receives the runtime-host modules (headless, programmatic, registry,
   settings repository)
@@ -629,10 +630,10 @@ in them names a WebSocket carrier (measured in § Problem); the carrier code alr
 rewritten in S3; no alias export is kept, since the published `-protocol` name is retired in the
 same item and every consumer is in-tree.
 
-**S5 in its decided form (ruling 9).** `agent-transport-gui` → `@robota-sdk/agent-ui-web` and
+**S4 in its decided form (ruling 9).** `agent-transport-gui` → `@robota-sdk/agent-ui-web` and
 `agent-transport-tui` → `@robota-sdk/agent-ui-terminal`, both now, creating the `agent-ui-*` family
 (`NX-PDR`'s `ui-*` convention; no existing family reads as its sibling). The last transport baseline
-entry, `agent-transport-webrtc-web → agent-transport-gui`, is **resolved by this rename**: after S5
+entry, `agent-transport-webrtc-web → agent-transport-gui`, is **resolved by this rename**: after S4
 the edge is `agent-transport-webrtc-web → agent-ui-web`, cross-family, which clause (iii) leaves to
 the other rules — and it is the `@ai-sdk/react → ai` / `connect-fastify → connect-node` shape Axis 5
 documents as a layer, a browser peer built over a UI core. The new family is under the sibling rule
@@ -750,16 +751,17 @@ packages/agent-ui-web` and `git mv packages/agent-transport-tui packages/agent-u
    framework table row), `:325` (the implementation-package rule naming `-tui`);
    `.agents/publish-registry.md:54` (`-tui`, beta) and `:67` (`-gui`, internal);
    `.agents/harness.config.json:506` and `:510` (entry-point paths); `README.md:141`;
-   `ARCHITECTURE.md:56`; `.github/workflows/ci.yml:1322,1326` (`--filter
-@robota-sdk/agent-transport-tui test:pty` — in scope for the reason `STRUCT-011` recorded: leaving
+   `ARCHITECTURE.md:56`; `.github/workflows/ci.yml:1322,1326`
+   (`--filter @robota-sdk/agent-transport-tui test:pty` — in scope for the reason `STRUCT-011` recorded: leaving
    it lands CI red); `content/guide/architecture.md` (14 lines); `diagrams/robota-architecture.mmd:27-28`;
    plus a new `agent-ui-*/` row in `.agents/project-structure.md`. Green because neither package has
    a sibling edge after the move and `-webrtc-web → agent-ui-web` is cross-family; the S4 rows of the
    scans table are rewritten in the same change, and the ARCH-005 prefix lists gain
    `@robota-sdk/agent-ui-` with the `:24` reason string updated (see below). TC-08, TC-13.
-5. **S5 — remove, and the release checklist.** Delete `packages/agent-transport-protocol`, the
-   `-protocol` rows of the routing docs, and — once only the provider entry remains and its own root
-   item has landed — the baseline file. TC-06, TC-07. **Release checklist (ruling 11; a manual owner
+5. **S5 — remove, and the release checklist.** Delete `packages/agent-transport-protocol` and the
+   `-protocol` rows of the routing docs. Retain `family-sibling-baseline.json` with only the provider
+   entry; deleting it belongs to that provider-family root item after the edge lands. TC-06, TC-07.
+   **Release checklist (ruling 11; a manual owner
    step, not a plan item):** in the same release run that ships the successors — the first
    `@robota-sdk/agent-transport` carrying the substrate and the first `@robota-sdk/agent-ui-terminal`
    — deprecate every version of each retired name with a pointer:
@@ -876,7 +878,8 @@ in one unit, and `checkPassthroughReexports` would refuse one anyway.
    `.agents/project-structure.md` and the family to `ARCHITECTURE.md`'s box.
 6. **Removal.** Delete `packages/agent-transport-protocol`, its rows in `README.md:146`,
    `.agents/publish-registry.md:53`, `.agents/harness.config.json:509`, the diagram and guide lines;
-   delete the baseline file when it is empty. Carry the two `npm deprecate` commands from § Decision
+   retain the provider-only baseline until its owning root item lands. Carry the two `npm deprecate`
+   commands from § Decision
    S5 into the release checklist the owner runs (ruling 11).
 
 ## Prospective S2 sequencing clarification — host tests and scenario ownership
@@ -985,7 +988,7 @@ seven-name retired `ws-*` scan under the new parent before S3 completes.
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `scripts/harness/check-dependency-direction.mjs`                                                                                                                                                                                            | `checkFamilySiblings`; generalised from the `dag-node-*` clause                                                                                |
 | `scripts/harness/__tests__/check-dependency-direction.test.mjs`                                                                                                                                                                             | fixture cases for two families                                                                                                                 |
-| `scripts/harness/family-sibling-baseline.json`                                                                                                                                                                                              | new (7 entries) → empty → deleted                                                                                                              |
+| `scripts/harness/family-sibling-baseline.json`                                                                                                                                                                                              | new (7 entries) → provider-only after S5; deletion belongs to the provider-family root item                                                    |
 | `packages/agent-transport/package.json`, `src/index.ts`, `src/node/`                                                                                                                                                                        | purified manifest; substrate root; `./node` subpath                                                                                            |
 | `packages/agent-transport/src/{headless,programmatic,transport-*}`                                                                                                                                                                          | moved to `packages/agent-framework/src/transport-host/`; `print-terminal.ts`, `cli-input.ts` to `packages/agent-cli/src/`                      |
 | `packages/agent-framework/src/index.ts`, `package.json`                                                                                                                                                                                     | exports the runtime-host modules                                                                                                               |
@@ -1012,9 +1015,9 @@ No root scenario-owner registry or runtime policy changes are required.
 - [ ] TC-04: `node scripts/harness/check-dependency-direction.mjs 2>&1 | grep -c "Interface-package violation"` → prints the same number before and after S1 (the four `agent-interface-*` edges are judged by `INTERFACE-DEPS` only, once)
 - [ ] TC-05: `node -e "const d=Object.keys(require('./packages/agent-transport/package.json').dependencies);process.exit(d.every(k=>k.startsWith('@robota-sdk/agent-interface-'))?0:1)"` → exits 0 (prints nothing), and `git grep -l -E "@robota-sdk/(agent-core|agent-framework)" -- packages/agent-transport/src ':!packages/agent-transport/src/__tests__'` → prints nothing
 - [ ] TC-06: `git grep -l "from 'node:" -- packages/agent-transport/src ':!packages/agent-transport/src/node/' ':!packages/agent-transport/src/__tests__'` → prints nothing; `grep -c "./node/" packages/agent-transport/src/index.ts` → prints `0`; `node -e "const e=require('./packages/agent-transport/package.json').exports['./node'];process.exit(e&&e.browser===null?0:1)"` → exits 0 (the `CORE-028` shape); `node scripts/harness/scan-browser-package-node-subpath.mjs` → exits 0; and at S5 `test -d packages/agent-transport-protocol` → exits 1 and `git grep -l "agent-transport-protocol" | grep -vE "^\.agents/(tasks/completed|spec-docs/done|spec-docs/rejected|archive)/|^\.changeset/|^\.design/|^CHANGELOG\.md$" | wc -l` → prints `0`
-- [ ] TC-07: at S5, `test -f scripts/harness/family-sibling-baseline.json` → exits 1 and `node scripts/harness/check-dependency-direction.mjs` → exits 0 with zero family-sibling findings
-- [ ] TC-08: `git grep -l "agent-transport-gui" | grep -vE "^\.agents/(tasks/completed|spec-docs/done|spec-docs/rejected|archive)/|^\.changeset/|^\.design/|^CHANGELOG\.md$" | wc -l` → prints `0`, while the unfiltered count still prints the historical `38`; the same pair for `agent-transport-tui` → `0` / historical `158`; and `test -d packages/agent-ui-web -a -d packages/agent-ui-terminal` → exits 0
-- [ ] TC-09: `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-framework --filter "@robota-sdk/agent-transport-*" test` → exits 0 at the end of every unit S1–S5
+- [ ] TC-07: at S5, `node -e "const b=require('./scripts/harness/family-sibling-baseline.json');const k=Object.keys(b);process.exit(k.length===1&&k[0].startsWith('agent-provider-')?0:1)"` → exits 0 and `node scripts/harness/check-dependency-direction.mjs` → exits 0 with zero transport-family findings; the provider baseline remains owned by its separate root item
+- [ ] TC-08: for each of `agent-transport-gui` and `agent-transport-tui`, `git grep -l <name> -- ':!CHANGELOG.md' ':!**/CHANGELOG.md' ':!content/changelog/**' ':!.agents/tasks/completed/**' ':!.agents/spec-docs/done/**' ':!.agents/spec-docs/rejected/**' ':!.agents/archive/**' ':!.agents/evidence/**' ':!.changeset/**' ':!.design/**' ':!.agents/architecture-remediation-log.md' ':!scripts/harness/unmet-criteria-baseline.json' ':!.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md' ':!.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md'` → prints nothing; the two active STRUCT-012 records may name source and target as rename history, and `test -d packages/agent-ui-web -a -d packages/agent-ui-terminal` → exits 0
+- [ ] TC-09: `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-framework --filter "@robota-sdk/agent-transport-*" --filter @robota-sdk/agent-ui-web --filter @robota-sdk/agent-ui-terminal test` → exits 0 at the end of every unit S1–S5
 - [ ] TC-10: `pnpm harness:verify-like-ci` → exits 0 at the end of every unit S1–S5, including `ghost-package-refs`, `workspace-refs`, `publish`, `capability-placement`, `arch-map-paths`, and — per the scans table in § Decision — each scan listed for that unit (`scan-transport-admission`, `scan-deployment-matrix` at S3; `scan-tui-safe-text-boundary`, `check-capability-placement`, `check-agent-server-boundary`, `scan-transport-conformance`, `release-test-suites`, `changed-path-capabilities`, `check-sdk-public-surface`, `scan-guard-scope-fail-closed`, `scan-composition-neutrality` at S4)
 - [ ] TC-11: `pnpm exec vitest run scripts/harness/__tests__/check-dependency-direction.test.mjs` → exits 0 asserting that a fixture `agent-transport → agent-transport-ws` (parent depending on a child) is reported, and that a fixture `agent-framework → agent-transport-ws` and `agent-core → agent-ui-web` are each reported (composer/core never import a transport or UI child); and `node scripts/harness/check-dependency-direction.mjs` → exits 0 on the real tree for both clauses at S1 (both are green today)
 - [ ] TC-12: `node scripts/harness/check-dependency-direction.mjs` → exits 1 on a fixture whose `src/` imports `@robota-sdk/agent-transport` while its `package.json` declares no such dependency, naming the undeclared specifier; and on the real tree at S3 → exits 0, where "undeclared" means absent from **all three** of `dependencies`, `peerDependencies` and `devDependencies` (the complement `check-dep-kind.mjs:131` hands to the `deps` scan), so a type-only import satisfied by a `devDependency` is not a false positive
@@ -1026,21 +1029,21 @@ Derived from `type: INFRA` with tags `typescript`, `cli`. The gate is tested as 
 synthetic package maps (the shape `check-dependency-direction.test.mjs` already uses); everything
 else is a command-form check over the real tree.
 
-| TC-ID | Test Type                         | Tool / Approach                                                                           | Notes                                                                                                                                                                   |
-| ----- | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Contract (fixture, 2 families)    | `pnpm exec vitest run` on `checkFamilySiblings` over synthetic maps                       | The parent-legal arm is the `DC-RULES` defect the rule must not have; zero-member arm closes the silent pass                                                            |
-| TC-02 | Scan (red-proof)                  | `check-dependency-direction.mjs` on the tree, then with one entry removed                 | The prototype run in § Decision is the pre-implementation red-proof                                                                                                     |
-| TC-03 | Scan (stale baseline)             | `check-dependency-direction.mjs` with a planted stale entry                               | A baseline that outlives its violation has stopped guarding                                                                                                             |
-| TC-04 | Regression (delegation)           | `grep -c` over the scan's output before/after S1                                          | The interface family is judged once, by the map                                                                                                                         |
-| TC-05 | Command (manifest purity)         | `node -e` over `package.json` + `git grep`                                                | Stays in the tree after this item as the parent's standing invariant                                                                                                    |
-| TC-06 | Command (browser safety, removal) | `git grep`, `grep -c`, `test -d`                                                          | The `node:` builtins are reachable only through `./node`; the published package directory is gone                                                                       |
-| TC-07 | Command (baseline retired)        | `test -f` + the scan's exit code                                                          | Zero findings with no baseline file is the only green end state                                                                                                         |
-| TC-08 | Command (rename completeness)     | `git grep` with the historical-record exclusion                                           | Mirrors `STRUCT-011`'s own verification                                                                                                                                 |
-| TC-09 | Suite                             | `pnpm --filter … test`                                                                    | Capability preservation for `agent-cli` headless/print paths and every transport                                                                                        |
-| TC-10 | Suite                             | `pnpm harness:verify-like-ci`                                                             | The repository's full pre-merge gate, per unit                                                                                                                          |
-| TC-11 | Contract (companion clauses)      | `pnpm exec vitest run` on fixtures + the scan on the tree                                 | Root never imports a child; `agent-framework`/`agent-core` never import a transport or UI child (Axis 5, 10/10)                                                         |
-| TC-12 | Scan (undeclared import)          | `check-dependency-direction.mjs` on a fixture with an undeclared `src/` import + the tree | Undeclared = in none of the three manifest sections (`check-dep-kind.mjs:131`); the Turborepo-Boundaries hygiene check that keeps the manifest rule from being bypassed |
-| TC-13 | Scan (red-proof, renamed prefix)  | `scan-composition-neutrality.mjs` fixture + `node -e` over `harness.config.json`          | The ARCH-005 gate must still see the UI family under its new name; a `startsWith` list is only as wide as its literals                                                  |
+| TC-ID | Test Type                            | Tool / Approach                                                                           | Notes                                                                                                                                                                   |
+| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Contract (fixture, 2 families)       | `pnpm exec vitest run` on `checkFamilySiblings` over synthetic maps                       | The parent-legal arm is the `DC-RULES` defect the rule must not have; zero-member arm closes the silent pass                                                            |
+| TC-02 | Scan (red-proof)                     | `check-dependency-direction.mjs` on the tree, then with one entry removed                 | The prototype run in § Decision is the pre-implementation red-proof                                                                                                     |
+| TC-03 | Scan (stale baseline)                | `check-dependency-direction.mjs` with a planted stale entry                               | A baseline that outlives its violation has stopped guarding                                                                                                             |
+| TC-04 | Regression (delegation)              | `grep -c` over the scan's output before/after S1                                          | The interface family is judged once, by the map                                                                                                                         |
+| TC-05 | Command (manifest purity)            | `node -e` over `package.json` + `git grep`                                                | Stays in the tree after this item as the parent's standing invariant                                                                                                    |
+| TC-06 | Command (browser safety, removal)    | `git grep`, `grep -c`, `test -d`                                                          | The `node:` builtins are reachable only through `./node`; the published package directory is gone                                                                       |
+| TC-07 | Command (transport baseline retired) | provider-only baseline assertion + the scan's exit code                                   | Zero transport-family findings while the independently owned provider exception remains guarded                                                                         |
+| TC-08 | Command (rename completeness)        | `git grep` with narrow historical/rename-record exclusions                                | Live executable and current-routing references are zero without rewriting historical evidence                                                                           |
+| TC-09 | Suite                                | `pnpm --filter … test`                                                                    | Capability preservation for `agent-cli` headless/print paths and every transport                                                                                        |
+| TC-10 | Suite                                | `pnpm harness:verify-like-ci`                                                             | The repository's full pre-merge gate, per unit                                                                                                                          |
+| TC-11 | Contract (companion clauses)         | `pnpm exec vitest run` on fixtures + the scan on the tree                                 | Root never imports a child; `agent-framework`/`agent-core` never import a transport or UI child (Axis 5, 10/10)                                                         |
+| TC-12 | Scan (undeclared import)             | `check-dependency-direction.mjs` on a fixture with an undeclared `src/` import + the tree | Undeclared = in none of the three manifest sections (`check-dep-kind.mjs:131`); the Turborepo-Boundaries hygiene check that keeps the manifest rule from being bypassed |
+| TC-13 | Scan (red-proof, renamed prefix)     | `scan-composition-neutrality.mjs` fixture + `node -e` over `harness.config.json`          | The ARCH-005 gate must still see the UI family under its new name; a `startsWith` list is only as wide as its literals                                                  |
 
 ## User Execution Test Scenarios
 
@@ -1108,7 +1111,7 @@ requires is GATE-APPROVAL on this document as the plan.
 - GATE-WRITE — Decision references the trade-off that drove the choice: Alternative 1 is chosen with its cost stated as "the largest option — 104 + 44 + 64 + 110 live files, one published package removed and one published package renamed, `agent-framework`'s surface grows" in exchange for a gate that "costs no declaration and cannot drift from one"; § Decision restates it ("Honest size: ~104 live files in one change — the same order as `STRUCT-011`'s 63"; S3 cannot be split because `checkPassthroughReexports` refuses a shim) and names why each cheaper option is refused and by which ruling or scan (2: ruling 2; 3: `scan-interface-runtime` — "passes only by disabling a gate"; 4/5: ruling 6 + `VITE-TS`; 6: ruling 5; 7: rulings 1–6)
 - GATE-WRITE — **New-surface placement (conditional):** APPLICABLE — the spec reclassifies the family boundary (`-protocol` dissolved into the parent; runtime-host modules leave the parent for `agent-framework`; a new `agent-ui-*` family is created from the two renamed presentation packages). (a) Analog + classification stated: the substrate mirrors the existing `agent-transport` parent (ruling 5; Axis 5 "root = contract + runtime-neutral shared logic", 10/10); the runtime-host modules mirror `agent-framework`'s existing `buildRuntimeSession`/`startRuntimeHost` "Runtime host" seam (`ARCHITECTURE.md:41-42`) as `src/transport-host/`; `print-terminal`/`cli-input` go to `agent-cli` per `.agents/project-structure.md` § Implementation Owner Boundaries; the `./node` subpath with `"browser": null` mirrors `agent-core`'s own `./node` (`CORE-028`); `agent-ui-*` is classified as the UI/host layer (`@ai-sdk/react → ai` shape, `NX-PDR` `ui-*`) with "no existing family reads as its sibling", under the sibling rule from its first member. (b) Contract-level reuse shown: the parent's target `dependencies` = exactly the six `agent-interface-*` contract packages; protocol transports depend on root + `agent-interface-*`; hosts may depend on `agent-framework` (the composer) and never on a sibling; the one cross-family edge `-webrtc-web → agent-ui-web` is pre-existing, named, classified as a layer (`connect-fastify → connect-node` shape) and filed as STRUCT-013 rather than hidden. Checklist item 5 is `[x]` naming the analogs. Observation, not a finding: the checklist phrase "no new package is created" is loose (S4 creates `packages/agent-ui-web` and `packages/agent-ui-terminal` by `git mv`); the placement content stands regardless. The independent `proposal-reviewer` validation is not yet in this log — that is GATE-APPROVAL's conditional criterion, not this gate's
 - GATE-WRITE — Every item has a `TC-N` prefix (TC-01, TC-02, …): 13 criteria, all `TC-NN:` prefixed
-- GATE-WRITE — At least 1 criterion per distinct feature or sub-item: S1 gate + baseline → TC-01/02/03/04/11/12; S2 parent purification → TC-05/09; S3 substrate absorption + browser safety of `./node` → TC-06/12; S4 `agent-ui-*` rename + ARCH-005 prefix widening → TC-08/13; S5 removal + baseline retirement → TC-06/07; harness scans per unit (the scans table) → TC-10; package suites per unit → TC-09. The `npm deprecate` release step is declared a manual owner checklist item, not a plan item, and carries no TC by design
+- GATE-WRITE — At least 1 criterion per distinct feature or sub-item: S1 gate + baseline → TC-01/02/03/04/11/12; S2 parent purification → TC-05/09; S3 substrate absorption + browser safety of `./node` → TC-06/12; S4 `agent-ui-*` rename + ARCH-005 prefix widening → TC-08/13; S5 removal + transport-entry retirement → TC-06/07; harness scans per unit (the scans table) → TC-10; package suites per unit → TC-09. The `npm deprecate` release step is declared a manual owner checklist item, not a plan item, and carries no TC by design
 - GATE-WRITE — Each criterion uses Command form or Observable behavior form (no vague language): all 13 are `<command> → exits N / prints X` with the exact command quoted (TC-01..TC-13); TC-04's "prints the same number before and after S1" and TC-09/TC-10's "exits 0 at the end of every unit S1–S5" are observable exit/print conditions; no vague language found
 - GATE-WRITE — No criterion uses: "works correctly", "no errors", "implemented", "displays correctly": none of "works correctly", "no errors", "implemented", "displays correctly" appears
 - GATE-WRITE — `## Test Plan` section present: `## Test Plan` present
@@ -1384,3 +1387,53 @@ Guardian semantic set (`backlog-gate-guard`, 2026-09-05, re-run after the ❌ FA
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `4d4854dbd138` · base `origin/develop@eea2edba1471` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `7eb6acffd262` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-14
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-14; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (13)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 1732 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "scripts/harness/check-dependency-direction.mjs",
+    "scripts/harness/family-sibling-baseline.json",
+    "packages/agent-transport/package.json",
+    "packages/agent-transport/src/index.ts",
+    "packages/agent-framework/src/index.ts",
+    "packages/agent-transport-ws/package.json",
+    "packages/agent-transport-gui/package.json",
+    ".agents/project-structure.md",
+    "ARCHITECTURE.md"
+  ],
+  "priorPass": "sha256:5ff28502412ffdc8f91f087a1511a154486f990435e82a409bbf8735127977ec",
+  "ancestorSha": "40a62f112c4580025d653dd8a5931cbe240fc6d3",
+  "taskPath": ".agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+  "specPath": ".agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md",
+    ".agents/tasks/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `40a62f112c45` · base `origin/develop@40a62f112c45` · document `.agents/spec-docs/active/STRUCT-012-refactor-the-transport-family-onto-its-name-hierarchy.md` blob `9749a22cdfb3` (tracked)

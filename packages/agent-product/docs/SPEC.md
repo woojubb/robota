@@ -23,8 +23,8 @@ branches and become a de-facto shared factory) but on a stronger, mechanically-e
 Enforced at all times by the three composition-neutrality guards
 (`scripts/harness/scan-composition-neutrality.mjs`, registered in `run-all-scans`):
 
-1. **Dependency-graph neutrality** — `agent-product` declares no concrete transport/TUI/CLI dependency
-   (`agent-transport*`, `agent-transport-tui`, `agent-transport-ws`, `agent-cli`).
+1. **Dependency-graph neutrality** — `agent-product` declares no concrete transport/UI/CLI dependency
+   (`agent-transport*`, `agent-ui-*`, `agent-cli`).
 2. **Purity / no-IO** — no `node:fs`/`fs`, `process.env`, or settings-reader read in `agent-product/src`;
    all resolved data (settings, env, args) is fed IN from the shell. `globalThis.process` is banned too, so
    the qualified form cannot evade the check. Constructing a provider from already-resolved settings data is

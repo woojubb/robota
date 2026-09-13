@@ -4,7 +4,7 @@
 
 `agent-cli-web` is the CLI's built-in **web monitor SPA** (GUI-007): a minimal Vite single-page app whose one
 entry (`index.html` → `src/main.tsx`) mounts `SessionMonitor` from the shared GUI core
-(`@robota-sdk/agent-transport-gui/client`) over a localhost WebSocket. It reads the live WS URL from a
+(`@robota-sdk/agent-ui-web/client`) over a localhost WebSocket. It reads the live WS URL from a
 server-injected `<meta name="ws-url">` tag. The workspace artifact graph builds this package before CLI assembly,
 and serves it over a localhost HTTP host on `robota --serve --open` — the CLI OWNS and SERVES its own monitor.
 
@@ -16,7 +16,7 @@ Neutrality Rule: a product UI assembled from the shared libraries, not an import
 - **Not deployable / not published.** It has no runtime `@robota-sdk` export surface — it is a built asset the
   CLI copies and serves. The deployed browser surfaces (Playground, Stage-D remote) live in `apps/agent-web`.
 - **Presentation only.** All session logic lives in the engine; the monitor is a thin browser client over the
-  WS transport, reusing `agent-transport-gui`'s components. It contains no domain logic.
+  WS transport, reusing `agent-ui-web`'s components. It contains no domain logic.
 - **Loopback-origin.** Served from `127.0.0.1` by the CLI; authenticates to the WS with the SEC-001 token
   injected into its `ws-url`.
 
@@ -27,7 +27,7 @@ other workspace packages; `agent-cli` consumes its complete output through an ex
 
 ## Dependencies
 
-- `@robota-sdk/agent-transport-gui` (`SessionMonitor` + theme) — the shared GUI presentation core.
+- `@robota-sdk/agent-ui-web` (`SessionMonitor` + theme) — the shared GUI presentation core.
 - `react` / `react-dom` — the renderer.
 
 ## Build

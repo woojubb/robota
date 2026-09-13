@@ -3,7 +3,8 @@
 /**
  * ARCH-011 transport lifecycle conformance roster.
  *
- * Scope: production TypeScript below every `packages/agent-transport.../src` tree and framework's
+ * Scope: production TypeScript below every `packages/agent-transport.../src` and
+ * `packages/agent-ui-.../src` tree and framework's
  * `src/transport-host` (excluding tests), plus Vitest files below those trees. The discovery relation is the exported adapter
  * declaration itself: TypeScript resolves every package export entry and identifies exported runtime
  * values whose returned/constructed public type has the adapter lifecycle shape. This covers direct
@@ -38,7 +39,7 @@ export const TRANSPORT_CONFORMANCE_SUBJECTS = Object.freeze([
   `${SCOPE}agent-transport-webrtc#WebRtcTransport`,
 ]);
 const DIST_ONLY_EXPORT_PACKAGES = new Set([
-  `${SCOPE}agent-transport-gui`,
+  `${SCOPE}agent-ui-web`,
   `${SCOPE}agent-transport-webrtc-web`,
 ]);
 
@@ -70,7 +71,8 @@ function transportPackageDirs(root) {
       (name) =>
         name === 'agent-framework' ||
         name === 'agent-transport' ||
-        name.startsWith('agent-transport-'),
+        name.startsWith('agent-transport-') ||
+        name.startsWith('agent-ui-'),
     )
     .map((name) => path.join(packagesDir, name))
     .filter((dir) => statSync(dir).isDirectory());

@@ -23,7 +23,7 @@ therefore attached to the published graph rather than to one hard-coded entry fi
 
 The criterion is **dependency reach**, not the older "runtime facade" idea: a re-export earns a place
 here only when a package permitted to consume the symbol has no other legal import path to it.
-`IBackgroundTaskRunner` qualifies — `agent-product`, `agent-transport-tui` and `agent-transport` all
+`IBackgroundTaskRunner` qualifies — `agent-product`, `agent-ui-terminal` and `agent-transport` all
 name it and none of them may depend on `agent-executor`. The subagents barrel did NOT qualify and
 ARCH-031 removed it; ARCH-037 removed the "two named facade barrels" wording this section still
 carried afterwards, which described a set that had had one entry ever since.

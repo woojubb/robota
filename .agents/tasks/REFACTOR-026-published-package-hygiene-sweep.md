@@ -20,7 +20,7 @@ packages that are `private: true`.
 
 - `packages/agent-framework/only-in-a.txt` (2 bytes) and `packages/agent-framework/out.txt` (11 bytes)
   — scratch files committed in `e02479c38` (TEST-003), sitting in a published package's root.
-- `apps/agent-web/package.json` — declares `@robota-sdk/agent-transport-gui` in dependencies but never
+- `apps/agent-web/package.json` — declares `@robota-sdk/agent-ui-web` in dependencies but never
   imports it (`rg` finds zero imports; not in `next.config.ts` `transpilePackages`) — vestigial from
   the removed `/monitor` route. Under `project-structure.md:118` this manifest entry IS an edge in the
   ground-truth graph, documented by no doc and used by no source.
@@ -33,7 +33,7 @@ true` and the registry's Private entry.
 
 ## Direction
 
-Delete the two scratch files; remove the unused `agent-transport-gui` dependency from `apps/agent-web`
+Delete the two scratch files; remove the unused `agent-ui-web` dependency from `apps/agent-web`
 (restoring manifest↔doc↔code agreement — or re-add the documented monitor mount, but GUI-007 points at
 removal); align the `agent-playground` manifest description with "private product shell" and drop
 `publishConfig`/`prepublishOnly`; drop the stray `publishConfig` from `agent-testing`; delete the two
@@ -62,7 +62,7 @@ short that check turns out to be.
 
 ## Test Plan
 
-- `git rm` the scratch files; `rg` confirms no `agent-transport-gui` import in `apps/agent-web/src`
+- `git rm` the scratch files; `rg` confirms no `agent-ui-web` import in `apps/agent-web/src`
   before removing the dep; build of `apps/agent-web` still green.
 - `pnpm harness:scan` green (pass-through-re-export scan clean after the logger-shim removal;
   publish-registry scan clean).
@@ -75,9 +75,9 @@ build/scan checks in the Test Plan.
 ## Partial resolution observed 2026-09-13 (BOUNDARY-2655)
 
 The current checkout removes the private `agent-testing` package after relocating its PTY
-helpers and six characterization tests into `packages/agent-transport-tui/src/__tests__/pty/`.
+helpers and six characterization tests into `packages/agent-ui-terminal/src/__tests__/pty/`.
 The stray `publishConfig` item above therefore has no remaining manifest to repair in this
 checkout. The superseded published-intent charter is reconciled in
-[`agent-transport-tui/docs/SPEC.md`](../../packages/agent-transport-tui/docs/SPEC.md#boundaries).
+[`agent-ui-terminal/docs/SPEC.md`](../../packages/agent-ui-terminal/docs/SPEC.md#boundaries).
 This is a partial implementation observation, not evidence of landing or passing remote CI.
 The original findings are retained; no other item in this Task is completed by this note.

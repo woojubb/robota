@@ -15,7 +15,7 @@ import type { TToolArgs } from '@robota-sdk/agent-core';
  * scope the enforcer remembers, so every prompt surface prints the same words.
  *
  * The rule is owned by agent-session; this is the framework's OWN facade over it rather than a
- * pass-through re-export of the owner's binding. `agent-transport-tui`'s permission prompt reads it
+ * pass-through re-export of the owner's binding. `agent-ui-terminal`'s permission prompt reads it
  * and depends on this package alone, never on agent-session, and `sdk-public-surface` refuses the
  * public graph passing through the owner directly.
  */

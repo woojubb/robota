@@ -92,8 +92,8 @@ cli.ts 는 이 팩토리를 import해서 호출만 한다.
 
 ## Evidence
 
-- `packages/agent-transport-tui/src/create-default-tui-cli-adapter.ts` 생성 완료
-- `packages/agent-transport-tui/src/index.ts`에 export 추가
+- `packages/agent-transport-tui/src/create-default-tui-cli-adapter.ts` 생성 완료 <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-terminal/src/create-default-tui-cli-adapter.ts. -->
+- `packages/agent-transport-tui/src/index.ts`에 export 추가 <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-terminal/src/index.ts. -->
 - `cli.ts`는 `createDefaultTuiCliAdapter` import 후 호출만 함
 - `pnpm --filter @robota-sdk/agent-cli typecheck` 통과 (에러 없음)
 - `pnpm --filter @robota-sdk/agent-cli test` 111/111 통과

@@ -6,7 +6,7 @@
  * Declared scan scope:
  *
  * - production TypeScript under agent-framework, agent-session, agent-provider-replay, agent-cli,
- *   agent-command, agent-command-workflows, agent-transport, and agent-transport-tui (tests, dist,
+ *   agent-command, agent-command-workflows, agent-transport, and agent-ui-terminal (tests, dist,
  *   and testing helpers excluded);
  * - their published runtime barrels for public-declaration reachability and production-authority
  *   issuer reachability.
@@ -35,7 +35,7 @@ export const PROJECT_AUTHORITY_SOURCE_SCOPES = Object.freeze([
   'packages/agent-command/src',
   'packages/agent-command-workflows/src',
   'packages/agent-transport/src',
-  'packages/agent-transport-tui/src',
+  'packages/agent-ui-terminal/src',
 ]);
 
 export const PROJECT_AUTHORITY_PUBLIC_BARRELS = Object.freeze([
@@ -46,7 +46,7 @@ export const PROJECT_AUTHORITY_PUBLIC_BARRELS = Object.freeze([
   'packages/agent-command/src/index.ts',
   'packages/agent-command-workflows/src/index.ts',
   'packages/agent-transport/src/index.ts',
-  'packages/agent-transport-tui/src/index.ts',
+  'packages/agent-ui-terminal/src/index.ts',
 ]);
 
 const PROJECT_SENSITIVE_NAME =

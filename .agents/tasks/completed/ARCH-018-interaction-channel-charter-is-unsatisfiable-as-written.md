@@ -36,7 +36,7 @@ written.
 - `packages/agent-transport-ws/src/ws-transport-configurable.ts:57-58` (and -webrtc) — the "future
   web/remote" transports implement `IConfigurableTransport`/`IPayloadChannelHost` over
   `IInteractiveSession`, never `IInteractionChannel`.
-- `packages/agent-transport-tui/src/TuiInteractionChannel.ts:139-144` — `write(_event): void {}` —
+- `packages/agent-transport-tui/src/TuiInteractionChannel.ts:139-144` — `write(_event): void {}` — <!-- evidence-superseded: STRUCT-012 S4 renamed this historical source path to packages/agent-ui-terminal/src/TuiInteractionChannel.ts. -->
   "Intentionally unused in TUI direct-wiring mode … The two paths are mutually exclusive." The TUI
   gets its data by constructing the session itself, subscribing to raw session events, and exposing
   `getSession()` to hooks (`useTuiChannel.ts:107`); the contract says "Framework pushes one-way

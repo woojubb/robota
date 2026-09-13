@@ -56,7 +56,7 @@ intercepted on `process.argv` before the strict global `parseCliArgs()` because 
 **Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
 `ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
 TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
-`@robota-sdk/agent-transport-tui`. The CLI's `src/` contains only the lifecycle assembly, local host
+`@robota-sdk/agent-ui-terminal`. The CLI's `src/` contains only the lifecycle assembly, local host
 adapters, and settings/provider utilities.
 
 **Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command`. The CLI's `src/index.ts` exports only `startCli`.

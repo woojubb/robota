@@ -37,6 +37,7 @@ beforeEach(() => {
         '../../packages/agent-framework/src/transport-host/**/*.ts',
         '../../packages/agent-interface-transport/src/**/*.ts',
         '../../packages/agent-transport*/src/**/*.ts',
+        '../../packages/agent-ui-*/src/**/*.ts',
       ],
     }),
   );
@@ -374,10 +375,10 @@ export function createOne(): IOneTransport { return value; }\n`,
   });
 
   it('scans the conventional source entry of a dist-only presentation package', () => {
-    makeManifestOnly('agent-transport-gui', `${SCOPE}agent-transport-gui`, {
+    makeManifestOnly('agent-ui-web', `${SCOPE}agent-ui-web`, {
       '.': './dist/index.js',
     });
-    const sourceDir = path.join(root, 'packages', 'agent-transport-gui', 'src');
+    const sourceDir = path.join(root, 'packages', 'agent-ui-web', 'src');
     mkdirSync(sourceDir, { recursive: true });
     writeFileSync(
       path.join(sourceDir, 'index.ts'),
@@ -386,7 +387,7 @@ export const createPresentationTransport = (): IAdapter => ({} as IAdapter);\n`,
     );
 
     expect(discoverTransportSubjects(root)).toEqual([
-      `${SCOPE}agent-transport-gui#createPresentationTransport`,
+      `${SCOPE}agent-ui-web#createPresentationTransport`,
     ]);
   });
 

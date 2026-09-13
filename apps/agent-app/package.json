@@ -2,7 +2,7 @@
   "name": "@robota-sdk/agent-app",
   "version": "3.0.0-beta.79",
   "private": true,
-  "description": "agent-app — an Electron desktop application that drives a robota session over a loopback WS sidecar; the desktop GUI surface, rendering the shared GUI presentation core @robota-sdk/agent-transport-gui (GUI-005)",
+  "description": "agent-app — an Electron desktop application that drives a robota session over a loopback WS sidecar; the desktop GUI surface, rendering the shared GUI presentation core @robota-sdk/agent-ui-web (GUI-005)",
   "author": "Robota",
   "homepage": "https://github.com/woojubb/robota",
   "main": "dist/electron/main.js",
@@ -23,7 +23,7 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
-    "@robota-sdk/agent-transport-gui": "workspace:*",
+    "@robota-sdk/agent-ui-web": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

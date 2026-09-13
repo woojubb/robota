@@ -15,18 +15,18 @@ runs the two macOS cells) — tracked in the CLI-062 backlog.
 ## Scenario
 
 ```bash
-pnpm --filter @robota-sdk/agent-transport-tui build && pnpm --filter @robota-sdk/agent-cli build
+pnpm --filter @robota-sdk/agent-ui-terminal build && pnpm --filter @robota-sdk/agent-cli build
 
 # Unit: pure cell math (wrap-aware, wide-char straddle) + the SIGSEGV-invariant guard table.
-npx vitest run packages/agent-transport-tui/src/flows/__tests__/real-cursor-flow.test.ts
+npx vitest run packages/agent-ui-terminal/src/flows/__tests__/real-cursor-flow.test.ts
 # Component (interactive ink render on a fake TTY): positioned shows on the input row, CJK width
 # tracking, drawn-cursor suppression, blur/unmount withdrawal, zero process-stream writes.
-npx vitest run packages/agent-transport-tui/src/__tests__/real-cursor-positioning.test.tsx
+npx vitest run packages/agent-ui-terminal/src/__tests__/real-cursor-positioning.test.tsx
 # Fallback pin: capability-off rendering byte-identical to pre-change output.
-npx vitest run packages/agent-transport-tui/src/__tests__/cjk-fallback-render.test.tsx
+npx vitest run packages/agent-ui-terminal/src/__tests__/cjk-fallback-render.test.tsx
 # PTY regression against the built binary (24-row: every post-boot ESC[?25h on the input row at
 # the composition column; 5-row fullscreen geometry: zero shows — invariant I2).
-cd packages/agent-transport-tui && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts
+cd packages/agent-ui-terminal && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts
 ```
 
 **Expected:** every post-boot cursor show in the 24-row pty lands on the input row, final column =
@@ -47,7 +47,7 @@ no writes to the real process streams.
     ✓ 24-row pty: every post-boot cursor show lands on the input row at the composition column
     ✓ 5-row pty (frame ≥ viewport, I2): zero cursor-show sequences during composition
 
-Full agent-transport-tui unit suite: 507 passed (65 files); full PTY suite: 17 passed (11 files).
+Full agent-ui-terminal unit suite: 507 passed (65 files); full PTY suite: 17 passed (11 files).
 ```
 
 **Red-before-green proof (anti-accidental-green, HARNESS-041):** run BEFORE the implementation
@@ -74,12 +74,12 @@ kitty/WezTerm/Ghostty/Windows Terminal/tmux on real hardware"). It is now a re-r
 
 ```bash
 # 1. Capability half — 27 cells (9 terminals x {unset, =1, =0}) asserting supportsImeCursorPositioning().
-npx vitest run packages/agent-transport-tui/src/__tests__/terminal-capabilities.test.ts
+npx vitest run packages/agent-ui-terminal/src/__tests__/terminal-capabilities.test.ts
 # 2. Behavioural half — the SAME 27 cells driving the BUILT binary in a real pty (24-row contract,
 #    plus the 5-row I2 probe wherever the gate would otherwise allow positioning).
-cd packages/agent-transport-tui && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts
+cd packages/agent-ui-terminal && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts
 # 3. Real-emulator cell — tmux runs the binary in a real pane and reports its OWN cursor position.
-cd packages/agent-transport-tui && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts
+cd packages/agent-ui-terminal && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts
 ```
 
 **Terminal environments measured on real emulators** (launched on this machine; the env handshake is
@@ -103,7 +103,7 @@ tmux 3.4 (inside a real pane)
 ```
 
 **Red-before-green for the matrix assertions** (each mutation applied to source, both
-`agent-transport-tui` and `agent-cli` rebuilt — the CLI bundles the TUI, so rebuilding only the TUI
+`agent-ui-terminal` and `agent-cli` rebuilt — the CLI bundles the TUI, so rebuilding only the TUI
 leaves the pty suite accidentally green):
 
 ```

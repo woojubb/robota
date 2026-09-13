@@ -1,4 +1,4 @@
-# SPEC.md — @robota-sdk/agent-transport-gui
+# SPEC.md — @robota-sdk/agent-ui-web
 
 ## Transport Admission (SEC-008)
 
@@ -7,7 +7,7 @@ transport-admission: none — a presentation layer. It renders a `TServerMessage
 ## Scope
 
 The **GUI presentation layer** for a running robota session — the graphical analog of the terminal
-presentation in `@robota-sdk/agent-transport-tui`. It reconstructs conversation state from the
+presentation in `@robota-sdk/agent-ui-terminal`. It reconstructs conversation state from the
 transport-neutral `TServerMessage` stream and renders it as React components, and it ships the desktop
 **session shell** (title/status bar, conversation column, background-activity rail, composer, permission
 modal). It is consumed by both GUI product surfaces: the desktop app (`apps/agent-app`, Electron) and the

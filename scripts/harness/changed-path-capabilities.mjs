@@ -55,7 +55,7 @@ export function resolveCapabilityReachability(files, { cwd = process.cwd() } = {
 
     return {
       cli: directOwner('@robota-sdk/agent-cli', '@robota-sdk/agent-cli-web'),
-      tui: directOwner('@robota-sdk/agent-transport-tui', '@robota-sdk/agent-cli'),
+      tui: directOwner('@robota-sdk/agent-ui-terminal', '@robota-sdk/agent-cli'),
       examples: [...owners.values()].some((owner) => owner.directory.startsWith('examples/')),
       windows:
         windows || files.some((file) => /(^|\/)(windows|win32|powershell)(\/|\.|-)/iu.test(file)),

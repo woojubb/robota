@@ -163,7 +163,7 @@ describe('classifyFiles', () => {
       resolveCapabilityReachability(['packages/agent-cli/src/bin.ts'], { cwd: REPO_ROOT }),
     ).toMatchObject({ tui: true, cli: true });
     expect(
-      resolveCapabilityReachability(['packages/agent-transport-tui/src/App.tsx'], {
+      resolveCapabilityReachability(['packages/agent-ui-terminal/src/App.tsx'], {
         cwd: REPO_ROOT,
       }),
     ).toMatchObject({ tui: true, cli: false });
@@ -564,7 +564,7 @@ describe('CI capability wiring', () => {
     expect(tui).toContain('name: Guarantee CLI and TUI consumer dist');
     expect(tui).toContain('--changed-file packages/agent-cli/src/__ci_consumer_target__.ts');
     expect(tui).toContain(
-      '--changed-file packages/agent-transport-tui/src/__ci_consumer_target__.ts',
+      '--changed-file packages/agent-ui-terminal/src/__ci_consumer_target__.ts',
     );
     expect(coverage).toContain('name: Guarantee affected coverage dist');
     expect(coverage).toContain('run: pnpm build:affected');

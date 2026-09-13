@@ -98,8 +98,8 @@ describe('HARNESS-041 file classification', () => {
   });
 
   it('pkgOf extracts the package/app root for src files', () => {
-    expect(pkgOf('packages/agent-transport-tui/src/CjkTextInput.tsx')).toBe(
-      'packages/agent-transport-tui',
+    expect(pkgOf('packages/agent-ui-terminal/src/CjkTextInput.tsx')).toBe(
+      'packages/agent-ui-terminal',
     );
     expect(pkgOf('apps/agent-app/src/main.ts')).toBe('apps/agent-app');
     expect(pkgOf('packages/foo/docs/SPEC.md')).toBeNull();

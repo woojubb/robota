@@ -55,14 +55,14 @@ const PRODUCT_SHELL_OWNERSHIP_PATTERNS = [
 const COMMAND_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-provider-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-transport-gui',
+  '@robota-sdk/agent-ui-web',
   '@robota-sdk/agent-server',
 ];
 
 const PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-command-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-transport-gui',
+  '@robota-sdk/agent-ui-web',
   '@robota-sdk/agent-server',
   '@robota-sdk/agent-framework',
 ];
@@ -75,8 +75,8 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-provider-[^/]+$/, textPattern: /agent-provider-\*/ },
   { pathPattern: /^packages\/agent-transport$/, textPattern: /agent-transport\// },
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
-  // PTY support is local to this owner's src/__tests__/pty/, not a testing workspace.
-  { pathPattern: /^packages\/agent-transport-tui$/, textPattern: /agent-transport-tui\// },
+  // PTY support is local to the terminal UI owner's src/__tests__/pty/, not a testing workspace.
+  { pathPattern: /^packages\/agent-ui-[^/]+$/, textPattern: /agent-ui-(?:\*|[a-z0-9-]+)\// },
   { pathPattern: /^packages\/agent-plugin$/, textPattern: /agent-plugin\// },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
   { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },

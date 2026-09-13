@@ -3,7 +3,7 @@
  * state from the TServerMessage stream.
  *
  * The transport-neutral session reducer (`useSessionClient`) and its state/handle types live in
- * `@robota-sdk/agent-transport-gui` (the GUI presentation core). This module owns only the browser-remote
+ * `@robota-sdk/agent-ui-web` (the GUI presentation core). This module owns only the browser-remote
  * (WebRTC) surface: it widens the status union with the RTC pairing/failed states and wires the RTC client.
  */
 
@@ -12,7 +12,7 @@ import {
   type IWsSessionState,
   type TMakeSessionClient,
   type TConnectionStatus,
-} from '@robota-sdk/agent-transport-gui';
+} from '@robota-sdk/agent-ui-web';
 import { useCallback, useMemo } from 'react';
 
 import { createDeviceCredentialStore } from '../client/device-credential-store.js';

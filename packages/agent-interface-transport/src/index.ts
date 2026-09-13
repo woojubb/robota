@@ -6,10 +6,10 @@
 // bans. It survives as a NAMED exception because the ban has no answer here, and that was measured
 // rather than assumed:
 //
-//   - its consumers are FOUR files across TWO packages — `agent-transport-gui` (three) and
+//   - its consumers are FOUR files across TWO packages — `agent-ui-web` (three) and
 //     `agent-transport` (one) — and neither package's documented dependency set
 //     (`.agents/project-structure.md`) admits `agent-core`. An earlier revision said "the one
-//     consumer is `agent-transport-gui`": a line-based count cannot see a multi-line import;
+//     consumer is `agent-ui-web`": a line-based count cannot see a multi-line import;
 //   - `agent-core` has NO internal dependencies — it is the bottom layer — so the type cannot move
 //     here instead.
 //

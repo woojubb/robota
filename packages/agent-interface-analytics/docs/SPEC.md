@@ -26,7 +26,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 | Recording usage as a turn completes           | `agent-framework`                               |
 | Model pricing, and computing a turn's cost    | `agent-core`                                    |
 | Carrying a report across the sidecar boundary | `agent-transport`                               |
-| Rendering a trace or cost view                | `agent-transport-tui`, `agent-transport-gui`    |
+| Rendering a trace or cost view                | `agent-ui-terminal`, `agent-ui-web`             |
 | Session, turn and interaction contracts       | `agent-interface-transport` (until issue #2110) |
 
 **This package declares the SHAPE of a measurement. It measures nothing and decides no policy** — not

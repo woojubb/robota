@@ -22,7 +22,7 @@
 
 // The channel vocabulary is owned by the presentation package that prints it — importing it here
 // keeps one declaration for one concept (no cross-package duplicate of the same union).
-import type { TScreenReaderChannel } from '@robota-sdk/agent-transport-tui';
+import type { TScreenReaderChannel } from '@robota-sdk/agent-ui-terminal';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 

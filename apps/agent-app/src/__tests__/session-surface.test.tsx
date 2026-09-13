@@ -1,14 +1,14 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
-import { SessionSurface } from '@robota-sdk/agent-transport-gui/client';
+import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
 
-import type { IWsSessionState } from '@robota-sdk/agent-transport-gui/client';
+import type { IWsSessionState } from '@robota-sdk/agent-ui-web/client';
 
 /**
  * GUI-005 TC-01/TC-02 — the desktop app renders a session over the GUI core's reducer state and answers
  * prompts, WITHOUT any session logic of its own (it only calls `send`/`answerPermission`/`answerAsk`). This
- * exercises the shared `SessionSurface` (agent-transport-gui) as the app mounts it.
+ * exercises the shared `SessionSurface` (agent-ui-web) as the app mounts it.
  */
 
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {

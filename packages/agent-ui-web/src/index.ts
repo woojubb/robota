@@ -1,6 +1,6 @@
-// @robota-sdk/agent-transport-gui — the GUI presentation layer for a robota session.
+// @robota-sdk/agent-ui-web — the GUI presentation layer for a robota session.
 // React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral
-// TServerMessage stream. The GUI analog of agent-transport-tui; consumed by apps/agent-app (desktop) and the
+// TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by apps/agent-app (desktop) and the
 // browser surface (agent-transport-webrtc-web).
 
 // ── Session reducer (transport-neutral) ─────────────────────

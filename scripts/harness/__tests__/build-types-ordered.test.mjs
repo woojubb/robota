@@ -119,7 +119,7 @@ describe('createBuildTypeTiers', () => {
     // one tier, so agent-cli now sits at tier 9 of 10.
     expect(packages).toHaveLength(81);
     expect(tierByName.has('@robota-sdk/agent-testing')).toBe(false);
-    expect(tierByName.has('@robota-sdk/agent-transport-tui')).toBe(true);
+    expect(tierByName.has('@robota-sdk/agent-ui-terminal')).toBe(true);
     expect(tiers).toHaveLength(10);
     expect(tierByName.get('@robota-sdk/agent-interface-analytics')).toBe(0);
     expect(tierByName.get('@robota-sdk/agent-interface-command')).toBe(1);

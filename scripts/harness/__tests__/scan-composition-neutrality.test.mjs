@@ -27,7 +27,7 @@ const RULE = {
     '@robota-sdk/agent-transport',
     '@robota-sdk/agent-executor',
   ],
-  forbiddenDependencyPrefixes: ['@robota-sdk/agent-transport'],
+  forbiddenDependencyPrefixes: ['@robota-sdk/agent-transport', '@robota-sdk/agent-ui-'],
   forbiddenImports: ['node:fs', 'fs', 'node:fs/promises'],
   forbiddenIdentifiers: [
     'process.env',
@@ -84,17 +84,32 @@ describe('ARCH-054 — DAG node family composition gate', () => {
 });
 
 describe('guard (a) — dependency-graph neutrality', () => {
-  it('FLAGS a concrete transport/CLI dependency (exact + prefix)', () => {
+  it('FLAGS concrete transport, UI and CLI dependencies while the pre-S4 rule misses UI', () => {
     const manifest = {
       dependencies: {
         '@robota-sdk/agent-cli': 'workspace:*',
         '@robota-sdk/agent-framework': 'workspace:*',
       },
-      devDependencies: { '@robota-sdk/agent-transport-tui': 'workspace:*' },
+      devDependencies: {
+        '@robota-sdk/agent-ui-terminal': 'workspace:*',
+        '@robota-sdk/agent-ui-web': 'workspace:*',
+      },
     };
     const ids = findForbiddenDependencies(manifest, RULE).map((f) => f.id);
     expect(ids).toContain('@robota-sdk/agent-cli'); // exact
-    expect(ids).toContain('@robota-sdk/agent-transport-tui'); // prefix
+    expect(ids).toContain('@robota-sdk/agent-ui-terminal'); // UI prefix
+    expect(ids).toContain('@robota-sdk/agent-ui-web'); // UI prefix
+
+    const preS4Rule = {
+      ...RULE,
+      forbiddenDependencyPrefixes: ['@robota-sdk/agent-transport'],
+    };
+    expect(
+      findForbiddenDependencies(
+        { dependencies: { '@robota-sdk/agent-ui-terminal': 'workspace:*' } },
+        preS4Rule,
+      ),
+    ).toEqual([]);
   });
 
   // ARCH-005 S2 (reviewer remediation): agent-executor is a concrete-runtime package (child-process runners,

@@ -618,7 +618,7 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'tui-safe-text-boundary',
     command: ['node', 'scripts/harness/scan-tui-safe-text-boundary.mjs'],
-    examines: [under('packages/agent-transport-tui/src')],
+    examines: [under('packages/agent-ui-terminal/src')],
   },
   // #2347 / #2051: provider normalization resolves the environment only through an injected resolver.
   {

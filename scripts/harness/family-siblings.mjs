@@ -96,7 +96,7 @@ const FAMILY_CHILD_PREFIXES_CLOSED_TO_COMPOSERS = [
 /**
  * The family a package name declares: `@robota-sdk/agent-<family>-<rest>` → `@robota-sdk/agent-<family>`.
  * The family is the SECOND dash segment, so `agent-transport-webrtc-web` is a sibling of
- * `agent-transport-gui` and `agent-tools` (two segments) declares no family. A bare `agent-<family>`
+ * `agent-ui-web` and `agent-tools` (two segments) declares no family. A bare `agent-<family>`
  * package IS the family's parent, not a member.
  */
 export function familyOf(name) {

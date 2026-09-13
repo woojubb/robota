@@ -48,7 +48,7 @@ const PACKAGE_CHECKS = [
   {
     file: 'apps/agent-server/package.json',
     forbiddenPrefixes: [
-      '@robota-sdk/agent-transport-gui',
+      '@robota-sdk/agent-ui-web',
       '@robota-sdk/agent-cli',
       '@robota-sdk/agent-remote-client',
     ],
@@ -61,7 +61,7 @@ const PACKAGE_CHECKS = [
     forbiddenPrefixes: [
       '@robota-sdk/agent-provider',
       '@robota-sdk/agent-server',
-      '@robota-sdk/agent-transport-gui',
+      '@robota-sdk/agent-ui-web',
       '@robota-sdk/agent-playground',
     ],
     type: 'remote-client-forbidden-dependency',
@@ -116,8 +116,8 @@ const SOURCE_IMPORT_CHECKS = [
     dir: 'apps/agent-server/src',
     forbiddenImport(specifier) {
       return (
-        specifier === '@robota-sdk/agent-transport-gui' ||
-        specifier.startsWith('@robota-sdk/agent-transport-gui/') ||
+        specifier === '@robota-sdk/agent-ui-web' ||
+        specifier.startsWith('@robota-sdk/agent-ui-web/') ||
         specifier === '@robota-sdk/agent-cli' ||
         specifier.startsWith('@robota-sdk/agent-cli/') ||
         specifier === '@robota-sdk/agent-remote-client' ||
@@ -137,8 +137,8 @@ const SOURCE_IMPORT_CHECKS = [
         specifier.startsWith('@robota-sdk/agent-provider') ||
         specifier === '@robota-sdk/agent-server' ||
         specifier.startsWith('@robota-sdk/agent-server/') ||
-        specifier === '@robota-sdk/agent-transport-gui' ||
-        specifier.startsWith('@robota-sdk/agent-transport-gui/') ||
+        specifier === '@robota-sdk/agent-ui-web' ||
+        specifier.startsWith('@robota-sdk/agent-ui-web/') ||
         specifier === '@robota-sdk/agent-playground' ||
         specifier.startsWith('@robota-sdk/agent-playground/')
       );
@@ -152,8 +152,8 @@ const SOURCE_IMPORT_CHECKS = [
       return (
         specifier === '@robota-sdk/agent-server' ||
         specifier.startsWith('@robota-sdk/agent-server/') ||
-        specifier === '@robota-sdk/agent-transport-gui' ||
-        specifier.startsWith('@robota-sdk/agent-transport-gui/')
+        specifier === '@robota-sdk/agent-ui-web' ||
+        specifier.startsWith('@robota-sdk/agent-ui-web/')
       );
     },
     type: 'agent-playground-forbidden-import',

@@ -67,15 +67,15 @@ const transport = createMcpTransport({ name: 'my-agent', version: '1.0.0' });
 ### TUI presentation (Ink/React)
 
 ```typescript
-import { renderApp } from '@robota-sdk/agent-transport-tui';
-import type { IRenderOptions } from '@robota-sdk/agent-transport-tui';
+import { renderApp } from '@robota-sdk/agent-ui-terminal';
+import type { IRenderOptions } from '@robota-sdk/agent-ui-terminal';
 
 declare const options: IRenderOptions;
 await renderApp(options);
 ```
 
 > React and Ink dependencies are confined to the standalone
-> `@robota-sdk/agent-transport-tui` package. This core package stays React-free.
+> `@robota-sdk/agent-ui-terminal` package. This core package stays React-free.
 
 ## Sub-path Imports
 
@@ -87,7 +87,7 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
-import { renderApp } from '@robota-sdk/agent-transport-tui';
+import { renderApp } from '@robota-sdk/agent-ui-terminal';
 ```
 
 The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport

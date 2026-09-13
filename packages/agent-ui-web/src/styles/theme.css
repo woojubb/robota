@@ -1,7 +1,7 @@
 /*
- * GUI-005 — "terminal-noir" theme for the GUI presentation layer (agent-transport-gui).
+ * GUI-005 — "terminal-noir" theme for the GUI presentation layer (agent-ui-web).
  *
- * The consuming app owns the Tailwind entry (`@import 'tailwindcss'` + `@source '…/agent-transport-gui/src'`)
+ * The consuming app owns the Tailwind entry (`@import 'tailwindcss'` + `@source '…/agent-ui-web/src'`)
  * and then `@import`s this file, so Tailwind processes the `@theme`/`@layer` below in-context. This file owns
  * the design tokens, the Tailwind token map, base styles, scrollbars, and the shell's small utility classes.
  */

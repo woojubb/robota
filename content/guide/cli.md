@@ -1,8 +1,8 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport-tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
+`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-ui-terminal`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
 
-State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-transport-tui`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-ui-terminal`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
 
 ## Installation
 
@@ -285,7 +285,7 @@ early and `0` skips it.
 
 ### TuiInteractionChannel and useTuiChannel
 
-`TuiInteractionChannel` (in `agent-transport-tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
+`TuiInteractionChannel` (in `agent-ui-terminal`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
 
 1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
 2. Subscribes to the exhaustive TUI-classified SDK event set and drives a `TuiStateManager` instance.

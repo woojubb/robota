@@ -79,7 +79,7 @@ brings its own and reuses the same kernel.
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); the CLI does not re-export them (consumers import them directly from `@robota-sdk/agent-core`) and must not import `agent-session` in production source
-- Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport-tui`
+- Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-ui-terminal`
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
@@ -229,20 +229,20 @@ Whitebox internals are not specified here. See:
 
 ## Type Ownership
 
-| Type                | Location                           | Purpose                                                                                                             |
-| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                                          |
-| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                                                     |
-| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)                                                        |
-| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                                                                   |
-| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                                                                   |
-| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                                                          |
-| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources |
-| ICliSetup           | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy                                           |
-| IDiagnoseContext    | `src/startup/diagnose-command.ts`  | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                                             |
-| IDiagnosticCheck    | `src/startup/diagnose-command.ts`  | Single diagnostic result (`label`, `status`, `message`)                                                             |
-| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                                                         |
-| usage command types | `src/usage/usage-command.ts`       | Internal period/timezone/format parsing and injected local-store reporting                                          |
+| Type                | Location                          | Purpose                                                                                                             |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| ITerminalOutput     | `@robota-sdk/agent-core`          | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                                          |
+| ISpinner            | `@robota-sdk/agent-core`          | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                                                     |
+| IPermissionRequest  | `agent-ui-terminal/src/types.ts`  | Permission prompt React state (owned by agent-ui-terminal)                                                          |
+| ICommand            | `@robota-sdk/agent-framework`     | SDK-owned command palette and slash command entry                                                                   |
+| ICommandSource      | `@robota-sdk/agent-framework`     | SDK-owned command source contract                                                                                   |
+| IParsedCliArgs      | `src/utils/cli-args.ts`           | Parsed CLI argument structure returned by `parseCliArgs()`                                                          |
+| IStartCliOptions    | `src/startup/command-setup.ts`    | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources |
+| ICliSetup           | `src/startup/command-setup.ts`    | Assembled command modules, adapters, provider definitions, and org policy                                           |
+| IDiagnoseContext    | `src/startup/diagnose-command.ts` | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                                             |
+| IDiagnosticCheck    | `src/startup/diagnose-command.ts` | Single diagnostic result (`label`, `status`, `message`)                                                             |
+| IInitCommandOptions | `src/init/init-command.ts`        | Options for the `runInitCommand()` function                                                                         |
+| usage command types | `src/usage/usage-command.ts`      | Internal period/timezone/format parsing and injected local-store reporting                                          |
 
 ## Public API Surface
 
@@ -505,7 +505,7 @@ model; when only model metadata is available, it falls back to the model label.
 
 Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, setup help descriptions, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 
-TUI input semantics must live outside Ink components. `agent-transport-tui/src/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
+TUI input semantics must live outside Ink components. `agent-ui-terminal/src/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
 Prompt file-reference semantics are not TUI input semantics. `@file` tokens in ordinary prompts are
 passed through as user input; SDK-owned prompt preprocessing decides whether a token is a path-like
@@ -538,12 +538,12 @@ bin.ts → cli.ts (SHELL: arg parsing, settings IO, notices, mode dispatch)
               │     └── builds the instance-scoped preset registry
               ├── selectProductCommandModules(...)  (src/product/robota-plumbing.ts;
               │     applies the preset delta to the merged superset, appends the fixed modules)
-              └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
+              └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-ui-terminal)
                     └── TuiInteractionChannel (owns session lifecycle)
                           ├── InteractiveSession({ cwd, provider, projectAccess })
                           │   (from @robota-sdk/agent-framework; project config/context comes from
                           │    authority-derived sources; omission is Restricted)
-                          ├── TuiStateManager    (owned by agent-transport-tui)
+                          ├── TuiStateManager    (owned by agent-ui-terminal)
                           │   holds history: IHistoryEntry[]  ← primary state for message list
                           │   syncs from interactiveSession.getFullHistory() on each update
                           ├── CommandRegistry    (from @robota-sdk/agent-framework)
@@ -569,7 +569,7 @@ agent-cli ─→ agent-framework ─→ agent-session ──→ agent-core
   ├──────────────────────────────────────→ agent-command            (slash-command modules)
   ├──────────────────────────────────────→ agent-provider           (provider definitions)
   ├──────────────────────────────────────→ agent-subagent-runner    (subagent / background execution)
-  └──────────────────────────────────────→ agent-transport-tui / agent-transport-ws (presentation / wire adapters)
+  └──────────────────────────────────────→ agent-ui-terminal / agent-transport-ws (presentation / wire adapters)
 ```
 
 ### Preset Selection
@@ -701,7 +701,7 @@ input turned it on, so the confirmation line the TUI prints cannot lie about why
   reaches a word of the welcome.
 
 The rendered behaviour of the mode (labels, numbered menus, bell, OSC 133 support table, known
-limitations) is `packages/agent-transport-tui/docs/SPEC.md`.
+limitations) is `packages/agent-ui-terminal/docs/SPEC.md`.
 
 ### Transport Settings
 
@@ -737,7 +737,7 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
 | `@robota-sdk/agent-framework`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
-| `@robota-sdk/agent-transport-tui`       | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
+| `@robota-sdk/agent-ui-terminal`         | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
 | `@robota-sdk/agent-transport-ws`        | `WsTransport` registered (disabled by default) in the transport registry                                                                                                                                                        |
 | `@robota-sdk/agent-transport-webrtc`    | `WsSignalingClient` / `WebRtcTransport` for the remote-control P2P channel                                                                                                                                                      |
 | `@robota-sdk/agent-transport`           | `SessionResumeBridge` for remote-control session resume                                                                                                                                                                         |
@@ -835,7 +835,7 @@ Suites: tool loop (scripted Read→Edit→Bash mutating a temp repo), permission
 (`--dry-run`, `--denied-tools`), `-c` resume context, output contracts
 (text/json/stream-json/`--bare`), and a registry-driven slash-command smoke (every command
 listed by `/help` must produce a valid result envelope). Real-terminal TUI coverage lives in
-agent-transport-tui's PTY project (see that SPEC's Test Harness Contracts).
+agent-ui-terminal's PTY project (see that SPEC's Test Harness Contracts).
 
 **Built-binary E2E (SEC-022).** One suite runs the shipped binary rather than the in-process
 assembly, so the PreToolUse denial route is exercised through the product surface with no provider

@@ -32,7 +32,7 @@
 '@robota-sdk/agent-transport-http': patch
 '@robota-sdk/agent-transport-mcp': patch
 '@robota-sdk/agent-transport-protocol': patch
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-ui-terminal': patch
 '@robota-sdk/agent-transport-webrtc': patch
 '@robota-sdk/agent-transport-ws': patch
 '@robota-sdk/pack-coding': patch
