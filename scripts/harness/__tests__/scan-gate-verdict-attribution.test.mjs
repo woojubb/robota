@@ -206,9 +206,7 @@ describe('gate verdict attribution scan', () => {
     const altered = evidenceEntries(
       `## Evidence Log\n\n${entry('2026-09-13')}Historical text changed.\n`,
     )[0];
-    expect(evaluateEntries([altered], '2026-09-06', [fingerprint]).violations).toEqual([
-      altered,
-    ]);
+    expect(evaluateEntries([altered], '2026-09-06', [fingerprint]).violations).toEqual([altered]);
   });
 
   it('reports both supported attribution forms on the failing scanner path', () => {

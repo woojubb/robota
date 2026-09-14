@@ -129,8 +129,7 @@ export function evaluateEntries(entries, cutoffDate, legacyEntryFingerprints = [
   const legacy = new Set(legacyEntryFingerprints);
   const missing = entries.filter((entry) => !entry.judgedBy);
   const postBaseline = missing.filter(
-    (entry) =>
-      entry.date && entry.date > cutoffDate && !legacy.has(entryFingerprint(entry)),
+    (entry) => entry.date && entry.date > cutoffDate && !legacy.has(entryFingerprint(entry)),
   );
   return {
     total: entries.length,

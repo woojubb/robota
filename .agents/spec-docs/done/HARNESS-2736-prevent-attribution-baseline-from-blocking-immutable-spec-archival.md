@@ -79,11 +79,11 @@ attribution parsing unchanged.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit      | `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` | Exact legacy fingerprint acceptance and mutation refusal |
-| TC-02 | Scanner   | `scan-gate-verdict-attribution.mjs`                              | Test skipped: the real REFACTOR-025 active-to-done repository transition is delivery-state evidence, while TC-01 owns the isolated unit regression. |
-| TC-03 | Suite     | `run-all-scans.mjs --affected --context pr`                      | Affected repository checks                               |
+| TC-ID | Test Type | Tool / Approach                                                    | Notes                                                                                                                                               |
+| ----- | --------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` | Exact legacy fingerprint acceptance and mutation refusal                                                                                            |
+| TC-02 | Scanner   | `scan-gate-verdict-attribution.mjs`                                | Test skipped: the real REFACTOR-025 active-to-done repository transition is delivery-state evidence, while TC-01 owns the isolated unit regression. |
+| TC-03 | Suite     | `run-all-scans.mjs --affected --context pr`                        | Affected repository checks                                                                                                                          |
 
 ## User Execution Test Scenarios
 
